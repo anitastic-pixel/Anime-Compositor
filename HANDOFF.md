@@ -173,6 +173,9 @@ Carried forward, still outstanding:
   because no cache exists. That is B-08b, PARKED.
 - Colour4 and boolean property values, which document 19 lists and `Value` does not carry.
   They come due with effects, in B-07, PARKED.
-- Rate-limiting frame-level diagnostics into one summary with counts and ranges, which
-  document 28 requires. Outstanding since B-04; it belongs to whatever drives the frame loop,
-  which is B-08.
+- Installing the frame-level diagnostic rate limiter. B-04b built it and verified it against
+  the reference shot's twenty-frame sequence gap, but nothing in this build walks a
+  composition's frames in production, so `FrameLog` has no caller outside its own test. The
+  walk is B-08's, and installing the limiter is one line inside it.
+- D-25 is PROVISIONAL: the limit of three, and the choice to log a few in full and then
+  summarise, are the loop's and not document 28's.
