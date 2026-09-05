@@ -38,6 +38,7 @@ below is CPU rendering into a WebView2 surface; the display path is composited b
 | SP-04 | Are two renders of a fixed sequence byte-identical? | **PASS** — 10/10 runs |
 | SP-05 | Frame transport Rust → WebView2, full and draft | **MEASURED** — 24.9 fps full, 145 fps draft |
 | SP-06 | Does the webview alter the bytes it is given? | **PASS** — 16/16 in readback, 14/14 opaque on screen |
+| SP-07 | Rendering the real reference shot | **MEASURED** — 12.02 ms/frame fused, 83.19 fps, determinism PASS |
 
 ---
 
@@ -300,10 +301,100 @@ bottleneck is not the renderer.
 at every thread count - but the optimisation target it implies is wrong. The serial sRGB
 encode is the largest single cost and does not scale with threads at all.
 
-**NOT RUN:** ADR-006's own exit condition speaks of "a real shot on the reference machine".
-Every number above came from synthetic layers. The reference shot now exists, so that
-measurement is possible, but it has not been run and nothing here should be read as having
-made it.
+> **Superseded by SP-07.** The sentence above was written before the reference shot was
+> rendered. The serial sRGB encode is not an inherent cost: it was an artifact of how SP-04
+> was structured. See SP-07 below, which measures the same work both ways and finds the
+> serial pass costs 41.41 ms per frame that need not be spent at all. The ADR-006 verdict is
+> unaffected and gets stronger; the B-05a recommendation is replaced.
+
+## SP-07 - the reference shot rendered
+
+Run after the reference shot landed, to discharge ADR-006's own exit condition, which speaks
+of "a measured result on a real shot on the reference machine". Every earlier number in this
+report came from synthetic layers.
+
+`spikes/sp01_sp04_core/src/bin/sp07_reference_shot.rs`, quarantined. Real PNG cels decoded
+from `Fixtures/reference_shot/`, composited four layers back to front in linear-light
+premultiplied f32, 64x64 tiles across rayon workers, merged by tile origin.
+
+**What this does not establish.** The colour arithmetic in SP-07 is provisional and is
+B-02's job. Its expected values in document 25 are not consulted and no correctness claim is
+made. SP-07 measures cost and determinism on real media, nothing else.
+
+### Decode
+
+| Measurement | Value |
+|---|---|
+| Drawings decoded | 56 |
+| Resident once decoded | 443.0 MiB |
+| Total decode | 122.1 ms |
+| Per drawing | 2.18 ms |
+
+443 MiB for 56 drawings is a finding in its own right and an input to the document 27 cache
+model: a shot with several hundred drawings does not fit a naive decode-everything strategy.
+
+### The deliberate missing drawing
+
+Layer 3 drawing 007 is absent by design. SP-07 reports it as a missing source and composites
+those frames without it rather than substituting a neighbour, which is what document 20
+requires. **20 of 240 composition frames reference the absent drawing.** That is the count
+B-03's gap diagnostic has to surface.
+
+### Determinism and scaling on the real shot
+
+| Threads | Wall ms, 240 frames | ms per frame | fps | Determinism |
+|---|---|---|---|---|
+| 1 | 13629.8 | 56.79 | 17.61 | PASS |
+| 24 | 4429.9 | 18.46 | 54.18 | PASS |
+
+Speedup on 24 threads: **3.15x**. Byte-identical across repeat runs and across both thread
+counts. As with SP-04, this is not the renderer's scaling limit and must not be quoted as
+one - the workload is memory-bound, reading roughly 33 MB of source cels per frame.
+
+### The finding: fused versus serial sRGB encode
+
+SP-04 rendered to linear f32 in parallel and then converted to sRGB8 in a single serial
+pass, and this report called that pass the largest single cost. SP-07 measures both
+structures on identical work, on the same shot, on the same machine.
+
+| Encode structure | Wall ms, 240 frames | ms per frame | fps |
+|---|---|---|---|
+| Fused into the tile, parallel | 2885.1 | 12.02 | 83.19 |
+| Serial pass after render | 12823.3 | 53.43 | 18.72 |
+
+Output is **byte-identical** between the two, checked before the timings were compared. The
+serial pass costs **41.41 ms per frame** more, 4.44x the fused wall time. That figure
+independently reproduces the ~43 ms SP-04 attributed to encoding, which is good evidence
+both measurements are real.
+
+Document 21 line 117 already settles this: an operation whose output pixel depends only on
+the corresponding input pixel "is tile-safe without qualification. This covers transforms
+sampled per output pixel, blending, opacity and **color conversion**". The tile contract
+always permitted the encode to happen inside the tile. SP-04 simply did not, and this report
+then promoted that choice to a property of the problem.
+
+**No specification changes.** Document 21 is right as written. What changes is the B-05a
+recommendation: the tile should emit display-ready 8-bit rather than linear f32 for the
+preview path, and there is no serial encode stage to optimise because there should not be
+one.
+
+### What this does to the ADR-004 picture
+
+With the encode fused, compositing the real shot costs **12.02 ms per frame**. SP-05
+measured transport into the webview at **39.54 ms per frame** at full resolution. Transport
+is now **3.3x the entire composite** and is unambiguously the dominant cost in the preview
+path. Nothing about ADR-004's verdict changes - it passed - but the case for the document 27
+cache and for a draft-resolution preview is stronger than it was.
+
+**Evidence:** `spikes/evidence/sp07_rendered_frames.png` shows frames 0, 60, 62, 64, 152,
+165, 166 and 239 composited. Frames 60, 62 and 64 hold layer 4's square in place while the
+other layers move, which is the five-frame hold. Frames 165 and 166 do the same for the
+out-of-order re-exposure. Full-size frames and the raw log are in `spike-output/sp07/`.
+
+**NOT RUN:** SP-07 renders and discards. It does not write a 240-frame sequence to disk, so
+it says nothing about export throughput, which is B-10's measurement. It also does not push
+frames through the webview, so the 12.02 ms and the 39.54 ms above are measured separately
+and never end to end.
 
 ## Quarantine
 

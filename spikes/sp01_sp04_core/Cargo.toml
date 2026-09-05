@@ -19,3 +19,7 @@ path = "src/bin/sp04_determinism.rs"
 
 [profile.release]
 opt-level = 3
+
+[[bin]]
+name = "sp07_reference_shot"
+path = "src/bin/sp07_reference_shot.rs"
