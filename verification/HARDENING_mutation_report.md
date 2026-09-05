@@ -13,13 +13,17 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**107 breaks were made across nine units. All 107 were caught.**
+**117 breaks were made across ten units. All 117 were caught.**
 
-That number is the total of two passes. The first covered five units and made 55 breaks, six of
+That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
 four units - the document model, transform, the trace and persistence - and made 52 breaks,
 twelve of which got through before their fixtures were strengthened. Both sets of survivors are
-listed at the end, with what was added for each.
+listed at the end, with what was added for each. The third is B-08a, the unit that assembles a
+frame from a saved project: 10 breaks, all caught first time, and no survivors. Three of its ten
+were aimed at the asset record's colour and alpha interpretation, which the first draft of its
+table could not have caught; three rows were added before the pass rather than after it, and they
+are named in the table below.
 
 
 ## B-02 colour and alpha
@@ -219,6 +223,26 @@ listed at the end, with what was added for each.
 | P14 | a write that stops short of the whole file is reported as a success | yes | `FX-IO-002: a write that runs out of room reports the right thing — expected "PROJECT_SAVE_FAILED", got "the save reported success"` |
 
 
+## B-08a assembling and rendering a frame from a saved project
+
+`src/compose.rs`, checked by `tests/b08a_compose.rs`, whose table is `verification/B-08a_compose_table.md`.
+
+**10 of 10 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| C1 | The stack is assembled top of the composition first, so the bottom layer is painted over everything above it | yes | `and hands the renderer them bottom first, so layer 4 composites last (expected layer-1, layer-2, layer-3, layer-4, got layer-4, layer-3, layer-2, l...` |
+| C2 | A layer switched off is drawn anyway | yes | `a layer switched off is left out of the frame (expected layer-1, layer-3, layer-4, got layer-1, layer-2, layer-3, layer-4)` |
+| C3 | A frame the composition does not have is rendered instead of refused | yes | `a frame past the end of the composition is refused, not clamped to the last one (expected COMMAND_INVALID_VALUE, got the render was attempted anyway)` |
+| C4 | Opacity is read at the composition's first frame rather than at the frame being rendered | yes | `halfway between the two keyframes, frame 12 (expected 0.500000, got 0.000000)` |
+| C5 | The anchor point and the position are passed to the transform the wrong way round | yes | `the anchor point lands on the layer's position (expected (960.0, 540.0), got (-1620.0, -930.0))` |
+| C6 | A drawing that is not on disk is not noticed here, so it is reported as a broken file rather than a missing one | yes | `a file the project points at that is not on disk is a different fault, named differently (expected MEDIA_MISSING: layer3/layer3_000_moved_away.png ...` |
+| C7 | A layer carrying a track matte is drawn silently, with no warning that the matte was ignored | yes | `a track matte, which this build does not render, is reported rather than ignored (expected PROJECT_FEATURE_UNSUPPORTED: Layer layer4 has a track ma...` |
+| C8 | The composition asked for is ignored and the project's first composition is rendered instead | yes | `a composition the project does not have is refused (expected COMMAND_TARGET_MISSING, got a frame was planned from nothing)` |
+| C9 | The asset record's colour and alpha interpretation is ignored, so every sequence is read as sRGB and straight | yes | `an asset recorded as already linear is not put through the transfer function again (expected 0.862745, got 0.715694)` |
+| C10 | The frame's width and height are swapped | yes | `at the composition's own extent (expected 1920x1080, got 1080x1920)` |
+
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -266,8 +290,11 @@ future failure there reads like the rest of the table.
 
 ## What this pass did not cover
 
-Every unit merged to `main` has now been broken on purpose at least once. What has not been
-tested this way is the reference shot render as a whole: the units it is built from are covered,
-the assembled result is checked only by comparison against the shot itself. Nothing has been
+Every unit merged to `main` has now been broken on purpose at least once, and as of B-08a that
+includes the assembly itself: the ten breaks in that unit are breaks in the join between a saved
+project and a rendered frame, which is what the earlier passes could not reach. What is still not
+tested this way is the *picture*. A break that moved every layer by one pixel, or dimmed the whole
+frame, would pass every row of every table: the checks read named pixels and named values, not the
+image as a whole, and the reference shot is compared by eye. Nothing has been
 mutation-tested against timing or memory behaviour either, which is measurement rather than
 correctness and belongs with the performance work in document 24.

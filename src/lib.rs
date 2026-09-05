@@ -9,6 +9,7 @@
 
 pub mod color;
 pub mod command;
+pub mod compose;
 pub mod composite;
 pub mod diagnostics;
 pub mod media;

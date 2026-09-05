@@ -1,10 +1,10 @@
 # Session handoff
 
-Written 2026-09-04 at the end of the version 0.3 planning session, and updated the same day when B-01 closed. Read this first when opening Claude Code in this directory for the first time.
+Written 2026-09-04 at the end of the version 0.3 planning session, and rewritten in part on 2026-09-05 when B-08a merged. Read this first when opening Claude Code in this directory for the first time.
 
 ## What this project is
 
-A cel exposure and finishing compositor for 2D animation, including anime. Windows only, offline, open source, built by one person. Planning is complete and B-01's feasibility spikes have been run and recorded. **No production code exists yet** - everything under `spikes/` is quarantined per document 06 and is discarded at integration.
+A cel exposure and finishing compositor for 2D animation, including anime. Windows only, offline, open source, built by one person. Planning is complete and B-01's feasibility spikes have been run and recorded. Production code now exists under `src/` and `tests/`; everything under `spikes/` is quarantined per document 06, is discarded at integration, and must not be reused.
 
 ## What you need to know before doing anything
 
@@ -99,14 +99,46 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 ## Suggested next session
 
-B-06: export. Encode a composition to an image sequence and to a video file, at the colour and
-alpha rules document 20 fixes, with the provenance the exporter has to stamp. It is the second
-half of T-07 and the last piece of G1-core that stands between a finished frame in memory and a
-file the owner can put in front of somebody.
+**Export to an image sequence.** A composition frame now exists in memory, produced from a saved
+project by `src/compose.rs`, and nothing writes it to a file the owner can hand to somebody. That
+is the second half of T-07 and the last piece of G1-core between a finished frame and a
+deliverable. Document 11 asks it for exact inclusive range conversion, output naming,
+cancellation, permission failure and partial export reporting.
 
-Read documents 20 (colour and alpha), 21 (render contract) and 25 (fixtures) before writing
-anything, and `src/render.rs` and `src/png.rs`, which already do the working-space to display
-conversion and the provenance chunks that export has to agree with byte for byte.
+Do not go looking for a build number for it. Document 15 line 55 calls it B-10 and document 11
+line 78 calls it B-06, which is also masks - **and masks are PARKED under R-04, so following the
+number rather than the work would start a forbidden feature.** D-27 registers that conflict and
+it is the owner's to settle. Export needs a rendered frame and document 20's colour rules; it
+does not need masks.
+
+A video file is not part of it. An encoder is a dependency and a licence choice, and both belong
+to the owner.
+
+Read documents 20 (colour and alpha), 21 (render contract) and 25 (fixtures) first, and
+`src/render.rs`, `src/compose.rs` and `src/trace.rs`. `src/trace.rs` is the file that already
+does the working-space to display conversion and writes the provenance chunks export has to
+agree with byte for byte; earlier versions of this file said `src/png.rs`, which does not exist.
+
+What B-08a settled and left:
+
+- `src/compose.rs` is document 20's evaluation order at one frame: a `Project`, a composition ID
+  and a frame number in, the renderer's `FramePlan` out, and `render_frame` beside it for the
+  whole thing. `verification/B-08a_frames/` holds four frames of the reference shot rendered
+  from `verification/B-08a_project.json`, which is a real project file, not test scaffolding.
+- `FrameLog` finally has a production caller, which is what B-04b built it for.
+- The default tile size is now `compose::DEFAULT_TILE_SIZE`, 128 pixels, taken from the
+  measurement in `verification/B-05a_scaling_table.md`. It is a tunable, not a contract: output
+  is byte-identical at every size tested.
+- **This was the headless half of B-08 only.** There is no viewer, no transport, no playback and
+  no work area, and none of them may be started without the owner: which frame is shown, what a
+  scrub does, and whether playback drops frames or slows down are all decisions nobody has made.
+- Step 9 of document 20, the output or display transform, is deliberately not done here.
+  `render_frame` returns a working-space buffer, because the viewer and an export want different
+  destinations and doing it once in the middle would do it twice.
+- Mattes still do not render. A layer carrying one is drawn as if it had none and earns a
+  `PROJECT_FEATURE_UNSUPPORTED` line per D-24, so it is visible rather than silent.
+- D-26 is PROVISIONAL and needs the owner: document 28 names no identifier for a render request
+  naming a frame outside the composition's range, and `COMMAND_INVALID_VALUE` is reused.
 
 What B-09 settled, which earlier drafts of this file listed as open:
 
@@ -155,10 +187,7 @@ What B-05b left for later:
 
 What B-05c left for later:
 
-- Nothing assembles a `FramePlan` from a `Project`. A layer's stored `blend_mode`, its
-  transform and its exposure all reach the renderer only because a test puts them there.
-  That assembly is B-08's, and it is now the single largest gap between the parts that
-  work and something the owner can run.
+- Nothing assembles a `FramePlan` from a `Project`. **Closed by B-08a**, above.
 - Blend modes are per-pixel, so they are tile-safe and need no margin. The first operation
   that does need one is the blur in R-05, which is parked.
 
@@ -166,16 +195,13 @@ Carried forward, still outstanding:
 
 - D-22 is PROVISIONAL and needs the owner. Document 21's transform formula says `S(scale/100)`
   while the model and the renderer treat 1.0 as identity.
-- No default tile size lives in `src/`. `verification/B-05a_scaling_table.md` is the
-  measurement; whatever calls the renderer for real, in B-08, has to pick one and say why.
+- No default tile size lives in `src/`. **Closed by B-08a**: `compose::DEFAULT_TILE_SIZE`.
 - Cache invalidation domains. Document 26 requires every committed command to report which
   caches it dirties, and document 27 defines the domains. `Document::apply` reports none,
   because no cache exists. That is B-08b, PARKED.
 - Colour4 and boolean property values, which document 19 lists and `Value` does not carry.
   They come due with effects, in B-07, PARKED.
-- Installing the frame-level diagnostic rate limiter. B-04b built it and verified it against
-  the reference shot's twenty-frame sequence gap, but nothing in this build walks a
-  composition's frames in production, so `FrameLog` has no caller outside its own test. The
-  walk is B-08's, and installing the limiter is one line inside it.
+- Installing the frame-level diagnostic rate limiter. **Closed by B-08a**: `plan_frame` takes
+  a `FrameLog` and every per-layer diagnostic goes through it.
 - D-25 is PROVISIONAL: the limit of three, and the choice to log a few in full and then
   summarise, are the loop's and not document 28's.
