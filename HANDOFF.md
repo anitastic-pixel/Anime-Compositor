@@ -99,25 +99,42 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 ## Suggested next session
 
-**Export to an image sequence.** A composition frame now exists in memory, produced from a saved
-project by `src/compose.rs`, and nothing writes it to a file the owner can hand to somebody. That
-is the second half of T-07 and the last piece of G1-core between a finished frame and a
-deliverable. Document 11 asks it for exact inclusive range conversion, output naming,
-cancellation, permission failure and partial export reporting.
+**Nothing large, without the owner.** G1-core's remaining piece is the viewer: a window, a
+transport, playback and a work area. Every one of those is a decision that has not been made -
+which frame is shown at rest, what a scrub does while the mouse is down, and whether playback
+drops frames or slows down when it cannot keep up. Do not start it. Ask.
 
-Do not go looking for a build number for it. Document 15 line 55 calls it B-10 and document 11
-line 78 calls it B-06, which is also masks - **and masks are PARKED under R-04, so following the
-number rather than the work would start a forbidden feature.** D-27 registers that conflict and
-it is the owner's to settle. Export needs a rendered frame and document 20's colour rules; it
-does not need masks.
+Ten decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-30 in
+`Markdown/14_Decisions_Risks.md`. None of them blocks anything today, because each was assumed
+one way and the assumption is written down, but D-28 in particular changes a default the owner
+will feel: an export whose range contains a frame with no drawing is currently **refused before
+anything is written**, per document 07, and document 28 says the same situation should write
+those frames transparent with a warning.
 
-A video file is not part of it. An encoder is a dependency and a licence choice, and both belong
-to the owner.
+What is left that needs nobody: joining T-07's two halves - a project saved, reopened and
+exported to the same files - which is a test rather than a feature, and whatever the owner asks
+for next.
 
-Read documents 20 (colour and alpha), 21 (render contract) and 25 (fixtures) first, and
-`src/render.rs`, `src/compose.rs` and `src/trace.rs`. `src/trace.rs` is the file that already
-does the working-space to display conversion and writes the provenance chunks export has to
-agree with byte for byte; earlier versions of this file said `src/png.rs`, which does not exist.
+What T-08 settled and left:
+
+- `src/export.rs` writes a declared inclusive frame range as a PNG sequence. Both ends are
+  included, so 0 to 239 is 240 files. Naming is a `%0Nd` pattern. Cancellation is read between
+  frames, never inside one, so a stopped job leaves whole files. A write failure names the frame,
+  the path and how many frames were finished. `verification/T-08_export_table.md` is 47 checks
+  and `verification/T-08_frames/` is six exported frames of the reference shot.
+- `src/png_out.rs` is the only place this build encodes a PNG. The trace and the export both go
+  through it, so they cannot drift in colour type, depth or chunk encoding. `src/trace.rs` still
+  owns the trace's own tags.
+- **There is no video file and no encoder.** D-30 records why: a codec is a dependency and a
+  licence that follows the output, which is the owner's decision, not an agent's. Nothing in
+  `src/export.rs` assumes an image sequence beyond its own module.
+- D-28 and D-29 are new and PROVISIONAL. D-28 is a genuine conflict between documents 07 and 28
+  about what a missing drawing should do to an export; the code follows 07 and offers 28's
+  behaviour as an explicit override that still warns. D-29 is how a composition that starts
+  before frame zero names its files: `shot_-0012.png`, sign in front of the padded digits.
+- Export writes straight alpha by default and never bakes in a display transform, per document 21
+  line 31. Premultiplied output and sixteen bits are both available and both tested against
+  hand-derived numbers.
 
 What B-08a settled and left:
 

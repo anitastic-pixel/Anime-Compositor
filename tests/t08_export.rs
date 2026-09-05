@@ -676,12 +676,13 @@ fn t08_exports_a_frame_range_to_a_png_sequence() {
     report.check(
         "exporting the same frame twice produces the same file, byte for byte",
         "identical",
-        if fs::read(dir.join("shot_0012.png")).unwrap()
-            == fs::read(frames_dir.join("shot_0012.png")).unwrap()
-        {
-            "identical"
-        } else {
-            "the two exports differ"
+        match (
+            fs::read(dir.join("shot_0012.png")),
+            fs::read(frames_dir.join("shot_0012.png")),
+        ) {
+            (Ok(a), Ok(b)) if a == b => "identical".to_string(),
+            (Ok(_), Ok(_)) => "the two exports differ".to_string(),
+            _ => "one of the two exports wrote no file".to_string(),
         },
     );
 
