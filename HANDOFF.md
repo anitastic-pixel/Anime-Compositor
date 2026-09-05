@@ -95,6 +95,10 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 `verification/` holds the artifacts the owner reads: one file per completed task, plus the scripts that derive expected values independently of the code under test.
 
+`docs/DEPENDENCIES.md` is generated from `Cargo.lock` and is what ADR-005 asks for. `Cargo.lock` is now committed; it had been gitignored from the spike era, which contradicted ADR-005 outright.
+
 ## Suggested next session
 
-B-03: PNG import and the sequence manifest, including numeric pattern detection, gap reporting and Unicode paths. Its fixtures are already sitting in the reference shot, unrepaired: layer 3 drawing 007 is absent and one layer 2 file carries a Japanese filename. The artifact it owes is a fixture table plus the diagnostic text a user would actually see for the missing frame.
+B-04: the time and exposure model. R-02, test T-02. This is where the reference shot stops being four folders of PNGs and becomes a shot: `Fixtures/reference_shot/exposure_sheet.json` maps every one of the 240 composition frames to a drawing number per layer, and it contains the cases that break naive implementations — layer 4's five-frame hold at frames 60-64, its one-frame accent at 152, and the out-of-order re-exposure at 165-167 where the drawing IDs run 12, 13, 14, 11, 16, 17. Document 20 permits that; an implementation assuming drawing IDs only increase must fail on it.
+
+B-03 already supplies what B-04 consumes: `SequenceAsset` is a drawing-number-to-file map with the gaps preserved, so exposing the missing drawing 7 of layer 3 is a case B-04 has to decide about rather than one it can avoid.
