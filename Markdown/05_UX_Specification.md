@@ -30,6 +30,8 @@ Layer reorder previews the resulting position. Effect bypass is separate from ef
 
 Fit, 100 percent zoom, pan, checkerboard and alpha-only view. Overlays are excluded from render output. The viewer identifies draft resolution and displays the current frame number.
 
+Preview resolution starts at draft under D-33, and which resolution is showing is always visible rather than only visible when it differs; that indicator is R-06a's "visible indication when preview quality differs from final export" in its always-on form. Playback holds real time under D-32: when the machine cannot render a frame in its slot the frame is skipped rather than the clock stretched, and the count of skipped frames is shown after playback stops. A skipped frame that is never reported would be a silent fidelity fallback, which document 28 forbids; frame stepping, not playback, is how an individual drawing is inspected.
+
 Color interpretation is visible next to asset and project settings rather than buried. A warning states both the problem and the next action: a missing numbered frame offers relink directly. Generic failure messages that send the user to a log are not acceptable, since the user cannot read a log usefully.
 
 Under ADR-004 the viewer is the one place where the web layer touches correctness. SP-06 verifies that displayed pixels are byte-exact. If the viewer alters color, the artist is being lied to about their own work, which is worse than a slow preview.

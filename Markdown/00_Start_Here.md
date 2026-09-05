@@ -46,6 +46,8 @@ Performance thresholds remain unmeasured. No benchmark, compatibility level or l
 
 The two risks that decided the Tauri interface are settled. SP-06 found the webview alters nothing, in readback and on the physical display. SP-05 found frames do reach the viewer fast enough, but with almost no margin: 39.54 ms per frame at full resolution against a 24 fps target, which is 3.3 times the cost of compositing the frame in the first place. Neither failed, so ADR-004's native-surface fallback is not triggered, but the document 27 cache and a draft-resolution preview are load-bearing rather than optional.
 
+Amended 2026-09-05. Those two halves went different ways, and the difference is worth stating so this paragraph is not read as licence to build the cache. The draft-resolution preview is now the viewer's default and is decided: D-33. The document 27 cache is not in G1-core at all - R-06a says "no bounded cache; render on demand and accept the cost", and B-08b is PARKED under D-12 with a revisit trigger in document 23. What absorbs the missing margin in G1-core is therefore the draft default plus D-32, which lets playback drop frames rather than stretch the clock, and not a cache.
+
 **G0 is passed. The owner opened the gate on 2026-09-04.** The instruction was "open the gate; proceed to B-02". Production implementation is under way.
 
 This decision was the owner's, as it had to be. An agent must not open a gate on its own reading of the evidence, and that rule still stands for G1 and G2.

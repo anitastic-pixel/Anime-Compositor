@@ -99,10 +99,17 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 ## Suggested next session
 
-**Nothing large, without the owner.** G1-core's remaining piece is the viewer: a window, a
-transport, playback and a work area. Every one of those is a decision that has not been made -
-which frame is shown at rest, what a scrub does while the mouse is down, and whether playback
-drops frames or slows down when it cannot keep up. Do not start it. Ask.
+**B-08, the viewer.** The owner authorised it on 2026-09-05 and answered the two questions that
+were blocking it, both now CLOSED in `Markdown/14_Decisions_Risks.md`: **D-32**, playback that
+cannot keep up drops frames and holds real time, and must report how many it skipped rather than
+hiding it; and **D-33**, the preview defaults to draft resolution with an always-visible
+indicator of which resolution is showing. Everything else left in G1-core routes through B-08 -
+B-11's remaining two thirds and B-12's acceptance run both depend on it.
+
+Two smaller viewer questions are still unanswered - which frame is shown at rest, and what a
+scrub does while the mouse is held down. They do not block the work: assume one way, write the
+assumption down as a decision entry, and say so in the artifact, which is what this project has
+done with every other open decision.
 
 Eleven decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-30 and D-34 in
 `Markdown/14_Decisions_Risks.md`. None of them blocks anything today, because each was assumed
@@ -249,8 +256,10 @@ What B-08a settled and left:
   measurement in `verification/B-05a_scaling_table.md`. It is a tunable, not a contract: output
   is byte-identical at every size tested.
 - **This was the headless half of B-08 only.** There is no viewer, no transport, no playback and
-  no work area, and none of them may be started without the owner: which frame is shown, what a
-  scrub does, and whether playback drops frames or slows down are all decisions nobody has made.
+  no work area. The viewer half is authorised as of 2026-09-05; D-32 and D-33 answer how playback
+  behaves when it falls behind and what resolution the preview starts at, and the two remaining
+  questions - which frame is shown at rest, what a scrub does while the mouse is held down - are
+  to be assumed and written down rather than asked.
 - Step 9 of document 20, the output or display transform, is deliberately not done here.
   `render_frame` returns a working-space buffer, because the viewer and an export want different
   destinations and doing it once in the middle would do it twice.
