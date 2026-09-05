@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**137 breaks were made across twelve units. All 137 were caught.**
+**143 breaks were made across thirteen units. All 143 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -31,7 +31,12 @@ of a stack trace. The fifth is the export half of T-07, which joins the file for
 exported picture: 8 breaks, all aimed at ways a save or an open could lose something the
 renderer reads, all caught, no survivors. One of the eight was caught by a crash - a project
 that came back with no exposure sheet at all left the test indexing an empty list - and that
-place now reports a sentence too.
+place now reports a sentence too. The sixth is H-01, which is not a unit of the build at all
+but a second compositor written from document 21 to argue with the first: 6 breaks, all caught,
+no survivors, and every one of them a fault that no other table in this project could see - a
+frame drawn one pixel to the right, an sRGB exponent off by two thousandths, red and blue
+swapped, the top layer left out, the last row of every tile never drawn, and cels composited
+with straight colour instead of premultiplied.
 
 
 ## B-02 colour and alpha
@@ -291,6 +296,22 @@ place now reports a sentence too.
 | P8 | Drawing numbers shift by one when a project is opened, so every cel is the wrong one | yes | `saving the reopened project reproduces the file it came from, byte for byte (expected identical, got the two files differ: 20457 bytes against 20458)` |
 
 
+## H-01 the whole picture against an independent compositor
+
+`src/render.rs, src/color.rs, src/lib.rs`, checked by `tests/h01_whole_picture.rs`, whose table is `verification/H-01_whole_picture_table.md`.
+
+**6 of 6 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| H1 | Every layer is drawn one pixel to the right | yes | `frame 0: every one of the 2073600 pixels is what a second compositor, written from document 21, produces (expected 0 pixels differ, got 1128297 pix...` |
+| H2 | The sRGB curve drifts by less than a hundredth of an exponent, dimming the whole frame | yes | `frame 0: every one of the 2073600 pixels is what a second compositor, written from document 21, produces (expected 0 pixels differ, got 2073600 pix...` |
+| H3 | Red and blue are swapped when a layer is put over what is under it | yes | `frame 0: every one of the 2073600 pixels is what a second compositor, written from document 21, produces (expected 0 pixels differ, got 235054 pixe...` |
+| H4 | The topmost layer is left out of every frame | yes | `frame 0: every one of the 2073600 pixels is what a second compositor, written from document 21, produces (expected 0 pixels differ, got 160801 pixe...` |
+| H5 | The last row of every tile is never drawn, leaving seams across the frame | yes | `frame 0: every one of the 2073600 pixels is what a second compositor, written from document 21, produces (expected 0 pixels differ, got 17280 pixel...` |
+| H6 | Cels are composited with straight colour instead of premultiplied | yes | `frame 0: every one of the 2073600 pixels is what a second compositor, written from document 21, produces (expected 0 pixels differ, got 199357 pixe...` |
+
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -342,9 +363,16 @@ Every unit merged to `main` has now been broken on purpose at least once. As of 
 includes the assembly itself - the join between a saved project and a rendered frame - and as of
 T-08 it includes the files that leave the application: an export one frame short, a stop button
 that does nothing, a job that reports success after being refused, and half-transparent paint
-written dark are all breaks that were made and caught. What is still not
-tested this way is the *picture*. A break that moved every layer by one pixel, or dimmed the whole
-frame, would pass every row of every table: the checks read named pixels and named values, not the
-image as a whole, and the reference shot is compared by eye. Nothing has been
+written dark are all breaks that were made and caught.
+
+The gap this section named until now - the *picture*, which no table looked at as a whole - is
+closed by H-01. Four frames of the reference shot are composited twice, once by the real
+renderer and once by a deliberately naive compositor written from document 21 inside the test,
+and all 2,073,600 pixels of each frame have to agree exactly. What that still does not cover is
+a misreading of document 21 itself: both compositors were written from the same document, so an
+error in the reading would appear in both. It also covers four frames rather than all 240, and
+only the reference shot, whose layers all sit at the identity transform - the sampling rules for
+a layer that is moved, turned or scaled are checked by B-05a's table, pixel by named pixel,
+rather than here. Nothing has been
 mutation-tested against timing or memory behaviour either, which is measurement rather than
 correctness and belongs with the performance work in document 24.

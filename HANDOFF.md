@@ -111,10 +111,27 @@ will feel: an export whose range contains a frame with no drawing is currently *
 anything is written**, per document 07, and document 28 says the same situation should write
 those frames transparent with a warning.
 
-What is left that needs nobody: **nothing that has been named.** Joining T-07's two halves was
-the last decision-free item on the list and it is done - `tests/t07e_roundtrip_export.rs`,
+What is left that needs nobody: **nothing that has been named.** The owner asked for more
+engine hardening after the day's queue emptied, and that became H-01, described below. Joining
+T-07's two halves was the last decision-free item on the backlog itself and it is done - `tests/t07e_roundtrip_export.rs`,
 `verification/T-07e_roundtrip_table.md`, 23 checks. Everything else in G1-core either needs a
 decision from the list above or is the viewer.
+
+What H-01, the whole-picture check, settled and left:
+
+- Four frames of the reference shot are composited twice - once by the real tiled, threaded
+  renderer, once by a naive compositor written inside `tests/h01_whole_picture.rs` straight from
+  document 21 and D-17, sharing no code with it - and all 2,073,600 pixels of each frame must
+  agree exactly. They do. The artifacts are `verification/H-01_whole_picture_table.md` and the
+  two images `H-01_renderer_frame.png` and `H-01_independent_frame.png`, which the owner can
+  flip between.
+- This closes the gap the hardening report had been naming for itself: until now every table
+  read named pixels and named values, so a one-pixel shift, a slight dim or a channel swap
+  would have passed all of them. Six such faults were made on purpose and all six were caught.
+- What it is not: independent verification in document 12's sense. Both compositors were
+  written from the same document by the same agent, so a misreading of document 21 would appear
+  in both. It also covers four frames of one composition whose layers all sit at the identity
+  transform; moved, turned and scaled layers stay with B-05a's table.
 
 What the T-07 export half settled and left:
 
