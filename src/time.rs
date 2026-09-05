@@ -360,13 +360,35 @@ pub fn resolve(
     asset: &SequenceAsset,
     composition_frame: i32,
 ) -> Result<SourceAt, Diagnostic> {
+    resolve_in(
+        timing,
+        exposures,
+        asset.frames(),
+        asset.pattern(),
+        composition_frame,
+    )
+}
+
+/// [`resolve`] against a frame list that is not a [`SequenceAsset`].
+///
+/// B-08a assembles a frame from a saved [`crate::model::Project`], whose asset record holds the
+/// same frame list as strings relative to the project. That is the second caller, so the lookup
+/// moved here rather than being written twice: two spellings of document 20's gap rule would be
+/// two places for it to drift.
+pub fn resolve_in(
+    timing: &LayerTiming,
+    exposures: &ExposureMap,
+    frames: &std::collections::BTreeMap<u32, PathBuf>,
+    pattern: &str,
+    composition_frame: i32,
+) -> Result<SourceAt, Diagnostic> {
     let Some(local) = timing.local_frame(composition_frame) else {
         return Ok(SourceAt::Transparent);
     };
     let Some(number) = exposures.drawing_at(local) else {
         return Ok(SourceAt::Transparent);
     };
-    match asset.frames().get(&number) {
+    match frames.get(&number) {
         Some(path) => Ok(SourceAt::Drawing {
             number,
             path: path.clone(),
@@ -375,8 +397,7 @@ pub fn resolve(
             DiagnosticId::MediaSequenceGap,
             Severity::Warning,
             format!(
-                "Frame {composition_frame} exposes drawing {number} of {}, which is missing.",
-                asset.pattern()
+                "Frame {composition_frame} exposes drawing {number} of {pattern}, which is missing."
             ),
             format!(
                 "Layer-local frame {local} maps to drawing {number}. \
