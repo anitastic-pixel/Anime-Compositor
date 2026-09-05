@@ -239,12 +239,71 @@ reproducible with `spikes/sp06_screen_check.py <screenshot.png>`.
 background before they reach the display, so their on-screen value legitimately differs from
 their source. Both were verified exact in the readback stage above, where alpha survives.
 
-## What B-01 still needs
+## Reference shot
 
-1. **The reference shot** per document 22, drawn by the owner. Not started. B-01 cannot close
-   without it, and the spikes above deliberately use synthetic layers instead.
+Present, at `Fixtures/reference_shot/`. Layer 1 is the owner's painting; layers 2-4 are
+generated, a specification decision recorded there and in that directory's README. The
+spikes above predate it and deliberately use synthetic layers instead, so no number in this
+report was measured on the reference shot. See the ADR-006 note below.
 
-That is the only outstanding item. Every spike document 06 defines has been run and recorded.
+## ADR adjudication
+
+B-01's exit requires confirmation of ADR-003, ADR-004 and ADR-006, or explicit reopening of
+whichever the measurements contradict. **None is contradicted. None is reopened.** What
+follows separates what the spikes actually established from what they did not.
+
+### ADR-003, Rust core - CONFIRMED on its measurable claims
+
+Its secondary claims held: rayon made the tile parallelism straightforward, SP-04 was
+byte-identical across 10 runs and 5 thread counts, and the binary was self-contained.
+
+**Not measured, by nature.** ADR-003's deciding argument is about failure *modes* - that
+C++'s characteristic failures surface as intermittent wrong pixels an owner cannot diagnose.
+No spike can measure the absence of a defect class. That argument stands on reasoning, not
+on this report, and should not be described as spike-confirmed.
+
+### ADR-004, Tauri and WebView2 - CONFIRMED, with a much tighter bound than it states
+
+ADR-004 names three accepted costs and commits SP-05 and SP-06 to measuring two of them
+before implementation depends on them, with a native rendering surface as the fallback if
+either fails. Neither failed, so the fallback is not triggered.
+
+- **Colour management: cost does not materialise.** SP-06 found 16/16 exact in readback and
+  14/14 exact on the physical display. The webview does not alter the bytes it is given.
+- **Frame transport: cost is real, and the margin is far thinner than "limits
+  full-resolution playback" suggests.** At 1920x1080 the custom protocol runs 39.54 ms per
+  frame (24.91 fps) and raw IPC 41.08 ms (24.00 fps), against a 24 fps target. That is
+  between 0.00 and 0.91 fps of headroom, for transport alone, with nothing composited
+  concurrently. SP-03 measured a complete uncached scrub step at 102.80 ms p95.
+
+Two consequences that are findings, not opinions. **JSON IPC is eliminated**: 250.38 ms per
+frame and 3.93 fps at full resolution, where document 06 expected it to be viable. And the
+frame cache in document 27 plus draft-resolution preview are **load-bearing, not
+optional** - full-resolution playback has no margin to spend.
+
+### ADR-006, CPU only - CONFIRMED, and the measurements strengthen it
+
+ADR-006 defers a GPU backend until a measured result shows the CPU path too slow. The
+measurements argue positively against building one now. The per-frame decomposition is:
+
+| Stage | ms per frame | Would a GPU backend help? |
+|---|---|---|
+| serial sRGB encode | ~43 | no - not the renderer |
+| transport into the webview | ~44 | no - ADR-004's boundary |
+| parallel tile render | ~11 | this is the only part it addresses |
+| draw and present | ~0.6 | no |
+
+A GPU path would target the cheapest stage and leave roughly 87 ms untouched. The
+bottleneck is not the renderer.
+
+**This also reprioritises B-05a.** ADR-011's tiling is confirmed correct - determinism held
+at every thread count - but the optimisation target it implies is wrong. The serial sRGB
+encode is the largest single cost and does not scale with threads at all.
+
+**NOT RUN:** ADR-006's own exit condition speaks of "a real shot on the reference machine".
+Every number above came from synthetic layers. The reference shot now exists, so that
+measurement is possible, but it has not been run and nothing here should be read as having
+made it.
 
 ## Quarantine
 
