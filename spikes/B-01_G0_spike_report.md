@@ -5,8 +5,8 @@ in document 12: every number below was produced by running the code in `spikes/`
 machine and build recorded here. Nothing in this report is an estimate. Where something was
 not run, it says so and why.
 
-**Status: 4 of 5 spikes answered. SP-06 answered on its primary path; its optional on-screen
-stage was not completed. The reference shot (owner task) is not drawn, so B-01 is not closed.**
+**Status: all 5 spikes answered, including SP-06's on-screen stage. The reference shot
+(owner task) is not drawn, so B-01 is not closed.**
 
 ## Machine, build and dependencies
 
@@ -37,7 +37,7 @@ below is CPU rendering into a WebView2 surface; the display path is composited b
 | SP-03 | Scrub latency presenting a composited 1080p frame | **MEASURED** — p50 98.90 ms, p95 102.80 ms |
 | SP-04 | Are two renders of a fixed sequence byte-identical? | **PASS** — 10/10 runs |
 | SP-05 | Frame transport Rust → WebView2, full and draft | **MEASURED** — 24.9 fps full, 145 fps draft |
-| SP-06 | Does the webview alter the bytes it is given? | **PASS** — 16/16 exact, both transports |
+| SP-06 | Does the webview alter the bytes it is given? | **PASS** — 16/16 in readback, 14/14 opaque on screen |
 
 ---
 
@@ -218,23 +218,33 @@ raw RGBA bytes over IPC, and an untagged PNG with no `gAMA`, `cHRM`, `iCCP` or `
 or approximated. Untagged PNG decoding did not apply a colour transform, and partial alpha
 survived unchanged.
 
-**NOT COMPLETED: the on-screen stage.** The result above is a canvas readback via
-`getImageData`, which happens before the OS composites the window to the display. Document 06
-says "displayed pixels", so an additional stage was attempted: screenshot the window and
-compare the probe strip against the same source bytes. It did not complete. A background
-process cannot raise the spike window above the foreground terminal on Windows — neither
-`SetForegroundWindow` nor `HWND_TOPMOST` succeeded — so all four captures photographed the
-wrong window. **No conclusion about displayed colour can be drawn from those captures in
-either direction, and none is drawn here.** The obstruction is capture tooling, not evidence
-of a colour problem. Closing it needs the window in the foreground, which requires the owner
-at the machine. Measured for whoever retries: device pixel ratio 1.5, probe drawn at 6×
-integer scale, on-screen tile pitch 48 device pixels.
+**On-screen stage: PASS, 14/14.** The table above is a canvas readback via `getImageData`,
+which happens before the OS composites the window to the display, so document 06's phrase
+"displayed pixels" needed a second stage: photograph the window and measure the probe strip
+in the screenshot. Two earlier attempts were inconclusive because a background process cannot
+raise the window above the foreground terminal on Windows, and the captures photographed the
+wrong window; the owner brought the window to the front and the capture was retaken.
+
+The strip was located at pitch 48 device pixels, matching the value the page recorded in
+advance (device pixel ratio 1.5, drawn at 6x integer scale). All 14 opaque probe colours
+measured byte-exact on screen, including all six saturated primaries and secondaries, both
+mid-greys, near-black (1,2,3) and near-white (254,253,252).
+
+This closes the display path end to end: canvas, WebView2 compositor, DWM, GPU scanout and
+the physical monitor alter nothing. Evidence: `spike-output/sp06_screen_report.txt` and
+`spike-output/sp06_probe_strip_onscreen.png`, a crop of the measured strip. The check is
+reproducible with `spikes/sp06_screen_check.py <screenshot.png>`.
+
+**NOT ASSERTED on screen:** probe 13 and 14 carry alpha 128 and are composited over the page
+background before they reach the display, so their on-screen value legitimately differs from
+their source. Both were verified exact in the readback stage above, where alpha survives.
 
 ## What B-01 still needs
 
 1. **The reference shot** per document 22, drawn by the owner. Not started. B-01 cannot close
    without it, and the spikes above deliberately use synthetic layers instead.
-2. **SP-06 on-screen stage**, above.
+
+That is the only outstanding item. Every spike document 06 defines has been run and recorded.
 
 ## Quarantine
 
@@ -245,4 +255,5 @@ extract a library would invalidate the artifact this report rests on. Both copie
 discarded at integration.
 
 Raw output is in `spike-output/` (gitignored): `sp01_report.txt`, `sp04_report.txt`,
-`sp05_sp06_results.json` including every individual scrub sample, and `sp04/` reference PNGs.
+`sp05_sp06_results.json` including every individual scrub sample, `sp04/` reference PNGs,
+`sp06_screen_report.txt` and `sp06_probe_strip_onscreen.png`.
