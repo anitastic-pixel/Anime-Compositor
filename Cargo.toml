@@ -2,6 +2,10 @@
 name = "anime_compositor"
 version = "0.1.0"
 edition = "2021"
+# D-31, decided by the owner on 2026-09-05: dual MIT or Apache-2.0, the convention almost
+# every crate in this build already follows. ADR-010 made the project open source; this is
+# the line that makes the repository say so.
+license = "MIT OR Apache-2.0"
 publish = false
 description = "Cel exposure and finishing compositor. G1-core: colour, alpha and compositing."
 

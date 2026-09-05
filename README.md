@@ -42,6 +42,7 @@ Rust core with rayon for tile-parallel CPU rendering, Tauri with an HTML and CSS
 | `tools/` | Small generators for committed artifacts. `gen_dependencies.py` writes `docs/DEPENDENCIES.md` from `cargo metadata` and `Cargo.lock`. |
 | `Schemas/` | Draft project schema. |
 | `Licenses/` | Each dependency's licence and notice files as shipped inside the crate. |
+| `LICENSE-MIT`, `LICENSE-APACHE` | This project's own licence. Dual, either at the reuser's option (D-31). |
 | `Fixtures/` | Fixture data and expected values. Read-only to implementation work. |
 | `design/` | Interface design work. |
 | `spikes/` | Quarantined G0 feasibility code. Excluded from the cargo workspace and discarded at integration; never reuse it. |

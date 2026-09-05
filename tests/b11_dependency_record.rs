@@ -278,6 +278,38 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
         joined(&direct),
     );
 
+    // ---- this project's own licence, D-31 ------------------------------------------------------
+    // The record checks everyone else's terms; this is the row that checks ours. Until D-31 was
+    // decided the repository carried no licence at all, which put the code under exclusive
+    // copyright - the safe state, but not the one ADR-010 describes.
+    let manifest = read("Cargo.toml");
+    let declared = manifest
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("license = \""))
+        .and_then(|r| r.strip_suffix('"'))
+        .unwrap_or("no license field");
+    report.check(
+        "the crate declares the licence D-31 chose",
+        "MIT OR Apache-2.0",
+        declared,
+    );
+
+    // A declared licence with no text beside it is a claim, not a licence.
+    let missing: Vec<String> = ["LICENSE-MIT", "LICENSE-APACHE"]
+        .iter()
+        .filter(|f| !repo(f).is_file())
+        .map(|f| f.to_string())
+        .collect();
+    report.check(
+        "both licence texts the declaration names are in the repository",
+        "both present",
+        if missing.is_empty() {
+            "both present".to_string()
+        } else {
+            format!("missing: {}", joined(&missing))
+        },
+    );
+
     // ---- the comparison can fail -------------------------------------------------------------
     // If the two sides were being compared against themselves, a crate that exists in neither
     // would appear to be in both.

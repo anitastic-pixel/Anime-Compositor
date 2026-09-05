@@ -104,7 +104,7 @@ transport, playback and a work area. Every one of those is a decision that has n
 which frame is shown at rest, what a scrub does while the mouse is down, and whether playback
 drops frames or slows down when it cannot keep up. Do not start it. Ask.
 
-Ten decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-31 in
+Eleven decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-30 and D-34 in
 `Markdown/14_Decisions_Risks.md`. None of them blocks anything today, because each was assumed
 one way and the assumption is written down, but D-28 in particular changes a default the owner
 will feel: an export whose range contains a frame with no drawing is currently **refused before
@@ -161,10 +161,12 @@ What B-11's dependency and licence record settled and left:
   entries are flagged for a reviewer instead of decided: `unicode-ident`'s Unicode-3.0 term is an
   `AND` and not an `OR`; `zlib-rs` offers no alternative to the Zlib licence; and `memchr`'s
   public-domain option is avoidable by taking its MIT half.
-- D-31 is new and is the owner's: the repository has no licence of its own. Whether to be open
-  source is *not* open - D-03 and ADR-010 settled that - but `Cargo.toml` has no `license` field
-  and there is no `LICENSE` file, so the code as it stands is under exclusive copyright, which is
-  not the state ADR-010 describes. Which open-source licence replaces it is the decision.
+- D-31 was raised here and the owner closed it the same day: this project is **MIT OR
+  Apache-2.0**. Whether to be open source was never open - D-03 and ADR-010 settled that - and
+  what was missing was that the repository did not say so. `Cargo.toml` now declares the licence,
+  `LICENSE-MIT` and `LICENSE-APACHE` are in the root, and two rows of the B-11 check hold both.
+  One thing is left, as D-34: the copyright line reads `Copyright (c) 2026 anitastic-pixel`,
+  the GitHub identity that owns the repository, because a legal name is not an agent's to guess.
 
 What H-01, the whole-picture check, settled and left:
 

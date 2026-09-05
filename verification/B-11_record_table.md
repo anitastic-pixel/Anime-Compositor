@@ -17,6 +17,8 @@ This check reads no licence and decides nothing about one. Document 10 reserves 
 | every crate's own licence text is archived in this repository, not merely named | every crate has an archived licence | every crate has an archived licence | pass |
 | every row names a licence | every row names a licence | every row names a licence | pass |
 | the record marks as direct exactly the three dependencies Cargo.toml asks for | png, rayon, serde_json | png, rayon, serde_json | pass |
+| the crate declares the licence D-31 chose | MIT OR Apache-2.0 | MIT OR Apache-2.0 | pass |
+| both licence texts the declaration names are in the repository | both present | both present | pass |
 | the comparison can fail: a crate that is in neither file is reported as in neither | in the lock file: false, in the record: false | in the lock file: false, in the record: false | pass |
 
-**8 of 8 checks pass.**
+**10 of 10 checks pass.**

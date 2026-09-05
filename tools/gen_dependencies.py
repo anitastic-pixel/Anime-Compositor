@@ -67,8 +67,8 @@ writes `verification/B-11_record_table.md`. The table is produced by `tools/gen_
 materials "generated from the final build inputs rather than a guessed list". The prose sections
 are written by hand.
 
-Distribution form: statically linked, open source (ADR-010, D-03). No dependency is modified. No
-non-default build flags are set. Reviewer: none. Date reviewed: none. Both are blank on purpose;
+Distribution form: statically linked, open source (ADR-010, D-03), under `MIT OR Apache-2.0`
+(D-31, decided 2026-09-05). No dependency is modified. No non-default build flags are set. Reviewer: none. Date reviewed: none. Both are blank on purpose;
 see the last section.
 
 ## Bill of materials
@@ -126,11 +126,11 @@ and it checks only that, never what the text says.
   ships one, but that was read off the archived directories, not verified by a reviewer.
 - **A distribution.** T-16 stays NOT RUN because there is no distributable build to check. Nothing
   here has been shipped to anyone, so no obligation in it has come due.
-- **D-31 \u2014 which open-source licence this project's own code carries.** Whether to be open source
-  is not open; D-03 settled it and ADR-010 records it as ACCEPTED. What is missing is that the
-  repository does not match that decision: `Cargo.toml` has no `license` field, it sets
-  `publish = false`, and there is no `LICENSE` file. Absent one, the code is under exclusive
-  copyright, which is not the state ADR-010 describes.
+- **A signed-off review.** D-31 is now closed - the project is `MIT OR Apache-2.0`, `Cargo.toml`
+  declares it and `LICENSE-MIT` and `LICENSE-APACHE` are in the repository root - but that is the
+  owner choosing a licence, not a reviewer confirming that this graph may be redistributed under
+  it. The copyright line in `LICENSE-MIT` names the GitHub identity that owns the repository; the
+  owner should replace it with whatever name belongs on the notice.
 """
 
 io.open(os.path.join(ROOT, 'docs', 'DEPENDENCIES.md'), 'w', encoding='utf-8',
