@@ -1,10 +1,10 @@
 # Session handoff
 
-Written 2026-09-04, at the end of the version 0.3 planning session. Read this first when opening Claude Code in this directory for the first time.
+Written 2026-09-04 at the end of the version 0.3 planning session, and updated the same day when B-01 closed. Read this first when opening Claude Code in this directory for the first time.
 
 ## What this project is
 
-A cel exposure and finishing compositor for 2D animation, including anime. Windows only, offline, open source, built by one person. Currently in planning: **no code exists yet.**
+A cel exposure and finishing compositor for 2D animation, including anime. Windows only, offline, open source, built by one person. Planning is complete and B-01's feasibility spikes have been run and recorded. **No production code exists yet** - everything under `spikes/` is quarantined per document 06 and is discarded at integration.
 
 ## What you need to know before doing anything
 
@@ -28,11 +28,38 @@ Word review copies and the checksum manifest were dropped. The pack is now a git
 
 ## Where things stand
 
-Everything in this repository is specification. **No test has been run. No performance number has been measured.** Treat every number in the pack as a target or an estimate, never as a result.
+**B-01 is complete.** All three of its exit conditions are discharged and recorded in
+`spikes/B-01_G0_spike_report.md`, which is the artifact the G0 gate is decided on.
 
-Next action is B-01 in `Markdown/15_Initial_Backlog.md`: draw the reference shot per document 22, then run SP-01 save and reopen with an interrupted write, SP-03 scrub latency, SP-04 render determinism, SP-05 frame transport into WebView2, and SP-06 viewer color exactness.
+Numbers in `Markdown/` are still targets and estimates. Numbers in the B-01 report are
+measurements, taken on the reference machine, and the two must not be confused. The report
+states what was run, what passed, what failed and what was not run with reasons.
 
-SP-05 and SP-06 matter most, because they test the two real risks of the Tauri decision: whether frames reach the viewer fast enough, and whether the viewer displays them without altering color. Both are preview-side only and neither affects exported output.
+What the spikes established: atomic save survives an interrupted write (SP-01, 4/4); the
+renderer is byte-identical across thread counts and repeat runs, on synthetic layers and on
+the real shot (SP-04, SP-07); the webview does not alter the bytes it is given, in readback
+and on the physical display (SP-06); and the real reference shot composites at 12.02 ms per
+frame with the sRGB encode fused into the tile (SP-07).
+
+The two numbers that should shape G1-core work:
+
+- **Transport, not rendering, is the preview bottleneck.** Compositing the real shot costs
+  12.02 ms per frame; moving that frame into the webview costs 39.54 ms. JSON IPC is
+  eliminated outright at 250 ms per frame. This makes the document 27 cache and a
+  draft-resolution preview load-bearing rather than optional.
+- **There is no serial sRGB encode stage, and one must not be built.** Document 21 line 117
+  already makes colour conversion tile-safe. Doing it inside the tile rather than in a pass
+  afterwards is worth 41.41 ms per frame for byte-identical output. An early version of the
+  B-01 report got this wrong and the correction is recorded in place.
+
+**The reference shot exists**, at `Fixtures/reference_shot/`. Layer 1 is the owner's
+painting; layers 2-4 are generated, a specification decision the owner made explicitly
+rather than one that was assumed. Both deliberate defects are present and protected by a
+self-check: layer 3 drawing 007 is absent, and one layer 2 file carries a Japanese filename.
+20 of the 240 composition frames reference the absent drawing.
+
+Next action is the G0 gate in `Markdown/00_Start_Here.md`, which is the owner's decision, not
+an agent's.
 
 ## Open questions the owner has not answered
 
@@ -58,6 +85,10 @@ Do not report a task complete without a verification artifact the owner can judg
 
 `Markdown/` the 32 planning documents, the only source of truth. `docs/adr/` full architecture decision records. `Schemas/` the draft project schema. `Fixtures/` fixture data and expected values, read-only to implementation. `design/` interface design work, currently empty. `CONTEXT.md` project vocabulary. `AGENTS.md` and `CLAUDE.md` enforceable agent rules.
 
-## Suggested first session
+Do not cite SP-07 as evidence that the compositing math is correct. It measures cost and determinism on real media. Its colour arithmetic is provisional, document 25's expected values were not consulted, and establishing correctness is B-02's job.
 
-Either draw the reference shot and start B-01, or build a deliberately minimal Tauri and Rust spike that opens a window and displays one composited PNG. The second is worth doing before any design work, because five designed screens for an application that has never launched risks designing against assumptions the first working build contradicts.
+Do not reuse anything under `spikes/`. It is quarantined by document 06 and written to be discarded. The SP-03 compositor is a deliberate copy of SP-04's, not a shared module.
+
+## Suggested next session
+
+Wait for the G0 gate, then B-02. B-02 is the first production task: tagged image buffers, linear-light premultiplied float32 working space, and normal-over compositing on the CPU, verified against T-04 and T-09 with a fixture table showing expected versus actual to full precision. It has no interface and depends on nothing that is not already measured.

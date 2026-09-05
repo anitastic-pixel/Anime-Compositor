@@ -42,11 +42,11 @@ Performance thresholds remain unmeasured. No benchmark, compatibility level or l
 
 ## Current gate
 
-Next action is B-01: draw the reference shot per document 22, and run SP-01, SP-03, SP-04, SP-05 and SP-06.
+**B-01 is recorded.** The reference shot is drawn and committed at `Fixtures/reference_shot/`, SP-01, SP-03, SP-04, SP-05 and SP-06 have been run, SP-07 adds the real-shot measurement ADR-006's exit condition asks for, and ADR-003, ADR-004 and ADR-006 are confirmed with none reopened. The artifact is `spikes/B-01_G0_spike_report.md`.
 
-SP-05 and SP-06 are the ones that matter most, because they test the two real risks of the Tauri interface decision: whether frames can reach the viewer fast enough, and whether the viewer displays them without altering color. Both are preview-side only and neither affects exported output, but a preview that lies about color would undermine the product promise.
+The two risks that decided the Tauri interface are settled. SP-06 found the webview alters nothing, in readback and on the physical display. SP-05 found frames do reach the viewer fast enough, but with almost no margin: 39.54 ms per frame at full resolution against a 24 fps target, which is 3.3 times the cost of compositing the frame in the first place. Neither failed, so ADR-004's native-surface fallback is not triggered, but the document 27 cache and a draft-resolution preview are load-bearing rather than optional.
 
-Production implementation of B-02 and beyond begins once B-01 is recorded.
+**The gate is therefore open, and passing it is the owner's decision.** Production implementation of B-02 and beyond begins when the owner records that decision here, having read the B-01 report. An agent must not open this gate on its own reading of the evidence.
 
 ## Document map
 
