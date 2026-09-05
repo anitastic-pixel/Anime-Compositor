@@ -10,8 +10,9 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, Severity};
+use anime_compositor::diagnostics::{Diagnostic, DiagnosticId};
 use anime_compositor::media::{import_sequence, ImportResult, SequenceAsset};
+use anime_compositor::ImageBuffer;
 
 struct Row {
     check: String,
@@ -92,6 +93,44 @@ fn scratch(name: &str) -> PathBuf {
 fn record(report: &mut Report, case: &str, result: &ImportResult) {
     for d in &result.diagnostics {
         report.diagnostics.push((case.to_string(), d.clone()));
+    }
+}
+
+/// The name of the file that entered the frame map under a drawing number, or why it did not.
+///
+/// Which file wins when two claim one number is part of R-01's contract, not an internal
+/// detail: it decides what the user sees on that frame.
+/// A drawing's pixels, with a row recording whether it decoded at all.
+///
+/// The pixel rows below read specific drawings of specific layers. A build that renumbers or
+/// drops one of them should fail a named row and still leave the owner a table to read, rather
+/// than aborting on an `expect` and leaving a stack trace.
+fn pixels(
+    report: &mut Report,
+    case: &str,
+    asset: &SequenceAsset,
+    number: u32,
+) -> Option<ImageBuffer> {
+    let got = asset.decode(number);
+    report.check(
+        &format!("{case}: drawing {number} decodes"),
+        "decoded",
+        match &got {
+            Ok(_) => "decoded".to_string(),
+            Err(d) => format!("failed: {}", d.id),
+        },
+    );
+    got.ok()
+}
+
+fn file_name(asset: &SequenceAsset, number: u32) -> String {
+    match asset.frames().get(&number) {
+        Some(path) => path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
+        None => format!("no file was imported as drawing {number}"),
     }
 }
 
@@ -225,7 +264,7 @@ fn b03_import_table() {
     report.check(
         "layer2: drawing 13 maps to its Japanese filename",
         "layer2_桜_013.png",
-        asset2.frames()[&13].file_name().unwrap().to_string_lossy(),
+        file_name(asset2, 13),
     );
     report.check(
         "layer2: drawing 13 decodes",
@@ -274,38 +313,45 @@ fn b03_import_table() {
 
     // -- Pixel interpretation of what was imported ---------------------------------------------
     let layer1 = import_sequence(&select_all(&layer_dir("layer1")));
-    let bg = asset_of(&layer1).decode(0).expect("layer1 drawing 0");
+    let bg = pixels(&mut report, "layer1", asset_of(&layer1), 0);
     report.check(
         "layer1: dimensions",
         "1920x1080",
-        format!("{}x{}", bg.width(), bg.height()),
+        match &bg {
+            Some(b) => format!("{}x{}", b.width(), b.height()),
+            None => "no pixels".to_string(),
+        },
     );
     report.check(
         "layer1: fully opaque, per the fixture README",
         true,
-        bg.data().chunks_exact(4).all(|p| p[3] == 1.0),
+        matches!(&bg, Some(b) if b.data().chunks_exact(4).all(|p| p[3] == 1.0)),
     );
 
-    let hard = asset3.decode(0).expect("layer3 drawing 0");
+    let hard = pixels(&mut report, "layer3", asset3, 0);
     report.check(
         "layer3: alpha is binary, per the fixture README",
         true,
-        hard.data()
+        matches!(&hard, Some(b) if b
+            .data()
             .chunks_exact(4)
-            .all(|p| p[3] == 0.0 || p[3] == 1.0),
+            .all(|p| p[3] == 0.0 || p[3] == 1.0)),
     );
 
     let layer4 = import_sequence(&select_all(&layer_dir("layer4")));
-    let half = asset_of(&layer4).decode(0).expect("layer4 drawing 0");
+    let half = pixels(&mut report, "layer4", asset_of(&layer4), 0);
     report.check(
         "layer4: an interior pixel is at exactly code 128, per the fixture README",
         true,
-        half.data().chunks_exact(4).any(|p| p[3] == 128.0 / 255.0),
+        matches!(&half, Some(b) if b.data().chunks_exact(4).any(|p| p[3] == 128.0 / 255.0)),
     );
     report.check(
         "import tags buffers as sRGB / straight, per document 21",
         "Srgb/Straight",
-        format!("{:?}/{:?}", bg.color_space(), bg.alpha_mode()),
+        match &bg {
+            Some(b) => format!("{:?}/{:?}", b.color_space(), b.alpha_mode()),
+            None => "no pixels".to_string(),
+        },
     );
 
     // -- Cases the reference shot deliberately does not contain --------------------------------
@@ -379,6 +425,137 @@ fn b03_import_table() {
         asset_of(&duplicate).frames().len(),
     );
     record(&mut report, "duplicate number", &duplicate);
+
+    // Which of the two survives is not a coin toss. Import sorts the selection before grouping,
+    // so the first name in sort order enters the frame map, and cel_007.png sorts before
+    // cel_07.png because '0' precedes '7'. A build where the later file won would give a
+    // different sequence for the same folder depending on the order the file dialog handed the
+    // selection over.
+    report.check(
+        "two files claiming drawing 7: the first in sorted order is the one imported",
+        "cel_007.png",
+        file_name(asset_of(&duplicate), 7),
+    );
+    // The rejected file must not vote on the naming either. One imported file called
+    // cel_007.png describes a three-digit pattern; letting cel_07.png vote as well makes it a
+    // tie, and a tie breaks toward the smaller shape, so the sequence would be described by a
+    // name that nothing in it uses.
+    report.check(
+        "two files claiming drawing 7: only the imported file describes the pattern",
+        "cel_%03d.png",
+        asset_of(&duplicate).pattern(),
+    );
+    // The same folder, selected in the opposite order. R-01 asks for the import of a folder,
+    // not of an ordering, so the two results have to agree.
+    let mut backwards = select_all(&dir);
+    backwards.reverse();
+    let backwards = import_sequence(&backwards);
+    report.check(
+        "the same two files selected in the opposite order import identically",
+        "cel_007.png / cel_%03d.png",
+        format!(
+            "{} / {}",
+            file_name(asset_of(&backwards), 7),
+            asset_of(&backwards).pattern()
+        ),
+    );
+
+    // A majority naming with one odd file out. The pattern is the commonest shape, not the
+    // first one seen: two files are three-digit and one is two-digit, so the sequence is
+    // three-digit and the odd file is reported as a name variant rather than dropped.
+    let dir = scratch("pattern");
+    write_png(&dir.join("cel_000.png"), 8, 8, png::BitDepth::Eight);
+    write_png(&dir.join("cel_001.png"), 8, 8, png::BitDepth::Eight);
+    write_png(&dir.join("cel_02.png"), 8, 8, png::BitDepth::Eight);
+    let majority = import_sequence(&select_all(&dir));
+    report.check(
+        "two names of one shape and one of another: the pattern is the commonest",
+        "cel_%03d.png",
+        asset_of(&majority).pattern(),
+    );
+    report.check(
+        "the odd name is imported anyway and reported as a variant",
+        "3 files / 1 variant",
+        format!(
+            "{} files / {} variant",
+            asset_of(&majority).frames().len(),
+            asset_of(&majority).name_variants().len()
+        ),
+    );
+    record(&mut report, "majority naming", &majority);
+
+    // A sequence that does not start at zero, with two holes in it. Drawings below the first
+    // file are not missing: nobody drew them and nothing exposes them. Only the holes inside
+    // 100 to 109 are gaps, and document 28 wants the warning to name them as runs, which means
+    // the run 101-103 has to stop at the drawing that exists rather than swallowing 104 and 105.
+    let dir = scratch("sparse");
+    for n in [100, 104, 105, 109] {
+        write_png(
+            &dir.join(format!("cel_{n}.png")),
+            8,
+            8,
+            png::BitDepth::Eight,
+        );
+    }
+    let sparse = import_sequence(&select_all(&dir));
+    report.check(
+        "a sequence starting at 100: drawing range",
+        "100-109",
+        match asset_of(&sparse).range() {
+            Some((lo, hi)) => format!("{lo}-{hi}"),
+            None => "none".to_string(),
+        },
+    );
+    report.check(
+        "a sequence starting at 100: the drawings below it are not missing",
+        "101,102,103,106,107,108",
+        asset_of(&sparse)
+            .missing()
+            .iter()
+            .map(u32::to_string)
+            .collect::<Vec<_>>()
+            .join(","),
+    );
+    report.check(
+        "the gap warning names runs and keeps the hole between them",
+        "6 drawings are missing from cel_%03d.png: 101-103, 106-108.",
+        match sparse.get(DiagnosticId::MediaSequenceGap) {
+            Some(d) => d.message.clone(),
+            None => "no gap warning was raised".to_string(),
+        },
+    );
+    record(&mut report, "sparse numbering", &sparse);
+
+    // -- Severity, per document 28 -------------------------------------------------------------
+    // A gap renders transparent and the render proceeds, so it is a WARNING. A file that cannot
+    // be imported at all is an ERROR, because the operation the user asked for is refused.
+    let layer3 = import_sequence(&select_all(&layer_dir("layer3")));
+    report.check(
+        "layer3's gap is a warning: the render proceeds with explicit degradation",
+        "Warning",
+        match layer3.get(DiagnosticId::MediaSequenceGap) {
+            Some(d) => format!("{:?}", d.severity),
+            None => "no gap warning was raised".to_string(),
+        },
+    );
+    report.check(
+        "the gap warning states the next safe action, per document 28",
+        true,
+        matches!(layer3.get(DiagnosticId::MediaSequenceGap), Some(d) if d.remediation.is_some()),
+    );
+
+    let dir = scratch("severity");
+    write_png(&dir.join("cel_000.png"), 8, 8, png::BitDepth::Eight);
+    write_png(&dir.join("notes.png"), 8, 8, png::BitDepth::Eight);
+    let refused = import_sequence(&select_all(&dir));
+    report.check(
+        "a file that cannot be imported at all is an error, not a warning",
+        "Error",
+        match refused.get(DiagnosticId::MediaSequenceUnnumbered) {
+            Some(d) => format!("{:?}", d.severity),
+            None => "no diagnostic was raised".to_string(),
+        },
+    );
 
     write_artifact(&report);
 
@@ -483,31 +660,5 @@ fn reference_shot_defects_intact() {
     assert!(
         layer_dir("layer2").join("layer2_桜_013.png").exists(),
         "layer2_桜_013.png must exist under exactly that name"
-    );
-}
-
-/// Severity is not decoration. A gap that renders transparent is a WARNING under document 28
-/// because the operation proceeds with explicit degradation; a file that cannot be imported at
-/// all is an ERROR because the requested operation is rejected.
-#[test]
-fn severities_follow_document_28() {
-    let layer3 = import_sequence(&select_all(&layer_dir("layer3")));
-    let gap = layer3.get(DiagnosticId::MediaSequenceGap).unwrap();
-    assert_eq!(gap.severity, Severity::Warning);
-    assert!(
-        gap.remediation.is_some(),
-        "document 28: state the next safe action"
-    );
-
-    let dir = scratch("severity");
-    write_png(&dir.join("cel_000.png"), 8, 8, png::BitDepth::Eight);
-    write_png(&dir.join("notes.png"), 8, 8, png::BitDepth::Eight);
-    let result = import_sequence(&select_all(&dir));
-    assert_eq!(
-        result
-            .get(DiagnosticId::MediaSequenceUnnumbered)
-            .unwrap()
-            .severity,
-        Severity::Error
     );
 }

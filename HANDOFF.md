@@ -177,5 +177,6 @@ Carried forward, still outstanding:
   the reference shot's twenty-frame sequence gap, but nothing in this build walks a
   composition's frames in production, so `FrameLog` has no caller outside its own test. The
   walk is B-08's, and installing the limiter is one line inside it.
+- Mutation-testing B-05, B-05a, B-05b and B-09. The hardening pass covered B-02, B-03, B-04, B-04b and B-05c and is recorded in `verification/HARDENING_mutation_report.md`; the other four units' fixtures pass but have never been shown capable of failing. B-03's did not, in six places, until this pass.
 - D-25 is PROVISIONAL: the limit of three, and the choice to log a few in full and then
   summarise, are the loop's and not document 28's.

@@ -96,6 +96,8 @@ Version 0.7 adds D-22, from B-05a: document 21 and document 19 disagree about wh
 
 Version 0.8 adds D-23, from B-05b: ADR-012 asks for trace images in the working space and for images the owner can look at, and linear light cannot be both. Trace mode itself raises no new test; it is the diagnostic facility document 12's protocol leans on, and its results are in `verification/B-05b_trace_table.md`.
 
+Version 0.12 records the hardening pass: 55 deliberate single-change defects across B-02, B-03, B-04, B-04b and B-05c, all now caught, six of them only after T-01's fixture was strengthened. No decision was needed and no D-number was added; the report is `verification/HARDENING_mutation_report.md`.
+
 Version 0.11 adds D-25, from B-04b: document 28 requires repeated frame-level warnings to be rate-limited while retaining counts and ranges, and specifies no limit and no shape, so the implementation had to choose both. The rate-limiting itself is now RUN and PASSING against the reference shot's twenty-frame sequence gap, evidence in `verification/B-04b_frame_log_table.md`. It closes the last item document 28 asked of B-04.
 
 Version 0.10 records B-05c, which implements the multiply, screen and add blend modes of document 21 against document 25's FX-B fixtures. It raised no new decision: document 21 gives the equation, document 25 gives three expected values, and the schema and the model already carried all four mode names. It closes the last unowned item of R-03 and R-10 and removes one of the four entries from trace mode's list of render stages this build does not implement.

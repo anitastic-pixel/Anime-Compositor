@@ -1,6 +1,6 @@
 # B-04 exposure and time table
 
-Test T-02, requirement R-02. Produced by `tests/b04_exposure.rs`. **45 of 45 checks pass.**
+Test T-02, requirement R-02. Produced by `tests/b04_exposure.rs`. **46 of 46 checks pass.**
 
 The composition is 240 frames at 24/1 fps (10 seconds exactly), frames 0 to 239 inclusive.
 
@@ -297,6 +297,7 @@ Seconds are exact rationals, not decimals. A dash means no exposure span covers 
 | FX-TIME-004: seconds at frame -12 are negative and exact | `-1/2` | `-1/2` | PASS |
 | FX-TIME-002: requesting drawing 1003 diagnoses rather than substituting | `MEDIA_SEQUENCE_GAP` | `MEDIA_SEQUENCE_GAP` | PASS |
 | FX-TIME-002: 1002 and 1004 either side still resolve | `seq_1002.png,seq_1004.png` | `seq_1002.png,seq_1004.png` | PASS |
+| a frame exposing an absent drawing is a warning, not a substitution and not silence | `MEDIA_SEQUENCE_GAP` | `MEDIA_SEQUENCE_GAP` | PASS |
 | layer-local: frame 99 is before the layer | `None` | `None` | PASS |
 | layer-local: frame 100 maps to local 5 | `Some(5)` | `Some(5)` | PASS |
 | layer-local: frame 109 maps to local 14 | `Some(14)` | `Some(14)` | PASS |
