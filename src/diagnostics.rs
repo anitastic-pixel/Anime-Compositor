@@ -86,6 +86,16 @@ pub enum DiagnosticId {
     CommandInvalidValue,
     /// **Proposed (D-21).** A command would have changed a locked layer.
     CommandLayerLocked,
+    /// Document 28: an output file could not be written; the completed frames and the failing
+    /// path are reported and the job is not called successful.
+    ExportWriteFailed,
+    /// Document 28: the export was cancelled; the completed-frame list is preserved and no
+    /// success is claimed.
+    ExportCancelled,
+    /// **Proposed (D-28).** An export was refused before writing anything because a frame in
+    /// the requested range has no source drawing. Document 07 requires a blocked final export
+    /// as the default missing-frame behaviour and document 28 names no identifier for it.
+    ExportBlockedMissingMedia,
 }
 
 impl DiagnosticId {
@@ -110,6 +120,9 @@ impl DiagnosticId {
             DiagnosticId::CommandTargetMissing => "COMMAND_TARGET_MISSING",
             DiagnosticId::CommandInvalidValue => "COMMAND_INVALID_VALUE",
             DiagnosticId::CommandLayerLocked => "COMMAND_LAYER_LOCKED",
+            DiagnosticId::ExportWriteFailed => "EXPORT_WRITE_FAILED",
+            DiagnosticId::ExportCancelled => "EXPORT_CANCELLED",
+            DiagnosticId::ExportBlockedMissingMedia => "EXPORT_BLOCKED_MISSING_MEDIA",
         }
     }
 
@@ -131,6 +144,8 @@ impl DiagnosticId {
                 | DiagnosticId::MediaDecodeFailed
                 | DiagnosticId::MatteReferenceMissing
                 | DiagnosticId::MatteCycle
+                | DiagnosticId::ExportWriteFailed
+                | DiagnosticId::ExportCancelled
         )
     }
 }
@@ -264,6 +279,19 @@ impl FrameLog {
             self.logged.push(diagnostic);
         }
         group.frames.push(frame);
+    }
+
+    /// Every identifier recorded against `frame`, **including suppressed occurrences**.
+    ///
+    /// The export writer asks this to decide whether a frame had a drawing to show. Reading the
+    /// logged records instead would answer correctly for the first three frames of a gap and
+    /// wrongly for the rest, which is the failure rate limiting is most likely to cause.
+    pub fn ids_at(&self, frame: i32) -> Vec<DiagnosticId> {
+        self.groups
+            .iter()
+            .filter(|g| g.frames.contains(&frame))
+            .map(|g| g.id)
+            .collect()
     }
 
     /// The log: every occurrence that was not suppressed, in the order it was recorded, then one
