@@ -73,7 +73,11 @@ pub fn over(src: &WorkingBuffer, dst: &mut WorkingBuffer) -> Result<(), Composit
             dst: (dst.width(), dst.height()),
         });
     }
-    for (s, d) in src.data().chunks_exact(4).zip(dst.data_mut().chunks_exact_mut(4)) {
+    for (s, d) in src
+        .data()
+        .chunks_exact(4)
+        .zip(dst.data_mut().chunks_exact_mut(4))
+    {
         let out = over_pixel([s[0], s[1], s[2], s[3]], [d[0], d[1], d[2], d[3]]);
         d.copy_from_slice(&out);
     }

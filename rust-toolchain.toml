@@ -1,0 +1,6 @@
+# Document 29, "Toolchain pinning": production releases must be rebuildable from a clean
+# checkout without relying on mutable `latest` tags. This is the version B-01 measured on and
+# the version every number in spikes/B-01_G0_spike_report.md was produced with.
+[toolchain]
+channel = "1.89.0"
+components = ["rustfmt", "clippy"]

@@ -1,3 +1,10 @@
+// The expected values below are transcribed verbatim from the binary64 output of
+// verification/derive_b02_expected.py. Clippy would shorten some of them to the shortest
+// literal that round-trips to the same f64. That is a safe transformation numerically, but it
+// breaks the property that matters here: that every digit in this file can be found, character
+// for character, in the derivation output. Provenance beats brevity in a fixture file.
+#![allow(clippy::excessive_precision)]
+
 //! B-02 exit tests: T-04 (over-composite of known alpha values, transparent edges) and
 //! T-09 (known linear/sRGB values, straight/premultiplied conversion, zero alpha, no
 //! duplicate display transform), for requirement R-10.
@@ -72,11 +79,17 @@ struct Row {
 }
 
 fn f32s(v: &[f32]) -> String {
-    v.iter().map(|x| format!("{x:.8e}")).collect::<Vec<_>>().join(", ")
+    v.iter()
+        .map(|x| format!("{x:.8e}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn f64s(v: &[f64]) -> String {
-    v.iter().map(|x| format!("{x:.16e}")).collect::<Vec<_>>().join(", ")
+    v.iter()
+        .map(|x| format!("{x:.16e}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn row(
@@ -88,7 +101,10 @@ fn row(
     tol: f64,
 ) {
     let pass = actual.len() == expected.len()
-        && actual.iter().zip(expected).all(|(a, e)| (*a as f64 - *e).abs() <= tol);
+        && actual
+            .iter()
+            .zip(expected)
+            .all(|(a, e)| (*a as f64 - *e).abs() <= tol);
     rows.push(Row {
         id,
         what: what.to_string(),
@@ -101,7 +117,14 @@ fn row(
 
 fn exact_row(rows: &mut Vec<Row>, id: &'static str, what: &str, actual: String, expected: String) {
     let pass = actual == expected;
-    rows.push(Row { id, what: what.to_string(), expected, actual, tol: "exact".into(), pass });
+    rows.push(Row {
+        id,
+        what: what.to_string(),
+        expected,
+        actual,
+        tol: "exact".into(),
+        pass,
+    });
 }
 
 #[test]
@@ -165,12 +188,18 @@ fn b02_fixture_table() {
     // T-04 transparent edges, at buffer level: a transparent border composites away to
     // nothing while the covered interior lands exactly on the source.
     let mut src_px = vec![0.0f32; 3 * 3 * 4];
-    let centre = (1 * 3 + 1) * 4;
+    let centre = 4 * 4; // pixel (1,1) of a 3-wide RGBA image
     src_px[centre] = 1.0;
     src_px[centre + 3] = 1.0;
-    let src_buf = ImageBuffer::new(3, 3, ColorSpace::LinearLight, AlphaMode::Premultiplied, src_px)
-        .expect("3x3 source")
-        .into_working();
+    let src_buf = ImageBuffer::new(
+        3,
+        3,
+        ColorSpace::LinearLight,
+        AlphaMode::Premultiplied,
+        src_px,
+    )
+    .expect("3x3 source")
+    .into_working();
     let mut dst_buf = ImageBuffer::new(
         3,
         3,
@@ -185,8 +214,16 @@ fn b02_fixture_table() {
         &mut rows,
         "B02-EDGE",
         "3x3 transparent border over opaque blue: border untouched, centre replaced",
-        format!("corner={} centre={}", f32s(&dst_buf.pixel(0, 0)), f32s(&dst_buf.pixel(1, 1))),
-        format!("corner={} centre={}", f32s(&[0.0, 0.0, 1.0, 1.0]), f32s(&[1.0, 0.0, 0.0, 1.0])),
+        format!(
+            "corner={} centre={}",
+            f32s(&dst_buf.pixel(0, 0)),
+            f32s(&dst_buf.pixel(1, 1))
+        ),
+        format!(
+            "corner={} centre={}",
+            f32s(&[0.0, 0.0, 1.0, 1.0]),
+            f32s(&[1.0, 0.0, 0.0, 1.0])
+        ),
     );
 
     let mismatch = composite::over(&src_buf, &mut WorkingBuffer::transparent(4, 3));
@@ -197,7 +234,10 @@ fn b02_fixture_table() {
         format!("{:?}", mismatch.err()),
         format!(
             "{:?}",
-            Some(composite::CompositeError::ExtentMismatch { src: (3, 3), dst: (4, 3) })
+            Some(composite::CompositeError::ExtentMismatch {
+                src: (3, 3),
+                dst: (4, 3)
+            })
         ),
     );
 
@@ -207,7 +247,13 @@ fn b02_fixture_table() {
         "B02-LEN",
         "a buffer whose data length contradicts its extent is refused at construction",
         format!("{:?}", bad_len.err()),
-        format!("{:?}", Some(BufferError::LengthMismatch { expected: 16, actual: 15 })),
+        format!(
+            "{:?}",
+            Some(BufferError::LengthMismatch {
+                expected: 16,
+                actual: 15
+            })
+        ),
     );
 
     // ---- T-09: known linear and sRGB values ----
@@ -215,10 +261,30 @@ fn b02_fixture_table() {
 
     for (id, name, input, expected) in [
         ("T09-S2L-a", "sRGB 0.0", 0.0f32, 0.0f64),
-        ("T09-S2L-b", "sRGB 10/255, on the linear segment", 10.0 / 255.0, 0.003_035_269_835_488_374_8),
-        ("T09-S2L-c", "sRGB 0.04045, the kink", 0.04045, 0.003_130_804_953_560_371_3),
-        ("T09-S2L-d", "sRGB 0.05, just above the kink", 0.05, 0.003_935_939_504_088_967),
-        ("T09-S2L-e", "sRGB 128/255", 128.0 / 255.0, 0.215_860_500_113_899_26),
+        (
+            "T09-S2L-b",
+            "sRGB 10/255, on the linear segment",
+            10.0 / 255.0,
+            0.003_035_269_835_488_374_8,
+        ),
+        (
+            "T09-S2L-c",
+            "sRGB 0.04045, the kink",
+            0.04045,
+            0.003_130_804_953_560_371_3,
+        ),
+        (
+            "T09-S2L-d",
+            "sRGB 0.05, just above the kink",
+            0.05,
+            0.003_935_939_504_088_967,
+        ),
+        (
+            "T09-S2L-e",
+            "sRGB 128/255",
+            128.0 / 255.0,
+            0.215_860_500_113_899_26,
+        ),
         ("T09-S2L-f", "sRGB 0.5", 0.5, 0.214_041_140_482_232_55),
         ("T09-S2L-g", "sRGB 1.0", 1.0, 1.0),
     ] {
@@ -234,7 +300,12 @@ fn b02_fixture_table() {
 
     for (id, name, input, expected) in [
         ("T09-L2S-a", "linear 0.0", 0.0f32, 0.0f64),
-        ("T09-L2S-b", "linear 0.0031308, the kink", 0.0031308, 0.040_449_936),
+        (
+            "T09-L2S-b",
+            "linear 0.0031308, the kink",
+            0.0031308,
+            0.040_449_936,
+        ),
         ("T09-L2S-c", "linear 0.18", 0.18, 0.461_356_129_500_441_64),
         ("T09-L2S-d", "linear 0.5", 0.5, 0.735_356_983_052_449_45),
         ("T09-L2S-e", "linear 1.0", 1.0, 0.999_999_999_999_999_89),
@@ -291,21 +362,34 @@ fn b02_fixture_table() {
     // A buffer already tagged as working space is not transformed a second time. This is
     // structural rather than conventional: into_working consults the tags.
     let already = vec![0.2f32, 0.4, 0.6, 1.0];
-    let again =
-        ImageBuffer::new(1, 1, ColorSpace::LinearLight, AlphaMode::Premultiplied, already.clone())
-            .expect("1x1")
-            .into_working();
+    let again = ImageBuffer::new(
+        1,
+        1,
+        ColorSpace::LinearLight,
+        AlphaMode::Premultiplied,
+        already.clone(),
+    )
+    .expect("1x1")
+    .into_working();
     exact_row(
         &mut rows,
         "T09-ONCE",
         "a linear premultiplied buffer entering the working space is bit-identical",
-        format!("{:?}", again.data().iter().map(|c| c.to_bits()).collect::<Vec<_>>()),
-        format!("{:?}", already.iter().map(|c| c.to_bits()).collect::<Vec<_>>()),
+        format!(
+            "{:?}",
+            again.data().iter().map(|c| c.to_bits()).collect::<Vec<_>>()
+        ),
+        format!(
+            "{:?}",
+            already.iter().map(|c| c.to_bits()).collect::<Vec<_>>()
+        ),
     );
 
     // Every 8-bit code survives decode, premultiply at full alpha and re-encode. A second,
     // accidental transfer function anywhere on that path would move most of these codes.
-    let opaque: Vec<u8> = (0..256u32).flat_map(|v| [v as u8, v as u8, v as u8, 255]).collect();
+    let opaque: Vec<u8> = (0..256u32)
+        .flat_map(|v| [v as u8, v as u8, v as u8, 255])
+        .collect();
     let survived = ImageBuffer::from_srgb8_straight(256, 1, &opaque)
         .expect("256x1")
         .into_working()
@@ -350,9 +434,19 @@ fn b02_fixture_table() {
     writeln!(md).unwrap();
     writeln!(md, "Fixture manifest FNV-1a: `{:#018x}`", manifest_hash()).unwrap();
     writeln!(md).unwrap();
-    writeln!(md, "**{} of {} rows pass.**", rows.len() - failed.len(), rows.len()).unwrap();
+    writeln!(
+        md,
+        "**{} of {} rows pass.**",
+        rows.len() - failed.len(),
+        rows.len()
+    )
+    .unwrap();
     writeln!(md).unwrap();
-    writeln!(md, "| ID | Check | Expected | Actual | Tolerance | Result |").unwrap();
+    writeln!(
+        md,
+        "| ID | Check | Expected | Actual | Tolerance | Result |"
+    )
+    .unwrap();
     writeln!(md, "|---|---|---|---|---|---|").unwrap();
     for r in &rows {
         writeln!(
@@ -385,8 +479,14 @@ fn b02_fixture_table() {
         ("FX-E-001, FX-E-002 (exposure)", "effects, R-05, G1-rest"),
         ("FX-T-001, FX-T-002 (tint)", "effects, R-05, G1-rest"),
         ("FX-XF-001 to FX-XF-004 (transforms)", "R-03, task B-05"),
-        ("FX-MATTE-001 (matte cycle rejection)", "R-04, task B-06, parked under D-12"),
-        ("The matte-mapping half of T-04", "R-04, task B-06, parked under D-12"),
+        (
+            "FX-MATTE-001 (matte cycle rejection)",
+            "R-04, task B-06, parked under D-12",
+        ),
+        (
+            "The matte-mapping half of T-04",
+            "R-04, task B-06, parked under D-12",
+        ),
     ] {
         writeln!(md, "- {id} - {owner}").unwrap();
     }
