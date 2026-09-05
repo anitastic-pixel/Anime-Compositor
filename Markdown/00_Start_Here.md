@@ -46,7 +46,11 @@ Performance thresholds remain unmeasured. No benchmark, compatibility level or l
 
 The two risks that decided the Tauri interface are settled. SP-06 found the webview alters nothing, in readback and on the physical display. SP-05 found frames do reach the viewer fast enough, but with almost no margin: 39.54 ms per frame at full resolution against a 24 fps target, which is 3.3 times the cost of compositing the frame in the first place. Neither failed, so ADR-004's native-surface fallback is not triggered, but the document 27 cache and a draft-resolution preview are load-bearing rather than optional.
 
-**The gate is therefore open, and passing it is the owner's decision.** Production implementation of B-02 and beyond begins when the owner records that decision here, having read the B-01 report. An agent must not open this gate on its own reading of the evidence.
+**G0 is passed. The owner opened the gate on 2026-09-04.** The instruction was "open the gate; proceed to B-02". Production implementation is under way.
+
+This decision was the owner's, as it had to be. An agent must not open a gate on its own reading of the evidence, and that rule still stands for G1 and G2.
+
+Current task is B-02 in `Markdown/15_Initial_Backlog.md`: tagged image buffers, the linear-light premultiplied float32 working space and normal-over compositing on the CPU. Its artifact is `verification/B-02_fixture_table.md`.
 
 ## Document map
 

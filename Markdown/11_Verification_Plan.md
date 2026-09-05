@@ -51,6 +51,8 @@ For an artist alpha, collect known limitations and recovery instructions and use
 
 Each result records test ID, build, fixture version, expected/actual behavior, logs or image diffs, reviewer and disposition. Status starts NOT RUN for every test in this pack. Do not convert a proposed gate into a claimed result.
 
+Status as of 2026-09-04: G0 is passed by owner decision, recorded in document 00. T-04 (the over-composite and transparent-edge half; the matte half is parked with R-04) and T-09 are RUN and PASSING against B-02, evidence in `verification/B-02_fixture_table.md`. Every other test remains NOT RUN.
+
 Related documents: 02, 03, 08, 12 and 15.
 
 Fixture authority: document 25 and `Fixtures/fixture_manifest.json` define the initial independent expected values/tolerances; 22 defines the rights-cleared artistic reference shots. Test changes that alter expected behavior require specification review.

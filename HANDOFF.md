@@ -89,6 +89,12 @@ Do not cite SP-07 as evidence that the compositing math is correct. It measures 
 
 Do not reuse anything under `spikes/`. It is quarantined by document 06 and written to be discarded. The SP-03 compositor is a deliberate copy of SP-04's, not a shared module.
 
+## Where production code now lives
+
+`Cargo.toml`, `src/` and `tests/` at the repository root are the production crate, `anime_compositor`, laid out per document 29. The `spikes/` directory is deliberately excluded from that workspace so nothing under `src/` can depend on it.
+
+`verification/` holds the artifacts the owner reads: one file per completed task, plus the scripts that derive expected values independently of the code under test.
+
 ## Suggested next session
 
-Wait for the G0 gate, then B-02. B-02 is the first production task: tagged image buffers, linear-light premultiplied float32 working space, and normal-over compositing on the CPU, verified against T-04 and T-09 with a fixture table showing expected versus actual to full precision. It has no interface and depends on nothing that is not already measured.
+B-03: PNG import and the sequence manifest, including numeric pattern detection, gap reporting and Unicode paths. Its fixtures are already sitting in the reference shot, unrepaired: layer 3 drawing 007 is absent and one layer 2 file carries a Japanese filename. The artifact it owes is a fixture table plus the diagnostic text a user would actually see for the missing frame.
