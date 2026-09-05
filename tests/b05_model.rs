@@ -136,7 +136,7 @@ fn layer_named(doc: &Document, layer: &str) -> anime_compositor::model::Layer {
         .composition(&id(COMP))
         .unwrap()
         .layer(&id(layer))
-        .expect("layer present")
+        .unwrap_or_else(|| panic!("no layer called {layer} in the composition"))
         .clone()
 }
 
@@ -267,6 +267,26 @@ fn b05_model_and_undo() {
         "sakura, layer3, layer4, layer1",
         order_of(&doc),
     );
+    // A move to the end of the stack lands in the same place whether the index is read as
+    // "before this layer" or "after it", so it cannot show an off-by-one. A move into the
+    // middle can: index 1 means directly above sakura and nowhere else.
+    doc.apply(Command::ReorderLayer {
+        composition: id(COMP),
+        layer_id: id("layer-1"),
+        to_index: 1,
+    })
+    .expect("reorder into the middle");
+    report.check(
+        "reorder: an index in the middle of the stack is the place the layer lands",
+        "sakura, layer1, layer3, layer4",
+        order_of(&doc),
+    );
+    doc.undo();
+    report.check(
+        "reorder into the middle undone",
+        "sakura, layer3, layer4, layer1",
+        order_of(&doc),
+    );
 
     // -- Document 26: scalar property edit, undo, redo exact value -------------------------------
     doc.apply(Command::SetPropertyBase {
@@ -293,6 +313,16 @@ fn b05_model_and_undo() {
         "12.5",
         layer_named(&doc, "layer-3").transform.rotation.base(),
     );
+    // Undo again after a redo. Document 26 makes redo push a history item like any other edit,
+    // so the stack must still be usable afterwards; a redo that recorded the wrong prior state
+    // leaves an undo that appears to run and changes nothing.
+    doc.undo();
+    report.check(
+        "undo after redo still undoes",
+        "0",
+        layer_named(&doc, "layer-3").transform.rotation.base(),
+    );
+    doc.redo();
 
     // -- Document 20: opacity is clamped at command validation, scale may be negative ------------
     doc.apply(Command::SetPropertyBase {
@@ -577,6 +607,31 @@ fn b05_model_and_undo() {
     );
     doc.redo();
 
+    // A drag that wanders and comes back to where it started changed nothing. Document 26 asks
+    // for one history item per interaction; for an interaction with no net effect that is none,
+    // or the undo stack fills with entries that do nothing when used.
+    let undo_before_round_trip = doc.undo_depth();
+    doc.begin_drag().expect("begin");
+    for value in [500.0, 250.0, 100.0] {
+        doc.update_drag(Command::SetPropertyBase {
+            composition: id(COMP),
+            layer_id: id("layer-4"),
+            prop: Prop::Position,
+            value: Value::Vec2(value, 0.0),
+        })
+        .expect("drag step");
+    }
+    doc.end_drag();
+    report.check(
+        "a drag that ends where it started leaves no history item",
+        format!("{undo_before_round_trip}, (100, 0)"),
+        format!(
+            "{}, {}",
+            doc.undo_depth(),
+            layer_named(&doc, "layer-4").transform.position.base()
+        ),
+    );
+
     // -- Document 26: deleting and recovering a matte preserves dependent records -----------------
     doc.apply(Command::SetMatte {
         composition: id(COMP),
@@ -633,6 +688,21 @@ fn b05_model_and_undo() {
             .matte
             .map(|m| m.layer_id.to_string())
             .unwrap_or_else(|| "dropped".to_string()),
+    );
+    report.check(
+        "the deleted layer's record is gone, not merely unlisted",
+        "absent, 4 layers",
+        {
+            let comp = doc.project().composition(&id(COMP)).unwrap();
+            format!(
+                "{}, {} layers",
+                match comp.layer(&id("layer-3")) {
+                    Some(_) => "still present",
+                    None => "absent",
+                },
+                comp.len()
+            )
+        },
     );
     doc.undo();
     report.check(

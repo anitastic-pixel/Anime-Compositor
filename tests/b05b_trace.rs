@@ -363,13 +363,20 @@ fn b05b_trace_fixtures() {
     // stage from the plan. Without them a trace that wrote the faded image under both stage
     // names would pass every arithmetic row above: the arithmetic would still be right, and
     // only the labelling would be a lie.
-    let (tw, _, transform_bytes, _) = read_png(&out.join("layer01_fg_transform.png"));
+    let stage_path = |stage: Stage| {
+        written
+            .iter()
+            .find(|i| i.layer_index == 1 && i.stage == stage)
+            .map(|i| i.path.clone())
+            .unwrap_or_else(|| out.join("no-such-stage.png"))
+    };
+    let (tw, _, transform_bytes, _) = read_png(&stage_path(Stage::Transform));
     report.check(
         "the transform image is written before opacity, so fg is still fully opaque there",
         "(203, 0, 0, 255)",
         rgba_at(tw, &transform_bytes, 1, 1),
     );
-    let (ow, _, opacity_bytes, opacity_tags) = read_png(&out.join("layer01_fg_opacity.png"));
+    let (ow, _, opacity_bytes, opacity_tags) = read_png(&stage_path(Stage::Opacity));
     report.check(
         "the transform and opacity images are different files with different contents",
         "different",
@@ -461,6 +468,69 @@ fn b05b_trace_fixtures() {
             "not both"
         }
         .to_string(),
+    );
+
+    // ---- IDs that cannot be file names as written ----------------------------------------
+    //
+    // Document 19 puts no character restriction on a layer ID and the reference shot already
+    // carries a non-ASCII one. ADR-012 makes the trace file name a label, not the ID, so the
+    // rule is that whatever comes out is usable on its own: a name made only of separators, or
+    // one that grows without limit, is safe in its characters and unusable in practice. Two
+    // layers, traced into their own directory so the file listing above stays exact.
+    //
+    // `桜 / レイヤー 2` is ten characters, nine of which are not ASCII letters or digits, so it
+    // reduces to nine separators and a `2`; the separators are all leading, and what remains is
+    // `2`. The second ID is two hundred `z`, of which the first forty-eight survive.
+    let names_dir = repo("target/b05b_names");
+    if names_dir.exists() {
+        fs::remove_dir_all(&names_dir).expect("clear");
+    }
+    let long_id = "z".repeat(200);
+    let awkward = FramePlan {
+        width: 2,
+        height: 2,
+        layers: vec![
+            LayerDraw {
+                id: Id::new("桜 / レイヤー 2"),
+                source: working(2, 2, BG),
+                transform: Affine::IDENTITY,
+                opacity: 1.0,
+                blend: BlendMode::Normal,
+            },
+            LayerDraw {
+                id: Id::new(&long_id),
+                source: working(2, 2, BG),
+                transform: Affine::IDENTITY,
+                opacity: 1.0,
+                blend: BlendMode::Normal,
+            },
+        ],
+    };
+    let (_, awkward_written) = render_traced(
+        &awkward,
+        2,
+        &TraceRequest {
+            dir: names_dir,
+            frame: 0,
+        },
+    )
+    .expect("trace render");
+    let decode_name = |index: usize| {
+        awkward_written
+            .iter()
+            .find(|i| i.layer_index == index && i.stage == Stage::Decode)
+            .map(|i| i.path.file_name().unwrap().to_string_lossy().to_string())
+            .unwrap_or_else(|| format!("no decode image was written for layer {index}"))
+    };
+    report.check(
+        "an ID that reduces to separators keeps what is left of it, not the separators",
+        "layer00_2_decode.png",
+        decode_name(0),
+    );
+    report.check(
+        "an ID of two hundred characters is shortened to a file name a filesystem accepts",
+        "layer01_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_decode.png",
+        decode_name(1),
     );
 
     report.note(

@@ -344,6 +344,41 @@ fn b05a_transform_fixtures() {
          one. Every other fixture on this page is compared exactly.",
     );
 
+    // Document 21's order is `T(position) * R(rotation) * S(scale) * T(-anchor)`: the scale
+    // happens first, in the layer's own axes, and the rotation then turns the stretched result.
+    // Every rotation above uses a uniform scale, where the two orders agree. This one does not.
+    //
+    // 5x5, impulse at pixel (1, 2) whose centre is (1.5, 2.5), anchor and position both
+    // (2.5, 2.5), scale (2, 1), rotation 90. By hand:
+    //   T(-anchor) -> (-1, 0); S(2, 1) -> (-2, 0); R(90) with cos=0, sin=1 -> (0, -2);
+    //   T(position) -> (2.5, 0.5), the centre of pixel (2, 0).
+    // Scaling after the rotation instead would stretch along the turned axis and put the
+    // impulse at (2.5, 1.5), one pixel lower.
+    let stretched = render(
+        &plan(
+            5,
+            5,
+            one_layer(
+                impulse_source(5, (1, 2)),
+                Affine::from_transform((2.5, 2.5), (2.5, 2.5), (2.0, 1.0), 90.0),
+            ),
+        ),
+        5,
+    );
+    report.check(
+        "a non-uniform scale is applied in the layer's own axes, before the rotation turns them",
+        "[0.250000, 0.500000, 0.750000, 1.000000]",
+        rounded(&stretched, 2, 0),
+    );
+    // The stretch doubles the impulse's footprint along the turned axis, so the pixel below it
+    // takes exactly half. Its centre (2.5, 1.5) maps back to source (2.0, 2.5), which is the
+    // boundary between the impulse and its empty neighbour: bilinear weights 0.5 and 0.5.
+    report.check(
+        "the doubled axis spreads the impulse: the pixel below takes exactly half of it",
+        "[0.125000, 0.250000, 0.375000, 0.500000]",
+        rounded(&stretched, 2, 1),
+    );
+
     // A 360 degree rotation is the identity geometrically but not in floating point, and it is
     // worth knowing which. This is not one of document 25's fixtures; it is here because the
     // row above claims a tolerance and this shows the size of the thing being tolerated.
@@ -444,6 +479,25 @@ fn b05a_transform_fixtures() {
         "layer opacity 0.5 halves the premultiplied sample, RGB and alpha together",
         scaled(IMPULSE, 0.5),
         px(&faded, 2, 2),
+    );
+
+    report.check(
+        "a layer at zero opacity contributes nothing at all, not a faint one",
+        0.0,
+        total_alpha(&render(
+            &plan(
+                5,
+                5,
+                vec![LayerDraw {
+                    id: Id::new("fixture"),
+                    source: impulse_source(5, (2, 2)),
+                    transform: Affine::IDENTITY,
+                    opacity: 0.0,
+                    blend: BlendMode::Normal,
+                }],
+            ),
+            5,
+        )),
     );
 
     // The sampler on its own, away from the renderer, at a coordinate whose weights are not

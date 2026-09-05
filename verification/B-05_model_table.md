@@ -1,6 +1,6 @@
 # B-05 model, commands and undo
 
-Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **61 of 61 checks pass.**
+Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **66 of 66 checks pass.**
 
 ## What to check by eye
 
@@ -39,9 +39,12 @@ The before file is 301 lines and the after file is 386 lines.
 | reorder: an untouched layer is bit-identical afterwards | `Layer { id: Id("layer-4"), name: "layer4", asset_id: Id("asset-layer4"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [ExposureSpan { start_frame: 0, end_frame_exclusive: 3, drawing_number: 0 }, ExposureSpan { start_frame: 3, end_frame_exclusive: 6, drawing_number: 1 }], matte: None, blend_mode: Normal }` | `Layer { id: Id("layer-4"), name: "layer4", asset_id: Id("asset-layer4"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [ExposureSpan { start_frame: 0, end_frame_exclusive: 3, drawing_number: 0 }, ExposureSpan { start_frame: 3, end_frame_exclusive: 6, drawing_number: 1 }], matte: None, blend_mode: Normal }` | PASS |
 | reorder undone: the exact prior order is back | `layer1, sakura, layer3, layer4` | `layer1, sakura, layer3, layer4` | PASS |
 | reorder redone: the moved order is back | `sakura, layer3, layer4, layer1` | `sakura, layer3, layer4, layer1` | PASS |
+| reorder: an index in the middle of the stack is the place the layer lands | `sakura, layer1, layer3, layer4` | `sakura, layer1, layer3, layer4` | PASS |
+| reorder into the middle undone | `sakura, layer3, layer4, layer1` | `sakura, layer3, layer4, layer1` | PASS |
 | scalar edit: rotation is 12.5 degrees | `12.5` | `12.5` | PASS |
 | scalar edit undone: the exact prior value returns | `0` | `0` | PASS |
 | scalar edit redone: the exact value returns | `12.5` | `12.5` | PASS |
+| undo after redo still undoes | `0` | `0` | PASS |
 | opacity: a value above 1 is clamped, not rejected | `1` | `1` | PASS |
 | scale: a negative value is accepted, because it mirrors | `(-1, 1)` | `(-1, 1)` | PASS |
 | property type: a scalar cannot be written to position | `COMMAND_INVALID_VALUE` | `COMMAND_INVALID_VALUE` | PASS |
@@ -65,14 +68,16 @@ The before file is 301 lines and the after file is 386 lines.
 | drag cancelled: no history record and the value is restored | `13, (100, 0)` | `13, (100, 0)` | PASS |
 | transaction: an invalid second command rejects the whole batch | `COMMAND_INVALID_VALUE` | `COMMAND_INVALID_VALUE` | PASS |
 | transaction rejected: the asset from the first command was not added either | `4` | `4` | PASS |
-| transaction rejected: revision unchanged | `19` | `19` | PASS |
+| transaction rejected: revision unchanged | `23` | `23` | PASS |
 | transaction: import plus create layer is one history record | `14` | `14` | PASS |
 | transaction: both parts landed | `5 assets, 5 layers` | `5 assets, 5 layers` | PASS |
 | transaction undone: both parts are gone in one step | `4 assets, 4 layers` | `4 assets, 4 layers` | PASS |
+| a drag that ends where it started leaves no history item | `14, (100, 0)` | `14, (100, 0)` | PASS |
 | matte: layer 3 now has a dependent | `layer-fx` | `layer-fx` | PASS |
 | matte: a cycle is rejected | `MATTE_CYCLE` | `MATTE_CYCLE` | PASS |
 | matte: a reference to a layer that is not there is rejected | `MATTE_REFERENCE_MISSING` | `MATTE_REFERENCE_MISSING` | PASS |
 | matte: the dependent layer still records the reference after its target is deleted | `layer-3` | `layer-3` | PASS |
+| the deleted layer's record is gone, not merely unlisted | `absent, 4 layers` | `absent, 4 layers` | PASS |
 | matte: undoing the delete restores the target and the dependent exactly | `Layer { id: Id("layer-fx"), name: "fx", asset_id: Id("asset-effects"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [], matte: Some(MatteReference { layer_id: Id("layer-3") }), blend_mode: Normal }` | `Layer { id: Id("layer-fx"), name: "fx", asset_id: Id("asset-effects"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [], matte: Some(MatteReference { layer_id: Id("layer-3") }), blend_mode: Normal }` | PASS |
 | matte: the restored target is back in its original position | `sakura, layer3, layer4, layer1, fx` | `sakura, layer3, layer4, layer1, fx` | PASS |
 | after save: dirty | `false` | `false` | PASS |

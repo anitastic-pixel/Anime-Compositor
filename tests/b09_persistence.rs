@@ -28,7 +28,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anime_compositor::command::Command;
+use anime_compositor::command::{Command, Document};
 use anime_compositor::diagnostics::DiagnosticId;
 use anime_compositor::model::{Asset, Id, Project, Value};
 use anime_compositor::persist::{self, Preserved, AUTOSAVE_SLOTS};
@@ -575,18 +575,21 @@ fn b09_persistence() {
             name: "Cel three".to_string(),
         })
         .expect("rename");
-    let failure = persist::save_limited(&path, &mut loaded.document, &loaded.preserved, Some(120))
-        .expect_err("the injected disk-full must fail the save");
+    let failure = persist::save_limited(&path, &mut loaded.document, &loaded.preserved, Some(120));
     report.check(
         "FX-IO-002: a write that runs out of room reports the right thing",
         "PROJECT_SAVE_FAILED",
-        failure.id.as_str(),
+        match &failure {
+            Err(d) => d.id.as_str().to_string(),
+            Ok(()) => "the save reported success".to_string(),
+        },
     );
     report.check(
         "FX-IO-001: and the project on disk is still the last one that saved, byte for byte",
         "identical",
         {
-            let after = fs::read_to_string(&path).expect("read back");
+            let after = fs::read_to_string(&path)
+                .unwrap_or_else(|e| format!("the project file could not be read back: {e}"));
             if after == good {
                 "identical".to_string()
             } else {
@@ -594,6 +597,36 @@ fn b09_persistence() {
             }
         },
     );
+    // Document 07: "Validate before writing." What that guard prevents is the worst thing this
+    // file can do: replace a good project with one the application can no longer open. A project
+    // whose layer names an asset it does not have is exactly what loading refuses, so saving it
+    // has to refuse too, and has to refuse before the file on disk is touched.
+    let mut orphaned = loaded.document.project().clone();
+    orphaned.assets.clear();
+    let mut orphaned_doc = Document::new(orphaned);
+    let refused = persist::save(&path, &mut orphaned_doc, &Preserved::none());
+    report.check(
+        "a project this build could not reopen is refused instead of written",
+        "PROJECT_SAVE_FAILED",
+        match &refused {
+            Err(d) => d.id.as_str().to_string(),
+            Ok(()) => "the save reported success".to_string(),
+        },
+    );
+    report.check(
+        "and the good project it would have replaced is still there, byte for byte",
+        "identical",
+        {
+            let after = fs::read_to_string(&path)
+                .unwrap_or_else(|e| format!("the project file could not be read back: {e}"));
+            if after == good {
+                "identical".to_string()
+            } else {
+                first_difference(&good, &after)
+            }
+        },
+    );
+
     report.check(
         "after a failed save the changes are still unsaved, so nothing is silently lost",
         true,
@@ -615,8 +648,9 @@ fn b09_persistence() {
         "the failure tells the person their work is still open",
         true,
         failure
-            .remediation
-            .as_deref()
+            .as_ref()
+            .err()
+            .and_then(|d| d.remediation.as_deref())
             .unwrap_or_default()
             .contains("still open"),
     );
@@ -688,25 +722,33 @@ fn b09_persistence() {
     report.check(
         "the newest recovery snapshot is offered first",
         file_name(&sixth),
-        file_name(&candidates[0].path),
+        match candidates.first() {
+            Some(c) => file_name(&c.path),
+            None => "no recovery snapshot was offered".to_string(),
+        },
     );
-    let offer = persist::recovery_diagnostic(&candidates).expect("there are candidates");
+    let newest_snapshot = match candidates.first() {
+        Some(c) => fs::read_to_string(&c.path)
+            .unwrap_or_else(|e| format!("the newest recovery snapshot could not be read: {e}")),
+        None => "no recovery snapshot was written".to_string(),
+    };
     report.check(
         "and the offer is information, not an error (document 28)",
         "PROJECT_RECOVERY_AVAILABLE / Info",
-        format!("{} / {:?}", offer.id.as_str(), offer.severity),
+        match persist::recovery_diagnostic(&candidates) {
+            Some(offer) => format!("{} / {:?}", offer.id.as_str(), offer.severity),
+            None => "nothing was offered to recover".to_string(),
+        },
     );
     report.check(
         "a recovery snapshot is a complete project that opens on its own",
         "opens with none",
-        opening(&fs::read_to_string(&candidates[0].path).expect("read snapshot")),
+        opening(&newest_snapshot),
     );
     report.check(
         "and it holds the unsaved edit the manual save does not",
         true,
-        fs::read_to_string(&candidates[0].path)
-            .expect("read")
-            .contains("Edited but not saved")
+        newest_snapshot.contains("Edited but not saved")
             && !manual.contains("Edited but not saved"),
     );
     report.check(
@@ -888,6 +930,52 @@ fn b09_persistence() {
         }
     });
 
+    // ---- three cases no fixture project contains --------------------------------------------
+    //
+    // Document 19 numbers drawings, and a number is not a word: 2 comes before 10. Every fixture
+    // project stops at drawing 2, where numeric and alphabetical order agree.
+    let decade = persist::load_str(&frames_across_a_decade()).expect("the decade project opens");
+    let decade_saved = persist::to_json(decade.document.project(), &decade.preserved);
+    let frame_keys: Vec<&str> = decade_saved
+        .lines()
+        .filter_map(|l| l.trim().split(':').next())
+        .filter(|k| ["\"1\"", "\"2\"", "\"10\""].contains(k))
+        .collect();
+    report.check(
+        "drawing numbers are written in numeric order, so drawing 2 comes before drawing 10",
+        "\"1\", \"2\", \"10\"",
+        frame_keys.join(", "),
+    );
+
+    // Document 19: an asset ID identifies an asset. Two records claiming one ID leave every
+    // layer naming it pointing at whichever record the loader happened to keep.
+    report.check(
+        "two asset records claiming the same ID are refused, not silently deduplicated",
+        "PROJECT_SCHEMA_INVALID",
+        opening(&two_assets_sharing_one_id()),
+    );
+
+    // ADR-008 and CLAUDE.md: data this build does not model is preserved. Preserved onto the
+    // record it came from, not onto the first one: a fingerprint that migrates between assets
+    // is worse than one that is dropped, because it still looks like it was kept.
+    let pair_of_assets =
+        persist::load_str(&two_assets_with_their_own_unknown_keys()).expect("two assets open");
+    let pair_saved = persist::to_json(pair_of_assets.document.project(), &pair_of_assets.preserved);
+    let fingerprints: Vec<&str> = pair_saved
+        .lines()
+        .filter_map(|l| {
+            l.trim()
+                .trim_end_matches(',')
+                .strip_prefix("\"content_fingerprint\": \"")
+                .and_then(|v| v.strip_suffix("\""))
+        })
+        .collect();
+    report.check(
+        "each asset keeps its own preserved field, not the first asset's",
+        "belongs-to-asset-other, belongs-to-asset-cel",
+        fingerprints.join(", "),
+    );
+
     // -- Artifacts ---------------------------------------------------------------------------
     fs::write(repo("verification/B-09_saved_after_edit.json"), &edited).expect("write artifact");
     write_report(&report);
@@ -959,6 +1047,69 @@ fn two_layer_matte_cycle() -> String {
         "\"layer_order\": [\n        \"layer-cel\"\n      ],",
         "\"layer_order\": [\n        \"layer-a\",\n        \"layer-b\"\n      ],",
     )
+}
+
+/// The cel-holds fixture with its drawing numbers spread across a decade boundary, written
+/// in the order that makes the mistake visible: 10 first, then 2, then 1.
+fn frames_across_a_decade() -> String {
+    fixture("cel_holds_project").replace(
+        "        \"1\": \"media/cel_0001.png\",\n        \"2\": \"media/cel_0002.png\"",
+        "        \"10\": \"media/cel_0010.png\",\n        \"2\": \"media/cel_0002.png\",\n        \"1\": \"media/cel_0001.png\"",
+    )
+}
+
+/// The cel-holds fixture with a second asset record claiming `asset-cel`.
+fn two_assets_sharing_one_id() -> String {
+    let extra = [
+        "    {",
+        "      \"id\": \"asset-cel\",",
+        "      \"kind\": \"image_sequence\",",
+        "      \"name\": \"A second record claiming one ID\",",
+        "      \"pattern\": \"cel_####.png\",",
+        "      \"frames\": {",
+        "        \"1\": \"media/cel_0001.png\"",
+        "      },",
+        "      \"interpretation\": {",
+        "        \"color_space\": \"srgb\",",
+        "        \"alpha\": \"straight\"",
+        "      }",
+        "    },",
+        "",
+    ]
+    .join("\n");
+    fixture("cel_holds_project").replace("  \"assets\": [\n", &format!("  \"assets\": [\n{extra}"))
+}
+
+/// The cel-holds fixture with a second, differently named asset, where both assets carry
+/// a field this build does not model and each field says which asset it belongs to.
+fn two_assets_with_their_own_unknown_keys() -> String {
+    let extra = [
+        "    {",
+        "      \"id\": \"asset-other\",",
+        "      \"kind\": \"image_sequence\",",
+        "      \"name\": \"Other\",",
+        "      \"pattern\": \"other_####.png\",",
+        "      \"frames\": {",
+        "        \"1\": \"media/other_0001.png\"",
+        "      },",
+        "      \"interpretation\": {",
+        "        \"color_space\": \"srgb\",",
+        "        \"alpha\": \"straight\"",
+        "      },",
+        "      \"content_fingerprint\": \"belongs-to-asset-other\"",
+        "    },",
+        "",
+    ]
+    .join("\n");
+    fixture("cel_holds_project")
+        .replace(
+            "  \"assets\": [\n",
+            &format!("  \"assets\": [\n{extra}"),
+        )
+        .replace(
+            "        \"alpha\": \"straight\"\n      }\n    }\n  ],",
+            "        \"alpha\": \"straight\"\n      },\n      \"content_fingerprint\": \"belongs-to-asset-cel\"\n    }\n  ],",
+        )
 }
 
 fn write_report(report: &Report) {

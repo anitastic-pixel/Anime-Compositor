@@ -96,6 +96,8 @@ Version 0.7 adds D-22, from B-05a: document 21 and document 19 disagree about wh
 
 Version 0.8 adds D-23, from B-05b: ADR-012 asks for trace images in the working space and for images the owner can look at, and linear light cannot be both. Trace mode itself raises no new test; it is the diagnostic facility document 12's protocol leans on, and its results are in `verification/B-05b_trace_table.md`.
 
+Version 0.13 records the second hardening pass, which covered the four units the first did not reach: 52 further deliberate single-change defects across B-05, B-05a, B-05b and B-09, all now caught, twelve of them only after those units' fixtures were strengthened. Every merged unit's fixture has now been shown capable of failing. No decision was needed and no D-number was added; the report is `verification/HARDENING_mutation_report.md`, and the four tables grew to 66, 30, 33 and 92 checks.
+
 Version 0.12 records the hardening pass: 55 deliberate single-change defects across B-02, B-03, B-04, B-04b and B-05c, all now caught, six of them only after T-01's fixture was strengthened. No decision was needed and no D-number was added; the report is `verification/HARDENING_mutation_report.md`.
 
 Version 0.11 adds D-25, from B-04b: document 28 requires repeated frame-level warnings to be rate-limited while retaining counts and ranges, and specifies no limit and no shape, so the implementation had to choose both. The rate-limiting itself is now RUN and PASSING against the reference shot's twenty-frame sequence gap, evidence in `verification/B-04b_frame_log_table.md`. It closes the last item document 28 asked of B-04.
