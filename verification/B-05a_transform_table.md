@@ -1,6 +1,6 @@
 # B-05a transform fixtures
 
-Test T-03 (render half), requirement R-03, fixtures FX-XF-001 through FX-XF-004 of document 25. Produced by `tests/b05a_transform.rs`. **27 of 27 checks pass.**
+Test T-03 (render half), requirement R-03, fixtures FX-XF-001 through FX-XF-004 of document 25. Produced by `tests/b05a_transform.rs`. **30 of 30 checks pass.**
 
 ## What to check by eye
 
@@ -39,11 +39,14 @@ Beside them are rows for the edge rule, opacity and scale, because those are the
 | FX-XF-004: a 90 degree rotation about the anchor sends left-of-centre to above-centre | `[0.250000, 0.500000, 0.750000, 1.000000]` | `[0.250000, 0.500000, 0.750000, 1.000000]` | PASS |
 | FX-XF-004: the pixel the impulse left is empty to six decimal places | `[0.000000, 0.000000, 0.000000, 0.000000]` | `[0.000000, 0.000000, 0.000000, 0.000000]` | PASS |
 | FX-XF-004: total alpha is preserved, so the rotation neither lost nor invented cover | `1.000000` | `1.000000` | PASS |
+| a non-uniform scale is applied in the layer's own axes, before the rotation turns them | `[0.250000, 0.500000, 0.750000, 1.000000]` | `[0.250000, 0.500000, 0.750000, 1.000000]` | PASS |
+| the doubled axis spreads the impulse: the pixel below takes exactly half of it | `[0.125000, 0.250000, 0.375000, 0.500000]` | `[0.125000, 0.250000, 0.375000, 0.500000]` | PASS |
 | a 360 degree rotation returns the impulse to six decimal places | `[0.250000, 0.500000, 0.750000, 1.000000]` | `[0.250000, 0.500000, 0.750000, 1.000000]` | PASS |
 | scale 1.0 is identity: the opaque 4x4 source stays 4x4 of fully opaque output | `16` | `16` | PASS |
 | scale 2.0 doubles it: 8x8 of coverage with a fully opaque 6x6 interior | `36` | `36` | PASS |
 | a scale of zero renders nothing rather than dividing by zero | `0` | `0` | PASS |
 | layer opacity 0.5 halves the premultiplied sample, RGB and alpha together | `[0.125, 0.25, 0.375, 0.5]` | `[0.125, 0.25, 0.375, 0.5]` | PASS |
+| a layer at zero opacity contributes nothing at all, not a faint one | `0` | `0` | PASS |
 | bilinear weight of the one nonzero tap at (0.9, 0.6) is 0.4 * 0.9 | `0.360000` | `0.360000` | PASS |
 | and swapping the sample coordinates gives a different answer, 0.1 * 0.6 | `0.060000` | `0.060000` | PASS |
 

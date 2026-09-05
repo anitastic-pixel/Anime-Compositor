@@ -13,9 +13,13 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**55 breaks were made across five units. All 55 were caught.**
+**107 breaks were made across nine units. All 107 were caught.**
 
-Six of them were not caught the first time. They are listed at the end, with what was added.
+That number is the total of two passes. The first covered five units and made 55 breaks, six of
+which got through before the import fixture was strengthened. The second covered the remaining
+four units - the document model, transform, the trace and persistence - and made 52 breaks,
+twelve of which got through before their fixtures were strengthened. Both sets of survivors are
+listed at the end, with what was added for each.
 
 
 ## B-02 colour and alpha
@@ -103,6 +107,74 @@ Six of them were not caught the first time. They are listed at the end, with wha
 | M11 | the summary is given a fresh severity instead of the one it stands for | yes | `reference shot: the summary keeps the severity: expected WARNING got INFO` |
 
 
+## B-05 the document model, keyframes, commands and undo
+
+`src/model.rs, src/command.rs`, checked by `tests/b05_model.rs`, whose table is `verification/B-05_model_table.md`.
+
+**14 of 14 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| K1 | before the first keyframe the property reads its base value, not the first keyframe's | yes | `rule, before the first keyframe (frame -5) expected "(20, 0)" got "(0, 0)"` |
+| K2 | after the last keyframe the property reads its base value, not the last keyframe's | yes | `rule, on the last keyframe expected "(100, 60)" got "(0, 0)"` |
+| K3 | a hold keyframe interpolates like a linear one | yes | `rule, inside a hold segment (frame 6) expected "(20, 0)" got "(60, 0)"` |
+| K4 | linear interpolation runs backwards between the two keyframes | yes | the check inside `interpolation_mode_belongs_to_the_segment_that_starts_at_it` |
+| K5 | the interpolation fraction is divided by one frame too many | yes | `rule, halfway along a linear segment (frame 18) expected "(100, 30)" got "(100, 27.692307692307693)"` |
+| K6 | setting a keyframe where one exists adds a second at the same frame | yes | `setting a keyframe where one exists replaces it rather than duplicating expected "3" got "4"` |
+| K7 | a Vec2 property interpolates only its x component | yes | `rule, halfway along a linear segment (frame 18) expected "(100, 30)" got "(100, 0)"` |
+| L1 | a matte cycle is never detected | yes | `matte: a cycle is rejected expected "MATTE_CYCLE" got "applied"` |
+| L2 | moving a layer lands it one place below where it was asked to go | yes | `reorder: an index in the middle of the stack is the place the layer lands expected "sakura, layer1, layer3, layer4" got "sakura, layer3, layer1, la...` |
+| L3 | deleting a layer drops it from the order but leaves its record in the map | yes | `the deleted layer's record is gone, not merely unlisted expected "absent, 4 layers" got "still present, 4 layers"` |
+| U1 | a layer's matte dependents are read as the layers its own matte points at | yes | `matte: layer 3 now has a dependent expected "layer-fx" got "layer-3"` |
+| U2 | a transaction whose later command fails still commits the earlier ones | yes | the check inside `b05_model_and_undo` |
+| U3 | redo stores the state before the original edit instead of before the redo | yes | `undo after redo still undoes expected "0" got "12.5"` |
+| U4 | a drag that ends where it started still becomes an undo item | yes | `a drag that ends where it started leaves no history item expected "14, (100, 0)" got "15, (100, 0)"` |
+
+
+## B-05a transform, sampling and opacity
+
+`src/render.rs`, checked by `tests/b05a_transform.rs`, whose table is `verification/B-05a_transform_table.md`.
+
+**12 of 12 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| R1 | positive rotation turns anticlockwise on screen instead of clockwise | yes | `FX-XF-004: a 90 degree rotation about the anchor sends left-of-centre to above-centre expected "[0.250000, 0.500000, 0.750000, 1.000000]" got "[0.0...` |
+| R2 | the transform applies rotation before scale, not scale before rotation | yes | `a non-uniform scale is applied in the layer's own axes, before the rotation turns them expected "[0.250000, 0.500000, 0.750000, 1.000000]" got "[0....` |
+| R3 | the anchor is translated towards the origin instead of away from it | yes | `FX-XF-004: a 90 degree rotation about the anchor sends left-of-centre to above-centre expected "[0.250000, 0.500000, 0.750000, 1.000000]" got "[0.0...` |
+| R4 | a destination pixel is sampled at its top-left corner, not its centre | yes | `FX-XF-001: identity reproduces every source pixel exactly, bit for bit expected "identical" got "first difference at float 3"` |
+| R5 | bilinear weights are taken from source pixel corners, not centres | yes | `FX-XF-001: identity reproduces every source pixel exactly, bit for bit expected "identical" got "first difference at float 0"` |
+| R6 | a sample off the top or bottom edge repeats the edge row instead of reading as transparent | yes | `an opaque edge shifted half a pixel fades to 0.25 at its corner, it does not clamp expected "0.25" got "0.5"` |
+| R7 | the vertical bilinear weight is the horizontal one | yes | `a non-uniform scale is applied in the layer's own axes, before the rotation turns them expected "[0.250000, 0.500000, 0.750000, 1.000000]" got "[0....` |
+| R8 | layer opacity fades the colour but not the coverage | yes | `layer opacity 0.5 halves the premultiplied sample, RGB and alpha together expected "[0.125, 0.25, 0.375, 0.5]" got "[0.125, 0.25, 0.375, 1]"` |
+| R9 | a layer scaled to zero is drawn untransformed instead of not at all | yes | `a scale of zero renders nothing rather than dividing by zero expected "0" got "1"` |
+| R10 | the inverse transform's translation has the wrong sign | yes | `FX-XF-002: the impulse lands whole on the pixel one to the right expected "[0.25, 0.5, 0.75, 1]" got "[0, 0, 0, 0]"` |
+| R11 | composition applies the outer transform first | yes | `FX-XF-004: a 90 degree rotation about the anchor sends left-of-centre to above-centre expected "[0.250000, 0.500000, 0.750000, 1.000000]" got "[0.0...` |
+| R12 | a layer at zero opacity is drawn at full strength | yes | `a layer at zero opacity contributes nothing at all, not a faint one expected "0" got "1"` |
+
+
+## B-05b the render trace
+
+`src/trace.rs`, checked by `tests/b05b_trace.rs`, whose table is `verification/B-05b_trace_table.md`.
+
+**12 of 12 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| M1 | the transform and opacity stage names are swapped | yes | `each image names its pipeline stage` |
+| M2 | the transform stage image already has the layer's opacity applied | yes | `the transform image is written before opacity, so fg is still fully opaque there` |
+| M3 | the composite stage shows the stack below the layer, not including it | yes | `the top layer's composite image is byte-identical to frame.png` |
+| M4 | the decode stage writes a blank frame-sized image instead of the source | yes | `the fg decode image is at the layer's own 2x2 extent, not the composition's` |
+| M5 | layer IDs go into file names with only the slash replaced | yes | `an ID that reduces to separators keeps what is left of it, not the separators` |
+| M6 | PNG tags are written as Latin-1 tEXt instead of UTF-8 iTXt | yes | the check inside `b05b_a_unicode_layer_id_survives_the_round_trip` |
+| M7 | the opacity stage claims document 21 step 4 instead of step 6 | yes | `each image names the document 21 step it belongs to` |
+| M8 | the manifest lists only the first of the stages this build does not implement | yes | `the manifest names every stage of document 21's order this build does not implement` |
+| M9 | stage file names do not pad the layer index, so layer 10 sorts before layer 2 | yes | `the trace directory holds exactly the eight stage images, the frame and the manifest` |
+| M10 | a name that cleans to leading or trailing dashes keeps them | yes | `an ID that reduces to separators keeps what is left of it, not the separators` |
+| M11 | a very long layer ID is not shortened before it becomes a file name | yes | `an ID of two hundred characters is shortened to a file name a filesystem accepts` |
+| M12 | the per-frame trace folder is not zero-padded, so frame 10 sorts before frame 2 | yes | the check inside `b05b_a_unicode_layer_id_survives_the_round_trip` |
+
+
 ## B-05c blend modes
 
 `src/composite.rs, src/render.rs`, checked by `tests/b05c_blend.rs`, whose table is `verification/B-05c_blend_table.md`.
@@ -123,7 +195,31 @@ Six of them were not caught the first time. They are listed at the end, with wha
 | M10 | layer opacity is applied after the blend instead of before it (step 6 skipped) | yes | `the renderer applies the layer's mode: all four pixels of a multiply frame` |
 
 
-## The six that got through first, and what was added
+## B-09 project save, load and recovery
+
+`src/persist.rs`, checked by `tests/b09_persistence.rs`, whose table is `verification/B-09_persistence_table.md`.
+
+**14 of 14 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| P1 | saving drops the keys the file already had and this build does not understand | yes | `minimal_project.json: opening it and saving it reproduces the file — expected "identical", got "line 22: \"      \\\"work_area\\\": {\" became \"  ...` |
+| P2 | numeric keys are sorted as text, so drawing 10 comes before drawing 2 | yes | `drawing numbers are written in numeric order, so drawing 2 comes before drawing 10 — expected "\"1\", \"2\", \"10\"", got "\"1\", \"10\", \"2\""` |
+| P3 | keys are written in alphabetical order rather than the schema's order | yes | `minimal_project.json: opening it and saving it reproduces the file — expected "identical", got "line 2: \"  \\\"schema_version\\\": 0,\" became \" ...` |
+| P4 | a project saved by a newer build is opened rather than refused | yes | `a project saved by a newer version is refused by name (document 07) — expected "PROJECT_SCHEMA_NEWER", got "PROJECT_SCHEMA_INVALID"` |
+| P5 | two assets may share one ID | yes | `two asset records claiming the same ID are refused, not silently deduplicated — expected "PROJECT_SCHEMA_INVALID", got "opens with none"` |
+| P6 | a layer's asset reference is satisfied by the project having any asset at all | yes | `a layer naming an asset the project does not have is refused — expected "PROJECT_SCHEMA_INVALID", got "opens with none"` |
+| P7 | the missing-media check is inverted: the files that are there are reported gone | yes | `the warning names the file that is missing, not the one that is there — expected "true", got "false"` |
+| P8 | preserved unknown keys are matched to the first entry, not the one with that ID | yes | `each asset keeps its own preserved field, not the first asset's — expected "belongs-to-asset-other, belongs-to-asset-cel", got "belongs-to-asset-ot...` |
+| P9 | scale is written to the file as a factor instead of a percentage | yes | `cel_holds_project.json: opening it and saving it reproduces the file — expected "identical", got "line 72: \"                100,\" became \"      ...` |
+| P10 | the save writes over the project directly instead of a temporary sibling | yes | `FX-IO-001: and the project on disk is still the last one that saved, byte for byte — expected "identical", got "line 1: \"{\" became \"the project ...` |
+| P11 | the save skips document 07's validate-before-writing step | yes | `a project this build could not reopen is refused instead of written — expected "PROJECT_SAVE_FAILED", got "the save reported success"` |
+| P12 | the autosave writes over the manual save instead of a recovery slot | yes | `the first five autosaves use five different files — expected "5", got "1"` |
+| P13 | the autosave overwrites the newest recovery slot rather than the oldest | yes | `the sixth autosave reuses the oldest of the five slots rather than making a sixth — expected "shot.autosave-0.json", got "shot.autosave-4.json"` |
+| P14 | a write that stops short of the whole file is reported as a success | yes | `FX-IO-002: a write that runs out of room reports the right thing — expected "PROJECT_SAVE_FAILED", got "the save reported success"` |
+
+
+## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
 build with any of them in it would have looked correct. Each is now covered by a named row in
@@ -138,12 +234,40 @@ build with any of them in it would have looked correct. Each is now covered by a
 | A run of missing drawings swallows the gap after it, so 101-103 and 106-108 is reported as 101-108 | No case had two separate holes | *the gap warning names runs and keeps the hole between them* |
 | The naming pattern is the first name seen rather than the commonest | No case had a majority naming with an odd file out | *two names of one shape and one of another: the pattern is the commonest* |
 
-None of these six is a bug in the build as it stands. They are things the build was free to get
-wrong later without anything saying so.
+## Second pass: the twelve that got through, and what was added
+
+Four units, 52 breaks, twelve survivors. Three of the twelve are the kind of fault that is
+invisible while it happens and expensive afterwards: an undo that runs and does nothing, a
+fingerprint that moves from one drawing to another, and a good project file replaced by one the
+application can no longer open.
+
+| Unit | Break that survived | Why nothing noticed | The row added |
+|---|---|---|---|
+| B-05 | Moving a layer lands it one place below where it was asked to go | Every reorder in the test moved a layer to the end of the stack, where "before this layer" and "after it" mean the same place | *reorder: an index in the middle of the stack is the place the layer lands* |
+| B-05 | Deleting a layer drops it from the visible order but leaves its record behind | The test read the order, which looked right; nothing asked whether the layer itself was gone | *the deleted layer's record is gone, not merely unlisted* |
+| B-05 | Redo remembers the wrong prior state, so the next undo runs and changes nothing | No case undid anything after a redo | *undo after redo still undoes* |
+| B-05 | A drag that wanders and returns to where it started still becomes an undo item | Every drag in the test ended somewhere new | *a drag that ends where it started leaves no history item* |
+| B-05a | The transform turns the layer first and stretches it afterwards, instead of the other way round | Every rotation in the table used a uniform scale, where the two orders give the same answer | *a non-uniform scale is applied in the layer's own axes, before the rotation turns them*, and the half-weight row beneath it |
+| B-05a | A layer set to zero opacity is drawn at full strength | Opacity was tested at 0.5 and at 1.0, never at 0 | *a layer at zero opacity contributes nothing at all, not a faint one* |
+| B-05b | A layer name that reduces to nothing but separators keeps them all | The only unusual name in the test was checked for being ASCII, which a row of dashes also is | *an ID that reduces to separators keeps what is left of it, not the separators* |
+| B-05b | A very long layer name is not shortened before it becomes a file name | Same reason: two hundred characters are as ASCII as three | *an ID of two hundred characters is shortened to a file name a filesystem accepts* |
+| B-09 | Drawing numbers are written in alphabetical order, so drawing 10 lands before drawing 2 | Every fixture project stops at drawing 2, where alphabetical and numeric order agree | *drawing numbers are written in numeric order, so drawing 2 comes before drawing 10* |
+| B-09 | Two assets are allowed to claim the same ID | No fixture project contains a duplicate ID | *two asset records claiming the same ID are refused, not silently deduplicated* |
+| B-09 | Data this build does not understand is preserved onto the first asset instead of the one it came from | The fixture projects have one asset each, so first and correct are the same record | *each asset keeps its own preserved field, not the first asset's* |
+| B-09 | Saving skips the step that checks the file can be opened again before writing it | Every save in the test was of a project that was valid anyway | *a project this build could not reopen is refused instead of written*, and *the good project it would have replaced is still there, byte for byte* |
+
+None of the eighteen survivors, across both passes, is a bug in the build as it stands. They are
+things the build was free to get wrong later without anything saying so.
+
+A further handful of breaks were caught only by a crash rather than by a named row - the test
+stopped and printed a stack trace instead of showing the owner a table with one line marked
+wrong. Every such place found in this pass now reports a plain sentence and carries on, so a
+future failure there reads like the rest of the table.
 
 ## What this pass did not cover
 
-B-05 (the document model, its commands and its undo) and B-05a (transform and opacity) have not
-been broken on purpose yet. Their tables pass; whether their tables *could* fail is not yet
-known. B-05b (project save and load) and B-09 (the render trace) are likewise untested this way.
-That is the next hardening item.
+Every unit merged to `main` has now been broken on purpose at least once. What has not been
+tested this way is the reference shot render as a whole: the units it is built from are covered,
+the assembled result is checked only by comparison against the shot itself. Nothing has been
+mutation-tested against timing or memory behaviour either, which is measurement rather than
+correctness and belongs with the performance work in document 24.

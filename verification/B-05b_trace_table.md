@@ -1,6 +1,6 @@
 # B-05b render trace, fixture results
 
-**31 of 31 checks pass.** ADR-012 render trace mode. Produced by `tests/b05b_trace.rs`.
+**33 of 33 checks pass.** ADR-012 render trace mode. Produced by `tests/b05b_trace.rs`.
 
 ## The fixture
 
@@ -46,6 +46,8 @@ The translation is a whole number of pixels, so the bilinear taps land exactly o
 | the manifest names the composition frame | `names frame 7` | `names frame 7` | pass |
 | the manifest names every stage of document 21's order this build does not implement | `3 of 3` | `3 of 3` | pass |
 | the manifest carries the exact layer IDs, not just the file names | `both` | `both` | pass |
+| an ID that reduces to separators keeps what is left of it, not the separators | `layer00_2_decode.png` | `layer00_2_decode.png` | pass |
+| an ID of two hundred characters is shortened to a file name a filesystem accepts | `layer01_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_decode.png` | `layer01_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz_decode.png` | pass |
 
 ## Notes
 
