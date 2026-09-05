@@ -33,13 +33,32 @@ impl fmt::Display for Severity {
 
 /// Stable machine identifiers.
 ///
-/// Four of these are **proposed additions** to document 28 rather than entries from it, and
-/// are registered as D-19 in document 14. They are marked below. Test T-01 requires
+/// Eight of these are **proposed additions** to document 28 rather than entries from it, and
+/// are registered as D-19, D-21 and D-24 in document 14. They are marked below. Test T-01 requires
 /// mismatched-dimension handling and document 28 has no identifier for it, so the choice was
 /// between inventing one openly and reusing an unrelated identifier, which would have been a
 /// silent reinterpretation of the catalog.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DiagnosticId {
+    /// Document 28: project requires a newer unsupported schema; do not reinterpret.
+    ProjectSchemaNewer,
+    /// Document 28: project violates the schema or an invariant; refuse model construction.
+    ProjectSchemaInvalid,
+    /// Document 28: a save could not complete; the previous valid save is kept.
+    ProjectSaveFailed,
+    /// Document 28: an autosave or recovery candidate exists; show the timestamp and path.
+    ProjectRecoveryAvailable,
+    /// Document 28: referenced media unavailable; the reference is preserved.
+    MediaMissing,
+    /// Document 28: effect type not installed or implemented; the record is preserved and
+    /// bypassed.
+    EffectUnsupported,
+    /// **Proposed (D-24).** A structurally valid record for a project feature this build does
+    /// not implement, other than an effect. Masks are the only case today: document 23 parks
+    /// them with R-04, the schema carries them, and document 28 has an identifier for an
+    /// unsupported effect but none for an unsupported feature. The record is preserved and
+    /// takes no part in rendering.
+    ProjectFeatureUnsupported,
     /// Document 28: requested drawing number absent; do not substitute adjacent frame.
     MediaSequenceGap,
     /// Document 28: decoder not supported; preserve asset record, report format.
@@ -72,6 +91,13 @@ pub enum DiagnosticId {
 impl DiagnosticId {
     pub fn as_str(self) -> &'static str {
         match self {
+            DiagnosticId::ProjectSchemaNewer => "PROJECT_SCHEMA_NEWER",
+            DiagnosticId::ProjectSchemaInvalid => "PROJECT_SCHEMA_INVALID",
+            DiagnosticId::ProjectSaveFailed => "PROJECT_SAVE_FAILED",
+            DiagnosticId::ProjectRecoveryAvailable => "PROJECT_RECOVERY_AVAILABLE",
+            DiagnosticId::MediaMissing => "MEDIA_MISSING",
+            DiagnosticId::EffectUnsupported => "EFFECT_UNSUPPORTED",
+            DiagnosticId::ProjectFeatureUnsupported => "PROJECT_FEATURE_UNSUPPORTED",
             DiagnosticId::MediaSequenceGap => "MEDIA_SEQUENCE_GAP",
             DiagnosticId::MediaUnsupportedFormat => "MEDIA_UNSUPPORTED_FORMAT",
             DiagnosticId::MediaDecodeFailed => "MEDIA_DECODE_FAILED",
@@ -94,7 +120,13 @@ impl DiagnosticId {
     pub fn in_catalog(self) -> bool {
         matches!(
             self,
-            DiagnosticId::MediaSequenceGap
+            DiagnosticId::ProjectSchemaNewer
+                | DiagnosticId::ProjectSchemaInvalid
+                | DiagnosticId::ProjectSaveFailed
+                | DiagnosticId::ProjectRecoveryAvailable
+                | DiagnosticId::MediaMissing
+                | DiagnosticId::EffectUnsupported
+                | DiagnosticId::MediaSequenceGap
                 | DiagnosticId::MediaUnsupportedFormat
                 | DiagnosticId::MediaDecodeFailed
                 | DiagnosticId::MatteReferenceMissing

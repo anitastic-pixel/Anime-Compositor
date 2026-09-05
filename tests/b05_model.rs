@@ -16,10 +16,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anime_compositor::command::{Command, Document};
-use anime_compositor::inspect::project_json;
 use anime_compositor::model::{
     Asset, BlendMode, Composition, Id, Interp, Layer, Project, Prop, Value,
 };
+use anime_compositor::persist::{to_json, Preserved};
 use anime_compositor::time::{ExposureSpan, FrameRate};
 
 struct Row {
@@ -63,11 +63,11 @@ const COMP: &str = "comp-0000-0000-0000";
 fn reference_layers() -> Vec<(Asset, Layer)> {
     (1..=4)
         .map(|n| {
-            let asset = Asset {
-                id: id(&format!("asset-layer{n}")),
-                name: format!("layer{n}"),
-                pattern: format!("layer{n}_%03d.png"),
-            };
+            let asset = Asset::sequence(
+                id(&format!("asset-layer{n}")),
+                format!("layer{n}"),
+                format!("layer{n}_%03d.png"),
+            );
             let mut layer = Layer::new(
                 id(&format!("layer-{n}")),
                 format!("layer{n}"),
@@ -144,7 +144,7 @@ fn layer_named(doc: &Document, layer: &str) -> anime_compositor::model::Layer {
 fn b05_model_and_undo() {
     let mut report = Report::default();
     let mut doc = Document::new(build_start());
-    let before_json = project_json(doc.project());
+    let before_json = to_json(doc.project(), &Preserved::none());
 
     report.check("opening document: revision", 0, doc.revision());
     report.check("opening document: undo depth", 0, doc.undo_depth());
@@ -500,11 +500,7 @@ fn b05_model_and_undo() {
 
     // -- Document 26: import media plus create a layer is all-or-nothing --------------------------
     let revision_before_batch = doc.revision();
-    let new_asset = Asset {
-        id: id("asset-effects"),
-        name: "effects".to_string(),
-        pattern: "fx_%03d.png".to_string(),
-    };
+    let new_asset = Asset::sequence(id("asset-effects"), "effects", "fx_%03d.png");
     let bad_batch = doc.apply_all(vec![
         Command::AddAsset {
             asset: new_asset.clone(),
@@ -673,12 +669,12 @@ fn b05_model_and_undo() {
     );
 
     // -- The three JSON dumps --------------------------------------------------------------------
-    let after_json = project_json(doc.project());
+    let after_json = to_json(doc.project(), &Preserved::none());
     let edit_count = doc.undo_depth();
     // One record is already redoable: the rename that the dirty-state check undid.
     let redo_already = doc.redo_depth();
     while doc.undo().is_some() {}
-    let undone_json = project_json(doc.project());
+    let undone_json = to_json(doc.project(), &Preserved::none());
 
     report.check(
         "undoing every command returns the project to its opening state, byte for byte",
@@ -749,10 +745,10 @@ fn write_artifact(report: &Report, before: &str, after: &str) {
          claim can be verified without trusting the test.\n\n\
          The after file should differ from the before file only in the edits that were made. \
          An edit that appears there and is not in the table is a bug even if every check passes.\n\n\
-         These dumps are an inspection view, not the save format. Persistence, schema \
-         versioning and migration are B-09. The shape follows \
-         `Schemas/project-v0.schema.json` so the two can be compared when B-09 arrives, but \
-         nothing reads these files back.\n\n\
+         These dumps are the save format, written by the same `persist::to_json` the \
+         application saves through, so what is shown here is what would be on disk. Any \
+         of them can be opened again: `persist::load_str` reads one back into a project, \
+         and B-09's own artifacts cover that round trip.\n\n\
          The before file is {} lines and the after file is {} lines.\n\n",
         report.rows.len(),
         before.lines().count(),
@@ -812,11 +808,9 @@ fn write_artifact(report: &Report, before: &str, after: &str) {
 fn interpolation_mode_belongs_to_the_segment_that_starts_at_it() {
     let mut project = Project::new(id("p"));
     let comp = Composition::new(id(COMP), "c", 4, 4, FrameRate::new(24, 1).unwrap(), 0, 10);
-    project.assets.push(Asset {
-        id: id("a"),
-        name: "a".to_string(),
-        pattern: "a_%03d.png".to_string(),
-    });
+    project
+        .assets
+        .push(Asset::sequence(id("a"), "a", "a_%03d.png"));
     project.compositions.push(comp);
     let mut doc = Document::new(project);
     doc.apply(Command::AddLayer {
@@ -857,7 +851,7 @@ fn interpolation_mode_belongs_to_the_segment_that_starts_at_it() {
     );
 }
 
-/// Blend mode round-trips through the inspection dump's spelling.
+/// Blend mode round-trips through the save format's spelling.
 #[test]
 fn blend_modes_serialise_as_the_schema_spells_them() {
     for (mode, text) in [

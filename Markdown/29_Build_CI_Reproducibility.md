@@ -45,6 +45,8 @@ Every pull request/change set should run, as applicable:
 
 GPU tests may run on a dedicated compatible runner rather than every CI job, but CPU reference tests are mandatory.
 
+Status as of 2026-09-05: gates 1, 2, 4 and 6 run on every pull request. Gate 3 runs from B-09: `tests/b09_persistence.rs` opens every project fixture in `Fixtures/projects/`, requires each to save back byte-identically, and requires twelve malformed variants to be refused with the identifier document 28 names. Validation is a hand-written check against `Schemas/project-v0.schema.json` rather than a JSON-Schema library, so this document's rule against hand-editing generated schema bindings has nothing to apply to: there are no generated bindings. Gate 5 is `docs/DEPENDENCIES.md`, generated rather than checked. Gate 7 has nothing to package yet.
+
 ## Artifact provenance
 
 Release artifacts record commit/revision, toolchain versions, dependency manifest hash, schema version and test summary. Do not publish performance numbers without the machine/driver/build configuration that produced them.

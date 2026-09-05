@@ -99,26 +99,46 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 ## Suggested next session
 
-B-09: versioned persistence, relink, manual save, autosave and recovery. R-08, and the
-render-independent half of T-07. It is the last thing standing between the project model and a
-project the owner can close and reopen, and it closes the one item of document 26's eight
-required tests that is still not run: "undo/redo after project reopen is empty".
+B-06: export. Encode a composition to an image sequence and to a video file, at the colour and
+alpha rules document 20 fixes, with the provenance the exporter has to stamp. It is the second
+half of T-07 and the last piece of G1-core that stands between a finished frame in memory and a
+file the owner can put in front of somebody.
 
-Read documents 07 (project and media format), 19 (data model), 26 (undo model) and 29 (build
-and reproducibility) before writing anything, and SP-01 in the G0 spike report for the atomic
-replacement that was already measured. Document 28 owns the diagnostics for an unknown schema
-version and an unreadable file; document 26 owns what a reopened document's undo stack must
-look like.
+Read documents 20 (colour and alpha), 21 (render contract) and 25 (fixtures) before writing
+anything, and `src/render.rs` and `src/png.rs`, which already do the working-space to display
+conversion and the provenance chunks that export has to agree with byte for byte.
 
-Three things B-09 inherits and should settle rather than carry:
+What B-09 settled, which earlier drafts of this file listed as open:
 
-- `src/inspect.rs` is an inspection view, not a save format. When `serde` arrives, decide
-  whether the two dumps unify or whether the human-diffable one earns its keep separately. Do
-  not assume the answer; the B-05 artifacts diff by eye because of it.
-- `tests/b04_exposure.rs` reads the exposure sheet with a twenty-line integer-array scanner,
-  written on the grounds that `serde` arrives with B-09. Delete it then.
-- Document 09's startup sweep for orphaned `.tmp` siblings has no owner yet. Interrupted-write
-  recovery is B-09's, so the sweep belongs here.
+- `src/inspect.rs` is deleted. The human-diffable dump and the save format are the same thing:
+  `persist::to_json` writes both, so the B-05 artifacts still diff by eye and there is no second
+  spelling of a project that could drift from the first. `verification/B-05_project_*.json` are
+  now literally what would be on disk.
+- `tests/b04_exposure.rs`'s twenty-line integer-array scanner is gone, replaced by
+  `serde_json::from_str`. Net deletion.
+- Document 09's startup sweep for orphaned `.tmp` siblings is required by no document in the
+  pack - a grep for it across `Markdown/` finds nothing, and document 07 line 29 and ADR-008 ask
+  only for the temp-sibling write pattern, which `persist::save` and `persist::autosave` both
+  follow and both clean up after themselves on failure. The only case left is a process killed
+  mid-write, and cleaning that up needs a hook at application startup, which does not exist until
+  the shell does. It belongs to B-08, not here.
+
+What B-09 left for later:
+
+- Recovery is a listing, not a flow. `persist::recovery_candidates` finds the autosave slots
+  beside a project and orders them newest first, and `persist::recovery_diagnostic` raises
+  `PROJECT_RECOVERY_AVAILABLE`; nothing decides when to offer them or what "restore" does to the
+  open document, because that is a user-interface decision and B-08 owns it.
+- Autosave has no timer. `persist::autosave` writes one slot when called. What calls it, and how
+  often, is B-08's.
+- Relink takes the files the owner picked and never scans a directory. That is deliberate - a
+  scan guesses - but it means the interface has to present a file picker rather than a
+  "find missing media" button.
+- Migration has nothing to migrate. `SCHEMA_VERSION` is 0 and there is no version 1, so
+  `persist::load_str` refuses a newer file by name and there is no upgrade path to test yet. The
+  first schema change is when that gets written.
+- D-24 is PROVISIONAL and needs the owner: `PROJECT_FEATURE_UNSUPPORTED`, for a valid record of a
+  parked feature that is not an effect. Masks are the only such record the schema can hold today.
 
 What B-05b left for later:
 
