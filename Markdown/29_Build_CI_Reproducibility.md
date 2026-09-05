@@ -11,7 +11,9 @@ Version 0.2 | 2026-09-04 | Proposed baseline
 
 ## Scope
 
-This document defines the minimum engineering hygiene for a reproducible local/CI build after ADR-003 through ADR-007 are resolved. Exact compiler and dependency versions remain OPEN until B-01 records the chosen stack.
+This document defines the minimum engineering hygiene for a reproducible local/CI build after ADR-003 through ADR-007 are resolved.
+
+Status as of 2026-09-04: ADR-003 through ADR-007 are accepted and B-01 has recorded the stack. The toolchain is pinned in `rust-toolchain.toml` at rustc 1.89.0, and `.github/workflows/ci.yml` runs the CI gates below that currently have something to run: build, tests, formatting and static analysis, plus a check that the committed verification artifacts still match what the build produces. Schema validation and persistence fixtures arrive with B-09 and the packaging smoke test with B-11.
 
 ## Repository layout target
 

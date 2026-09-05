@@ -68,9 +68,18 @@ impl ImageBuffer {
     ) -> Result<Self, BufferError> {
         let expected = width * height * 4;
         if data.len() != expected {
-            return Err(BufferError::LengthMismatch { expected, actual: data.len() });
+            return Err(BufferError::LengthMismatch {
+                expected,
+                actual: data.len(),
+            });
         }
-        Ok(ImageBuffer { width, height, color_space, alpha_mode, data })
+        Ok(ImageBuffer {
+            width,
+            height,
+            color_space,
+            alpha_mode,
+            data,
+        })
     }
 
     /// Transparent black (document 21: `(0,0,0,0)`), in the given encoding.
@@ -80,28 +89,56 @@ impl ImageBuffer {
         color_space: ColorSpace,
         alpha_mode: AlphaMode,
     ) -> Self {
-        ImageBuffer { width, height, color_space, alpha_mode, data: vec![0.0; width * height * 4] }
+        ImageBuffer {
+            width,
+            height,
+            color_space,
+            alpha_mode,
+            data: vec![0.0; width * height * 4],
+        }
     }
 
     /// Decode 8-bit RGBA as document 21 specifies for G1 PNG input: sRGB encoded, straight alpha.
-    pub fn from_srgb8_straight(width: usize, height: usize, bytes: &[u8]) -> Result<Self, BufferError> {
+    pub fn from_srgb8_straight(
+        width: usize,
+        height: usize,
+        bytes: &[u8],
+    ) -> Result<Self, BufferError> {
         let expected = width * height * 4;
         if bytes.len() != expected {
-            return Err(BufferError::LengthMismatch { expected, actual: bytes.len() });
+            return Err(BufferError::LengthMismatch {
+                expected,
+                actual: bytes.len(),
+            });
         }
         let data = bytes.iter().map(|&v| color::dequantise_u8(v)).collect();
         ImageBuffer::new(width, height, ColorSpace::Srgb, AlphaMode::Straight, data)
     }
 
-    pub fn width(&self) -> usize { self.width }
-    pub fn height(&self) -> usize { self.height }
-    pub fn color_space(&self) -> ColorSpace { self.color_space }
-    pub fn alpha_mode(&self) -> AlphaMode { self.alpha_mode }
-    pub fn data(&self) -> &[f32] { &self.data }
+    pub fn width(&self) -> usize {
+        self.width
+    }
+    pub fn height(&self) -> usize {
+        self.height
+    }
+    pub fn color_space(&self) -> ColorSpace {
+        self.color_space
+    }
+    pub fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
+    }
+    pub fn data(&self) -> &[f32] {
+        &self.data
+    }
 
     pub fn pixel(&self, x: usize, y: usize) -> [f32; 4] {
         let i = (y * self.width + x) * 4;
-        [self.data[i], self.data[i + 1], self.data[i + 2], self.data[i + 3]]
+        [
+            self.data[i],
+            self.data[i + 1],
+            self.data[i + 2],
+            self.data[i + 3],
+        ]
     }
 
     /// Convert into the document 21 working space: linear light, premultiplied.
@@ -110,7 +147,13 @@ impl ImageBuffer {
     /// already tagged `LinearLight` is not transformed again; this is what makes a duplicate
     /// display transform (T-09) impossible rather than merely discouraged.
     pub fn into_working(self) -> WorkingBuffer {
-        let ImageBuffer { width, height, color_space, alpha_mode, mut data } = self;
+        let ImageBuffer {
+            width,
+            height,
+            color_space,
+            alpha_mode,
+            mut data,
+        } = self;
         for px in data.chunks_exact_mut(4) {
             if color_space == ColorSpace::Srgb {
                 for c in &mut px[..3] {
@@ -150,13 +193,27 @@ impl WorkingBuffer {
         ))
     }
 
-    pub fn as_image(&self) -> &ImageBuffer { &self.0 }
-    pub fn into_image(self) -> ImageBuffer { self.0 }
-    pub fn width(&self) -> usize { self.0.width }
-    pub fn height(&self) -> usize { self.0.height }
-    pub fn data(&self) -> &[f32] { &self.0.data }
-    pub fn data_mut(&mut self) -> &mut [f32] { &mut self.0.data }
-    pub fn pixel(&self, x: usize, y: usize) -> [f32; 4] { self.0.pixel(x, y) }
+    pub fn as_image(&self) -> &ImageBuffer {
+        &self.0
+    }
+    pub fn into_image(self) -> ImageBuffer {
+        self.0
+    }
+    pub fn width(&self) -> usize {
+        self.0.width
+    }
+    pub fn height(&self) -> usize {
+        self.0.height
+    }
+    pub fn data(&self) -> &[f32] {
+        &self.0.data
+    }
+    pub fn data_mut(&mut self) -> &mut [f32] {
+        &mut self.0.data
+    }
+    pub fn pixel(&self, x: usize, y: usize) -> [f32; 4] {
+        self.0.pixel(x, y)
+    }
 
     /// Encode for output: unpremultiply in linear light, apply the output transfer function,
     /// then quantise. Document 21 line 31: output "converts the linear working RGB to the
