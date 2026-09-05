@@ -23,3 +23,7 @@ desktop.ini
 
 # Word review copies were removed in v0.3 (D-16). Markdown is the only source.
 *.docx
+
+# Rust build output from the quarantined G0 spikes
+target/
+spikes/*/gen/
