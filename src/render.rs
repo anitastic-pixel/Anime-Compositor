@@ -184,6 +184,9 @@ pub fn sample_bilinear(src: &WorkingBuffer, x: f64, y: f64) -> [f32; 4] {
 /// its pixels into composition pixels, and document 21's step 6, animated layer opacity.
 #[derive(Clone, Debug)]
 pub struct LayerDraw {
+    /// The model layer this draw came from. Carried so ADR-012's trace mode can tag an
+    /// intermediate image with the layer it belongs to; the renderer itself never reads it.
+    pub id: crate::model::Id,
     pub source: WorkingBuffer,
     pub transform: Affine,
     pub opacity: f32,

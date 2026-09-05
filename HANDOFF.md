@@ -99,47 +99,53 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 ## Suggested next session
 
-B-05b: render trace mode, ADR-012. `src/render.rs` now composites a frame, but when a frame
-looks wrong there is nothing between "the plan" and "the finished image" for the owner to look
-at. ADR-012 asks for the intermediate layer buffers written as tagged PNGs. B-05a's own
-artifact test already writes PNGs from a `WorkingBuffer`, in `tests/b05a_transform.rs`; that
-encoder is the obvious thing to move into the crate when a second caller exists, and B-05b is
-that second caller.
+B-09: versioned persistence, relink, manual save, autosave and recovery. R-08, and the
+render-independent half of T-07. It is the last thing standing between the project model and a
+project the owner can close and reopen, and it closes the one item of document 26's eight
+required tests that is still not run: "undo/redo after project reopen is empty".
 
-What B-05a left for later, in the order it comes due:
+Read documents 07 (project and media format), 19 (data model), 26 (undo model) and 29 (build
+and reproducibility) before writing anything, and SP-01 in the G0 spike report for the atomic
+replacement that was already measured. Document 28 owns the diagnostics for an unknown schema
+version and an unreadable file; document 26 owns what a reopened document's undo stack must
+look like.
 
-- The rest of document 21's layer render order. `render_tile` does decode, transform, opacity
-  and the `over` case of blend. Masks and mattes are B-06 and effects are B-07, both PARKED
-  under D-12 until their revisit trigger in document 23 fires. The multiply, screen and add
-  blend modes are not parked and have no backlog item of their own; they are small, and the
-  honest place for them is whichever item first needs them.
-- No default tile size lives in `src/`. `render` takes it as an argument, because document 21
-  says it is a tunable measured on the reference machine. `verification/B-05a_scaling_table.md`
-  is that measurement and shows tile size barely matters between 32 and 256 pixels on this
-  machine; whatever calls the renderer for real, in B-08, has to pick one and say why.
-- Source buffers are decoded and downsampled inside the test. There is no frame cache, no
-  decode cache and no proof-of-work sharing between frames. That is B-08b, PARKED.
-- D-22 is PROVISIONAL and needs the owner. Document 21's transform formula still says
-  `S(scale/100)` while the model and the renderer treat 1.0 as identity. If the owner rules the
-  other way, the formula and `Affine::from_transform` change together.
+Three things B-09 inherits and should settle rather than carry:
 
-Carried forward from B-05, still outstanding:
+- `src/inspect.rs` is an inspection view, not a save format. When `serde` arrives, decide
+  whether the two dumps unify or whether the human-diffable one earns its keep separately. Do
+  not assume the answer; the B-05 artifacts diff by eye because of it.
+- `tests/b04_exposure.rs` reads the exposure sheet with a twenty-line integer-array scanner,
+  written on the grounds that `serde` arrives with B-09. Delete it then.
+- Document 09's startup sweep for orphaned `.tmp` siblings has no owner yet. Interrupted-write
+  recovery is B-09's, so the sweep belongs here.
 
+What B-05b left for later:
+
+- Trace shows four of document 21's seven layer render stages, because the renderer has four.
+  Every manifest says which are missing and why. When masks, effects, mattes or the other blend
+  modes arrive, they each add a `Stage` variant and a row to `missing_stages`.
+- Trace re-renders the stack once per layer, which is O(n^2) in layers. That is deliberate:
+  the stage images come from the same `render` the real frame does, so a trace cannot drift
+  from what it claims to trace. If a composition ever has enough layers for that to hurt, the
+  fix is a frame cache, not a second rendering path.
+- D-23 is PROVISIONAL and needs the owner. ADR-012 says trace images are written in the working
+  space; they are written display-encoded instead, because a linear-light PNG is unviewable and
+  an unviewable diagnostic image defeats the ADR's own justification.
+
+Carried forward, still outstanding:
+
+- D-22 is PROVISIONAL and needs the owner. Document 21's transform formula says `S(scale/100)`
+  while the model and the renderer treat 1.0 as identity.
+- The multiply, screen and add blend modes have no backlog item of their own. `LayerDraw`
+  carries no blend mode at all rather than one the renderer would ignore.
+- No default tile size lives in `src/`. `verification/B-05a_scaling_table.md` is the
+  measurement; whatever calls the renderer for real, in B-08, has to pick one and say why.
 - Cache invalidation domains. Document 26 requires every committed command to report which
   caches it dirties, and document 27 defines the domains. `Document::apply` reports none,
-  because no cache exists. That is B-08b, and the command enum is where the reporting hangs.
+  because no cache exists. That is B-08b, PARKED.
 - Colour4 and boolean property values, which document 19 lists and `Value` does not carry.
-  They come due with effects, in B-07.
-- Save and reopen, and with it document 26's "undo/redo after project reopen is empty" — the
-  one item of its eight-item required-test list that is still not run. That is B-09 and T-07.
+  They come due with effects, in B-07, PARKED.
 - Rate-limiting frame-level diagnostics into one summary with counts and ranges, which
   document 28 requires. Outstanding since B-04; it belongs to whatever drives the frame loop,
   which is B-08.
-
-`src/inspect.rs` is an inspection view, not the save format. When B-09 brings `serde` and a
-real project file, check whether the two dumps should be unified or whether the human-diffable
-one earns its keep separately; do not assume the answer.
-
-The B-04 test reads `Fixtures/reference_shot/exposure_sheet.json` with a twenty-line integer-array
-scanner rather than a JSON dependency, on the grounds that `serde` arrives properly with B-09.
-Replace the scanner then; it is not worth keeping two JSON readers.

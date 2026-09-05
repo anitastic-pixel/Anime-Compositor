@@ -30,3 +30,7 @@ spikes/*/gen/
 
 # Cargo.lock is COMMITTED. ADR-005 requires it, and docs/DEPENDENCIES.md is generated from it,
 # so an ignored lock would make the dependency record unreproducible.
+
+# Standing instruction for the unattended overnight run; not part of the project.
+NIGHT_RUN.md
+MORNING_REPORT.md

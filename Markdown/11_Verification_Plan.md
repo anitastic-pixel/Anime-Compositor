@@ -65,6 +65,8 @@ T-03 still owes two things, both blocked on work that does not exist yet. Docume
 
 T-04 (the over-composite and transparent-edge half; the matte half is parked with R-04) and T-09 are RUN and PASSING against B-02, evidence in `verification/B-02_fixture_table.md`.
 
+Render trace mode, ADR-012, is available from B-05b and is the tool this plan assumes when a rendering test fails. `anime_compositor::trace::render_traced` writes every intermediate layer buffer of one composition frame to `trace/` as a tagged PNG, so a wrong frame can be reported by naming the first stage that looks wrong rather than by reading code. Its own results are in `verification/B-05b_trace_table.md`: 31 of 31 checks, including that the trace's final composite stage is byte-identical to the untraced render, so a trace cannot disagree with the thing it is tracing. `verification/B-05b_reference_trace.md` says how to regenerate a trace of the reference shot; the images themselves are not committed, per ADR-012.
+
 Every other test remains NOT RUN.
 
 Related documents: 02, 03, 08, 12 and 15.

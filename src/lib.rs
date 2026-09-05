@@ -16,6 +16,7 @@ pub mod media;
 pub mod model;
 pub mod render;
 pub mod time;
+pub mod trace;
 
 /// How the RGB channels of a buffer are encoded.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
