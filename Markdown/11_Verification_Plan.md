@@ -51,9 +51,11 @@ For an artist alpha, collect known limitations and recovery instructions and use
 
 Each result records test ID, build, fixture version, expected/actual behavior, logs or image diffs, reviewer and disposition. Status starts NOT RUN for every test in this pack. Do not convert a proposed gate into a claimed result.
 
-Status as of 2026-09-04: G0 is passed by owner decision, recorded in document 00.
+Status as of 2026-09-05: G0 is passed by owner decision, recorded in document 00.
 
 T-01 is RUN and PASSING against B-03, evidence in `verification/B-03_import_table.md`: 46 of 46 checks, covering grouping, pattern inference, the deliberate gap at `layer3_007`, the Japanese filename `layer2_桜_013.png`, mismatched dimensions and unsupported bit depth. Its "Not run" section names what T-01 still owes: relink (R-08) and the save/reopen half of the Unicode case belong to B-09.
+
+T-02 is RUN and PASSING against B-04, evidence in `verification/B-04_exposure_table.md`: 45 of 45 checks, plus the complete 240-row frame-to-drawing table for the four reference-shot layers. It covers layer 4's five-frame hold at frames 60-64, its one-frame accent at 152, the out-of-order re-exposure at 165-167, the twenty frames on which layer 3 exposes its missing drawing 7 without substitution, the exact 24000/1001 rate, and a composition starting at frame -12. Its "Not run" section names what T-02 still owes: property keyframe interpolation belongs to B-05, and the save/reopen round trip of spans and rate belongs to T-07 and B-09.
 
 T-04 (the over-composite and transparent-edge half; the matte half is parked with R-04) and T-09 are RUN and PASSING against B-02, evidence in `verification/B-02_fixture_table.md`.
 

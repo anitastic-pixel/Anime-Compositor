@@ -99,6 +99,12 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 ## Suggested next session
 
-B-04: the time and exposure model. R-02, test T-02. This is where the reference shot stops being four folders of PNGs and becomes a shot: `Fixtures/reference_shot/exposure_sheet.json` maps every one of the 240 composition frames to a drawing number per layer, and it contains the cases that break naive implementations — layer 4's five-frame hold at frames 60-64, its one-frame accent at 152, and the out-of-order re-exposure at 165-167 where the drawing IDs run 12, 13, 14, 11, 16, 17. Document 20 permits that; an implementation assuming drawing IDs only increase must fail on it.
+B-05: the layer model and undo. R-03 and R-07, test T-03. `src/time.rs` now answers "which drawing does this layer show on this frame"; nothing yet owns a layer's transform, its position in the stack, or the command history that lets the owner undo a change to either. Document 26 specifies undo as a command journal with coalescing rules; document 15 asks B-05 for transforms and layer order restoring exact model values under undo and redo.
 
-B-03 already supplies what B-04 consumes: `SequenceAsset` is a drawing-number-to-file map with the gaps preserved, so exposing the missing drawing 7 of layer 3 is a case B-04 has to decide about rather than one it can avoid.
+What B-04 left for later, in the order it comes due:
+
+- Property keyframes — hold and linear interpolation, the before-first and after-last rules of document 20. They belong with B-05 because a keyframe needs a property to animate, and until B-05 no layer has one.
+- Rate-limiting frame-level diagnostics into one summary with counts and ranges, which document 28 requires. `resolve` returns one diagnostic per frame because it answers about one frame; the aggregation belongs to whatever drives the frame loop, which is B-08.
+- Save and reopen of exposure spans and the 24000/1001 rate. B-04 proves the rate is exact in memory; T-07 and B-09 prove it survives a round trip. `Schemas/project-v0.schema.json` already describes both shapes.
+
+The B-04 test reads `Fixtures/reference_shot/exposure_sheet.json` with a twenty-line integer-array scanner rather than a JSON dependency, on the grounds that `serde` arrives properly with B-09. Replace the scanner then; it is not worth keeping two JSON readers.
