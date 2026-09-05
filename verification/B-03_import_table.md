@@ -1,6 +1,6 @@
 # B-03 import fixture table
 
-Test T-01, requirement R-01. Produced by `tests/b03_import.rs`. **46 of 46 checks pass.**
+Test T-01, requirement R-01. Produced by `tests/b03_import.rs`. **60 of 60 checks pass.**
 
 Every row compares an expected value written into the test against what the import actually produced. The reference shot's two deliberate defects are the point of the first block: `layer3/layer3_007.png` does not exist, and drawing 13 of layer 2 lives under the Japanese filename `layer2_桜_013.png`.
 
@@ -38,9 +38,12 @@ Every row compares an expected value written into the test against what the impo
 | layer2: drawing 13 decodes | `1920x1080` | `1920x1080` | PASS |
 | layer3: drawing 7 refuses to decode | `MEDIA_SEQUENCE_GAP` | `MEDIA_SEQUENCE_GAP` | PASS |
 | layer3: drawings 6 and 8 exist, so substitution was possible and did not happen | `6 and 8 present, 7 absent` | `6 and 8 present, 7 absent` | PASS |
+| layer1: drawing 0 decodes | `decoded` | `decoded` | PASS |
 | layer1: dimensions | `1920x1080` | `1920x1080` | PASS |
 | layer1: fully opaque, per the fixture README | `true` | `true` | PASS |
+| layer3: drawing 0 decodes | `decoded` | `decoded` | PASS |
 | layer3: alpha is binary, per the fixture README | `true` | `true` | PASS |
+| layer4: drawing 0 decodes | `decoded` | `decoded` | PASS |
 | layer4: an interior pixel is at exactly code 128, per the fixture README | `true` | `true` | PASS |
 | import tags buffers as sRGB / straight, per document 21 | `Srgb/Straight` | `Srgb/Straight` | PASS |
 | mismatched dimensions: diagnostic raised | `true` | `true` | PASS |
@@ -52,6 +55,17 @@ Every row compares an expected value written into the test against what the impo
 | file with no number: excluded, the rest import | `2` | `2` | PASS |
 | two files claiming drawing 7: diagnostic raised | `true` | `true` | PASS |
 | two files claiming drawing 7: one entry in the frame map | `1` | `1` | PASS |
+| two files claiming drawing 7: the first in sorted order is the one imported | `cel_007.png` | `cel_007.png` | PASS |
+| two files claiming drawing 7: only the imported file describes the pattern | `cel_%03d.png` | `cel_%03d.png` | PASS |
+| the same two files selected in the opposite order import identically | `cel_007.png / cel_%03d.png` | `cel_007.png / cel_%03d.png` | PASS |
+| two names of one shape and one of another: the pattern is the commonest | `cel_%03d.png` | `cel_%03d.png` | PASS |
+| the odd name is imported anyway and reported as a variant | `3 files / 1 variant` | `3 files / 1 variant` | PASS |
+| a sequence starting at 100: drawing range | `100-109` | `100-109` | PASS |
+| a sequence starting at 100: the drawings below it are not missing | `101,102,103,106,107,108` | `101,102,103,106,107,108` | PASS |
+| the gap warning names runs and keeps the hole between them | `6 drawings are missing from cel_%03d.png: 101-103, 106-108.` | `6 drawings are missing from cel_%03d.png: 101-103, 106-108.` | PASS |
+| layer3's gap is a warning: the render proceeds with explicit degradation | `Warning` | `Warning` | PASS |
+| the gap warning states the next safe action, per document 28 | `true` | `true` | PASS |
+| a file that cannot be imported at all is an error, not a warning | `Error` | `Error` | PASS |
 
 ## The diagnostics, exactly as a user would read them
 
@@ -86,6 +100,15 @@ Add the missing files to the folder and relink the sequence, or leave the gap if
 ```
 
 
+### majority naming
+
+```
+INFO [MEDIA_SEQUENCE_NAME_VARIANT]
+One file does not match the pattern cel_%03d.png but carries a clear number and was imported.
+Imported under its own name: cel_02.png
+```
+
+
 ### mismatched dimensions
 
 ```
@@ -105,6 +128,16 @@ ERROR [MEDIA_SEQUENCE_UNNUMBERED]
 One selected file has no number in its name and was not imported.
 Not imported: notes.png
 Import it as a still image, or rename it so it carries a drawing number.
+```
+
+
+### sparse numbering
+
+```
+WARNING [MEDIA_SEQUENCE_GAP]
+6 drawings are missing from cel_%03d.png: 101-103, 106-108.
+The sequence runs 100 to 109 and contains 4 files. Frames exposing a missing drawing render transparent; no neighbouring drawing is substituted.
+Add the missing files to the folder and relink the sequence, or leave the gap if the hole is intended.
 ```
 
 

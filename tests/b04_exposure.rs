@@ -175,10 +175,12 @@ fn b04_exposure_table() {
             format!("{n}/{d}")
         }];
         for (_, map) in &maps {
-            row.push(match map.drawing_at(timing.local_frame(frame).unwrap()) {
-                Some(d) => d.to_string(),
-                None => "-".to_string(),
-            });
+            row.push(
+                match timing.local_frame(frame).and_then(|l| map.drawing_at(l)) {
+                    Some(d) => d.to_string(),
+                    None => "-".to_string(),
+                },
+            );
         }
         // Layer 3 is the one that exposes a drawing that is not on disk.
         if let Err(d) = resolve(&timing, &maps[2].1, &asset3, frame) {
@@ -407,7 +409,23 @@ fn b04_exposure_table() {
             .collect::<Vec<_>>()
             .join(","),
     );
-    let gap_text = resolve(&sparse_timing, &sparse_map, &sparse, 2).unwrap_err();
+    // A build that stopped raising this warning, or that substituted a neighbouring drawing for
+    // the absent one, must fail by a named row rather than by an unwrap. The artifact is written
+    // before the assertion at the end, so a panic here would leave the owner with no table at all
+    // and nothing to read but a stack trace.
+    let sparse_at_2 = resolve(&sparse_timing, &sparse_map, &sparse, 2);
+    report.check(
+        "a frame exposing an absent drawing is a warning, not a substitution and not silence",
+        "MEDIA_SEQUENCE_GAP",
+        match &sparse_at_2 {
+            Err(d) => d.id.to_string(),
+            Ok(resolved) => format!("{resolved:?}"),
+        },
+    );
+    let gap_text = match sparse_at_2 {
+        Err(d) => d.to_string(),
+        Ok(_) => "no diagnostic was raised".to_string(),
+    };
 
     // -- Layer-local time -----------------------------------------------------------------------
     let offset = LayerTiming {
@@ -535,12 +553,13 @@ fn b04_exposure_table() {
         ),
     );
 
-    report.notes.push(gap_text.to_string());
-    report.notes.push(
-        resolve(&timing, &maps[2].1, &asset3, 14)
-            .unwrap_err()
-            .to_string(),
-    );
+    report.notes.push(gap_text.clone());
+    report
+        .notes
+        .push(match resolve(&timing, &maps[2].1, &asset3, 14) {
+            Err(d) => d.to_string(),
+            Ok(resolved) => format!("no diagnostic was raised; frame 14 resolved to {resolved:?}"),
+        });
 
     write_artifact(&report, &table, &maps, &comp);
 
