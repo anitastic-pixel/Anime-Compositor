@@ -82,9 +82,9 @@ That one equality is worth more than the rest of the table together. Passing it 
 | the first five autosaves use five different files | `5` | `5` | pass |
 | autosave does not touch the manual save (document 07) | `identical` | `identical` | pass |
 | autosave does not clear the dirty flag (document 26) | `true` | `true` | pass |
-| the sixth autosave reuses the oldest of the five slots rather than making a sixth | `I:\AI Coding\Claude\TotallyNotAfterEffects\target/b09-scratch\autosave\shot.autosave-0.json` | `I:\AI Coding\Claude\TotallyNotAfterEffects\target/b09-scratch\autosave\shot.autosave-0.json` | pass |
+| the sixth autosave reuses the oldest of the five slots rather than making a sixth | `shot.autosave-0.json` | `shot.autosave-0.json` | pass |
 | there are five recovery snapshots, not six | `5` | `5` | pass |
-| the newest recovery snapshot is offered first | `I:\AI Coding\Claude\TotallyNotAfterEffects\target/b09-scratch\autosave\shot.autosave-0.json` | `I:\AI Coding\Claude\TotallyNotAfterEffects\target/b09-scratch\autosave\shot.autosave-0.json` | pass |
+| the newest recovery snapshot is offered first | `shot.autosave-0.json` | `shot.autosave-0.json` | pass |
 | and the offer is information, not an error (document 28) | `PROJECT_RECOVERY_AVAILABLE / Info` | `PROJECT_RECOVERY_AVAILABLE / Info` | pass |
 | a recovery snapshot is a complete project that opens on its own | `opens with none` | `opens with none` | pass |
 | and it holds the unsaved edit the manual save does not | `true` | `true` | pass |

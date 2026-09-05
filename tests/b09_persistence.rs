@@ -73,6 +73,15 @@ fn fixture(name: &str) -> String {
     fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {}: {e}", path.display()))
 }
 
+/// The slot rows below name a file, not a place. Reporting the whole path would put this
+/// machine's checkout directory into a committed artifact, and CI's is different.
+fn file_name(path: &Path) -> String {
+    path.file_name()
+        .expect("an autosave path ends in a file name")
+        .to_string_lossy()
+        .into_owned()
+}
+
 /// A directory of our own under `target/`, so a test run never writes next to the fixtures.
 fn scratch(name: &str) -> PathBuf {
     let dir = repo("target/b09-scratch").join(name);
@@ -667,8 +676,8 @@ fn b09_persistence() {
     let sixth = persist::autosave(&path, &loaded.document, &loaded.preserved).expect("autosave");
     report.check(
         "the sixth autosave reuses the oldest of the five slots rather than making a sixth",
-        slots[0].display().to_string(),
-        sixth.display().to_string(),
+        file_name(&slots[0]),
+        file_name(&sixth),
     );
     report.check(
         "there are five recovery snapshots, not six",
@@ -678,8 +687,8 @@ fn b09_persistence() {
     let candidates = persist::recovery_candidates(&path);
     report.check(
         "the newest recovery snapshot is offered first",
-        sixth.display().to_string(),
-        candidates[0].path.display().to_string(),
+        file_name(&sixth),
+        file_name(&candidates[0].path),
     );
     let offer = persist::recovery_diagnostic(&candidates).expect("there are candidates");
     report.check(
