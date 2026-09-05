@@ -57,6 +57,8 @@ T-01 is RUN and PASSING against B-03, evidence in `verification/B-03_import_tabl
 
 T-02 is RUN and PASSING against B-04, evidence in `verification/B-04_exposure_table.md`: 45 of 45 checks, plus the complete 240-row frame-to-drawing table for the four reference-shot layers. It covers layer 4's five-frame hold at frames 60-64, its one-frame accent at 152, the out-of-order re-exposure at 165-167, the twenty frames on which layer 3 exposes its missing drawing 7 without substitution, the exact 24000/1001 rate, and a composition starting at frame -12. Its "Not run" section names what T-02 still owes: property keyframe interpolation belongs to B-05, and the save/reopen round trip of spans and rate belongs to T-07 and B-09.
 
+T-03 is HALF RUN. Its model half is PASSING against B-05, evidence in `verification/B-05_model_table.md`: 61 of 61 checks, plus a before, after and undone project JSON the owner can diff by eye, where before and undone are byte-identical. It walks document 26's eight required tests item by item and covers document 20's five keyframe rules, opacity clamping, negative scale for mirroring, matte cycle and missing-reference rejection, a drag of 100 intermediate values coalescing to one undo record, and an all-or-nothing import-plus-create-layer transaction. Its render half is NOT RUN: fixtures FX-XF-001 through FX-XF-004 need a transform renderer, which is B-05a. Document 26's "undo/redo after project reopen is empty" is also not run, because reopening is B-09.
+
 T-04 (the over-composite and transparent-edge half; the matte half is parked with R-04) and T-09 are RUN and PASSING against B-02, evidence in `verification/B-02_fixture_table.md`.
 
 Every other test remains NOT RUN.

@@ -99,12 +99,15 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 ## Suggested next session
 
-B-05: the layer model and undo. R-03 and R-07, test T-03. `src/time.rs` now answers "which drawing does this layer show on this frame"; nothing yet owns a layer's transform, its position in the stack, or the command history that lets the owner undo a change to either. Document 26 specifies undo as a command journal with coalescing rules; document 15 asks B-05 for transforms and layer order restoring exact model values under undo and redo.
+B-05a: the transform renderer. R-03 and the render half of test T-03. `src/model.rs` now answers "what are this layer's anchor, position, scale, rotation and opacity on this frame"; nothing yet turns those five numbers into pixels. The four fixtures waiting are FX-XF-001 (identity is bit-exact), FX-XF-002 (integer translation moves whole pixels and invents nothing), FX-XF-003 (a half-pixel shift produces the exact bilinear weights document 21 states) and FX-XF-004 (rotation about a nonzero anchor). Document 21 owns the sampling and edge rules; document 25 owns the expected values, and they are read-only.
 
-What B-04 left for later, in the order it comes due:
+What B-05 left for later, in the order it comes due:
 
-- Property keyframes — hold and linear interpolation, the before-first and after-last rules of document 20. They belong with B-05 because a keyframe needs a property to animate, and until B-05 no layer has one.
-- Rate-limiting frame-level diagnostics into one summary with counts and ranges, which document 28 requires. `resolve` returns one diagnostic per frame because it answers about one frame; the aggregation belongs to whatever drives the frame loop, which is B-08.
-- Save and reopen of exposure spans and the 24000/1001 rate. B-04 proves the rate is exact in memory; T-07 and B-09 prove it survives a round trip. `Schemas/project-v0.schema.json` already describes both shapes.
+- Cache invalidation domains. Document 26 requires every committed command to report which caches it dirties, and document 27 defines the domains. `Document::apply` reports none, because no cache exists. That is B-07, and the command enum is where the reporting will hang.
+- Colour4 and boolean property values, which document 19 lists and `Value` does not carry. They come due with B-06, when effects gain colour parameters.
+- Save and reopen, and with it document 26's "undo/redo after project reopen is empty" — the one item of its eight-item required-test list B-05 does not run. That is B-09 and T-07.
+- Rate-limiting frame-level diagnostics into one summary with counts and ranges, which document 28 requires. Still outstanding from B-04; it belongs to whatever drives the frame loop, which is B-08.
+
+`src/inspect.rs` is an inspection view, not the save format. When B-09 brings `serde` and a real project file, check whether the two dumps should be unified or whether the human-diffable one earns its keep separately; do not assume the answer.
 
 The B-04 test reads `Fixtures/reference_shot/exposure_sheet.json` with a twenty-line integer-array scanner rather than a JSON dependency, on the grounds that `serde` arrives properly with B-09. Replace the scanner then; it is not worth keeping two JSON readers.

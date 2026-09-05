@@ -55,6 +55,18 @@ pub enum DiagnosticId {
     /// **Proposed (D-19).** A file joins the sequence under a name the pattern does not
     /// generate. Informational: the file is used, and its literal name is recorded.
     MediaSequenceNameVariant,
+    /// Document 28: matte ID unresolved. Raised as ERROR by a command that would create the
+    /// unresolved reference; the catalog's WARNING applies to one found while loading.
+    MatteReferenceMissing,
+    /// Document 28: matte dependency cycle detected; reject the command.
+    MatteCycle,
+    /// **Proposed (D-21).** A command named a composition, layer or keyframe that is not there.
+    CommandTargetMissing,
+    /// **Proposed (D-21).** A command carried a value the model cannot hold: the wrong value
+    /// kind for the property, a non-finite number, or an index outside the layer stack.
+    CommandInvalidValue,
+    /// **Proposed (D-21).** A command would have changed a locked layer.
+    CommandLayerLocked,
 }
 
 impl DiagnosticId {
@@ -67,10 +79,15 @@ impl DiagnosticId {
             DiagnosticId::MediaSequenceDuplicateNumber => "MEDIA_SEQUENCE_DUPLICATE_NUMBER",
             DiagnosticId::MediaSequenceUnnumbered => "MEDIA_SEQUENCE_UNNUMBERED",
             DiagnosticId::MediaSequenceNameVariant => "MEDIA_SEQUENCE_NAME_VARIANT",
+            DiagnosticId::MatteReferenceMissing => "MATTE_REFERENCE_MISSING",
+            DiagnosticId::MatteCycle => "MATTE_CYCLE",
+            DiagnosticId::CommandTargetMissing => "COMMAND_TARGET_MISSING",
+            DiagnosticId::CommandInvalidValue => "COMMAND_INVALID_VALUE",
+            DiagnosticId::CommandLayerLocked => "COMMAND_LAYER_LOCKED",
         }
     }
 
-    /// False for the four identifiers D-19 proposes but document 28 does not yet list.
+    /// False for the identifiers D-19 and D-21 propose but document 28 does not yet list.
     ///
     /// Reports can therefore separate "the catalog said to say this" from "an agent decided
     /// to say this", without a reader having to know document 28 by heart.
@@ -80,6 +97,8 @@ impl DiagnosticId {
             DiagnosticId::MediaSequenceGap
                 | DiagnosticId::MediaUnsupportedFormat
                 | DiagnosticId::MediaDecodeFailed
+                | DiagnosticId::MatteReferenceMissing
+                | DiagnosticId::MatteCycle
         )
     }
 }
