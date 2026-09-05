@@ -34,3 +34,5 @@ spikes/*/gen/
 # Standing instruction for the unattended overnight run; not part of the project.
 NIGHT_RUN.md
 MORNING_REPORT.md
+DAY_RUN.md
+DAY_REPORT.md
