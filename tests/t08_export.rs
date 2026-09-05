@@ -148,6 +148,10 @@ fn file_names(dir: &Path) -> String {
 // ---------------------------------------------------------------------------------------
 
 struct Decoded {
+    /// Set when the file could not be read at all. Every accessor returns it instead of a
+    /// number, so a build that fails to write a file fails a named row rather than crashing the
+    /// table before it is printed.
+    note: Option<String>,
     width: usize,
     height: usize,
     depth: u8,
@@ -158,7 +162,13 @@ struct Decoded {
 impl Decoded {
     /// One pixel's red, blue and alpha, at whatever depth the file declares.
     fn rba(&self, x: usize, y: usize) -> String {
+        if let Some(note) = &self.note {
+            return note.clone();
+        }
         let per = if self.depth == 16 { 2 } else { 1 };
+        if (y * self.width + x + 1) * 4 * per > self.samples.len() {
+            return format!("the file has no pixel at ({x}, {y})");
+        }
         let at = |c: usize| -> u32 {
             let i = ((y * self.width + x) * 4 + c) * per;
             if per == 2 {
@@ -171,6 +181,9 @@ impl Decoded {
     }
 
     fn tag(&self, key: &str) -> String {
+        if let Some(note) = &self.note {
+            return note.clone();
+        }
         self.tags
             .iter()
             .find(|(k, _)| k == key)
@@ -180,14 +193,32 @@ impl Decoded {
 }
 
 fn decode(path: &Path) -> Decoded {
-    let file = fs::File::open(path).unwrap_or_else(|e| panic!("open {}: {e}", path.display()));
-    let mut reader = png::Decoder::new(std::io::BufReader::new(file))
-        .read_info()
-        .unwrap_or_else(|e| panic!("{} is a PNG: {e}", path.display()));
+    let missing = |what: String| Decoded {
+        note: Some(what),
+        width: 0,
+        height: 0,
+        depth: 0,
+        samples: Vec::new(),
+        tags: Vec::new(),
+    };
+    let file = match fs::File::open(path) {
+        Ok(file) => file,
+        Err(e) => {
+            return missing(format!(
+                "{} was not written: {e}",
+                path.file_name().unwrap_or_default().to_string_lossy()
+            ))
+        }
+    };
+    let mut reader = match png::Decoder::new(std::io::BufReader::new(file)).read_info() {
+        Ok(reader) => reader,
+        Err(e) => return missing(format!("{} is not a readable PNG: {e}", path.display())),
+    };
     let mut samples = vec![0u8; reader.output_buffer_size().expect("a sized buffer")];
-    let info = reader
-        .next_frame(&mut samples)
-        .unwrap_or_else(|e| panic!("{} decodes: {e}", path.display()));
+    let info = match reader.next_frame(&mut samples) {
+        Ok(info) => info,
+        Err(e) => return missing(format!("{} does not decode: {e}", path.display())),
+    };
     samples.truncate(info.buffer_size());
     let meta = reader.info();
     let tags = meta
@@ -201,6 +232,7 @@ fn decode(path: &Path) -> Decoded {
         })
         .collect();
     Decoded {
+        note: None,
         width: info.width as usize,
         height: info.height as usize,
         depth: match info.bit_depth {
