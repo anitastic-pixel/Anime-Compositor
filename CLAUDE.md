@@ -12,4 +12,4 @@ For rendering or persistence work, include exact fixture evidence in the complet
 
 Unknown or unsupported project, media or effect data must be preserved or explicitly diagnosed per document 28. No silent fidelity fallback.
 
-Current stage is planning and G0 spikes. Production implementation of B-02 and beyond waits on the gate in document 00.
+G0 passed on 2026-09-04 by the owner's decision, recorded in document 00. Current stage is production implementation, starting at B-02. The G0 spikes under `spikes/` remain quarantined and must not be reused.

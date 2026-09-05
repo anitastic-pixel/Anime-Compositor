@@ -1,0 +1,17 @@
+[package]
+name = "anime_compositor"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Cel exposure and finishing compositor. G1-core: colour, alpha and compositing."
+
+# The G0 spikes are quarantined per document 06 and are not production code. They keep
+# their own manifests and are deliberately excluded from this workspace so that nothing
+# under src/ can depend on them.
+[workspace]
+exclude = ["spikes"]
+
+[dependencies]
+
+[profile.release]
+opt-level = 3

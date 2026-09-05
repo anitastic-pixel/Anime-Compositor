@@ -46,6 +46,12 @@ D-15 / Build versus extend / ACCEPTED ON PREFERENCE. The comparison task in docu
 
 D-16 / Pack format / ACCEPTED. Word review copies and the checksum manifest are removed. Markdown is the only source and the repository is under git, which supplies the change record this document previously described by hand.
 
+## New decisions in version 0.4
+
+D-17 / sRGB transfer function / PROVISIONAL. Document 21 requires conversion between sRGB and linear light in both directions but never states which transfer function. B-02 implements IEC 61966-2-1: linear segment `c/12.92` below `c <= 0.04045`, and `((c+0.055)/1.055)^2.4` above, with the matching inverse. Evidence basis: this is the transfer function the sRGB standard defines and the one every tool the owner would compare against uses. Status is PROVISIONAL rather than ACCEPTED because it is an agent's reading of an unstated requirement, not an owner decision. Consequence if changed: every expected value in `verification/B-02_fixture_table.md` moves, and document 25's fixtures move with it.
+
+D-18 / 8-bit quantisation rule / PROVISIONAL. Document 21 says "final integer output conversion clamps only at the declared encoding step" but does not state the rounding rule at that step. B-02 clamps to 0..1 and rounds to nearest with ties away from zero, `floor(c * 255 + 0.5)`. Evidence basis: it is the rule the G0 spikes already used, and it makes all 256 8-bit codes survive a decode and re-encode round trip exactly, which is stronger than the "at most one code value" tolerance document 25 allows. Status PROVISIONAL for the same reason as D-17. Both should be folded into document 21 as specification text rather than left as implementation comments.
+
 ## Risks
 
 K-01 / High / Scope expansion. Effect catalogs and conveniences displace core reliability. Trigger: anything from the parked list appearing in a build. Mitigation: the admission rule in document 04, the parked list in document 23, and the agent rule forbidding parked work.
@@ -68,6 +74,8 @@ K-08 / Medium / Dependency drift. WebView2 is a system component updated by Micr
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.
 
-Version 0.3 supersedes 0.2. It closes D-01, D-03, D-05, D-06 and D-13 through D-16, and adds D-12. All implementation tests remain NOT RUN. Further changes are recorded in git history and in `docs/adr/`.
+Version 0.3 supersedes 0.2. It closes D-01, D-03, D-05, D-06 and D-13 through D-16, and adds D-12. Further changes are recorded in git history and in `docs/adr/`.
+
+Version 0.4 records the owner passing G0 on 2026-09-04 and adds D-17 and D-18, two gaps in document 21 that B-02 could not implement around. T-04 and T-09 are no longer NOT RUN; their results are in `verification/B-02_fixture_table.md`. Every other implementation test remains NOT RUN.
 
 Related documents: 00, 04, 12, 13, 18, 23 and 30.
