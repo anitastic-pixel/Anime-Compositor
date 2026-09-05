@@ -1,1 +1,1 @@
-# Totally-Not-AfterEffects
+# Totally-Not-After-Effects
