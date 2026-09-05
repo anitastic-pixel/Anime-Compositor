@@ -27,3 +27,6 @@ desktop.ini
 # Rust build output from the quarantined G0 spikes
 target/
 spikes/*/gen/
+
+# Cargo.lock is COMMITTED. ADR-005 requires it, and docs/DEPENDENCIES.md is generated from it,
+# so an ignored lock would make the dependency record unreproducible.

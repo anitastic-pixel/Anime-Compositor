@@ -9,6 +9,8 @@
 
 pub mod color;
 pub mod composite;
+pub mod diagnostics;
+pub mod media;
 
 /// How the RGB channels of a buffer are encoded.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

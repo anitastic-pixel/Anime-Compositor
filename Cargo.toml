@@ -11,7 +11,8 @@ description = "Cel exposure and finishing compositor. G1-core: colour, alpha and
 [workspace]
 exclude = ["spikes"]
 
-[dependencies]
-
 [profile.release]
 opt-level = 3
+
+[dependencies]
+png = "0.18.1"
