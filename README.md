@@ -1,4 +1,4 @@
-# TotallyNotAfterEffects
+# Anime Compositor
 
 Working title. A cel exposure and finishing compositor for 2D animation, including anime.
 
