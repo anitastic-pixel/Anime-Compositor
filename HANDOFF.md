@@ -112,7 +112,8 @@ anything is written**, per document 07, and document 28 says the same situation 
 those frames transparent with a warning.
 
 What is left that needs nobody: **nothing that has been named.** The owner asked for more
-engine hardening after the day's queue emptied, and that became H-01, described below. Joining
+engine hardening after the day's queue emptied, and that became H-01 and then H-02, described
+below. Joining
 T-07's two halves was the last decision-free item on the backlog itself and it is done - `tests/t07e_roundtrip_export.rs`,
 `verification/T-07e_roundtrip_table.md`, 23 checks. Everything else in G1-core either needs a
 decision from the list above or is the viewer.
@@ -132,6 +133,24 @@ What H-01, the whole-picture check, settled and left:
   written from the same document by the same agent, so a misreading of document 21 would appear
   in both. It also covers four frames of one composition whose layers all sit at the identity
   transform; moved, turned and scaled layers stay with B-05a's table.
+
+What H-02, the same check with the layers moved, settled and left:
+
+- The reference shot is composited twice again with layer 1 shrunk to half, layer 2 moved 320
+  pixels right and 180 up, layer 3 doubled about the centre of the frame at half opacity and
+  layer 4 shrunk to half. Every pixel of three frames agrees with the independent compositor to
+  within 1e-6, and the largest disagreement seen was 2.13e-7 - about three f32 rounding steps.
+  The artifacts are `verification/H-02_transformed_table.md` and the two frame images beside it.
+- Why there is a tolerance here and not in H-01: resampling adds four weighted neighbours per
+  pixel, and demanding identical bits would demand both compositors add them in the same order.
+  The argument is written out in the artifact so it can be judged rather than trusted.
+- Rotation is deliberately absent. `cos(90 degrees)` is not zero in floating point, so a rotated
+  layer's samples miss the pixel centres by a hair and two correct implementations disagree in
+  the last bits. Rotation is B-05a's, by named pixels.
+- Two of its six deliberate faults survived the first draft, and both were fixture weaknesses
+  worth remembering: with every anchor at the origin the transform chain can be composed in the
+  wrong order unnoticed, and with every sampled layer transparent at its border, clamping to the
+  edge pixel is indistinguishable from transparent black.
 
 What the T-07 export half settled and left:
 

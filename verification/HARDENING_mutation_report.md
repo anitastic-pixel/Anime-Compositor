@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**143 breaks were made across thirteen units. All 143 were caught.**
+**149 breaks were made across fourteen units. All 149 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -36,7 +36,10 @@ but a second compositor written from document 21 to argue with the first: 6 brea
 no survivors, and every one of them a fault that no other table in this project could see - a
 frame drawn one pixel to the right, an sRGB exponent off by two thousandths, red and blue
 swapped, the top layer left out, the last row of every tile never drawn, and cels composited
-with straight colour instead of premultiplied.
+with straight colour instead of premultiplied. The seventh is H-02, which does the same for a
+frame whose layers have been moved, scaled and faded: 6 breaks, two of which got through the
+first time and are listed below with what was added, and all six caught after the fixture was
+strengthened.
 
 
 ## B-02 colour and alpha
@@ -312,6 +315,22 @@ with straight colour instead of premultiplied.
 | H6 | Cels are composited with straight colour instead of premultiplied | yes | `frame 0: every one of the 2073600 pixels is what a second compositor, written from document 21, produces (expected 0 pixels differ, got 199357 pixe...` |
 
 
+## H-02 the whole picture with the layers moved and scaled
+
+`src/render.rs, src/compose.rs`, checked by `tests/h02_transformed_picture.rs`, whose table is `verification/H-02_transformed_table.md`.
+
+**6 of 6 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| X1 | Bilinear weights are the wrong way round, so a resampled layer leans half a pixel the wrong way | yes | `frame 0, layers moved and scaled: every one of the 2073600 pixels agrees with a second compositor to within 0.000001 (expected 0 pixels differ by m...` |
+| X2 | Sample neighbours are taken from the pixel corner instead of the pixel centre | yes | `frame 0, layers moved and scaled: every one of the 2073600 pixels agrees with a second compositor to within 0.000001 (expected 0 pixels differ by m...` |
+| X3 | A sample off the edge of a layer takes the border pixel instead of transparent black | yes | `frame 0, layers moved and scaled: every one of the 2073600 pixels agrees with a second compositor to within 0.000001 (expected 0 pixels differ by m...` |
+| X4 | The transform chain is composed in the wrong order, so a layer is scaled about the wrong point | yes | `frame 0, layers moved and scaled: every one of the 2073600 pixels agrees with a second compositor to within 0.000001 (expected 0 pixels differ by m...` |
+| X5 | Layer opacity fades the alpha but not the colour, so a half-faded layer stays fully painted | yes | `frame 0, layers moved and scaled: every one of the 2073600 pixels agrees with a second compositor to within 0.000001 (expected 0 pixels differ by m...` |
+| X6 | Scale is read as a percentage rather than a unit factor, against D-22 | yes | `frame 0, layers moved and scaled: every one of the 2073600 pixels agrees with a second compositor to within 0.000001 (expected 0 pixels differ by m...` |
+
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -348,6 +367,13 @@ application can no longer open.
 | B-09 | Two assets are allowed to claim the same ID | No fixture project contains a duplicate ID | *two asset records claiming the same ID are refused, not silently deduplicated* |
 | B-09 | Data this build does not understand is preserved onto the first asset instead of the one it came from | The fixture projects have one asset each, so first and correct are the same record | *each asset keeps its own preserved field, not the first asset's* |
 | B-09 | Saving skips the step that checks the file can be opened again before writing it | Every save in the test was of a project that was valid anyway | *a project this build could not reopen is refused instead of written*, and *the good project it would have replaced is still there, byte for byte* |
+
+## Seventh pass: the two that got through, and what was added
+
+| Unit | What was broken | Why the fixture missed it | Added |
+|---|---|---|---|
+| H-02 | The transform chain is composed in the wrong order, so a layer is scaled about the wrong point | Every layer in the first draft had its anchor at the origin, where `T(-anchor)` is the identity and the order cannot matter | Layer 3 is now anchored at the centre of the frame, so *scale about the anchor* and *scale about the origin* are different pictures |
+| H-02 | A sample off the edge of a layer takes the border pixel instead of transparent black | Every layer being sampled was transparent at its own border, where clamping to the edge and reading transparent black give the same answer | Layer 1, the only cel whose paint reaches its own edge, is now scaled to 50%, so most of the frame samples past that edge |
 
 None of the eighteen survivors, across both passes, is a bug in the build as it stands. They are
 things the build was free to get wrong later without anything saying so.
