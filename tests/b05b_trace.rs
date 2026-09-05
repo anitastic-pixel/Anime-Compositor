@@ -24,7 +24,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anime_compositor::model::Id;
+use anime_compositor::model::{BlendMode, Id};
 use anime_compositor::render::{render, Affine, FramePlan, LayerDraw};
 use anime_compositor::trace::{missing_stages, render_traced, Stage, TraceRequest};
 use anime_compositor::{AlphaMode, ColorSpace, ImageBuffer, WorkingBuffer};
@@ -101,12 +101,14 @@ fn fixture_plan() -> FramePlan {
                 source: working(4, 4, BG),
                 transform: Affine::IDENTITY,
                 opacity: 1.0,
+                blend: BlendMode::Normal,
             },
             LayerDraw {
                 id: Id::new("fg"),
                 source: working(2, 2, FG),
                 transform: Affine::translation(1.0, 1.0),
                 opacity: 0.5,
+                blend: BlendMode::Normal,
             },
         ],
     }
@@ -269,6 +271,7 @@ fn b05b_trace_fixtures() {
             height: 4,
             layers: vec![LayerDraw {
                 opacity: 1.0,
+                blend: BlendMode::Normal,
                 ..plan.layers[1].clone()
             }],
         },
@@ -446,8 +449,8 @@ fn b05b_trace_fixtures() {
         .count();
     report.check(
         "the manifest names every stage of document 21's order this build does not implement",
-        "4 of 4",
-        format!("{missing_named} of 4"),
+        "3 of 3",
+        format!("{missing_named} of 3"),
     );
     report.check(
         "the manifest carries the exact layer IDs, not just the file names",
@@ -511,6 +514,7 @@ fn b05b_a_unicode_layer_id_survives_the_round_trip() {
             source: working(2, 2, BG),
             transform: Affine::IDENTITY,
             opacity: 1.0,
+            blend: BlendMode::Normal,
         }],
     };
     let (_, written) = render_traced(
@@ -601,6 +605,7 @@ fn reference_plan() -> Option<FramePlan> {
             source,
             transform: Affine::from_transform(*anchor, *position, *scale, *rotation),
             opacity: 1.0,
+            blend: BlendMode::Normal,
         });
     }
     Some(FramePlan {

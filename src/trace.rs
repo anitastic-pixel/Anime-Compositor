@@ -31,7 +31,7 @@ use crate::WorkingBuffer;
 /// A stage of document 21's layer render order that this build actually produces a buffer for.
 ///
 /// Document 21 lists seven stages. Four of them do not exist yet: the polygon mask (step 2),
-/// layer effects (step 3), the alpha matte (step 5) and every blend mode but `over` (step 7).
+/// layer effects (step 3) and the alpha matte (step 5).
 /// There is deliberately no variant for those. A trace directory that contained an `effects`
 /// image identical to its `decode` image would be a lie told in pictures, which is exactly the
 /// silent fidelity fallback document 28 forbids. [`missing_stages`] states the absence in
@@ -80,7 +80,7 @@ impl Stage {
 /// The stages of document 21's layer render order this build does not implement, and why.
 ///
 /// The manifest prints these so a trace directory can never be read as a complete pipeline.
-pub fn missing_stages() -> [(u32, &'static str, &'static str); 4] {
+pub fn missing_stages() -> [(u32, &'static str, &'static str); 3] {
     [
         (
             2,
@@ -92,11 +92,6 @@ pub fn missing_stages() -> [(u32, &'static str, &'static str); 4] {
             5,
             "referenced alpha matte",
             "R-04, PARKED; the model records mattes, the renderer does not apply them",
-        ),
-        (
-            7,
-            "multiply, screen and add blend modes",
-            "only `over` is implemented; LayerDraw carries no blend mode",
         ),
     ]
 }

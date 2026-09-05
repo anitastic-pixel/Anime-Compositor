@@ -44,7 +44,7 @@ The translation is a whole number of pixels, so the bilinear taps land exactly o
 | each image states what it was converted from, so the conversion is not silent | `converted from linear light, premultiplied, float32` | `converted from linear light, premultiplied, float32` | pass |
 | the finished frame carries the composition frame number it was traced at | `7` | `7` | pass |
 | the manifest names the composition frame | `names frame 7` | `names frame 7` | pass |
-| the manifest names every stage of document 21's order this build does not implement | `4 of 4` | `4 of 4` | pass |
+| the manifest names every stage of document 21's order this build does not implement | `3 of 3` | `3 of 3` | pass |
 | the manifest carries the exact layer IDs, not just the file names | `both` | `both` | pass |
 
 ## Notes

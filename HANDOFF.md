@@ -153,12 +153,19 @@ What B-05b left for later:
   space; they are written display-encoded instead, because a linear-light PNG is unviewable and
   an unviewable diagnostic image defeats the ADR's own justification.
 
+What B-05c left for later:
+
+- Nothing assembles a `FramePlan` from a `Project`. A layer's stored `blend_mode`, its
+  transform and its exposure all reach the renderer only because a test puts them there.
+  That assembly is B-08's, and it is now the single largest gap between the parts that
+  work and something the owner can run.
+- Blend modes are per-pixel, so they are tile-safe and need no margin. The first operation
+  that does need one is the blur in R-05, which is parked.
+
 Carried forward, still outstanding:
 
 - D-22 is PROVISIONAL and needs the owner. Document 21's transform formula says `S(scale/100)`
   while the model and the renderer treat 1.0 as identity.
-- The multiply, screen and add blend modes have no backlog item of their own. `LayerDraw`
-  carries no blend mode at all rather than one the renderer would ignore.
 - No default tile size lives in `src/`. `verification/B-05a_scaling_table.md` is the
   measurement; whatever calls the renderer for real, in B-08, has to pick one and say why.
 - Cache invalidation domains. Document 26 requires every committed command to report which

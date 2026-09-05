@@ -9,7 +9,11 @@
 //!
 //! Both operands are premultiplied linear-light RGBA. Nothing here clamps: document 21 says
 //! intermediate math may exceed 0..1 and that clamping happens only at the encoding step.
+//!
+//! The same document's "Blend modes" section adds multiply, screen and add, which do not
+//! reduce to the equation above and get their own function.
 
+use crate::model::BlendMode;
 use crate::WorkingBuffer;
 
 /// Premultiplied normal-over for one pixel. Source over destination.
@@ -82,4 +86,46 @@ pub fn over(src: &WorkingBuffer, dst: &mut WorkingBuffer) -> Result<(), Composit
         d.copy_from_slice(&out);
     }
     Ok(())
+}
+
+/// One pixel through document 21's "Blend modes", source over destination.
+///
+/// The document's general equation, with `B` the mode's component-wise blend of the *straight*
+/// colours:
+///
+/// ```text
+/// Co = (1-As)*Cd + (1-Ad)*Cs + As*Ad*B(cs,cd)
+/// Ao = As + Ad - As*Ad
+/// ```
+///
+/// Normal routes to [`over_pixel`] instead. Document 21 states it separately, as
+/// `Co = Cs + Cd*(1-As)`, and that is the authoritative form; substituting `B = cs` into the
+/// equation above reduces to exactly it, so this is a shortcut past an unpremultiply and a
+/// re-multiply rather than a second definition. `tests/b05c_blend.rs` checks the two agree.
+///
+/// `add` clamps its blend function to 1, which document 21 calls "the bounded G1 display
+/// blend". That clamp is part of the mode, not the encoding clamp this module otherwise
+/// refuses to do: it is applied to the straight colours before weighting, so a result can
+/// still leave 0..1 through the `(1-Ad)*Cs` term the way normal-over can.
+pub fn blend_pixel(mode: BlendMode, src: [f32; 4], dst: [f32; 4]) -> [f32; 4] {
+    if mode == BlendMode::Normal {
+        return over_pixel(src, dst);
+    }
+    // Document 21: "first recover straight colors cs and cd where alpha is nonzero", and
+    // "Zero-alpha straight colors are zero", which is what `unpremultiply` already does.
+    let cs = unpremultiply(src);
+    let cd = unpremultiply(dst);
+    let (a_s, a_d) = (src[3], dst[3]);
+    let mut out = [0.0f32; 4];
+    for c in 0..3 {
+        let b = match mode {
+            BlendMode::Multiply => cs[c] * cd[c],
+            BlendMode::Screen => cs[c] + cd[c] - cs[c] * cd[c],
+            BlendMode::Add => (cs[c] + cd[c]).min(1.0),
+            BlendMode::Normal => unreachable!("handled above"),
+        };
+        out[c] = (1.0 - a_s) * dst[c] + (1.0 - a_d) * src[c] + a_s * a_d * b;
+    }
+    out[3] = a_s + a_d - a_s * a_d;
+    out
 }
