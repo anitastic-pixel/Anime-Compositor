@@ -1,4 +1,4 @@
-# ADR-012: Narrow G1 to G1-core
+# ADR-014: Narrow G1 to G1-core
 
 Status: ACCEPTED
 Date: 2026-09-04

@@ -4,7 +4,7 @@ Version 0.3 | 2026-09-04 | Accepted for baseline
 
 ## Purpose and status
 
-This document is the index and summary of architecture decisions. Full records live in `docs/adr/`. An ADR may be ACCEPTED, PROVISIONAL, REJECTED or SUPERSEDED. Implementation must not silently contradict an accepted ADR; a conflict is raised and decided, not resolved by whichever side is easier to code.
+This document is the index and summary of architecture decisions. Full records live in `docs/adr/`, written for the decisions where the reasoning matters more than the outcome; the remainder are summarized here only. An ADR may be ACCEPTED, PROVISIONAL, REJECTED or SUPERSEDED. Implementation must not silently contradict an accepted ADR; a conflict is raised and decided, not resolved by whichever side is easier to code.
 
 Version 0.2 left most of these PROVISIONAL pending spikes. Version 0.3 accepts them on reasoned grounds, because the deciding constraint turned out not to be measurable performance but the fact that the owner cannot read code. That constraint favors compilers that reject broken programs, toolchains with no configuration surface, and user interface technology an agent can inspect visually.
 
@@ -84,8 +84,24 @@ Status: ACCEPTED. New in version 0.3. The renderer supports a trace mode that wr
 
 Justification is the verification model: when a composite is wrong, the owner cannot read code and an agent cannot see the screen by default. A directory of intermediate images turns a debugging problem into a looking problem, and can be attached directly to a verification artifact. This is a diagnostic facility, not a performance feature, and must never be on by default.
 
+## ADR-013 - Verification by fixtures and artifacts, not code review
+
+Status: ACCEPTED. New in version 0.3. The owner cannot read code, so human code review does not exist on this project and is never assumed as a backstop. Correctness is established instead by independent fixtures with pre-derived expected values, and by verification artifacts a non-programmer can judge.
+
+The load-bearing control is that expected values in `Fixtures/` and document 25 are read-only to implementation work. Changing one to make a build pass is the single failure this model has no other defense against.
+
+Consequences: full record in `docs/adr/0013-verification-without-code-review.md`, and the operating detail in document 12. The limits are stated there rather than hidden: this model catches wrong results, and does not catch bad architecture, unnecessary complexity or security defects.
+
+## ADR-014 - Narrow G1 to G1-core
+
+Status: ACCEPTED. New in version 0.3. The first milestone was cut from fifteen Must requirements to nine. Masks and mattes (R-04), effects (R-05) and the bounded preview cache (R-06b) move to G1-rest and are parked with written, measurement-based revisit triggers rather than deleted.
+
+Justification: the bottleneck is owner verification time, not code generation speed. A milestone whose scope exceeds the rate at which the owner can actually check results is a milestone that will be accepted unchecked, which is worse than a smaller one finished honestly.
+
+Consequences: parked features stay fully specified, and building one before its trigger fires is forbidden in `AGENTS.md`. Full record in `docs/adr/0014-g1-core-narrowing.md`, triggers in document 23.
+
 ## Decision gate
 
-Before B-02 begins, ADR-001 through ADR-012 stand as accepted, and SP-01, SP-03, SP-05 and SP-06 must be recorded. SP-02 is removed with ADR-006. A spike that contradicts an accepted ADR reopens it explicitly through document 14.
+Before B-02 begins, ADR-001 through ADR-014 stand as accepted, and SP-01, SP-03, SP-05 and SP-06 must be recorded. SP-02 is removed with ADR-006. A spike that contradicts an accepted ADR reopens it explicitly through document 14.
 
 Related documents: 06, 10, 12, 14, 21, 25 and 29. Full records in `docs/adr/`.
