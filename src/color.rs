@@ -40,6 +40,16 @@ pub fn quantise_u8(c: f32) -> u8 {
     (c * 255.0 + 0.5).floor() as u8
 }
 
+/// Quantise an sRGB-encoded channel to 16 bits.
+///
+/// The same rule as [`quantise_u8`] against a different maximum: document 21 fixes the clamp at
+/// "the declared encoding step" and says nothing about depth, so the two depths differ only in
+/// the number they scale by.
+pub fn quantise_u16(c: f32) -> u16 {
+    let c = if c.is_nan() { 0.0 } else { c.clamp(0.0, 1.0) };
+    (c * 65535.0 + 0.5).floor() as u16
+}
+
 /// Dequantise an 8-bit channel back to a normalised sRGB-encoded value.
 pub fn dequantise_u8(v: u8) -> f32 {
     v as f32 / 255.0

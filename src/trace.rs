@@ -25,8 +25,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::model::Id;
+use crate::png_out;
 use crate::render::{render, FramePlan, LayerDraw};
-use crate::WorkingBuffer;
+use crate::{OutputDepth, WorkingBuffer};
 
 /// A stage of document 21's layer render order that this build actually produces a buffer for.
 ///
@@ -270,38 +271,34 @@ fn safe_name(id: &str) -> String {
 /// not silent: `ColorSpace` and `AlphaMode` chunks state the encoding of the file, and
 /// `WorkingSpace` states what it was converted from.
 pub fn write_png(path: &Path, buffer: &WorkingBuffer, tags: &[(&str, String)]) -> io::Result<()> {
-    let file = io::BufWriter::new(fs::File::create(path)?);
-    let mut encoder = png::Encoder::new(file, buffer.width() as u32, buffer.height() as u32);
-    encoder.set_color(png::ColorType::Rgba);
-    encoder.set_depth(png::BitDepth::Eight);
     let fixed = [
-        ("Software", "anime_compositor render trace (ADR-012)"),
-        ("ColorSpace", "sRGB IEC 61966-2-1, 8 bits per channel"),
-        ("AlphaMode", "Straight"),
+        (
+            "Software",
+            "anime_compositor render trace (ADR-012)".to_string(),
+        ),
+        (
+            "ColorSpace",
+            "sRGB IEC 61966-2-1, 8 bits per channel".to_string(),
+        ),
+        ("AlphaMode", "Straight".to_string()),
         (
             "WorkingSpace",
-            "converted from linear light, premultiplied, float32",
+            "converted from linear light, premultiplied, float32".to_string(),
         ),
     ];
-    // iTXt, not tEXt: a layer ID is UTF-8 and the reference shot already contains one that
-    // Latin-1 cannot hold. `layer2_桜_013.png` is a required fixture, so a tag chunk that
-    // could only carry Latin-1 would fail on the owner's own drawings.
-    for (key, value) in fixed {
-        encoder
-            .add_itxt_chunk(key.to_string(), value.to_string())
-            .map_err(io::Error::other)?;
-    }
-    for (key, value) in tags {
-        encoder
-            .add_itxt_chunk((*key).to_string(), value.clone())
-            .map_err(io::Error::other)?;
-    }
-    encoder
-        .write_header()
-        .map_err(io::Error::other)?
-        .write_image_data(&buffer.to_srgb8_straight())
-        .map_err(io::Error::other)?;
-    Ok(())
+    let all: Vec<(&str, String)> = fixed
+        .iter()
+        .map(|(k, v)| (*k, v.clone()))
+        .chain(tags.iter().map(|(k, v)| (*k, v.clone())))
+        .collect();
+    png_out::write_rgba(
+        path,
+        buffer.width(),
+        buffer.height(),
+        OutputDepth::Eight,
+        &all,
+        &buffer.to_srgb8_straight(),
+    )
 }
 
 fn manifest(plan: &FramePlan, request: &TraceRequest, written: &[TracedImage]) -> String {

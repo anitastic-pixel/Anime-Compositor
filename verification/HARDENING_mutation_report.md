@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**117 breaks were made across ten units. All 117 were caught.**
+**129 breaks were made across eleven units. All 129 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -23,7 +23,11 @@ listed at the end, with what was added for each. The third is B-08a, the unit th
 frame from a saved project: 10 breaks, all caught first time, and no survivors. Three of its ten
 were aimed at the asset record's colour and alpha interpretation, which the first draft of its
 table could not have caught; three rows were added before the pass rather than after it, and they
-are named in the table below.
+are named in the table below. The fourth is T-08, the export writer: 12 breaks, all caught, and
+no survivors - but two of them were caught by a crash rather than by a named row, because a
+build that fails to write a file leaves the test's own PNG reader with nothing to open. Both of
+those places now report a sentence, so the owner sees a table with one line marked wrong instead
+of a stack trace.
 
 
 ## B-02 colour and alpha
@@ -243,6 +247,28 @@ are named in the table below.
 | C10 | The frame's width and height are swapped | yes | `at the composition's own extent (expected 1920x1080, got 1080x1920)` |
 
 
+## T-08 exporting a frame range to a PNG sequence
+
+`src/export.rs, src/lib.rs, src/color.rs`, checked by `tests/t08_export.rs`, whose table is `verification/T-08_export_table.md`.
+
+**12 of 12 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| E1 | The export range loses its last frame, so every shot comes out one frame short | yes | `frames 0 to 239 is 240 files, because document 07 includes both ends (expected 240, got 239)` |
+| E2 | A range that ends before it starts is accepted and quietly exports nothing | yes | `a range that ends before it starts is refused, not silently swapped (expected Failed, COMMAND_INVALID_VALUE, 0 files, got Completed, , 0 files)` |
+| E3 | A naming pattern with no frame number is accepted, so every frame overwrites one file | yes | `a naming pattern with no frame number is refused before anything is written (expected COMMAND_INVALID_VALUE, 0 files, got EXPORT_BLOCKED_MISSING_ME...` |
+| E4 | The default missing-drawing check is skipped, so an export with a hole in it runs | yes | `an export whose range contains a missing drawing is blocked, and writes nothing (expected Blocked, 0 files, got Completed, 48 files)` |
+| E5 | A gap in a sequence is not treated as a missing drawing, so the export is not blocked | yes | `an export whose range contains a missing drawing is blocked, and writes nothing (expected Blocked, 0 files, got Completed, 48 files)` |
+| E6 | Cancellation is never noticed, so the stop button does nothing | yes | `an export cancelled before it starts writes nothing and claims nothing (expected Cancelled, 0 files, EXPORT_CANCELLED, got Completed, 100 files, )` |
+| E7 | A job that was refused, blocked or cancelled still reports success | yes | `a refused export never reports success (expected false, got true)` |
+| E8 | A write failure is reported under the cancellation identifier, as if you had asked for it | yes | `it names the frame and the path that failed (expected EXPORT_WRITE_FAILED: Frame 14 could not be written., got no write failure was reported)` |
+| E9 | A negative composition frame loses its minus sign in the file name | yes | `a negative frame number keeps its sign in front of the padded digits (D-29) (expected neg_-0012.png, got neg_0012.png)` |
+| E10 | Output produced with a parked feature bypassed carries no note that it is incomplete | yes | `and so does the file itself, where it cannot be separated from the picture (expected incomplete: a layer carrying a parked feature was drawn withou...` |
+| E11 | Straight alpha is written without unpremultiplying, so half-transparent paint exports dark | yes | `frame 12 shows drawing 6, whose bar covers x 960 to 1119 (expected R 255, B 0, A 128, got R 188, B 0, A 128)` |
+| E12 | Sixteen-bit output is quantised against the eight-bit maximum | yes | `and the same straight pixel is the same colour at the deeper precision (expected R 65535, B 0, A 32768, got R 255, B 0, A 128)` |
+
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -290,9 +316,11 @@ future failure there reads like the rest of the table.
 
 ## What this pass did not cover
 
-Every unit merged to `main` has now been broken on purpose at least once, and as of B-08a that
-includes the assembly itself: the ten breaks in that unit are breaks in the join between a saved
-project and a rendered frame, which is what the earlier passes could not reach. What is still not
+Every unit merged to `main` has now been broken on purpose at least once. As of B-08a that
+includes the assembly itself - the join between a saved project and a rendered frame - and as of
+T-08 it includes the files that leave the application: an export one frame short, a stop button
+that does nothing, a job that reports success after being refused, and half-transparent paint
+written dark are all breaks that were made and caught. What is still not
 tested this way is the *picture*. A break that moved every layer by one pixel, or dimmed the whole
 frame, would pass every row of every table: the checks read named pixels and named values, not the
 image as a whole, and the reference shot is compared by eye. Nothing has been
