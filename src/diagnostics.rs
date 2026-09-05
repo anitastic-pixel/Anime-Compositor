@@ -191,3 +191,146 @@ impl fmt::Display for Diagnostic {
         Ok(())
     }
 }
+
+/// Collapses repeated frame-level warnings, per document 28.
+///
+/// Document 28's logging rule: "Repeated frame-level warnings should be rate-limited while
+/// retaining counts/ranges." A 240-frame composition whose layer exposes one missing drawing
+/// every twelfth frame raises the same warning twenty times; a person reading that log learns
+/// nothing from occurrences four through twenty that occurrence one did not already tell them,
+/// and the twenty copies bury every other diagnostic in the run.
+///
+/// The policy this implements is **not** in document 28, which gives no number and no shape.
+/// It is registered as D-25 in document 14 and is PROVISIONAL:
+///
+/// - the first [`FrameLog::new`] `limit` occurrences of a warning are logged in full, unchanged;
+/// - every later occurrence is suppressed;
+/// - one summary record per suppressed group is appended at the end, carrying the total count
+///   and the frame ranges, which is the part document 28 does require.
+///
+/// Grouping is by identifier **and** a caller-supplied subject, never by the message text: a
+/// frame-level message names its own frame, so no two are equal and grouping on them would
+/// suppress nothing. The subject is what makes two warnings "the same warning" — for a sequence
+/// gap, the sequence and the drawing number.
+pub struct FrameLog {
+    limit: usize,
+    groups: Vec<FrameGroup>,
+    logged: Vec<Diagnostic>,
+}
+
+struct FrameGroup {
+    id: DiagnosticId,
+    subject: String,
+    /// The first occurrence, kept whole so the summary can reuse its severity and remediation
+    /// rather than inventing new words for a condition already described.
+    first: Diagnostic,
+    frames: Vec<i32>,
+}
+
+impl FrameLog {
+    /// `limit` is how many occurrences of one warning are logged in full before suppression.
+    pub fn new(limit: usize) -> Self {
+        FrameLog {
+            limit,
+            groups: Vec::new(),
+            logged: Vec::new(),
+        }
+    }
+
+    /// Offer one frame's diagnostic to the log.
+    ///
+    /// Nothing is dropped here: a suppressed occurrence still contributes its frame to the
+    /// group's count and ranges.
+    pub fn record(&mut self, frame: i32, subject: impl Into<String>, diagnostic: Diagnostic) {
+        let subject = subject.into();
+        let index = match self
+            .groups
+            .iter()
+            .position(|g| g.id == diagnostic.id && g.subject == subject)
+        {
+            Some(i) => i,
+            None => {
+                self.groups.push(FrameGroup {
+                    id: diagnostic.id,
+                    subject,
+                    first: diagnostic.clone(),
+                    frames: Vec::new(),
+                });
+                self.groups.len() - 1
+            }
+        };
+        let group = &mut self.groups[index];
+        if group.frames.len() < self.limit {
+            self.logged.push(diagnostic);
+        }
+        group.frames.push(frame);
+    }
+
+    /// The log: every occurrence that was not suppressed, in the order it was recorded, then one
+    /// summary for each group that had occurrences suppressed, in the order the groups first
+    /// appeared.
+    pub fn finish(self) -> Vec<Diagnostic> {
+        let FrameLog {
+            limit,
+            groups,
+            mut logged,
+        } = self;
+        for group in groups {
+            let total = group.frames.len();
+            if total <= limit {
+                continue;
+            }
+            let mut summary = Diagnostic::new(
+                group.id,
+                group.first.severity,
+                format!(
+                    "{}: {total} frames affected. The first {limit} are logged in full above.",
+                    group.subject
+                ),
+                format!(
+                    "Frames {}. {} further identical warnings were not logged individually.",
+                    frame_ranges(&group.frames),
+                    total - limit
+                ),
+            );
+            summary.remediation = group.first.remediation.clone();
+            logged.push(summary);
+        }
+        logged
+    }
+}
+
+/// Frame numbers as runs: `[14, 15, 38, 39, 41]` becomes `14 to 15, 38 to 39, 41`.
+///
+/// The separator is the word rather than a dash because layer-local frames are signed: a run
+/// from -2 to 1 written with a dash reads `-2-1`, which is not a range and not a number.
+///
+/// Document 28 asks for ranges, not a list, and the difference matters at this scale: twenty
+/// frames of a 240-frame shot read as ten places something is wrong, not twenty numbers.
+/// Input is sorted and de-duplicated first, so a caller that visits frames out of order or
+/// twice still gets one honest set of ranges.
+pub fn frame_ranges(frames: &[i32]) -> String {
+    let mut sorted: Vec<i32> = frames.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    let mut out = String::new();
+    let mut i = 0;
+    while i < sorted.len() {
+        let start = sorted[i];
+        let mut end = start;
+        while i + 1 < sorted.len() && sorted[i + 1] == end + 1 {
+            i += 1;
+            end = sorted[i];
+        }
+        if !out.is_empty() {
+            out.push_str(", ");
+        }
+        if start == end {
+            out.push_str(&start.to_string());
+        } else {
+            out.push_str(&format!("{start} to {end}"));
+        }
+        i += 1;
+    }
+    out
+}
