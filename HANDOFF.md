@@ -106,10 +106,23 @@ hiding it; and **D-33**, the preview defaults to draft resolution with an always
 indicator of which resolution is showing. Everything else left in G1-core routes through B-08 -
 B-11's remaining two thirds and B-12's acceptance run both depend on it.
 
-Two smaller viewer questions are still unanswered - which frame is shown at rest, and what a
-scrub does while the mouse is held down. They do not block the work: assume one way, write the
-assumption down as a decision entry, and say so in the artifact, which is what this project has
-done with every other open decision.
+B-08's first slice is done and is the headless middle of it: `src/preview.rs`, checked by
+`tests/b08_preview.rs`, artifact `verification/B-08_preview_table.md`. It holds the resolution
+choice, the scale from a frame plan to a preview extent, and the playback clock that answers
+which frame belongs on screen at a given instant. Nothing in it sleeps or reads a clock - the
+caller supplies the elapsed time - which is what makes D-32's dropped frames checkable by a
+table rather than only by watching. The row that matters most to the exit condition is there
+already: a full-resolution preview of frame 100 against a real export of the same frame, 0 of
+8,294,400 samples differing.
+
+What is left of B-08 is the part with a window in it: the Tauri shell, the transport, the
+wall-clock loop wired to `Playback`, the resolution indicator on screen, and the screenshots.
+
+Of the two smaller viewer questions, one is now answered and one is still open. **D-35** records
+the frame at rest as the work area's first frame, PROVISIONAL and cheap to reverse. What a scrub
+does while the mouse is held down is still unanswered and is not yet needed, because nothing
+scrubs. Assume one way when it is, write the assumption down as a decision entry, and say so in
+the artifact, which is what this project has done with every other open decision.
 
 Eleven decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-30 and D-34 in
 `Markdown/14_Decisions_Risks.md`. None of them blocks anything today, because each was assumed
