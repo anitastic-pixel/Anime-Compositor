@@ -94,6 +94,8 @@ Version 0.7 adds D-22, from B-05a: document 21 and document 19 disagree about wh
 
 Version 0.8 adds D-23, from B-05b: ADR-012 asks for trace images in the working space and for images the owner can look at, and linear light cannot be both. Trace mode itself raises no new test; it is the diagnostic facility document 12's protocol leans on, and its results are in `verification/B-05b_trace_table.md`.
 
+Version 0.10 records B-05c, which implements the multiply, screen and add blend modes of document 21 against document 25's FX-B fixtures. It raised no new decision: document 21 gives the equation, document 25 gives three expected values, and the schema and the model already carried all four mode names. It closes the last unowned item of R-03 and R-10 and removes one of the four entries from trace mode's list of render stages this build does not implement.
+
 Version 0.9 adds D-24, from B-09: document 28 has an identifier for an effect this build cannot run and none for a record of a parked feature that is not an effect, and the schema carries masks. T-07's persistence half is now RUN and PASSING, evidence in `verification/B-09_persistence_table.md`; document 26's eighth and last required test, "undo/redo after project reopen is empty", is run for the first time. D-22 gains fixture evidence and narrows to where the conversion happens rather than which unit is stored.
 
 Version 0.5 adds D-19 and D-20, both from B-03: document 28's diagnostic catalog has no identifier for the cases T-01 requires, and document 19 does not say whether the pattern or the frame map decides which drawings exist. T-01 is no longer NOT RUN; its results are in `verification/B-03_import_table.md`.

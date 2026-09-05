@@ -15,11 +15,9 @@
 //! order with thread count. `tests/b05a_transform.rs` proves it anyway, across thread counts
 //! and tile sizes, because ADR-011 says B-05a proves this rather than assuming it.
 //!
-//! Not here, and deliberately: masks (parked with R-04), effects (B-06), alpha mattes (B-06,
-//! and they need the matte layer rendered through its own transform first) and the multiply,
-//! screen and add blend modes. Those are steps 2, 3, 5 and part of 7 of document 21's layer
-//! render order. A [`LayerDraw`] carries no blend mode at all rather than carrying one this
-//! renderer would quietly ignore.
+//! Not here, and deliberately: masks (parked with R-04), effects (B-06) and alpha mattes
+//! (B-06, and they need the matte layer rendered through its own transform first). Those are
+//! steps 2, 3 and 5 of document 21's layer render order.
 
 use rayon::prelude::*;
 
@@ -190,6 +188,8 @@ pub struct LayerDraw {
     pub source: WorkingBuffer,
     pub transform: Affine,
     pub opacity: f32,
+    /// Document 21's step 7. Applied after opacity, against whatever is already accumulated.
+    pub blend: crate::model::BlendMode,
 }
 
 /// One frame of work: the output extent and the layers, bottom of the stack first.
@@ -279,7 +279,11 @@ fn render_tile(plan: &FramePlan, tile: Tile) -> Vec<f32> {
                 }
                 let i = (row * tile.width + col) * 4;
                 let dst = [acc[i], acc[i + 1], acc[i + 2], acc[i + 3]];
-                acc[i..i + 4].copy_from_slice(&crate::composite::over_pixel(src, dst));
+                acc[i..i + 4].copy_from_slice(&crate::composite::blend_pixel(
+                    layer.blend,
+                    src,
+                    dst,
+                ));
             }
         }
     }

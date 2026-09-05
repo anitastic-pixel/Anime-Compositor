@@ -13,7 +13,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anime_compositor::media::import_sequence;
-use anime_compositor::model::Id;
+use anime_compositor::model::{BlendMode, Id};
 use anime_compositor::render::{render, sample_bilinear, Affine, FramePlan, LayerDraw};
 use anime_compositor::time::{resolve, ExposureMap, LayerTiming, SourceAt};
 use anime_compositor::WorkingBuffer;
@@ -97,6 +97,7 @@ fn one_layer(source: WorkingBuffer, transform: Affine) -> Vec<LayerDraw> {
         source,
         transform,
         opacity: 1.0,
+        blend: BlendMode::Normal,
     }]
 }
 
@@ -434,6 +435,7 @@ fn b05a_transform_fixtures() {
                 source: impulse_source(5, (2, 2)),
                 transform: Affine::IDENTITY,
                 opacity: 0.5,
+                blend: BlendMode::Normal,
             }],
         ),
         5,
@@ -570,6 +572,7 @@ fn reference_plan(width: usize, height: usize) -> FramePlan {
                 *rotation,
             ),
             opacity: 1.0,
+            blend: BlendMode::Normal,
         });
     }
     plan(width, height, layers)
@@ -828,9 +831,9 @@ fn write_fixture_artifact(report: &Report) {
          - Masks, effects and alpha mattes, which are steps 2, 3 and 5 of document 21's layer \
          render order. Masks are parked to G1-rest with R-04 under D-12; effects and mattes are \
          B-06. A layer here is decoded, transformed, faded and composited, and nothing else.\n\
-         - The multiply, screen and add blend modes. Document 21 specifies them and document 25 \
-         requires independent fixtures for each. `LayerDraw` carries no blend mode at all, so \
-         the renderer cannot silently treat one as normal; it will be added with its fixtures.\n\
+         - The multiply, screen and add blend modes, which are now implemented and are \
+         verified in `verification/B-05c_blend_table.md` against document 25's FX-B fixtures. \
+         Every layer in this table is `normal`.\n\
          - Tile margins for neighbourhood operations. Every operation in G1-core is per-pixel, \
          so no margin is needed yet. Document 21 says the first one that needs it is the blur \
          in R-05, which is parked.\n\
