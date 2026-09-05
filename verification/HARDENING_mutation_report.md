@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**129 breaks were made across eleven units. All 129 were caught.**
+**137 breaks were made across twelve units. All 137 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -27,7 +27,11 @@ are named in the table below. The fourth is T-08, the export writer: 12 breaks, 
 no survivors - but two of them were caught by a crash rather than by a named row, because a
 build that fails to write a file leaves the test's own PNG reader with nothing to open. Both of
 those places now report a sentence, so the owner sees a table with one line marked wrong instead
-of a stack trace.
+of a stack trace. The fifth is the export half of T-07, which joins the file format to the
+exported picture: 8 breaks, all aimed at ways a save or an open could lose something the
+renderer reads, all caught, no survivors. One of the eight was caught by a crash - a project
+that came back with no exposure sheet at all left the test indexing an empty list - and that
+place now reports a sentence too.
 
 
 ## B-02 colour and alpha
@@ -267,6 +271,24 @@ of a stack trace.
 | E10 | Output produced with a parked feature bypassed carries no note that it is incomplete | yes | `and so does the file itself, where it cannot be separated from the picture (expected incomplete: a layer carrying a parked feature was drawn withou...` |
 | E11 | Straight alpha is written without unpremultiplying, so half-transparent paint exports dark | yes | `frame 12 shows drawing 6, whose bar covers x 960 to 1119 (expected R 255, B 0, A 128, got R 188, B 0, A 128)` |
 | E12 | Sixteen-bit output is quantised against the eight-bit maximum | yes | `and the same straight pixel is the same colour at the deeper precision (expected R 65535, B 0, A 32768, got R 255, B 0, A 128)` |
+
+
+## T-07 export half: a project saved, reopened and exported to the same files
+
+`src/persist.rs`, checked by `tests/t07e_roundtrip_export.rs`, whose table is `verification/T-07e_roundtrip_table.md`.
+
+**8 of 8 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| P1 | A switched-off layer is written to the file as switched on | yes | `the switched-off layer is still in the file and still switched off (expected false, got true)` |
+| P2 | The last exposure span is dropped on the way into the file | yes | `saving the reopened project reproduces the file it came from, byte for byte (expected identical, got the two files differ: 20170 bytes against 20030)` |
+| P3 | One drawing is left out of the asset's frame list when the project is saved | yes | `layer 3's asset still has no drawing 7, because that file is a deliberate defect (expected 0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, got 0, 1, 2, 3, 4, 5,...` |
+| P4 | Scale is read back as a percentage instead of a factor, so a reopened project renders a hundred times too large | yes | `saving the reopened project reproduces the file it came from, byte for byte (expected identical, got the two files differ: 20457 bytes against 20465)` |
+| P5 | Layer order is written to the file upside down | yes | `saving the reopened project reproduces the file it came from, byte for byte (expected identical, got the two files differ: 20457 bytes against 20457)` |
+| P6 | Exposure sheets are silently ignored when a project is opened | yes | `saving the reopened project reproduces the file it came from, byte for byte (expected identical, got the two files differ: 20457 bytes against 3708)` |
+| P7 | A layer's last frame is lost on every save | yes | `saving the reopened project reproduces the file it came from, byte for byte (expected identical, got the two files differ: 20457 bytes against 20457)` |
+| P8 | Drawing numbers shift by one when a project is opened, so every cel is the wrong one | yes | `saving the reopened project reproduces the file it came from, byte for byte (expected identical, got the two files differ: 20457 bytes against 20458)` |
 
 
 ## First pass: the six that got through, and what was added
