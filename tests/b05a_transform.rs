@@ -13,6 +13,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anime_compositor::media::import_sequence;
+use anime_compositor::model::Id;
 use anime_compositor::render::{render, sample_bilinear, Affine, FramePlan, LayerDraw};
 use anime_compositor::time::{resolve, ExposureMap, LayerTiming, SourceAt};
 use anime_compositor::WorkingBuffer;
@@ -92,6 +93,7 @@ fn plan(width: usize, height: usize, layers: Vec<LayerDraw>) -> FramePlan {
 
 fn one_layer(source: WorkingBuffer, transform: Affine) -> Vec<LayerDraw> {
     vec![LayerDraw {
+        id: Id::new("fixture"),
         source,
         transform,
         opacity: 1.0,
@@ -428,6 +430,7 @@ fn b05a_transform_fixtures() {
             5,
             5,
             vec![LayerDraw {
+                id: Id::new("fixture"),
                 source: impulse_source(5, (2, 2)),
                 transform: Affine::IDENTITY,
                 opacity: 0.5,
@@ -558,6 +561,7 @@ fn reference_plan(width: usize, height: usize) -> FramePlan {
         // The source is scaled by the same factor as the composition, so anchor and position
         // scale with it and the layer's own scale is unchanged.
         layers.push(LayerDraw {
+            id: Id::new(&name),
             source,
             transform: Affine::from_transform(
                 (anchor.0 * scale, anchor.1 * scale),
@@ -753,19 +757,8 @@ fn write_scaling_artifact(rows: &[(usize, usize, f64)]) {
 }
 
 fn write_png(path: &Path, frame: &WorkingBuffer) {
-    let file = fs::File::create(path).expect("create png");
-    let mut encoder = png::Encoder::new(
-        std::io::BufWriter::new(file),
-        frame.width() as u32,
-        frame.height() as u32,
-    );
-    encoder.set_color(png::ColorType::Rgba);
-    encoder.set_depth(png::BitDepth::Eight);
-    encoder
-        .write_header()
-        .expect("png header")
-        .write_image_data(&frame.to_srgb8_straight())
-        .expect("png data");
+    // B-05b moved the encoder into the crate for the trace facility; this is its second caller.
+    anime_compositor::trace::write_png(path, frame, &[]).expect("write png");
 }
 
 // -- artifacts --------------------------------------------------------------------------------
