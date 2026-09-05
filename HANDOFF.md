@@ -111,9 +111,25 @@ will feel: an export whose range contains a frame with no drawing is currently *
 anything is written**, per document 07, and document 28 says the same situation should write
 those frames transparent with a warning.
 
-What is left that needs nobody: joining T-07's two halves - a project saved, reopened and
-exported to the same files - which is a test rather than a feature, and whatever the owner asks
-for next.
+What is left that needs nobody: **nothing that has been named.** Joining T-07's two halves was
+the last decision-free item on the list and it is done - `tests/t07e_roundtrip_export.rs`,
+`verification/T-07e_roundtrip_table.md`, 23 checks. Everything else in G1-core either needs a
+decision from the list above or is the viewer.
+
+What the T-07 export half settled and left:
+
+- A project saved, reopened from the file on disk and exported produces files byte-identical to
+  the same export from the project in memory, and byte-identical to the frames T-08 committed.
+  The artifacts are `verification/T-07e_project.json` and `verification/T-07e_reopened.json`,
+  which are the same file and can be compared in any diff tool.
+- Q-01 - "no known reproducible project corruption in the release candidate" - is left open on
+  purpose. It is a claim about a release candidate, not a check, and there is no release
+  candidate.
+- `src/persist.rs` has now been broken on purpose eight more times, in ways that damage the
+  picture without damaging the text: a switched-off layer written as on, an exposure span
+  dropped, a drawing left out of an asset, scale read back as a percentage, layer order
+  reversed, exposure sheets ignored on open, a layer's last frame lost, and drawing numbers
+  shifted by one. All eight were caught.
 
 What T-08 settled and left:
 
