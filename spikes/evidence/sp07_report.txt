@@ -1,0 +1,26 @@
+SP-07 - reference shot render
+shot: I:\AI Coding\Claude\TotallyNotAfterEffects\spikes\sp01_sp04_core\../../Fixtures/reference_shot
+1920x1080, 240 frames, 64x64 tiles, 4 layers
+
+MISSING SOURCE  layer 3 drawing 007  (I:\AI Coding\Claude\TotallyNotAfterEffects\spikes\sp01_sp04_core\../../Fixtures/reference_shot\layer3\layer3_007.png: The system cannot find the file specified. (os error 2))
+decoded 56 drawings, 443.0 MiB resident, 122.1 ms total, 2.18 ms per drawing
+1 absent drawing(s); 20 of 240 composition frames reference one
+
+| Threads | Wall ms, 240 frames | ms per frame | fps | Determinism |
+|---|---|---|---|---|
+| 1 | 13629.8 | 56.79 | 17.61 | PASS |
+| 24 | 4429.9 | 18.46 | 54.18 | PASS |
+
+speedup on 24 threads: 3.15x
+
+### sRGB encode: fused into the tile vs a serial pass after it
+
+byte-identical output: yes
+| Encode structure | Wall ms, 240 frames | ms per frame | fps |
+|---|---|---|---|
+| fused into tile (parallel) | 2885.1 | 12.02 | 83.19 |
+| serial pass after render | 12823.3 | 53.43 | 18.72 |
+
+serial encode costs 41.41 ms per frame more, 4.44x the fused wall time
+
+wrote 8 evidence frames to I:\AI Coding\Claude\TotallyNotAfterEffects\spikes\sp01_sp04_core\../../spike-output/sp07
