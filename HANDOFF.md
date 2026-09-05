@@ -104,19 +104,67 @@ transport, playback and a work area. Every one of those is a decision that has n
 which frame is shown at rest, what a scrub does while the mouse is down, and whether playback
 drops frames or slows down when it cannot keep up. Do not start it. Ask.
 
-Ten decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-30 in
+Ten decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-31 in
 `Markdown/14_Decisions_Risks.md`. None of them blocks anything today, because each was assumed
 one way and the assumption is written down, but D-28 in particular changes a default the owner
 will feel: an export whose range contains a frame with no drawing is currently **refused before
 anything is written**, per document 07, and document 28 says the same situation should write
 those frames transparent with a warning.
 
-What is left that needs nobody: **nothing that has been named.** The owner asked for more
+What is left that needs nobody: two named items were found and both are done, described first
+below - B-10's declared artifact was only six frames when document 15 asks for the exported
+240-frame sequence and a byte comparison of two exports, and B-11's dependency record was a
+stale eleven-crate table. Before those, the owner asked for more
 engine hardening after the day's queue emptied, and that became H-01 and then H-02, described
 below. Joining
 T-07's two halves was the last decision-free item on the backlog itself and it is done - `tests/t07e_roundtrip_export.rs`,
 `verification/T-07e_roundtrip_table.md`, 23 checks. Everything else in G1-core either needs a
 decision from the list above or is the viewer.
+
+What B-10's full-shot export settled and left:
+
+- Document 15 names B-10's artifact as the exported 240-frame sequence plus a byte comparison of
+  two consecutive exports proving determinism. Six frames existed. `tests/b10_full_shot.rs` now
+  exports the whole shot twice and compares all 240 pairs; it is `#[ignore]`d and run with
+  `cargo test --release --test b10_full_shot -- --ignored`, taking about four minutes.
+- **The frames are not committed and cannot be.** 240 frames at 1920x1080 is roughly 480 MB and
+  `.git` is already 438 MB. They are written to `target/b10_full/pass1`, which is gitignored and
+  left in place after the run so the owner can open them. What is committed is
+  `verification/B-10_contact_sheet.png`, one 2560x1350 grid of all 240 frames, which is also the
+  more useful artifact: nobody flips through 240 separate files.
+- The determinism row has a negative control. Every frame is also compared against the *next*
+  frame's file, and none of the 239 neighbouring pairs may match - layer 2 changes drawing on
+  every frame of this shot, so a comparison that passed there would be comparing a file with
+  itself.
+- The export uses `MissingSource::RenderTransparent`, D-28's recorded override, because the
+  default refuses this job outright: twenty of the 240 frames ask layer 3 for the drawing the
+  fixture deliberately does not contain. That default is T-08's row and is unchanged.
+- `fidelity_incomplete` stays **false** across the whole shot, which was not what this session
+  expected. The flag is raised only for a parked feature bypassed on a drawn layer
+  (`ProjectFeatureUnsupported`, today only masks), and a missing drawing is not that - it is a
+  media gap, reported as one. The code was right and the expectation was wrong.
+- Exactly four `MEDIA_SEQUENCE_GAP` diagnostics are emitted for the twenty affected frames: three
+  in full and one summary, which is D-25's rate limit doing its job at full shot length for the
+  first time.
+
+What B-11's dependency and licence record settled and left:
+
+- There is now one dependency record, `docs/DEPENDENCIES.md`, generated from `cargo metadata` and
+  the committed `Cargo.lock`. The file that stood there listed eleven crates and predated `rayon`
+  and `serde_json`; the graph is twenty-eight. `tests/b11_dependency_record.rs` compares the two
+  in both directions on every run, so a crate added without an entry fails a named row.
+- `Licenses/` holds every crate's licence and notice files as shipped inside the crate, copied
+  from the local registry. All 28 shipped at least one. That is document 10's "archive the exact
+  license" done rather than promised.
+- **It reaches no legal conclusion, deliberately.** Document 10 reserves those for a reviewer and
+  there has not been one, so the reviewer and date fields are blank rather than invented. Three
+  entries are flagged for a reviewer instead of decided: `unicode-ident`'s Unicode-3.0 term is an
+  `AND` and not an `OR`; `zlib-rs` offers no alternative to the Zlib licence; and `memchr`'s
+  public-domain option is avoidable by taking its MIT half.
+- D-31 is new and is the owner's: the repository has no licence of its own. Whether to be open
+  source is *not* open - D-03 and ADR-010 settled that - but `Cargo.toml` has no `license` field
+  and there is no `LICENSE` file, so the code as it stands is under exclusive copyright, which is
+  not the state ADR-010 describes. Which open-source licence replaces it is the decision.
 
 What H-01, the whole-picture check, settled and left:
 

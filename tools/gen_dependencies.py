@@ -1,0 +1,138 @@
+# -*- coding: utf-8 -*-
+"""Writes docs/DEPENDENCIES.md from the build inputs.
+
+Document 10: "Generate a software bill of materials from the final build inputs rather than a
+guessed list." So the table below is not typed by hand. Names, versions, declared licences and
+upstreams come from `cargo metadata`; the checksums come from `Cargo.lock`. The prose is written
+by hand and lives here so that regenerating the table cannot silently drop it.
+"""
+import json, os, subprocess, io
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# A proc macro and its own dependencies run in the compiler and are not linked into anything this
+# project ships. That distinction matters to a licence review, so the table states it.
+BUILD_ONLY = {'proc-macro2', 'quote', 'syn', 'unicode-ident', 'serde_derive'}
+DIRECT = {'png', 'rayon', 'serde_json'}
+
+
+def packages():
+    out = subprocess.run(['cargo', 'metadata', '--format-version', '1'], cwd=ROOT,
+                         capture_output=True, text=True, encoding='utf-8').stdout
+    meta = json.loads(out)
+    return sorted(((p['name'], p['version'], p.get('license') or '', p.get('repository') or '')
+                   for p in meta['packages'] if p['name'] != 'anime_compositor'),
+                  key=lambda r: (r[0], r[1]))
+
+
+def checksums():
+    lock = io.open(os.path.join(ROOT, 'Cargo.lock'), encoding='utf-8').read()
+    out = {}
+    for block in lock.split('[[package]]')[1:]:
+        f = {}
+        for line in block.split(chr(10)):
+            line = line.strip()
+            for key in ('name', 'version', 'checksum'):
+                head = key + ' = "'
+                if line.startswith(head) and line.endswith('"'):
+                    f[key] = line[len(head):-1]
+        if 'name' in f and 'version' in f:
+            out[(f['name'], f['version'])] = f.get('checksum', '')
+    return out
+
+
+def table():
+    sums = checksums()
+    rows = ['| Crate | Version | Declared licence | Role | Form | Upstream | crates.io SHA-256 |',
+            '|---|---|---|---|---|---|---|']
+    for name, version, licence, repo in packages():
+        role = 'direct' if name in DIRECT else 'transitive'
+        form = 'build-time only' if name in BUILD_ONLY else 'linked'
+        digest = sums.get((name, version), '')
+        digest = '`%s\u2026`' % digest[:16] if digest else '(not from crates.io)'
+        rows.append('| `%s` | %s | %s | %s | %s | %s | %s |'
+                    % (name, version, licence, role, form, repo, digest))
+    return chr(10).join(rows)
+
+
+PROSE_HEAD = """# Dependency record
+
+B-11's dependency and licence record. This file supersedes the short generated table that stood
+here before; it is the single dependency record ADR-005 asks for, and `.gitignore` names it as the
+reason `Cargo.lock` is committed.
+
+`tests/b11_dependency_record.rs` checks this file against `Cargo.lock` in both directions and
+writes `verification/B-11_record_table.md`. The table is produced by `tools/gen_dependencies.py` from
+`cargo metadata` and `Cargo.lock` rather than typed, because document 10 asks for a bill of
+materials "generated from the final build inputs rather than a guessed list". The prose sections
+are written by hand.
+
+Distribution form: statically linked, open source (ADR-010, D-03). No dependency is modified. No
+non-default build flags are set. Reviewer: none. Date reviewed: none. Both are blank on purpose;
+see the last section.
+
+## Bill of materials
+
+Every crate the build resolves, at the version it resolved. `miniz_oxide` appears twice because
+two majors of it are in the graph at once, reached by different dependants; that is not an error,
+and the check compares whole version sets per crate so that it stays visible.
+
+"""
+
+PROSE_TAIL = """
+
+## Purpose \u2014 why each of the three is here
+
+`Cargo.toml` names three dependencies by hand. Everything else in the table above arrived
+underneath one of them.
+
+- **`png`** decodes the cel images the compositor reads and encodes the frames it exports. PNG is
+  the format the reference shot is drawn in and the format document 21 names for export. Writing a
+  PNG encoder that is correct about bit depth, alpha and interlacing is not work this project has
+  any reason to do.
+- **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
+  the export path is the only place it is used.
+- **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the
+  alternative is a hand-written parser, which is a source of silent data loss and the one failure
+  this project is least able to tolerate.
+
+## The three that need a reviewer's eye
+
+Named, not decided. Document 10 reserves that judgement: "legal conclusions requiring professional
+judgment should be recorded by the appropriate reviewer."
+
+- **`unicode-ident` 1.0.24** \u2014 `(MIT OR Apache-2.0) AND Unicode-3.0`. The `AND` is the point: this
+  is not a choice of one licence, both sets of terms apply. It is build-time only, which likely
+  changes the answer, but "likely" is not a review.
+- **`zlib-rs` 0.6.7** \u2014 `Zlib`, with no MIT or Apache alternative offered. The only crate in the
+  graph whose terms are not a choice.
+- **`memchr` 2.8.3** \u2014 `Unlicense OR MIT`. The Unlicense is a public-domain dedication whose
+  standing differs by jurisdiction, and document 10 records that distribution jurisdictions are
+  still open.
+
+## Licence compatibility, as an engineering read
+
+Not a legal opinion. Every crate above offers permissive terms, and all but `zlib-rs` offer MIT or
+Apache-2.0 among them. Nothing in the graph is copyleft, so nothing here constrains what licence
+this project's own code may carry. The archived texts under `Licenses/` are what a distribution
+would have to carry with it; a check confirms one exists for every crate at its resolved version,
+and it checks only that, never what the text says.
+
+## What this record does not yet contain
+
+- **A reviewer and a date.** There has been no legal reviewer. Inventing a sign-off would be worse
+  than leaving it blank.
+- **NOTICE files.** Document 10 lists them separately from licence texts. No crate in this graph
+  ships one, but that was read off the archived directories, not verified by a reviewer.
+- **A distribution.** T-16 stays NOT RUN because there is no distributable build to check. Nothing
+  here has been shipped to anyone, so no obligation in it has come due.
+- **D-31 \u2014 which open-source licence this project's own code carries.** Whether to be open source
+  is not open; D-03 settled it and ADR-010 records it as ACCEPTED. What is missing is that the
+  repository does not match that decision: `Cargo.toml` has no `license` field, it sets
+  `publish = false`, and there is no `LICENSE` file. Absent one, the code is under exclusive
+  copyright, which is not the state ADR-010 describes.
+"""
+
+io.open(os.path.join(ROOT, 'docs', 'DEPENDENCIES.md'), 'w', encoding='utf-8',
+        newline=chr(10)).write(PROSE_HEAD + table() + PROSE_TAIL)
+print('wrote docs/DEPENDENCIES.md')

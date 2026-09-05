@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**149 breaks were made across fourteen units. All 149 were caught.**
+**162 breaks were made across sixteen units. All 162 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -39,7 +39,19 @@ swapped, the top layer left out, the last row of every tile never drawn, and cel
 with straight colour instead of premultiplied. The seventh is H-02, which does the same for a
 frame whose layers have been moved, scaled and faded: 6 breaks, two of which got through the
 first time and are listed below with what was added, and all six caught after the fixture was
-strengthened.
+strengthened. The eighth is B-10, the whole 240-frame shot exported twice: 6 breaks, one of
+which survived two attempts and is the most instructive result of the pass, described below. The
+ninth is B-11, and it is the only unit here whose breaks are not made in code at all - the thing
+being checked is a document, `docs/DEPENDENCIES.md`, and the failure worth preventing is that
+record quietly ceasing to describe the build, so the record itself is what gets broken: a crate
+dropped, a stale version, a crate the build does not use, a dependency chosen on purpose recorded
+as one that arrived underneath another, a blank licence, and only one of the two versions listed
+for the crate the build resolves twice - which is the exact defect the check itself shipped with
+for an hour, a comparison keyed on crate name alone, found by this record failing against the
+build and fixed in the check rather than in the record. A seventh break is made differently from
+every other break in this report: it deletes no line, but moves a crate's archived licence
+directory out of the way, because the row it aims at asks whether a directory exists and nothing
+that can be written into a file can make that false.
 
 
 ## B-02 colour and alpha
@@ -331,6 +343,39 @@ strengthened.
 | X6 | Scale is read as a percentage rather than a unit factor, against D-22 | yes | `frame 0, layers moved and scaled: every one of the 2073600 pixels agrees with a second compositor to within 0.000001 (expected 0 pixels differ by m...` |
 
 
+## B-10 the whole 240-frame shot exported twice
+
+`src/export.rs, src/media.rs, src/diagnostics.rs`, checked by `tests/b10_full_shot.rs`, whose table is `verification/B-10_full_shot_table.md`.
+
+**6 of 6 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| Y1 | The last frame of the range is never exported, so every shot is one frame short | yes | `the whole shot is asked for and the whole shot is written (expected 240 frames requested, 240 written, completed, got 239 frames requested, 239 wri...` |
+| Y2 | Frame numbers are padded one digit narrower than the pattern asks | yes | `the first and last file are named for their own frame, four digits wide (expected shot_0000.png and shot_0239.png, got shot_000.png and shot_239.pn...` |
+| Y3 | A missing drawing is filled with the nearest one that exists, which document 28 forbids | yes | `twenty affected frames are reported as three in full and one summary, per D-25 (expected 4 gap diagnostics, got 0 gap diagnostics); see verificatio...` |
+| Y4 | Affected frames are summarised as one unbroken range, hiding which frames are actually affected | yes | `the summary names every affected frame and counts the ones it did not log (expected Frames 14 to 15, 38 to 39, 62 to 63, 86 to 87, 110 to 111, 134 ...` |
+| Y5 | Frame-level warnings are never rate-limited during a render, so a long shot logs twenty of them | yes | `twenty affected frames are reported as three in full and one summary, per D-25 (expected 4 gap diagnostics, got 20 gap diagnostics); see verificati...` |
+| Y6 | The summary that stands in for the suppressed warnings is never appended | yes | `twenty affected frames are reported as three in full and one summary, per D-25 (expected 4 gap diagnostics, got 3 gap diagnostics); see verificatio...` |
+
+
+## B-11 the dependency and licence record against the build
+
+`docs/DEPENDENCIES.md`, checked by `tests/b11_dependency_record.rs`, whose table is `verification/B-11_record_table.md`.
+
+**7 of 7 breaks caught.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| Z1 | A crate the build links is left out of the record entirely | yes | `every crate the build resolves has a row in the record (expected none missing from the record, got missing from the record: rayon); see verificatio...` |
+| Z2 | A row keeps a version the build no longer resolves | yes | `every row carries the exact version the build resolved, not a range or an older one (expected no version disagrees, got png: record says 0.18.0, th...` |
+| Z3 | The record names a crate that is not in the build at all | yes | `the record names no crate the build does not use (expected no rows without a crate, got rows without a crate: openssl); see verification/B-11_recor...` |
+| Z4 | A dependency Cargo.toml names by hand is recorded as though something else pulled it in | yes | `the record marks as direct exactly the three dependencies Cargo.toml asks for (expected png, rayon, serde_json, got rayon, serde_json); see verific...` |
+| Z5 | A row names the crate but leaves its licence blank | yes | `every row names a licence (expected every row names a licence, got no licence named for: memchr-2.8.3); see verification/B-11_record_table.md` |
+| Z6 | Only one of the two versions of a crate the build resolves twice is recorded | yes | `every row carries the exact version the build resolved, not a range or an older one (expected no version disagrees, got miniz_oxide: record says 0....` |
+| Z7 | A crate's archived licence text is gone from the repository, leaving only its name in the table | yes | `every crate's own licence text is archived in this repository, not merely named (expected every crate has an archived licence, got nothing archived...` |
+
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -375,7 +420,23 @@ application can no longer open.
 | H-02 | The transform chain is composed in the wrong order, so a layer is scaled about the wrong point | Every layer in the first draft had its anchor at the origin, where `T(-anchor)` is the identity and the order cannot matter | Layer 3 is now anchored at the centre of the frame, so *scale about the anchor* and *scale about the origin* are different pictures |
 | H-02 | A sample off the edge of a layer takes the border pixel instead of transparent black | Every layer being sampled was transparent at its own border, where clamping to the edge and reading transparent black give the same answer | Layer 1, the only cel whose paint reaches its own edge, is now scaled to 50%, so most of the frame samples past that edge |
 
-None of the eighteen survivors, across both passes, is a bug in the build as it stands. They are
+## Eighth pass: the one that got through, twice, and what it showed
+
+| Unit | What was broken | Why the fixture missed it | Added |
+|---|---|---|---|
+| B-10 | A missing drawing is filled with the nearest one that exists, which document 28 forbids in as many words | The row that should have caught it sampled *one pixel*, at the place layer 3's bar sits on the frames either side of the gap. A substituted drawing still paints a bar, just 160 pixels further along, so that sample saw sky either way | The whole frame is now scanned for layer 3's exact paint colour, with a positive control requiring the frames either side of the gap to contain it |
+
+That fixture change was not enough on its own, and the second attempt is the more useful half.
+The break still survived, and the reason was not the fixture: the mutation had been made in
+`Sequence::decode`, which carries document 28's "do not substitute adjacent frame" rule in its
+own doc comment and which **no production path calls**. The renderer resolves a drawing through
+`time::resolve_in` and decodes the resulting path itself. So the rule was being enforced twice,
+once where the render actually goes and once in a function only the tests reach, and a break in
+the second is unreachable. The break was remade on the live path and caught there. The lesson is
+not about this fixture: a mutation that survives may mean the test is weak, or it may mean the
+code it was made in cannot affect the result, and those two look identical from the outside.
+
+None of the nineteen survivors, across every pass, is a bug in the build as it stands. They are
 things the build was free to get wrong later without anything saying so.
 
 A further handful of breaks were caught only by a crash rather than by a named row - the test
@@ -396,7 +457,10 @@ closed by H-01. Four frames of the reference shot are composited twice, once by 
 renderer and once by a deliberately naive compositor written from document 21 inside the test,
 and all 2,073,600 pixels of each frame have to agree exactly. What that still does not cover is
 a misreading of document 21 itself: both compositors were written from the same document, so an
-error in the reading would appear in both. It also covers four frames rather than all 240, and
+error in the reading would appear in both. It also covers four frames rather than all 240. B-10 does now cover all 240, but for a
+different property: that two exports of the shot are byte for byte the same, and that the
+twenty frames with no drawing have none of that layer's paint in them. Neither of those is
+a claim that the picture is right. Both cover
 only the reference shot, whose layers all sit at the identity transform - the sampling rules for
 a layer that is moved, turned or scaled are checked by B-05a's table, pixel by named pixel,
 rather than here. Nothing has been
