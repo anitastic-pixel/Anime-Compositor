@@ -2,7 +2,7 @@
 
 Working title. A cel exposure and finishing compositor for 2D animation, including anime.
 
-**Status: G1-core implementation. B-02, B-03 and B-04 are complete; B-05 is next.** G0 passed on 2026-09-04. Planning is complete, the reference shot is drawn, the G0 spikes are measured and recorded, the colour and compositing core is implemented and passing its fixtures, PNG sequences import with gap, Unicode and format diagnostics, and the reference shot now evaluates to a drawing number per layer per frame at exact rational time.
+**Status: G1-core implementation. B-02 through B-05 are complete; B-05a, the transform renderer, is next.** G0 passed on 2026-09-04. Planning is complete, the reference shot is drawn, the G0 spikes are measured and recorded, the colour and compositing core is implemented and passing its fixtures, PNG sequences import with gap, Unicode and format diagnostics, the reference shot evaluates to a drawing number per layer per frame at exact rational time, and the project model now takes every edit through a command interface with exact undo and redo.
 
 Numbers in `Markdown/` are still targets and estimates. Numbers in `spikes/B-01_G0_spike_report.md` and `verification/` are measurements. The two are not interchangeable.
 

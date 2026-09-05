@@ -8,9 +8,12 @@
 //! images in the wrong space is therefore not a checked error, it is unrepresentable.
 
 pub mod color;
+pub mod command;
 pub mod composite;
 pub mod diagnostics;
+pub mod inspect;
 pub mod media;
+pub mod model;
 pub mod time;
 
 /// How the RGB channels of a buffer are encoded.
