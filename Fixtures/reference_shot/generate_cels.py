@@ -36,6 +36,13 @@ L2_COUNT, L3_COUNT, L4_COUNT = 24, 12, 20
 MISSING_ID = 7                      # layer 3 drawing 007 is never written -> numeric gap
 JP_ID, JP_NAME = 13, "layer2_桜_013.png"   # layer 2 drawing 013 carries a Japanese filename
 
+# One layer 4 exposure re-exposes an earlier drawing, so the drawing IDs go down as well as
+# up. Real cel work does this constantly - production footage shows a level running
+# 1, 4, 8, 6, 9 - and doc 20's exposure model permits it, since a span maps frames to a
+# drawing number with no monotonicity constraint. Without this the shot would pass even if
+# an implementation wrongly assumed drawing IDs only increase.
+BACKREF_AT, BACKREF_TO = 55, 51
+
 
 def _blank():
     return Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -88,13 +95,23 @@ def exposure_sheet():
     holds.insert(20, 5)   # the five-frame hold
     holds.insert(50, 1)   # the one-frame accent
     assert sum(holds) == FRAMES, sum(holds)
-    l4 = [n for k, h in enumerate(holds) for n in [k % L4_COUNT] * h]
+
+    ids = [k % L4_COUNT for k in range(len(holds))]
+    ids[BACKREF_AT] = ids[BACKREF_TO]          # the out-of-order re-exposure
+    l4 = [d for d, h in zip(ids, holds) for _ in range(h)]
     assert len(l4) == FRAMES
 
     return {
         "frames": FRAMES, "fps": 24, "width": W, "height": H,
         "drawing_counts": {"layer2": L2_COUNT, "layer3": L3_COUNT, "layer4": L4_COUNT},
         "layer4_exposure_lengths": holds,
+        "layer4_exposure_drawing_ids": ids,
+        "layer4_back_reference": {
+            "exposure_index": BACKREF_AT, "reexposes_exposure": BACKREF_TO,
+            "drawing_id": ids[BACKREF_AT],
+            "note": "drawing IDs decrease here; an implementation that assumes they only "
+                    "increase must fail on this shot",
+        },
         "defects": {
             "missing_drawing": {"layer": 3, "id": MISSING_ID},
             "japanese_filename": {"layer": 2, "id": JP_ID, "name": JP_NAME},
@@ -164,6 +181,14 @@ def check(sheet):
         bad(f"layer 4 exposures sum to {sum(lens)}, want {FRAMES}")
     if lens.count(5) != 1 or lens.count(1) != 1:
         bad("layer 4 needs exactly one five-frame hold and one one-frame accent")
+
+    ids = sheet["layer4_exposure_drawing_ids"]
+    drops = [k for k in range(1, len(ids)) if ids[k] < ids[k - 1] and ids[k - 1] != L4_COUNT - 1]
+    if not drops:
+        bad("layer 4 has no out-of-order re-exposure; drawing IDs only ever increase")
+    reused = ids[sheet["layer4_back_reference"]["exposure_index"]]
+    if ids.count(reused) < 2:
+        bad(f"layer 4 drawing {reused} is meant to be exposed more than once")
     for name, seq in sheet["frame_to_drawing"].items():
         if len(seq) != FRAMES:
             bad(f"{name} exposure list is {len(seq)} long, want {FRAMES}")

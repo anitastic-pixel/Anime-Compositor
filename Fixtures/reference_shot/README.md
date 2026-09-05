@@ -15,6 +15,12 @@ not by composition frame.
 authority on timing. Layer 4 runs 80 exposures: 78 on 3s, one five-frame hold at frames
 60-64, and one one-frame accent at frame 152.
 
+Layer 4 also contains one **out-of-order re-exposure**: exposure 55, at composition frames
+165-167, goes back to drawing 11, so the drawing IDs run 12, 13, 14, 11, 16, 17. Real cel
+work does this constantly, and doc 20's exposure model permits it - a span maps frames to a
+drawing number with no monotonicity constraint. An implementation that assumes drawing IDs
+only increase must fail on this shot.
+
 ## Deliberate defects - required, do not fix
 
 - `layer3/layer3_007.png` does not exist. The numeric gap is intentional and drives the
