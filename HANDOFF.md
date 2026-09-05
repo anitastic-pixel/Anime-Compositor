@@ -99,15 +99,47 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 ## Suggested next session
 
-B-05a: the transform renderer. R-03 and the render half of test T-03. `src/model.rs` now answers "what are this layer's anchor, position, scale, rotation and opacity on this frame"; nothing yet turns those five numbers into pixels. The four fixtures waiting are FX-XF-001 (identity is bit-exact), FX-XF-002 (integer translation moves whole pixels and invents nothing), FX-XF-003 (a half-pixel shift produces the exact bilinear weights document 21 states) and FX-XF-004 (rotation about a nonzero anchor). Document 21 owns the sampling and edge rules; document 25 owns the expected values, and they are read-only.
+B-05b: render trace mode, ADR-012. `src/render.rs` now composites a frame, but when a frame
+looks wrong there is nothing between "the plan" and "the finished image" for the owner to look
+at. ADR-012 asks for the intermediate layer buffers written as tagged PNGs. B-05a's own
+artifact test already writes PNGs from a `WorkingBuffer`, in `tests/b05a_transform.rs`; that
+encoder is the obvious thing to move into the crate when a second caller exists, and B-05b is
+that second caller.
 
-What B-05 left for later, in the order it comes due:
+What B-05a left for later, in the order it comes due:
 
-- Cache invalidation domains. Document 26 requires every committed command to report which caches it dirties, and document 27 defines the domains. `Document::apply` reports none, because no cache exists. That is B-07, and the command enum is where the reporting will hang.
-- Colour4 and boolean property values, which document 19 lists and `Value` does not carry. They come due with B-06, when effects gain colour parameters.
-- Save and reopen, and with it document 26's "undo/redo after project reopen is empty" — the one item of its eight-item required-test list B-05 does not run. That is B-09 and T-07.
-- Rate-limiting frame-level diagnostics into one summary with counts and ranges, which document 28 requires. Still outstanding from B-04; it belongs to whatever drives the frame loop, which is B-08.
+- The rest of document 21's layer render order. `render_tile` does decode, transform, opacity
+  and the `over` case of blend. Masks and mattes are B-06 and effects are B-07, both PARKED
+  under D-12 until their revisit trigger in document 23 fires. The multiply, screen and add
+  blend modes are not parked and have no backlog item of their own; they are small, and the
+  honest place for them is whichever item first needs them.
+- No default tile size lives in `src/`. `render` takes it as an argument, because document 21
+  says it is a tunable measured on the reference machine. `verification/B-05a_scaling_table.md`
+  is that measurement and shows tile size barely matters between 32 and 256 pixels on this
+  machine; whatever calls the renderer for real, in B-08, has to pick one and say why.
+- Source buffers are decoded and downsampled inside the test. There is no frame cache, no
+  decode cache and no proof-of-work sharing between frames. That is B-08b, PARKED.
+- D-22 is PROVISIONAL and needs the owner. Document 21's transform formula still says
+  `S(scale/100)` while the model and the renderer treat 1.0 as identity. If the owner rules the
+  other way, the formula and `Affine::from_transform` change together.
 
-`src/inspect.rs` is an inspection view, not the save format. When B-09 brings `serde` and a real project file, check whether the two dumps should be unified or whether the human-diffable one earns its keep separately; do not assume the answer.
+Carried forward from B-05, still outstanding:
 
-The B-04 test reads `Fixtures/reference_shot/exposure_sheet.json` with a twenty-line integer-array scanner rather than a JSON dependency, on the grounds that `serde` arrives properly with B-09. Replace the scanner then; it is not worth keeping two JSON readers.
+- Cache invalidation domains. Document 26 requires every committed command to report which
+  caches it dirties, and document 27 defines the domains. `Document::apply` reports none,
+  because no cache exists. That is B-08b, and the command enum is where the reporting hangs.
+- Colour4 and boolean property values, which document 19 lists and `Value` does not carry.
+  They come due with effects, in B-07.
+- Save and reopen, and with it document 26's "undo/redo after project reopen is empty" — the
+  one item of its eight-item required-test list that is still not run. That is B-09 and T-07.
+- Rate-limiting frame-level diagnostics into one summary with counts and ranges, which
+  document 28 requires. Outstanding since B-04; it belongs to whatever drives the frame loop,
+  which is B-08.
+
+`src/inspect.rs` is an inspection view, not the save format. When B-09 brings `serde` and a
+real project file, check whether the two dumps should be unified or whether the human-diffable
+one earns its keep separately; do not assume the answer.
+
+The B-04 test reads `Fixtures/reference_shot/exposure_sheet.json` with a twenty-line integer-array
+scanner rather than a JSON dependency, on the grounds that `serde` arrives properly with B-09.
+Replace the scanner then; it is not worth keeping two JSON readers.

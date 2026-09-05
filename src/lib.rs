@@ -14,6 +14,7 @@ pub mod diagnostics;
 pub mod inspect;
 pub mod media;
 pub mod model;
+pub mod render;
 pub mod time;
 
 /// How the RGB channels of a buffer are encoded.
