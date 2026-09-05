@@ -1,0 +1,21 @@
+[package]
+name = "sp01_sp04_core"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "G0 spikes SP-01 (atomic save survives an interrupted write) and SP-04 (render determinism across thread counts). Quarantined per document 06."
+
+[dependencies]
+rayon = "1"
+png = "0.17"
+
+[[bin]]
+name = "sp01_atomic_save"
+path = "src/bin/sp01_atomic_save.rs"
+
+[[bin]]
+name = "sp04_determinism"
+path = "src/bin/sp04_determinism.rs"
+
+[profile.release]
+opt-level = 3

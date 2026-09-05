@@ -1,0 +1,24 @@
+image 1938x2169
+
+probe strip located at window-relative x=11 y=477, pitch=48 device px
+
+#   SOURCE RGB          ON SCREEN RGB       RESULT
+--------------------------------------------------------------
+0   (0, 0, 0)           (0, 0, 0)           exact
+1   (255, 255, 255)     (255, 255, 255)     exact
+2   (128, 128, 128)     (128, 128, 128)     exact
+3   (127, 127, 127)     (127, 127, 127)     exact
+4   (188, 188, 188)     (188, 188, 188)     exact
+5   (255, 0, 0)         (255, 0, 0)         exact
+6   (0, 255, 0)         (0, 255, 0)         exact
+7   (0, 0, 255)         (0, 0, 255)         exact
+8   (255, 255, 0)       (255, 255, 0)       exact
+9   (0, 255, 255)       (0, 255, 255)       exact
+10  (255, 0, 255)       (255, 0, 255)       exact
+11  (1, 2, 3)           (1, 2, 3)           exact
+12  (254, 253, 252)     (254, 253, 252)     exact
+15  (64, 96, 160)       (64, 96, 160)       exact
+
+SP-06 screen stage: 14/14 opaque probe colours byte-exact on screen
+NOT ASSERTED: tiles 13 and 14 carry alpha 128 and are composited over the page
+              background before display; their screen value is expected to differ.

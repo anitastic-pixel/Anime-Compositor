@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SP-05 / SP-06</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #14161a; color: #e6e8ec;
+         font: 13px/1.5 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  h2 { font-size: 13px; margin: 18px 0 6px; color: #9aa3b2; text-transform: uppercase; letter-spacing: .06em; }
+  p.note { color: #9aa3b2; margin: 0 0 12px; max-width: 90ch; }
+  button { background: #2a6df4; color: #fff; border: 0; border-radius: 5px;
+           padding: 7px 14px; font: inherit; cursor: pointer; margin-right: 8px; }
+  button:disabled { background: #39404d; color: #7b8494; cursor: default; }
+  table { border-collapse: collapse; margin: 8px 0 4px; font-variant-numeric: tabular-nums; }
+  th, td { border: 1px solid #2c313a; padding: 4px 10px; text-align: right; }
+  th { background: #1c2027; text-align: left; color: #9aa3b2; font-weight: 600; }
+  td:first-child, th:first-child { text-align: left; }
+  .pass { color: #4ade80; font-weight: 600; }
+  .fail { color: #f87171; font-weight: 600; }
+  canvas { image-rendering: pixelated; border: 1px solid #2c313a; vertical-align: middle; }
+  #status { color: #9aa3b2; margin: 8px 0; }
+  pre { background: #1c2027; border: 1px solid #2c313a; padding: 8px; overflow-x: auto;
+        max-height: 220px; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>G0 spike &mdash; SP-05 frame transport, SP-06 viewer colour exactness</h1>
+<p class="note">
+  SP-03 scrubs a timeline and records how long each step takes from input to presented
+  pixels, compositing every 1920&times;1080 frame on demand rather than replaying a cache.
+  SP-05 measures RGBA frames crossing Rust &rarr; WebView2 by three transports, at full
+  (1920&times;1080) and draft (480&times;270) scale. SP-06 sends known bytes and checks the
+  bytes read back are identical. SP-06 expects the input itself: document 25 defines
+  linear-light float results, not display-side 8-bit values, so no display fixture exists
+  and none is invented here.
+</p>
+
+<button id="run03">Run SP-03 scrub latency</button>
+<button id="run05">Run SP-05 transport benchmark</button>
+<button id="run06">Run SP-06 colour probe</button>
+<button id="save" disabled>Save report</button>
+<div id="status">Idle.</div>
+
+<h2>SP-06 &mdash; probe strip as displayed</h2>
+<div id="probeview"></div>
+
+<h2>SP-03 &mdash; scrub latency, composited 1080p</h2>
+<input id="timeline" type="range" min="0" max="47" value="0" step="1" style="width:520px">
+<span id="tlabel">frame 0</span>
+<div><canvas id="scrub" width="1920" height="1080" style="width:480px;height:270px"></canvas></div>
+<div id="t03"></div>
+
+<h2>SP-05 &mdash; frame transport</h2>
+<div id="t05"></div>
+
+<h2>SP-06 &mdash; viewer colour exactness</h2>
+<div id="t06"></div>
+
+<h2>Raw report</h2>
+<pre id="raw">Not yet run.</pre>
+
+<canvas id="stage" width="1920" height="1080" style="display:none"></canvas>
+
+<script>
+const invoke = window.__TAURI__.core.invoke;
+const $ = (id) => document.getElementById(id);
+const status = (s) => { $("status").textContent = s; };
+const results = { sp03: null, sp05: null, sp06: null, env: null, started: new Date().toISOString() };
+
+const SCALES = { full: [1920, 1080], draft: [480, 270] };
+const ITERATIONS = 60;   // frames per transport per scale
+const WARMUP = 10;
+
+const stage = $("stage");
+const ctx = stage.getContext("2d", { willReadFrequently: true, alpha: true });
+
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+const eq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+// --- transports: each resolves to a Uint8ClampedArray of RGBA bytes ---
+const transports = {
+  "JSON IPC": async (scale, i) => {
+    const a = await invoke("frame_json", { scale, idx: i });
+    return new Uint8ClampedArray(a);
+  },
+  "Raw IPC": async (scale, i) => {
+    const b = await invoke("frame_raw", { scale, idx: i });
+    return new Uint8ClampedArray(b);
+  },
+  "Custom protocol": async (scale, i) => {
+    const r = await fetch("http://frame.localhost/" + scale + "/" + i, { cache: "no-store" });
+    return new Uint8ClampedArray(await r.arrayBuffer());
+  },
+};
+
+async function benchTransport(name, fn, scale) {
+  const [w, h] = SCALES[scale];
+  stage.width = w; stage.height = h;
+  const expect = w * h * 4;
+
+  for (let i = 0; i < WARMUP; i++) await fn(scale, i);
+
+  let tTransport = 0, bytes = 0, short = 0;
+  const t0 = performance.now();
+  for (let i = 0; i < ITERATIONS; i++) {
+    const a0 = performance.now();
+    const buf = await fn(scale, i);
+    tTransport += performance.now() - a0;
+    if (buf.length !== expect) short++;
+    bytes += buf.length;
+    ctx.putImageData(new ImageData(buf, w, h), 0, 0);
+    await nextFrame();          // count only what the compositor actually presented
+  }
+  const wall = performance.now() - t0;
+
+  return {
+    transport: name, scale, width: w, height: h, frames: ITERATIONS,
+    transport_ms_per_frame: +(tTransport / ITERATIONS).toFixed(3),
+    endtoend_ms_per_frame: +(wall / ITERATIONS).toFixed(3),
+    fps: +(1000 / (wall / ITERATIONS)).toFixed(2),
+    throughput_MBps: +(((bytes / 1048576) / (tTransport / 1000))).toFixed(1),
+    wrong_size_frames: short,
+  };
+}
+
+function renderSp05(rows) {
+  const cols = ["transport","scale","frames","transport_ms_per_frame","endtoend_ms_per_frame","fps","throughput_MBps","wrong_size_frames"];
+  let h = "<table><tr>" + cols.map(c => "<th>" + c + "</th>").join("") + "</tr>";
+  for (const r of rows) {
+    h += "<tr>" + cols.map(c => {
+      if (r.error && c === "frames") return "<td>" + r.error + "</td>";
+      return "<td>" + (r[c] === undefined ? "" : r[c]) + "</td>";
+    }).join("") + "</tr>";
+  }
+  $("t05").innerHTML = h + "</table>";
+}
+
+$("run05").onclick = async () => {
+  $("run05").disabled = $("run06").disabled = true;
+  const rows = [];
+  for (const scale of ["draft", "full"]) {
+    for (const name of Object.keys(transports)) {
+      status("SP-05: " + name + " @ " + scale + " ...");
+      try { rows.push(await benchTransport(name, transports[name], scale)); }
+      catch (e) { rows.push({ transport: name, scale, error: String(e) }); }
+    }
+  }
+  results.sp05 = rows;
+  results.env = await invoke("env_report");
+  renderSp05(rows);
+  status("SP-05 complete: " + rows.length + " measurements.");
+  $("run05").disabled = $("run06").disabled = false;
+  $("save").disabled = false;
+  $("raw").textContent = JSON.stringify(results, null, 2);
+};
+
+// --- SP-06 ---
+async function readBack(putter, w, h) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const cx = c.getContext("2d", { willReadFrequently: true, alpha: true });
+  cx.clearRect(0, 0, w, h);
+  await putter(cx);
+  return { data: cx.getImageData(0, 0, w, h).data, canvas: c };
+}
+
+function renderSp06(r) {
+  let h = "<table><tr><th>#</th><th>expected RGBA</th><th>via raw bytes</th><th>raw</th><th>via PNG</th><th>PNG</th></tr>";
+  for (const row of r.rows) {
+    const mark = (ok) => ok ? "<span class=\"pass\">exact</span>" : "<span class=\"fail\">ALTERED</span>";
+    h += "<tr><td>" + row.idx + "</td><td>" + row.expected.join(", ") + "</td>"
+       + "<td>" + row.via_raw.join(", ") + "</td><td>" + mark(row.raw_exact) + "</td>"
+       + "<td>" + row.via_png.join(", ") + "</td><td>" + mark(row.png_exact) + "</td></tr>";
+  }
+  $("t06").innerHTML = h + "</table>";
+}
+
+$("run06").onclick = async () => {
+  $("run05").disabled = $("run06").disabled = true;
+  status("SP-06: probing ...");
+  const spec = await invoke("probe_spec");
+  const colors = spec.colors, tile = spec.tile, w = spec.width, h = spec.height;
+
+  // Path 1: raw bytes -> ImageData -> canvas. Straight alpha in, straight alpha out.
+  const rawBytes = new Uint8ClampedArray(await invoke("probe_raw"));
+  const viaRaw = await readBack(async cx => cx.putImageData(new ImageData(rawBytes, w, h), 0, 0), w, h);
+
+  // Path 2: PNG -> <img> -> drawImage. This is where colour management would act.
+  const pngBytes = new Uint8Array(await invoke("probe_png"));
+  const url = URL.createObjectURL(new Blob([pngBytes], { type: "image/png" }));
+  const img = await new Promise((res, rej) => {
+    const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url;
+  });
+  const viaPng = await readBack(async cx => cx.drawImage(img, 0, 0), w, h);
+  URL.revokeObjectURL(url);
+
+  // Sample the centre pixel of each tile. Expected value is the input colour itself.
+  const rows = [];
+  colors.forEach((c, i) => {
+    const px = i * tile + (tile >> 1), py = tile >> 1;
+    const o = (py * w + px) * 4;
+    const r1 = Array.from(viaRaw.data.slice(o, o + 4));
+    const r2 = Array.from(viaPng.data.slice(o, o + 4));
+    // Canvas stores premultiplied internally, so a partial-alpha readback can differ by
+    // rounding. Recorded and counted separately, never hidden.
+    rows.push({
+      idx: i, expected: c,
+      via_raw: r1, raw_exact: eq(c, r1),
+      via_png: r2, png_exact: eq(c, r2),
+      partial_alpha: c[3] !== 255,
+    });
+  });
+
+  const opaque = rows.filter(r => !r.partial_alpha);
+  results.sp06 = {
+    probe_width: w, probe_height: h, tile,
+    opaque_cases: opaque.length,
+    opaque_raw_exact: opaque.filter(r => r.raw_exact).length,
+    opaque_png_exact: opaque.filter(r => r.png_exact).length,
+    partial_alpha_cases: rows.length - opaque.length,
+    partial_raw_exact: rows.filter(r => r.partial_alpha && r.raw_exact).length,
+    partial_png_exact: rows.filter(r => r.partial_alpha && r.png_exact).length,
+    rows: rows,
+  };
+  renderSp06(results.sp06);
+  // Displayed at an integer scale in DEVICE pixels, so each source pixel becomes a solid
+  // block on screen and the screen stage can sample tile centres without resampling in
+  // the way. devicePixelRatio is recorded because display scaling changes the pitch.
+  const dpr = window.devicePixelRatio || 1;
+  const SHOW = 6;
+  const cssScale = SHOW / dpr;
+  results.sp06.device_pixel_ratio = dpr;
+  results.sp06.onscreen_scale = SHOW;
+  results.sp06.onscreen_pitch_device_px = tile * SHOW;
+  $("probeview").innerHTML = "<p class=\"note\">Top: raw-byte path. Bottom: PNG path. "
+    + SHOW + "x nearest-neighbour, devicePixelRatio " + dpr + ".</p>";
+  for (const v of [viaRaw.canvas, viaPng.canvas]) {
+    v.style.width = (w * cssScale) + "px"; v.style.height = (h * cssScale) + "px";
+    v.style.display = "block"; v.style.marginBottom = "10px"; v.style.border = "0";
+    $("probeview").appendChild(v);
+  }
+  $("probeview").scrollIntoView({ block: "start" });
+  status("SP-06 complete: " + results.sp06.opaque_raw_exact + "/" + opaque.length
+        + " raw exact, " + results.sp06.opaque_png_exact + "/" + opaque.length
+        + " PNG exact (opaque cases).");
+  $("run05").disabled = $("run06").disabled = false;
+  $("save").disabled = false;
+  $("raw").textContent = JSON.stringify(results, null, 2);
+};
+
+// --- SP-03: scrub latency on a composited 1080p frame ---------------------------------
+//
+// Latency is measured from the timeline input event to the frame being on screen, and
+// broken into composite / transport / draw / present. The input is dispatched by script
+// rather than by a hand on a mouse, so OS input dispatch and the final present-to-photon
+// step of the display pipeline are NOT included. The number is therefore a lower bound on
+// what the owner would feel, and is reported as one.
+
+const SCRUB_FRAMES = 48;
+const SCRUB_WARMUP = 6;
+const scrubCanvas = $("scrub");
+const scrubCtx = scrubCanvas.getContext("2d", { alpha: true });
+
+const pct = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+
+// The timeline handler. This is the work a real scrub triggers.
+let scrubPending = null;
+$("timeline").addEventListener("input", (ev) => {
+  const idx = Number(ev.target.value);
+  $("tlabel").textContent = "frame " + idx;
+  scrubPending = (async () => {
+    const t0 = performance.now();
+    const buf = await invoke("scrub_frame", { idx });
+    const bytes = new Uint8Array(buf);
+    const tArrived = performance.now();
+    const coreMs = new DataView(bytes.buffer, bytes.byteOffset, 8).getFloat64(0, true);
+    const px = new Uint8ClampedArray(bytes.buffer, bytes.byteOffset + 8, bytes.length - 8);
+    scrubCtx.putImageData(new ImageData(px, scrubCanvas.width, scrubCanvas.height), 0, 0);
+    const tDrawn = performance.now();
+    await nextFrame();
+    const tPresented = performance.now();
+    return {
+      idx,
+      total_ms: tPresented - t0,
+      composite_ms: coreMs,
+      transport_ms: (tArrived - t0) - coreMs,
+      draw_ms: tDrawn - tArrived,
+      present_ms: tPresented - tDrawn,
+    };
+  })();
+});
+
+$("run03").onclick = async () => {
+  $("run03").disabled = $("run05").disabled = $("run06").disabled = true;
+  const tl = $("timeline");
+  const samples = [];
+  for (let n = 0; n < SCRUB_WARMUP + SCRUB_FRAMES; n++) {
+    status("SP-03 scrubbing " + (n + 1) + "/" + (SCRUB_WARMUP + SCRUB_FRAMES) + " ...");
+    tl.value = String(n % SCRUB_FRAMES);
+    tl.dispatchEvent(new Event("input", { bubbles: true }));
+    const s = await scrubPending;
+    if (n >= SCRUB_WARMUP) samples.push(s);
+  }
+
+  const col = (k) => samples.map(s => s[k]).sort((a, b) => a - b);
+  const summarise = (k) => {
+    const v = col(k);
+    return {
+      p50: pct(v, 0.50), p95: pct(v, 0.95), max: v[v.length - 1],
+      mean: v.reduce((a, b) => a + b, 0) / v.length,
+    };
+  };
+  const stages = ["total_ms", "composite_ms", "transport_ms", "draw_ms", "present_ms"];
+  results.sp03 = {
+    frames_measured: samples.length,
+    warmup_discarded: SCRUB_WARMUP,
+    size: [scrubCanvas.width, scrubCanvas.height],
+    input: "synthetic; excludes OS input dispatch and present-to-photon",
+    stages: Object.fromEntries(stages.map(k => [k, summarise(k)])),
+    samples,
+  };
+
+  const f = (x) => x.toFixed(2);
+  let html = "<table><tr><th>stage</th><th>p50 ms</th><th>p95 ms</th><th>max ms</th><th>mean ms</th></tr>";
+  for (const k of stages) {
+    const v = results.sp03.stages[k];
+    html += "<tr><td>" + k.replace("_ms", "") + "</td><td>" + f(v.p50) + "</td><td>"
+          + f(v.p95) + "</td><td>" + f(v.max) + "</td><td>" + f(v.mean) + "</td></tr>";
+  }
+  html += "</table><p class=note>" + samples.length + " scrub steps at 1920&times;1080, "
+       + SCRUB_WARMUP + " warmup steps discarded. Composite is measured in the Rust core; "
+       + "the rest is measured in the webview. Synthetic input: excludes OS input dispatch "
+       + "and present-to-photon, so total is a lower bound.</p>";
+  $("t03").innerHTML = html;
+  status("SP-03 complete: p50 " + f(results.sp03.stages.total_ms.p50) + " ms, p95 "
+       + f(results.sp03.stages.total_ms.p95) + " ms.");
+  $("run03").disabled = $("run05").disabled = $("run06").disabled = false;
+  $("save").disabled = false;
+  $("raw").textContent = JSON.stringify(results, null, 2);
+};
+
+$("save").onclick = async () => {
+  const path = await invoke("save_report", {
+    name: "sp05_sp06_results.json",
+    body: JSON.stringify(results, null, 2),
+  });
+  status("Saved: " + path);
+};
+
+// Auto-run. The spike has to answer SP-05 and SP-06 without anyone clicking a native
+// window, so it runs both on load and writes the report. The buttons stay live for
+// re-running by hand.
+invoke("env_report").then(async (e) => {
+  results.env = e;
+  status("Ready. Auto-run starting ...");
+  await new Promise(r => setTimeout(r, 400));   // let the webview settle before timing
+  await $("run03").onclick();
+  await $("run05").onclick();
+  await $("run06").onclick();
+  try {
+    const path = await invoke("save_report", {
+      name: "sp05_sp06_results.json",
+      body: JSON.stringify(results, null, 2),
+    });
+    status("Auto-run complete. Saved: " + path);
+    document.title = "SP-05/SP-06 COMPLETE";
+  } catch (err) {
+    status("Auto-run finished but saving failed: " + err);
+  }
+});
+</script>
+</body>
+</html>
