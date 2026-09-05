@@ -1,0 +1,6 @@
+# Project documents and fixtures are compared byte for byte by the persistence tests in
+# B-09, so their line endings have to be the same on every machine that checks out this
+# repository. Without this, a Windows clone with core.autocrlf=true turns every newline into
+# two bytes and a round-trip test that should pass fails for a reason that has nothing to do
+# with the code.
+*.json text eol=lf

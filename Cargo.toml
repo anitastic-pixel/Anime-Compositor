@@ -17,3 +17,7 @@ opt-level = 3
 [dependencies]
 png = "0.18.1"
 rayon = "1.12.0"
+# B-09 reads and writes the project document as JSON values rather than through derive
+# macros, deliberately: ADR-008 requires unknown additive data to survive a load and save,
+# and a derived struct drops what it has no field for. Only `serde_json` is used.
+serde_json = "1.0.151"

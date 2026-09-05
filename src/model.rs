@@ -516,13 +516,114 @@ impl Composition {
     }
 }
 
-/// Document 19's asset record, in the form B-05 needs: identity and interpretation. The
-/// frame-number-to-file map lives in [`crate::media::SequenceAsset`], which B-03 already built.
+/// Document 19: assets are "still" or "image_sequence".
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AssetKind {
+    Still,
+    ImageSequence,
+}
+
+impl AssetKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AssetKind::Still => "still",
+            AssetKind::ImageSequence => "image_sequence",
+        }
+    }
+}
+
+/// Document 07: "input color interpretation and straight/premultiplied alpha".
+///
+/// The two tags are the crate's own [`crate::ColorSpace`] and [`crate::AlphaMode`] rather than
+/// new enums, so an asset record cannot claim an interpretation the decoder has no name for.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Interpretation {
+    pub color_space: crate::ColorSpace,
+    pub alpha: crate::AlphaMode,
+}
+
+impl Default for Interpretation {
+    /// Document 21: "G1 PNG input is straight" sRGB.
+    fn default() -> Self {
+        Interpretation {
+            color_space: crate::ColorSpace::Srgb,
+            alpha: crate::AlphaMode::Straight,
+        }
+    }
+}
+
+/// Document 19's asset record. Document 07 names what it stores: "media type, normalized
+/// relative path where possible, original sequence pattern, explicit frame list, dimensions,
+/// input color interpretation and straight/premultiplied alpha."
+///
+/// Dimensions are not here. They are a fact about the files, not about the project, and B-03's
+/// [`crate::media::SequenceAsset`] reads them from the media; storing a second copy in the
+/// project would create a pair that can disagree after a relink. The content fingerprint
+/// document 07 also names has no consumer until a cache exists, so it is not modelled either;
+/// one already present in a project file is preserved by [`crate::persist`] rather than
+/// dropped.
+///
+/// Paths are stored as they appear in the project file: relative to the project's own
+/// directory where possible, with forward slashes, so a project plus its media tree can be
+/// moved or handed over as one.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Asset {
     pub id: Id,
+    pub kind: AssetKind,
     pub name: String,
-    pub pattern: String,
+    /// A still's file. `None` for a sequence.
+    pub path: Option<String>,
+    /// A sequence's inferred pattern, such as `cel_####.png`. `None` for a still.
+    pub pattern: Option<String>,
+    /// Document 07's "explicit frame list": drawing number to file. Empty for a still.
+    ///
+    /// Explicit rather than generated from the pattern, because document 07 requires that "a
+    /// missing drawing does not shift subsequent exposure indices" — a gap has to be a fact
+    /// the project records, not one inferred from which files happen to be on disk today.
+    pub frames: BTreeMap<u32, String>,
+    pub interpretation: Interpretation,
+}
+
+impl Asset {
+    /// An image sequence with no frames yet.
+    pub fn sequence(id: Id, name: impl Into<String>, pattern: impl Into<String>) -> Self {
+        Asset {
+            id,
+            kind: AssetKind::ImageSequence,
+            name: name.into(),
+            path: None,
+            pattern: Some(pattern.into()),
+            frames: BTreeMap::new(),
+            interpretation: Interpretation::default(),
+        }
+    }
+
+    /// A single still image.
+    pub fn still(id: Id, name: impl Into<String>, path: impl Into<String>) -> Self {
+        Asset {
+            id,
+            kind: AssetKind::Still,
+            name: name.into(),
+            path: Some(path.into()),
+            pattern: None,
+            frames: BTreeMap::new(),
+            interpretation: Interpretation::default(),
+        }
+    }
+
+    pub fn with_frames(mut self, frames: BTreeMap<u32, String>) -> Self {
+        self.frames = frames;
+        self
+    }
+
+    /// Every file this record refers to, in the order it names them.
+    pub fn files(&self) -> Vec<&str> {
+        self.path
+            .iter()
+            .map(String::as_str)
+            .chain(self.frames.values().map(String::as_str))
+            .collect()
+    }
 }
 
 /// Document 19: "Project owns: schema version, project ID, project settings, assets,

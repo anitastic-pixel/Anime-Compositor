@@ -27,6 +27,13 @@ pub enum Command {
     AddAsset {
         asset: Asset,
     },
+    /// Point an existing asset record at different files. Document 02: "Undo restores the
+    /// prior reference." The whole record is replaced, so the inverse is the record that was
+    /// there; layer IDs, transforms and effects are untouched by construction, because this
+    /// command cannot reach a layer at all.
+    RelinkAsset {
+        asset: Box<Asset>,
+    },
     AddLayer {
         composition: Id,
         layer: Box<Layer>,
@@ -88,6 +95,7 @@ impl Command {
     pub fn command_id(&self) -> &'static str {
         match self {
             Command::AddAsset { .. } => "ADD_ASSET",
+            Command::RelinkAsset { .. } => "RELINK_ASSET",
             Command::AddLayer { .. } => "ADD_LAYER",
             Command::RemoveLayer { .. } => "REMOVE_LAYER",
             Command::RenameLayer { .. } => "RENAME_LAYER",
@@ -105,6 +113,7 @@ impl Command {
     pub fn label(&self) -> String {
         match self {
             Command::AddAsset { asset } => format!("Import {}", asset.name),
+            Command::RelinkAsset { asset } => format!("Relink {}", asset.name),
             Command::AddLayer { layer, .. } => format!("Add layer {}", layer.name),
             Command::RemoveLayer { layer_id, .. } => format!("Delete layer {layer_id}"),
             Command::RenameLayer { name, .. } => format!("Rename layer to {name}"),
@@ -131,7 +140,7 @@ impl Command {
 
     fn composition(&self) -> Option<&Id> {
         match self {
-            Command::AddAsset { .. } => None,
+            Command::AddAsset { .. } | Command::RelinkAsset { .. } => None,
             Command::AddLayer { composition, .. }
             | Command::RemoveLayer { composition, .. }
             | Command::RenameLayer { composition, .. }
@@ -150,6 +159,7 @@ impl Command {
         let mut ids: Vec<Id> = self.composition().cloned().into_iter().collect();
         match self {
             Command::AddAsset { asset } => ids.push(asset.id.clone()),
+            Command::RelinkAsset { asset } => ids.push(asset.id.clone()),
             Command::AddLayer { layer, .. } => ids.push(layer.id.clone()),
             Command::RemoveLayer { layer_id, .. }
             | Command::RenameLayer { layer_id, .. }
@@ -175,7 +185,10 @@ impl Command {
     fn blocked_by_lock(&self) -> bool {
         !matches!(
             self,
-            Command::SetLayerLocked { .. } | Command::AddAsset { .. } | Command::AddLayer { .. }
+            Command::SetLayerLocked { .. }
+                | Command::AddAsset { .. }
+                | Command::RelinkAsset { .. }
+                | Command::AddLayer { .. }
         )
     }
 
@@ -464,9 +477,20 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         return Ok(());
     }
 
+    if let Command::RelinkAsset { asset } = command {
+        let Some(slot) = project.assets.iter_mut().find(|a| a.id == asset.id) else {
+            return Err(missing(
+                format!("The asset {} is not in this project.", asset.id),
+                "A relink names the asset record it replaces; that ID is not present.".to_string(),
+            ));
+        };
+        *slot = (**asset).clone();
+        return Ok(());
+    }
+
     let comp_id = command
         .composition()
-        .expect("only AddAsset has none")
+        .expect("only the asset commands have none")
         .clone();
     // Locked and existence checks read the composition before anything is mutated.
     {
@@ -508,7 +532,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
     }
 
     match command {
-        Command::AddAsset { .. } => unreachable!("handled above"),
+        Command::AddAsset { .. } | Command::RelinkAsset { .. } => {
+            unreachable!("handled above")
+        }
         Command::AddLayer { layer, index, .. } => {
             let asset_known = project.assets.iter().any(|a| a.id == layer.asset_id);
             let comp = comp_mut(project, &comp_id)?;

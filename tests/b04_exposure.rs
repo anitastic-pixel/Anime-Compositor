@@ -64,24 +64,6 @@ fn layer_asset(name: &str) -> SequenceAsset {
         .unwrap_or_else(|| panic!("no asset for {name}"))
 }
 
-/// Pull one `"key": [ints]` array out of the exposure sheet.
-///
-/// A twenty-line scanner rather than a JSON dependency. `serde` arrives with B-09, where
-/// persistence actually needs it and the schema in `Schemas/` gives it something to validate
-/// against; pulling it in early for one test would mean a dependency record for five crates in
-/// service of reading four arrays of integers.
-fn sheet_array(sheet: &str, key: &str) -> Vec<i64> {
-    let start = sheet
-        .find(&format!("\"{key}\""))
-        .unwrap_or_else(|| panic!("exposure sheet has no key {key}"));
-    let open = sheet[start..].find('[').expect("array after key") + start;
-    let close = sheet[open..].find(']').expect("array close") + open;
-    sheet[open + 1..close]
-        .split(',')
-        .map(|t| t.trim().parse().expect("integer in array"))
-        .collect()
-}
-
 /// The exposure sheet, split into the four per-frame drawing arrays it calls authoritative.
 struct Sheet {
     per_frame: Vec<(String, Vec<i64>)>,
@@ -92,16 +74,30 @@ struct Sheet {
 fn load_sheet() -> Sheet {
     let text = fs::read_to_string(repo("Fixtures/reference_shot/exposure_sheet.json"))
         .expect("read exposure sheet");
-    // `frame_to_drawing` is the last object in the file, so scanning forward from it finds the
-    // per-frame arrays rather than the summary arrays that share the layer names.
-    let tail = &text[text.find("\"frame_to_drawing\"").expect("frame_to_drawing")..];
+    let sheet: serde_json::Value = serde_json::from_str(&text).expect("the exposure sheet is JSON");
+    let array = |parent: &serde_json::Value, key: &str| -> Vec<i64> {
+        parent
+            .get(key)
+            .unwrap_or_else(|| panic!("exposure sheet has no key {key}"))
+            .as_array()
+            .unwrap_or_else(|| panic!("{key} is not an array"))
+            .iter()
+            .map(|n| {
+                n.as_i64()
+                    .unwrap_or_else(|| panic!("{key} holds a non-integer"))
+            })
+            .collect()
+    };
+    let per_frame = sheet
+        .get("frame_to_drawing")
+        .expect("exposure sheet has frame_to_drawing");
     Sheet {
         per_frame: ["layer1", "layer2", "layer3", "layer4"]
             .into_iter()
-            .map(|l| (l.to_string(), sheet_array(tail, l)))
+            .map(|l| (l.to_string(), array(per_frame, l)))
             .collect(),
-        layer4_lengths: sheet_array(&text, "layer4_exposure_lengths"),
-        layer4_drawings: sheet_array(&text, "layer4_exposure_drawing_ids"),
+        layer4_lengths: array(&sheet, "layer4_exposure_lengths"),
+        layer4_drawings: array(&sheet, "layer4_exposure_drawing_ids"),
     }
 }
 

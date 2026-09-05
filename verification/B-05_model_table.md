@@ -14,9 +14,9 @@ The before and undone files should be identical. Any difference at all means und
 
 The after file should differ from the before file only in the edits that were made. An edit that appears there and is not in the table is a bug even if every check passes.
 
-These dumps are an inspection view, not the save format. Persistence, schema versioning and migration are B-09. The shape follows `Schemas/project-v0.schema.json` so the two can be compared when B-09 arrives, but nothing reads these files back.
+These dumps are the save format, written by the same `persist::to_json` the application saves through, so what is shown here is what would be on disk. Any of them can be opened again: `persist::load_str` reads one back into a project, and B-09's own artifacts cover that round trip.
 
-The before file is 153 lines and the after file is 181 lines.
+The before file is 301 lines and the after file is 386 lines.
 
 ## Checks
 

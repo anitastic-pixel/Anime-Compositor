@@ -11,35 +11,50 @@
       "kind": "image_sequence",
       "name": "layer1",
       "pattern": "layer1_%03d.png",
-      "interpretation": { "color_space": "srgb", "alpha": "straight" }
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
     },
     {
       "id": "asset-layer2",
       "kind": "image_sequence",
       "name": "layer2",
       "pattern": "layer2_%03d.png",
-      "interpretation": { "color_space": "srgb", "alpha": "straight" }
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
     },
     {
       "id": "asset-layer3",
       "kind": "image_sequence",
       "name": "layer3",
       "pattern": "layer3_%03d.png",
-      "interpretation": { "color_space": "srgb", "alpha": "straight" }
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
     },
     {
       "id": "asset-layer4",
       "kind": "image_sequence",
       "name": "layer4",
       "pattern": "layer4_%03d.png",
-      "interpretation": { "color_space": "srgb", "alpha": "straight" }
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
     },
     {
       "id": "asset-effects",
       "kind": "image_sequence",
       "name": "effects",
       "pattern": "fx_%03d.png",
-      "interpretation": { "color_space": "srgb", "alpha": "straight" }
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
     }
   ],
   "compositions": [
@@ -49,10 +64,19 @@
       "width": 1920,
       "height": 1080,
       "pixel_aspect_ratio": 1,
-      "frame_rate": { "numerator": 24, "denominator": 1 },
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
       "start_frame": 0,
       "duration_frames": 240,
-      "layer_order": ["layer-2", "layer-3", "layer-4", "layer-1", "layer-fx"],
+      "layer_order": [
+        "layer-2",
+        "layer-3",
+        "layer-4",
+        "layer-1",
+        "layer-fx"
+      ],
       "layers": [
         {
           "id": "layer-2",
@@ -65,15 +89,72 @@
           "out_frame": 240,
           "source_offset_frames": 0,
           "transform": {
-            "anchor": { "base": [0, 0], "keyframes": [] },
-            "position": { "base": [0, 0], "keyframes": [{ "frame": 0, "value": [20, 0], "interp": "hold" }, { "frame": 12, "value": [100, 0], "interp": "linear" }, { "frame": 24, "value": [100, 60], "interp": "linear" }] },
-            "scale": { "base": [1, 1], "keyframes": [] },
-            "rotation": { "base": 0, "keyframes": [] },
-            "opacity": { "base": 1, "keyframes": [] }
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": [
+                    20,
+                    0
+                  ],
+                  "interp": "hold"
+                },
+                {
+                  "frame": 12,
+                  "value": [
+                    100,
+                    0
+                  ],
+                  "interp": "linear"
+                },
+                {
+                  "frame": 24,
+                  "value": [
+                    100,
+                    60
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
           },
           "exposure_spans": [
-            { "start_frame": 0, "end_frame_exclusive": 3, "drawing_number": 0 },
-            { "start_frame": 3, "end_frame_exclusive": 6, "drawing_number": 1 }
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 0
+            },
+            {
+              "start_frame": 3,
+              "end_frame_exclusive": 6,
+              "drawing_number": 1
+            }
           ],
           "matte": null,
           "blend_mode": "normal",
@@ -90,15 +171,47 @@
           "out_frame": 240,
           "source_offset_frames": 0,
           "transform": {
-            "anchor": { "base": [0, 0], "keyframes": [] },
-            "position": { "base": [0, 0], "keyframes": [] },
-            "scale": { "base": [1, 1], "keyframes": [] },
-            "rotation": { "base": 12.5, "keyframes": [] },
-            "opacity": { "base": 1, "keyframes": [] }
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 12.5,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
           },
           "exposure_spans": [
-            { "start_frame": 0, "end_frame_exclusive": 3, "drawing_number": 0 },
-            { "start_frame": 3, "end_frame_exclusive": 6, "drawing_number": 1 }
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 0
+            },
+            {
+              "start_frame": 3,
+              "end_frame_exclusive": 6,
+              "drawing_number": 1
+            }
           ],
           "matte": null,
           "blend_mode": "normal",
@@ -115,15 +228,47 @@
           "out_frame": 240,
           "source_offset_frames": 0,
           "transform": {
-            "anchor": { "base": [0, 0], "keyframes": [] },
-            "position": { "base": [100, 0], "keyframes": [] },
-            "scale": { "base": [-1, 1], "keyframes": [] },
-            "rotation": { "base": 0, "keyframes": [] },
-            "opacity": { "base": 1, "keyframes": [] }
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                100,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                -100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
           },
           "exposure_spans": [
-            { "start_frame": 0, "end_frame_exclusive": 3, "drawing_number": 0 },
-            { "start_frame": 3, "end_frame_exclusive": 6, "drawing_number": 1 }
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 0
+            },
+            {
+              "start_frame": 3,
+              "end_frame_exclusive": 6,
+              "drawing_number": 1
+            }
           ],
           "matte": null,
           "blend_mode": "normal",
@@ -140,15 +285,47 @@
           "out_frame": 240,
           "source_offset_frames": 0,
           "transform": {
-            "anchor": { "base": [0, 0], "keyframes": [] },
-            "position": { "base": [0, 0], "keyframes": [] },
-            "scale": { "base": [1, 1], "keyframes": [] },
-            "rotation": { "base": 0, "keyframes": [] },
-            "opacity": { "base": 1, "keyframes": [] }
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
           },
           "exposure_spans": [
-            { "start_frame": 0, "end_frame_exclusive": 3, "drawing_number": 0 },
-            { "start_frame": 3, "end_frame_exclusive": 6, "drawing_number": 1 }
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 0
+            },
+            {
+              "start_frame": 3,
+              "end_frame_exclusive": 6,
+              "drawing_number": 1
+            }
           ],
           "matte": null,
           "blend_mode": "normal",
@@ -165,13 +342,41 @@
           "out_frame": 240,
           "source_offset_frames": 0,
           "transform": {
-            "anchor": { "base": [0, 0], "keyframes": [] },
-            "position": { "base": [0, 0], "keyframes": [] },
-            "scale": { "base": [1, 1], "keyframes": [] },
-            "rotation": { "base": 0, "keyframes": [] },
-            "opacity": { "base": 1, "keyframes": [] }
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
           },
-          "matte": { "layer_id": "layer-3", "mode": "alpha" },
+          "exposure_spans": [],
+          "matte": {
+            "layer_id": "layer-3",
+            "mode": "alpha"
+          },
           "blend_mode": "normal",
           "effects": []
         }
