@@ -1,0 +1,106 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-missing",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-cel",
+      "kind": "image_sequence",
+      "name": "Cel",
+      "pattern": "cel_####.png",
+      "frames": {
+        "1": "media/cel_0001.png",
+        "2": "media/DOES_NOT_EXIST_0002.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 1920,
+      "height": 1080,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "layer-cel"
+      ],
+      "layers": [
+        {
+          "id": "layer-cel",
+          "kind": "raster",
+          "name": "Cel",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 2,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 5,
+              "drawing_number": 2
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        }
+      ]
+    }
+  ]
+}

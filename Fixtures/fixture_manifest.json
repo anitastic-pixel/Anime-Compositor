@@ -1,0 +1,148 @@
+{
+  "version": "0.2",
+  "date": "2026-09-04",
+  "note": "Synthetic fixtures only; no artistic reference media included.",
+  "numeric": [
+    {
+      "id": "FX-A-001",
+      "op": "normal_over",
+      "src": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "dst": [
+        0.2,
+        0.4,
+        0.6,
+        1
+      ],
+      "expected": [
+        0.2,
+        0.4,
+        0.6,
+        1
+      ],
+      "tolerance": 1e-07
+    },
+    {
+      "id": "FX-A-002",
+      "op": "normal_over",
+      "src": [
+        0.8,
+        0.1,
+        0.2,
+        1
+      ],
+      "dst": [
+        0.2,
+        0.4,
+        0.6,
+        1
+      ],
+      "expected": [
+        0.8,
+        0.1,
+        0.2,
+        1
+      ],
+      "tolerance": 1e-07
+    },
+    {
+      "id": "FX-A-003",
+      "op": "normal_over",
+      "src_premul": [
+        0.5,
+        0,
+        0,
+        0.5
+      ],
+      "dst": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "expected": [
+        0.5,
+        0,
+        0.5,
+        1
+      ],
+      "tolerance": 1e-06
+    },
+    {
+      "id": "FX-B-002",
+      "op": "screen_opaque",
+      "src_straight": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "dst_straight": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "expected_rgb": [
+        0.75,
+        0.75,
+        0.75
+      ],
+      "tolerance": 1e-06
+    },
+    {
+      "id": "FX-E-002",
+      "op": "exposure",
+      "input_rgb": [
+        0.25,
+        0.25,
+        0.25
+      ],
+      "alpha": 0.5,
+      "stops": 1,
+      "expected_rgb": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "expected_alpha": 0.5,
+      "tolerance": 1e-06
+    }
+  ],
+  "time": [
+    {
+      "id": "FX-TIME-001",
+      "frames": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "expected_drawings": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "id": "FX-TIME-004",
+      "start_frame": -12,
+      "duration_frames": 24,
+      "expected_first": -12,
+      "expected_last": 11,
+      "expected_count": 24
+    }
+  ],
+  "projects": [
+    "projects/minimal_project.json",
+    "projects/cel_holds_project.json",
+    "projects/unicode_paths_project.json",
+    "projects/missing_media_project.json",
+    "projects/unknown_effect_project.json"
+  ]
+}

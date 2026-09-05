@@ -1,0 +1,41 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-unicode",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-u",
+      "kind": "still",
+      "name": "背景_日本語",
+      "path": "media/背景/夜空.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 1920,
+      "height": 1080,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 24,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 24
+      },
+      "layer_order": [],
+      "layers": []
+    }
+  ]
+}

@@ -1,0 +1,501 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/anime-compositor/project-v0.schema.json",
+  "title": "Anime Compositor Project v0",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "color_settings",
+    "assets",
+    "compositions"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "const": 0
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "color_settings": {
+      "type": "object",
+      "required": [
+        "working_space",
+        "alpha_mode"
+      ],
+      "properties": {
+        "working_space": {
+          "const": "linear-srgb"
+        },
+        "alpha_mode": {
+          "const": "premultiplied"
+        }
+      },
+      "additionalProperties": true
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    },
+    "compositions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/composition"
+      }
+    },
+    "application_metadata": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "vec2": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "propertyScalar": {
+      "type": "object",
+      "required": [
+        "base",
+        "keyframes"
+      ],
+      "properties": {
+        "base": {
+          "type": "number"
+        },
+        "keyframes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/keyScalar"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "propertyVec2": {
+      "type": "object",
+      "required": [
+        "base",
+        "keyframes"
+      ],
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/vec2"
+        },
+        "keyframes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/keyVec2"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "keyScalar": {
+      "type": "object",
+      "required": [
+        "frame",
+        "value",
+        "interp"
+      ],
+      "properties": {
+        "frame": {
+          "type": "integer"
+        },
+        "value": {
+          "type": "number"
+        },
+        "interp": {
+          "enum": [
+            "hold",
+            "linear"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "keyVec2": {
+      "type": "object",
+      "required": [
+        "frame",
+        "value",
+        "interp"
+      ],
+      "properties": {
+        "frame": {
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/vec2"
+        },
+        "interp": {
+          "enum": [
+            "hold",
+            "linear"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "transform": {
+      "type": "object",
+      "required": [
+        "anchor",
+        "position",
+        "scale",
+        "rotation",
+        "opacity"
+      ],
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/propertyVec2"
+        },
+        "position": {
+          "$ref": "#/$defs/propertyVec2"
+        },
+        "scale": {
+          "$ref": "#/$defs/propertyVec2"
+        },
+        "rotation": {
+          "$ref": "#/$defs/propertyScalar"
+        },
+        "opacity": {
+          "$ref": "#/$defs/propertyScalar"
+        }
+      },
+      "additionalProperties": false
+    },
+    "exposureSpan": {
+      "type": "object",
+      "required": [
+        "start_frame",
+        "end_frame_exclusive",
+        "drawing_number"
+      ],
+      "properties": {
+        "start_frame": {
+          "type": "integer"
+        },
+        "end_frame_exclusive": {
+          "type": "integer"
+        },
+        "drawing_number": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "mask": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "inverted",
+        "vertices"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "inverted": {
+          "type": "boolean"
+        },
+        "vertices": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/vec2"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "matte": {
+      "type": "object",
+      "required": [
+        "layer_id",
+        "mode"
+      ],
+      "properties": {
+        "layer_id": {
+          "type": "string"
+        },
+        "mode": {
+          "const": "alpha"
+        }
+      },
+      "additionalProperties": false
+    },
+    "effect": {
+      "type": "object",
+      "required": [
+        "instance_id",
+        "type_id",
+        "enabled",
+        "parameters"
+      ],
+      "properties": {
+        "instance_id": {
+          "type": "string"
+        },
+        "type_id": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "parameters": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "layer": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "asset_id",
+        "enabled",
+        "locked",
+        "in_frame",
+        "out_frame",
+        "source_offset_frames",
+        "transform",
+        "blend_mode",
+        "effects"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "raster"
+        },
+        "name": {
+          "type": "string"
+        },
+        "asset_id": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "in_frame": {
+          "type": "integer"
+        },
+        "out_frame": {
+          "type": "integer"
+        },
+        "source_offset_frames": {
+          "type": "integer"
+        },
+        "transform": {
+          "$ref": "#/$defs/transform"
+        },
+        "exposure_spans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exposureSpan"
+          }
+        },
+        "mask": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/mask"
+            }
+          ]
+        },
+        "matte": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/matte"
+            }
+          ]
+        },
+        "blend_mode": {
+          "enum": [
+            "normal",
+            "multiply",
+            "screen",
+            "add"
+          ]
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effect"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "composition": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "width",
+        "height",
+        "pixel_aspect_ratio",
+        "frame_rate",
+        "start_frame",
+        "duration_frames",
+        "layer_order",
+        "layers"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pixel_aspect_ratio": {
+          "const": 1
+        },
+        "frame_rate": {
+          "type": "object",
+          "required": [
+            "numerator",
+            "denominator"
+          ],
+          "properties": {
+            "numerator": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "denominator": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "start_frame": {
+          "type": "integer"
+        },
+        "duration_frames": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "work_area": {
+          "type": "object",
+          "properties": {
+            "start_frame": {
+              "type": "integer"
+            },
+            "end_frame_exclusive": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "start_frame",
+            "end_frame_exclusive"
+          ],
+          "additionalProperties": false
+        },
+        "layer_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/layer"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "asset": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "interpretation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "still",
+            "image_sequence"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "frames": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "interpretation": {
+          "type": "object",
+          "required": [
+            "color_space",
+            "alpha"
+          ],
+          "properties": {
+            "color_space": {
+              "enum": [
+                "srgb",
+                "linear-srgb"
+              ]
+            },
+            "alpha": {
+              "enum": [
+                "straight",
+                "premultiplied"
+              ]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

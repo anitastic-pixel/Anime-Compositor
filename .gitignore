@@ -1,0 +1,25 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Tauri / node
+node_modules/
+dist/
+.tauri/
+
+# Render trace and spike output (ADR-012) - diagnostic, never committed
+trace/
+spike-output/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Word review copies were removed in v0.3 (D-16). Markdown is the only source.
+*.docx
