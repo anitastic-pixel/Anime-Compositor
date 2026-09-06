@@ -40,3 +40,8 @@ DAY_REPORT.md
 # Claude Code's own scratch state. The permission rules in .claude/settings.json are
 # committed on purpose - they are project policy - but this lock file is per-session.
 .claude/scheduled_tasks.lock
+
+# Written by tauri-build on every build of the shell, from app/tauri.conf.json and the
+# permissions of the crates in the graph. Regenerated, never edited, and it changes whenever a
+# dependency does - committing it would mean a diff nobody wrote in most Tauri PRs.
+app/gen/schemas/

@@ -1,0 +1,17 @@
+[package]
+name = "anime_compositor_app"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+description = "The desktop shell. Owns the window and nothing about how a frame is made."
+
+# Document 06: "The rendering core stays independent of the interface." That is why the shell
+# is a separate crate that depends on the core, rather than the core growing a `tauri`
+# dependency. The arrow only points this way, and cargo is what enforces it.
+[dependencies]
+anime_compositor = { path = ".." }
+tauri = "2"
+
+[build-dependencies]
+tauri-build = "2"
