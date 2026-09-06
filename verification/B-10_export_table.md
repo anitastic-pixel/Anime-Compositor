@@ -25,13 +25,14 @@ Rows about a sentence quote it. The Expected column is the words that had to rea
 | and the drawing that is missing is still reported rather than passed over in silence | Frame 14 exposes drawing 7 of layer3_%03d.png, which is missing. | Frame 14 exposes drawing 7 of layer3_%03d.png, which is missing. | pass |
 | once for each frame it was missing on, not once for the export | Frame 15 exposes drawing 7 of layer3_%03d.png, which is missing. | Frame 15 exposes drawing 7 of layer3_%03d.png, which is missing. | pass |
 | a cancelled export says how far it got, and does not claim to have succeeded | Export stopped at your request after 0 of 2 frames | Export stopped at your request after 0 of 2 frames | pass |
+| and the window's own first sentence says what is there, not that it exported them | The 0 frames that finished are in <a temporary directory>. | The 0 frames that finished are in <a temporary directory>. | pass |
 | and left no half-written file behind | [] | [] | pass |
 | asking a window with nothing running to cancel is not an error either | No export is running. | No export is running. | pass |
 | an export into a folder that is not there says how far it got before it stopped | The export stopped on a problem after 0 of 2 frames | The export stopped on a problem after 0 of 2 frames | pass |
 | and names the file it could not write, rather than only that something went wrong | Frame 14 could not be written to <a temporary directory>\no_such_directory\the reference shot_0014.png. Check that the folder exists, is writable and has room | Frame 14 could not be written to <a temporary directory>\no_such_directory\the reference shot_0014.png. Check that the folder exists, is writable and has room | pass |
 | and the folder is still not there: nothing was created to hold a failure | false | false | pass |
 
-**20 of 20 checks pass.**
+**21 of 21 checks pass.**
 
 ## What this does not cover
 
