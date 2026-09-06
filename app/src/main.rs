@@ -1231,6 +1231,22 @@ mod saving {
                 false,
                 viewer.document.is_dirty(),
             );
+            // Media paths in a project file are relative to that file, so this is what decides
+            // whether the reopened project can find its drawings at all. A window that kept the
+            // old directory would show the picture correctly and hand somebody else a file whose
+            // cels resolve to nothing — the failure Save As reopens the file to avoid.
+            report.check(
+                "and looks for its drawings beside the file it wrote, not beside the one it came \
+                 from",
+                "beside the file it wrote",
+                if Some(viewer.root.as_path()) == elsewhere.parent() {
+                    "beside the file it wrote"
+                } else if Some(viewer.root.as_path()) == source.parent() {
+                    "still beside the project it came from"
+                } else {
+                    "somewhere that is neither"
+                },
+            );
         }
 
         // ---- Save, with a file of its own ------------------------------------------------------
@@ -1289,6 +1305,21 @@ mod saving {
                 .path
                 .as_ref()
                 .map_or(String::new(), |p| p.display().to_string()),
+        );
+
+        // The same failure reached by Ctrl+S instead of Save As. It is a second path through the
+        // window and it fails on its own occasions — a project file gone read-only, a drive no
+        // longer mounted — which Save As never touches, because Save As is always given a new
+        // destination and Save is never given one at all.
+        {
+            let mut held = viewer.lock().expect("the viewer lock was poisoned");
+            held.path = Some(nowhere.clone());
+        }
+        let said = save(&viewer);
+        report.check(
+            "and Save fails the same way, rather than naming a file it did not write",
+            true,
+            said.contains("could not be saved") || said.contains("not be written"),
         );
 
         write_artifact(&report);
