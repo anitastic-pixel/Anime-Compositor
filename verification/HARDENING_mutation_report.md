@@ -1,4 +1,4 @@
-﻿# Hardening: deliberately breaking the code to see whether the tests notice
+# Hardening: deliberately breaking the code to see whether the tests notice
 
 
 A passing test proves nothing on its own. It might be checking something that cannot fail.
@@ -76,7 +76,12 @@ the build either but a third independent compositor, this one arguing about blen
 **two of which got through**, and all nine caught afterwards. Both survivors were faults in how
 transparency is weighted, and both survived for the same reason - the reference shot's background
 layer is opaque and fills the frame, so every blend in the picture lands on something solid, where
-the weighting cannot be wrong. What they cost is described in its own section.
+the weighting cannot be wrong. What they cost is described in its own section. The seventeenth is
+H-04, which carries that method out of the renderer's memory and into the exported file: 9 breaks,
+**four of which got through**, and all nine caught afterwards. Three of the four were the
+sixteenth's fault exactly - the opaque background again, one step further downstream - which is
+the most useful thing this report has recorded about itself, and is written up as such below. The
+fourth is a fault in a tolerance rather than in a picture, and it is the first of its kind here.
 
 
 ## B-02 colour and alpha
@@ -896,7 +901,12 @@ a layer that is moved, turned or scaled are checked by B-05a's table, pixel by n
 H-02 at whole-picture scale. Every layer in H-01 and H-02 is set to normal; the other three blend
 modes on a whole picture are H-03's, added since this paragraph was written, and the two breaks
 that got through it are the reason the section above says an opaque background cannot check
-transparency. Nothing has been
+transparency. All four of those whole-picture tables stop in the renderer's working space; the step
+after it, from that buffer to the bytes of an exported PNG, is H-04's, added since this paragraph
+was written. What H-04 in turn does not cover is the clamp: document 21 line 7 puts it at the
+encoding step, and a break removing it would survive there, because an all-normal composite of this
+shot never produces a value above 1. That clamp is B-02's row, on named values, and it stays there.
+Nothing has been
 mutation-tested against timing or memory behaviour either, which is measurement rather than
 correctness and belongs with the performance work in document 24.
 
