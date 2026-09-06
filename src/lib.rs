@@ -17,6 +17,7 @@ pub mod media;
 pub mod model;
 pub mod persist;
 pub mod png_out;
+pub mod preview;
 pub mod render;
 pub mod time;
 pub mod trace;
