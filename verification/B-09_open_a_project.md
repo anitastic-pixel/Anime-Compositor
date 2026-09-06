@@ -1,8 +1,10 @@
-# B-09, opening a project in the viewer
+# B-09, opening and saving a project in the viewer
 
 Until now the window showed one project, named in the source. It can now be given one — on the
-command line, or by dropping the file on the window — and these three photographs are what that
-looks like when the project is fine, when it is not, and when it is not a project at all.
+command line, by dropping the file on the window, through an Open dialog, or from the
+recent-projects list — and these three photographs are what that looks like when the project is
+fine, when it is not, and when it is not a project at all. Saving is at the bottom of this file;
+what the saving itself writes is checked in `B-09_save_table.md`.
 
 The point of all three is the same: **the window says which project is on screen and what the
 core said about it.** Document 28 asks that unsupported or missing data is preserved or
@@ -100,5 +102,40 @@ covered is the operating system handing over the path: that is `WindowEvent::Dra
 `app/src/main.rs`, it is four lines, and until someone drops a file on the window nobody has
 seen it work.
 
-There is also still no way to *save* from the window, no file dialog, and no recent-projects
-list. Opening is one direction only.
+## 4. Saving, and what it looks like when it worked
+
+The other direction, photographed in two shots of the same window a few seconds apart. The
+project is a copy of `Fixtures/projects/unknown_effect_project.json` in a scratch directory,
+because a save writes and the fixtures do not get written to.
+
+![the window with a project open, before saving](B-09_save_before.png)
+
+The bar now carries **Open…**, **Save**, **Save As…** and a **Recent…** list beside the project
+name, and the hint underneath names the three accelerators. The green line at the right is the
+status line, and it says `Opened I:\…\my_shot.json`.
+
+![the same window after Ctrl+S](B-09_save_after.png)
+
+The only difference is that line: `Saved to I:\…\my_shot.json`. Nothing else moved. The
+keystroke was a real one — `keybd_event` with Control held, sent to the window by
+`tools/capture_window.ps1 -Keys s -Ctrl` — so what these two pictures show is Ctrl+S travelling
+from the operating system, through the webview, out to `persist::save` and onto the disk. The
+script checked the file's timestamp either side of the shutter and it changed.
+
+Both warnings are still on screen after the save, which is the point of the first one: *"Saving
+this project writes the effect back unchanged."* `B-09_save_table.md` is where that sentence is
+held to, by reading the saved file back and finding `vendor.future.effect` still in it.
+
+### What these two do not show
+
+The dialogs, and the recent list opened. A script can press a key; it cannot answer a Save As
+dialog or pull down a menu and photograph it, so **Open…**, **Save As…** and the contents of
+**Recent…** have been used by hand and are not photographed. The recent list is checked as a
+value instead — `cargo test -p anime_compositor_app` covers newest-first order, one entry per
+project, the same file spelled two ways counting once, and the oldest falling off the end — and
+files that have since been deleted are filtered out when the list is asked for.
+
+```
+powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-09_save_before -Open "target\shot\my_shot.json"
+powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-09_save_after -Open "target\shot\my_shot.json" -Keys "s" -Ctrl -Settle 2000
+```

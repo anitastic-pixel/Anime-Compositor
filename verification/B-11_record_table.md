@@ -2,7 +2,7 @@
 
 The artifact is `docs/DEPENDENCIES.md` and the archived licence texts under `Licenses/`. This is the check that keeps them true: it asks cargo what the build resolves for the one platform this project supports, and requires that the answer and the record agree in both directions. Produced by `tests/b11_dependency_record.rs`.
 
-The build currently resolves **264 dependencies** beneath the four the workspace manifests name. `Cargo.lock` lists more, because it covers every platform cargo could resolve for; the count here is what compiles on `x86_64-pc-windows-msvc`.
+The build currently resolves **271 dependencies** beneath the four the workspace manifests name. `Cargo.lock` lists more, because it covers every platform cargo could resolve for; the count here is what compiles on `x86_64-pc-windows-msvc`.
 
 This check reads no licence and decides nothing about one. Document 10 reserves that for a reviewer, and there has not been one.
 
@@ -17,7 +17,7 @@ This check reads no licence and decides nothing about one. Document 10 reserves 
 | every crate's own licence text is archived in this repository, not merely named | every crate has an archived licence | every crate has an archived licence | pass |
 | every crate the build resolves is in the committed lock file at that version | the lock file covers the build | the lock file covers the build | pass |
 | every row names a licence | every row names a licence | every row names a licence | pass |
-| the record marks as direct exactly the dependencies the manifests ask for | png, rayon, serde_json, tauri, tauri-build | png, rayon, serde_json, tauri, tauri-build | pass |
+| the record marks as direct exactly the dependencies the manifests ask for | png, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog | png, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog | pass |
 | the crate declares the licence D-31 chose | MIT OR Apache-2.0 | MIT OR Apache-2.0 | pass |
 | both licence texts the declaration names are in the repository | both present | both present | pass |
 | the comparison can fail: a crate that is in neither file is reported as in neither | in the build: false, in the record: false | in the build: false, in the record: false | pass |

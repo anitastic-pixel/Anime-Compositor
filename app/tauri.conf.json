@@ -15,7 +15,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://frame.localhost"
+      "csp": "default-src 'self'; connect-src 'self' http://frame.localhost http://project.localhost"
     }
   },
   "bundle": {
