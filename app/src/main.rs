@@ -1746,6 +1746,504 @@ mod recovery_and_autosave {
     }
 }
 
+/// What the page is handed when it asks for a frame, checked without a page.
+///
+/// The renderer's picture is checked pixel by pixel elsewhere, and the playback clock is checked
+/// in `verification/B-08_preview_table.md`. What is new here is the transport between them: which
+/// frame comes back for a given request, how many bytes the picture is, whether the page is
+/// allowed to read the answer at all, and whether everything the window has to *say* about the
+/// frame - its number, its resolution, the project's name, the notes, the dirty flag - arrives
+/// beside the same picture it describes.
+///
+/// The window itself cannot be started in a test, so `serve` is called directly with the same
+/// arguments the request handler passes it. What that leaves out is named at the end of the table.
+///
+/// Writes `verification/B-08_shell_table.md`.
+#[cfg(test)]
+mod serving {
+    use super::*;
+    use anime_compositor::command::Command;
+
+    fn repo(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the app crate has a parent directory")
+            .join(rel)
+    }
+
+    /// One header as text, or the empty string if it is not there at all. A header the page cannot
+    /// read is the same to the page as a header that was never sent, so both read as absent here.
+    fn header(response: &Response<Vec<u8>>, name: &str) -> String {
+        response.headers().get(name).map_or_else(String::new, |v| {
+            v.to_str().unwrap_or("<not readable as text>").to_string()
+        })
+    }
+
+    /// Percent-decoding, written out here rather than borrowed from the window.
+    ///
+    /// The window encodes; this decodes. Using the window's own `from_a_query` would check one
+    /// function against itself and would pass just as happily if both halves were wrong together.
+    fn decode(text: &str) -> String {
+        let bytes = text.as_bytes();
+        let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+        let mut at = 0;
+        while at < bytes.len() {
+            if bytes[at] == b'%' && at + 3 <= bytes.len() {
+                let hex = std::str::from_utf8(&bytes[at + 1..at + 3]).expect("ascii");
+                out.push(u8::from_str_radix(hex, 16).expect("two hex digits"));
+                at += 3;
+            } else {
+                out.push(bytes[at]);
+                at += 1;
+            }
+        }
+        String::from_utf8(out).expect("what went in was utf-8")
+    }
+
+    /// A project of sixteen pixels whose answer is known before anything renders it.
+    ///
+    /// Every pixel in the reference shot is either opaque or empty, and those two look the same
+    /// whichever way alpha is carried — so the shot cannot tell straight alpha and premultiplied
+    /// apart, and the page draws straight. This cel is four pixels of half-transparent red, which
+    /// can: carried straight it stays 255 red, carried premultiplied it comes back at about 188.
+    fn a_half_transparent_red_project() -> PathBuf {
+        let directory = std::env::temp_dir().join("anime_compositor_b08_shell");
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(directory.join("media")).expect("make the scratch directory");
+        let samples: Vec<u8> = std::iter::repeat_n([255u8, 0, 0, 128], 16)
+            .flatten()
+            .collect();
+        anime_compositor::png_out::write_rgba(
+            &directory.join("media/cel_0001.png"),
+            4,
+            4,
+            OutputDepth::Eight,
+            &[],
+            &samples,
+        )
+        .expect("write the cel");
+        let project = directory.join("shot.json");
+        std::fs::write(
+            &project,
+            r#"{
+  "schema_version": 0,
+  "project_id": "proj-one-pixel",
+  "color_settings": { "working_space": "linear-srgb", "alpha_mode": "premultiplied" },
+  "assets": [
+    {
+      "id": "asset-cel",
+      "kind": "image_sequence",
+      "name": "Cel",
+      "pattern": "cel_####.png",
+      "frames": { "1": "media/cel_0001.png" },
+      "interpretation": { "color_space": "srgb", "alpha": "straight" }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 4,
+      "height": 4,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": { "numerator": 24, "denominator": 1 },
+      "start_frame": 0,
+      "duration_frames": 1,
+      "work_area": { "start_frame": 0, "end_frame_exclusive": 1 },
+      "layer_order": ["layer-cel"],
+      "layers": [
+        {
+          "id": "layer-cel",
+          "kind": "raster",
+          "name": "Cel",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": { "base": [0, 0], "keyframes": [] },
+            "position": { "base": [0, 0], "keyframes": [] },
+            "scale": { "base": [100, 100], "keyframes": [] },
+            "rotation": { "base": 0, "keyframes": [] },
+            "opacity": { "base": 1, "keyframes": [] }
+          },
+          "exposure_spans": [
+            { "start_frame": 0, "end_frame_exclusive": 1, "drawing_number": 1 }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        }
+      ]
+    }
+  ]
+}
+"#,
+        )
+        .expect("write the project");
+        project
+    }
+
+    /// Ask the transport for something, the way the request handler does.
+    fn ask(
+        viewer: &Mutex<Viewer>,
+        export: &Mutex<Export>,
+        path: &str,
+        query: Option<&str>,
+    ) -> Response<Vec<u8>> {
+        let (ask, quality) = parse(path, query).expect("the test asks for something readable");
+        serve(viewer, export, ask, quality)
+    }
+
+    #[test]
+    fn what_the_page_gets_is_the_frame_it_asked_for() {
+        let mut rows: Vec<(String, String, String)> = Vec::new();
+        let mut check = |what: &str, expected: &dyn ToString, actual: &dyn ToString| {
+            rows.push((what.to_string(), expected.to_string(), actual.to_string()));
+        };
+
+        let viewer = Mutex::new(demo());
+        let export = Mutex::new(Export::default());
+
+        // ---- one frame, asked for by number ------------------------------------------------------
+        // The reference shot is 240 frames of 1920 by 1080 at 24 frames a second, starting at 0,
+        // and D-33 makes the preview open at draft resolution, which DRAFT_DIVISOR puts at a
+        // quarter of each side: 480 by 270.
+        let got = ask(&viewer, &export, "/frame/0", None);
+        check(
+            "asking for frame 0 is answered",
+            &200,
+            &got.status().as_u16(),
+        );
+        check(
+            "with raw pixels rather than an image file, which is what the page draws",
+            &"application/octet-stream",
+            &header(&got, "content-type"),
+        );
+        check(
+            "and the answer says which frame it is",
+            &"0",
+            &header(&got, "x-frame"),
+        );
+        check(
+            "at draft resolution, which is what the preview opens at",
+            &"Draft",
+            &header(&got, "x-quality"),
+        );
+        check(
+            "and says so, so nobody mistakes it for what an export would write",
+            &"true",
+            &header(&got, "x-differs"),
+        );
+        check("480 wide", &"480", &header(&got, "x-width"));
+        check("270 high", &"270", &header(&got, "x-height"));
+        check(
+            "and the picture is exactly that many pixels, four bytes each",
+            &(480 * 270 * 4),
+            &got.body().len(),
+        );
+        // Without both of these the page fetches the answer successfully and is then refused it:
+        // the picture fails and every header reads as absent. Either one alone is silence.
+        check(
+            "the page is allowed to read the answer",
+            &"*",
+            &header(&got, "access-control-allow-origin"),
+        );
+        check(
+            "and allowed to read the headers beside it, not only receive them",
+            &"*",
+            &header(&got, "access-control-expose-headers"),
+        );
+        check(
+            "a frame asked for by number did not come from the clock, so there is no playback \
+             report beside it",
+            &"",
+            &header(&got, "x-report"),
+        );
+
+        // ---- stepping stops at the ends of the work area ------------------------------------------
+        let got = ask(&viewer, &export, "/frame/999", None);
+        check(
+            "stepping past the end of the shot stops at the last frame",
+            &"239",
+            &header(&got, "x-frame"),
+        );
+        let got = ask(&viewer, &export, "/frame/-5", None);
+        check(
+            "and stepping before the beginning stops at the first",
+            &"0",
+            &header(&got, "x-frame"),
+        );
+
+        // ---- and asked for by the clock ----------------------------------------------------------
+        let got = ask(&viewer, &export, "/at/0", None);
+        check(
+            "the first frame of a playback is the one at the start of the shot",
+            &"0",
+            &header(&got, "x-frame"),
+        );
+        check(
+            "and this time the playback report is beside it",
+            &"Played 1 frames in real time. No frames were dropped.",
+            &header(&got, "x-report"),
+        );
+        // One second at 24 frames a second is frame 24. The 23 in between were never asked for,
+        // and D-32 requires that to be said rather than hidden.
+        let got = ask(&viewer, &export, "/at/1000", None);
+        check(
+            "a second into the shot the clock asks for frame 24, not the next one along",
+            &"24",
+            &header(&got, "x-frame"),
+        );
+        check(
+            "and says the 23 frames in between were passed over",
+            &"23",
+            &header(&got, "x-skipped"),
+        );
+        // A page whose clock jumps backwards is a page with a bug, and the answer to that is to
+        // hold still, not to invent a negative skip count and put it in front of the owner.
+        let got = ask(&viewer, &export, "/at/500", None);
+        check(
+            "time running backwards holds the frame rather than rewinding",
+            &"24",
+            &header(&got, "x-frame"),
+        );
+        check(
+            "and counts nothing as skipped",
+            &"0",
+            &header(&got, "x-skipped"),
+        );
+
+        // ---- the resolution the page asks for -----------------------------------------------------
+        let got = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        check(
+            "asking for full resolution gets it",
+            &"Full",
+            &header(&got, "x-quality"),
+        );
+        check("at the shot's own size", &"1920", &header(&got, "x-width"));
+        check(
+            "and full resolution is what an export would write, so the warning goes away",
+            &"false",
+            &header(&got, "x-differs"),
+        );
+        // A typo in a query string must not quietly change what the person is looking at.
+        let got = ask(&viewer, &export, "/frame/0", Some("q=sideways"));
+        check(
+            "a resolution nobody recognises changes nothing rather than guessing",
+            &"Full",
+            &header(&got, "x-quality"),
+        );
+        let got = ask(&viewer, &export, "/frame/0", Some("q=draft"));
+        check(
+            "and asking for draft again gets draft",
+            &"Draft",
+            &header(&got, "x-quality"),
+        );
+
+        // ---- what the window has to say about the project ------------------------------------------
+        {
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            held.name = "背景_日本語.json".to_string();
+            held.notes = vec!["One note.".to_string(), "And another.".to_string()];
+            held.status = "Saved to 背景_日本語.json".to_string();
+        }
+        let got = ask(&viewer, &export, "/frame/0", None);
+        check(
+            "a Japanese project name arrives at the page as the name it started as",
+            &"背景_日本語.json",
+            &decode(&header(&got, "x-project")),
+        );
+        check(
+            "and so does a sentence with Japanese in it",
+            &"Saved to 背景_日本語.json",
+            &decode(&header(&got, "x-status")),
+        );
+        check(
+            "the notes travel whole, one to a line",
+            &"One note.\nAnd another.",
+            &decode(&header(&got, "x-notes")),
+        );
+        check(
+            "nothing is being exported, and the page is told so",
+            &"false",
+            &header(&got, "x-exporting"),
+        );
+        check(
+            "there is nothing outstanding in the project yet",
+            &"false",
+            &header(&got, "x-dirty"),
+        );
+        {
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            let composition = held.composition.clone();
+            let layer_id = held.document.project().compositions[0].layer_order()[0].clone();
+            held.document
+                .apply(Command::RenameLayer {
+                    composition,
+                    layer_id,
+                    name: "Renamed while the page watched".to_string(),
+                })
+                .expect("rename the layer");
+        }
+        let got = ask(&viewer, &export, "/frame/0", None);
+        check(
+            "and once something is changed the page is told that too",
+            &"true",
+            &header(&got, "x-dirty"),
+        );
+
+        // ---- a request the window does not understand ------------------------------------------------
+        check(
+            "a path the window does not understand is not answered with a guess",
+            &"nothing",
+            &parse("/frames/3", None).map_or("nothing", |_| "something"),
+        );
+        check(
+            "and neither is a time that is not a number",
+            &"nothing",
+            &parse("/at/soon", None).map_or("nothing", |_| "something"),
+        );
+
+        // ---- a frame that cannot be made --------------------------------------------------------------
+        // Document 28: a frame that cannot be drawn is reported in words, never replaced by
+        // something that looks like a frame.
+        let broken = Mutex::new(
+            open(&repo("Fixtures/projects/missing_media_project.json"))
+                .expect("open the project whose drawing is missing"),
+        );
+        let got = ask(&broken, &export, "/frame/0", None);
+        check(
+            "a missing drawing does not take the rest of the shot down with it: the frame still \
+             comes back",
+            &200,
+            &got.status().as_u16(),
+        );
+        check(
+            "and it is honestly empty rather than filled in with a guess",
+            &"every pixel transparent",
+            &if got.body().iter().all(|byte| *byte == 0) {
+                "every pixel transparent"
+            } else {
+                "something was drawn"
+            },
+        );
+        check(
+            "and the page is carrying the sentence that explains why it is empty",
+            &"2 of the files for \"Cel\" are not where the project expects them. The reference is \
+              kept as it is. Relink the asset to point it at the files, or put them back. Frames \
+              that cannot be found render as nothing rather than as a guess.",
+            &decode(&header(&got, "x-notes")),
+        );
+        check(
+            "which the page can only read because the refusal carries the same permission the \
+             picture does",
+            &"*",
+            &header(&got, "access-control-expose-headers"),
+        );
+
+        // ---- the pixels themselves ------------------------------------------------------------------
+        // Everything above counts the bytes without reading one. The page draws these straight
+        // into an ImageData, which is straight alpha and nothing else, so a picture handed over
+        // premultiplied would be the right size, the right frame and the wrong colour.
+        let known = Mutex::new(
+            open(&a_half_transparent_red_project()).expect("open the four-pixel project"),
+        );
+        let got = ask(&known, &export, "/frame/0", Some("q=full"));
+        check(
+            "a four by four picture is sixty-four bytes",
+            &64,
+            &got.body().len(),
+        );
+        check(
+            "and a half-transparent red one comes back as the red it was drawn as, not the \
+             darker red premultiplying it would give",
+            &"255, 0, 0, 128",
+            &got.body()[..4]
+                .iter()
+                .map(|b| b.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        check(
+            "and every pixel of it is that same red",
+            &true,
+            &got.body().chunks_exact(4).all(|px| *px == got.body()[..4]),
+        );
+
+        write_artifact(&rows);
+        let failed: Vec<&(String, String, String)> =
+            rows.iter().filter(|(_, e, a)| e != a).collect();
+        assert!(
+            failed.is_empty(),
+            "{} of {} checks failed, see verification/B-08_shell_table.md: {:#?}",
+            failed.len(),
+            rows.len(),
+            failed
+        );
+    }
+
+    fn write_artifact(rows: &[(String, String, String)]) {
+        let passed = rows.iter().filter(|(_, e, a)| e == a).count();
+        let checkout = repo("").display().to_string();
+        let mut out = String::new();
+        out.push_str("# B-08, what the page is handed when it asks for a frame\n\n");
+        out.push_str(
+            "Between the renderer and the picture on screen there is a short journey: the page \
+             asks for a frame over a local address, and gets back raw pixels with everything the \
+             window has to say about them in the headers beside. Nothing else in this project \
+             looks at that journey. Produced by `cargo test -p anime_compositor_app`, from \
+             `app/src/main.rs`.\n\n",
+        );
+        out.push_str(
+            "The promise is that **the picture and the words about it always came from the same \
+             render**. The frame number, the resolution, the project's name, the notes and the \
+             unsaved-work flag are attached to the picture they describe, so the number on screen \
+             can never belong to a different drawing than the one under it.\n\n",
+        );
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in rows {
+            let short = |text: &str| {
+                text.replace(&checkout, "<the checkout>")
+                    .replace('|', r"\|")
+                    .replace('\n', "⏎")
+            };
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                short(expected),
+                short(actual),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            rows.len()
+        ));
+        out.push_str(
+            "\n## What this does not cover\n\nThe window itself. These rows call the same function \
+             the request handler calls, with the same arguments, but no window is opened and no \
+             page is loaded, so a build that never registered the handler at all would pass this \
+             table. The photographs in `verification/B-08_window_shell.md` are what show that the \
+             window exists and draws; this table is what shows that what it draws is described \
+             correctly.\n\n\
+             Nor does it cover whether the *picture* is right. Whether frame 24 looks like the \
+             shot is H-01's question and B-08a's; the question here is only whether the frame \
+             that comes back is the frame that was asked for, whether it is the size it says it \
+             is, and whether its colours arrive the way the page draws them. The last of those \
+             needs a picture the shot cannot supply, so the four-pixel rows draw their own.\n\n\
+             Where a row says *the checkout*, the real value was this machine's copy of the \
+             repository, whose path differs on every machine. A line break inside a value is \
+             shown as ⏎ so that one row stays one row.\n",
+        );
+        std::fs::write(repo("verification/B-08_shell_table.md"), out).expect("write the artifact");
+    }
+}
+
 /// What exporting from the window does, checked without a window.
 ///
 /// The renderer's export path is already checked to the frame in `T-08_export_table.md` and to

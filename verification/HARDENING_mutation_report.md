@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**208 breaks were made across twenty-one units. All 208 were caught.**
+**219 breaks were made across twenty-two units. All 219 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -67,7 +67,11 @@ through**, and all nine caught afterwards. The fourteenth is the other half of t
 autosave timer and recovery: 9 breaks, **five of which got through**, which is the second worst
 result in this report and has a single cause described in its own section - four of the five
 survived because the rows that were meant to time the two-minute wait all ticked at the moment the
-timer first saw the work, when its clock reads zero and any waiting time at all would pass.
+timer first saw the work, when its clock reads zero and any waiting time at all would pass. The
+fifteenth is the viewer shell - the transport that carries a rendered frame out to the page, which
+every section at the end of this report has named as the last thing owed since the hardening work
+began: 11 breaks, one of which got through, and all eleven caught afterwards. It is the last unit
+of the build that had never been broken on purpose.
 
 
 ## B-02 colour and alpha
@@ -612,6 +616,58 @@ project - it was to ask the same question a second time, a little later.
 The table grows from 21 checks to 26. Nothing in `Fixtures/` was touched, no expected value was
 edited and no tolerance was loosened.
 
+## B-08 window: the viewer shell, the transport that carries a frame to the page
+
+`app/src/main.rs`, the `parse` and `serve` functions, checked by the `serving` test, whose table is
+`verification/B-08_shell_table.md`.
+
+**11 of 11 breaks caught, after one got through.**
+
+This is the join between the renderer and the web page the window shows: a request for a frame goes
+in, a picture and sixteen headers come out. Everything the page knows about the shot - which frame
+it is looking at, how big it is, whether it is a draft, what the project is called, whether there
+is unsaved work, whether a drawing is missing - it knows only because a header said so, and until
+this pass nothing had ever checked that any of those headers said the truth.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| V1 | Stepping runs off the ends of the shot instead of stopping at them | yes | `stepping past the end of the shot stops at the last frame (expected 239, got nothing)` and the row for the beginning |
+| V2 | The page receives the headers but is not allowed to read them | yes | `and allowed to read the headers beside it, not only receive them (expected *, got nothing)` |
+| V3 | The page is not allowed to read the picture at all | yes | `the page is allowed to read the answer (expected *, got nothing)` |
+| V4 | A resolution nobody recognises silently switches the preview to full | yes | five rows at once, including `at draft resolution, which is what the preview opens at (expected Draft, got Full)` |
+| V5 | Non-ASCII travels raw in a header instead of encoded | yes | `a Japanese project name arrives at the page as the name it started as (expected 背景_日本語.json, got <not readable as text>)` |
+| V6 | A stepped frame carries a playback report about a playback that did not happen | yes | `a frame asked for by number did not come from the clock, so there is no playback report beside it (expected nothing, got Played 0 frames in real time. No frames were dropped.)` |
+| V7 | The picture is premultiplied, which is not what the page draws | **no, first time** | after the fixture was strengthened: `and a half-transparent red one comes back as the red it was drawn as, not the darker red premultiplying it would give (expected 255, 0, 0, 128, got 188, 0, 0, 128)` |
+| V8 | The width and the height are the wrong way round | yes | `480 wide (expected 480, got 270)`, and two more |
+| V9 | A time that is not a number is read as the beginning of the shot | yes | `and neither is a time that is not a number (expected nothing, got something)` |
+| V10 | The page is always told there is nothing outstanding | yes | `and once something is changed the page is told that too (expected true, got false)` |
+| V11 | Dropped frames are never reported to the page | yes | `and says the 23 frames in between were passed over (expected 23, got 0)` |
+
+## Thirteenth pass: the one that got through, and what was added
+
+| Unit | What was broken | Why the fixture missed it | Added |
+|---|---|---|---|
+| B-08 shell | The picture is handed to the page premultiplied, which the page then draws as though it were straight (V7) | The table counted the picture's bytes and never read one of them. It could not have caught this even if it had: every pixel in the reference shot is either fully opaque or fully empty, and those two are byte-identical whichever way alpha is carried, so the shot itself cannot tell the two conventions apart. Every half-transparent edge in the preview would have darkened and every row would still have passed | A four-by-four cel of half-transparent red, drawn inside the test with the project's own PNG writer and served through the same path: carried straight it comes back as 255 red, premultiplied as 188. Two further rows check that the picture is the sixty-four bytes that size implies and that every pixel of it is that same red |
+
+This is the same shape as the cache's six and the save half's two - **a fixture checks the path it
+was written from** - with one difference worth noting. The other cases could have been caught by
+asking the existing fixture a better question. This one could not: the reference shot has no
+half-transparent pixel anywhere in it, so no arrangement of rows built on the shot alone would have
+seen the difference. The picture had to be drawn inside the test, which is the second time in this
+report that has been the answer; the cache needed the same thing for the same reason.
+
+The table is new, so it does not grow: it starts at 39 checks. Nothing in `Fixtures/` was touched,
+no expected value was edited and no tolerance was loosened.
+
+One thing about this pass was my own error rather than the fixture's, and it belongs on the page.
+The first draft of the rows for a missing drawing asserted a contract I had not checked - that the
+request would be refused with a diagnostic instead of answered. The build does something else: it
+answers with the frame, entirely transparent, and puts the sentence explaining why in the headers,
+which is what document 28 asks for. I checked the real behaviour and rewrote the rows to state the
+true contract. The rows were wrong, not the build, and nothing was weakened to make them pass - but
+a row written from an assumption rather than from the code is a fixture that agrees with whatever
+the author expected, which is the failure this whole report exists to find.
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -672,7 +728,7 @@ the second is unreachable. The break was remade on the live path and caught ther
 not about this fixture: a mutation that survives may mean the test is weak, or it may mean the
 code it was made in cannot affect the result, and those two look identical from the outside.
 
-None of the thirty-three survivors, across every pass, is a bug in the build as it stands. They
+None of the thirty-four survivors, across every pass, is a bug in the build as it stands. They
 are things the build was free to get wrong later without anything saying so.
 
 A further handful of breaks were caught only by a crash rather than by a named row - the test
@@ -689,8 +745,10 @@ finally was, six of nine breaks got through. The window half of B-10 - the Expor
 snapshot of the project taken when it is pressed - was named here as owed rather than covered, and
 has since been done: nine breaks, one of which got through, in its own section above. The save half
 of B-09 was named the same way the night after, and has since been done too: nine breaks, two of
-which got through; and the recovery half after that, nine breaks with five through. The claim is
-the narrower one from now on: every unit **listed in this report** has been broken on purpose, and
+which got through; the recovery half after that, nine breaks with five through; and the viewer
+shell, named here as owed since this section was first written, eleven breaks with one through. The
+claim is the narrower one from now on: every unit **listed in this report** has been broken on
+purpose, and
 the list is not by itself proof that it is the whole build. What is known to be outside it today
 is named in the paragraph below.
 
@@ -715,9 +773,13 @@ mutation-tested against timing or memory behaviour either, which is measurement 
 correctness and belongs with the performance work in document 24.
 
 **What is outside this report today, named rather than left to be assumed.** Every section above
-covers either the engine or, since B-10 and both halves of B-09, three parts of the window. The rest of
-the window has not been broken on purpose: the viewer shell itself - the transport that carries a
-frame into the web view and the wall-clock loop that drives playback - whose artifact is
-`verification/B-08_window_shell.md` and is photographs rather than a table. That one is the next
-pass. Nothing about it is known to be wrong; it is simply not yet covered by this report, and this
-paragraph exists so that the absence is on the page rather than in someone's memory.
+covers either the engine or, since B-10, both halves of B-09 and the shell, four parts of the
+window. What is left is the window as a *window*: that the handler is registered at all, that the
+page is loaded, that a key press reaches the loop. Every row in the shell's table calls the same
+function the request handler calls, with the same arguments, but no window is opened - so a build
+that never wired the handler up would pass that table completely. What stands in for it is
+`verification/B-08_window_shell.md`, which is photographs of the running program, and photographs
+cannot be broken on purpose and re-run. That is not a gap this method can close, and saying which
+method covers which half is more honest than pretending one covers both. Nothing about it is known
+to be wrong; this paragraph exists so that the absence is on the page rather than in someone's
+memory.
