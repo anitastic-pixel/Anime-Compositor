@@ -66,6 +66,13 @@
      status line rather than in it. */
   #autosaved { color: #6a6a72; }
   #autosaved:empty { display: none; }
+  /* An export runs for minutes and writes to disk, so what it is doing is its own line and stays
+     on screen after it has finished — including when it refused to write anything. */
+  #exported { min-width: 100%; color: #8b8b94; white-space: pre-wrap; }
+  #exported:empty { display: none; }
+  #exported.running { color: #7fb37f; }
+  label { display: inline-flex; align-items: center; gap: 5px; }
+  input[type=checkbox]:focus-visible { outline: 2px solid #7aa7ff; outline-offset: 2px; }
   select {
     font: inherit; color: inherit; background: #26262b;
     border: 1px solid #35353c; border-radius: 4px; padding: 3px 6px; max-width: 260px;
@@ -95,10 +102,14 @@
   <button id="saveas">Save As&hellip;</button>
   <select id="recent"><option value="">Recent&hellip;</option></select>
   <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
-  <span class="hint">space, arrows, D &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S &middot; or drop a project file here</span>
+  <button id="export">Export&hellip;</button>
+  <button id="cancelexport" hidden>Cancel export</button>
+  <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
+  <span class="hint">space, arrows, D &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E &middot; or drop a project file here</span>
   <span id="status"></span>
   <span id="autosaved"></span>
   <span id="report"></span>
+  <span id="exported"></span>
   <ul id="notes"></ul>
 </div>
 <script>
@@ -125,6 +136,7 @@ let started = 0;      // performance.now() at the instant playback began
 let quality = 'draft';
 let frame = 0;
 let inFlight = false;
+let watching = 0;     // the timer that asks again while an export is running
 
 // A request already on its way is never joined by a second one. That is the whole of this
 // page's part in D-32: the clock keeps running while a frame is being made, so the next answer
@@ -179,6 +191,19 @@ async function show(url) {
       decodeURIComponent(h.get('x-status') || '');
     document.getElementById('autosaved').textContent =
       decodeURIComponent(h.get('x-autosaved') || '');
+    // The export writes on a thread in Rust and says nothing until asked, so while one is
+    // running the page asks again every second. Nothing here decides what it wrote: the sentence
+    // is the core's report, built in Rust from what actually reached the disk.
+    const exporting = h.get('x-exporting') === 'true';
+    const exported = document.getElementById('exported');
+    exported.textContent = decodeURIComponent(h.get('x-export') || '');
+    exported.className = exporting ? 'running' : '';
+    document.getElementById('cancelexport').hidden = !exporting;
+    document.getElementById('export').disabled = exporting;
+    clearTimeout(watching);
+    if (exporting && !playing) {
+      watching = setTimeout(() => show(FRAMES + '/frame/' + frame + '?q=' + quality), 1000);
+    }
     // The snapshots there are to recover, rebuilt from the frame that just arrived because the
     // timer adds one every two minutes and the list must not go stale while somebody works.
     const recovery = document.getElementById('recovery');
@@ -248,6 +273,12 @@ async function command(what) {
 document.getElementById('open').onclick = () => command('/open');
 document.getElementById('save').onclick = () => command('/save');
 document.getElementById('saveas').onclick = () => command('/save-as');
+// The checkbox travels with the command rather than being remembered anywhere: document 07's
+// default is that a missing drawing blocks the export, and an override has to be a thing the
+// person did this time, in front of the words that say what it does.
+document.getElementById('export').onclick = () =>
+  command('/export' + (document.getElementById('anyway').checked ? '?missing=write' : ''));
+document.getElementById('cancelexport').onclick = () => command('/cancel-export');
 document.getElementById('recent').onchange = (e) => {
   const chosen = e.target.value;
   e.target.selectedIndex = 0;
@@ -279,12 +310,16 @@ addEventListener('keydown', (e) => {
   // not start playback, and an arrow on the recent list has to move through the list. The
   // accelerators below are for when nothing in particular is focused; Ctrl combinations are not,
   // because those mean the same thing everywhere and no button answers them.
-  const onAControl = e.target instanceof Element && e.target.closest('button, select');
+  const onAControl = e.target instanceof Element && e.target.closest('button, select, input');
   if (onAControl && !e.ctrlKey) return;
   if (e.ctrlKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); command('/open'); }
   else if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
     e.preventDefault();
     command(e.shiftKey ? '/save-as' : '/save');
+  }
+  else if (e.ctrlKey && (e.key === 'e' || e.key === 'E')) {
+    e.preventDefault();
+    document.getElementById('export').click();
   }
   else if (e.ctrlKey) { /* leave every other accelerator alone */ }
   else if (e.key === ' ') { e.preventDefault(); document.getElementById('play').click(); }
