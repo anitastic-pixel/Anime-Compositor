@@ -251,6 +251,26 @@ What H-02, the same check with the layers moved, settled and left:
   wrong order unnoticed, and with every sampled layer transparent at its border, clamping to the
   edge pixel is indistinguishable from transparent black.
 
+What H-04, the same check carried into the exported file, settled and left:
+
+- H-01 to H-03 all stop in the working space. Every existing test of the step after it - the
+  output encode - calls the build's own `encode` on both sides (`tests/t08_export.rs:668`,
+  `tests/b02_color_alpha.rs`), so channel order, row order, stride and sixteen-bit byte order were
+  unverifiable in principle, not merely unverified. H-04 exports through the real
+  `export_sequence`, decodes with the `png` crate, and compares against an encoder written in the
+  test from document 21 lines 7 and 31. `verification/H-04_exported_file_table.md`, 20 of 20.
+- Four of its nine deliberate faults survived the first draft. **Three were H-03's lesson, one
+  pass later and one unit downstream**: the opaque background makes every composited pixel solid,
+  and both the unpremultiply and keeping alpha out of the colour curve are identities at alpha 1.
+  The same answer worked - export frame 106 with the background layer removed. Frame 106 and not
+  H-03's 110 because at 110 layer 3 asks for the absent drawing 7 and the export refuses.
+  **If you are writing a whole-picture fixture, read the fault list in the mutation report first;
+  this one was named, written up, and then walked into again immediately.**
+- The fourth survivor is a new lesson: **a tolerance that is right for one fault is a hiding place
+  for another.** One code value is the correct rounding allowance and also the exact size of a
+  truncation bug. What separates them is the count: honest disagreement touched 1 sample of 8.3
+  million, truncation touched 1,448,945. The count is now a bounded check, not a printed number.
+
 What H-03, the same check with the blend modes on, settled and left:
 
 - Every layer in H-01 and H-02 is normal, which the renderer routes past the unpremultiply

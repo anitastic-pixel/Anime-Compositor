@@ -1,4 +1,4 @@
-# Hardening: deliberately breaking the code to see whether the tests notice
+﻿# Hardening: deliberately breaking the code to see whether the tests notice
 
 
 A passing test proves nothing on its own. It might be checking something that cannot fail.
@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**228 breaks were made across twenty-three units. All 228 were caught.**
+**237 breaks were made across twenty-four units. All 237 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -260,20 +260,20 @@ the weighting cannot be wrong. What they cost is described in its own section.
 
 | # | What was broken | Caught | The check that failed |
 |---|---|---|---|
-| P1 | saving drops the keys the file already had and this build does not understand | yes | `minimal_project.json: opening it and saving it reproduces the file — expected "identical", got "line 22: \"      \\\"work_area\\\": {\" became \"  ...` |
-| P2 | numeric keys are sorted as text, so drawing 10 comes before drawing 2 | yes | `drawing numbers are written in numeric order, so drawing 2 comes before drawing 10 — expected "\"1\", \"2\", \"10\"", got "\"1\", \"10\", \"2\""` |
-| P3 | keys are written in alphabetical order rather than the schema's order | yes | `minimal_project.json: opening it and saving it reproduces the file — expected "identical", got "line 2: \"  \\\"schema_version\\\": 0,\" became \" ...` |
-| P4 | a project saved by a newer build is opened rather than refused | yes | `a project saved by a newer version is refused by name (document 07) — expected "PROJECT_SCHEMA_NEWER", got "PROJECT_SCHEMA_INVALID"` |
-| P5 | two assets may share one ID | yes | `two asset records claiming the same ID are refused, not silently deduplicated — expected "PROJECT_SCHEMA_INVALID", got "opens with none"` |
-| P6 | a layer's asset reference is satisfied by the project having any asset at all | yes | `a layer naming an asset the project does not have is refused — expected "PROJECT_SCHEMA_INVALID", got "opens with none"` |
-| P7 | the missing-media check is inverted: the files that are there are reported gone | yes | `the warning names the file that is missing, not the one that is there — expected "true", got "false"` |
-| P8 | preserved unknown keys are matched to the first entry, not the one with that ID | yes | `each asset keeps its own preserved field, not the first asset's — expected "belongs-to-asset-other, belongs-to-asset-cel", got "belongs-to-asset-ot...` |
-| P9 | scale is written to the file as a factor instead of a percentage | yes | `cel_holds_project.json: opening it and saving it reproduces the file — expected "identical", got "line 72: \"                100,\" became \"      ...` |
-| P10 | the save writes over the project directly instead of a temporary sibling | yes | `FX-IO-001: and the project on disk is still the last one that saved, byte for byte — expected "identical", got "line 1: \"{\" became \"the project ...` |
-| P11 | the save skips document 07's validate-before-writing step | yes | `a project this build could not reopen is refused instead of written — expected "PROJECT_SAVE_FAILED", got "the save reported success"` |
-| P12 | the autosave writes over the manual save instead of a recovery slot | yes | `the first five autosaves use five different files — expected "5", got "1"` |
-| P13 | the autosave overwrites the newest recovery slot rather than the oldest | yes | `the sixth autosave reuses the oldest of the five slots rather than making a sixth — expected "shot.autosave-0.json", got "shot.autosave-4.json"` |
-| P14 | a write that stops short of the whole file is reported as a success | yes | `FX-IO-002: a write that runs out of room reports the right thing — expected "PROJECT_SAVE_FAILED", got "the save reported success"` |
+| P1 | saving drops the keys the file already had and this build does not understand | yes | `minimal_project.json: opening it and saving it reproduces the file â€” expected "identical", got "line 22: \"      \\\"work_area\\\": {\" became \"  ...` |
+| P2 | numeric keys are sorted as text, so drawing 10 comes before drawing 2 | yes | `drawing numbers are written in numeric order, so drawing 2 comes before drawing 10 â€” expected "\"1\", \"2\", \"10\"", got "\"1\", \"10\", \"2\""` |
+| P3 | keys are written in alphabetical order rather than the schema's order | yes | `minimal_project.json: opening it and saving it reproduces the file â€” expected "identical", got "line 2: \"  \\\"schema_version\\\": 0,\" became \" ...` |
+| P4 | a project saved by a newer build is opened rather than refused | yes | `a project saved by a newer version is refused by name (document 07) â€” expected "PROJECT_SCHEMA_NEWER", got "PROJECT_SCHEMA_INVALID"` |
+| P5 | two assets may share one ID | yes | `two asset records claiming the same ID are refused, not silently deduplicated â€” expected "PROJECT_SCHEMA_INVALID", got "opens with none"` |
+| P6 | a layer's asset reference is satisfied by the project having any asset at all | yes | `a layer naming an asset the project does not have is refused â€” expected "PROJECT_SCHEMA_INVALID", got "opens with none"` |
+| P7 | the missing-media check is inverted: the files that are there are reported gone | yes | `the warning names the file that is missing, not the one that is there â€” expected "true", got "false"` |
+| P8 | preserved unknown keys are matched to the first entry, not the one with that ID | yes | `each asset keeps its own preserved field, not the first asset's â€” expected "belongs-to-asset-other, belongs-to-asset-cel", got "belongs-to-asset-ot...` |
+| P9 | scale is written to the file as a factor instead of a percentage | yes | `cel_holds_project.json: opening it and saving it reproduces the file â€” expected "identical", got "line 72: \"                100,\" became \"      ...` |
+| P10 | the save writes over the project directly instead of a temporary sibling | yes | `FX-IO-001: and the project on disk is still the last one that saved, byte for byte â€” expected "identical", got "line 1: \"{\" became \"the project ...` |
+| P11 | the save skips document 07's validate-before-writing step | yes | `a project this build could not reopen is refused instead of written â€” expected "PROJECT_SAVE_FAILED", got "the save reported success"` |
+| P12 | the autosave writes over the manual save instead of a recovery slot | yes | `the first five autosaves use five different files â€” expected "5", got "1"` |
+| P13 | the autosave overwrites the newest recovery slot rather than the oldest | yes | `the sixth autosave reuses the oldest of the five slots rather than making a sixth â€” expected "shot.autosave-0.json", got "shot.autosave-4.json"` |
+| P14 | a write that stops short of the whole file is reported as a success | yes | `FX-IO-002: a write that runs out of room reports the right thing â€” expected "PROJECT_SAVE_FAILED", got "the save reported success"` |
 
 
 ## B-08a assembling and rendering a frame from a saved project
@@ -640,7 +640,7 @@ this pass nothing had ever checked that any of those headers said the truth.
 | V2 | The page receives the headers but is not allowed to read them | yes | `and allowed to read the headers beside it, not only receive them (expected *, got nothing)` |
 | V3 | The page is not allowed to read the picture at all | yes | `the page is allowed to read the answer (expected *, got nothing)` |
 | V4 | A resolution nobody recognises silently switches the preview to full | yes | five rows at once, including `at draft resolution, which is what the preview opens at (expected Draft, got Full)` |
-| V5 | Non-ASCII travels raw in a header instead of encoded | yes | `a Japanese project name arrives at the page as the name it started as (expected 背景_日本語.json, got <not readable as text>)` |
+| V5 | Non-ASCII travels raw in a header instead of encoded | yes | `a Japanese project name arrives at the page as the name it started as (expected èƒŒæ™¯_æ—¥æœ¬èªž.json, got <not readable as text>)` |
 | V6 | A stepped frame carries a playback report about a playback that did not happen | yes | `a frame asked for by number did not come from the clock, so there is no playback report beside it (expected nothing, got Played 0 frames in real time. No frames were dropped.)` |
 | V7 | The picture is premultiplied, which is not what the page draws | **no, first time** | after the fixture was strengthened: `and a half-transparent red one comes back as the red it was drawn as, not the darker red premultiplying it would give (expected 255, 0, 0, 128, got 188, 0, 0, 128)` |
 | V8 | The width and the height are the wrong way round | yes | `480 wide (expected 480, got 270)`, and two more |
@@ -736,6 +736,63 @@ way that removes them, the table says so instead of quietly going hollow.
 Nothing in `Fixtures/` was touched, no expected value was edited and no tolerance was loosened. The
 table is new, so it does not grow: it starts at 10 checks.
 
+## H-04 the picture in the file, not the picture in memory
+
+`src/lib.rs`, `src/color.rs` and `src/png_out.rs`, checked by `tests/h04_exported_file.rs`, whose
+table is `verification/H-04_exported_file_table.md`.
+
+**9 of 9 breaks caught, after four got through.**
+
+H-01 to H-03 compare six million pixels each and all three of them stop in the renderer's working
+space. The step after that - convert to the output encoding, unwind the transparency, round to
+whole numbers, write the bytes - was checked only by tests that ask the build's own encoder what
+the answer should be (`tests/t08_export.rs` compares an exported file against `rendered.encode(..)`;
+`tests/b02_color_alpha.rs` runs named values through the same function). Those catch arithmetic and
+cannot catch layout. This exports through the real export path, reads the files back with a decoder
+that did not write them, and compares against a separately written encoder.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| X1 | The three colour samples are written in the reverse order | yes | `frame 0 ... (expected 0 samples differ by more than one, got 3809212 samples differ by more than one)` |
+| X2 | Alpha is put through the colour transfer function as well | **no, first time** | after the fixture was strengthened: `with the opaque background taken away ... got 139094 samples differ by more than one` |
+| X3 | Sixteen-bit samples are written least significant byte first | yes | `every sixteen-bit sample ... got 596211 samples differ by more than one` |
+| X4 | Straight output forgets to unwind the premultiplied colour | **no, first time** | after: `the Straight-alpha export ... got 405538 samples differ by more than one` |
+| X5 | Premultiplied output unwinds the colour it was asked to leave alone | **no, first time** | after: `the Premultiplied-alpha export ... got 405538 samples differ by more than one` |
+| X6 | The transfer function is skipped and the linear value written out | yes | `frame 0 ... got 5763012 samples differ by more than one` |
+| X7 | Rounding becomes truncation | **no, first time** | after: `frame 0: and only 1448945 of them are not exactly identical (expected fewer than 1000 of 8294400 not identical)` |
+| X8 | Sixteen-bit samples are scaled by 255 instead of 65535 | yes | `every sixteen-bit sample ... got 8224000 samples differ by more than one` |
+| X9 | The picture's width and height are declared the wrong way round | yes | `frame 0 is written as a 1920 by 1080 eight-bit RGBA picture (expected 1920x1080 Rgba Eight, got 1080x1920 Rgba Eight)` |
+
+## Fifteenth pass: the four that got through, and what was added
+
+| Unit | What was broken | Why the fixture missed it | Added |
+|---|---|---|---|
+| H-04 | Alpha is put through the colour curve (X2) | Every composited pixel of the shot has alpha exactly 1, and the curve maps 1 to 1 | The same frame exported with the opaque background layer taken away |
+| H-04 | Straight output skips the unwind (X4) | At alpha 1 the unwind is the identity, so skipping it changes nothing | The same |
+| H-04 | Premultiplied output performs an unwind it was told not to (X5) | The same reason from the other end | The same, plus a row requiring the two ways of writing transparency to actually disagree on that picture, and a row counting the pixels that are neither solid nor empty |
+| H-04 | Rounding becomes truncation (X7) | Truncation moves no sample by more than one code value, and one code value is the declared tolerance | The count of samples that are not *exactly* identical, promoted from a note in the row's text to a check of its own, bounded at 1000 out of 8,294,400 |
+
+Three of the four have a cause this report has already named, one pass earlier: **a picture with an
+opaque background cannot check anything about transparency.** H-03 found it in the blend arithmetic
+and the answer there was a picture with the background removed; the identical blindness was sitting
+in the encode, one step further downstream, and the identical answer fixed it. Worth saying plainly
+because the lesson did not transfer on its own - the fault was named, written up, and then walked
+into again in the very next unit. A named fault class is only useful if the next fixture is checked
+against the list, so the list is now the first thing to read before writing one.
+
+The fourth is new and is about tolerances rather than pictures: **a tolerance that is right for one
+fault is a hiding place for another.** One code value is the correct allowance for two
+implementations that round the same numbers slightly differently - document 11 says so - and it is
+also exactly the size of a systematic truncation error. What separates them is not the size of the
+difference but how many samples show it: honest rounding disagreement shows up in 1 sample out of
+8.3 million here, and 9 in the other frame. Truncation shows up in 1,448,945. The first draft of
+this file printed that count in the row's text and required nothing of it, which is the same
+mistake as printing a measurement and calling it a check.
+
+Nothing in `Fixtures/` was touched, no expected value was edited and no tolerance was loosened; the
+one tolerance that changed was tightened, by adding a bound where there had been none. The table is
+new, so it starts at 20 checks.
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -796,7 +853,7 @@ the second is unreachable. The break was remade on the live path and caught ther
 not about this fixture: a mutation that survives may mean the test is weak, or it may mean the
 code it was made in cannot affect the result, and those two look identical from the outside.
 
-None of the thirty-six survivors, across every pass, is a bug in the build as it stands. They
+None of the forty survivors, across every pass, is a bug in the build as it stands. They
 are things the build was free to get wrong later without anything saying so.
 
 A further handful of breaks were caught only by a crash rather than by a named row - the test
@@ -854,3 +911,4 @@ cannot be broken on purpose and re-run. That is not a gap this method can close,
 method covers which half is more honest than pretending one covers both. Nothing about it is known
 to be wrong; this paragraph exists so that the absence is on the page rather than in someone's
 memory.
+
