@@ -28,6 +28,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::model::{Id, Project};
@@ -56,6 +57,10 @@ struct Viewer {
     /// same project as one that opened cleanly, and the window has to say which one is on
     /// screen.
     notes: Vec<String>,
+    /// B-08b: the decoded cels this preview has already paid for. Belongs to the viewer rather
+    /// than to a frame because its whole purpose is to outlive one, and it is replaced along with
+    /// everything else when a different project is opened, so nothing from the old one survives.
+    cache: CelCache,
 }
 
 /// What the page is asking for.
@@ -156,7 +161,7 @@ fn serve(viewer: &Mutex<Viewer>, ask: Ask, quality: Option<PreviewQuality>) -> R
     };
 
     let mut log = FrameLog::new(3);
-    let buffer = match preview::preview_frame(
+    let buffer = match preview::preview_frame_cached(
         &viewer.project,
         &viewer.composition,
         frame,
@@ -164,6 +169,7 @@ fn serve(viewer: &Mutex<Viewer>, ask: Ask, quality: Option<PreviewQuality>) -> R
         viewer.quality,
         DEFAULT_TILE_SIZE,
         &mut log,
+        &mut viewer.cache,
     ) {
         Ok(buffer) => buffer,
         // Document 28: a frame that cannot be made is reported, never replaced by something
@@ -236,6 +242,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.display().to_string()),
         notes: loaded.warnings.iter().map(sentence).collect(),
+        cache: CelCache::with_budget(DEFAULT_BUDGET_BYTES),
     })
 }
 

@@ -23,6 +23,7 @@
 use std::path::Path;
 use std::time::Duration;
 
+use crate::cache::CelCache;
 use crate::compose;
 use crate::diagnostics::{Diagnostic, FrameLog};
 use crate::model::{Id, Project};
@@ -144,7 +145,35 @@ pub fn preview_frame(
     tile_size: usize,
     log: &mut FrameLog,
 ) -> Result<WorkingBuffer, Diagnostic> {
-    let plan = compose::plan_frame(project, composition_id, frame, root, log)?;
+    preview_frame_cached(
+        project,
+        composition_id,
+        frame,
+        root,
+        quality,
+        tile_size,
+        log,
+        &mut CelCache::none(),
+    )
+}
+
+/// [`preview_frame`], remembering the decoded cels between frames (B-08b, R-06b, D-37).
+///
+/// This is the only caller in the crate that is handed a cache with a budget. `verification/
+/// B-08b_cache_table.md` checks that it changes nothing but the clock: every frame of the
+/// reference shot, rendered warm, is byte-identical to the same frame rendered cold.
+#[allow(clippy::too_many_arguments)]
+pub fn preview_frame_cached(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    tile_size: usize,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
+) -> Result<WorkingBuffer, Diagnostic> {
+    let plan = compose::plan_frame_cached(project, composition_id, frame, root, log, cache)?;
     Ok(render::render(&scale_plan(plan, quality), tile_size))
 }
 

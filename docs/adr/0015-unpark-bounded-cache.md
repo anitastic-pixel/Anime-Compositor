@@ -46,4 +46,10 @@ T-06 becomes live again, and D-37 fixes what it has to show: the same reference-
 
 ADR-006 is not reopened. The renderer stays CPU-only.
 
+**Built on 2026-09-05, the same day.** `src/cache.rs` is the cache; `verification/B-08b_cache_table.md` is the correctness half, eighteen checks of the one rule that matters, and `verification/B-08b_cache_budget.md` is the measurement this record asked for. On the reference machine a draft preview frame went from 99.93 ms to 42.54 ms, and the shot from 10.0 to 23.5 frames per second, at a default budget of 128 MB. The budget was chosen from that table rather than ahead of it: 512 MB, four times the memory, was within a millisecond of 128 MB, because playback is sequential and what has to fit is the reuse distance rather than the shot.
+
+Two things the measurement said that the reasoning above did not. A cache bounded to a single cel is worth nothing at all — it evicts what it is about to need and finishes no faster than no cache — so the ceiling is not a dial that can be turned down arbitrarily. And the correction in the Context section held: a budget written against the on-disk figure would have held four times the memory it promised.
+
+What is still owed is the window-level half. `verification/B-08_window_shell.md` counts playback in dropped frames by photographing a running window, and that picture has not been retaken: on 2026-09-05 the capture script's synthetic keystroke stopped reaching the webview, so three attempts produced a picture of an idle viewer rather than a playing one. The engine number moved and is recorded; the number a person sees has not been re-measured, and this record does not claim it has.
+
 If the owner reverses this, B-08b returns to G1-rest and the preview path loses a lookup. Nothing else in the build depends on it, which is a property worth keeping as the cache is written.
