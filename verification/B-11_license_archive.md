@@ -4,7 +4,7 @@ The artifact is the directory tree under `Licenses/`. This is the check that kee
 
 Produced by `tools/archive_licenses.py --report`, from `cargo metadata` and the crate sources cargo unpacked to build with. Nothing is downloaded and no file list is typed. `tools/archive_licenses.py --check` runs in CI and fails the build if the two ever part company.
 
-**264 crates resolved. 0 disagree with the archive. 11 ship no licence text at all.**
+**271 crates resolved. 0 disagree with the archive. 12 ship no licence text at all.**
 
 ## Crates shipping no licence text
 
@@ -13,6 +13,7 @@ These declare a licence in their manifest, which `docs/DEPENDENCIES.md` records,
 - `alloc-stdlib-0.2.4`
 - `defmt-parser-1.0.0`
 - `selectors-0.36.1`
+- `tauri-plugin-2.6.3`
 - `unic-char-property-0.9.0`
 - `unic-char-range-0.9.0`
 - `unic-common-0.9.0`
@@ -169,6 +170,7 @@ These declare a licence in their manifest, which `docs/DEPENDENCIES.md` records,
 | `regex-1.13.1` | LICENSE-APACHE, LICENSE-MIT |
 | `regex-automata-0.4.18` | LICENSE-APACHE, LICENSE-MIT |
 | `regex-syntax-0.8.11` | LICENSE-APACHE, LICENSE-MIT |
+| `rfd-0.16.0` | LICENSE |
 | `rustc-hash-2.1.3` | LICENSE-APACHE, LICENSE-MIT |
 | `rustc_version-0.4.1` | LICENSE-APACHE, LICENSE-MIT |
 | `same-file-1.0.6` | COPYING, LICENSE-MIT, UNLICENSE |
@@ -211,6 +213,9 @@ These declare a licence in their manifest, which `docs/DEPENDENCIES.md` records,
 | `tauri-build-2.6.3` | LICENSE_APACHE-2.0, LICENSE_MIT |
 | `tauri-codegen-2.6.3` | LICENSE_APACHE-2.0, LICENSE_MIT |
 | `tauri-macros-2.6.3` | LICENSE_APACHE-2.0, LICENSE_MIT |
+| `tauri-plugin-2.6.3` | none shipped |
+| `tauri-plugin-dialog-2.7.3` | LICENSE.spdx, LICENSE_APACHE-2.0, LICENSE_MIT |
+| `tauri-plugin-fs-2.5.2` | LICENSE.spdx, LICENSE_APACHE-2.0, LICENSE_MIT |
 | `tauri-runtime-2.11.3` | LICENSE_APACHE-2.0, LICENSE_MIT |
 | `tauri-runtime-wry-2.11.4` | LICENSE_APACHE-2.0, LICENSE_MIT |
 | `tauri-utils-2.9.3` | LICENSE_APACHE-2.0, LICENSE_MIT |
@@ -271,11 +276,14 @@ These declare a licence in their manifest, which `docs/DEPENDENCIES.md` records,
 | `windows-result-0.3.4` | license-apache-2.0, license-mit |
 | `windows-strings-0.4.2` | license-apache-2.0, license-mit |
 | `windows-sys-0.59.0` | license-apache-2.0, license-mit |
+| `windows-sys-0.60.2` | license-apache-2.0, license-mit |
 | `windows-sys-0.61.2` | license-apache-2.0, license-mit |
 | `windows-targets-0.52.6` | license-apache-2.0, license-mit |
+| `windows-targets-0.53.5` | license-apache-2.0, license-mit |
 | `windows-threading-0.1.0` | license-apache-2.0, license-mit |
 | `windows-version-0.1.7` | license-apache-2.0, license-mit |
 | `windows_x86_64_msvc-0.52.6` | license-apache-2.0, license-mit |
+| `windows_x86_64_msvc-0.53.1` | license-apache-2.0, license-mit |
 | `winnow-0.7.15` | LICENSE-MIT |
 | `winnow-1.0.4` | LICENSE-MIT |
 | `winreg-0.55.0` | LICENSE |

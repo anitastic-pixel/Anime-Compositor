@@ -357,7 +357,8 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
     // ---- the ones chosen on purpose ----------------------------------------------------------
     // The workspace manifests are written by hand and name exactly these. `tauri-build` is
     // `tauri`'s build-time half and is asked for by name in `app/Cargo.toml`, so it counts as
-    // direct even though nothing links it.
+    // direct even though nothing links it. `tauri-plugin-dialog` arrived with B-09's Open and
+    // Save dialogs, and this line is how a dependency added quietly stops being quiet.
     let mut direct: Vec<String> = record
         .cells
         .iter()
@@ -370,7 +371,7 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
     direct.dedup();
     report.check(
         "the record marks as direct exactly the dependencies the manifests ask for",
-        "png, rayon, serde_json, tauri, tauri-build",
+        "png, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog",
         joined(&direct),
     );
 

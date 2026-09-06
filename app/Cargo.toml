@@ -12,6 +12,12 @@ description = "The desktop shell. Owns the window and nothing about how a frame 
 [dependencies]
 anime_compositor = { path = ".." }
 tauri = "2"
+# The system Open and Save dialogs, for B-09's half of the window. Tauri's own plugin rather
+# than `rfd` directly: it is the same project and the same licence as the framework already
+# here, and it is used from Rust only, so the page never gains the ability to open a dialog on
+# its own. Its purpose, version and licence are recorded in `docs/DEPENDENCIES.md` and
+# `Licenses/`, which `tests/b11_dependency_record.rs` checks.
+tauri-plugin-dialog = "2"
 
 [build-dependencies]
 tauri-build = "2"

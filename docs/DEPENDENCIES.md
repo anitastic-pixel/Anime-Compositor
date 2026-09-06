@@ -172,6 +172,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `regex` | 1.13.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `f020237b6c8eed93…` |
 | `regex-automata` | 0.4.18 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `ad8553b9b2641325…` |
 | `regex-syntax` | 0.8.11 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `d6f6ff9a378485b2…` |
+| `rfd` | 0.16.0 | MIT | transitive | linked | https://github.com/PolyMeilex/rfd | `a15ad77d9e70a924…` |
 | `rustc-hash` | 2.1.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/rust-lang/rustc-hash | `6b1e7f9a428571be…` |
 | `rustc_version` | 0.4.1 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/djc/rustc-version-rs | `cfcb3a22ef46e85b…` |
 | `same-file` | 1.0.6 | Unlicense/MIT | transitive | linked | https://github.com/BurntSushi/same-file | `93fc1dc3aaa9bfed…` |
@@ -214,6 +215,9 @@ stays visible. Several other crates now do the same for the same reason.
 | `tauri-build` | 2.6.3 | Apache-2.0 OR MIT | direct | build-time only | https://github.com/tauri-apps/tauri | `bc9ce40b16101cb6…` |
 | `tauri-codegen` | 2.6.3 | Apache-2.0 OR MIT | transitive | build-time only | https://github.com/tauri-apps/tauri | `08279169ff42f8fc…` |
 | `tauri-macros` | 2.6.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/tauri | `e8b394794f399a42…` |
+| `tauri-plugin` | 2.6.3 | Apache-2.0 OR MIT | transitive | build-time only | https://github.com/tauri-apps/tauri | `74be5dd4bed9afbd…` |
+| `tauri-plugin-dialog` | 2.7.3 | Apache-2.0 OR MIT | direct | linked | https://github.com/tauri-apps/plugins-workspace | `61854a36651aa483…` |
+| `tauri-plugin-fs` | 2.5.2 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/plugins-workspace | `de22eef34fd78c0d…` |
 | `tauri-runtime` | 2.11.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/tauri | `b0b4bc95aed361b0…` |
 | `tauri-runtime-wry` | 2.11.4 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/tauri | `4e6fac707727b7a2…` |
 | `tauri-utils` | 2.9.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/tauri | `3e176a18e6776492…` |
@@ -274,11 +278,14 @@ stays visible. Several other crates now do the same for the same reason.
 | `windows-result` | 0.3.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `56f42bd332cc6c8e…` |
 | `windows-strings` | 0.4.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `56e6c93f3a0c3b36…` |
 | `windows-sys` | 0.59.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `1e38bc4d79ed67fd…` |
+| `windows-sys` | 0.60.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `f2f500e4d28234f7…` |
 | `windows-sys` | 0.61.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `ae137229bcbd6cdf…` |
 | `windows-targets` | 0.52.6 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `9b724f72796e036a…` |
+| `windows-targets` | 0.53.5 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `4945f9f551b88e0d…` |
 | `windows-threading` | 0.1.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `b66463ad2e0ea3bb…` |
 | `windows-version` | 0.1.7 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `e4060a1da109b9d0…` |
 | `windows_x86_64_msvc` | 0.52.6 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `589f6da84c646204…` |
+| `windows_x86_64_msvc` | 0.53.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `d6bbff5f0aada427…` |
 | `winnow` | 0.7.15 | MIT | transitive | build-time only | https://github.com/winnow-rs/winnow | `df79d97927682d2f…` |
 | `winnow` | 1.0.4 | MIT | transitive | linked | https://github.com/winnow-rs/winnow | `23b97319f7b8343d…` |
 | `winreg` | 0.55.0 | MIT | transitive | build-time only | https://github.com/gentoo90/winreg-rs | `cb5a765337c50e9e…` |
@@ -316,13 +323,13 @@ underneath one of them.
 ## What the shell cost, in crates
 
 This is the honest number and it is worth stating plainly. Before the window, this record held
-**28** crates. With it, **264**. One dependency brought in roughly two hundred and thirty
+**28** crates. With it, **271**. One dependency brought in roughly two hundred and thirty
 others, which is what a browser engine, an async runtime, a CSS selector engine and a bundler
 amount to once they are counted rather than assumed.
 
 That was known when ADR-003 chose Tauri, and the alternative it was weighed against was writing a
 window and a rendering surface by hand. The number is recorded here so the trade is visible rather
-than implied. **40** of them are build-time only — compiled, run during the build, and
+than implied. **41** of them are build-time only — compiled, run during the build, and
 absent from anything this project would ship.
 
 An archive this size is not maintainable by hand, which is why it is not maintained by hand any
