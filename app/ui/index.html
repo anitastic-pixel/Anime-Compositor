@@ -1,17 +1,160 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
 <title>Anime Compositor</title>
 <style>
-  html, body { height: 100%; margin: 0; background: #141414; color: #cfcfcf;
-               font: 13px system-ui, sans-serif; }
-  main { height: 100%; display: grid; place-items: center; text-align: center; }
-  p { margin: 0.4em; }
-  b { color: #f0f0f0; font-weight: 600; }
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; height: 100vh; display: flex; flex-direction: column;
+    background: #141416; color: #d8d8dc;
+    font: 13px/1.5 "Segoe UI", system-ui, sans-serif;
+    user-select: none;
+  }
+  #stage { flex: 1; display: grid; place-items: center; min-height: 0; padding: 12px; }
+  /* Checkerboard, so a transparent frame reads as transparent rather than as black. */
+  canvas {
+    max-width: 100%; max-height: 100%; image-rendering: pixelated;
+    background-color: #2a2a2e;
+    background-image:
+      linear-gradient(45deg, #333338 25%, transparent 25%, transparent 75%, #333338 75%),
+      linear-gradient(45deg, #333338 25%, transparent 25%, transparent 75%, #333338 75%);
+    background-size: 16px 16px; background-position: 0 0, 8px 8px;
+  }
+  #bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 8px 12px; border-top: 1px solid #26262b; background: #1a1a1d;
+  }
+  button {
+    font: inherit; color: inherit; background: #26262b;
+    border: 1px solid #35353c; border-radius: 4px; padding: 3px 10px; cursor: pointer;
+  }
+  button:hover { background: #303038; }
+  #quality { font-weight: 600; }
+  /* D-33 / R-06a: the indication that preview differs from export is never subtle and never
+     absent. It is coloured only when it differs; a full-resolution preview is the quiet case. */
+  #quality.differs { color: #e8866a; }
+  #frame { font-variant-numeric: tabular-nums; }
+  #report { color: #8b8b94; flex: 1; min-width: 100%; }
+  #report.dropped { color: #e8b06a; }
+  .hint { color: #6a6a72; }
 </style>
-<main>
-  <div>
-    <p><b>The window opens.</b></p>
-    <p>Nothing is drawn in it yet. Frames arrive in the next slice, over the
-       transport D-36 chose.</p>
-  </div>
-</main>
+</head>
+<body>
+<div id="stage"><canvas id="view" width="480" height="270"></canvas></div>
+<div id="bar">
+  <button id="play">Play</button>
+  <button id="back">&#8592;</button>
+  <button id="fwd">&#8594;</button>
+  <span id="frame">frame &mdash;</span>
+  <span id="quality">&mdash;</span>
+  <button id="toggle">Full resolution</button>
+  <span class="hint">space, arrows, D</span>
+  <span id="report"></span>
+</div>
+<script>
+// Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
+addEventListener('error', (e) => {
+  const r = document.getElementById('report');
+  r.textContent = 'script error: ' + e.message;
+  r.className = 'dropped';
+});
+// The frame transport, D-36: a custom URI scheme, not IPC. On Windows a custom scheme is served
+// at http://<name>.localhost, which is why this is not spelled frame://localhost.
+const FRAMES = 'http://frame.localhost';
+
+const view = document.getElementById('view');
+const paint = view.getContext('2d');
+
+let playing = false;
+let started = 0;      // performance.now() at the instant playback began
+let quality = 'draft';
+let frame = 0;
+let inFlight = false;
+
+// A request already on its way is never joined by a second one. That is the whole of this
+// page's part in D-32: the clock keeps running while a frame is being made, so the next answer
+// is a later frame and the ones in between are counted as skipped by Playback::at in Rust.
+// Nothing here decides which frame to show, and nothing here counts a skip.
+async function show(url) {
+  if (inFlight) return;
+  inFlight = true;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      document.getElementById('report').textContent = await response.text();
+      document.getElementById('report').className = 'dropped';
+      playing = false;
+      document.getElementById('play').textContent = 'Play';
+      return;
+    }
+    const h = response.headers;
+    const width = +h.get('x-width'), height = +h.get('x-height');
+    const pixels = new Uint8ClampedArray(await response.arrayBuffer());
+    if (view.width !== width || view.height !== height) {
+      view.width = width; view.height = height;
+    }
+    paint.putImageData(new ImageData(pixels, width, height), 0, 0);
+
+    frame = +h.get('x-frame');
+    document.getElementById('frame').textContent = 'frame ' + frame;
+
+    // The indicator describes the render that just arrived, because it came back with it.
+    const differs = h.get('x-differs') === 'true';
+    const label = document.getElementById('quality');
+    label.textContent = h.get('x-quality') + ' — ' + width + '×' + height
+      + (differs ? ', not final pixels' : ', same as export');
+    label.className = differs ? 'differs' : '';
+    document.getElementById('toggle').textContent =
+      differs ? 'Full resolution' : 'Draft resolution';
+    quality = differs ? 'draft' : 'full';
+
+    const report = document.getElementById('report');
+    report.textContent = h.get('x-report') || '';
+    report.className = +h.get('x-skipped') > 0 ? 'dropped' : '';
+  } catch (e) {
+    document.getElementById('report').textContent = 'the frame did not arrive: ' + e;
+    document.getElementById('report').className = 'dropped';
+    playing = false;
+    document.getElementById('play').textContent = 'Play';
+  } finally {
+    inFlight = false;
+  }
+}
+
+function tick() {
+  if (playing) show(FRAMES + '/at/' + Math.round(performance.now() - started) + '?q=' + quality);
+  requestAnimationFrame(tick);
+}
+
+function step(by) {
+  playing = false;
+  document.getElementById('play').textContent = 'Play';
+  show(FRAMES + '/frame/' + (frame + by) + '?q=' + quality);
+}
+
+document.getElementById('play').onclick = () => {
+  playing = !playing;
+  if (playing) started = performance.now();
+  document.getElementById('play').textContent = playing ? 'Pause' : 'Play';
+};
+document.getElementById('back').onclick = () => step(-1);
+document.getElementById('fwd').onclick = () => step(1);
+document.getElementById('toggle').onclick = () => {
+  quality = quality === 'draft' ? 'full' : 'draft';
+  show(FRAMES + '/frame/' + frame + '?q=' + quality);
+};
+
+addEventListener('keydown', (e) => {
+  if (e.key === ' ') { e.preventDefault(); document.getElementById('play').click(); }
+  else if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'd' || e.key === 'D') document.getElementById('toggle').click();
+});
+
+// D-35: at rest the viewer shows the work area's first frame.
+show(FRAMES + '/frame/0?q=draft');
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
