@@ -131,6 +131,15 @@ fired document 23's revisit trigger for the bounded preview cache, whose wording
 preview latency, recorded with numbers", and **that is registered as D-37 and left for the
 owner**. Do not build the cache. A fired trigger is a reason to ask, not a permission.
 
+`verification/D-37_decode_cost.md` is the arithmetic that decision needs, and it was taken far
+enough that the owner can answer without any further work: what one cel costs to decode,
+measured per layer, beside a count of how often the shot repeats itself derived from the
+exposure sheet by `verification/derive_d37_reuse.py`. The short version is that a cache of one
+cel avoids nothing, four avoids 54%, and all 57 avoids 94% at a cost of 473 MB. Two things in
+it are worth knowing before any performance work here: decoding costs what comes out rather
+than what goes in, so no drawing in this shot is cheap; and the single most expensive cel is
+the background, which never changes.
+
 Of the two smaller viewer questions, one is now answered and one is still open. **D-35** records
 the frame at rest as the work area's first frame, PROVISIONAL and cheap to reverse. What a scrub
 does while the mouse is held down is still unanswered and is not yet needed, because nothing
