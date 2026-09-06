@@ -4,6 +4,10 @@ D-37 unparked this cache on 2026-09-05 because the window was delivering a frame
 
 The rows to read first are the three that compare pixels. A warm render, a render from a cache bounded so tightly it throws away every cel it holds, and a render with no cache at all are the same picture sample for sample. If a cache ever starts serving the wrong cel, those rows are where it shows up as a number rather than as a picture somebody has to notice looks wrong.
 
+The rows after those ask a narrower question: what makes the cache think two requests are for the same drawing. There are four answers - where the file is, how big it is, when it was written, and how the project says to read it - and each is checked on its own, by changing that one thing and nothing else. The same drawing written a second time keeps its size and gets a new time; a copy Windows makes keeps both and only moves; one file read as sRGB and again as linear light keeps everything and changes only the reading. If any of the four stopped counting, one of those rows would say so, and the picture on screen would not.
+
+The last group is about forgetting. A cache with a ceiling has to drop something, and the two questions are which cel it drops and how much room that made. Three cels of deliberately different sizes are used, because cels that are all the same size cannot tell right arithmetic from wrong. These three are drawn by the test rather than taken from the shot, and they are the only pictures in this table that are not the shot's own art.
+
 The speed this bought is not here. It is a measurement, and it is in `verification/B-08b_cache_budget.md`, on a named machine.
 
 ## Checks
@@ -26,10 +30,23 @@ The speed this bought is not here. It is a measurement, and it is in `verificati
 | A file that changed under the same name is decoded again | 2 decodes | 2 decodes | pass |
 | and the answer is the new file, not the remembered one | different from the first | different from the first | pass |
 | and it is exactly what an uncached decode of the new file gives | 8294400 | 8294400 | pass |
+| Writing the same drawing again leaves its length alone and moves its time | same length, later time | same length, later time | pass |
+| and it is decoded again, because when a file was written is part of which file it is | 1 more decode | 1 more decode | pass |
+| and the answer is the same pixels, because only the time changed | 8294400 | 8294400 | pass |
+| A copy Windows made of a drawing has the same length and the same time as the original | same length, same time | same length, same time | pass |
+| so the only thing separating them is where they are, and that is enough to decode both | 2 decodes, 0 hits | 2 decodes, 0 hits | pass |
+| One file asked for under two interpretations is decoded twice, not answered from memory | 2 decodes, 0 hits | 2 decodes, 0 hits | pass |
+| and the two answers are different pixels, because the second was never sRGB to undo | different | different | pass |
+| and asking the first way again gives the first answer back, not the second | 8294400 samples, from memory | 8294400 samples, from memory | pass |
+| Two cels of different sizes fill a budget that is exactly the two of them | 2 cels, 81920 bytes, 0 evictions | 2 cels, 81920 bytes, 0 evictions | pass |
+| Asking again for the first of them is answered from memory | 1 more hit | 1 more hit | pass |
+| A third cel drops exactly one, and the room that makes is the size of the one dropped | 2 cels, 69632 bytes, 1 eviction | 2 cels, 69632 bytes, 1 eviction | pass |
+| and the one dropped is the one asked for longest ago, not the one stored longest ago | the first cel is still there | the first cel is still there | pass |
+| and the one that went has to be decoded again when it is asked for | 1 more decode | 1 more decode | pass |
 | Ten loops of the shot hold what one loop held | 497664000 then nine identical | 497664000 then nine identical | pass |
 | and the nine loops after the first decode nothing at all | 0 decodes | 0 decodes | pass |
 
-**18 of 18 checks pass.**
+**31 of 31 checks pass.**
 
 ## What one cel costs to hold
 
