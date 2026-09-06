@@ -25,7 +25,7 @@ Rows about a sentence quote it. The Expected column is the words that had to rea
 | and the drawing that is missing is still reported rather than passed over in silence | Frame 14 exposes drawing 7 of layer3_%03d.png, which is missing. | Frame 14 exposes drawing 7 of layer3_%03d.png, which is missing. | pass |
 | once for each frame it was missing on, not once for the export | Frame 15 exposes drawing 7 of layer3_%03d.png, which is missing. | Frame 15 exposes drawing 7 of layer3_%03d.png, which is missing. | pass |
 | a cancelled export says how far it got, and does not claim to have succeeded | Export stopped at your request after 0 of 2 frames | Export stopped at your request after 0 of 2 frames | pass |
-| and the window's own first sentence says what is there, not that it exported them | The 0 frames that finished are in C:\Users\Andrew\AppData\Local\Temp\anime_compositor_b10_cancel. | The 0 frames that finished are in C:\Users\Andrew\AppData\Local\Temp\anime_compositor_b10_cancel. | pass |
+| and the window's own first sentence says what is there, not that it exported them | The 0 frames that finished are in <a temporary directory>. | The 0 frames that finished are in <a temporary directory>. | pass |
 | and left no half-written file behind | [] | [] | pass |
 | asking a window with nothing running to cancel is not an error either | No export is running. | No export is running. | pass |
 | an export into a folder that is not there says how far it got before it stopped | The export stopped on a problem after 0 of 2 frames | The export stopped on a problem after 0 of 2 frames | pass |
