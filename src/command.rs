@@ -262,6 +262,27 @@ impl Document {
         }
     }
 
+    /// A document whose contents did not come from the file it will be saved to.
+    ///
+    /// Recovery is the one way in that [`Document::new`] cannot serve. Dirty is a comparison
+    /// against the last successful save, so opening a recovery snapshot with `new` would make
+    /// the snapshot its own baseline and the window would report no unsaved work while the
+    /// project on disk still held the older state — the exact thing document 07 forbids when it
+    /// says an autosave "must not overwrite the last manual save".
+    ///
+    /// `saved` is the project as the file has it. The difference between the two is the work the
+    /// snapshot is carrying, and it is what makes the document dirty until somebody saves it.
+    pub fn recovered(project: Project, saved: Project) -> Self {
+        Document {
+            baseline: saved,
+            project,
+            revision: 0,
+            undo: Vec::new(),
+            redo: Vec::new(),
+            drag: None,
+        }
+    }
+
     pub fn project(&self) -> &Project {
         &self.project
     }

@@ -39,7 +39,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
 use anime_compositor::command::Document;
@@ -87,6 +87,20 @@ struct Viewer {
     /// for: "Saved to shot.json" is not something wrong with the project, and a save that failed
     /// must not be filed away among warnings that were already there.
     status: String,
+    /// The recovery snapshots found beside this project when it was opened, newest first, or
+    /// empty. Read once at open rather than on every frame: a header is written for every frame
+    /// and asking the file system five times a frame for files that change every two minutes
+    /// would be a cost paid sixty times a second for nothing.
+    recovery: Vec<PathBuf>,
+    /// What the autosave timer last did, in one sentence, or empty. Its own line rather than
+    /// [`status`](Self::status), which belongs to the last thing the *person* asked for: an
+    /// autosave happens on a clock while somebody is doing something else, and overwriting
+    /// "Saved to shot.json" with it would take away the answer they were waiting for.
+    autosaved: String,
+    /// When this document first became dirty, as far as the timer has seen. `None` while it is
+    /// clean. Document 07 asks for a snapshot "after two minutes of dirty activity", so the two
+    /// minutes are measured from here.
+    dirty_since: Option<Instant>,
     /// B-08b: the decoded cels this preview has already paid for. Belongs to the viewer rather
     /// than to a frame because its whole purpose is to outlive one, and it is replaced along with
     /// everything else when a different project is opened, so nothing from the old one survives.
@@ -228,6 +242,20 @@ fn serve(viewer: &Mutex<Viewer>, ask: Ask, quality: Option<PreviewQuality>) -> R
         .header("x-project", for_a_header(&viewer.name))
         .header("x-notes", for_a_header(&viewer.notes.join("\n")))
         .header("x-status", for_a_header(&viewer.status))
+        // What the timer last wrote, and what there is to recover. Both here rather than in
+        // `x-status` so that neither can take the status line away from a command's answer.
+        .header("x-autosaved", for_a_header(&viewer.autosaved))
+        .header(
+            "x-recovery",
+            for_a_header(
+                &viewer
+                    .recovery
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            ),
+        )
         // Document 26's dirty flag, as the person sees it. It is the core's answer, not a guess
         // by the window: `Document::is_dirty` is false again when the state matches the last
         // successful save, which is the rule a window cannot reimplement correctly.
@@ -279,6 +307,15 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
     let last = first + composition.duration_frames as i32 - 1;
     let playback = Playback::new(first, last, composition.frame_rate);
     let composition = composition.id.clone();
+
+    // Document 28's PROJECT_RECOVERY_AVAILABLE, at the one moment it can be acted on. A person
+    // who is told about unsaved work an hour after opening the project has already redone it.
+    let candidates = persist::recovery_candidates(path);
+    let mut notes: Vec<String> = loaded.warnings.iter().map(sentence).collect();
+    if let Some(diagnostic) = persist::recovery_diagnostic(&candidates) {
+        notes.push(sentence(&diagnostic));
+    }
+
     Ok(Viewer {
         document: loaded.document,
         preserved: loaded.preserved,
@@ -291,8 +328,11 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.display().to_string()),
-        notes: loaded.warnings.iter().map(sentence).collect(),
+        notes,
         status: String::new(),
+        recovery: candidates.into_iter().map(|c| c.path).collect(),
+        autosaved: String::new(),
+        dirty_since: None,
         cache: CelCache::with_budget(DEFAULT_BUDGET_BYTES),
     })
 }
@@ -325,6 +365,9 @@ fn demo() -> Viewer {
     viewer.root = repo.join("Fixtures/reference_shot");
     viewer.name = "the reference shot".to_string();
     viewer.notes.clear();
+    // With no save path there is nothing to recover *into*, so offering a snapshot would offer
+    // something that could not be finished.
+    viewer.recovery.clear();
     // No save path, deliberately. This project's file is written into `verification/` by
     // `cargo test` and CI checks that directory has not changed; a Save that landed there would
     // fail the build for a reason nobody would connect to a button. Save therefore asks where.
@@ -389,6 +432,112 @@ fn take(viewer: &Mutex<Viewer>, path: &Path) {
             viewer.status = format!("{} could not be opened.", path.display());
         }
     }
+}
+
+// -------------------------------------------------------------------------------------------
+// Autosave and recovery
+// -------------------------------------------------------------------------------------------
+
+/// Document 07: "save a recovery snapshot after two minutes of dirty activity".
+const AUTOSAVE_AFTER: Duration = Duration::from_secs(120);
+
+/// How often the timer looks. Short enough that the two minutes above are two minutes and not
+/// two and a half, long enough that a window nobody is touching costs nothing.
+const AUTOSAVE_TICK: Duration = Duration::from_secs(10);
+
+/// One look at the clock. Returns what to say if a snapshot was written, and nothing otherwise.
+///
+/// `now` is a parameter so this can be checked without waiting two minutes; the window passes
+/// `Instant::now()`.
+///
+/// Document 26: "Autosave does not clear user-facing dirty state and does not replace the
+/// canonical manual-save path." Nothing here calls `mark_saved` and nothing here can — the core's
+/// `autosave` takes the document by shared reference for exactly that reason.
+fn autosave_tick(viewer: &mut Viewer, now: Instant) -> Option<String> {
+    // A project with no file of its own has nowhere to put a snapshot: recovery files live beside
+    // the project, and there is no project. The built-in reference shot is in this state.
+    let Some(path) = viewer.path.clone() else {
+        viewer.dirty_since = None;
+        return None;
+    };
+    if !viewer.document.is_dirty() {
+        viewer.dirty_since = None;
+        return None;
+    }
+    let since = *viewer.dirty_since.get_or_insert(now);
+    if now.duration_since(since) < AUTOSAVE_AFTER {
+        return None;
+    }
+    // Measured from this snapshot, not from when the work began, so a document left dirty writes
+    // one snapshot every two minutes rather than one on every tick after the first two.
+    viewer.dirty_since = Some(now);
+    Some(
+        match persist::autosave(&path, &viewer.document, &viewer.preserved) {
+            Ok(written) => {
+                viewer.recovery = persist::recovery_candidates(&path)
+                    .into_iter()
+                    .map(|c| c.path)
+                    .collect();
+                format!("Recovery snapshot written to {}", written.display())
+            }
+            // A failed autosave is said out loud rather than swallowed. It is the one moment the
+            // person can still do something about it — the work is in memory and nowhere else.
+            Err(diagnostic) => sentence(&diagnostic),
+        },
+    )
+}
+
+/// Open a recovery snapshot as the project it belongs to.
+///
+/// The snapshot's *contents* are loaded and the project's *identity* is kept: the window is left
+/// pointing at the project file, so Save writes the recovered work into the project rather than
+/// back into the snapshot. Document 07 requires that recovering not overwrite the last manual
+/// save, and it does not: nothing is written here at all. The project file is still on disk
+/// exactly as it was, which is why the document opens dirty — the difference between what is on
+/// screen and what is in the file is the work being recovered.
+fn recover(viewer: &Mutex<Viewer>, snapshot: &Path) -> String {
+    let project = match viewer
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .path
+        .clone()
+    {
+        Some(path) => path,
+        None => return "There is no project to recover into.".to_string(),
+    };
+    let mut taken = match open(snapshot) {
+        Ok(taken) => taken,
+        Err(diagnostic) => return sentence(&diagnostic),
+    };
+    // The project as the file has it, which is the baseline the recovered document is dirty
+    // against. If it cannot be read, the snapshot is not opened either: a window that could not
+    // say what the file holds cannot say what is outstanding.
+    let saved = match persist::load(&project) {
+        Ok(saved) => saved,
+        Err(diagnostic) => return sentence(&diagnostic),
+    };
+    taken.document = Document::recovered(
+        taken.document.project().clone(),
+        saved.document.project().clone(),
+    );
+    taken.name = project
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| project.display().to_string());
+    taken.recovery = persist::recovery_candidates(&project)
+        .into_iter()
+        .map(|c| c.path)
+        .collect();
+    taken.notes.push(format!(
+        "This is the recovery snapshot {}, not the saved project. Nothing has been written to \
+         {} yet; Save writes this into it.",
+        snapshot.display(),
+        project.display()
+    ));
+    taken.path = Some(project);
+    let said = format!("Recovered {}", snapshot.display());
+    *viewer.lock().expect("the viewer lock was poisoned") = taken;
+    said
 }
 
 /// Say something in the window's status line, replacing whatever it said before.
@@ -615,10 +764,31 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             ask_where_to_save(app);
             String::new()
         }
+        // The page only ever offers a path it was given in `x-recovery`, but this checks anyway:
+        // a command scheme is reachable by anything running in the page.
+        "recover" => match parameter(query, "path") {
+            Some(chosen) => {
+                let chosen = PathBuf::from(chosen);
+                let known = viewer
+                    .lock()
+                    .expect("the viewer lock was poisoned")
+                    .recovery
+                    .contains(&chosen);
+                if known {
+                    recover(&viewer, &chosen)
+                } else {
+                    format!(
+                        "{} is not a recovery snapshot for this project.",
+                        chosen.display()
+                    )
+                }
+            }
+            None => "Which snapshot? Choose one from the recovery list.".to_string(),
+        },
         _ => {
             return allow_the_page_to_read_this(Response::builder().status(404))
                 .header("content-type", "text/plain; charset=utf-8")
-                .body(b"ask for /open, /save, /save-as or /recent".to_vec())
+                .body(b"ask for /open, /save, /save-as, /recover or /recent".to_vec())
                 .expect("build the not-found response")
         }
     };
@@ -668,6 +838,24 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(viewer)
+        // The autosave timer. A thread rather than anything cleverer: it sleeps for all but a
+        // few microseconds of its life, it must run whether or not the page is asking for
+        // frames, and it holds the viewer lock only for as long as the check takes. It writes
+        // nothing to the page — a reload while somebody is working would be a worse
+        // interruption than the one it is protecting them from — so what it did appears with
+        // the next frame, which is within a sixtieth of a second of it happening.
+        .setup(|app| {
+            let handle = app.handle().clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(AUTOSAVE_TICK);
+                let state = handle.state::<Mutex<Viewer>>();
+                let mut viewer = state.lock().expect("the viewer lock was poisoned");
+                if let Some(said) = autosave_tick(&mut viewer, Instant::now()) {
+                    viewer.autosaved = said;
+                }
+            });
+            Ok(())
+        })
         .on_window_event(|window, event| {
             let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event else {
                 return;
@@ -946,6 +1134,313 @@ mod saving {
     /// table's separator escaped, so one row cannot silently become two columns.
     fn cell(text: &str) -> String {
         text.replace('|', r"\|")
+    }
+}
+
+/// What the autosave timer and the recovery path do, checked without a window.
+///
+/// B-09's other half. The core already knows how to write a recovery snapshot and how to find
+/// one; what could go wrong here is everything around that — a timer that writes too early or
+/// never, a snapshot that quietly becomes the file Save writes to, a recovered project the
+/// window calls saved. None of those would look like a failure at the time. They would look
+/// like a person's afternoon disappearing later.
+///
+/// Writes `verification/B-09_recovery_table.md`.
+#[cfg(test)]
+mod recovery_and_autosave {
+    use super::*;
+    use anime_compositor::command::Command;
+
+    fn repo(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the app crate has a parent directory")
+            .join(rel)
+    }
+
+    /// A copy of a fixture in a scratch directory of its own, emptied first. A copy because
+    /// autosave writes beside the project, and `Fixtures/` is not somewhere a test may write.
+    fn a_project_to_work_on() -> PathBuf {
+        let directory = std::env::temp_dir().join("anime_compositor_b09_recovery");
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("make the scratch directory");
+        let path = directory.join("shot.json");
+        std::fs::copy(repo("Fixtures/projects/unknown_effect_project.json"), &path)
+            .expect("copy the fixture");
+        path
+    }
+
+    /// Rename the one layer, which is the smallest real change to a project this build can make.
+    fn change_something(viewer: &mut Viewer, to: &str) {
+        let composition = viewer.composition.clone();
+        let layer_id = viewer.document.project().compositions[0].layer_order()[0].clone();
+        viewer
+            .document
+            .apply(Command::RenameLayer {
+                composition,
+                layer_id,
+                name: to.to_string(),
+            })
+            .expect("rename the layer");
+    }
+
+    fn layer_name(viewer: &Viewer) -> String {
+        let composition = &viewer.document.project().compositions[0];
+        composition
+            .layer(&composition.layer_order()[0])
+            .expect("the layer the order names")
+            .name
+            .clone()
+    }
+
+    #[test]
+    fn nothing_is_written_early_nothing_is_lost_late() {
+        let project = a_project_to_work_on();
+        let mut rows: Vec<(String, String, String)> = Vec::new();
+        let mut check = |what: &str, expected: &dyn ToString, actual: &dyn ToString| {
+            rows.push((what.to_string(), expected.to_string(), actual.to_string()));
+        };
+
+        let untouched = std::fs::read_to_string(&project).expect("read the project");
+        let viewer = Mutex::new(open(&project).expect("open the project"));
+        let start = Instant::now();
+
+        // ---- the timer ------------------------------------------------------------------------
+        {
+            let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            check(
+                "a project with nothing outstanding writes no snapshot, however long it sits",
+                &"nothing",
+                &autosave_tick(viewer, start + Duration::from_secs(3600))
+                    .unwrap_or_else(|| "nothing".to_string()),
+            );
+
+            change_something(viewer, "Renamed while nobody was saving");
+            check(
+                "there is now unsaved work",
+                &true,
+                &viewer.document.is_dirty(),
+            );
+            check(
+                "one minute of unsaved work is not enough (document 07 asks for two)",
+                &"nothing",
+                &autosave_tick(viewer, start + Duration::from_secs(60))
+                    .unwrap_or_else(|| "nothing".to_string()),
+            );
+            check(
+                "and no file has appeared beside the project",
+                &false,
+                &persist::autosave_path(&project, 0).exists(),
+            );
+
+            // Two minutes after the tick above, which is when the timer first saw the work: the
+            // clock starts at the sight of it, not at the moment it was done.
+            let said = autosave_tick(viewer, start + Duration::from_secs(181))
+                .unwrap_or_else(|| "nothing".to_string());
+            check(
+                "after two minutes a snapshot is written, in the first free slot",
+                &format!(
+                    "Recovery snapshot written to {}",
+                    persist::autosave_path(&project, 0).display()
+                ),
+                &said,
+            );
+            check(
+                "the work is still unsaved afterwards (document 26)",
+                &true,
+                &viewer.document.is_dirty(),
+            );
+            check(
+                "and the project file has not been touched (document 07)",
+                &"unchanged",
+                &if std::fs::read_to_string(&project).expect("read the project") == untouched {
+                    "unchanged"
+                } else {
+                    "changed"
+                },
+            );
+            check(
+                "the snapshot keeps the effect this build does not understand",
+                &true,
+                &std::fs::read_to_string(persist::autosave_path(&project, 0))
+                    .expect("read the snapshot")
+                    .contains("vendor.future.effect"),
+            );
+
+            // Five more, each two minutes after the last. The sixth has to reuse a slot.
+            for minute in 1..=5 {
+                change_something(viewer, &format!("Renamed again, {minute}"));
+                autosave_tick(viewer, start + Duration::from_secs(181 + 121 * minute))
+                    .expect("a snapshot every two minutes");
+            }
+            check(
+                "six snapshots leave five files, not six",
+                &persist::AUTOSAVE_SLOTS,
+                &persist::recovery_candidates(&project).len(),
+            );
+            check(
+                "and the window is offering all five to recover from",
+                &persist::AUTOSAVE_SLOTS,
+                &viewer.recovery.len(),
+            );
+        }
+
+        // ---- recovering -------------------------------------------------------------------------
+        let newest = persist::recovery_candidates(&project)[0].path.clone();
+        let said = recover(&viewer, &newest);
+        check(
+            "recovering says which snapshot was opened",
+            &format!("Recovered {}", newest.display()),
+            &said,
+        );
+        {
+            let viewer = viewer.lock().expect("the viewer lock was poisoned");
+            check(
+                "the recovered work is what was in the snapshot",
+                &"Renamed again, 5",
+                &layer_name(&viewer),
+            );
+            check(
+                "Save would write to the project, not back into the snapshot",
+                &project.display().to_string(),
+                &viewer
+                    .path
+                    .as_ref()
+                    .map_or(String::new(), |p| p.display().to_string()),
+            );
+            check(
+                "and the window calls the project by its own name",
+                &"shot.json",
+                &viewer.name,
+            );
+            check(
+                "the recovered work counts as unsaved, because the project file does not have it",
+                &true,
+                &viewer.document.is_dirty(),
+            );
+        }
+        // Compared whole, reported as a word: the fixture is two hundred lines and a table cell
+        // holding it twice is a table nobody reads.
+        check(
+            "recovering wrote nothing: the project file is still byte for byte what it was",
+            &"unchanged",
+            &if std::fs::read_to_string(&project).expect("read the project") == untouched {
+                "unchanged"
+            } else {
+                "changed"
+            },
+        );
+
+        // ---- and then saving it ------------------------------------------------------------------
+        let said = save(&viewer);
+        check(
+            "saving after a recovery writes the project",
+            &format!("Saved to {}", project.display()),
+            &said,
+        );
+        check(
+            "the project file now holds the recovered work",
+            &true,
+            &std::fs::read_to_string(&project)
+                .expect("read the project")
+                .contains("Renamed again, 5"),
+        );
+        {
+            let viewer = viewer.lock().expect("the viewer lock was poisoned");
+            check(
+                "and there is nothing outstanding any more",
+                &false,
+                &viewer.document.is_dirty(),
+            );
+        }
+
+        // ---- the case with nowhere to put anything -------------------------------------------------
+        {
+            let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            viewer.path = None;
+            change_something(viewer, "Changed with no file to save to");
+            check(
+                "a project with no file of its own writes no snapshot; there is nowhere beside it",
+                &"nothing",
+                &autosave_tick(viewer, start + Duration::from_secs(7200))
+                    .unwrap_or_else(|| "nothing".to_string()),
+            );
+        }
+        check(
+            "and it cannot be recovered into either",
+            &"There is no project to recover into.",
+            &recover(&viewer, &newest),
+        );
+
+        let scratch = project
+            .parent()
+            .expect("the project has a directory")
+            .display()
+            .to_string();
+        write_artifact(&rows, &scratch);
+        let failed: Vec<&(String, String, String)> =
+            rows.iter().filter(|(_, e, a)| e != a).collect();
+        assert!(
+            failed.is_empty(),
+            "{} of {} checks failed, see verification/B-09_recovery_table.md: {:#?}",
+            failed.len(),
+            rows.len(),
+            failed
+        );
+    }
+
+    fn write_artifact(rows: &[(String, String, String)], scratch: &str) {
+        let passed = rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut out = String::new();
+        out.push_str("# B-09, autosave and recovery in the window\n\n");
+        out.push_str(
+            "The core has known how to write a recovery snapshot for some time; until now nothing \
+             called it. This is the window's half — a clock that decides when, and a way back in \
+             from a snapshot. Produced by `cargo test -p anime_compositor_app`, from \
+             `app/src/main.rs`.\n\n",
+        );
+        out.push_str(
+            "The promise is document 07's, in two parts. **A snapshot is written after two \
+             minutes of unsaved work, and it never overwrites the last manual save.** And **\
+             recovering from a snapshot does not save it**: the window comes back pointing at the \
+             project file with the recovered work outstanding, so the person decides whether it \
+             becomes the project. The two minutes are a parameter here rather than a wait, which \
+             is the only thing about this table that is not what the window does.\n\n",
+        );
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in rows {
+            let short = |text: &str| {
+                text.replace(scratch, "<a temporary directory>")
+                    .replace('|', r"\|")
+            };
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                short(expected),
+                short(actual),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            rows.len()
+        ));
+        out.push_str(
+            "\n## What this does not cover\n\nThe two minutes passing. The timer is a thread that \
+             sleeps ten seconds at a time and asks the same question this table asks; what is \
+             checked here is the question, with the clock supplied. A thread that never started \
+             would not fail this table, and only the running window shows that it did.\n\n\
+             **Nothing in this window makes a project dirty yet.** It is a viewer: it opens, \
+             shows, plays and saves, and no control in it changes a project. So in ordinary use \
+             today the timer has nothing to write, and it stays quiet. What it protects is the \
+             editing that B-13 onwards adds, and it is built now because the alternative is \
+             building it after the first afternoon somebody loses.\n\n\
+             Where a row says *a temporary directory*, the real value was this machine's scratch \
+             directory, which differs on every machine and every run.\n",
+        );
+        std::fs::write(repo("verification/B-09_recovery_table.md"), out)
+            .expect("write the artifact");
     }
 }
 

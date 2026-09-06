@@ -21,18 +21,23 @@ than the one it is standing next to.
 
 ![the viewer playing, with frames dropped](B-08_window_playback.png)
 
-The space bar started playback and this was taken about six seconds later. The sentence along the
-bottom is `Playback::report`, unchanged, in the words document 28 asks for:
+The space bar started playback and this was taken about three seconds later, part way through the
+shot. The sentence along the bottom is `Playback::report`, unchanged, in the words document 28
+asks for:
 
-> Played 66 frames in real time and dropped 79 to keep the timing true. Step through the frames
+> Played 59 frames in real time and dropped 15 to keep the timing true. Step through the frames
 > to see every drawing, or switch the preview to draft resolution.
 
-**That is D-32 working, not failing.** 66 shown and 79 dropped across 145 frames of clock is
-about 92 ms of wall clock per frame delivered, against the 41.7 ms a 24 fps shot allows. The
-renderer is the reason and it was measured before the window existed:
-`B-08_preview_latency.md` puts a draft frame at 81.69 ms median on this machine, three quarters
-of it decoding cels. The viewer holds real time and says out loud what that costs. A viewer that
-played all 145 frames late would have been a silent fidelity fallback, which document 28 forbids.
+**That is D-32 working, not failing.** 59 shown and 15 dropped across 74 frames of clock is about
+52 ms of wall clock per frame delivered, against the 41.7 ms a 24 fps shot allows: four frames in
+five arrive on time and the fifth is skipped rather than shown late. A viewer that played all 74
+late would have been a silent fidelity fallback, which document 28 forbids.
+
+**This picture is the cel cache, B-08b, seen from outside.** The same photograph before the cache
+existed read *"Played 66 frames in real time and dropped 79"* — 45 of every hundred frames
+delivered, at about 92 ms each, which matched `B-08_preview_latency.md`'s 81.69 ms median draft
+frame with three quarters of it spent decoding cels that had just been decoded. The cache is what
+moved that to 80 of every hundred. Nothing else about this window changed.
 
 The count is honest in both directions: it is produced by the same `Playback` the fixture table
 in `B-08_preview_table.md` checks, and the page cannot reach it. Nothing in the window decides
@@ -68,9 +73,17 @@ has no screen to open one on. They are captured by `tools/capture_window.ps1`:
 ```
 cargo build -p anime_compositor_app --release
 powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1
-powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-08_window_playback -Keys " " -Settle 6000
+powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-08_window_playback -Keys " " -Settle 3000
 powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-08_window_full -Keys "d"
 ```
+
+The script asks the window to draw itself (`PrintWindow`) rather than copying the screen, and it
+starts the web view with its GPU path and its occlusion detection off. All three are about the
+shutter and none of them are about the application: a GPU-composited web view draws into a
+surface the screen copy cannot see, and one that believes nobody is looking stops painting and
+then hands back the last thing it drew. Both failures photograph as a working window that ignored
+the keyboard, which is a finding that is not true. Pictures 1 and 3 above were taken before this
+change, by copying the screen; picture 2 was retaken after it.
 
 **Release, deliberately.** The same three pictures taken from a debug build report 6 frames
 played and 97 dropped, which is a fact about `opt-level = 0` and not about this renderer;

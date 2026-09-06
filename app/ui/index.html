@@ -62,6 +62,10 @@
   #dirty:empty { display: none; }
   #status { color: #7fb37f; }
   #status:empty { display: none; }
+  /* An autosave is not something the person asked for, so it is said quietly and beside the
+     status line rather than in it. */
+  #autosaved { color: #6a6a72; }
+  #autosaved:empty { display: none; }
   select {
     font: inherit; color: inherit; background: #26262b;
     border: 1px solid #35353c; border-radius: 4px; padding: 3px 6px; max-width: 260px;
@@ -90,8 +94,10 @@
   <button id="save">Save</button>
   <button id="saveas">Save As&hellip;</button>
   <select id="recent"><option value="">Recent&hellip;</option></select>
+  <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
   <span class="hint">space, arrows, D &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S &middot; or drop a project file here</span>
   <span id="status"></span>
+  <span id="autosaved"></span>
   <span id="report"></span>
   <ul id="notes"></ul>
 </div>
@@ -171,6 +177,18 @@ async function show(url) {
       h.get('x-dirty') === 'true' ? ' • unsaved' : '';
     document.getElementById('status').textContent =
       decodeURIComponent(h.get('x-status') || '');
+    document.getElementById('autosaved').textContent =
+      decodeURIComponent(h.get('x-autosaved') || '');
+    // The snapshots there are to recover, rebuilt from the frame that just arrived because the
+    // timer adds one every two minutes and the list must not go stale while somebody works.
+    const recovery = document.getElementById('recovery');
+    const paths = decodeURIComponent(h.get('x-recovery') || '').split('\n').filter(Boolean);
+    recovery.hidden = paths.length === 0;
+    if (recovery.dataset.paths !== paths.join('\n')) {
+      recovery.dataset.paths = paths.join('\n');
+      recovery.replaceChildren(new Option('Recover unsaved work…', ''), ...paths.map(
+        (path) => new Option(path, path)));
+    }
     const notes = decodeURIComponent(h.get('x-notes') || '');
     const list = document.getElementById('notes');
     list.replaceChildren(...(notes ? notes.split('\n') : []).map((line) => {
@@ -234,6 +252,11 @@ document.getElementById('recent').onchange = (e) => {
   const chosen = e.target.value;
   e.target.selectedIndex = 0;
   if (chosen) command('/open?path=' + encodeURIComponent(chosen));
+};
+document.getElementById('recovery').onchange = (e) => {
+  const chosen = e.target.value;
+  e.target.selectedIndex = 0;
+  if (chosen) command('/recover?path=' + encodeURIComponent(chosen));
 };
 
 // The list is rebuilt on every load, which is also every open and every save-as, because those
