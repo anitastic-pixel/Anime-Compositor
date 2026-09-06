@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**199 breaks were made across twenty units. All 199 were caught.**
+**208 breaks were made across twenty-one units. All 208 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -63,7 +63,11 @@ it takes when pressed - which the section at the end of this report named as owe
 done: 9 breaks, one of which got through, and all nine caught afterwards. The thirteenth is the
 save half of B-09 in the window - Save, Save As, and what the window is showing once a file has
 been written - which the same section named as owed the night before: 9 breaks, **two of which got
-through**, and all nine caught afterwards.
+through**, and all nine caught afterwards. The fourteenth is the other half of that window, the
+autosave timer and recovery: 9 breaks, **five of which got through**, which is the second worst
+result in this report and has a single cause described in its own section - four of the five
+survived because the rows that were meant to time the two-minute wait all ticked at the moment the
+timer first saw the work, when its clock reads zero and any waiting time at all would pass.
 
 
 ## B-02 colour and alpha
@@ -564,6 +568,50 @@ inherited its rows rather than earning its own, and the reopening was checked fo
 rather than for what it would *find*. Neither gap needed a new fixture file - the two rows are
 built out of the project already open.
 
+## B-09 window: the autosave timer and recovery
+
+`app/src/main.rs`, the `autosave_tick` and `recover` functions, checked by the
+`recovery_and_autosave` test, whose table is `verification/B-09_recovery_table.md`.
+
+**9 of 9 breaks caught, after five got through.**
+
+This is the half that runs while nobody is asking for anything: a snapshot written beside the
+project every two minutes of unsaved work, five slots reused in turn, and the window that opens
+one of those snapshots afterwards without touching the project file. The whole of it turns on a
+clock, and a clock is the one thing a test can check while checking nothing.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| R1 | The snapshot is written after one minute of unsaved work rather than the two document 07 asks for | **no, first time** | after the fixture was strengthened: `one look short of two minutes writes nothing (expected nothing, got Recovery snapshot written to ...)` |
+| R2 | A project with nothing outstanding is snapshotted anyway | yes | `a project with nothing outstanding writes no snapshot (expected nothing, got Recovery snapshot written to ...)` |
+| R3 | The two minutes are measured from when the work began, so every later look writes another snapshot | **no, first time** | after the fixture was strengthened: `and the two minutes start again there, so ten seconds later there is nothing (expected nothing, got Recovery snapshot written to ...)` |
+| R4 | The snapshot is written one look early, at two minutes less a tick | **no, first time** | after the fixture was strengthened: `one look short of two minutes writes nothing (expected nothing, got Recovery snapshot written to ...)` |
+| R5 | A project with no file of its own is snapshotted into a directory chosen for it | **no, first time** | after the fixture was strengthened: `and none two minutes later either, when there would otherwise be one (expected nothing, got Recovery snapshot written to ...)` |
+| R6 | Recovering leaves the window pointing at the snapshot, so Save writes back into it | yes | three rows at once, including `Save would write to the project, not back into the snapshot` |
+| R7 | The recovered project opens with nothing outstanding, so the work looks already saved | yes | `the recovered work counts as unsaved, because the project file does not have it (expected true, got false)` |
+| R8 | The window is named after the snapshot rather than the project it belongs to | yes | `and the window calls the project by its own name (expected shot.json, got shot.autosave-4.json)` |
+| R9 | Nothing tells the person this is a snapshot and the project is untouched | **no, first time** | after the fixture was strengthened: `and the window says on screen that this is a snapshot and the project is untouched (expected true, got false)` |
+
+## Twelfth pass: the five that got through, and what was added
+
+| Unit | What was broken | Why the fixture missed it | Added |
+|---|---|---|---|
+| B-09 window | The wait is one minute, not two (R1); and the wait is one look short of two minutes (R4) | The row named "one minute of unsaved work is not enough" looked at the timer at the *first* moment it had seen the work at all. The clock starts at that sight, so it read zero, and a build that waited one minute, or a second, or nothing, would have passed that row exactly as the correct build does. It was the only row in the table that mentioned the length of the wait, and it could not fail | Two rows that straddle the boundary instead of sitting on its start: one look short of two minutes must write nothing, and one look past it must write a snapshot. The clock is already running from the previous snapshot, so both rows read a real elapsed time |
+| B-09 window | The clock is not restarted when a snapshot is written, so every later look writes another (R3) | Nothing ever looked at the timer twice in quick succession after a snapshot. Every look in the table was two minutes after the last, which is exactly when the correct build writes one too - so a build that wrote a snapshot every ten seconds forever was indistinguishable | A row that looks ten seconds after a snapshot was written and expects nothing |
+| B-09 window | A project with no file of its own is snapshotted into a directory chosen for it (R5) | There *was* a row for this, and it was vacuous for the same reason as R1: it looked at the timer at the first moment after the work was done, so the clock read zero and the function returned before it ever reached the question of where to write | A second look, two minutes later, at the same fileless project - the look that would put the snapshot somewhere chosen for it |
+| B-09 window | The note saying this is a snapshot and the project is untouched is dropped (R9) | Nothing in the table read what the window was showing. Every row after a recovery checked state - the path, the name, whether the work counted as unsaved - and none checked the one sentence that tells the person the project file has not been written yet | A row that looks for the note naming the snapshot it opened and saying nothing has been written to the project |
+
+Four of the five are one fault, and it is not the fault the earlier passes kept finding. The cache's
+six and the save half's two were both *a fixture checks the path it was written from*. These are
+narrower and, for anything with a clock in it, worth writing on the wall: **a row that starts the
+clock cannot also measure it.** Asking the timer a question at the same instant it first sees the
+work will always get the same answer, whatever the waiting time is set to, so the row passes for
+every build including every wrong one. The fix in all three cases was not a new fixture or a new
+project - it was to ask the same question a second time, a little later.
+
+The table grows from 21 checks to 26. Nothing in `Fixtures/` was touched, no expected value was
+edited and no tolerance was loosened.
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -624,7 +672,7 @@ the second is unreachable. The break was remade on the live path and caught ther
 not about this fixture: a mutation that survives may mean the test is weak, or it may mean the
 code it was made in cannot affect the result, and those two look identical from the outside.
 
-None of the twenty-eight survivors, across every pass, is a bug in the build as it stands. They
+None of the thirty-three survivors, across every pass, is a bug in the build as it stands. They
 are things the build was free to get wrong later without anything saying so.
 
 A further handful of breaks were caught only by a crash rather than by a named row - the test
@@ -641,7 +689,7 @@ finally was, six of nine breaks got through. The window half of B-10 - the Expor
 snapshot of the project taken when it is pressed - was named here as owed rather than covered, and
 has since been done: nine breaks, one of which got through, in its own section above. The save half
 of B-09 was named the same way the night after, and has since been done too: nine breaks, two of
-which got through. The claim is
+which got through; and the recovery half after that, nine breaks with five through. The claim is
 the narrower one from now on: every unit **listed in this report** has been broken on purpose, and
 the list is not by itself proof that it is the whole build. What is known to be outside it today
 is named in the paragraph below.
@@ -667,10 +715,9 @@ mutation-tested against timing or memory behaviour either, which is measurement 
 correctness and belongs with the performance work in document 24.
 
 **What is outside this report today, named rather than left to be assumed.** Every section above
-covers either the engine or, since B-10 and B-09's save half, two parts of the window. The rest of
-the window has not been broken on purpose: the autosave and recovery half of B-09, checked by
-`verification/B-09_recovery_table.md`; and the viewer shell itself - the transport that carries a
+covers either the engine or, since B-10 and both halves of B-09, three parts of the window. The rest of
+the window has not been broken on purpose: the viewer shell itself - the transport that carries a
 frame into the web view and the wall-clock loop that drives playback - whose artifact is
-`verification/B-08_window_shell.md` and is photographs rather than a table. Those two are the next
-passes. Nothing about them is known to be wrong; they are simply not yet covered by this report,
-and this paragraph exists so that the absence is on the page rather than in someone's memory.
+`verification/B-08_window_shell.md` and is photographs rather than a table. That one is the next
+pass. Nothing about it is known to be wrong; it is simply not yet covered by this report, and this
+paragraph exists so that the absence is on the page rather than in someone's memory.

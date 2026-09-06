@@ -1536,6 +1536,36 @@ mod recovery_and_autosave {
                 &persist::AUTOSAVE_SLOTS,
                 &viewer.recovery.len(),
             );
+
+            // Every row above ticks at a moment that is itself the timer's first sight of the
+            // work, and the clock starts at that sight — so they read zero and would pass for
+            // any waiting time at all, including none. These three straddle the boundary
+            // instead: the last tick of the loop above was at 181 + 121 * 5, and the work is
+            // still unsaved, so the clock is running from there.
+            let last = 181 + 121 * 5;
+            check(
+                "one look short of two minutes writes nothing",
+                &"nothing",
+                &autosave_tick(viewer, start + Duration::from_secs(last + 119))
+                    .unwrap_or_else(|| "nothing".to_string()),
+            );
+            let said = autosave_tick(viewer, start + Duration::from_secs(last + 121))
+                .unwrap_or_else(|| "nothing".to_string());
+            check(
+                "and one look past it writes a snapshot",
+                &"a snapshot",
+                &if said.starts_with("Recovery snapshot written to") {
+                    "a snapshot"
+                } else {
+                    said.as_str()
+                },
+            );
+            check(
+                "and the two minutes start again there, so ten seconds later there is nothing",
+                &"nothing",
+                &autosave_tick(viewer, start + Duration::from_secs(last + 131))
+                    .unwrap_or_else(|| "nothing".to_string()),
+            );
         }
 
         // ---- recovering -------------------------------------------------------------------------
@@ -1570,6 +1600,16 @@ mod recovery_and_autosave {
                 "the recovered work counts as unsaved, because the project file does not have it",
                 &true,
                 &viewer.document.is_dirty(),
+            );
+            // The note is the only thing on screen that says the project file has not been
+            // written yet. Without it a recovered window is indistinguishable from a saved one.
+            check(
+                "and the window says on screen that this is a snapshot and the project is untouched",
+                &true,
+                &viewer.notes.iter().any(|note| {
+                    note.contains(&newest.display().to_string())
+                        && note.contains("Nothing has been written to")
+                }),
             );
         }
         // Compared whole, reported as a word: the fixture is two hundred lines and a table cell
@@ -1616,6 +1656,15 @@ mod recovery_and_autosave {
                 "a project with no file of its own writes no snapshot; there is nowhere beside it",
                 &"nothing",
                 &autosave_tick(viewer, start + Duration::from_secs(7200))
+                    .unwrap_or_else(|| "nothing".to_string()),
+            );
+            // The tick above is the first sight of this change, so its clock reads zero and it
+            // would write nothing wherever the project lived. This one is two minutes later,
+            // which is the tick that would put the snapshot somewhere chosen for it.
+            check(
+                "and none two minutes later either, when there would otherwise be one",
+                &"nothing",
+                &autosave_tick(viewer, start + Duration::from_secs(7200 + 121))
                     .unwrap_or_else(|| "nothing".to_string()),
             );
         }

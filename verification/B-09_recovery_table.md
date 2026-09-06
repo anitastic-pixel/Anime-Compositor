@@ -16,19 +16,24 @@ The promise is document 07's, in two parts. **A snapshot is written after two mi
 | the snapshot keeps the effect this build does not understand | true | true | pass |
 | six snapshots leave five files, not six | 5 | 5 | pass |
 | and the window is offering all five to recover from | 5 | 5 | pass |
-| recovering says which snapshot was opened | Recovered <a temporary directory>\shot.autosave-0.json | Recovered <a temporary directory>\shot.autosave-0.json | pass |
+| one look short of two minutes writes nothing | nothing | nothing | pass |
+| and one look past it writes a snapshot | a snapshot | a snapshot | pass |
+| and the two minutes start again there, so ten seconds later there is nothing | nothing | nothing | pass |
+| recovering says which snapshot was opened | Recovered <a temporary directory>\shot.autosave-1.json | Recovered <a temporary directory>\shot.autosave-1.json | pass |
 | the recovered work is what was in the snapshot | Renamed again, 5 | Renamed again, 5 | pass |
 | Save would write to the project, not back into the snapshot | <a temporary directory>\shot.json | <a temporary directory>\shot.json | pass |
 | and the window calls the project by its own name | shot.json | shot.json | pass |
 | the recovered work counts as unsaved, because the project file does not have it | true | true | pass |
+| and the window says on screen that this is a snapshot and the project is untouched | true | true | pass |
 | recovering wrote nothing: the project file is still byte for byte what it was | unchanged | unchanged | pass |
 | saving after a recovery writes the project | Saved to <a temporary directory>\shot.json | Saved to <a temporary directory>\shot.json | pass |
 | the project file now holds the recovered work | true | true | pass |
 | and there is nothing outstanding any more | false | false | pass |
 | a project with no file of its own writes no snapshot; there is nowhere beside it | nothing | nothing | pass |
+| and none two minutes later either, when there would otherwise be one | nothing | nothing | pass |
 | and it cannot be recovered into either | There is no project to recover into. | There is no project to recover into. | pass |
 
-**21 of 21 checks pass.**
+**26 of 26 checks pass.**
 
 ## What this does not cover
 
