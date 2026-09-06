@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**190 breaks were made across nineteen units. All 190 were caught.**
+**199 breaks were made across twenty units. All 199 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -60,7 +60,10 @@ all nine caught after the fixture was strengthened. All six had one cause, descr
 section below, and it is a cause worth knowing about before it happens again. The twelfth is the
 window half of B-10 - the Export button, the folder it writes into and the snapshot of the project
 it takes when pressed - which the section at the end of this report named as owed until it was
-done: 9 breaks, one of which got through, and all nine caught afterwards.
+done: 9 breaks, one of which got through, and all nine caught afterwards. The thirteenth is the
+save half of B-09 in the window - Save, Save As, and what the window is showing once a file has
+been written - which the same section named as owed the night before: 9 breaks, **two of which got
+through**, and all nine caught afterwards.
 
 
 ## B-02 colour and alpha
@@ -522,6 +525,45 @@ enough surrounding text to be unambiguous, it was caught immediately. **A surviv
 result if the break landed where it was aimed**, and the cheapest way to be sure is to read the
 file back rather than to trust the run.
 
+## B-09 window: Save, Save As, and what the window shows afterwards
+
+`app/src/main.rs`, the `open`, `write`, `save` and `save_as` functions, checked by the `saving`
+test, whose table is `verification/B-09_save_table.md`.
+
+**9 of 9 breaks caught, after two got through.**
+
+The core's own file format is the B-09 section further up, and it was hardened long ago. This is
+the half between the menu and the format: which file gets written, whether the window believes it
+happened, and what the window is showing once it has. The fixture is
+`Fixtures/projects/unknown_effect_project.json`, chosen because it names an effect no version of
+this build has, so a save that quietly writes only what it can model is visible as a lost effect
+rather than as nothing at all.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| S1 | Save As does not reopen the file it wrote, so the window keeps pointing at the old project | yes | three rows at once, including `after Save As the window is showing the file that was written` |
+| S2 | The save drops everything this build does not model, so the unknown effect is lost | yes | `the effect this build does not have is still in the saved file (expected true, got false)` |
+| S3 | A project with no file of its own is saved somewhere chosen for it instead of asking | yes | `a project with no file of its own is not saved anywhere; the window asks (expected This project has no file of its own yet. Use Save As., got Saved to ...)` |
+| S4 | Save As ignores whether the write worked and reports success either way | yes | `a save that cannot be done says so in the core's words (expected true, got false)` |
+| S5 | Save ignores whether the write worked and reports success either way | **no, first time** | after the fixture was strengthened: `and Save fails the same way, rather than naming a file it did not write (expected true, got false)` |
+| S6 | The window calls a project by its whole path rather than its file name | yes | `and calls it by its new name (expected saved_elsewhere.json, got the whole path)` |
+| S7 | Media resolves against the working directory, not the project file's own directory | **no, first time** | after the fixture was strengthened: `and looks for its drawings beside the file it wrote (expected beside the file it wrote, got somewhere that is neither)` |
+| S8 | The write reports success whatever the core said | yes | `a save that cannot be done says so in the core's words (expected true, got false)` |
+| S9 | Save As does not say where the project went | yes | `Save As says where the project went (expected Saved to ..., got Saved.)` |
+
+## Eleventh pass: the two that got through, and what was added
+
+| Unit | What was broken | Why the fixture missed it | Added |
+|---|---|---|---|
+| B-09 window | Save reports success on a write that failed | Every failing-save row went through **Save As**. Save and Save As are two different functions, and only one of them was ever asked to fail. A build where Ctrl+S onto a read-only file said "Saved to ..." and wrote nothing would have passed the whole table | A row that makes the *same* failure happen through Save: the window's path is pointed at somewhere unwritable and Ctrl+S is pressed. The sentence must be the core's failure, not the name of a file that was not written |
+| B-09 window | The reopened project looks for its drawings in the wrong place | Nothing asked where the reopened project resolves media from. Save As reopens the file precisely so that a project saved into another directory shows the warnings somebody else would see - and no row checked that the reopening moved the media root with it | A row naming the three answers apart: beside the file it wrote, still beside the project it came from, or somewhere that is neither. The middle answer is the plausible bug, so it is written out rather than folded into a "not equal" |
+
+Both survivors are the same shape as the cache's six, one step along: **a fixture checks the path
+it was written from.** Save As was the interesting function when the table was written, so Save
+inherited its rows rather than earning its own, and the reopening was checked for what it *showed*
+rather than for what it would *find*. Neither gap needed a new fixture file - the two rows are
+built out of the project already open.
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -582,7 +624,7 @@ the second is unreachable. The break was remade on the live path and caught ther
 not about this fixture: a mutation that survives may mean the test is weak, or it may mean the
 code it was made in cannot affect the result, and those two look identical from the outside.
 
-None of the twenty-six survivors, across every pass, is a bug in the build as it stands. They
+None of the twenty-eight survivors, across every pass, is a bug in the build as it stands. They
 are things the build was free to get wrong later without anything saying so.
 
 A further handful of breaks were caught only by a crash rather than by a named row - the test
@@ -597,7 +639,9 @@ least once. That was not true when it was written, and it is worth saying so pla
 quietly correcting the sentence.** B-08b, the cache, had been merged and never broken; when it
 finally was, six of nine breaks got through. The window half of B-10 - the Export button, and the
 snapshot of the project taken when it is pressed - was named here as owed rather than covered, and
-has since been done: nine breaks, one of which got through, in its own section above. The claim is
+has since been done: nine breaks, one of which got through, in its own section above. The save half
+of B-09 was named the same way the night after, and has since been done too: nine breaks, two of
+which got through. The claim is
 the narrower one from now on: every unit **listed in this report** has been broken on purpose, and
 the list is not by itself proof that it is the whole build. What is known to be outside it today
 is named in the paragraph below.
@@ -623,12 +667,10 @@ mutation-tested against timing or memory behaviour either, which is measurement 
 correctness and belongs with the performance work in document 24.
 
 **What is outside this report today, named rather than left to be assumed.** Every section above
-covers either the engine or, since B-10, one part of the window. The rest of the window has not
-been broken on purpose: the save and Save As half of B-09, checked by
-`verification/B-09_save_table.md`; the autosave and recovery half, checked by
+covers either the engine or, since B-10 and B-09's save half, two parts of the window. The rest of
+the window has not been broken on purpose: the autosave and recovery half of B-09, checked by
 `verification/B-09_recovery_table.md`; and the viewer shell itself - the transport that carries a
 frame into the web view and the wall-clock loop that drives playback - whose artifact is
-`verification/B-08_window_shell.md` and is photographs rather than a table. Those three are the
-next passes. Nothing about them is known to be wrong; they are simply not yet covered by this
-report, and this paragraph exists so that the absence is on the page rather than in someone's
-memory.
+`verification/B-08_window_shell.md` and is photographs rather than a table. Those two are the next
+passes. Nothing about them is known to be wrong; they are simply not yet covered by this report,
+and this paragraph exists so that the absence is on the page rather than in someone's memory.

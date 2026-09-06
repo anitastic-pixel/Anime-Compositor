@@ -14,6 +14,7 @@ Every row here is about one promise: **what comes back off the disk is the proje
 | after Save As the window is showing the file that was written | <a temporary directory>\saved_elsewhere.json | <a temporary directory>\saved_elsewhere.json | pass |
 | and calls it by its new name | saved_elsewhere.json | saved_elsewhere.json | pass |
 | with no unsaved work outstanding | false | false | pass |
+| and looks for its drawings beside the file it wrote, not beside the one it came from | beside the file it wrote | beside the file it wrote | pass |
 | Save writes to the file the project came from | Saved to <a temporary directory>\saved_elsewhere.json | Saved to <a temporary directory>\saved_elsewhere.json | pass |
 | and writing it a second time changes nothing in it | {
   "schema_version": 0,
@@ -493,8 +494,9 @@ Every row here is about one promise: **what comes back off the disk is the proje
 }
  | pass |
 | and the window is still showing the project it had | <a temporary directory>\saved_elsewhere.json | <a temporary directory>\saved_elsewhere.json | pass |
+| and Save fails the same way, rather than naming a file it did not write | true | true | pass |
 
-**15 of 15 checks pass.**
+**17 of 17 checks pass.**
 
 ## What this does not cover
 
