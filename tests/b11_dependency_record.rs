@@ -20,8 +20,8 @@
 //!
 //! It used to read `Cargo.lock`, and that was right while every crate in the graph was portable.
 //! The shell changed it. `Cargo.lock` is the union over every platform cargo could ever resolve
-//! for, so it now lists the GTK, Cocoa and Android stacks — 435 crates, of which 264 compile on
-//! the only platform this project supports. A record naming the other 171 would describe a
+//! for, so it now lists the GTK, Cocoa and Android stacks — 449 crates, of which 271 compile on
+//! the only platform this project supports. A record naming the other 178 would describe a
 //! program nobody has, and archiving their licence texts would claim a distribution carries code
 //! it does not.
 //!
@@ -32,9 +32,10 @@
 //!
 //! # Where the expected values come from
 //!
-//! The workspace manifests, which are written by hand and name four dependencies: `png`, `rayon`
-//! and `serde_json` for the core, `tauri` for the shell, with `tauri-build` as its build-time
-//! half. Everything else in the graph arrived underneath one of those. The count is not a
+//! The workspace manifests, which are written by hand and name six dependencies: `png`, `rayon`
+//! and `serde_json` for the core, `tauri` and `tauri-plugin-dialog` for the shell, with
+//! `tauri-build` as its build-time half. Everything else in the graph arrived underneath one of
+//! those. The count is not a
 //! hand-derived value and is not asserted as one — the two-directional agreement is what is
 //! checked, and it holds at any count.
 //!
@@ -445,7 +446,7 @@ fn write_report(report: &Report, build: &BTreeMap<String, BTreeSet<String>>) {
          `tests/b11_dependency_record.rs`.\n\n",
     );
     out.push_str(&format!(
-        "The build currently resolves **{} dependencies** beneath the four the workspace \
+        "The build currently resolves **{} dependencies** beneath the six the workspace \
          manifests name. `Cargo.lock` lists more, because it covers every platform cargo could \
          resolve for; the count here is what compiles on `{PLATFORM}`.\n\n",
         build.values().map(BTreeSet::len).sum::<usize>()

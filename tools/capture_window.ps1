@@ -18,6 +18,12 @@
 # keys are pressed, which is how a Ctrl+S is photographed actually saving; -Open starts the shell
 # on a project file, which is the same path a dropped file takes and the only one a script can
 # drive.
+#
+# -Scale photographs the window as it would look on a display set to that scaling, by telling the
+# web view what device scale factor to render at. It is not the same thing as changing the Windows
+# display setting: the title bar and the window frame belong to Windows and stay where they are.
+# What it does cover is everything inside the window, which is all of this application's interface,
+# and it is the only half of the question a script can ask on its own.
 
 param(
   [ValidateSet('release','debug')][string]$Build = 'release',
@@ -25,7 +31,8 @@ param(
   [string]$Keys = '',
   [switch]$Ctrl,
   [int]$Settle = 1500,
-  [string]$Open = ''
+  [string]$Open = '',
+  [double]$Scale = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -53,6 +60,16 @@ public class Win {
 # and on a 150% display the shutter lands on a rectangle that is neither the window nor where it
 # is. The first capture attempt photographed the desktop behind it.
 [void][Win]::SetProcessDPIAware()
+
+if ($Scale -gt 0) {
+  # WebView2 reads its extra command line from this variable at startup. Set on this PowerShell
+  # process so the child inherits it and nothing else on the machine is affected.
+  $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--force-device-scale-factor=$Scale"
+  # And a data folder of its own, because WebView2 shares one browser process per data folder and
+  # a second window joining the first one's process inherits the first one's scale factor. Two
+  # scales photographed in a row were the same picture twice before this line existed.
+  $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:TEMP ("acwv2-" + [guid]::NewGuid().ToString('N'))
+}
 
 $proc = if ($Open -ne '') {
   # Quoted, because this repository lives under a path with a space in it and an unquoted
@@ -87,7 +104,9 @@ try {
     # a person's hand does and what a webview's keydown reports.
     if ($Ctrl) { [Win]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero) }
     foreach ($c in $Keys.ToCharArray()) {
-      $vk = [byte]([Win]::VkKeyScan($c) -band 0xFF)
+      # Tab has no printable character for VkKeyScan to look up, and Tab is the whole of the
+      # keyboard-reachability question, so it is named directly. Write it as "`t" in -Keys.
+      $vk = if ($c -eq "`t") { [byte]0x09 } else { [byte]([Win]::VkKeyScan($c) -band 0xFF) }
       [Win]::keybd_event($vk, 0, 0, [UIntPtr]::Zero)
       [Win]::keybd_event($vk, 0, 2, [UIntPtr]::Zero)
       Start-Sleep -Milliseconds 80

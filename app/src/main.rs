@@ -628,7 +628,35 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
         .expect("build the command response")
 }
 
+/// R-11 asks that nothing leaves the device. Nothing in this program tries to; the web view
+/// component Windows supplies does, on its own account, and `tools/offline_check.ps1` caught it
+/// holding connections to Microsoft addresses in twenty idle seconds. That is not this
+/// application's code and it cannot be removed. These are the switches Chromium offers for it —
+/// no background networking, no component updates, no reporting, no pings, no sync — and they are
+/// set because leaving them unset would be a choice too.
+///
+/// They do not close it. The same twenty seconds with these on still showed connections, which is
+/// recorded in `verification/B-11_offline_run.md` and registered as a decision for the owner
+/// rather than described as solved. Do not delete these arguments on the grounds that they did not
+/// work; they narrow what is left to explain.
+///
+/// Anything already in the variable is kept and appended to, because `tools/capture_window.ps1`
+/// uses it to photograph the window at other display scales and overwriting it would silently
+/// undo that.
+fn quieten_the_web_view() {
+    const OURS: &str = "--disable-background-networking --disable-component-update \
+                        --disable-domain-reliability --no-pings --disable-sync \
+                        --disable-features=DnsOverHttps,msSmartScreenProtection,msWebOOUI,msPdfOOUI";
+    const NAME: &str = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
+    let value = match std::env::var(NAME) {
+        Ok(existing) if !existing.trim().is_empty() => format!("{OURS} {existing}"),
+        _ => OURS.to_string(),
+    };
+    std::env::set_var(NAME, value);
+}
+
 fn main() {
+    quieten_the_web_view();
     // A project named on the command line goes through the same `take` a dropped one does, so
     // the two ways in cannot behave differently. It is also the only one a script can drive,
     // which is how the photographs under `verification/` are taken.
