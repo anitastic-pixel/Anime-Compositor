@@ -8,7 +8,7 @@ Stage G0: feasibility. Run SP-01, SP-03, SP-04, SP-05 and SP-06 on the reference
 
 Stage G1-core: a useful cel finishing tool. Deliver R-01, R-02, R-03, R-06a, R-07, R-08, R-09, R-10 and R-11. PNG in, exposure timing, layer stack, 2D transforms, undo, durable projects, PNG sequence out. Blend modes limited to normal, multiply, screen and add with documented math. No masks, no effects, no cache.
 
-Stage G1-rest: deliver R-04 masks and mattes, R-05 the three effects, and R-06b the bounded cache, each only when its revisit trigger in document 23 actually fires.
+Stage G1-rest: deliver R-04 masks and mattes and R-05 the three effects, each only when its revisit trigger in document 23 actually fires. R-06b the bounded cache was the third of these; its trigger fired on 2026-09-05 and the owner unparked it that day, so it is being built as B-08b under D-37 and ADR-015.
 
 Stage G2: deliver R-12 flat planes, camera and parenting, then R-13 bounded expressions. Requires G1 passing and measured memory headroom.
 

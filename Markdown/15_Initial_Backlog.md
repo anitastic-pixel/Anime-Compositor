@@ -66,7 +66,9 @@ Exit: the owner finishes a shot unaided. Artifact: the finished shot, and the ow
 
 ## G1-rest and beyond
 
-B-06 / R-04 masks and mattes, B-07 / R-05 effects, B-08b / R-06b bounded cache. Parked under D-12. Each begins only when its revisit trigger in document 23 fires, and B-07 must address tile margins under ADR-011.
+B-06 / R-04 masks and mattes, B-07 / R-05 effects. Parked under D-12. Each begins only when its revisit trigger in document 23 fires, and B-07 must address tile margins under ADR-011.
+
+B-08b / R-06b bounded preview cache. UNPARKED on 2026-09-05 by D-37, after `verification/B-08_preview_latency.md` fired its trigger. Specified by document 27, recorded by ADR-015, and bounded by D-37 to a cache of decoded source cels with a memory ceiling, reachable from the preview path only and never from export. Its exit artifact is T-06: the same reference-shot playback measured before and after, plus the repeated-loop memory behaviour document 08 asks for, which nothing has measured yet.
 
 B-13 / R-12 flat-plane camera and parenting. B-14 / R-13 bounded expressions, runtime undecided per D-10. B-15 / R-14 collect and package. B-16 / R-15 additional formats, one at a time.
 

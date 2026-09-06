@@ -26,6 +26,8 @@ Document 30 identified exposure-and-layer-first finishing as the one structural 
 
 The bounded preview cache is the clearest case and worth stating plainly. Document 27 is a complete specification for a system that guards a performance problem which has never been observed, on a machine with twelve cores and 64 GB of memory, in a project whose scarcest resource is owner verification time. It scored highest complexity and risk in document 23 and was still a must-have. Its revisit trigger is now a measurement.
 
+That measurement was taken on 2026-09-05 and the trigger fired; the cache is unparked by ADR-015, which is this mechanism working rather than this decision weakening. The shape of what was unparked came out of the number - a cache of decoded cels, not of frames - which is the thing a park bought.
+
 ## Consequences
 
 The first release will visibly lack masks and effects. This is a deliberate statement about what the tool is for, not an admission of incompleteness, and the charter now says so.

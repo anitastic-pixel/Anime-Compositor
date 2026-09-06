@@ -35,9 +35,20 @@ Render trace scores low on workflow value and is still a Must, because its value
 | Polygon mask | 4 | 3 | 3 | R-04 | A real shot cannot be finished without one |
 | Alpha matte | 5 | 3 | 4 | R-04 | Same |
 | Exposure, tint, Gaussian blur effects | 4 | 3 | 3 | R-05 | Repeated manual effort in real shots |
-| Bounded preview cache | 5 | 4 | 4 | R-06b | Measured preview latency, recorded with numbers - **fired 2026-09-05**, see D-37 |
 
-The cache is the most instructive entry here. It scores value 5 and was a version 0.2 Must, and it is still parked, because it is a performance optimization for a workflow that has never been run. Its trigger is a measurement, not an opinion. **That measurement was taken on 2026-09-05 and the trigger has fired.** `verification/B-08_preview_latency.md` records the production preview path at 12.2 frames per second in draft and 10.0 at full resolution against a 24 fps target, with three quarters of every frame spent decoding cels that the resolution choice cannot make cheaper. The entry stays parked here because a fired trigger is a reason to ask the owner, not a permission to build; D-37 is where that ask is recorded.
+Both remaining entries are parked on triggers worded as things that happen in a real shot, and neither has happened. They are still specified, still not built.
+
+## Unparked on 2026-09-05: the bounded preview cache
+
+| Feature | Value | Complexity | Risk | Requirement | Status |
+|---|---:|---:|---:|---|---|
+| Bounded preview cache | 5 | 4 | 4 | R-06b | Trigger fired 2026-09-05, unparked the same day - D-37, ADR-015, built as B-08b |
+
+The cache is the most instructive entry in this document, and it is worth reading as a whole sequence rather than as a row. It scored value 5, was a version 0.2 Must, and was parked anyway, because it is a performance optimization for a workflow that had never been run. Its trigger was written as a measurement rather than an opinion, precisely so that neither enthusiasm nor reluctance could move it.
+
+The measurement was taken on 2026-09-05. `verification/B-08_preview_latency.md` records the production preview path at 12.2 frames per second in draft and 10.0 at full resolution against a 24 fps target, with three quarters of every frame spent decoding cels that the resolution choice cannot make cheaper, and `verification/D-37_decode_cost.md` records what a cache would recover: nothing at size one, 54% at size four, 94% at 473 MB. The trigger firing did not unpark it - a fired trigger is a reason to ask the owner, not permission to build - so the ask was recorded as D-37, and the owner answered it the same day.
+
+What the discipline bought is visible in the answer's shape. The cache that was approved is a cache of decoded cels rather than of finished frames, because the measurement said decoding was 75.15 ms of an 81.69 ms frame and rendering was 6.53 ms. A cache built when it first looked attractive would have cached frames.
 
 ---
 

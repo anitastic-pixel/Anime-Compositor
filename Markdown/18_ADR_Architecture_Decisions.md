@@ -98,7 +98,15 @@ Status: ACCEPTED. New in version 0.3. The first milestone was cut from fifteen M
 
 Justification: the bottleneck is owner verification time, not code generation speed. A milestone whose scope exceeds the rate at which the owner can actually check results is a milestone that will be accepted unchecked, which is worse than a smaller one finished honestly.
 
-Consequences: parked features stay fully specified, and building one before its trigger fires is forbidden in `AGENTS.md`. Full record in `docs/adr/0014-g1-core-narrowing.md`, triggers in document 23.
+Consequences: parked features stay fully specified, and building one before its trigger fires is forbidden in `AGENTS.md`. Full record in `docs/adr/0014-g1-core-narrowing.md`, triggers in document 23. One of the three has since been unparked by its own trigger - the bounded cache, ADR-015 - which is the mechanism working rather than the decision weakening.
+
+## ADR-015 - Unpark the bounded cache, as a cache of decoded cels
+
+Status: ACCEPTED. New on 2026-09-05, and the first record to reverse part of an earlier one. ADR-014 parked R-06b behind a trigger worded as a measurement. The measurement was taken on the production preview path, not a spike, and it fired: `verification/B-08_preview_latency.md` records 12.2 frames per second in draft against a 24 fps target, of which 75.15 ms of an 81.69 ms frame is reading and decoding cels and 6.53 ms is rendering. The owner unparked it as D-37. This record fixes what was unparked, because the measurement decides the shape of the answer and not only whether there is one: the cached unit is a **decoded source cel**, keyed and invalidated per document 27, under a memory ceiling with eviction; a cache of finished frames is not built, because it would chase the 6.53 ms. `verification/D-37_decode_cost.md` puts the ceiling's cost in view: size one saves nothing on this shot because the four layers are asked for in rotation, size four saves 54%, and all 57 drawings save 94%. Its 473 MB is the 8-bit payload; a decoded cel in the working space is f32 and four times that, so the budget is set in bytes actually held rather than in entries.
+
+Justification: the alternative reading - that the cache is an optimization and optimizations are optional - stops being true when the number is three times the frame budget and the dominant term is one the draft default cannot reach. D-33 already qualified itself on this measurement. Every other lever available here is bigger than a cache: a GPU path is ADR-006 reopened, and a faster decoder is a new dependency.
+
+Consequences: B-08b enters G1 with document 27 as its specification and T-06 as its exit artifact, which must be the same reference-shot playback measured before and after. The preview path gains a lookup; the export path gains nothing and must not, because a full-resolution preview matching an export in 0 of 8,294,400 samples is a property this build has and a cache is the obvious way to lose it. ADR-006 is not reopened and the renderer stays CPU-only. Masks (R-04) and effects (R-05) stay parked. Full record in `docs/adr/0015-unpark-bounded-cache.md`.
 
 ## Decision gate
 
