@@ -1221,3 +1221,32 @@ fn the_written_schema_version_matches_the_schema_file() {
         .expect("schema_version has a const");
     assert_eq!(declared, persist::SCHEMA_VERSION);
 }
+
+/// Document 26 makes dirty a comparison against the last successful save, and a recovery
+/// snapshot was never saved to the project it belongs to. `Document::recovered` is the only
+/// constructor that can say so; `Document::new` would call the recovered work saved, and the
+/// window would report nothing outstanding while the project on disk still held the older state.
+#[test]
+fn a_recovered_document_is_unsaved_against_the_project_on_disk() {
+    let mut loaded = persist::load_str(&fixture("unknown_effect_project")).expect("it opens");
+    let saved = loaded.document.project().clone();
+
+    let composition = saved.compositions[0].id.clone();
+    let layer_id = saved.compositions[0].layer_order()[0].clone();
+    loaded
+        .document
+        .apply(Command::RenameLayer {
+            composition,
+            layer_id,
+            name: "recovered".to_string(),
+        })
+        .expect("rename the layer");
+    let changed = loaded.document.project().clone();
+
+    assert!(
+        Document::recovered(changed, saved.clone()).is_dirty(),
+        "work that is only in a snapshot is outstanding until somebody saves it"
+    );
+    // And the other way round: a snapshot that matches the file has nothing outstanding in it.
+    assert!(!Document::recovered(saved.clone(), saved).is_dirty());
+}

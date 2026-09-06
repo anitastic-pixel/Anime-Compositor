@@ -23,6 +23,11 @@ written to be read before use, not after something goes wrong.
 - Shows any frame of the shot, steps through frames, and plays in real time.
 - Switches between a draft preview and full resolution, and says on screen which one you are
   looking at. A draft preview is never described as final pixels.
+- Saves a copy of itself in the background while a project has unsaved changes, and says when it
+  last did. The copies rotate through five slots beside the project and never touch the file you
+  saved yourself. If the program stops without saving, the next start offers those copies newest
+  first; choosing one opens it as unsaved work against the project on disk, so the file is only
+  overwritten if you save it.
 - Says out loud when something is wrong with a project — a missing drawing, an effect this build
   does not have — and keeps what it does not understand rather than dropping it. A project saved
   by this build still contains everything the project had when it arrived, including parts this
@@ -34,7 +39,9 @@ written to be read before use, not after something goes wrong.
   frame — but there is no button for it here yet. Exporting is available only to the tests.
 - **No masks and no effects.** Both are deliberately parked, not missing by accident. A project
   that has them keeps them and renders without them, and says so.
-- **No autosave and no crash recovery in the window.** Save often.
+- **Autosave is not a save.** It waits two minutes after a change and then keeps up to five
+  copies; anything newer than the last copy is not in it, and nothing it writes replaces your
+  file. Save deliberately.
 - **No editing.** This is a viewer: it opens, shows, plays and saves. Nothing in the window
   changes a project.
 - **No GPU rendering, no video files.** Frames are composited on the processor and written as

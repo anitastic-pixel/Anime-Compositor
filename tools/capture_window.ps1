@@ -49,9 +49,16 @@ using System.Runtime.InteropServices;
 public class Win {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
   [DllImport("user32.dll")] public static extern short VkKeyScan(char c);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
 }
 '@
@@ -61,10 +68,26 @@ public class Win {
 # is. The first capture attempt photographed the desktop behind it.
 [void][Win]::SetProcessDPIAware()
 
+# WebView2 reads its extra command line from this variable at startup. Set on this PowerShell
+# process so the child inherits it and nothing else on the machine is affected.
+#
+# Software rendering, always, and only for the photograph. A GPU-composited web view draws into a
+# surface that belongs to the compositor rather than to the window, and neither the screen copy
+# nor PrintWindow can see it: from WebView2 151 onwards this repository's captures came back as a
+# window frame around a blank white page while the page itself was fine. Checked, not guessed —
+# the devtools protocol reported the body's background as rgb(20, 20, 22) and "frame 0" on screen
+# in the same window that photographed white. This costs a few milliseconds of paint time in a
+# script that already waits seconds, and it changes nothing about what the page renders.
+#
+# And occlusion detection off with it. A web view that believes nothing is looking at it stops
+# painting, and then it answers a request to draw itself with the last thing it drew: the
+# picture comes back showing the window as it looked at startup no matter what was typed into
+# it, while the page itself has moved on. That is how a working D key photographed as a viewer
+# that ignored it.
+$env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--disable-gpu --disable-gpu-compositing --disable-features=CalculateNativeWinOcclusion'
+
 if ($Scale -gt 0) {
-  # WebView2 reads its extra command line from this variable at startup. Set on this PowerShell
-  # process so the child inherits it and nothing else on the machine is affected.
-  $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--force-device-scale-factor=$Scale"
+  $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS += " --force-device-scale-factor=$Scale"
   # And a data folder of its own, because WebView2 shares one browser process per data folder and
   # a second window joining the first one's process inherits the first one's scale factor. Two
   # scales photographed in a row were the same picture twice before this line existed.
@@ -89,11 +112,28 @@ try {
   }
   if ($handle -eq [IntPtr]::Zero) { throw 'the window never appeared' }
   # Windows refuses SetForegroundWindow to a process that has not been interacted with, and
-  # refuses it silently. A synthetic ALT press satisfies that rule, which is the difference
-  # between a keystroke reaching the window and a picture of an untouched one.
-  [Win]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)
-  [Win]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
-  [void][Win]::SetForegroundWindow($handle)
+  # refuses it silently, so the window is *clicked* rather than asked: a click in the empty part
+  # of the stage is what a person does before typing, and it does the two things asking cannot.
+  # It brings the window to the front for certain, and it gives the keyboard to the web view
+  # inside it rather than to the frame around it. Keys that land on the frame do nothing at all,
+  # and the picture then shows a viewer that ignored the space bar.
+  [void][Win]::ShowWindow($handle, 9)   # SW_RESTORE
+  $spot = New-Object Win+RECT
+  [void][Win]::GetWindowRect($handle, [ref]$spot)
+  $was = New-Object Win+POINT
+  [void][Win]::GetCursorPos([ref]$was)
+  foreach ($i in 1..20) {
+    [void][Win]::SetCursorPos($spot.L + ($spot.R - $spot.L) / 2, $spot.T + ($spot.B - $spot.T) / 4)
+    [Win]::mouse_event(0x02, 0, 0, 0, [UIntPtr]::Zero)   # left down
+    [Win]::mouse_event(0x04, 0, 0, 0, [UIntPtr]::Zero)   # left up
+    [void][Win]::SetForegroundWindow($handle)
+    Start-Sleep -Milliseconds 250
+    if ([Win]::GetForegroundWindow() -eq $handle) { break }
+  }
+  [void][Win]::SetCursorPos($was.X, $was.Y)
+  # Checked, not hoped for: a picture of a window that never got the keyboard is worse than no
+  # picture, because it looks like a finding.
+  if ([Win]::GetForegroundWindow() -ne $handle) { throw 'the window would not come to the front' }
   Start-Sleep -Milliseconds 1500
   # keybd_event rather than WScript.Shell's SendKeys, which needs AppActivate to have succeeded
   # and fails silently when it has not - the pictures then show an untouched window and look
@@ -121,7 +161,13 @@ try {
   $h = $r.B - $r.T
   $bmp = New-Object System.Drawing.Bitmap $w, $h
   $g = [System.Drawing.Graphics]::FromImage($bmp)
-  $g.CopyFromScreen($r.L, $r.T, 0, 0, $bmp.Size)
+  # PrintWindow with PW_RENDERFULLCONTENT (2), and not a copy off the screen: it asks the window
+  # to draw itself, which includes the web view's own child window, and it does not depend on
+  # what happens to be in front of the window at the instant of the shutter.
+  $hdc = $g.GetHdc()
+  $ok = [Win]::PrintWindow($handle, $hdc, 2)
+  $g.ReleaseHdc($hdc)
+  if (-not $ok) { throw 'the window refused to draw itself' }
   $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
   $g.Dispose(); $bmp.Dispose()
   Write-Output "wrote verification/$Name.png at ${w}x${h}"
