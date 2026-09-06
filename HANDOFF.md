@@ -99,24 +99,81 @@ Do not reuse anything under `spikes/`. It is quarantined by document 06 and writ
 
 ## Suggested next session
 
-**Nothing large, without the owner.** G1-core's remaining piece is the viewer: a window, a
-transport, playback and a work area. Every one of those is a decision that has not been made -
-which frame is shown at rest, what a scrub does while the mouse is down, and whether playback
-drops frames or slows down when it cannot keep up. Do not start it. Ask.
+**B-08, the viewer.** The owner authorised it on 2026-09-05 and answered the two questions that
+were blocking it, both now CLOSED in `Markdown/14_Decisions_Risks.md`: **D-32**, playback that
+cannot keep up drops frames and holds real time, and must report how many it skipped rather than
+hiding it; and **D-33**, the preview defaults to draft resolution with an always-visible
+indicator of which resolution is showing. Everything else left in G1-core routes through B-08 -
+B-11's remaining two thirds and B-12's acceptance run both depend on it.
 
-Ten decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-30 in
+Two smaller viewer questions are still unanswered - which frame is shown at rest, and what a
+scrub does while the mouse is held down. They do not block the work: assume one way, write the
+assumption down as a decision entry, and say so in the artifact, which is what this project has
+done with every other open decision.
+
+Eleven decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-30 and D-34 in
 `Markdown/14_Decisions_Risks.md`. None of them blocks anything today, because each was assumed
 one way and the assumption is written down, but D-28 in particular changes a default the owner
 will feel: an export whose range contains a frame with no drawing is currently **refused before
 anything is written**, per document 07, and document 28 says the same situation should write
 those frames transparent with a warning.
 
-What is left that needs nobody: **nothing that has been named.** The owner asked for more
+What is left that needs nobody: two named items were found and both are done, described first
+below - B-10's declared artifact was only six frames when document 15 asks for the exported
+240-frame sequence and a byte comparison of two exports, and B-11's dependency record was a
+stale eleven-crate table. Before those, the owner asked for more
 engine hardening after the day's queue emptied, and that became H-01 and then H-02, described
 below. Joining
 T-07's two halves was the last decision-free item on the backlog itself and it is done - `tests/t07e_roundtrip_export.rs`,
 `verification/T-07e_roundtrip_table.md`, 23 checks. Everything else in G1-core either needs a
 decision from the list above or is the viewer.
+
+What B-10's full-shot export settled and left:
+
+- Document 15 names B-10's artifact as the exported 240-frame sequence plus a byte comparison of
+  two consecutive exports proving determinism. Six frames existed. `tests/b10_full_shot.rs` now
+  exports the whole shot twice and compares all 240 pairs; it is `#[ignore]`d and run with
+  `cargo test --release --test b10_full_shot -- --ignored`, taking about four minutes.
+- **The frames are not committed and cannot be.** 240 frames at 1920x1080 is roughly 480 MB and
+  `.git` is already 438 MB. They are written to `target/b10_full/pass1`, which is gitignored and
+  left in place after the run so the owner can open them. What is committed is
+  `verification/B-10_contact_sheet.png`, one 2560x1350 grid of all 240 frames, which is also the
+  more useful artifact: nobody flips through 240 separate files.
+- The determinism row has a negative control. Every frame is also compared against the *next*
+  frame's file, and none of the 239 neighbouring pairs may match - layer 2 changes drawing on
+  every frame of this shot, so a comparison that passed there would be comparing a file with
+  itself.
+- The export uses `MissingSource::RenderTransparent`, D-28's recorded override, because the
+  default refuses this job outright: twenty of the 240 frames ask layer 3 for the drawing the
+  fixture deliberately does not contain. That default is T-08's row and is unchanged.
+- `fidelity_incomplete` stays **false** across the whole shot, which was not what this session
+  expected. The flag is raised only for a parked feature bypassed on a drawn layer
+  (`ProjectFeatureUnsupported`, today only masks), and a missing drawing is not that - it is a
+  media gap, reported as one. The code was right and the expectation was wrong.
+- Exactly four `MEDIA_SEQUENCE_GAP` diagnostics are emitted for the twenty affected frames: three
+  in full and one summary, which is D-25's rate limit doing its job at full shot length for the
+  first time.
+
+What B-11's dependency and licence record settled and left:
+
+- There is now one dependency record, `docs/DEPENDENCIES.md`, generated from `cargo metadata` and
+  the committed `Cargo.lock`. The file that stood there listed eleven crates and predated `rayon`
+  and `serde_json`; the graph is twenty-eight. `tests/b11_dependency_record.rs` compares the two
+  in both directions on every run, so a crate added without an entry fails a named row.
+- `Licenses/` holds every crate's licence and notice files as shipped inside the crate, copied
+  from the local registry. All 28 shipped at least one. That is document 10's "archive the exact
+  license" done rather than promised.
+- **It reaches no legal conclusion, deliberately.** Document 10 reserves those for a reviewer and
+  there has not been one, so the reviewer and date fields are blank rather than invented. Three
+  entries are flagged for a reviewer instead of decided: `unicode-ident`'s Unicode-3.0 term is an
+  `AND` and not an `OR`; `zlib-rs` offers no alternative to the Zlib licence; and `memchr`'s
+  public-domain option is avoidable by taking its MIT half.
+- D-31 was raised here and the owner closed it the same day: this project is **MIT OR
+  Apache-2.0**. Whether to be open source was never open - D-03 and ADR-010 settled that - and
+  what was missing was that the repository did not say so. `Cargo.toml` now declares the licence,
+  `LICENSE-MIT` and `LICENSE-APACHE` are in the root, and two rows of the B-11 check hold both.
+  One thing is left, as D-34: the copyright line reads `Copyright (c) 2026 anitastic-pixel`,
+  the GitHub identity that owns the repository, because a legal name is not an agent's to guess.
 
 What H-01, the whole-picture check, settled and left:
 
@@ -199,8 +256,10 @@ What B-08a settled and left:
   measurement in `verification/B-05a_scaling_table.md`. It is a tunable, not a contract: output
   is byte-identical at every size tested.
 - **This was the headless half of B-08 only.** There is no viewer, no transport, no playback and
-  no work area, and none of them may be started without the owner: which frame is shown, what a
-  scrub does, and whether playback drops frames or slows down are all decisions nobody has made.
+  no work area. The viewer half is authorised as of 2026-09-05; D-32 and D-33 answer how playback
+  behaves when it falls behind and what resolution the preview starts at, and the two remaining
+  questions - which frame is shown at rest, what a scrub does while the mouse is held down - are
+  to be assumed and written down rather than asked.
 - Step 9 of document 20, the output or display transform, is deliberately not done here.
   `render_frame` returns a working-space buffer, because the viewer and an export want different
   destinations and doing it once in the middle would do it twice.

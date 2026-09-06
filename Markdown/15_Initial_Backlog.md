@@ -44,7 +44,7 @@ Exit: a trace directory for one composited frame. Artifact: the trace images the
 
 ---
 
-B-08 / R-06a / Viewer, frame stepping, work-area playback, resolution selection, and the transport chosen by SP-05. Depends on B-05a. No cache.
+B-08 / R-06a / Viewer, frame stepping, work-area playback, resolution selection, and the transport chosen by SP-05. Depends on B-05a. No cache. Playback holds real time and drops the frames it cannot deliver, reporting how many it skipped, per D-32; the preview starts at draft resolution with an always-visible indicator of which resolution is showing, per D-33. The headless half is done - B-08a, merged - so what remains is the window, the transport and the playback loop.
 
 Exit: T-06 with measured latency, and preview matching export within declared tolerance. Artifact: screenshots plus a preview-versus-export pixel comparison.
 
