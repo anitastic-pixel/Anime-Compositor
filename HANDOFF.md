@@ -106,10 +106,52 @@ hiding it; and **D-33**, the preview defaults to draft resolution with an always
 indicator of which resolution is showing. Everything else left in G1-core routes through B-08 -
 B-11's remaining two thirds and B-12's acceptance run both depend on it.
 
-Two smaller viewer questions are still unanswered - which frame is shown at rest, and what a
-scrub does while the mouse is held down. They do not block the work: assume one way, write the
-assumption down as a decision entry, and say so in the artifact, which is what this project has
-done with every other open decision.
+B-08's first slice is done and is the headless middle of it: `src/preview.rs`, checked by
+`tests/b08_preview.rs`, artifact `verification/B-08_preview_table.md`. It holds the resolution
+choice, the scale from a frame plan to a preview extent, and the playback clock that answers
+which frame belongs on screen at a given instant. Nothing in it sleeps or reads a clock - the
+caller supplies the elapsed time - which is what makes D-32's dropped frames checkable by a
+table rather than only by watching. The row that matters most to the exit condition is there
+already: a full-resolution preview of frame 100 against a real export of the same frame, 0 of
+8,294,400 samples differing.
+
+What is left of B-08 is the part with a window in it: the Tauri shell, the transport, the
+wall-clock loop wired to `Playback`, the resolution indicator on screen, and the screenshots.
+**D-36** picks the transport, which SP-05 measured twice and deliberately did not choose between:
+a custom URI scheme rather than raw IPC, PROVISIONAL, one function to reverse.
+
+**Read `verification/B-08_preview_latency.md` before planning that work.** It measures the
+production preview path rather than a spike, and the number is not the one SP-05 led anyone to
+expect: 12.2 frames per second in draft and 10.0 at full, against a 24 fps target, with about
+three quarters of every frame spent reading and decoding cels. Decoding costs the same whatever
+the preview extent, because a drawing is decoded at its own size before anything scales it, so
+D-33's draft default buys back rendering time and nothing else. Nothing is broken by this and no
+requirement is unmet - D-32 already decided what playback does when it cannot keep up. But it
+fired document 23's revisit trigger for the bounded preview cache, whose wording is "measured
+preview latency, recorded with numbers", and **that is registered as D-37 and left for the
+owner**. Do not build the cache. A fired trigger is a reason to ask, not a permission.
+
+`verification/D-37_decode_cost.md` is the arithmetic that decision needs, and it was taken far
+enough that the owner can answer without any further work: what one cel costs to decode,
+measured per layer, beside a count of how often the shot repeats itself derived from the
+exposure sheet by `verification/derive_d37_reuse.py`. The short version is that a cache of one
+cel avoids nothing, four avoids 54%, and all 57 avoids 94% at a cost of 473 MB. Two things in
+it are worth knowing before any performance work here: decoding costs what comes out rather
+than what goes in, so no drawing in this shot is cheap; and the single most expensive cel is
+the background, which never changes.
+
+**Why the window was not started here.** It needs Tauri, which ADR-004 already accepts, so it is
+not a decision - it is a dependency intake of roughly two hundred crates. That means regenerating
+`docs/DEPENDENCIES.md`, archiving every new licence text under `Licenses/`, and handing the owner
+a diff far larger than anything they have been asked to judge so far, on top of three pull
+requests they have not merged yet. The right order is merges first, intake second. Nothing about
+the window is blocked otherwise: D-32, D-33 and D-36 have already decided how it behaves.
+
+Of the two smaller viewer questions, one is now answered and one is still open. **D-35** records
+the frame at rest as the work area's first frame, PROVISIONAL and cheap to reverse. What a scrub
+does while the mouse is held down is still unanswered and is not yet needed, because nothing
+scrubs. Assume one way when it is, write the assumption down as a decision entry, and say so in
+the artifact, which is what this project has done with every other open decision.
 
 Eleven decisions are PROVISIONAL or OPEN and waiting on the owner: D-22 through D-30 and D-34 in
 `Markdown/14_Decisions_Risks.md`. None of them blocks anything today, because each was assumed

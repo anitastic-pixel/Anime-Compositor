@@ -807,10 +807,19 @@ fn t08_exports_a_frame_range_to_a_png_sequence() {
     let cancel = AtomicBool::new(false);
     let midway = std::thread::scope(|s| {
         s.spawn(|| {
-            for _ in 0..30_000 {
-                if fs::read_dir(&dir).map(|d| d.count()).unwrap_or(0) >= 2 {
-                    break;
-                }
+            // Wait for the export to be genuinely under way before asking it to stop. This used
+            // to give up after thirty thousand polls and set the flag regardless, which on a
+            // loaded CI runner it did: the export was still scanning for missing media, no frame
+            // had been written yet, and the run that came back was a job cancelled before its
+            // first frame wearing this scenario's name. The checks below then failed for a
+            // reason that had nothing to do with the code. The wait is now a deadline, and
+            // reaching it says so out loud rather than quietly checking something else.
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(600);
+            while fs::read_dir(&dir).map(|d| d.count()).unwrap_or(0) < 2 {
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "ten minutes passed without two exported frames, so there was never a                      running export for this check to cancel"
+                );
                 std::thread::sleep(std::time::Duration::from_millis(1));
             }
             cancel.store(true, Ordering::SeqCst);

@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**162 breaks were made across sixteen units. All 162 were caught.**
+**172 breaks were made across seventeen units. All 172 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -51,7 +51,10 @@ for an hour, a comparison keyed on crate name alone, found by this record failin
 build and fixed in the check rather than in the record. A seventh break is made differently from
 every other break in this report: it deletes no line, but moves a crate's archived licence
 directory out of the way, because the row it aims at asks whether a directory exists and nothing
-that can be written into a file can make that false.
+that can be written into a file can make that false. The tenth is B-08, the preview path: 10
+breaks, all caught, no survivors, though one break was withdrawn as unobservable and the code
+comment it disproved was corrected rather than the fixture strengthened - that story is told in
+full in its own section below.
 
 
 ## B-02 colour and alpha
@@ -374,6 +377,51 @@ that can be written into a file can make that false.
 | Z5 | A row names the crate but leaves its licence blank | yes | `every row names a licence (expected every row names a licence, got no licence named for: memchr-2.8.3); see verification/B-11_record_table.md` |
 | Z6 | Only one of the two versions of a crate the build resolves twice is recorded | yes | `every row carries the exact version the build resolved, not a range or an older one (expected no version disagrees, got miniz_oxide: record says 0....` |
 | Z7 | A crate's archived licence text is gone from the repository, leaving only its name in the table | yes | `every crate's own licence text is archived in this repository, not merely named (expected every crate has an archived licence, got nothing archived...` |
+
+
+## B-08 the preview resolution and the playback clock
+
+`src/preview.rs`, checked by `tests/b08_preview.rs`, whose table is `verification/B-08_preview_table.md`.
+
+**10 of 10 breaks caught.**
+
+The two things this unit decides are the ones the owner decided on 2026-09-05: D-33, that the
+preview starts at draft resolution with the difference always shown, and D-32, that playback
+holds real time and drops the frames it cannot deliver. Each break below is a plausible way to
+get one of those slightly wrong rather than an obvious deletion - a preview that crops the
+top-left corner instead of shrinking the picture, a clock that rounds to the nearest frame
+instead of holding each frame for its own interval, a drop count that includes the frame that
+was actually shown.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| P1 | Draft is half the composition on each axis instead of the quarter SP-05 measured | yes | `draft is SP-05's measured extent for this composition (expected 480x270, got 960x540); see verification/B-08_preview_table.md` |
+| P2 | The draft extent truncates, so a composition that does not divide by four loses its last column | yes | `a composition that does not divide by four keeps its last column and row (expected 481x271, got 480x270); see verification/B-08_preview_table.md` |
+| P3 | The draft frame is a crop of the top-left corner: the extent shrinks and the layers do not | yes | `at draft, the layers are scaled with the extent rather than cropped by it (expected 480,270 480,270 480,270 480,270, got 1920,1080 1920,1080 1920,1080...` |
+| P4 | A draft preview claims to be what the export will write, so no indicator is ever shown | yes | `at draft, R-06a's indication that preview differs from export is on (expected Draft, differs from export: true, got Draft, differs from export: false)...` |
+| P5 | Full resolution quietly renders at draft resolution, and says it is full | yes | `full is the composition's own extent, unchanged (expected 1920x1080, got 480x270); see verification/B-08_preview_table.md` |
+| P6 | The playback clock rounds to the nearest frame instead of holding each frame for its own interval | yes | `a nanosecond before the first frame ends, frame 0 is still on screen (expected 0, got 1); see verification/B-08_preview_table.md` |
+| P7 | The frame that was actually shown is counted as dropped as well, overstating the loss | yes | `asked once every third frame time, each answer is three frames on and two were passed over undrawn (expected 0+0 3+2 6+2 9+2, got 0+0 3+3 6+3 9+3); se...` |
+| P8 | Playback runs off the end of the work area instead of looping inside it | yes | `playback loops inside the work area rather than running past its end (expected 10 13 12 11 10, got 10 13 16 19 22); see verification/B-08_preview_tabl...` |
+| P9 | A clock that runs backwards drags the picture backwards with it | yes | `if the clock the caller supplies runs backwards, the frame is held and nothing is counted as dropped (expected frame 6, skipped 0, got frame 3, skippe...` |
+| P10 | The frame at rest is the end of the work area rather than its start | yes | `at rest, before playback, the work area's first frame is shown (expected 10, got 13); see verification/B-08_preview_table.md` |
+
+One break was tried first and withdrawn, and it is worth recording because it changed the code
+rather than the fixture. `scale_plan` returns a full-resolution plan untouched instead of
+scaling it by one, and the comment above it said that was what guaranteed a full-resolution
+preview matched an export byte for byte. Removing the early return survived: composing a scale
+of exactly one multiplies each coefficient by one, which is exact, and no pixel moves. The
+comment was overclaiming, so the comment was corrected - the early return is insurance against a
+future draft path that gains a half-pixel correction or a rounding step, not today's guarantee -
+and the break was replaced with one that can actually be seen: full resolution quietly rendering
+at draft resolution while still calling itself full.
+
+Two rows were added to the table before this pass rather than after it, to close a gap the
+extent rows could not see. Every check on a draft frame's size would still pass if the extent
+shrank and the layers did not, which is a crop of the top-left corner at the right size and of
+the wrong thing. The two rows apply each layer's transform to the composition's far corner and
+say where it must land - (480, 270) at draft, (1920, 1080) at full - which is arithmetic rather
+than a measurement, and P3 is the break that would have got through without them.
 
 
 ## First pass: the six that got through, and what was added
