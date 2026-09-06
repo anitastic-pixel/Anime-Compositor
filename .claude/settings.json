@@ -1,0 +1,40 @@
+{
+  "$comment": "Permissions for unattended work. The two wrappers in scripts/ are the enforcement point: they refuse deleting and history-rewriting operations by inspecting every argument, which a prefix rule here cannot do, because a flag moved to the end of the line would not match one. So bare 'git push' is denied on purpose and pushes route through scripts/push. Fixtures are write-denied because document 12 makes their expected values read-only to implementation work; reading them is required and stays allowed.",
+  "permissions": {
+    "allow": [
+      "Bash(scripts/gh:*)",
+      "Bash(./scripts/gh:*)",
+      "Bash(bash scripts/gh:*)",
+      "Bash(scripts/push:*)",
+      "Bash(./scripts/push:*)",
+      "Bash(bash scripts/push:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull --ff-only:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git switch:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo tree:*)",
+      "Bash(cargo metadata:*)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git rebase:*)",
+      "Bash(git filter-branch:*)",
+      "Bash(git update-ref:*)",
+      "Edit(./Fixtures/**)",
+      "Write(./Fixtures/**)"
+    ]
+  }
+}

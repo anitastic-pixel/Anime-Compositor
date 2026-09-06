@@ -35,6 +35,26 @@ What replaces it is evidence: independent fixtures with expected values written 
 - Preserve unknown serialized data rather than dropping it to simplify parsing.
 - Update the relevant ADR in `docs/adr/` when a consequential decision changes.
 
+## Pull requests
+
+**One pull request at a time, based on `main`.** Do not open a second while the first is
+unmerged, and do not base a branch on another branch. A stack of three was opened here once and
+merged twenty seconds apart; GitHub had not yet re-pointed the third at `main`, so it merged into
+the second one's branch and never reached the trunk. The work looked merged and was not.
+
+If a stack cannot be avoided, merge the bottom one, then **confirm the next reports
+`mergeable: MERGEABLE` against `main` before merging it** - not merely that its checks are green.
+Merging in a rapid burst is what breaks this.
+
+Merges into `main` here are squashed. A branch based on a branch therefore carries the *original*
+commits of work that reached `main` *squashed*, and merging it adds every one of those lines a
+second time. The repair is to rebuild the work on `main` and compare the two file lists and their
+contents before opening the replacement, never to resolve such a conflict by hand.
+
+Use `scripts/gh` rather than the GitHub CLI directly, and `scripts/push` rather than `git push`.
+They supply the credentials this machine keeps in the git credential helper, and they refuse
+deleting and history-rewriting operations, which stay the owner's to run.
+
 ## When a request conflicts with a contract
 
 Do not silently pick a side. Name the conflict, name the affected documents, propose the smallest specification change, and stay blocked on that point until the owner decides.

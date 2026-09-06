@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# scripts/push - git push, minus the flags that rewrite or delete published history.
+#
+# Pushing a new commit is ordinary work. Rewriting a branch someone else may have merged
+# from is not, and the difference is one flag. This checks every argument rather than just
+# the first, so the refusal cannot be walked around by moving the flag to the end.
+#
+# Usage: scripts/push -u origin some-branch
+set -euo pipefail
+
+for arg in "$@"; do
+  case "$arg" in
+    -f | --force | --force-with-lease | --force-with-lease=* | --force-if-includes | --delete | --mirror | --prune)
+      echo "scripts/push refuses '$arg': rewriting or deleting a pushed branch is the owner's call." >&2
+      echo "Explain what needs rewriting and why, and let the owner run it." >&2
+      exit 64
+      ;;
+  esac
+done
+
+exec git push "$@"

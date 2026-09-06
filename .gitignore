@@ -36,3 +36,7 @@ NIGHT_RUN.md
 MORNING_REPORT.md
 DAY_RUN.md
 DAY_REPORT.md
+
+# Claude Code's own scratch state. The permission rules in .claude/settings.json are
+# committed on purpose - they are project policy - but this lock file is per-session.
+.claude/scheduled_tasks.lock
