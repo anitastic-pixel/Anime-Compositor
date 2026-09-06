@@ -13,6 +13,7 @@ description = "Cel exposure and finishing compositor. G1-core: colour, alpha and
 # their own manifests and are deliberately excluded from this workspace so that nothing
 # under src/ can depend on them.
 [workspace]
+members = ["app"]
 exclude = ["spikes"]
 
 [profile.release]
@@ -24,4 +25,9 @@ rayon = "1.12.0"
 # B-09 reads and writes the project document as JSON values rather than through derive
 # macros, deliberately: ADR-008 requires unknown additive data to survive a load and save,
 # and a derived struct drops what it has no field for. Only `serde_json` is used.
+serde_json = "1.0.151"
+
+[dev-dependencies]
+# `tests/b11_dependency_record.rs` asks cargo what the build resolves and reads the answer.
+# Already in the graph above; this adds no crate, only visibility from the test binaries.
 serde_json = "1.0.151"
