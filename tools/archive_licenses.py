@@ -1,0 +1,222 @@
+# -*- coding: utf-8 -*-
+"""Copies every dependency's licence texts into Licenses/, from the build inputs.
+
+`docs/DEPENDENCIES.md` names a licence for each crate and `tests/b11_dependency_record.rs`
+requires an archived directory to go with it. Twenty-eight of those directories were made by
+hand. That does not scale: the viewer's dependency brings roughly two hundred crates with it,
+and a hand-copied archive of two hundred crates is a guessed list wearing an archive's clothes,
+which is exactly what document 10 says not to produce.
+
+So this reads the same build inputs `tools/gen_dependencies.py` reads - `cargo metadata`, which
+resolves against the committed `Cargo.lock` - and copies the licence files out of the crate
+sources cargo itself unpacked to build with. Nothing is downloaded and nothing is guessed.
+
+    python tools/archive_licenses.py --check     report differences, change nothing
+    python tools/archive_licenses.py --report    write the verification artifact
+    python tools/archive_licenses.py             make Licenses/ agree with the build
+
+`--check` exits non-zero when they disagree, so it can be run as a gate.
+
+# What counts as a licence file
+
+A file at the crate root whose name begins with LICENSE, LICENCE, COPYING, COPYRIGHT, NOTICE or
+UNLICENSE, in any case, with any extension. That rule was not invented here: it was checked
+against the twenty-eight hand-made directories first, and it reproduces twenty-seven of them
+exactly. The twenty-eighth difference is a real omission in the hand-made archive rather than a
+flaw in the rule, and is described in `verification/B-11_license_archive.md`.
+
+# What this deliberately does not do
+
+It does not read a licence and decide anything, for the reason document 10 gives and
+`tests/b11_dependency_record.rs` repeats: legal conclusions are a reviewer's to record. It copies
+texts and reports what it copied.
+"""
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ARCHIVE = os.path.join(ROOT, 'Licenses')
+
+LICENCE_FILE = re.compile(r'^(LICEN[SC]E|COPYING|COPYRIGHT|NOTICE|UNLICENSE)', re.IGNORECASE)
+
+
+def crates():
+    """(name-version, source directory) for every dependency cargo resolves.
+
+    Packages with no `source` are this workspace's own and are not dependencies of it. The
+    manifest path is used rather than a guessed registry directory, because the registry
+    directory name contains a hash of the index URL that this project has no business
+    reconstructing."""
+    out = subprocess.run(['cargo', 'metadata', '--format-version', '1'], cwd=ROOT,
+                         capture_output=True, text=True, encoding='utf-8')
+    if out.returncode != 0:
+        sys.exit('cargo metadata failed:' + chr(10) + (out.stderr or '').strip())
+    found = {}
+    for p in json.loads(out.stdout)['packages']:
+        if not p.get('source'):
+            continue
+        found['{}-{}'.format(p['name'], p['version'])] = os.path.dirname(p['manifest_path'])
+    return found
+
+
+def licence_files(directory):
+    return sorted(f for f in os.listdir(directory)
+                  if LICENCE_FILE.match(f) and os.path.isfile(os.path.join(directory, f)))
+
+
+def archived(name):
+    d = os.path.join(ARCHIVE, name)
+    return sorted(os.listdir(d)) if os.path.isdir(d) else None
+
+
+def stale(resolved):
+    if not os.path.isdir(ARCHIVE):
+        return []
+    return [n for n in sorted(os.listdir(ARCHIVE))
+            if os.path.isdir(os.path.join(ARCHIVE, n)) and n not in resolved]
+
+
+def differences():
+    """Every way Licenses/ and the resolved build disagree, as sentences."""
+    resolved = crates()
+    out = []
+    for name in sorted(resolved):
+        source = resolved[name]
+        if not os.path.isdir(source):
+            out.append('{}: cargo names a source directory that is not there, {}'
+                       .format(name, source))
+            continue
+        want = licence_files(source)
+        have = archived(name)
+        if have is None:
+            out.append('{}: no archived directory; the crate ships {}'
+                       .format(name, ', '.join(want) if want else 'no licence file at all'))
+        elif have != want:
+            missing = [f for f in want if f not in have]
+            extra = [f for f in have if f not in want]
+            parts = []
+            if missing:
+                parts.append('missing ' + ', '.join(missing))
+            if extra:
+                parts.append('holds ' + ', '.join(extra) + ' which the crate does not ship')
+            out.append('{}: {}'.format(name, '; and '.join(parts)))
+        elif not want:
+            out.append('{}: the crate ships no licence file at all'.format(name))
+    for name in stale(resolved):
+        out.append('{}: archived but no longer in the build'.format(name))
+    return out
+
+
+def write():
+    """Make Licenses/ agree with the build, and say what changed."""
+    resolved = crates()
+    changed = []
+    for name, source in sorted(resolved.items()):
+        want = licence_files(source)
+        target = os.path.join(ARCHIVE, name)
+        have = archived(name)
+        if have == want:
+            continue
+        if not os.path.isdir(target):
+            os.makedirs(target)
+        for f in want:
+            if have is None or f not in have:
+                shutil.copyfile(os.path.join(source, f), os.path.join(target, f))
+                changed.append('added ' + name + '/' + f)
+        for f in have or []:
+            if f not in want:
+                os.remove(os.path.join(target, f))
+                changed.append('removed ' + name + '/' + f)
+    for name in stale(resolved):
+        shutil.rmtree(os.path.join(ARCHIVE, name))
+        changed.append('removed ' + name + ', no longer in the build')
+    return changed
+
+
+def report():
+    """Writes the artifact the owner reads: what was archived, for which crate, from where.
+
+    It states the count of crates carrying no licence file separately, because that number is
+    the one worth looking at. A crate can be perfectly well licensed and ship no text - the
+    declaration in its manifest is what `docs/DEPENDENCIES.md` records - but a distribution
+    that has to reproduce a notice cannot reproduce one that is not there."""
+    resolved = crates()
+    rows = []
+    for name in sorted(resolved):
+        files = licence_files(resolved[name]) if os.path.isdir(resolved[name]) else []
+        rows.append((name, files))
+    bare = [n for n, f in rows if not f]
+    disagreements = differences()
+
+    out = []
+    out.append('# B-11 licence archive, checked against the crates the build resolved')
+    out.append('')
+    out.append('The artifact is the directory tree under `Licenses/`. This is the check that keeps '
+               'it true, and it answers a narrower question than `verification/B-11_record_table.md` '
+               'does. That one asks whether every crate has an archived directory. This one asks '
+               'whether what is inside each directory is what the crate actually ships. A '
+               'hand-maintained archive passes the first and quietly fails the second.')
+    out.append('')
+    out.append('Produced by `tools/archive_licenses.py --report`, from `cargo metadata` and the '
+               'crate sources cargo unpacked to build with. Nothing is downloaded and no file '
+               'list is typed. `tools/archive_licenses.py --check` runs in CI and fails the '
+               'build if the two ever part company.')
+    out.append('')
+    out.append('**{} crates resolved. {} disagree with the archive. {} ship no licence text at '
+               'all.**'.format(len(rows), len(disagreements), len(bare)))
+    out.append('')
+    if disagreements:
+        out.append('## Disagreements')
+        out.append('')
+        for line in disagreements:
+            out.append('- ' + line)
+        out.append('')
+    if bare:
+        out.append('## Crates shipping no licence text')
+        out.append('')
+        out.append('These declare a licence in their manifest, which `docs/DEPENDENCIES.md` '
+                   'records, but ship no file for this to copy. Nothing is missing from the '
+                   'archive; there was nothing to archive. Listing them is the point, because a '
+                   'notice that has to be reproduced at distribution cannot be reproduced from a '
+                   'file that does not exist.')
+        out.append('')
+        for name in bare:
+            out.append('- `{}`'.format(name))
+        out.append('')
+    out.append('## What is archived')
+    out.append('')
+    out.append('| Crate | Archived files |')
+    out.append('|---|---|')
+    for name, files in rows:
+        out.append('| `{}` | {} |'.format(name, ', '.join(files) if files else 'none shipped'))
+    out.append('')
+    out.append('This check reads no licence and decides nothing about one. Document 10 reserves '
+               'that for a reviewer, and there has not been one.')
+    out.append('')
+
+    path = os.path.join(ROOT, 'verification', 'B-11_license_archive.md')
+    with open(path, 'w', encoding='utf-8', newline=chr(10)) as f:
+        f.write(chr(10).join(out))
+    return path, len(rows), len(disagreements), len(bare)
+
+
+if __name__ == '__main__':
+    if '--report' in sys.argv:
+        path, total, bad, bare = report()
+        print('{}: {} crates, {} disagreements, {} shipping no licence text'
+              .format(os.path.relpath(path, ROOT), total, bad, bare))
+        sys.exit(0)
+    if '--check' in sys.argv:
+        problems = differences()
+        for line in problems:
+            print(line)
+        print('{} crates resolved, {} disagree with Licenses/'
+              .format(len(crates()), len(problems)))
+        sys.exit(1 if problems else 0)
+    for line in write():
+        print(line)
+    print('Licenses/ now agrees with the build.')

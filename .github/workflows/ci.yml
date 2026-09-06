@@ -39,6 +39,14 @@ jobs:
       - name: Verification artifacts match the build
         run: git diff --exit-code -- verification/
 
+      # The dependency record names a licence for every crate and the archive under Licenses/
+      # is supposed to hold the text. tests/b11_dependency_record.rs checks that a directory
+      # exists; this checks that what is in it is what the crate actually ships, which is the
+      # half a hand-maintained archive gets wrong. It reads the same cargo metadata the build
+      # resolved, so it cannot drift from it.
+      - name: Archived licences match the crates
+        run: python tools/archive_licenses.py --check
+
       - name: Formatting
         run: cargo fmt --check
 

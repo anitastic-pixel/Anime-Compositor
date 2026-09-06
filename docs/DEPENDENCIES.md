@@ -78,22 +78,31 @@ judgment should be recorded by the appropriate reviewer."
   graph whose terms are not a choice.
 - **`memchr` 2.8.3** — `Unlicense OR MIT`. The Unlicense is a public-domain dedication whose
   standing differs by jurisdiction, and document 10 records that distribution jurisdictions are
-  still open.
+  still open. Its `UNLICENSE` file was absent from `Licenses/` until 2026-09-06, when
+  `tools/archive_licenses.py` was written and found it: the record discussed a licence whose text
+  the archive did not hold. That was the one disagreement in twenty-eight hand-made directories,
+  and it is the reason the archive is no longer maintained by hand.
 
 ## Licence compatibility, as an engineering read
 
 Not a legal opinion. Every crate above offers permissive terms, and all but `zlib-rs` offer MIT or
 Apache-2.0 among them. Nothing in the graph is copyleft, so nothing here constrains what licence
 this project's own code may carry. The archived texts under `Licenses/` are what a distribution
-would have to carry with it; a check confirms one exists for every crate at its resolved version,
-and it checks only that, never what the text says.
+would have to carry with it. Two checks keep them honest and neither reads a word of the terms:
+`tests/b11_dependency_record.rs` confirms a directory exists for every crate at its resolved
+version, and `tools/archive_licenses.py --check`, which runs in CI, confirms that what is inside
+each directory is the set of files that crate actually ships. The second is the one a
+hand-maintained archive fails quietly, because a missing file looks exactly like a crate that
+never had one.
 
 ## What this record does not yet contain
 
 - **A reviewer and a date.** There has been no legal reviewer. Inventing a sign-off would be worse
   than leaving it blank.
 - **NOTICE files.** Document 10 lists them separately from licence texts. No crate in this graph
-  ships one, but that was read off the archived directories, not verified by a reviewer.
+  ships one. That is now read off the crate sources themselves rather than off the archive -
+`tools/archive_licenses.py` looks for `NOTICE` alongside the licence names and reports every crate
+shipping no text at all - but it is still not verified by a reviewer.
 - **A distribution.** T-16 stays NOT RUN because there is no distributable build to check. Nothing
   here has been shipped to anyone, so no obligation in it has come due.
 - **A signed-off review.** D-31 is now closed - the project is `MIT OR Apache-2.0`, `Cargo.toml`

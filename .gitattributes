@@ -9,3 +9,16 @@
 # line is part of the command as far as bash is concerned, so a CRLF checkout turns every one
 # of them into a not-found error. They are LF on every machine.
 scripts/* text eol=lf
+
+# The archived licence texts are copies of what each crate ships, and a distribution has to
+# be able to reproduce them. Line-ending conversion would rewrite them on checkout, so they
+# are stored and delivered as exact bytes. tools/archive_licenses.py --check compares them
+# against the crate sources, and that comparison is only meaningful if nothing rewrites
+# them in between.
+Licenses/** -text
+
+# The verification artifacts are written by the tests with LF endings, and CI compares the
+# committed copy against what a run produces. A Windows checkout that converts them shows
+# every artifact as modified when nothing about the build has changed, which buries a real
+# difference in noise. They are LF everywhere.
+verification/** text eol=lf
