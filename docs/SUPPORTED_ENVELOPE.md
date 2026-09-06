@@ -28,6 +28,11 @@ written to be read before use, not after something goes wrong.
   saved yourself. If the program stops without saving, the next start offers those copies newest
   first; choosing one opens it as unsaved work against the project on disk, so the file is only
   overwritten if you save it.
+- Exports the shot as a PNG sequence — **Export…** or `Ctrl+E`, into a folder you choose. Every
+  frame of the shot is written at full size, whatever resolution the preview happens to be
+  showing, named for the project and the frame number. It exports the shot as it was when you
+  asked, so opening or changing something while it runs does not change what is being written,
+  and you can stop it: the frame being written is finished and the rest are not started.
 - Says out loud when something is wrong with a project — a missing drawing, an effect this build
   does not have — and keeps what it does not understand rather than dropping it. A project saved
   by this build still contains everything the project had when it arrived, including parts this
@@ -35,15 +40,18 @@ written to be read before use, not after something goes wrong.
 
 ## What it does not do yet
 
-- **No export from the window.** The renderer exports whole shots, and it is checked frame by
-  frame — but there is no button for it here yet. Exporting is available only to the tests.
+- **An export stops on a missing drawing, and there is no progress bar.** If any frame in the
+  range needs a drawing that is not on disk, nothing is written and you are told which frames and
+  what to do about it; the checkbox beside the button writes them anyway, with the missing
+  drawings still reported. While an export runs the window says so and offers to stop it, but it
+  does not count the frames as they are written.
 - **No masks and no effects.** Both are deliberately parked, not missing by accident. A project
   that has them keeps them and renders without them, and says so.
 - **Autosave is not a save.** It waits two minutes after a change and then keeps up to five
   copies; anything newer than the last copy is not in it, and nothing it writes replaces your
   file. Save deliberately.
-- **No editing.** This is a viewer: it opens, shows, plays and saves. Nothing in the window
-  changes a project.
+- **No editing.** This is a viewer: it opens, shows, plays, saves and exports. Nothing in the
+  window changes a project.
 - **No GPU rendering, no video files.** Frames are composited on the processor and written as
   images.
 - **No screen-reader support has been checked.** Display scaling, the keyboard and non-English
