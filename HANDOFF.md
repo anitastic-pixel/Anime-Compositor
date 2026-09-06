@@ -140,6 +140,13 @@ it are worth knowing before any performance work here: decoding costs what comes
 than what goes in, so no drawing in this shot is cheap; and the single most expensive cel is
 the background, which never changes.
 
+**Why the window was not started here.** It needs Tauri, which ADR-004 already accepts, so it is
+not a decision - it is a dependency intake of roughly two hundred crates. That means regenerating
+`docs/DEPENDENCIES.md`, archiving every new licence text under `Licenses/`, and handing the owner
+a diff far larger than anything they have been asked to judge so far, on top of three pull
+requests they have not merged yet. The right order is merges first, intake second. Nothing about
+the window is blocked otherwise: D-32, D-33 and D-36 have already decided how it behaves.
+
 Of the two smaller viewer questions, one is now answered and one is still open. **D-35** records
 the frame at rest as the work area's first frame, PROVISIONAL and cheap to reverse. What a scrub
 does while the mouse is held down is still unanswered and is not yet needed, because nothing
