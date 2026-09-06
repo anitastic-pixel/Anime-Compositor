@@ -38,6 +38,15 @@
   #report { color: #8b8b94; flex: 1; min-width: 100%; }
   #report.dropped { color: #e8b06a; }
   .hint { color: #6a6a72; }
+  #project { font-weight: 600; }
+  /* Document 28's warnings, one line each, in the words the core used. They are never folded
+     away behind a count: a project that opened with something wrong with it says so for as
+     long as it is open. */
+  #notes {
+    min-width: 100%; margin: 0; padding: 0; list-style: none;
+    color: #e8b06a; white-space: pre-wrap;
+  }
+  #notes:empty { display: none; }
 </style>
 </head>
 <body>
@@ -49,8 +58,10 @@
   <span id="frame">frame &mdash;</span>
   <span id="quality">&mdash;</span>
   <button id="toggle">Full resolution</button>
-  <span class="hint">space, arrows, D</span>
+  <span id="project">&mdash;</span>
+  <span class="hint">space, arrows, D &middot; drop a project file here to open it</span>
   <span id="report"></span>
+  <ul id="notes"></ul>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -112,6 +123,18 @@ async function show(url) {
     const report = document.getElementById('report');
     report.textContent = h.get('x-report') || '';
     report.className = +h.get('x-skipped') > 0 ? 'dropped' : '';
+
+    // Which project these pixels came from, and what the core said when it opened it. Both
+    // travel percent-encoded, because a project named in Japanese cannot ride a header raw.
+    document.getElementById('project').textContent =
+      decodeURIComponent(h.get('x-project') || '');
+    const notes = decodeURIComponent(h.get('x-notes') || '');
+    const list = document.getElementById('notes');
+    list.replaceChildren(...(notes ? notes.split('\n') : []).map((line) => {
+      const item = document.createElement('li');
+      item.textContent = line;
+      return item;
+    }));
   } catch (e) {
     document.getElementById('report').textContent = 'the frame did not arrive: ' + e;
     document.getElementById('report').className = 'dropped';

@@ -24,15 +24,15 @@ than the one it is standing next to.
 The space bar started playback and this was taken about six seconds later. The sentence along the
 bottom is `Playback::report`, unchanged, in the words document 28 asks for:
 
-> Played 61 frames in real time and dropped 81 to keep the timing true. Step through the frames
+> Played 66 frames in real time and dropped 79 to keep the timing true. Step through the frames
 > to see every drawing, or switch the preview to draft resolution.
 
-**That is D-32 working, not failing.** 61 shown and 81 dropped across 142 frames of clock is
-about 97 ms of wall clock per frame delivered, against the 41.7 ms a 24 fps shot allows. The
+**That is D-32 working, not failing.** 66 shown and 79 dropped across 145 frames of clock is
+about 92 ms of wall clock per frame delivered, against the 41.7 ms a 24 fps shot allows. The
 renderer is the reason and it was measured before the window existed:
 `B-08_preview_latency.md` puts a draft frame at 81.69 ms median on this machine, three quarters
 of it decoding cels. The viewer holds real time and says out loud what that costs. A viewer that
-played all 142 frames late would have been a silent fidelity fallback, which document 28 forbids.
+played all 145 frames late would have been a silent fidelity fallback, which document 28 forbids.
 
 The count is honest in both directions: it is produced by the same `Playback` the fixture table
 in `B-08_preview_table.md` checks, and the page cannot reach it. Nothing in the window decides
@@ -80,7 +80,8 @@ These files are not compared byte for byte by anything, and they will not reprod
 window placement, display scaling, the theme of the title bar and the frame playback happens to
 reach are all properties of the machine and the moment. Captured at 1522×1016 physical pixels —
 the window asks for 1000×640 on a display running at 150%. They are evidence that the viewer ran
-on 2026-09-05, not fixtures.
+on 2026-09-05, not fixtures. `B-09_open_a_project.md` has the three that show a project being
+opened, taken the same way.
 
 ## What is checked automatically, and what is not
 
