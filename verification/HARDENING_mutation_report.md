@@ -1,4 +1,4 @@
-﻿# Hardening: deliberately breaking the code to see whether the tests notice
+# Hardening: deliberately breaking the code to see whether the tests notice
 
 
 A passing test proves nothing on its own. It might be checking something that cannot fail.
