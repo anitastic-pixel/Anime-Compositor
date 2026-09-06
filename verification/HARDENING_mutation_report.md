@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**172 breaks were made across seventeen units. All 172 were caught.**
+**181 breaks were made across eighteen units. All 181 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -54,7 +54,10 @@ directory out of the way, because the row it aims at asks whether a directory ex
 that can be written into a file can make that false. The tenth is B-08, the preview path: 10
 breaks, all caught, no survivors, though one break was withdrawn as unobservable and the code
 comment it disproved was corrected rather than the fixture strengthened - that story is told in
-full in its own section below.
+full in its own section below. The eleventh is B-08b, the bounded cache of decoded cels, and it
+is the worst result in this report: 9 breaks, **six of which got through the first time**, and
+all nine caught after the fixture was strengthened. All six had one cause, described in its own
+section below, and it is a cause worth knowing about before it happens again.
 
 
 ## B-02 colour and alpha
@@ -424,6 +427,58 @@ say where it must land - (480, 270) at draft, (1920, 1080) at full - which is ar
 than a measurement, and P3 is the break that would have got through without them.
 
 
+## B-08b the bounded cache of decoded cels
+
+`src/cache.rs`, checked by `tests/b08b_cache.rs`, whose table is
+`verification/B-08b_cache_table.md`.
+
+**9 of 9 breaks caught, after six of them got through the first time.** This was the worst
+result of any pass in this report, and it is the one worth reading.
+
+A cache is the only part of this build whose entire job is to change nothing. It exists to make
+the viewer quicker, and every way it can go wrong produces a picture that looks completely
+plausible and is the picture of something else - a drawing as it was before someone repainted it,
+or a different drawing altogether. That is what makes it worth breaking on purpose nine times.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| C1 | The key forgets when the file was written, so only its length identifies it | yes | `and it is decoded again, because when a file was written is part of which file it is (expected 1 more decode, got 0 more decode)` |
+| C2 | The key forgets the interpretation, so one file has one answer however it is read | yes | `One file asked for under two interpretations is decoded twice, not answered from memory (expected 2 decodes, 0 hits, got 1 decodes, 1 hits)` |
+| C3 | A cel asked for again does not become the most recently used, so eviction is first-in-first-out | yes | `A third cel drops exactly one, and the room that makes is the size of the one dropped (expected 2 cels, 69632 bytes, 1 eviction, got 2 cels, 20480 bytes, 1 eviction)` |
+| C4 | Eviction subtracts the size of the cel just stored rather than of the cel dropped | yes | `A third cel drops exactly one, and the room that makes is the size of the one dropped (expected 2 cels, 69632 bytes, 1 eviction, got 2 cels, 81920 bytes, 1 eviction)` |
+| C5 | A cel exactly the size of the budget is refused instead of held | yes | `It stayed inside one cel by evicting, not by growing (expected held <= 33177600, evictions > 0, got held <= 33177600, evictions = 0)` |
+| C6 | A cel too large for the budget is stored anyway, so the budget is exceeded | yes | `The cache export uses holds nothing after a full pass (expected 0 cels, 0 bytes, 0 hits, got 15 cels, 497664000 bytes, 8 hits)` |
+| C7 | A request answered from memory is counted as a decode as well as a hit | yes | `The cold pass decoded, the warm pass did not (expected cold > 0, warm = 0, got cold > 0, warm = 23)` |
+| C8 | The key forgets where the file is, so two drawings alike in size and age are one entry | yes | `so the only thing separating them is where they are, and that is enough to decode both (expected 2 decodes, 0 hits, got 1 decodes, 1 hits)` |
+| C9 | The cel is converted into the working space as if it were always the default sRGB | yes | `and the two answers are different pixels, because the second was never sRGB to undo (expected different, got **the same**)` |
+
+C6's failing row is worth a second look, because it is not the row anyone would have predicted.
+A cache that stores a cel larger than its whole budget is caught by the check on the cache
+**export uses** - the one whose budget is zero and which is therefore supposed to be incapable of
+holding anything. A zero budget makes every cel too large, so the one line that decides "too
+large means do not store it" is the same line that keeps the renderer's output path free of a
+cache at all. That is not a coincidence worth relying on, but it is worth knowing: the structural
+guarantee in ADR-015 and the size guard are one piece of code, and this table watches both.
+
+## Ninth pass: the six that got through, and what was added
+
+Six of the nine breaks above survived the fixture as first written, and they were not six
+separate oversights. They were three, each one a case of a fixture built entirely out of the
+reference shot, where the thing being distinguished happens never to vary.
+
+| What was broken | Why the fixture missed it | Added |
+|---|---|---|
+| C1, and C8 by the same weakness | The one changed-file check replaced a drawing with a *different* drawing, which changed its length **and** its time at once. Either half of the key alone would have passed it, so neither was actually being checked | The same drawing is now written a second time - identical length, later time - and must be decoded again; and a copy Windows makes of a drawing, which keeps both the length and the time, must not be mistaken for the original |
+| C2 and C9 | Every asset in the reference shot is straight-alpha sRGB, which is `Interpretation::default()`. A cache that ignored the interpretation, or that converted every cel as if it were the default, was indistinguishable from a correct one because the fixture never asked for anything else | One file is now asked for twice under two different interpretations - sRGB and linear light - and must be decoded twice into two different pictures, with the first answer still intact afterwards |
+| C3 and C4 | Every cel in the reference shot is 1920x1080, and playback asks for them in order. With cels all one size, subtracting the wrong one of two equal numbers is not observable; with access in order, least-recently-used and first-in-first-out evict the same entry | Three cels of 64x64, 32x32 and 16x16 are drawn in the test, and a budget of exactly the largest two. Asking for the largest again before adding the smallest makes the two eviction orders disagree about which cel goes, and the bytes held afterwards - 69,632 - is a number that only correct arithmetic produces |
+
+The pattern in all three is the same and is the useful thing to take from this pass: **a fixture
+made only of the real project can only see the ways the real project varies.** The reference shot
+is one resolution, one colour space and one alpha mode, so three whole fields of the cache's
+identity were being carried untested. Nothing here changed an expected value or a tolerance; the
+three additions are new cases, and two of them use images drawn inside the test precisely because
+the reference shot cannot express the difference.
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -484,8 +539,8 @@ the second is unreachable. The break was remade on the live path and caught ther
 not about this fixture: a mutation that survives may mean the test is weak, or it may mean the
 code it was made in cannot affect the result, and those two look identical from the outside.
 
-None of the nineteen survivors, across every pass, is a bug in the build as it stands. They are
-things the build was free to get wrong later without anything saying so.
+None of the twenty-five survivors, across every pass, is a bug in the build as it stands. They
+are things the build was free to get wrong later without anything saying so.
 
 A further handful of breaks were caught only by a crash rather than by a named row - the test
 stopped and printed a stack trace instead of showing the owner a table with one line marked
@@ -494,8 +549,15 @@ future failure there reads like the rest of the table.
 
 ## What this pass did not cover
 
-Every unit merged to `main` has now been broken on purpose at least once. As of B-08a that
-includes the assembly itself - the join between a saved project and a rendered frame - and as of
+**This section said until now that every unit merged to `main` had been broken on purpose at
+least once. That was not true when it was written, and it is worth saying so plainly rather than
+quietly correcting the sentence.** B-08b, the cache, had been merged and never broken; when it
+finally was, six of nine breaks got through. The window half of B-10 - the Export button, and the
+snapshot of the project taken when it is pressed - has still not been broken on purpose and is
+named here as owed rather than covered. The claim is now the narrower one: every unit **listed in
+this report** has been broken on purpose, and the list is not yet the whole build.
+
+Of what is covered, B-08a includes the assembly itself - the join between a saved project and a rendered frame - and as of
 T-08 it includes the files that leave the application: an export one frame short, a stop button
 that does nothing, a job that reports success after being refused, and half-transparent paint
 written dark are all breaks that were made and caught.

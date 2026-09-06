@@ -32,7 +32,16 @@
 //!   that, and budgeting on the disk figure would have overshot memory fourfold.
 //! - **The changed-file counts** follow from the key document 27 requires: path, length, mtime and
 //!   interpretation. Replace the file and the key no longer matches, so the second request is a
-//!   miss and the pixels are the new file's.
+//!   miss and the pixels are the new file's. Each part of that key is then moved on its own, since
+//!   a replacement that changes two parts at once proves neither: the same drawing written a second
+//!   time has the same length and a later time, and the same file asked for under a second
+//!   interpretation has the same length and the same time.
+//! - **The eviction arithmetic** is three cels of 64x64, 32x32 and 16x16, which hold 65,536, 16,384
+//!   and 4,096 bytes by the same multiplication as one cel above. A budget of 81,920 bytes is
+//!   exactly the first two. Adding the third must drop one cel and leave 69,632 bytes held, and
+//!   which cel it drops is the whole difference between least-recently-used and first-in-first-out.
+//!   These three are drawn here rather than taken from the reference shot because the reference
+//!   shot's cels are all one size, and cels of one size make wrong arithmetic invisible.
 //! - **The ten-loop values** are the same number ten times, which is the whole claim: a cache that
 //!   is bounded does not grow when you play the same shot again.
 //!
@@ -47,19 +56,26 @@
 use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog};
 use anime_compositor::model::{Id, Interpretation, Project};
-use anime_compositor::persist;
 use anime_compositor::preview::{self, PreviewQuality};
+use anime_compositor::{persist, png_out, AlphaMode, ColorSpace, OutputDepth};
 
 const COMP: &str = "comp-reference-shot";
 const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
 /// One decoded cel in the working space: RGBA f32 at the composition's extent.
 const ONE_CEL: usize = WIDTH * HEIGHT * 4 * std::mem::size_of::<f32>();
+/// The three sides of the drawn cels the eviction section uses, and what each costs to hold:
+/// side x side x 4 channels x 4 bytes, the same multiplication as [`ONE_CEL`].
+const SIDES: [usize; 3] = [64, 32, 16];
+const LARGE_BYTES: usize = SIDES[0] * SIDES[0] * 4 * std::mem::size_of::<f32>();
+const MIDDLE_BYTES: usize = SIDES[1] * SIDES[1] * 4 * std::mem::size_of::<f32>();
+const SMALL_BYTES: usize = SIDES[2] * SIDES[2] * 4 * std::mem::size_of::<f32>();
 /// Samples in a draft frame: a quarter on each axis, RGBA.
 const DRAFT_SAMPLES: usize = (WIDTH / 4) * (HEIGHT / 4) * 4;
 /// Samples in a full frame.
@@ -357,7 +373,175 @@ fn b08b_cache_is_invisible_in_the_result() {
         direct.data().len(),
         b.iter().zip(direct.data()).filter(|(x, y)| x == y).count(),
     );
+    // --- The same drawing written again: the length does not move, so the time has to. ---------
+    copy_as(&first, &cel);
+    let length = fs::metadata(&cel).expect("read the cel").len();
+    let fresh = decoded(&mut watching, &cel);
+    let before = modified_of(&cel);
+    let after = copy_again_later(&first, &cel, before);
+    report.check(
+        "Writing the same drawing again leaves its length alone and moves its time",
+        "same length, later time",
+        format!(
+            "{} length, {} time",
+            if fs::metadata(&cel).expect("read the cel").len() == length {
+                "same"
+            } else {
+                "**different**"
+            },
+            if after > before {
+                "later"
+            } else {
+                "**not later**"
+            }
+        ),
+    );
+    let decodes = watching.misses();
+    let rewritten = decoded(&mut watching, &cel);
+    report.check(
+        "and it is decoded again, because when a file was written is part of which file it is",
+        "1 more decode",
+        format!("{} more decode", watching.misses() - decodes),
+    );
+    report.check(
+        "and the answer is the same pixels, because only the time changed",
+        fresh.len(),
+        fresh.iter().zip(&rewritten).filter(|(x, y)| x == y).count(),
+    );
     let _ = fs::remove_file(&cel);
+
+    // --- Two files that differ in nothing but their name are still two files. ------------------
+    let twin = scratch.join("twin.png");
+    let twin_copy = scratch.join("twin_copy.png");
+    copy_as(&first, &twin);
+    fs::copy(&twin, &twin_copy).expect("copy the twin, times and all");
+    report.check(
+        "A copy Windows made of a drawing has the same length and the same time as the original",
+        "same length, same time",
+        format!(
+            "{} length, {} time",
+            if fs::metadata(&twin).expect("read the twin").len()
+                == fs::metadata(&twin_copy).expect("read the copy").len()
+            {
+                "same"
+            } else {
+                "**different**"
+            },
+            if modified_of(&twin) == modified_of(&twin_copy) {
+                "same"
+            } else {
+                "**different**"
+            }
+        ),
+    );
+    let mut twins = CelCache::with_budget(AMPLE);
+    decoded(&mut twins, &twin);
+    decoded(&mut twins, &twin_copy);
+    report.check(
+        "so the only thing separating them is where they are, and that is enough to decode both",
+        "2 decodes, 0 hits",
+        format!("{} decodes, {} hits", twins.misses(), twins.hits()),
+    );
+    let _ = fs::remove_file(&twin);
+    let _ = fs::remove_file(&twin_copy);
+
+    // --- The same file read two ways is two answers, not one remembered one. -------------------
+    let mut two_ways = CelCache::with_budget(AMPLE);
+    let as_srgb = read_as(&mut two_ways, &first, Interpretation::default());
+    let as_linear = read_as(
+        &mut two_ways,
+        &first,
+        Interpretation {
+            color_space: ColorSpace::LinearLight,
+            alpha: AlphaMode::Straight,
+        },
+    );
+    report.check(
+        "One file asked for under two interpretations is decoded twice, not answered from memory",
+        "2 decodes, 0 hits",
+        format!("{} decodes, {} hits", two_ways.misses(), two_ways.hits()),
+    );
+    report.check(
+        "and the two answers are different pixels, because the second was never sRGB to undo",
+        "different",
+        if as_linear == as_srgb {
+            "**the same**"
+        } else {
+            "different"
+        },
+    );
+    let again = read_as(&mut two_ways, &first, Interpretation::default());
+    report.check(
+        "and asking the first way again gives the first answer back, not the second",
+        format!("{} samples, from memory", as_srgb.len()),
+        format!(
+            "{} samples, {}",
+            again.iter().zip(&as_srgb).filter(|(x, y)| x == y).count(),
+            if two_ways.hits() == 1 {
+                "from memory"
+            } else {
+                "**decoded again**"
+            }
+        ),
+    );
+
+    // --- Which cel eviction drops, and the arithmetic that says how much room that made. -------
+    let large = scratch.join("large.png");
+    let middle = scratch.join("middle.png");
+    let small = scratch.join("small.png");
+    solid(&large, SIDES[0], [200, 40, 40, 255]);
+    solid(&middle, SIDES[1], [40, 200, 40, 255]);
+    solid(&small, SIDES[2], [40, 40, 200, 255]);
+
+    let mut two = CelCache::with_budget(LARGE_BYTES + MIDDLE_BYTES);
+    decoded(&mut two, &large);
+    decoded(&mut two, &middle);
+    report.check(
+        "Two cels of different sizes fill a budget that is exactly the two of them",
+        format!("2 cels, {} bytes, 0 evictions", LARGE_BYTES + MIDDLE_BYTES),
+        format!(
+            "{} cels, {} bytes, {} evictions",
+            two.len(),
+            two.held_bytes(),
+            two.evictions()
+        ),
+    );
+    let hits = two.hits();
+    decoded(&mut two, &large);
+    report.check(
+        "Asking again for the first of them is answered from memory",
+        "1 more hit",
+        format!("{} more hit", two.hits() - hits),
+    );
+    decoded(&mut two, &small);
+    report.check(
+        "A third cel drops exactly one, and the room that makes is the size of the one dropped",
+        format!("2 cels, {} bytes, 1 eviction", LARGE_BYTES + SMALL_BYTES),
+        format!(
+            "{} cels, {} bytes, {} eviction",
+            two.len(),
+            two.held_bytes(),
+            two.evictions()
+        ),
+    );
+    let hits = two.hits();
+    decoded(&mut two, &large);
+    report.check(
+        "and the one dropped is the one asked for longest ago, not the one stored longest ago",
+        "the first cel is still there",
+        if two.hits() > hits {
+            "the first cel is still there"
+        } else {
+            "**the first cel was dropped**"
+        },
+    );
+    let decodes = two.misses();
+    decoded(&mut two, &middle);
+    report.check(
+        "and the one that went has to be decoded again when it is asked for",
+        "1 more decode",
+        format!("{} more decode", two.misses() - decodes),
+    );
 
     // --- Ten loops of the same frames, which is what a person scrubbing actually does. ---------
     let mut looping = CelCache::with_budget(AMPLE);
@@ -406,13 +590,45 @@ fn b08b_cache_is_invisible_in_the_result() {
 fn copy_as(from: &Path, to: &Path) {
     let bytes = fs::read(from).unwrap_or_else(|e| panic!("read {}: {e}", from.display()));
     fs::write(to, bytes).unwrap_or_else(|e| panic!("write {}: {e}", to.display()));
-    // Windows keeps file times to 100 ns, so two writes a millisecond apart already differ. The
-    // two files also differ in length, so the key would change even if the clock did not.
+}
+
+fn modified_of(path: &Path) -> SystemTime {
+    fs::metadata(path)
+        .and_then(|m| m.modified())
+        .unwrap_or_else(|e| panic!("read the time of {}: {e}", path.display()))
+}
+
+/// Write `from` over `to` again and return the file's new time, which is required to be later than
+/// `after`. Windows keeps file times to 100 ns so this is normally true of the first write; the
+/// loop is here so that a coarser clock would make this slower rather than wrong.
+fn copy_again_later(from: &Path, to: &Path, after: SystemTime) -> SystemTime {
+    for _ in 0..100 {
+        copy_as(from, to);
+        let now = modified_of(to);
+        if now > after {
+            return now;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    panic!("the file's recorded time did not move in 100 writes");
+}
+
+/// A solid-colour PNG, `side` by `side`. Drawn rather than borrowed from the reference shot
+/// because every cel of the reference shot is one size, and cels of one size cannot tell a cache
+/// that subtracts the wrong number apart from one that subtracts the right one.
+fn solid(path: &Path, side: usize, rgba: [u8; 4]) {
+    let samples: Vec<u8> = rgba.iter().copied().cycle().take(side * side * 4).collect();
+    png_out::write_rgba(path, side, side, OutputDepth::Eight, &[], &samples)
+        .unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
 }
 
 fn decoded(cache: &mut CelCache, path: &Path) -> Vec<f32> {
+    read_as(cache, path, Interpretation::default())
+}
+
+fn read_as(cache: &mut CelCache, path: &Path, interpretation: Interpretation) -> Vec<f32> {
     cache
-        .decoded(path, Interpretation::default())
+        .decoded(path, interpretation)
         .unwrap_or_else(|d| panic!("decode {}: {}", path.display(), d.message))
         .data()
         .to_vec()
@@ -436,6 +652,24 @@ fn write_report(report: &Report, looping: &CelCache) {
          all are the same picture sample for sample. If a cache ever starts serving the wrong cel, \
          those rows are where it shows up as a number rather than as a picture somebody has to \
          notice looks wrong.\n\n",
+    );
+    out.push_str(
+        "The rows after those ask a narrower question: what makes the cache think two requests are \
+         for the same drawing. There are four answers - where the file is, how big it is, when it \
+         was written, and how the project says to read it - and each is checked on its own, by \
+         changing that one thing and nothing else. The same drawing written a second time keeps \
+         its size and gets a new time; a copy Windows makes keeps both and only moves; one file \
+         read as sRGB and again as linear light keeps everything and changes only the reading. If \
+         any of the four stopped counting, one of those rows would say so, and the picture on \
+         screen would not.\n\n",
+    );
+    out.push_str(
+        "The last group is about forgetting. A cache with a ceiling has to drop something, and the \
+         two questions are which cel it drops and how much room that made. Three cels of \
+         deliberately different sizes are used, because cels that are all the same size cannot \
+         tell right arithmetic from wrong. These three are drawn by the test rather than taken \
+         from the shot, and they are the only pictures in this table that are not the shot's own \
+         art.\n\n",
     );
     let _ = writeln!(
         out,
