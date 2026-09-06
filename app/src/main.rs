@@ -19,31 +19,43 @@
 //!
 //! And D-33's indicator is a header on every response, derived from the quality that rendered
 //! the frame, so it cannot describe a resolution other than the one on screen.
+//!
+//! A project reaches the window two ways: named on the command line, or dropped on it. Both go
+//! through [`open`], which is `persist::load` and nothing else, so what the viewer says about a
+//! project is what the core said about it — including everything document 28 asks to be told.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
-use anime_compositor::diagnostics::FrameLog;
+use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::model::{Id, Project};
 use anime_compositor::persist;
 use anime_compositor::preview::{self, Playback, PreviewQuality};
 use tauri::http::{Request, Response};
-use tauri::Manager;
+use tauri::{DragDropEvent, Manager, WindowEvent};
 
 /// What the shell is looking at.
 ///
-/// One project, one composition, one clock. There is no file-open interface yet, so the project
-/// is the reference shot and the path to it is a development convenience — see [`open`].
+/// One project, one composition, one clock, and whatever the core had to say when it was
+/// opened.
 struct Viewer {
     project: Project,
-    /// The directory asset paths resolve against, which is the fixture root and not the
-    /// project file's own directory.
+    /// The directory asset paths resolve against. Normally the project file's own directory,
+    /// which is the rule `persist::load` checks media against — see [`demo`] for the one
+    /// exception and why it exists.
     root: PathBuf,
     composition: Id,
     quality: PreviewQuality,
     playback: Playback,
+    /// What to call the open project on screen.
+    name: String,
+    /// Document 28's warnings from opening it, verbatim, or empty when there were none.
+    /// Never summarised and never dropped: a project that opened with missing media is not the
+    /// same project as one that opened cleanly, and the window has to say which one is on
+    /// screen.
+    notes: Vec<String>,
 }
 
 /// What the page is asking for.
@@ -81,10 +93,32 @@ fn parse(path: &str, query: Option<&str>) -> Option<(Ask, Option<PreviewQuality>
     Some((ask, quality))
 }
 
-/// The page and the frames are different origins, so the page can only read a frame if the
-/// response says so. Exposing the headers is the half that is easy to forget: without it the
-/// pixels arrive and every `x-` header beside them reads as absent, which would leave the frame
-/// number and the resolution indicator describing nothing.
+/// Percent-encode a string so it can travel in an HTTP header and arrive unharmed.
+///
+/// Header values are bytes, and a project called `背景_日本語` or a diagnostic quoting a path
+/// with a Japanese directory in it is not ASCII. Sending those bytes raw would either be
+/// rejected or arrive as mojibake, and mojibake in a *diagnostic* is worse than no diagnostic:
+/// the person is told the wrong filename. The page reads these with `decodeURIComponent`.
+///
+/// Everything outside printable ASCII is encoded, and so is `%` itself, so decoding is exact.
+fn for_a_header(text: &str) -> String {
+    let mut encoded = String::with_capacity(text.len());
+    for byte in text.bytes() {
+        match byte {
+            b'%' | 0x00..=0x1f | 0x7f..=0xff => {
+                encoded.push_str(&format!("%{byte:02X}"));
+            }
+            _ => encoded.push(byte as char),
+        }
+    }
+    encoded
+}
+
+/// Let the page read the headers, not only receive them.
+///
+/// The webview treats `http://frame.localhost` as a different origin from the page, so a
+/// response without both of these is fetched successfully and then withheld: the body fails
+/// CORS and every `x-` header reads as absent. Both are needed; either alone is silence.
 fn allow_the_page_to_read_this(
     response: tauri::http::response::Builder,
 ) -> tauri::http::response::Builder {
@@ -135,8 +169,7 @@ fn serve(viewer: &Mutex<Viewer>, ask: Ask, quality: Option<PreviewQuality>) -> R
         // Document 28: a frame that cannot be made is reported, never replaced by something
         // that looks like a frame. The page shows this sentence instead of a picture.
         Err(diagnostic) => {
-            return allow_the_page_to_read_this(Response::builder())
-                .status(500)
+            return allow_the_page_to_read_this(Response::builder().status(500))
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(diagnostic.message.into_bytes())
                 .expect("build the diagnostic response")
@@ -156,6 +189,8 @@ fn serve(viewer: &Mutex<Viewer>, ask: Ask, quality: Option<PreviewQuality>) -> R
             "x-differs",
             viewer.quality.differs_from_export().to_string(),
         )
+        .header("x-project", for_a_header(&viewer.name))
+        .header("x-notes", for_a_header(&viewer.notes.join("\n")))
         // The playback report belongs to playback. A stepped frame did not come from the clock
         // and saying "played 0 frames" beside it would be a sentence about nothing.
         .header(
@@ -169,47 +204,113 @@ fn serve(viewer: &Mutex<Viewer>, ask: Ask, quality: Option<PreviewQuality>) -> R
         .expect("build the frame response")
 }
 
-/// The project the window opens on.
+/// Open a project file.
 ///
-/// Hard-coded, deliberately and temporarily: there is no open dialog yet, and a viewer with
-/// nothing in it cannot be looked at. It is the reference shot, resolved against this crate's
-/// source directory, so the shell only runs from a checkout. When B-09 brings a real open
-/// command this function is what it replaces.
-fn open() -> Viewer {
+/// This is `persist::load` and a composition to look at. Media resolves against the project
+/// file's own directory, which is the rule the core checks media against, so what the viewer
+/// renders and what the core warned about are the same set of files.
+fn open(path: &Path) -> Result<Viewer, Diagnostic> {
+    let loaded = persist::load(path)?;
+    let project = loaded.document.project().clone();
+    let composition = project.compositions.first().ok_or_else(|| {
+        Diagnostic::new(
+            DiagnosticId::ProjectSchemaInvalid,
+            Severity::Error,
+            "This project has no composition to show.",
+            format!("{} contains an empty compositions array.", path.display()),
+        )
+        .with_remediation("The project that was open is still open. Nothing was changed.")
+    })?;
+    let first = composition.start_frame;
+    let last = first + composition.duration_frames as i32 - 1;
+    let playback = Playback::new(first, last, composition.frame_rate);
+    let composition = composition.id.clone();
+    Ok(Viewer {
+        project,
+        root: path.parent().unwrap_or(Path::new(".")).to_path_buf(),
+        composition,
+        quality: PreviewQuality::default(),
+        playback,
+        name: path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.display().to_string()),
+        notes: loaded.warnings.iter().map(sentence).collect(),
+    })
+}
+
+/// One diagnostic as the window says it: what happened, then what to do about it.
+fn sentence(diagnostic: &Diagnostic) -> String {
+    match &diagnostic.remediation {
+        Some(next) => format!("{} {}", diagnostic.message, next),
+        None => diagnostic.message.clone(),
+    }
+}
+
+/// The project the window opens on when it was not given one.
+///
+/// The reference shot, resolved against this crate's source directory, so it only works from a
+/// checkout. Its media root is overridden because this one project is not where a project
+/// normally is: `verification/B-08a_project.json` is written by `cargo test` into `verification`
+/// while the cels it names live under `Fixtures/reference_shot`. The load warnings are dropped
+/// with it, because they describe the directory this project is *not* rendered against and
+/// would name files that are present. That is a development convenience and the only one; a
+/// project the person actually opens goes through [`open`] unaltered.
+fn demo() -> Viewer {
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("the app crate has a parent directory")
         .to_path_buf();
     let path = repo.join("verification/B-08a_project.json");
-    let loaded =
-        persist::load(&path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message));
-    let project = loaded.document.project().clone();
-    let composition = project
-        .compositions
-        .first()
-        .expect("the reference shot has a composition");
-    let first = composition.start_frame;
-    let last = first + composition.duration_frames as i32 - 1;
-    let playback = Playback::new(first, last, composition.frame_rate);
-    let composition = composition.id.clone();
-    Viewer {
-        project,
-        root: repo.join("Fixtures/reference_shot"),
-        composition,
-        quality: PreviewQuality::default(),
-        playback,
+    let mut viewer =
+        open(&path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message));
+    viewer.root = repo.join("Fixtures/reference_shot");
+    viewer.name = "the reference shot".to_string();
+    viewer.notes.clear();
+    viewer
+}
+
+/// Load a dropped or named file into the viewer, or report why it could not be.
+///
+/// A file that cannot be opened leaves the project that was open exactly as it was and adds the
+/// reason to what the window is saying. Closing a working project because the next one was
+/// unreadable would lose the person their place to punish them for a bad drop.
+fn take(viewer: &Mutex<Viewer>, path: &Path) {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    match open(path) {
+        Ok(opened) => *viewer = opened,
+        Err(diagnostic) => viewer.notes = vec![sentence(&diagnostic)],
     }
 }
 
 fn main() {
+    // A project named on the command line goes through the same `take` a dropped one does, so
+    // the two ways in cannot behave differently. It is also the only one a script can drive,
+    // which is how the photographs under `verification/` are taken.
+    let viewer = Mutex::new(demo());
+    if let Some(named) = std::env::args_os().nth(1) {
+        take(&viewer, Path::new(&named));
+    }
+
     tauri::Builder::default()
-        .manage(Mutex::new(open()))
+        .manage(viewer)
+        .on_window_event(|window, event| {
+            let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event else {
+                return;
+            };
+            let Some(path) = paths.first() else { return };
+            take(&window.state::<Mutex<Viewer>>(), path);
+            // The page is stateless about the project — everything it says comes back with a
+            // frame — so reloading it is the whole of the update.
+            if let Some(page) = window.get_webview_window("main") {
+                let _ = page.eval("location.reload()");
+            }
+        })
         .register_uri_scheme_protocol("frame", |ctx, request: Request<Vec<u8>>| {
             let viewer = ctx.app_handle().state::<Mutex<Viewer>>();
             match parse(request.uri().path(), request.uri().query()) {
                 Some((ask, quality)) => serve(&viewer, ask, quality),
-                None => allow_the_page_to_read_this(Response::builder())
-                    .status(404)
+                None => allow_the_page_to_read_this(Response::builder().status(404))
                     .header("content-type", "text/plain; charset=utf-8")
                     .body(b"ask for /at/<milliseconds> or /frame/<number>".to_vec())
                     .expect("build the not-found response"),
@@ -254,6 +355,31 @@ mod tests {
         assert_eq!(
             parse("/at/0", Some("quality=full")),
             Some((Ask::At(0), None))
+        );
+    }
+
+    /// Expected bytes worked out from UTF-8 by hand, not read off this function: 夜 is
+    /// E5 A4 9C and 空 is E7 A9 BA. A wrong encoder that agreed with itself would still fail
+    /// here.
+    #[test]
+    fn japanese_survives_the_journey_into_a_header() {
+        assert_eq!(for_a_header("夜空"), "%E5%A4%9C%E7%A9%BA");
+        assert_eq!(
+            for_a_header("media/背景/夜空.png"),
+            "media/%E8%83%8C%E6%99%AF/%E5%A4%9C%E7%A9%BA.png"
+        );
+    }
+
+    /// Newlines separate the notes and `%` would otherwise make decoding ambiguous, so both are
+    /// encoded. Ordinary punctuation is left alone, because a diagnostic is meant to be read in
+    /// the header as well as after it.
+    #[test]
+    fn encodes_only_what_a_header_cannot_carry() {
+        assert_eq!(for_a_header("one\ntwo"), "one%0Atwo");
+        assert_eq!(for_a_header("100% sure"), "100%25 sure");
+        assert_eq!(
+            for_a_header("2 of the files for \"layer3\" are missing."),
+            "2 of the files for \"layer3\" are missing."
         );
     }
 }
