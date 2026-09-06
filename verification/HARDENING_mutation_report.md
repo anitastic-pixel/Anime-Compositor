@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**181 breaks were made across eighteen units. All 181 were caught.**
+**190 breaks were made across nineteen units. All 190 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -57,7 +57,10 @@ comment it disproved was corrected rather than the fixture strengthened - that s
 full in its own section below. The eleventh is B-08b, the bounded cache of decoded cels, and it
 is the worst result in this report: 9 breaks, **six of which got through the first time**, and
 all nine caught after the fixture was strengthened. All six had one cause, described in its own
-section below, and it is a cause worth knowing about before it happens again.
+section below, and it is a cause worth knowing about before it happens again. The twelfth is the
+window half of B-10 - the Export button, the folder it writes into and the snapshot of the project
+it takes when pressed - which the section at the end of this report named as owed until it was
+done: 9 breaks, one of which got through, and all nine caught afterwards.
 
 
 ## B-02 colour and alpha
@@ -479,6 +482,46 @@ identity were being carried untested. Nothing here changed an expected value or 
 three additions are new cases, and two of them use images drawn inside the test precisely because
 the reference shot cannot express the difference.
 
+## B-10 window: the Export button and the snapshot it takes
+
+`app/src/main.rs`, the export section, checked by its own `exporting` test, whose table is
+`verification/B-10_export_table.md`.
+
+**9 of 9 breaks caught, after one got through.**
+
+The renderer's own export was hardened long ago and is the T-08 and B-10 sections above. This is
+the half between the button and the renderer, and it is small: it decides which frames to ask for,
+what the files are called, at what depth and alpha, and what sentence the person reads afterwards.
+Every one of those is a place where the window could quietly disagree with the export it just
+commissioned.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| W1 | The range runs one frame past the end of the work area | yes | `the range offered is the work area, first to last frame inclusive (expected 0 to 239, got 0 to 240)` |
+| W2 | The frame number is three digits wide, so a shot past 999 frames sorts wrongly | yes | `the files are named for the project and carry the frame number, four digits wide (expected the reference shot_%04d.png, got the reference shot_%03d.png)` |
+| W3 | Every export is named "shot", so two shots into one folder overwrite each other | yes | `the files are named for the project and carry the frame number, four digits wide (expected the reference shot_%04d.png, got shot_%04d.png)` |
+| W4 | The window exports sixteen-bit files, not the eight the export fixtures were written with | yes | `at eight bits with straight alpha (expected Eight, Straight, got Sixteen, Straight)` |
+| W5 | The window exports premultiplied alpha instead of straight | yes | `at eight bits with straight alpha (expected Eight, Straight, got Eight, Premultiplied)` |
+| W6 | A blocked export reports itself as a successful one that wrote no frames | yes | `by default a frame whose drawing is missing stops the export before anything is written (expected Nothing was exported., got the window said: Exported 0 frames into ...)` |
+| W7 | The core's diagnostics are dropped, so the window shows only its own sentence | yes | six rows at once, including `and the drawing that is missing is still reported rather than passed over in silence` |
+| W8 | A cancelled export is worded as a completed one | **no, first time** | after the fixture was strengthened: `and the window's own first sentence says what is there, not that it exported them (expected The 0 frames that finished are in ..., got the window said: Exported 0 frames into ...)` |
+| W9 | A failed export counts the frames it wrote as the frames it was asked for | yes | `an export into a folder that is not there says how far it got before it stopped (expected The export stopped on a problem after 0 of 2 frames, got ... after 0 of 0 frames)` |
+
+## Tenth pass: the one that got through, and what was added
+
+| Unit | What was broken | Why the fixture missed it | Added |
+|---|---|---|---|
+| B-10 window | A cancelled export is worded as a completed one | The cancellation row quoted the *core's diagnostic* - "Export stopped at your request after 0 of 2 frames" - which the break did not touch. The window's own opening sentence, which is the first thing the person reads, was not quoted by any row, so a window that said "Exported 0 frames" and then reported a cancellation underneath passed | A row quoting that opening sentence: "The 0 frames that finished are in ...". The two sentences are now checked separately, because they can disagree, and a window telling the person two different things about one job is exactly the failure worth catching |
+
+One break in this pass was withdrawn and remade, for a reason worth recording because it looks
+like a result and is not. The break aimed at the export range was written as a search for the line
+`let last = first + viewer.playback.length() as i32 - 1;`, which appears twice in the file at two
+indentations, and the search matched the tail of the wrong one. The test passed, and it passed
+honestly: the line that had been broken was not the line the test was looking at. Re-aimed with
+enough surrounding text to be unambiguous, it was caught immediately. **A survivor is only a
+result if the break landed where it was aimed**, and the cheapest way to be sure is to read the
+file back rather than to trust the run.
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -539,7 +582,7 @@ the second is unreachable. The break was remade on the live path and caught ther
 not about this fixture: a mutation that survives may mean the test is weak, or it may mean the
 code it was made in cannot affect the result, and those two look identical from the outside.
 
-None of the twenty-five survivors, across every pass, is a bug in the build as it stands. They
+None of the twenty-six survivors, across every pass, is a bug in the build as it stands. They
 are things the build was free to get wrong later without anything saying so.
 
 A further handful of breaks were caught only by a crash rather than by a named row - the test
@@ -553,9 +596,11 @@ future failure there reads like the rest of the table.
 least once. That was not true when it was written, and it is worth saying so plainly rather than
 quietly correcting the sentence.** B-08b, the cache, had been merged and never broken; when it
 finally was, six of nine breaks got through. The window half of B-10 - the Export button, and the
-snapshot of the project taken when it is pressed - has still not been broken on purpose and is
-named here as owed rather than covered. The claim is now the narrower one: every unit **listed in
-this report** has been broken on purpose, and the list is not yet the whole build.
+snapshot of the project taken when it is pressed - was named here as owed rather than covered, and
+has since been done: nine breaks, one of which got through, in its own section above. The claim is
+the narrower one from now on: every unit **listed in this report** has been broken on purpose, and
+the list is not by itself proof that it is the whole build. What is known to be outside it today
+is named in the paragraph below.
 
 Of what is covered, B-08a includes the assembly itself - the join between a saved project and a rendered frame - and as of
 T-08 it includes the files that leave the application: an export one frame short, a stop button
@@ -576,3 +621,14 @@ a layer that is moved, turned or scaled are checked by B-05a's table, pixel by n
 rather than here. Nothing has been
 mutation-tested against timing or memory behaviour either, which is measurement rather than
 correctness and belongs with the performance work in document 24.
+
+**What is outside this report today, named rather than left to be assumed.** Every section above
+covers either the engine or, since B-10, one part of the window. The rest of the window has not
+been broken on purpose: the save and Save As half of B-09, checked by
+`verification/B-09_save_table.md`; the autosave and recovery half, checked by
+`verification/B-09_recovery_table.md`; and the viewer shell itself - the transport that carries a
+frame into the web view and the wall-clock loop that drives playback - whose artifact is
+`verification/B-08_window_shell.md` and is photographs rather than a table. Those three are the
+next passes. Nothing about them is known to be wrong; they are simply not yet covered by this
+report, and this paragraph exists so that the absence is on the page rather than in someone's
+memory.

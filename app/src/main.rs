@@ -1888,6 +1888,16 @@ mod exporting {
             &"Export stopped at your request after 0 of 2 frames",
             &says("Export stopped at your request after 0 of 2 frames", &said),
         );
+        // The sentence above is the core's diagnostic. This one is the window's own opening line,
+        // and it is checked separately because the two can disagree: a window that says "Exported
+        // 0 frames" and then reports a cancellation underneath has told the person two different
+        // things about the same job, and the diagnostic row alone cannot see it.
+        let finished = format!("The 0 frames that finished are in {}.", elsewhere.display());
+        check(
+            "and the window's own first sentence says what is there, not that it exported them",
+            &finished,
+            &says(&finished, &said),
+        );
         check(
             "and left no half-written file behind",
             &"[]",
