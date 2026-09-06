@@ -2,7 +2,7 @@
 
 The artifact is `docs/DEPENDENCIES.md` and the archived licence texts under `Licenses/`. This is the check that keeps them true: it asks cargo what the build resolves for the one platform this project supports, and requires that the answer and the record agree in both directions. Produced by `tests/b11_dependency_record.rs`.
 
-The build currently resolves **271 dependencies** beneath the four the workspace manifests name. `Cargo.lock` lists more, because it covers every platform cargo could resolve for; the count here is what compiles on `x86_64-pc-windows-msvc`.
+The build currently resolves **271 dependencies** beneath the six the workspace manifests name. `Cargo.lock` lists more, because it covers every platform cargo could resolve for; the count here is what compiles on `x86_64-pc-windows-msvc`.
 
 This check reads no licence and decides nothing about one. Document 10 reserves that for a reviewer, and there has not been one.
 

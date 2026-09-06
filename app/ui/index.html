@@ -11,7 +11,13 @@
     font: 13px/1.5 "Segoe UI", system-ui, sans-serif;
     user-select: none;
   }
-  #stage { flex: 1; display: grid; place-items: center; min-height: 0; padding: 12px; }
+  /* `minmax(0, 1fr)` and not `1fr`: a grid track sizes itself to its item first, so the canvas
+     would make the row taller than the stage and then be cut off by the bar at large text sizes
+     rather than shrinking to fit. */
+  #stage {
+    flex: 1; display: grid; place-items: center; min-height: 0; padding: 12px;
+    grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
+  }
   /* Checkerboard, so a transparent frame reads as transparent rather than as black. */
   canvas {
     max-width: 100%; max-height: 100%; image-rendering: pixelated;
@@ -21,15 +27,26 @@
       linear-gradient(45deg, #333338 25%, transparent 25%, transparent 75%, #333338 75%);
     background-size: 16px 16px; background-position: 0 0, 8px 8px;
   }
+  /* Q-03, display scaling: at a large text size in a small window the bar wraps onto many lines,
+     and a bar allowed to grow without limit takes the whole window and the picture disappears.
+     It keeps at most half and scrolls the rest, so the thing being composited is always on
+     screen. */
   #bar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 8px 12px; border-top: 1px solid #26262b; background: #1a1a1d;
+    max-height: 50vh; overflow-y: auto;
   }
   button {
     font: inherit; color: inherit; background: #26262b;
     border: 1px solid #35353c; border-radius: 4px; padding: 3px 10px; cursor: pointer;
   }
   button:hover { background: #303038; }
+  /* Q-03: every control must be reachable by keyboard and it must be obvious which one has the
+     keyboard. The ring is its own colour — orange already means a warning here and green already
+     means a save happened, so a third meaning would have to borrow one of those. */
+  button:focus-visible, select:focus-visible {
+    outline: 2px solid #7aa7ff; outline-offset: 2px;
+  }
   #quality { font-weight: 600; }
   /* D-33 / R-06a: the indication that preview differs from export is never subtle and never
      absent. It is coloured only when it differs; a full-resolution preview is the quiet case. */
@@ -86,7 +103,9 @@ addEventListener('error', (e) => {
   r.className = 'dropped';
 });
 // The frame transport, D-36: a custom URI scheme, not IPC. On Windows a custom scheme is served
-// at http://<name>.localhost, which is why this is not spelled frame://localhost.
+// over http with the scheme's name as a subdomain of localhost, which is why these two read the
+// way they do rather than as a scheme of their own. Both addresses are on this machine, and
+// `tests/b11_offline_record.rs` requires that every address written in this file is.
 const FRAMES = 'http://frame.localhost';
 // The command transport, beside the frame one: open, save, save as, recent. A command is a
 // request with an answer, and its answer is the sentence the status line shows.
@@ -233,6 +252,12 @@ async function fillRecent() {
 }
 
 addEventListener('keydown', (e) => {
+  // Q-03: a control that has the keyboard keeps it. Space on the focused Save button has to save,
+  // not start playback, and an arrow on the recent list has to move through the list. The
+  // accelerators below are for when nothing in particular is focused; Ctrl combinations are not,
+  // because those mean the same thing everywhere and no button answers them.
+  const onAControl = e.target instanceof Element && e.target.closest('button, select');
+  if (onAControl && !e.ctrlKey) return;
   if (e.ctrlKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); command('/open'); }
   else if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
     e.preventDefault();
