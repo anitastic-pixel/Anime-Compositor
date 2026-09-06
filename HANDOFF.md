@@ -251,6 +251,26 @@ What H-02, the same check with the layers moved, settled and left:
   wrong order unnoticed, and with every sampled layer transparent at its border, clamping to the
   edge pixel is indistinguishable from transparent black.
 
+What H-03, the same check with the blend modes on, settled and left:
+
+- Every layer in H-01 and H-02 is normal, which the renderer routes past the unpremultiply
+  entirely, so the arithmetic multiply, screen and add share had never touched an assembled
+  frame. H-03 composites frames 0, 14 and 100 with layer 2 on multiply, layer 3 on screen at half
+  opacity and layer 4 on add, against a third compositor written from document 21 lines 65-77.
+  Transforms stay at the identity so a disagreement cannot be blamed on resampling. Largest
+  disagreement seen: 2.81e-7, against a 1e-6 bound. `verification/H-03_blended_table.md`.
+- Two of its nine deliberate faults survived the first draft and both are the same lesson, which
+  is new to this project: **a picture with an opaque background cannot check anything about
+  transparency.** Layer 1 fills the frame, so every blend lands on something solid, where the
+  `As*Ad` weight is 1 and the difference between `As + Ad - As*Ad` and `min(1, As+Ad)` is nothing.
+  Two more pictures were added: one layer over nothing, and frame 110 with the background removed.
+- Frame 110 and not 100 because the count of half-transparent pixels landing on half-transparent
+  pixels is 22,502 there and **zero** at frame 100. That count is a row of its own now, so the
+  check cannot go hollow without saying so. It was found by measuring, not by assuming.
+- The row written to catch the missing weight originally used multiply and could not fail:
+  multiply's blend against an empty background is zero, so the mis-weighted term is zero either
+  way. Screen is the mode that shows it.
+
 What the T-07 export half settled and left:
 
 - A project saved, reopened from the file on disk and exported produces files byte-identical to

@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**219 breaks were made across twenty-two units. All 219 were caught.**
+**228 breaks were made across twenty-three units. All 228 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -70,8 +70,13 @@ survived because the rows that were meant to time the two-minute wait all ticked
 timer first saw the work, when its clock reads zero and any waiting time at all would pass. The
 fifteenth is the viewer shell - the transport that carries a rendered frame out to the page, which
 every section at the end of this report has named as the last thing owed since the hardening work
-began: 11 breaks, one of which got through, and all eleven caught afterwards. It is the last unit
-of the build that had never been broken on purpose.
+began: 11 breaks, one of which got through, and all eleven caught afterwards. It was the last unit
+of the build that had never been broken on purpose. The sixteenth is H-03, which is not a unit of
+the build either but a third independent compositor, this one arguing about blend modes: 9 breaks,
+**two of which got through**, and all nine caught afterwards. Both survivors were faults in how
+transparency is weighted, and both survived for the same reason - the reference shot's background
+layer is opaque and fills the frame, so every blend in the picture lands on something solid, where
+the weighting cannot be wrong. What they cost is described in its own section.
 
 
 ## B-02 colour and alpha
@@ -668,6 +673,69 @@ true contract. The rows were wrong, not the build, and nothing was weakened to m
 a row written from an assumption rather than from the code is a fixture that agrees with whatever
 the author expected, which is the failure this whole report exists to find.
 
+## H-03 the whole picture with the layers set to multiply, screen and add
+
+`src/composite.rs`, `src/compose.rs` and `src/render.rs`, checked by `tests/h03_blended_picture.rs`,
+whose table is `verification/H-03_blended_table.md`.
+
+**9 of 9 breaks caught, after two got through.**
+
+H-01 and H-02 composite the reference shot against an independent compositor, but every layer in
+both of them is set to normal - the one mode that takes a different route through the code. The
+arithmetic the other three modes share had never been run on a real picture by anything here; the
+only thing checking it was B-05c, eighteen single pixels of made-up colour, whose own table says
+*"Nothing assembles a render from a saved project yet, so no test here can show a mode travelling
+from a file to the screen."* This closes that, and document 21 line 77 asks for it in as many
+words: *"Independent fixtures in 25 must verify each mode before the GPU implementation is
+accepted."*
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| W1 | The blend is done on premultiplied colour instead of straight | yes | `frame 0 ... (expected 0 pixels differ by more than the bound, got 266332 pixels differ by more than the bound)` |
+| W2 | Screen adds the two colours without taking their product back off | yes | `frame 0 ... got 70400 pixels differ by more than the bound` |
+| W3 | Add is left unbounded instead of clamped to 1 | yes | `frame 0 ... got 160801 pixels differ by more than the bound` |
+| W4 | The blended term forgets that what is underneath is not opaque | **no, first time** | after the fixture was strengthened: `a screen layer over nothing at all is its own colour, exactly as the same layer set to normal would be (expected identical, got 5e-1 apart at the furthest pixel)` |
+| W5 | The source term is not weighted by what is underneath | yes | `frame 0 ... got 305526 pixels differ by more than the bound` |
+| W6 | The destination term is dropped entirely | yes | `frame 0 ... got 2073600 pixels differ by more than the bound` |
+| W7 | The two alphas are added together without removing the part they share | **no, first time** | after the fixture was strengthened: `frame 110 with the opaque background layer removed: the modes still agree with the second compositor where soft edges meet soft edges (expected 0 pixels differ by more than the bound, got 22502 pixels differ by more than the bound)` |
+| W8 | The mode is stored on the layer but never reaches the renderer | yes | `frame 0 ... got 304970 pixels differ by more than the bound`, and seven more including the control row |
+| W9 | Opacity is applied after the blend instead of before it | yes | `frame 0 ... got 2073600 pixels differ by more than the bound` |
+
+## Fourteenth pass: the two that got through, and what was added
+
+| Unit | What was broken | Why the fixture missed it | Added |
+|---|---|---|---|
+| H-03 | The blended term is weighted by the source's transparency but not the destination's (W4) | Layer 1 of the reference shot is opaque and fills the frame, so every blend in the picture happens against a solid background where that weight is 1 and dropping it changes nothing | A second picture with one layer and nothing under it, where the weight is 0 and the blended term must vanish entirely |
+| H-03 | Two transparencies are combined as `min(1, As+Ad)` rather than `As + Ad - As*Ad` (W7) | The same reason from the other end: with an opaque background both formulas give 1, and the two are only distinguishable when *both* alphas are strictly between 0 and 1, which never happens once the background has filled the frame | A third picture, frame 110 with the background layer removed, where layer 4's half-transparent interior lands on layer 2's antialiased ring - plus a row that counts those meetings and fails if there are not thousands |
+
+Both survivors have one cause and it is a new one for this report: **a picture with an opaque
+background cannot check anything about transparency.** It is close kin to *a fixture checks the
+path it was written from*, but it is worth stating separately, because the fixture here was not
+written from a narrow path - it was written from the whole reference shot, three frames of it, six
+million pixels, and it was still blind. The blindness is a property of the *subject*, not of the
+rows: your background layer is opaque by design, so the moment it is drawn every later blend has a
+solid destination and the entire question of how transparency combines stops being asked.
+
+Two smaller things belong on the page.
+
+**The row written to catch W4 could not have caught it.** The first draft used a multiply layer
+over nothing, on the reasoning that a multiply layer against an empty background is the case people
+find surprising. It is - but multiply's blend of a colour with nothing is nothing, so the term that
+the break mis-weights is zero either way and the row passes for both builds. Screen over nothing is
+the layer's own colour, which is exactly the quantity the missing weight would add in twice. The
+row was written from an intuition about which case is surprising rather than from the arithmetic,
+and only the mutation showed the difference.
+
+**The frame the row uses was chosen by measurement, not by assumption.** The obvious frame was 100,
+the one the pictures are written from. At frame 100 the count of half-transparent pixels meeting
+half-transparent pixels is **zero** - layer 4's 50% interior and layer 2's soft ring simply do not
+overlap there - so the row would have passed a broken build while looking thorough. Frame 110 has
+22,502 of them. The count is now a row of its own, so if the shot or the timing ever changes in a
+way that removes them, the table says so instead of quietly going hollow.
+
+Nothing in `Fixtures/` was touched, no expected value was edited and no tolerance was loosened. The
+table is new, so it does not grow: it starts at 10 checks.
+
 ## First pass: the six that got through, and what was added
 
 The import fixture was the weak one. These six breaks left every test passing, which means a
@@ -728,7 +796,7 @@ the second is unreachable. The break was remade on the live path and caught ther
 not about this fixture: a mutation that survives may mean the test is weak, or it may mean the
 code it was made in cannot affect the result, and those two look identical from the outside.
 
-None of the thirty-four survivors, across every pass, is a bug in the build as it stands. They
+None of the thirty-six survivors, across every pass, is a bug in the build as it stands. They
 are things the build was free to get wrong later without anything saying so.
 
 A further handful of breaks were caught only by a crash rather than by a named row - the test
@@ -767,8 +835,11 @@ different property: that two exports of the shot are byte for byte the same, and
 twenty frames with no drawing have none of that layer's paint in them. Neither of those is
 a claim that the picture is right. Both cover
 only the reference shot, whose layers all sit at the identity transform - the sampling rules for
-a layer that is moved, turned or scaled are checked by B-05a's table, pixel by named pixel,
-rather than here. Nothing has been
+a layer that is moved, turned or scaled are checked by B-05a's table, pixel by named pixel, and by
+H-02 at whole-picture scale. Every layer in H-01 and H-02 is set to normal; the other three blend
+modes on a whole picture are H-03's, added since this paragraph was written, and the two breaks
+that got through it are the reason the section above says an opaque background cannot check
+transparency. Nothing has been
 mutation-tested against timing or memory behaviour either, which is measurement rather than
 correctness and belongs with the performance work in document 24.
 
