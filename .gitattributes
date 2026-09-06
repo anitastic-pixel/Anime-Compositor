@@ -21,4 +21,12 @@ Licenses/** -text
 # committed copy against what a run produces. A Windows checkout that converts them shows
 # every artifact as modified when nothing about the build has changed, which buries a real
 # difference in noise. They are LF everywhere.
-verification/** text eol=lf
+verification/**/*.md text eol=lf
+verification/**/*.py text eol=lf
+
+# Named by extension rather than as verification/**, deliberately. A blanket rule there also
+# claims the rendered PNGs, and declaring a PNG to be text tells git to convert line endings
+# inside it - which is to say, to corrupt every artifact the owner looks at. That is not a
+# hypothetical: the blanket form was written here first and CI caught it rewriting eighteen
+# images. Anything binary added under verification/ needs no rule; the absence of one is what
+# keeps it intact.
