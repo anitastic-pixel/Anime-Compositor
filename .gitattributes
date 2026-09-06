@@ -4,3 +4,8 @@
 # two bytes and a round-trip test that should pass fails for a reason that has nothing to do
 # with the code.
 *.json text eol=lf
+
+# The wrappers in scripts/ are shell scripts run by bash. A carriage return at the end of a
+# line is part of the command as far as bash is concerned, so a CRLF checkout turns every one
+# of them into a not-found error. They are LF on every machine.
+scripts/* text eol=lf

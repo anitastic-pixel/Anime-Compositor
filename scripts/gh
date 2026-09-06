@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# scripts/gh - the GitHub CLI, with this repository's credentials and without the verbs
+# that destroy things.
+#
+# `gh auth login` has never been run on this machine; the token lives in the git credential
+# helper. Every call therefore needed the same three-line ceremony to fetch it, which made
+# routine pull request work look unusual enough to be stopped. This wrapper does the
+# ceremony once and refuses the operations that delete or rewrite rather than create, so
+# that opening, reading and merging pull requests can happen unattended while deleting a
+# branch, a release or a repository still needs a person.
+#
+# Usage: scripts/gh pr view 27 --json mergeable
+set -euo pipefail
+
+refuse() {
+  echo "scripts/gh refuses '$1': this wrapper does not delete or reconfigure anything." >&2
+  echo "If that is genuinely what is wanted, the owner can run gh directly." >&2
+  exit 64
+}
+
+case "${1:-}" in
+  auth | repo | release | secret | variable | ssh-key | gpg-key | config | alias) refuse "$1" ;;
+esac
+
+for arg in "$@"; do
+  case "$arg" in
+    DELETE | delete | --delete) refuse "$arg" ;;
+  esac
+done
+
+GH=$(command -v gh 2>/dev/null || true)
+[ -n "$GH" ] || GH="/c/Program Files/GitHub CLI/gh.exe"
+[ -x "$GH" ] || { echo "scripts/gh: the GitHub CLI was not found at '$GH'." >&2; exit 66; }
+
+TOKEN=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill 2>/dev/null | sed -n 's/^password=//p')
+[ -n "$TOKEN" ] || { echo "scripts/gh: no github.com token in the git credential helper." >&2; exit 65; }
+
+GH_TOKEN="$TOKEN" exec "$GH" "$@"
