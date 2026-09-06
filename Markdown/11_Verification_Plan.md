@@ -19,7 +19,7 @@ T-01 / R-01: import numeric PNG sequences with gaps, Unicode paths and mismatche
 
 T-03 / R-03,R-07: transforms, layer order and undo/redo restore exact model values; render designated transformed frames against independent expectations. T-04 / R-04,R-10: over-composite known alpha values, transparent edges, matte mapping and cycle rejection.
 
-T-05 / R-05: identity parameters, ordered noncommuting effects, blur impulse/bounds and tint coverage. T-06 / R-06,Q-02: measure cached playback, p95 seek latency and repeated-loop memory behavior using document 08's fixture.
+T-05 / R-05: identity parameters, ordered noncommuting effects, blur impulse/bounds and tint coverage. T-06 / R-06,Q-02: measure cached playback, p95 seek latency and repeated-loop memory behavior using document 08's fixture. PARTLY RUN: the half of it that exists without a cache or a window is measured in `verification/B-08_preview_latency.md`, which records median and p95 cost of producing a preview frame on the production path at both resolutions, split into decoding and rendering. Cached playback cannot be measured because R-06a specifies no cache and B-08b is PARKED; repeated-loop memory behaviour and end-to-end seek latency wait on the viewer window. That measurement fired document 23's revisit trigger for the bounded cache, registered as D-37 and not acted on.
 
 T-07 / R-07,R-08,Q-01: round-trip, relink, dirty state, interrupted write, disk-full save, recovery selection and unknown schema/effect handling. Retain the last valid save under all injected failures.
 

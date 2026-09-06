@@ -35,9 +35,9 @@ Render trace scores low on workflow value and is still a Must, because its value
 | Polygon mask | 4 | 3 | 3 | R-04 | A real shot cannot be finished without one |
 | Alpha matte | 5 | 3 | 4 | R-04 | Same |
 | Exposure, tint, Gaussian blur effects | 4 | 3 | 3 | R-05 | Repeated manual effort in real shots |
-| Bounded preview cache | 5 | 4 | 4 | R-06b | Measured preview latency, recorded with numbers |
+| Bounded preview cache | 5 | 4 | 4 | R-06b | Measured preview latency, recorded with numbers - **fired 2026-09-05**, see D-37 |
 
-The cache is the most instructive entry here. It scores value 5 and was a version 0.2 Must, and it is still parked, because it is a performance optimization for a workflow that has never been run. Its trigger is a measurement, not an opinion.
+The cache is the most instructive entry here. It scores value 5 and was a version 0.2 Must, and it is still parked, because it is a performance optimization for a workflow that has never been run. Its trigger is a measurement, not an opinion. **That measurement was taken on 2026-09-05 and the trigger has fired.** `verification/B-08_preview_latency.md` records the production preview path at 12.2 frames per second in draft and 10.0 at full resolution against a 24 fps target, with three quarters of every frame spent decoding cels that the resolution choice cannot make cheaper. The entry stays parked here because a fired trigger is a reason to ask the owner, not a permission to build; D-37 is where that ask is recorded.
 
 ---
 

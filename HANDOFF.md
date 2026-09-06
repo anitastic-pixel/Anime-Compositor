@@ -117,6 +117,19 @@ already: a full-resolution preview of frame 100 against a real export of the sam
 
 What is left of B-08 is the part with a window in it: the Tauri shell, the transport, the
 wall-clock loop wired to `Playback`, the resolution indicator on screen, and the screenshots.
+**D-36** picks the transport, which SP-05 measured twice and deliberately did not choose between:
+a custom URI scheme rather than raw IPC, PROVISIONAL, one function to reverse.
+
+**Read `verification/B-08_preview_latency.md` before planning that work.** It measures the
+production preview path rather than a spike, and the number is not the one SP-05 led anyone to
+expect: 12.2 frames per second in draft and 10.0 at full, against a 24 fps target, with about
+three quarters of every frame spent reading and decoding cels. Decoding costs the same whatever
+the preview extent, because a drawing is decoded at its own size before anything scales it, so
+D-33's draft default buys back rendering time and nothing else. Nothing is broken by this and no
+requirement is unmet - D-32 already decided what playback does when it cannot keep up. But it
+fired document 23's revisit trigger for the bounded preview cache, whose wording is "measured
+preview latency, recorded with numbers", and **that is registered as D-37 and left for the
+owner**. Do not build the cache. A fired trigger is a reason to ask, not a permission.
 
 Of the two smaller viewer questions, one is now answered and one is still open. **D-35** records
 the frame at rest as the work area's first frame, PROVISIONAL and cheap to reverse. What a scrub

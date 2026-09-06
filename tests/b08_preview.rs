@@ -49,18 +49,20 @@
 //! a decision about dropped frames can be checked by a table rather than by watching it and
 //! forming an impression.
 
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
-use anime_compositor::compose::DEFAULT_TILE_SIZE;
+use anime_compositor::compose::{self, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::export::{export_sequence, ExportRequest, MissingSource};
 use anime_compositor::model::{Id, Project};
 use anime_compositor::persist;
 use anime_compositor::png_out;
 use anime_compositor::preview::{self, Playback, PreviewQuality};
+use anime_compositor::render;
 use anime_compositor::{OutputAlpha, OutputDepth, WorkingBuffer};
 
 const COMP: &str = "comp-reference-shot";
@@ -594,4 +596,155 @@ fn write_report(report: &Report) {
     ));
     let path = repo("verification/B-08_preview_table.md");
     fs::write(&path, out).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
+}
+
+// ---------------------------------------------------------------------------------------
+// T-06's latency half, for the part of it that exists yet
+// ---------------------------------------------------------------------------------------
+
+/// How long the production preview path takes per frame, at each resolution.
+///
+/// D-33 was decided on SP-05's numbers, which were measured by a quarantined spike against an
+/// already-rendered frame. This measures the same question against the code that shipped, and
+/// against a real project read off the disk, so the default resolution rests on a figure from
+/// this build rather than from a prototype that no longer exists.
+///
+/// What it does **not** measure is the transport into the webview, which SP-05 recorded at about
+/// 39.5 ms per full-resolution frame and 3.3 ms per draft frame and which has no code here yet.
+/// The table says so rather than letting the numbers be read as end-to-end playback.
+///
+/// Ignored by default for the same reason B-05a's scaling table is: a debug build measures the
+/// compiler's inlining decisions rather than the renderer, and forty-eight full-resolution
+/// renders do not belong in every `cargo test`. Run it deliberately:
+///
+/// ```text
+/// cargo test --release --test b08_preview -- --ignored --nocapture
+/// ```
+#[test]
+#[ignore = "timing; run under --release with --ignored"]
+fn b08_preview_latency() {
+    let project = project();
+    let comp = Id::new(COMP);
+    let root = root();
+    let mut rows = Vec::new();
+    for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
+        // One untimed frame first, so the measured ones are not paying for the first touch of
+        // freshly allocated pages or the first read of a cel off the disk.
+        let mut log = FrameLog::new(3);
+        let _ = preview::preview_frame(
+            &project,
+            &comp,
+            0,
+            &root,
+            quality,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+        );
+        let mut ms = Vec::new();
+        let mut plan_ms = Vec::new();
+        // Twenty-four frames stepped by ten, so the run crosses the whole shot rather than
+        // measuring the same picture twenty-four times.
+        for i in 0..24 {
+            let frame = (i * 10) % 240;
+            let mut log = FrameLog::new(3);
+            // Timed in two halves rather than one, because the first result of this measurement
+            // was that draft resolution is barely faster than full, which only makes sense if
+            // most of the cost is somewhere the resolution does not reach. Planning a frame
+            // reads and decodes every cel the frame needs; rendering is the part a smaller
+            // extent makes cheaper. Splitting them says which is which instead of guessing.
+            let start = std::time::Instant::now();
+            let plan = compose::plan_frame(&project, &comp, frame, &root, &mut log);
+            let planned = start.elapsed().as_secs_f64() * 1000.0;
+            // A plan comes back even for the frames with a missing drawing, so a failure here is
+            // a real one and is worth stopping for rather than timing an error path.
+            let plan = plan.unwrap_or_else(|d| panic!("frame {frame}: {}", d.message));
+            let start = std::time::Instant::now();
+            let _ = render::render(&preview::scale_plan(plan, quality), DEFAULT_TILE_SIZE);
+            let rendered = start.elapsed().as_secs_f64() * 1000.0;
+            plan_ms.push(planned);
+            ms.push(planned + rendered);
+        }
+        plan_ms.sort_by(|a, b| a.partial_cmp(b).expect("no NaN in a measured duration"));
+        ms.sort_by(|a, b| a.partial_cmp(b).expect("no NaN in a measured duration"));
+        rows.push((quality, ms, plan_ms));
+    }
+    write_latency_artifact(&rows);
+}
+
+fn write_latency_artifact(rows: &[(PreviewQuality, Vec<f64>, Vec<f64>)]) {
+    let mut s = String::from("# B-08 preview latency, measured on the production path\n\n");
+    s.push_str(
+        "T-06 asks for measured seek latency. This is the half of it that exists: the cost of \
+         producing a preview frame, from a project file on disk to a finished buffer in memory. \
+         Produced by `tests/b08_preview.rs`, which is `#[ignore]`d in normal runs.\n\n",
+    );
+    s.push_str(
+        "## Machine, build and configuration\n\n\
+         - CPU: AMD Ryzen 9 9900X, 12 cores, 24 hardware threads\n\
+         - OS: Microsoft Windows 11 Education, 10.0.26200\n\
+         - Toolchain: rustc 1.89.0, cargo release profile, `opt-level = 3`\n\
+         - Workload: `verification/B-08a_project.json`, the four-layer reference shot, previewed \
+         at 24 frames spread across the whole 240-frame shot\n\
+         - Each resolution is preceded by one untimed frame, so no measured frame pays for the \
+         first touch of freshly allocated pages\n\
+         - Tile size: `compose::DEFAULT_TILE_SIZE`\n\n",
+    );
+    let _ = writeln!(
+        s,
+        "Debug assertions in this build: {}. A run with `true` there is a debug build, and its \
+         numbers say more about the compiler than about the renderer.\n",
+        cfg!(debug_assertions)
+    );
+    s.push_str(
+        "## Measurements\n\n\
+         | Resolution | Extent | Median ms | p95 ms | Slowest ms | Of the median, decoding | Of the median, rendering | Frames per second at the median |\n\
+         |---|---|---|---|---|---|---|---|\n",
+    );
+    for (quality, ms, plan_ms) in rows {
+        let (w, h) = quality.extent(WIDTH, HEIGHT);
+        // Twenty-four samples: the median is the mean of the twelfth and thirteenth, and the
+        // p95 is the twenty-third, which is where ceil(0.95 x 24) lands.
+        let median = (ms[11] + ms[12]) / 2.0;
+        let plan_median = (plan_ms[11] + plan_ms[12]) / 2.0;
+        let _ = writeln!(
+            s,
+            "| {} | {w}x{h} | {median:.2} | {:.2} | {:.2} | {plan_median:.2} | {:.2} | {:.1} |",
+            quality.label(),
+            ms[22],
+            ms[23],
+            median - plan_median,
+            1000.0 / median
+        );
+    }
+    s.push_str(
+        "\n## How to read this\n\n\
+         The number that matters is the last column against 24, the frame rate document 08's \
+         fixture asks for. A resolution whose median frame costs more than 41.7 ms cannot be \
+         played at speed on this machine, and D-32 says what happens then: the clock is held and \
+         frames are dropped rather than the shot running slow.\n\n\
+         **Neither resolution reaches 24 frames per second here, and draft is barely faster \
+         than full.** That is not the shape SP-05 found, and the two decoding and rendering \
+         columns say why: SP-05 measured moving an already-rendered frame, while this measures \
+         making one, and making one begins by reading four cels off the disk and decoding them. \
+         That cost is the same at both resolutions, because a drawing has to be decoded at its \
+         own size before anything can be scaled. Draft resolution makes the rendering column \
+         cheaper and cannot touch the decoding one.\n\n\
+         This does not reopen D-33 - draft is still the faster of the two and still the right \
+         default - but it does say plainly that resolution alone will not buy real-time playback \
+         of this shot. What would is not decoding the same drawing again every time it is shown, \
+         which is document 27's cache. That is B-08b, PARKED under D-12, and this table is the \
+         first measurement in this project that argues for it from the production path rather \
+         than from a spike.\n\n\
+         **This is not end-to-end playback.** It stops at a finished buffer in memory. Getting \
+         that buffer onto the screen is the transport, which does not exist yet; SP-05 measured \
+         about 39.5 ms per full-resolution frame and 3.3 ms per draft frame for it, so an \
+         end-to-end estimate is roughly the sum of the two columns. Those figures came from a \
+         quarantined spike against an already-rendered frame and are not evidence about this \
+         build.\n\n\
+         A slowest column far above the median means some frames cost much more than others. Two \
+         things in this shot would do that: a frame whose drawing has not been read before, and \
+         the twenty frames where layer 3 asks for a drawing that is deliberately absent.\n",
+    );
+    let path = repo("verification/B-08_preview_latency.md");
+    fs::write(&path, s).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
 }

@@ -36,6 +36,12 @@ use crate::WorkingBuffer;
 /// recorded 145 fps against 24.9 at full (`spikes/B-01_G0_spike_report.md`, the draft rows).
 /// This constant is that measurement's shape. Changing it changes speed and preview sharpness
 /// and nothing else, because no exported pixel passes through this module.
+///
+/// What the divisor does **not** change is the cost of decoding a drawing, which happens at the
+/// drawing's own size before anything scales it. `verification/B-08_preview_latency.md` measures
+/// both halves on the production path and finds decoding to be about three quarters of a draft
+/// frame, so a smaller divisor here would not make preview much faster - it would only make it
+/// blurrier. That measurement fired the bounded cache's revisit trigger; see D-37.
 pub const DRAFT_DIVISOR: usize = 4;
 
 /// Which resolution the preview is rendering at. D-33: the default is [`Draft`](Self::Draft).
