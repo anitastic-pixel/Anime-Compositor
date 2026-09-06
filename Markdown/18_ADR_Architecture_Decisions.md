@@ -108,6 +108,8 @@ Justification: the alternative reading - that the cache is an optimization and o
 
 Consequences: B-08b enters G1 with document 27 as its specification and T-06 as its exit artifact, which must be the same reference-shot playback measured before and after. The preview path gains a lookup; the export path gains nothing and must not, because a full-resolution preview matching an export in 0 of 8,294,400 samples is a property this build has and a cache is the obvious way to lose it. ADR-006 is not reopened and the renderer stays CPU-only. Masks (R-04) and effects (R-05) stay parked. Full record in `docs/adr/0015-unpark-bounded-cache.md`.
 
+Built the same day. `verification/B-08b_cache_table.md` holds the correctness half - eighteen checks that a warm render, a render from a cache too small to keep anything, and a render with no cache at all are the same picture and the same warnings - and `verification/B-08b_cache_budget.md` holds the measurement: 99.93 ms per draft frame to 42.54 ms, 10.0 frames per second to 23.5, at a 128 MB default chosen from that table rather than ahead of it. The window-level picture in `verification/B-08_window_shell.md` has not been retaken and the ADR says so.
+
 ## Decision gate
 
 Before B-02 begins, ADR-001 through ADR-014 stand as accepted, and SP-01, SP-03, SP-05 and SP-06 must be recorded. SP-02 is removed with ADR-006. A spike that contradicts an accepted ADR reopens it explicitly through document 14.

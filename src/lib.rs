@@ -7,6 +7,7 @@
 //! except by converting a tagged buffer into the document 21 working space. Compositing two
 //! images in the wrong space is therefore not a checked error, it is unrepresentable.
 
+pub mod cache;
 pub mod color;
 pub mod command;
 pub mod compose;

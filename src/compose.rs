@@ -27,8 +27,8 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use crate::cache::CelCache;
 use crate::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
-use crate::media;
 use crate::model::{AssetKind, Id, Project, Prop, Value};
 use crate::render::{self, Affine, FramePlan, LayerDraw};
 use crate::time::{self, ExposureMap, LayerTiming, SourceAt};
@@ -58,6 +58,35 @@ pub fn plan_frame(
     frame: i32,
     root: &Path,
     log: &mut FrameLog,
+) -> Result<FramePlan, Diagnostic> {
+    plan_frame_cached(
+        project,
+        composition_id,
+        frame,
+        root,
+        log,
+        &mut CelCache::none(),
+    )
+}
+
+/// [`plan_frame`], with somewhere to remember the decoded cels (B-08b, R-06b).
+///
+/// The only difference between this and [`plan_frame`] is where a decoded cel comes from, and
+/// document 27 requires that difference to be invisible in the result: "A cold render and a fully
+/// warm render for the same immutable request must produce equivalent pixels and diagnostics."
+/// `verification/B-08b_cache_table.md` checks that as a byte comparison over every frame of the
+/// reference shot, at several budgets, rather than asserting it.
+///
+/// ADR-015 confines the cache to the preview path, which is why this is a second function and not
+/// a parameter added to the first: [`plan_frame`] and [`crate::export`] pass
+/// [`CelCache::none`], so no exported sample can depend on what was remembered.
+pub fn plan_frame_cached(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
 ) -> Result<FramePlan, Diagnostic> {
     let Some(comp) = project.composition(composition_id) else {
         return Err(Diagnostic::new(
@@ -168,17 +197,17 @@ pub fn plan_frame(
             );
             continue;
         }
-        let decoded = match media::decode_png(&path) {
+        // Document 21 step 1: decode, then interpret. `decode_png` tags what PNG guarantees —
+        // sRGB, straight — and the asset record is what overrides it, so a project that says a
+        // sequence was rendered premultiplied is believed here and nowhere else. All three of
+        // those steps happen inside the cache, because all three are what a hit skips.
+        let source = match cache.decoded(&path, asset.interpretation) {
             Ok(buffer) => buffer,
             Err(d) => {
                 log.record(frame, layer.name.clone(), d);
                 continue;
             }
         };
-        // Document 21 step 1: decode, then interpret. `decode_png` tags what PNG guarantees —
-        // sRGB, straight — and the asset record is what overrides it, so a project that says a
-        // sequence was rendered premultiplied is believed here and nowhere else.
-        let interpreted = retag(decoded, asset.interpretation);
 
         // Step 6: the animated properties at this frame. A property holding the wrong kind of
         // value cannot come from a loaded project — persistence refuses it — so this reports
@@ -205,7 +234,7 @@ pub fn plan_frame(
 
         layers.push(LayerDraw {
             id: layer.id.clone(),
-            source: interpreted.into_working(),
+            source,
             // Document 21 step 4. Scale is a unit factor in the model (D-22); the divide by 100
             // lives at the file and UI boundaries, not here.
             transform: Affine::from_transform(anchor, position, scale, rotation),
@@ -283,7 +312,10 @@ fn source_at(
 /// Re-tag a decoded buffer with what the asset record says it is, if that differs from what the
 /// decoder assumed. The pixels are untouched: this changes the claim, and `into_working` is what
 /// acts on it.
-fn retag(buffer: ImageBuffer, interpretation: crate::model::Interpretation) -> ImageBuffer {
+pub(crate) fn retag(
+    buffer: ImageBuffer,
+    interpretation: crate::model::Interpretation,
+) -> ImageBuffer {
     if buffer.color_space() == interpretation.color_space
         && buffer.alpha_mode() == interpretation.alpha
     {
