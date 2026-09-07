@@ -888,7 +888,7 @@ fn t08_exports_a_frame_range_to_a_png_sequence() {
     );
     report.check(
         "and so does the file itself, where it cannot be separated from the picture",
-        "incomplete: a layer carrying a parked feature was drawn without it",
+        "incomplete: a layer carried something this build could not draw",
         decode(&dir.join("shot_0012.png")).tag("Fidelity"),
     );
     report.check(

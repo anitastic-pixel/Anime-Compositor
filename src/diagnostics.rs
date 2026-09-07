@@ -53,6 +53,12 @@ pub enum DiagnosticId {
     /// Document 28: effect type not installed or implemented; the record is preserved and
     /// bypassed.
     EffectUnsupported,
+    /// Document 28: an effect parameter violates its contract. Raised when a stored value is
+    /// outside what document 21 defines - a negative blur sigma, a tint amount past 1 - which
+    /// can only reach the model through a hand-edited file, because the command that sets a
+    /// parameter refuses it first. The effect is bypassed, never clamped: clamping would accept
+    /// the number and render a different one.
+    EffectParameterInvalid,
     /// **Proposed (D-24).** A structurally valid record for a project feature this build does
     /// not implement, other than an effect. The record is preserved and takes no part in
     /// rendering.
@@ -116,6 +122,7 @@ impl DiagnosticId {
             DiagnosticId::ProjectRecoveryAvailable => "PROJECT_RECOVERY_AVAILABLE",
             DiagnosticId::MediaMissing => "MEDIA_MISSING",
             DiagnosticId::EffectUnsupported => "EFFECT_UNSUPPORTED",
+            DiagnosticId::EffectParameterInvalid => "EFFECT_PARAMETER_INVALID",
             DiagnosticId::ProjectFeatureUnsupported => "PROJECT_FEATURE_UNSUPPORTED",
             DiagnosticId::MediaSequenceGap => "MEDIA_SEQUENCE_GAP",
             DiagnosticId::MediaUnsupportedFormat => "MEDIA_UNSUPPORTED_FORMAT",
@@ -149,6 +156,7 @@ impl DiagnosticId {
                 | DiagnosticId::ProjectRecoveryAvailable
                 | DiagnosticId::MediaMissing
                 | DiagnosticId::EffectUnsupported
+                | DiagnosticId::EffectParameterInvalid
                 | DiagnosticId::MediaSequenceGap
                 | DiagnosticId::MediaUnsupportedFormat
                 | DiagnosticId::MediaDecodeFailed

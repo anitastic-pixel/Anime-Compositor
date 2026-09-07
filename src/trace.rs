@@ -31,11 +31,15 @@ use crate::{OutputDepth, WorkingBuffer};
 
 /// A stage of document 21's layer render order that this build actually produces a buffer for.
 ///
-/// Document 21 lists seven stages. Four of them do not exist yet: the polygon mask (step 2),
-/// layer effects (step 3) and the alpha matte (step 5).
-/// There is deliberately no variant for those. A trace directory that contained an `effects`
-/// image identical to its `decode` image would be a lie told in pictures, which is exactly the
-/// silent fidelity fallback document 28 forbids. [`missing_stages`] states the absence in
+/// Document 21 lists seven stages and this enum names four. The other three -- the polygon mask
+/// at step 2, the effect stack at step 3 and the alpha matte at step 5 -- are drawn, as of B-06
+/// and B-07, but they leave no separate image here: the mask and the effects are part of the
+/// layer's own pixels before the renderer is handed a plan, and the matte is a factor applied
+/// per destination pixel as the layer is composited.
+///
+/// There is deliberately no variant for them. A trace directory holding an `effects` image
+/// identical to its `decode` image would be a lie told in pictures, which is exactly the silent
+/// fidelity fallback document 28 forbids. [`stages_without_an_image`] states the absence in
 /// words instead, in the manifest the owner reads.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Stage {
@@ -78,21 +82,31 @@ impl Stage {
     ];
 }
 
-/// The stages of document 21's layer render order this build does not implement, and why.
+/// The stages of document 21's layer render order this trace writes no image for, and why.
 ///
-/// The manifest prints these so a trace directory can never be read as a complete pipeline.
-pub fn missing_stages() -> [(u32, &'static str, &'static str); 3] {
+/// All three are drawn. What they are not is separable: by the time the renderer holds a plan
+/// the mask and the effects are already in the layer's pixels, and the matte is read while the
+/// layer is written into the frame. Giving them an image of their own would mean running the
+/// pipeline a second way in order to watch it, and a second way is a second thing to be wrong,
+/// which is the drift the module header exists to prevent.
+///
+/// The manifest prints these so a trace directory can never be read as the whole of document 21.
+pub fn stages_without_an_image() -> [(u32, &'static str, &'static str); 3] {
     [
         (
             2,
             "layer polygon mask",
-            "R-04, PARKED under D-12 in document 23",
+            "B-06, drawn into the layer's pixels before the plan is built",
         ),
-        (3, "ordered layer effects", "R-05, B-07, PARKED under D-12"),
+        (
+            3,
+            "ordered layer effects",
+            "B-07, drawn into the layer's pixels before the plan is built",
+        ),
         (
             5,
             "referenced alpha matte",
-            "R-04, PARKED; the model records mattes, the renderer does not apply them",
+            "B-06, read per destination pixel as the layer is composited",
         ),
     ]
 }
@@ -348,12 +362,13 @@ fn manifest(plan: &FramePlan, request: &TraceRequest, written: &[TracedImage]) -
     );
 
     s.push_str(
-        "\n## Stages this build does not have\n\nDocument 21's layer render order has seven \
-         steps. This trace shows four. The missing steps are absent from the renderer, not \
-         omitted from the trace, and no image here stands in for one.\n\n\
+        "\n## Stages with no image of their own\n\nDocument 21's layer render order has seven \
+         steps. This trace shows four. The other three are drawn -- they are in the pictures \
+         above, inside the stages that follow them -- but none of them is separable into an \
+         image of its own, and no image here stands in for one.\n\n\
          | Step | Stage | Why it is not here |\n|---|---|---|\n",
     );
-    for (step, name, why) in missing_stages() {
+    for (step, name, why) in stages_without_an_image() {
         let _ = writeln!(s, "| {step} | {name} | {why} |");
     }
 

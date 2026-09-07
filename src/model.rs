@@ -10,8 +10,9 @@
 //! wanted, and layer lookup is by ID only. Index is not identity: reordering moves entries in
 //! `layer_order` and rewrites no IDs.
 //!
-//! Not modelled yet, and deliberately: effects (B-06), masks (parked with R-04 under D-12),
-//! and colour4 properties, which G1 needs only once effects have colour parameters.
+//! Not modelled yet, and deliberately: colour4 properties. B-07's tint carries its colour as
+//! three plain numbers on the effect record rather than as an animatable property, because
+//! nothing in G1 asks for a tint colour that moves; the day something does, that is the change.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -367,6 +368,10 @@ pub struct Layer {
     /// composition ones.
     pub mask: Option<crate::mask::PolygonMask>,
     pub matte: Option<MatteReference>,
+    /// Document 19's ordered effect instances, evaluated at step 3 of document 21 in layer
+    /// space -- after the mask, before the transform. Order is the stack order: index 0 runs
+    /// first, and its output is what index 1 reads.
+    pub effects: Vec<crate::effects::EffectInstance>,
     pub blend_mode: BlendMode,
 }
 
@@ -392,6 +397,7 @@ impl Layer {
             exposure_spans: Vec::new(),
             mask: None,
             matte: None,
+            effects: Vec::new(),
             blend_mode: BlendMode::Normal,
         }
     }

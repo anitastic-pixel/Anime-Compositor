@@ -384,9 +384,10 @@ What B-09 left for later:
 
 What B-05b left for later:
 
-- Trace shows four of document 21's seven layer render stages, because the renderer has four.
-  Every manifest says which are missing and why. When masks, effects, mattes or the other blend
-  modes arrive, they each add a `Stage` variant and a row to `missing_stages`.
+- Trace shows four of document 21's seven layer render stages. B-06 and B-07 have since drawn
+  the other three, but none of them is separable into an image of its own, so they stayed out of
+  `Stage` and every manifest says so by name in `stages_without_an_image`. A stage that ever does
+  produce a buffer of its own adds a `Stage` variant and loses its row there.
 - Trace re-renders the stack once per layer, which is O(n^2) in layers. That is deliberate:
   the stage images come from the same `render` the real frame does, so a trace cannot drift
   from what it claims to trace. If a composition ever has enough layers for that to hurt, the
@@ -410,7 +411,10 @@ Carried forward, still outstanding:
   caches it dirties, and document 27 defines the domains. `Document::apply` reports none,
   because no cache exists. That is B-08b, PARKED.
 - Colour4 and boolean property values, which document 19 lists and `Value` does not carry.
-  They come due with effects, in B-07, PARKED.
+  **Not closed by B-07, and no longer due there.** The effect stack stores its parameters as a
+  typed variant per effect rather than as `Value`s, so a tint's colour never passes through
+  `Value` at all. These two are still missing, for whatever first needs an animatable colour or
+  flag, which nothing left in G1 does.
 - Installing the frame-level diagnostic rate limiter. **Closed by B-08a**: `plan_frame` takes
   a `FrameLog` and every per-layer diagnostic goes through it.
 - D-25 is PROVISIONAL: the limit of three, and the choice to log a few in full and then

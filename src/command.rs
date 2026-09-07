@@ -103,6 +103,47 @@ pub enum Command {
         layer_id: Id,
         mask: Option<crate::mask::PolygonMask>,
     },
+    /// Document 24's `effect.add`. B-07.
+    ///
+    /// `index` is where in the stack it lands, because order changes the picture: a blur then a
+    /// tint is not a tint then a blur. `None` appends, which is what an inspector's "add" does.
+    AddEffect {
+        composition: Id,
+        layer_id: Id,
+        effect: crate::effects::EffectInstance,
+        index: Option<usize>,
+    },
+    /// Document 24's `effect.delete`. B-07.
+    RemoveEffect {
+        composition: Id,
+        layer_id: Id,
+        instance_id: Id,
+    },
+    /// Document 24's `effect.toggle_bypass`. B-07.
+    ///
+    /// Bypassing is not deleting and is not a fault: the record stays, the picture changes, and
+    /// nothing is written to the frame log, because a person choosing to switch an effect off is
+    /// not this build failing to draw one.
+    SetEffectEnabled {
+        composition: Id,
+        layer_id: Id,
+        instance_id: Id,
+        enabled: bool,
+    },
+    /// Change one effect's parameters. B-07.
+    ///
+    /// The whole parameter set is the unit of change, for the reason `SetMask` gives: a tint has
+    /// a colour and an amount, and an inspector edit that committed one of them at a time would
+    /// put half-changed states in the history for no gain.
+    ///
+    /// Document 24 lists add, delete and bypass and no parameter command; this is the fourth
+    /// thing an inspector must be able to do, and it is registered here rather than assumed.
+    SetEffectParameters {
+        composition: Id,
+        layer_id: Id,
+        instance_id: Id,
+        effect: crate::effects::Effect,
+    },
 }
 
 impl Command {
@@ -122,6 +163,10 @@ impl Command {
             Command::RemoveKeyframe { .. } => "REMOVE_KEYFRAME",
             Command::SetMatte { .. } => "SET_MATTE",
             Command::SetMask { .. } => "SET_MASK",
+            Command::AddEffect { .. } => "ADD_EFFECT",
+            Command::RemoveEffect { .. } => "REMOVE_EFFECT",
+            Command::SetEffectEnabled { .. } => "SET_EFFECT_ENABLED",
+            Command::SetEffectParameters { .. } => "SET_EFFECT_PARAMETERS",
         }
     }
 
@@ -158,6 +203,22 @@ impl Command {
                 Some(m) => format!("Set mask of {} points", m.vertices.len()),
                 None => "Clear mask".to_string(),
             },
+            Command::AddEffect { effect, .. } => format!("Add {}", effect.type_id()),
+            Command::RemoveEffect { instance_id, .. } => format!("Remove effect {instance_id}"),
+            Command::SetEffectEnabled {
+                instance_id,
+                enabled,
+                ..
+            } => {
+                if *enabled {
+                    format!("Switch effect {instance_id} on")
+                } else {
+                    format!("Bypass effect {instance_id}")
+                }
+            }
+            Command::SetEffectParameters { effect, .. } => {
+                format!("Change {} settings", effect.type_id())
+            }
         }
     }
 
@@ -174,7 +235,11 @@ impl Command {
             | Command::SetKeyframe { composition, .. }
             | Command::RemoveKeyframe { composition, .. }
             | Command::SetMatte { composition, .. }
-            | Command::SetMask { composition, .. } => Some(composition),
+            | Command::SetMask { composition, .. }
+            | Command::AddEffect { composition, .. }
+            | Command::RemoveEffect { composition, .. }
+            | Command::SetEffectEnabled { composition, .. }
+            | Command::SetEffectParameters { composition, .. } => Some(composition),
         }
     }
 
@@ -193,7 +258,16 @@ impl Command {
             | Command::SetPropertyBase { layer_id, .. }
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
-            | Command::SetMask { layer_id, .. } => ids.push(layer_id.clone()),
+            | Command::SetMask { layer_id, .. }
+            | Command::RemoveEffect { layer_id, .. }
+            | Command::SetEffectEnabled { layer_id, .. }
+            | Command::SetEffectParameters { layer_id, .. } => ids.push(layer_id.clone()),
+            Command::AddEffect {
+                layer_id, effect, ..
+            } => {
+                ids.push(layer_id.clone());
+                ids.push(effect.instance_id.clone());
+            }
             Command::SetMatte {
                 layer_id, matte, ..
             } => {
@@ -228,7 +302,11 @@ impl Command {
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
-            | Command::SetMask { layer_id, .. } => Some(layer_id),
+            | Command::SetMask { layer_id, .. }
+            | Command::AddEffect { layer_id, .. }
+            | Command::RemoveEffect { layer_id, .. }
+            | Command::SetEffectEnabled { layer_id, .. }
+            | Command::SetEffectParameters { layer_id, .. } => Some(layer_id),
             _ => None,
         }
     }
@@ -787,8 +865,131 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             }
             layer_mut(project, &comp_id, layer_id)?.mask = mask.clone();
         }
+        Command::AddEffect {
+            layer_id,
+            effect,
+            index,
+            ..
+        } => {
+            // Parameters outside document 21's ranges are refused here, not clamped, for the
+            // same reason a crossed mask is: accepting a number and rendering a different one
+            // is how a person ends up with a picture they did not ask for and no way to tell.
+            if !effect.effect.is_valid() {
+                return Err(invalid_effect(&effect.effect));
+            }
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            if layer
+                .effects
+                .iter()
+                .any(|e| e.instance_id == effect.instance_id)
+            {
+                return Err(Diagnostic::new(
+                    DiagnosticId::CommandInvalidValue,
+                    Severity::Error,
+                    format!(
+                        "This layer already has an effect called {}.",
+                        effect.instance_id
+                    ),
+                    "Document 07 requires effect instance IDs to be stable and to identify one \
+                     record; two with the same ID would make a later edit ambiguous."
+                        .to_string(),
+                )
+                .with_remediation("Give the new effect its own instance ID."));
+            }
+            let at = index
+                .unwrap_or(layer.effects.len())
+                .min(layer.effects.len());
+            layer.effects.insert(at, effect.clone());
+        }
+        Command::RemoveEffect {
+            layer_id,
+            instance_id,
+            ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let Some(at) = layer
+                .effects
+                .iter()
+                .position(|e| &e.instance_id == instance_id)
+            else {
+                return Err(missing_effect(layer_id, instance_id));
+            };
+            layer.effects.remove(at);
+        }
+        Command::SetEffectEnabled {
+            layer_id,
+            instance_id,
+            enabled,
+            ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let Some(e) = layer
+                .effects
+                .iter_mut()
+                .find(|e| &e.instance_id == instance_id)
+            else {
+                return Err(missing_effect(layer_id, instance_id));
+            };
+            e.enabled = *enabled;
+        }
+        Command::SetEffectParameters {
+            layer_id,
+            instance_id,
+            effect,
+            ..
+        } => {
+            if !effect.is_valid() {
+                return Err(invalid_effect(effect));
+            }
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let Some(existing) = layer
+                .effects
+                .iter_mut()
+                .find(|e| &e.instance_id == instance_id)
+            else {
+                return Err(missing_effect(layer_id, instance_id));
+            };
+            if existing.type_id() != effect.type_id() {
+                return Err(Diagnostic::new(
+                    DiagnosticId::CommandInvalidValue,
+                    Severity::Error,
+                    format!(
+                        "Effect {instance_id} is a {}, and these are settings for a {}.",
+                        existing.type_id(),
+                        effect.type_id()
+                    ),
+                    "Changing an effect's type in place would leave the instance ID pointing at \
+                     something else, which document 07's stable references do not allow."
+                        .to_string(),
+                )
+                .with_remediation("Remove the effect and add the one you want."));
+            }
+            existing.effect = effect.clone();
+        }
     }
     Ok(())
+}
+
+/// Document 28's `EFFECT_PARAMETER_INVALID`, at the command boundary where it is an ERROR
+/// because the command is refused outright rather than bypassed.
+fn invalid_effect(effect: &crate::effects::Effect) -> Diagnostic {
+    Diagnostic::new(
+        DiagnosticId::EffectParameterInvalid,
+        Severity::Error,
+        effect.why_invalid(),
+        "Document 21 states the range for each G1 effect parameter. A value outside it is \
+         refused rather than clamped, so that what the project says and what the picture shows \
+         never disagree."
+            .to_string(),
+    )
+    .with_remediation("Choose a value inside the range.")
+}
+
+fn missing_effect(layer_id: &Id, instance_id: &Id) -> Diagnostic {
+    missing(
+        format!("There is no effect called {instance_id} on this layer."),
+        format!("Layer {layer_id} has no effect instance {instance_id}."),
+    )
 }
 
 fn comp_mut<'a>(project: &'a mut Project, id: &Id) -> Result<&'a mut Composition, Diagnostic> {

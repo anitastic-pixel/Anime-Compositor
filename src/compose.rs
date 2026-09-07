@@ -17,9 +17,9 @@
 //! 7. per-layer source, transform and opacity — document 21 steps 1, 4 and 6
 //! 8. composite the ordered result — [`crate::render::render`]
 //!
-//! Steps 2 and 5 of document 21 — mask and matte — arrived with B-06. Step 3, effects, is B-07:
-//! a layer carrying effects renders without them for now, and says so rather than rendering
-//! silently.
+//! Steps 2 and 5 of document 21 - mask and matte - arrived with B-06, and step 3, the effect
+//! stack, with B-07. An effect this build does not have is still bypassed, and says so per frame
+//! rather than rendering silently.
 //!
 //! Nothing here is the viewer. There is no transport, no playback, no work area and no window:
 //! those are the rest of B-08 and they need decisions this build has not been given.
@@ -324,7 +324,9 @@ fn resolve_layer(
                     Severity::Warning,
                     format!("Layer {}'s mask cannot be drawn, so it is not.", layer.name),
                     format!(
-                        "The mask has {} corners and its outline {} itself. Document 19 requires                          at least three corners and an outline that does not cross. The layer is                          drawn unmasked for frame {frame} and the mask is kept in the project.",
+                        "The mask has {} corners and its outline {} itself. Document 19 requires \
+                         at least three corners and an outline that does not cross. The layer is \
+                          drawn unmasked for frame {frame} and the mask is kept in the project.",
                         mask.vertices.len(),
                         if crate::mask::is_simple(&mask.vertices) {
                             "does not cross"
@@ -338,6 +340,51 @@ fn resolve_layer(
         }
         crate::mask::apply(&mut source, mask);
     }
+
+    // Document 21 step 3: the ordered effect stack, in layer space, after the mask and before
+    // the transform.
+    //
+    // A blur grows the buffer by its kernel radius, so `offset` is where the layer's old origin
+    // ended up inside the new one. It is applied to the transform below rather than by cropping
+    // back: cropping is exactly the fault document 21's "bounds expand by the kernel radius"
+    // exists to prevent, and it would cut a straight edge through the glow of anything blurred
+    // near the edge of its cel.
+    let offset = crate::effects::apply_stack(&mut source, &layer.effects, |instance, why| {
+        let (id, what, detail) = match why {
+            crate::effects::Bypassed::NotImplemented => (
+                DiagnosticId::EffectUnsupported,
+                format!(
+                    "Layer {} uses the effect \"{}\", which this build does not have.",
+                    layer.name,
+                    instance.type_id()
+                ),
+                format!(
+                    "Frame {frame} is drawn without it. The effect is kept in the project \
+                     exactly as it was."
+                ),
+            ),
+            crate::effects::Bypassed::InvalidParameter => (
+                DiagnosticId::EffectParameterInvalid,
+                format!(
+                    "Layer {}'s {} has a setting this build cannot use, so it is not drawn.",
+                    layer.name,
+                    instance.type_id()
+                ),
+                format!(
+                    "{} Frame {frame} is drawn without the effect, which is kept as it was.",
+                    instance.effect.why_invalid()
+                ),
+            ),
+        };
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(id, Severity::Warning, what, detail).with_remediation(
+                "The frame is missing what the effect would have done. Remove the effect, or \
+                 correct it, to have the picture match the project.",
+            ),
+        );
+    });
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of
     // value cannot come from a loaded project — persistence refuses it — so this reports
@@ -366,7 +413,13 @@ fn resolve_layer(
         source,
         // Document 21 step 4. Scale is a unit factor in the model (D-22); the divide by 100
         // lives at the file and UI boundaries, not here.
-        transform: Affine::from_transform(anchor, position, scale, rotation),
+        //
+        // The leading translation undoes the bounds expansion an effect asked for. Pixel `p` of
+        // the grown buffer held what pixel `p - offset` held before, so shifting by `-offset`
+        // first puts every pixel back exactly where it was and leaves only the new margin, which
+        // holds what the blur pushed outside the old extent. Zero offset makes it the identity.
+        transform: Affine::translation(-(offset.0 as f64), -(offset.1 as f64))
+            .then(Affine::from_transform(anchor, position, scale, rotation)),
         // Document 21 step 6. Opacity is normalized 0..1 in the model (document 19).
         opacity: opacity as f32,
     })

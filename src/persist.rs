@@ -516,10 +516,62 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         ("matte", matte),
         ("blend_mode", J::from(layer.blend_mode.as_str())),
     ];
-    // Effects are B-06. An effect stack read from a file is preserved verbatim by the merge;
-    // a layer created here genuinely has none, and the schema requires the key.
-    if base.and_then(|b| b.get("effects")).is_none() {
-        owned.push(("effects", J::Array(Vec::new())));
+    let effects: Vec<J> = layer
+        .effects
+        .iter()
+        .map(|e| effect_json(effect_base(base, e.instance_id.as_str()), e))
+        .collect();
+    owned.push(("effects", J::Array(effects)));
+    merge(base, owned)
+}
+
+/// The effect record this instance was read from, so that keys this build does not know about
+/// -- the fixture's `opaque_unknown_data`, a `contract_version` a later schema adds -- survive a
+/// round trip. Matched on `instance_id`, which document 07 requires be stable and which is why
+/// reordering a stack does not lose anything.
+fn effect_base<'a>(base: Option<&'a J>, instance_id: &str) -> Option<&'a J> {
+    base?
+        .get("effects")?
+        .as_array()?
+        .iter()
+        .find(|e| e.get("instance_id").and_then(J::as_str) == Some(instance_id))
+}
+
+/// One effect instance as JSON.
+///
+/// An unsupported effect writes back only its identity and enabled flag; its parameters come
+/// through the merge untouched, because this build does not know what they mean and rewriting
+/// them from a model it never parsed them into is how a record gets quietly damaged.
+fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J {
+    use crate::effects::Effect;
+    let mut owned = vec![
+        ("instance_id", J::from(instance.instance_id.as_str())),
+        ("type_id", J::from(instance.type_id())),
+        ("enabled", J::from(instance.enabled)),
+    ];
+    let mut params = base
+        .and_then(|b| b.get("parameters"))
+        .and_then(J::as_object)
+        .cloned()
+        .unwrap_or_else(Map::new);
+    match &instance.effect {
+        Effect::Exposure { stops } => {
+            params.insert("stops".into(), num(*stops));
+        }
+        Effect::GaussianBlur { sigma_px } => {
+            params.insert("sigma_px".into(), num(*sigma_px));
+        }
+        Effect::Tint { color, amount } => {
+            params.insert(
+                "color".into(),
+                J::Array(color.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert("amount".into(), num(*amount));
+        }
+        Effect::Unsupported { .. } => {}
+    }
+    if !matches!(instance.effect, Effect::Unsupported { .. }) || base.is_some() {
+        owned.push(("parameters", J::Object(params)));
     }
     merge(base, owned)
 }
@@ -658,6 +710,45 @@ fn as_u32(v: &J, pointer: &str) -> Result<u32, Diagnostic> {
         .as_i64()
         .ok_or_else(|| invalid(pointer, "a whole number that is not negative"))?;
     u32::try_from(n).map_err(|_| invalid(pointer, "a whole number that is not negative"))
+}
+
+/// One named number out of an effect's parameter map.
+///
+/// A missing map or a missing key is a schema fault, not a default: document 19 requires that
+/// "effect parameter types match the registered effect schema", and inventing a value for a
+/// parameter the file does not carry would render a picture nobody asked for.
+fn effect_number(params: Option<&J>, key: &str, at: &str) -> Result<f64, Diagnostic> {
+    let params = effect_params(params, at)?;
+    let at = format!("{at}/parameters");
+    as_f64(field(params, &at, key)?, &format!("{at}/{key}"))
+}
+
+/// The tint colour: three linear RGB numbers, in document 21's order.
+fn effect_color(params: Option<&J>, at: &str) -> Result<[f64; 3], Diagnostic> {
+    let params = effect_params(params, at)?;
+    let at = format!("{at}/parameters/color");
+    let color = as_array(field(params, &at, "color")?, &at)?;
+    if color.len() != 3 {
+        return Err(invalid(
+            &at,
+            &format!(
+                "a linear RGB triple, and this one has {} numbers",
+                color.len()
+            ),
+        ));
+    }
+    Ok([
+        as_f64(&color[0], &format!("{at}/0"))?,
+        as_f64(&color[1], &format!("{at}/1"))?,
+        as_f64(&color[2], &format!("{at}/2"))?,
+    ])
+}
+
+fn effect_params<'a>(params: Option<&'a J>, at: &str) -> Result<&'a J, Diagnostic> {
+    let params =
+        params.ok_or_else(|| invalid(&format!("{at}/parameters"), "this field to be present"))?;
+    as_object(params, &format!("{at}/parameters"))?;
+    Ok(params)
 }
 
 fn as_f64(v: &J, pointer: &str) -> Result<f64, Diagnostic> {
@@ -986,34 +1077,91 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         }
     };
 
-    if let Some(effects) = v.get("effects") {
+    // Document 19's ordered effect instances. B-07 implements three of them; anything else is
+    // read as `Unsupported`, which is a record this build keeps and never draws.
+    let mut effects = Vec::new();
+    if let Some(effects_json) = v.get("effects") {
         let at = format!("{pointer}/effects");
-        for (i, effect) in as_array(effects, &at)?.iter().enumerate() {
+        for (i, effect) in as_array(effects_json, &at)?.iter().enumerate() {
             let at = format!("{at}/{i}");
             as_object(effect, &at)?;
-            let type_id = as_str(field(effect, &at, "type_id")?, &format!("{at}/type_id"))?;
-            let instance_id = as_str(
+            let type_id =
+                as_str(field(effect, &at, "type_id")?, &format!("{at}/type_id"))?.to_string();
+            let instance_id = as_id(
                 field(effect, &at, "instance_id")?,
                 &format!("{at}/instance_id"),
             )?;
-            warnings.push(
-                Diagnostic::new(
-                    DiagnosticId::EffectUnsupported,
-                    Severity::Warning,
-                    format!(
-                        "The layer \"{name}\" uses the effect \"{type_id}\", which this build \
-                         does not have."
-                    ),
-                    format!(
-                        "Effect instance {instance_id} of type {type_id} on layer {id} is kept \
-                         in the project exactly as it was and is bypassed when rendering."
-                    ),
-                )
-                .with_remediation(
-                    "Nothing was lost. Saving this project writes the effect back unchanged, \
-                     but any frame rendered here is missing what it would have done.",
-                ),
-            );
+            let enabled = match effect.get("enabled") {
+                None | Some(J::Null) => true,
+                Some(b) => as_bool(b, &format!("{at}/enabled"))?,
+            };
+            let params = effect.get("parameters");
+            let parsed = match type_id.as_str() {
+                crate::effects::EXPOSURE => Some(crate::effects::Effect::Exposure {
+                    stops: effect_number(params, "stops", &at)?,
+                }),
+                crate::effects::GAUSSIAN_BLUR => Some(crate::effects::Effect::GaussianBlur {
+                    sigma_px: effect_number(params, "sigma_px", &at)?,
+                }),
+                crate::effects::TINT => Some(crate::effects::Effect::Tint {
+                    color: effect_color(params, &at)?,
+                    amount: effect_number(params, "amount", &at)?,
+                }),
+                _ => None,
+            };
+            let effect_value = match parsed {
+                Some(e) => {
+                    // Document 28: a parameter outside its contract is reported, and the record
+                    // is kept as written. It is not repaired here -- a repaired file would open
+                    // clean the next time and quietly render something nobody chose.
+                    if !e.is_valid() {
+                        warnings.push(
+                            Diagnostic::new(
+                                DiagnosticId::EffectParameterInvalid,
+                                Severity::Warning,
+                                format!(
+                                    "The layer \"{name}\" has a {type_id} whose settings this \
+                                     build cannot use."
+                                ),
+                                format!("{} The effect is kept and bypassed.", e.why_invalid()),
+                            )
+                            .with_remediation(
+                                "Set the parameter to a value inside its range, or remove the \
+                                 effect.",
+                            ),
+                        );
+                    }
+                    e
+                }
+                None => {
+                    warnings.push(
+                        Diagnostic::new(
+                            DiagnosticId::EffectUnsupported,
+                            Severity::Warning,
+                            format!(
+                                "The layer \"{name}\" uses the effect \"{type_id}\", which this \
+                                 build does not have."
+                            ),
+                            format!(
+                                "Effect instance {instance_id} of type {type_id} on layer {id} is \
+                                 kept in the project exactly as it was and is bypassed when \
+                                  rendering."
+                            ),
+                        )
+                        .with_remediation(
+                            "Nothing was lost. Saving this project writes the effect back \
+                             unchanged, but any frame rendered here is missing what it would \
+                              have done.",
+                        ),
+                    );
+                    crate::effects::Effect::Unsupported { type_id }
+                }
+            };
+            effects.push(crate::effects::EffectInstance {
+                instance_id: instance_id.clone(),
+                enabled,
+                effect: effect_value,
+            });
         }
     }
 
@@ -1036,6 +1184,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         exposure_spans,
         mask,
         matte,
+        effects,
         blend_mode: match as_enum(
             field(v, pointer, "blend_mode")?,
             &format!("{pointer}/blend_mode"),

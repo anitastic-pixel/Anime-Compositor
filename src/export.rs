@@ -228,11 +228,14 @@ pub fn export_sequence(
             }
         };
         // Document 28: "exported output must report that fidelity is incomplete" when a feature
-        // was bypassed. Two identifiers mean that today -- the generic one D-24 registered, and
-        // the mask outline D-43 added -- and either is enough to mark the file.
+        // was bypassed. Four identifiers mean that -- the generic one D-24 registered, the mask
+        // outline D-43 added, and the two effect faults B-07 brought in -- and any one of them
+        // is enough to mark the file.
         let ids = log.ids_at(frame);
         let bypassed = ids.contains(&DiagnosticId::ProjectFeatureUnsupported)
-            || ids.contains(&DiagnosticId::MaskInvalidOutline);
+            || ids.contains(&DiagnosticId::MaskInvalidOutline)
+            || ids.contains(&DiagnosticId::EffectUnsupported)
+            || ids.contains(&DiagnosticId::EffectParameterInvalid);
         report.fidelity_incomplete |= bypassed;
 
         let path = request.output_dir.join(expand(&request.naming, frame));
@@ -262,7 +265,11 @@ pub fn export_sequence(
             // Document 28: "exported output must report that fidelity is incomplete".
             tags.push((
                 "Fidelity",
-                "incomplete: a layer carrying a parked feature was drawn without it".to_string(),
+                // The wording said "a parked feature" until B-07. Nothing that raises this is
+                // parked any more -- a crossed mask outline and an effect this build does not
+                // have are both things it refuses to guess at -- so the tag says what is
+                // actually true of the file.
+                "incomplete: a layer carried something this build could not draw".to_string(),
             ));
         }
         let samples = buffer.encode(request.depth, request.alpha);

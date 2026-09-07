@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 
 use anime_compositor::model::{BlendMode, Id};
 use anime_compositor::render::{render, Affine, FramePlan, LayerDraw};
-use anime_compositor::trace::{missing_stages, render_traced, Stage, TraceRequest};
+use anime_compositor::trace::{render_traced, stages_without_an_image, Stage, TraceRequest};
 use anime_compositor::{AlphaMode, ColorSpace, ImageBuffer, WorkingBuffer};
 
 // -- reporting ------------------------------------------------------------------------------
@@ -453,12 +453,12 @@ fn b05b_trace_fixtures() {
         }
         .to_string(),
     );
-    let missing_named = missing_stages()
+    let missing_named = stages_without_an_image()
         .iter()
         .filter(|(_, name, _)| manifest.contains(name))
         .count();
     report.check(
-        "the manifest names every stage of document 21's order this build does not implement",
+        "the manifest names every stage of document 21's order that has no image of its own",
         "3 of 3",
         format!("{missing_named} of 3"),
     );

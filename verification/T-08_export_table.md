@@ -73,5 +73,5 @@ Document 28 says the opposite for the same situation. That conflict is registere
 | the frames it wrote are still on disk after the stop | `2` | `2` | pass |
 | a frame drawn without a bypassed feature still exports | `Completed, 1 written` | `Completed, 1 written` | pass |
 | but the report says the fidelity is incomplete | `true` | `true` | pass |
-| and so does the file itself, where it cannot be separated from the picture | `incomplete: a layer carrying a parked feature was drawn without it` | `incomplete: a layer carrying a parked feature was drawn without it` | pass |
+| and so does the file itself, where it cannot be separated from the picture | `incomplete: a layer carried something this build could not draw` | `incomplete: a layer carried something this build could not draw` | pass |
 | a frame with nothing bypassed carries no such tag | `there is no such tag` | `there is no such tag` | pass |
