@@ -65,6 +65,7 @@ use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::export::{export_sequence, ExportReport, ExportRequest, MissingSource};
 use anime_compositor::media::import_sequence;
 use anime_compositor::model::{Asset, AssetKind, Composition, Id, Layer, Project, Prop, Value};
+use anime_compositor::persist;
 use anime_compositor::time::{ExposureMap, ExposureSpan, FrameRate};
 use anime_compositor::{OutputAlpha, OutputDepth};
 
@@ -867,18 +868,16 @@ fn t08_exports_a_frame_range_to_a_png_sequence() {
     );
 
     // ---- document 28: output produced with a feature bypassed says so ----------------------
-    let mut doc = Document::new(project.clone());
-    doc.apply(Command::SetMatte {
-        composition: id(COMP),
-        layer_id: id("layer-cels"),
-        matte: Some(id("layer-hidden")),
-    })
-    .expect("a matte naming a layer that exists is a valid command");
-    let with_matte = doc.project().clone();
-    let dir = scratch("matte");
-    let bypassed = run(&with_matte, &request(COMP, 12, 12, &dir, "shot_%04d.png"));
+    // Until B-06, the bypassed feature here was the track matte, which this build now draws.
+    // The rows below need a feature that is still genuinely bypassed, or they would stop
+    // testing anything: a mask whose outline crosses itself is one. Document 19 refuses to
+    // repair it, document 28 refuses to drop it, so it is kept, not drawn, and reported --
+    // which is exactly the case this pair of rows exists to catch.
+    let with_bypass = crossed_mask_on(&project);
+    let dir = scratch("bypassed");
+    let bypassed = run(&with_bypass, &request(COMP, 12, 12, &dir, "shot_%04d.png"));
     report.check(
-        "a frame drawn without a parked feature still exports",
+        "a frame drawn without a bypassed feature still exports",
         "Completed, 1 written",
         format!("{:?}, {} written", bypassed.status, bypassed.written.len()),
     );
@@ -960,4 +959,27 @@ fn write_report(report: &Report) {
         ));
     }
     fs::write(repo("verification/T-08_export_table.md"), out).expect("write report");
+}
+
+/// The project with a mask whose outline crosses itself on every layer.
+///
+/// It goes in through the file rather than through a command, because `SetMask` refuses this
+/// shape -- which is the point. A project can only be holding one because it was opened from a
+/// file that already had it, and that is the case document 28 asks the export to report.
+fn crossed_mask_on(project: &Project) -> Project {
+    // Every layer, not just the first: the first layer in this project is switched off, and a
+    // layer that is never drawn would never report the mask it cannot draw.
+    let text = persist::to_json(project, &persist::Preserved::none()).replace(
+        "\"mask\": null",
+        "\"mask\": {\"inverted\": false, \"vertices\": [[0, 0], [10, 0], [0, 10], [10, 10]]}",
+    );
+    assert!(
+        text.contains("\"vertices\""),
+        "the crossed mask went into the project file"
+    );
+    persist::load_str(&text)
+        .expect("a mask that cannot be drawn is a warning, not a refusal")
+        .document
+        .project()
+        .clone()
 }

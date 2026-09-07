@@ -106,6 +106,7 @@ fn draw(source: WorkingBuffer, opacity: f32, blend: BlendMode) -> LayerDraw {
         source,
         transform: Affine::IDENTITY,
         opacity,
+        matte: None,
         blend,
     }
 }

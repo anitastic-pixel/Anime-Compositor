@@ -612,18 +612,46 @@ fn b08a_assembles_and_renders_a_frame_from_a_project() {
         composition: id(COMP),
         layer_id: id("layer-4"),
         matte: Some(id("layer-3")),
+        matte_only: false,
     })
     .expect("a matte naming a layer that exists is a valid command");
     let with_matte = doc.project().clone();
+    // B-06 implemented the track matte. Until it did, this row asserted the opposite: that a
+    // matte was refused with PROJECT_FEATURE_UNSUPPORTED. The row states the new truth rather
+    // than being deleted, so the change of behaviour stays visible in the table.
     report.check(
-        "a track matte, which this build does not render, is reported rather than ignored",
-        "PROJECT_FEATURE_UNSUPPORTED: Layer layer4 has a track matte, which this build does not render.",
+        "a track matte is rendered now rather than refused, so nothing is reported",
+        "",
         diagnostics_at(&with_matte, 0, 8).join(" / "),
     );
     report.check(
-        "the layer still draws; what it loses is the matte, not itself",
+        "the matte layer is still composited in its own right, so the count is unchanged",
         4,
         plan_at(&with_matte, 0).layers.len(),
+    );
+
+    // A matte naming a layer that has gone is document 28's MATTE_REFERENCE_MISSING: a warning
+    // with a defined fallback, which is to draw the layer unmatted rather than to drop it.
+    let mut doc = Document::new(with_matte.clone());
+    doc.apply(Command::RemoveLayer {
+        composition: id(COMP),
+        layer_id: id("layer-3"),
+    })
+    .expect("removing a layer is a valid command");
+    let orphan_matte = doc.project().clone();
+    report.check(
+        "a matte naming a layer that has gone is reported, not silently dropped",
+        "MATTE_REFERENCE_MISSING",
+        diagnostics_at(&orphan_matte, 0, 8)
+            .iter()
+            .map(|d| d.split(':').next().unwrap_or("").to_string())
+            .collect::<Vec<_>>()
+            .join(" / "),
+    );
+    report.check(
+        "and the layer it was on still draws, unmatted",
+        3,
+        plan_at(&orphan_matte, 0).layers.len(),
     );
 
     // The layer keeps its reference and the asset record goes: document 28's case of a layer
@@ -776,9 +804,10 @@ fn write_report(report: &Report) {
          be.\n\n\
          ## What is not here\n\n\
          There is no viewer, no playback and no export. This is the headless half of B-08: it \
-         turns a project and a frame number into a picture, and stops there. Masks, effects \
-         and track mattes are parked (document 23); a layer carrying a matte renders without \
-         it and says so rather than pretending.\n\n\
+         turns a project and a frame number into a picture, and stops there. Masks and \
+         track mattes arrived with B-06 and are checked in full there; the rows here only \
+         confirm that this stage passes them through and reports a matte whose layer has gone. \
+         Effects are B-07.\n\n\
          ## Checks\n\n| Check | Expected | Actual | Result |\n|---|---|---|---|\n",
         report.rows.len(),
     ));

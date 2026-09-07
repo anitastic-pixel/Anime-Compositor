@@ -71,7 +71,7 @@ Document 28 says the opposite for the same situation. That conflict is registere
 | it stopped short of the hundred frames asked for | `true` | `true` | pass |
 | and every frame it had finished is a whole file, because the check is between frames | `all 320x180` | `all 320x180` | pass |
 | the frames it wrote are still on disk after the stop | `2` | `2` | pass |
-| a frame drawn without a parked feature still exports | `Completed, 1 written` | `Completed, 1 written` | pass |
+| a frame drawn without a bypassed feature still exports | `Completed, 1 written` | `Completed, 1 written` | pass |
 | but the report says the fidelity is incomplete | `true` | `true` | pass |
 | and so does the file itself, where it cannot be separated from the picture | `incomplete: a layer carrying a parked feature was drawn without it` | `incomplete: a layer carrying a parked feature was drawn without it` | pass |
 | a frame with nothing bypassed carries no such tag | `there is no such tag` | `there is no such tag` | pass |

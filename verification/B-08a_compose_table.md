@@ -1,6 +1,6 @@
 # B-08a — a frame assembled and rendered from a project file
 
-**45 of 45 checks passed.**
+**47 of 47 checks passed.**
 
 Produced by `tests/b08a_compose.rs`. Covers document 20's evaluation order at one frame, steps 1 to 8.
 
@@ -21,7 +21,7 @@ The table's expected values were worked out from the fixture's own record of how
 
 ## What is not here
 
-There is no viewer, no playback and no export. This is the headless half of B-08: it turns a project and a frame number into a picture, and stops there. Masks, effects and track mattes are parked (document 23); a layer carrying a matte renders without it and says so rather than pretending.
+There is no viewer, no playback and no export. This is the headless half of B-08: it turns a project and a frame number into a picture, and stops there. Masks and track mattes arrived with B-06 and are checked in full there; the rows here only confirm that this stage passes them through and reports a matte whose layer has gone. Effects are B-07.
 
 ## Checks
 
@@ -64,8 +64,10 @@ There is no viewer, no playback and no export. This is the headless half of B-08
 | a composition the project does not have is refused | `COMMAND_TARGET_MISSING` | `COMMAND_TARGET_MISSING` | pass |
 | a layer switched off is left out of the frame | `layer-1, layer-3, layer-4` | `layer-1, layer-3, layer-4` | pass |
 | and switching it off is not a fault, so nothing is reported | `` | `` | pass |
-| a track matte, which this build does not render, is reported rather than ignored | `PROJECT_FEATURE_UNSUPPORTED: Layer layer4 has a track matte, which this build does not render.` | `PROJECT_FEATURE_UNSUPPORTED: Layer layer4 has a track matte, which this build does not render.` | pass |
-| the layer still draws; what it loses is the matte, not itself | `4` | `4` | pass |
+| a track matte is rendered now rather than refused, so nothing is reported | `` | `` | pass |
+| the matte layer is still composited in its own right, so the count is unchanged | `4` | `4` | pass |
+| a matte naming a layer that has gone is reported, not silently dropped | `MATTE_REFERENCE_MISSING` | `MATTE_REFERENCE_MISSING` | pass |
+| and the layer it was on still draws, unmatted | `3` | `3` | pass |
 | a layer naming an asset the project does not have is reported and left out | `PROJECT_SCHEMA_INVALID: Layer layer3 names asset asset-layer3, which is not in the project.` | `PROJECT_SCHEMA_INVALID: Layer layer3 names asset asset-layer3, which is not in the project.` | pass |
 | a file the project points at that is not on disk is a different fault, named differently | `MEDIA_MISSING: layer3/layer3_000_moved_away.png is not where the project says it is.` | `MEDIA_MISSING: layer3/layer3_000_moved_away.png is not where the project says it is.` | pass |
 | the rendered frame is the composition's size | `1920x1080` | `1920x1080` | pass |

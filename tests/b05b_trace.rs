@@ -101,6 +101,7 @@ fn fixture_plan() -> FramePlan {
                 source: working(4, 4, BG),
                 transform: Affine::IDENTITY,
                 opacity: 1.0,
+                matte: None,
                 blend: BlendMode::Normal,
             },
             LayerDraw {
@@ -108,6 +109,7 @@ fn fixture_plan() -> FramePlan {
                 source: working(2, 2, FG),
                 transform: Affine::translation(1.0, 1.0),
                 opacity: 0.5,
+                matte: None,
                 blend: BlendMode::Normal,
             },
         ],
@@ -271,6 +273,7 @@ fn b05b_trace_fixtures() {
             height: 4,
             layers: vec![LayerDraw {
                 opacity: 1.0,
+                matte: None,
                 blend: BlendMode::Normal,
                 ..plan.layers[1].clone()
             }],
@@ -495,6 +498,7 @@ fn b05b_trace_fixtures() {
                 source: working(2, 2, BG),
                 transform: Affine::IDENTITY,
                 opacity: 1.0,
+                matte: None,
                 blend: BlendMode::Normal,
             },
             LayerDraw {
@@ -502,6 +506,7 @@ fn b05b_trace_fixtures() {
                 source: working(2, 2, BG),
                 transform: Affine::IDENTITY,
                 opacity: 1.0,
+                matte: None,
                 blend: BlendMode::Normal,
             },
         ],
@@ -584,6 +589,7 @@ fn b05b_a_unicode_layer_id_survives_the_round_trip() {
             source: working(2, 2, BG),
             transform: Affine::IDENTITY,
             opacity: 1.0,
+            matte: None,
             blend: BlendMode::Normal,
         }],
     };
@@ -675,6 +681,7 @@ fn reference_plan() -> Option<FramePlan> {
             source,
             transform: Affine::from_transform(*anchor, *position, *scale, *rotation),
             opacity: 1.0,
+            matte: None,
             blend: BlendMode::Normal,
         });
     }

@@ -17,9 +17,9 @@
 //! 7. per-layer source, transform and opacity — document 21 steps 1, 4 and 6
 //! 8. composite the ordered result — [`crate::render::render`]
 //!
-//! Steps 2, 3 and 5 of document 21 — mask, effects, matte — are parked (document 23, R-04 and
-//! R-05). A layer carrying a matte still renders; what it does not do is render silently, which
-//! is why the matte earns a `PROJECT_FEATURE_UNSUPPORTED` line in the log.
+//! Steps 2 and 5 of document 21 — mask and matte — arrived with B-06. Step 3, effects, is B-07:
+//! a layer carrying effects renders without them for now, and says so rather than rendering
+//! silently.
 //!
 //! Nothing here is the viewer. There is no transport, no playback, no work area and no window:
 //! those are the rest of B-08 and they need decisions this build has not been given.
@@ -124,122 +124,82 @@ pub fn plan_frame_cached(
         ));
     }
 
+    // D-42: the layers some other layer uses as a matte-only source. They are still resolved as
+    // mattes below; what the flag buys is that they are not also drawn in their own right, which
+    // is document 21's "not separately composited into the final stack".
+    let matte_only: Vec<&Id> = comp
+        .layers_in_order()
+        .filter_map(|l| l.matte.as_ref())
+        .filter(|m| m.matte_only)
+        .map(|m| &m.layer_id)
+        .collect();
+
     let mut layers = Vec::new();
     // Step 3: composition order, bottom of the stack first, which is `FramePlan.layers`' order.
     for layer in comp.layers_in_order() {
-        if !layer.enabled {
+        if !layer.enabled || matte_only.contains(&&layer.id) {
             continue;
         }
-        if layer.matte.is_some() {
-            log.record(
-                frame,
-                layer.name.clone(),
-                Diagnostic::new(
-                    DiagnosticId::ProjectFeatureUnsupported,
-                    Severity::Warning,
-                    format!(
-                        "Layer {} has a track matte, which this build does not render.",
-                        layer.name
-                    ),
-                    "The matte reference is preserved in the project and takes no part in this \
-                     frame. The layer is drawn as if it had none, so it may cover more than it \
-                     will once mattes are implemented."
-                        .to_string(),
-                )
-                .with_remediation("Document 23 parks mattes with R-04; nothing to do here yet."),
-            );
-        }
-
-        let Some(asset) = project.assets.iter().find(|a| a.id == layer.asset_id) else {
-            log.record(
-                frame,
-                layer.name.clone(),
-                schema_invalid(format!(
-                    "Layer {} names asset {}, which is not in the project.",
-                    layer.name,
-                    layer.asset_id.as_str()
-                )),
-            );
+        let Some(resolved) = resolve_layer(project, layer, frame, root, cache, log) else {
             continue;
         };
 
-        let timing = layer.timing();
-        // Steps 4 and 5: the layer-local frame, then the drawing exposed at it.
-        let relative = match source_at(layer.exposure_spans.clone(), &timing, asset, frame) {
-            Ok(Some(path)) => path,
-            Ok(None) => continue,
-            Err(d) => {
-                log.record(frame, layer.name.clone(), d);
-                continue;
-            }
-        };
-        let path = root.join(&relative);
-        if !path.exists() {
-            log.record(
-                frame,
-                layer.name.clone(),
-                Diagnostic::new(
-                    DiagnosticId::MediaMissing,
-                    Severity::Warning,
-                    format!(
-                        "{} is not where the project says it is.",
-                        relative.display()
-                    ),
-                    format!(
-                        "Layer {} looked for it at {} for frame {frame}. The reference is kept \
-                         and the layer is left out of this frame; no neighbouring drawing is \
-                         substituted for it.",
-                        layer.name,
-                        path.display()
-                    ),
-                )
-                .with_remediation("Relink the sequence, or put the file back where it was."),
-            );
-            continue;
-        }
-        // Document 21 step 1: decode, then interpret. `decode_png` tags what PNG guarantees —
-        // sRGB, straight — and the asset record is what overrides it, so a project that says a
-        // sequence was rendered premultiplied is believed here and nowhere else. All three of
-        // those steps happen inside the cache, because all three are what a hit skips.
-        let source = match cache.decoded(&path, asset.interpretation) {
-            Ok(buffer) => buffer,
-            Err(d) => {
-                log.record(frame, layer.name.clone(), d);
-                continue;
-            }
-        };
-
-        // Step 6: the animated properties at this frame. A property holding the wrong kind of
-        // value cannot come from a loaded project — persistence refuses it — so this reports
-        // rather than guesses a default, which would put a layer somewhere nobody asked for.
-        let t = &layer.transform;
-        let (Some(anchor), Some(position), Some(scale), Some(rotation), Some(opacity)) = (
-            t.anchor.value_at(frame).as_vec2(),
-            t.position.value_at(frame).as_vec2(),
-            t.scale.value_at(frame).as_vec2(),
-            t.rotation.value_at(frame).as_scalar(),
-            t.opacity.value_at(frame).as_scalar(),
-        ) else {
-            log.record(
-                frame,
-                layer.name.clone(),
-                schema_invalid(format!(
-                    "Layer {}'s transform holds a value of the wrong kind at frame {frame}: {}.",
-                    layer.name,
-                    wrong_kinds(layer, frame)
-                )),
-            );
-            continue;
+        // Document 21 step 5. The matte layer is looked up whether or not it is enabled or
+        // matte-only: neither of those stops it shaping this layer, they only decide whether it
+        // is also drawn on its own.
+        let matte = match &layer.matte {
+            None => None,
+            Some(reference) => match comp.layer(&reference.layer_id) {
+                Some(matte_layer) => {
+                    // Only one level deep, and deliberately: document 21 evaluates the matte
+                    // layer "through its own source, mask, effects and transform", which does
+                    // not include its own matte. A matte's matte is not a chain, so there is
+                    // nothing here to recurse into and no cycle to guard against.
+                    resolve_layer(project, matte_layer, frame, root, cache, log).map(|m| {
+                        Box::new(render::MatteDraw {
+                            source: m.source,
+                            transform: m.transform,
+                        })
+                    })
+                }
+                None => {
+                    // Document 28: MATTE_REFERENCE_MISSING is a WARNING that preserves the
+                    // reference and renders a defined fallback. The fallback defined here is
+                    // unmatted, and it is the safe direction: an unresolved matte that hid the
+                    // layer would look exactly like a layer someone had turned off, while an
+                    // unmatted layer looks wrong in a way that sends you to the log.
+                    log.record(
+                        frame,
+                        layer.name.clone(),
+                        Diagnostic::new(
+                            DiagnosticId::MatteReferenceMissing,
+                            Severity::Warning,
+                            format!(
+                                "Layer {} uses layer {} as a matte, which is not in this \
+                                 composition.",
+                                layer.name,
+                                reference.layer_id.as_str()
+                            ),
+                            "The matte reference is preserved in the project. This frame draws \
+                             the layer unmatted, so it covers more than it will once the matte \
+                             layer is back."
+                                .to_string(),
+                        )
+                        .with_remediation(
+                            "Put the matte layer back in this composition, or clear the matte.",
+                        ),
+                    );
+                    None
+                }
+            },
         };
 
         layers.push(LayerDraw {
             id: layer.id.clone(),
-            source,
-            // Document 21 step 4. Scale is a unit factor in the model (D-22); the divide by 100
-            // lives at the file and UI boundaries, not here.
-            transform: Affine::from_transform(anchor, position, scale, rotation),
-            // Document 21 step 6. Opacity is normalized 0..1 in the model (document 19).
-            opacity: opacity as f32,
+            source: resolved.source,
+            transform: resolved.transform,
+            opacity: resolved.opacity,
+            matte,
             blend: layer.blend_mode,
         });
     }
@@ -248,6 +208,167 @@ pub fn plan_frame_cached(
         width: comp.width as usize,
         height: comp.height as usize,
         layers,
+    })
+}
+
+/// One layer resolved to pixels: document 21's steps 1, 2, 4 and 6 for a single layer.
+struct ResolvedLayer {
+    source: WorkingBuffer,
+    transform: Affine,
+    opacity: f32,
+}
+
+/// Steps 1 through 6 of document 21 for one layer: find its drawing at this frame, decode it,
+/// apply its mask in source space, and evaluate its transform and opacity.
+///
+/// `None` means the layer takes no part in this frame. Every reason for that is either recorded
+/// in `log` first or is not a fault at all — a layer outside its own in/out range contributes
+/// nothing and there is nothing to say about it.
+///
+/// This is called twice: once for a layer being drawn, and once for a layer being used as
+/// another's matte. That second call is the whole reason it is a function. A matte layer has to
+/// go through the same source resolution, the same decode and the same mask as a drawn one,
+/// because document 21 says the matte layer is evaluated "through its own source, mask, effects
+/// and transform" — and a matte that resolved its drawing by a different route would be a second
+/// implementation of the first six steps, drifting from this one at whatever the next change is.
+///
+/// The caller decides what to do with `opacity`: a drawn layer applies it at step 6, and a matte
+/// ignores it, because step 5 asks for the matte layer's post-transform *alpha* and opacity is a
+/// later step about how a layer joins the stack.
+fn resolve_layer(
+    project: &Project,
+    layer: &crate::model::Layer,
+    frame: i32,
+    root: &Path,
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) -> Option<ResolvedLayer> {
+    let Some(asset) = project.assets.iter().find(|a| a.id == layer.asset_id) else {
+        log.record(
+            frame,
+            layer.name.clone(),
+            schema_invalid(format!(
+                "Layer {} names asset {}, which is not in the project.",
+                layer.name,
+                layer.asset_id.as_str()
+            )),
+        );
+        return None;
+    };
+
+    let timing = layer.timing();
+    // Steps 4 and 5: the layer-local frame, then the drawing exposed at it.
+    let relative = match source_at(layer.exposure_spans.clone(), &timing, asset, frame) {
+        Ok(Some(path)) => path,
+        Ok(None) => return None,
+        Err(d) => {
+            log.record(frame, layer.name.clone(), d);
+            return None;
+        }
+    };
+    let path = root.join(&relative);
+    if !path.exists() {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::MediaMissing,
+                Severity::Warning,
+                format!(
+                    "{} is not where the project says it is.",
+                    relative.display()
+                ),
+                format!(
+                    "Layer {} looked for it at {} for frame {frame}. The reference is kept and \
+                     the layer is left out of this frame; no neighbouring drawing is substituted \
+                     for it.",
+                    layer.name,
+                    path.display()
+                ),
+            )
+            .with_remediation("Relink the sequence, or put the file back where it was."),
+        );
+        return None;
+    }
+    // Document 21 step 1: decode, then interpret. `decode_png` tags what PNG guarantees —
+    // sRGB, straight — and the asset record is what overrides it, so a project that says a
+    // sequence was rendered premultiplied is believed here and nowhere else. All three of
+    // those steps happen inside the cache, because all three are what a hit skips.
+    let mut source = match cache.decoded(&path, asset.interpretation) {
+        Ok(buffer) => buffer,
+        Err(d) => {
+            log.record(frame, layer.name.clone(), d);
+            return None;
+        }
+    };
+
+    // Document 21 step 2: the polygon mask, in layer/source space, before the transform.
+    //
+    // `CelCache::decoded` hands back an owned clone of what it holds, so this writes on this
+    // layer's copy and cannot reach the cached cel that another layer using the same drawing
+    // will be given. That is the single most damaging thing this line could get wrong — one
+    // masked layer would cut every other layer sharing its artwork, and only on a cache hit —
+    // so `tests/b06_mask.rs` asserts it against the cache rather than trusting this comment.
+    if let Some(mask) = &layer.mask {
+        // A mask that is switched on but cannot be drawn -- fewer than three corners, or an
+        // outline that crosses itself -- is a feature bypassed, not a shape to guess at.
+        // Saying so per frame is what puts the incomplete-fidelity mark on an export; leaving
+        // it to the warning raised when the file was opened would let a picture go out with a
+        // mask silently missing from it.
+        if mask.enabled && !mask.is_renderable() {
+            log.record(
+                frame,
+                layer.name.clone(),
+                Diagnostic::new(
+                    DiagnosticId::MaskInvalidOutline,
+                    Severity::Warning,
+                    format!("Layer {}'s mask cannot be drawn, so it is not.", layer.name),
+                    format!(
+                        "The mask has {} corners and its outline {} itself. Document 19 requires                          at least three corners and an outline that does not cross. The layer is                          drawn unmasked for frame {frame} and the mask is kept in the project.",
+                        mask.vertices.len(),
+                        if crate::mask::is_simple(&mask.vertices) {
+                            "does not cross"
+                        } else {
+                            "crosses"
+                        }
+                    ),
+                )
+                .with_remediation("Redraw the mask so its outline does not cross itself."),
+            );
+        }
+        crate::mask::apply(&mut source, mask);
+    }
+
+    // Step 6: the animated properties at this frame. A property holding the wrong kind of
+    // value cannot come from a loaded project — persistence refuses it — so this reports
+    // rather than guesses a default, which would put a layer somewhere nobody asked for.
+    let t = &layer.transform;
+    let (Some(anchor), Some(position), Some(scale), Some(rotation), Some(opacity)) = (
+        t.anchor.value_at(frame).as_vec2(),
+        t.position.value_at(frame).as_vec2(),
+        t.scale.value_at(frame).as_vec2(),
+        t.rotation.value_at(frame).as_scalar(),
+        t.opacity.value_at(frame).as_scalar(),
+    ) else {
+        log.record(
+            frame,
+            layer.name.clone(),
+            schema_invalid(format!(
+                "Layer {}'s transform holds a value of the wrong kind at frame {frame}: {}.",
+                layer.name,
+                wrong_kinds(layer, frame)
+            )),
+        );
+        return None;
+    };
+
+    Some(ResolvedLayer {
+        source,
+        // Document 21 step 4. Scale is a unit factor in the model (D-22); the divide by 100
+        // lives at the file and UI boundaries, not here.
+        transform: Affine::from_transform(anchor, position, scale, rotation),
+        // Document 21 step 6. Opacity is normalized 0..1 in the model (document 19).
+        opacity: opacity as f32,
     })
 }
 

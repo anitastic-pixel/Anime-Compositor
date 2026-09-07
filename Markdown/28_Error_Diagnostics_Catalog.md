@@ -24,6 +24,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | EFFECT_PARAMETER_INVALID | ERROR | Effect parameter violates contract | reject edit/load as appropriate |
 | MATTE_REFERENCE_MISSING | WARNING | Matte ID unresolved | preserve reference; render defined fallback with warning |
 | MATTE_CYCLE | ERROR | Matte dependency cycle detected | reject command/load render graph |
+| MASK_INVALID_OUTLINE | ERROR on a command, WARNING on a load | Mask outline crosses itself, or has fewer than three corners | reject the command; on load preserve the record exactly, draw the layer unmasked, and report fidelity incomplete |
 | EXPRESSION_CYCLE | ERROR | Expression dependency cycle | stop affected property evaluation |
 | EXPRESSION_TIMEOUT | ERROR | Bounded evaluator limit exceeded | terminate expression deterministically |
 | GPU_BACKEND_FAILED | ERROR | Production GPU path failed | use approved fallback only if explicitly supported; never silently change pixels |
@@ -36,6 +37,8 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 ## Missing/unsupported render fallback
 
 G1 default for an unresolved raster source is transparent pixels plus persistent warning, not a colored placeholder in final export. Viewer may overlay a non-rendering warning badge. Unknown effects are bypassed while preserved in the project, and exported output must report that fidelity is incomplete.
+
+A mask whose outline this build refuses is the same shape of fallback and is treated the same way. Document 19 requires that self-intersection be rejected rather than normalized, because a normalized polygon is a different shape from the one that was drawn, and this catalog requires that the record be preserved rather than dropped. The two together mean the mask stays in the project byte for byte, the layer draws unmasked, and any file exported from that frame is marked incomplete. `MASK_INVALID_OUTLINE` was added on 2026-09-06 by D-43, which asked whether a refused mask should reuse `COMMAND_INVALID_VALUE` as D-26 did for a render request out of range. It should not: a crossed outline is a specific fault with a specific remedy, and a person filtering diagnostics should be able to find it without reading message text.
 
 These fallbacks are chosen to avoid fabricating media/effect behavior. They remain subject to user validation.
 

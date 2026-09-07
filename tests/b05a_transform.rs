@@ -97,6 +97,7 @@ fn one_layer(source: WorkingBuffer, transform: Affine) -> Vec<LayerDraw> {
         source,
         transform,
         opacity: 1.0,
+        matte: None,
         blend: BlendMode::Normal,
     }]
 }
@@ -470,6 +471,7 @@ fn b05a_transform_fixtures() {
                 source: impulse_source(5, (2, 2)),
                 transform: Affine::IDENTITY,
                 opacity: 0.5,
+                matte: None,
                 blend: BlendMode::Normal,
             }],
         ),
@@ -493,6 +495,7 @@ fn b05a_transform_fixtures() {
                     source: impulse_source(5, (2, 2)),
                     transform: Affine::IDENTITY,
                     opacity: 0.0,
+                    matte: None,
                     blend: BlendMode::Normal,
                 }],
             ),
@@ -626,6 +629,7 @@ fn reference_plan(width: usize, height: usize) -> FramePlan {
                 *rotation,
             ),
             opacity: 1.0,
+            matte: None,
             blend: BlendMode::Normal,
         });
     }

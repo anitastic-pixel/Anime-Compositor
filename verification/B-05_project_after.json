@@ -156,6 +156,7 @@
               "drawing_number": 1
             }
           ],
+          "mask": null,
           "matte": null,
           "blend_mode": "normal",
           "effects": []
@@ -213,6 +214,7 @@
               "drawing_number": 1
             }
           ],
+          "mask": null,
           "matte": null,
           "blend_mode": "normal",
           "effects": []
@@ -270,6 +272,7 @@
               "drawing_number": 1
             }
           ],
+          "mask": null,
           "matte": null,
           "blend_mode": "normal",
           "effects": []
@@ -327,6 +330,7 @@
               "drawing_number": 1
             }
           ],
+          "mask": null,
           "matte": null,
           "blend_mode": "normal",
           "effects": []
@@ -373,9 +377,11 @@
             }
           },
           "exposure_spans": [],
+          "mask": null,
           "matte": {
             "layer_id": "layer-3",
-            "mode": "alpha"
+            "mode": "alpha",
+            "matte_only": false
           },
           "blend_mode": "normal",
           "effects": []

@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**243 breaks were made across twenty-five units. All 243 were caught.**
+**257 breaks were made across twenty-six units. All 257 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -855,6 +855,66 @@ anything.
 
 Nothing in `Fixtures/` was touched, no expected value was edited, and no threshold was loosened. Two
 assertions were added where there had been none.
+
+## B-06 the polygon mask and the alpha matte
+
+`src/mask.rs`, the mask and matte steps of `src/compose.rs` and `src/render.rs`, and the mask and
+matte halves of `src/persist.rs`, measured by `tests/b06_mask.rs`, whose artifact is
+`verification/B-06_mask_table.md`.
+
+**14 of 14 breaks caught, after five got through.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| M1 | A mask of two corners is drawn instead of refused | **no, first time** | after the fixture was strengthened: the refusal row, which now reads the message and not only the identifier |
+| M2 | The ray test counts an edge on both sides of a shared vertex instead of the half-open span | **no, first time** | after: `a sample sitting exactly on a vertical edge counts as inside` |
+| M3 | The ray is cast in -x instead of +x, so inside and outside swap | **no, first time** | after: the same boundary rows |
+| M4 | The sample grid sits on the pixel corner instead of being centred in each cell | **no, first time** | after: `an edge at 2.6 covers 0.500000` against the independent grid |
+| M5 | The sample grid is 8x8, so the edge quantum is a sixty-fourth and not a sixteenth | **no, first time** | after: `the build's sample grid is the 4x4 ADR-016 records` |
+| M6 | Coverage scales alpha only, leaving the premultiplied colour behind | yes | the premultiplied-invariant row |
+| M7 | An inverted mask is drawn the same as an ordinary one | yes | the inverted-mask rows, and the mask-plus-inverse-sums-back row |
+| M8 | A self-intersecting outline is treated as simple, so it is accepted and drawn | yes | the refusal row in `b06_mask`, and the diagnostic rows in `b09_persistence` and `t08_export` |
+| M9 | A mask that cannot be drawn is skipped with nothing recorded for the frame | yes | the `MASK_INVALID_OUTLINE` frame-log row in `t08_export` |
+| M10 | The matte-only flag is read the wrong way round, so it hides every other matte layer | yes | `matte-only takes the matte layer out of the drawn stack` |
+| M11 | A matte contributes its red channel instead of its alpha | yes | the step 5 arithmetic rows |
+| M12 | The matte is sampled through the drawn layer's transform rather than its own | yes | the matted-under-transform rows |
+| M13 | Saving drops the matte-only flag, so it is lost the next time the project is opened | yes | `matte-only is saved and comes back` |
+| M14 | Saving drops the outline of a mask this build cannot draw | yes | the preservation row in `b09_persistence` |
+
+M14 is the one worth naming for its own sake. A mask this build refuses to draw is still the
+owner's drawing, and document 28 says unsupported data is preserved or diagnosed, never quietly
+dropped. The break makes the refusal permanent: open the file, save it, and the outline is gone.
+
+## Seventeenth pass: the five that got through, and what was added
+
+| Break that survived | Why the fixture missed it | Added |
+|---|---|---|
+| A two-point mask is drawn instead of refused (M1) | Both refusals emit `MASK_INVALID_OUTLINE`, and the row read only the identifier, so a shape refused for the wrong reason - or a shape that should have been refused and was not, while a different one still was - read the same | The refusal rows now compare the whole diagnostic, identifier and message: `MASK_INVALID_OUTLINE: A mask needs at least three points, and this one has 2.` |
+| The sample grid moves to the pixel corner (M4) | The fixture's independent implementation read the sample offsets off `src/mask.rs`, so the grid moved on both sides of the comparison at once | `REFERENCE_OFFSETS`, the four offsets ADR-016 states, written out in the fixture; the divisor 16 as a literal; and a separate row asserting the build's own `SAMPLES_PER_SIDE` still agrees |
+| The grid becomes 8x8 (M5) | The same cause, one constant over | The same, plus `the build's sample grid is the 4x4 ADR-016 records` |
+| The ray span is closed instead of half-open (M2) | ADR-016 never said what happens to a sample lying exactly on the outline, so no expected value depended on it | Two rows pinning it: a sample on a vertical edge and one on a horizontal edge both count as inside, with ADR-016 amended to say so |
+| The ray is cast in -x (M3) | The same gap | The same rows |
+
+Two causes, and one of them this report has now named three times. **A check that reads its
+subject's own constant cannot notice that constant changing**, because both sides of the comparison
+move together - T-06 found it in the cache's own bookkeeping, and here it was the rasterizer's own
+sample grid inside the implementation written to be independent of it. Independent has to mean
+independent of the numbers too, not only of the method.
+
+The other is new and is the more interesting one. M2 and M3 nearly went down as unobservable - two
+spellings of the same arithmetic, the way B-08's pair did - and the case for withdrawing them was
+that no reasoning found a polygon they disagreed on. A brute force over forty thousand random
+grid-aligned polygons found 360 and 838 disagreements respectively, and a second brute force showed
+**every single one** is at a sample lying exactly on the outline. So the survivors were not weak
+breaks. They were a hole in the specification: ADR-016 chose a grid and a fill rule and said nothing
+about the boundary, and a build could have flipped that convention with every fixture still green.
+The rule is now written into ADR-016 and pinned by two rows - and those two rows deliberately do not
+go through the independent implementation, because the winding-number method calls a boundary point
+outside, which is a third defensible convention and would have made the reference disagree with the
+decision rather than check it.
+
+Nothing in `Fixtures/` was touched, no expected value was edited and no tolerance was loosened. The
+table grew from 37 checks to 41.
 
 ## First pass: the six that got through, and what was added
 

@@ -227,9 +227,12 @@ pub fn export_sequence(
                 return report;
             }
         };
-        let bypassed = log
-            .ids_at(frame)
-            .contains(&DiagnosticId::ProjectFeatureUnsupported);
+        // Document 28: "exported output must report that fidelity is incomplete" when a feature
+        // was bypassed. Two identifiers mean that today -- the generic one D-24 registered, and
+        // the mask outline D-43 added -- and either is enough to mark the file.
+        let ids = log.ids_at(frame);
+        let bypassed = ids.contains(&DiagnosticId::ProjectFeatureUnsupported)
+            || ids.contains(&DiagnosticId::MaskInvalidOutline);
         report.fidelity_incomplete |= bypassed;
 
         let path = request.output_dir.join(expand(&request.naming, frame));
