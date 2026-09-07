@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**237 breaks were made across twenty-four units. All 237 were caught.**
+**243 breaks were made across twenty-five units. All 243 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -82,6 +82,10 @@ H-04, which carries that method out of the renderer's memory and into the export
 sixteenth's fault exactly - the opaque background again, one step further downstream - which is
 the most useful thing this report has recorded about itself, and is written up as such below. The
 fourth is a fault in a tolerance rather than in a picture, and it is the first of its kind here.
+The eighteenth is T-06, the performance envelope, and it is the first unit in this report whose
+subject is a measurement rather than a picture: 6 breaks, **two of which got through**, and all six
+caught afterwards. Both survivors had one cause, and it is a cause this report has not recorded
+before - a check that reads its subject's own bookkeeping cannot audit that bookkeeping.
 
 
 ## B-02 colour and alpha
@@ -797,6 +801,60 @@ mistake as printing a measurement and calling it a check.
 Nothing in `Fixtures/` was touched, no expected value was edited and no tolerance was loosened; the
 one tolerance that changed was tightened, by adding a bound where there had been none. The table is
 new, so it starts at 20 checks.
+
+## T-06 the performance envelope
+
+`src/cache.rs`, measured by `tests/t06_envelope.rs`, whose artifact is
+`verification/T-06_performance_envelope.md`.
+
+**6 of 6 breaks caught, after two got through.**
+
+Every other unit in this report checks a picture or a file against an expected answer. This one is a
+measurement: it reports timings and asserts almost nothing, deliberately, because a test that fails
+when the machine is busy teaches nothing and document 12 asks for measurements against a named
+machine rather than for thresholds nobody can reproduce. So the faults below are not a sample of the
+renderer. They attack the two things T-06 does assert - that no loop leaves the cache holding more
+than its budget, and that the process's working set after the tenth loop is not more than one cel
+above its working set after the second - because those two are the whole of what a mutation can
+reach here.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| Q1 | Nothing is ever evicted, so the cache grows without bound | yes | the budget check, on loop 1 |
+| Q2 | Eviction stops one entry late, so the cache settles just over its budget | yes | the budget check, on loop 1 |
+| Q3 | A cel larger than the whole budget is stored instead of refused | **no, first time** | after the fixture was strengthened: `a budget below one cel evicted 1 cels, so it admitted what it should have refused` |
+| Q4 | Eviction forgets to subtract what it evicted, so held only ever rises | yes | a subtraction overflow inside `src/cache.rs` itself, before any check was reached |
+| Q5 | Every decode retains a copy of the cel somewhere the cache cannot see | yes | the working-set check: `the process grew ... which is more than one cel` |
+| Q6 | A held cel is accounted at a quarter of its true size, the on-disk figure ADR-015 corrects | **no, first time** | after: `a budget below one cel held 1 cels` |
+
+Q4 is worth one line on its own. It was caught, but by a crash in the mutated code rather than by a
+check, and there is nothing to repair for it: the overflow only exists in the broken build. It is
+recorded as caught-by-crash rather than counted as a fixture success.
+
+## Sixteenth pass: the two that got through, and what was added
+
+| Unit | What was broken | Why the fixture missed it | Added |
+|---|---|---|---|
+| T-06 | A cel too large for the budget is stored instead of refused (Q3) | Every budget in the file is four cels or more, so the refusal never runs at all; and if it did, the store-then-evict it becomes ends with an empty cache, which is exactly what a refusal looks like | A cache given one byte less than a single cel, which must hold nothing **and evict nothing**. The eviction count is the only thing that separates a refusal from an admission thrown straight back out |
+| T-06 | A held cel is accounted at a quarter of its size (Q6) | The budget check reads the cache's own accounting, so a fault in that accounting moves the number being checked and the number it is checked against together, in step | The held bytes checked against the cel count times the cel size - the same figure derived a second way - and the sub-cel budget above, which is what actually caught it |
+
+One cause, and it is the reason this unit was worth breaking at all: **a check that reads its
+subject's own bookkeeping cannot audit that bookkeeping.** Every figure in
+`verification/T-06_performance_envelope.md` is read out of the cache. Q6 would have divided the
+cache's held bytes by four - and with them the cel counts, the budget headroom and the reasoning in
+D-40 that rests on how many cels fit in 128 MB - while the budget assertion carried on passing,
+because a quartered figure is still under a budget compared against the same quartered arithmetic.
+That is a published artifact wrong by a factor of four with nothing failing anywhere. The answer is
+the one this report keeps arriving at from different directions: derive the number a second way, or
+find the place where the two behaviours stop looking identical. Both were added here.
+
+The sub-cel budget check is the one that caught both, because it runs first. The accounting check is
+kept anyway, and not out of caution: it is the only one of the two that guards the figures the
+artifact actually publishes, which are taken at a 2 GB budget where a sub-cel cache cannot say
+anything.
+
+Nothing in `Fixtures/` was touched, no expected value was edited, and no threshold was loosened. Two
+assertions were added where there had been none.
 
 ## First pass: the six that got through, and what was added
 
