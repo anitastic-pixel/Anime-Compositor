@@ -35,6 +35,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | effect.add | Add effect instance | none | yes |
 | effect.delete | Remove selected effect | Delete when effect-focused | yes |
 | effect.toggle_bypass | Bypass selected effect | none | yes |
+| effect.set_parameters | Change a parameter of an existing effect | none | yes |
 | viewer.fit | Fit composition in viewer | Shift+/ | no |
 | viewer.zoom_100 | Set 100% zoom | Ctrl+1 | no |
 | viewer.toggle_checkerboard | Toggle transparency grid | none | no |

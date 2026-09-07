@@ -21,7 +21,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | MEDIA_UNSUPPORTED_FORMAT | ERROR | Decoder not supported | preserve asset record; report format |
 | MEDIA_DECODE_FAILED | ERROR | Supported decoder failed on file | identify file/frame; continue other frames where safe |
 | EFFECT_UNSUPPORTED | WARNING | Effect type not installed/implemented | preserve serialized record; bypass with visible warning |
-| EFFECT_PARAMETER_INVALID | ERROR | Effect parameter violates contract | reject edit/load as appropriate |
+| EFFECT_PARAMETER_INVALID | ERROR on a command, WARNING on a load and per frame | Effect parameter violates contract | reject the command; on load preserve the record exactly and unrepaired, bypass that one effect while the rest of the stack still runs, warn once per frame it happens, and report fidelity incomplete |
 | MATTE_REFERENCE_MISSING | WARNING | Matte ID unresolved | preserve reference; render defined fallback with warning |
 | MATTE_CYCLE | ERROR | Matte dependency cycle detected | reject command/load render graph |
 | MASK_INVALID_OUTLINE | ERROR on a command, WARNING on a load | Mask outline crosses itself, or has fewer than three corners | reject the command; on load preserve the record exactly, draw the layer unmasked, and report fidelity incomplete |

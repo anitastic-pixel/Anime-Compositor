@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**257 breaks were made across twenty-six units. All 257 were caught.**
+**281 breaks were made across twenty-seven units. All 281 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -85,7 +85,16 @@ fourth is a fault in a tolerance rather than in a picture, and it is the first o
 The eighteenth is T-06, the performance envelope, and it is the first unit in this report whose
 subject is a measurement rather than a picture: 6 breaks, **two of which got through**, and all six
 caught afterwards. Both survivors had one cause, and it is a cause this report has not recorded
-before - a check that reads its subject's own bookkeeping cannot audit that bookkeeping.
+before - a check that reads its subject's own bookkeeping cannot audit that bookkeeping. The
+nineteenth is B-06, the polygon mask and the alpha matte, the first of the two features D-12
+unparked: 14 breaks, **five of which got through**, and all fourteen caught afterwards. Two of
+the five were that same cause one constant over - the fixture's independent rasterizer was reading
+the sample grid out of the implementation it was written to argue with - and the other three were
+not a weak fixture at all but a hole in ADR-016, which had chosen a fill rule and said nothing
+about a sample lying exactly on the outline. The twentieth is B-07, the effect stack, the second
+of the two: 24 breaks, one of which got through, and all twenty-four caught afterwards. The
+survivor is the only one of the 281 breaks in this report that was invisible because
+every picture the fixture blurred was transparent where it mattered.
 
 
 ## B-02 colour and alpha
@@ -915,6 +924,71 @@ decision rather than check it.
 
 Nothing in `Fixtures/` was touched, no expected value was edited and no tolerance was loosened. The
 table grew from 37 checks to 41.
+
+## B-07 the ordered effect stack
+
+`src/effects.rs`, step 3 of `src/compose.rs`, the four effect commands in `src/command.rs` and the
+effect half of `src/persist.rs`, measured by `tests/b07_effects.rs`, whose artifact is
+`verification/B-07_effects_table.md`.
+
+**24 of 24 breaks caught, after one got through.**
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| E1 | The kernel radius rounds down instead of up, so a sigma of 0.5 gets radius 1 | yes | the four `ceil(3*sigma)` rows, and the length of every kernel checked against the independent one |
+| E2 | The kernel is cut at two sigma instead of three | yes | the same rows |
+| E3 | The weights are not normalised after truncation, so every blur darkens the picture | yes | `the weights sum to 1`, and the flat-region row, which is where a person would see it |
+| E4 | The exponent loses its factor of two, so the kernel is narrower than the sigma asks for | yes | the ratio-to-centre rows, and every weight against the independent kernel |
+| E5 | The kernel is one tap short, so it is not symmetric about its centre | yes | the symmetry rows |
+| E6 | Exposure scales alpha along with the colour | yes | FX-E-001 and FX-E-002, whose expected alpha is unchanged |
+| E7 | Exposure uses decades instead of stops | yes | FX-E-001 |
+| E8 | Tint mixes the premultiplied value instead of recovering straight colour first | yes | the half-alpha tint row, worked out on paper |
+| E9 | Tint touches fully transparent pixels | yes | `a full tint leaves a transparent pixel transparent`, and the impulse's no-fringe row |
+| E10 | The blur does not report the offset it grew by, so the caller cannot shift the transform back | yes | the alpha centroid through the renderer, and the impulse's offset |
+| E11 | The horizontal pass forgets the destination offset, so the blurred layer slides sideways by the radius | yes | all 1156 channels of the impulse |
+| E12 | Samples outside the source clamp to the edge pixel instead of being transparent black | **no, first time** | after the fixture was strengthened: `blurring an opaque 8x8 cel neither gains nor loses alpha`, which read 196 instead of 64 |
+| E13 | The stack runs bottom to top instead of in order | yes | the two order rows, 0.75 one way and 1.25 the other |
+| E14 | A bypassed effect is drawn anyway | yes | `a disabled instance changes nothing` |
+| E15 | An effect with out-of-contract parameters is run instead of reported | yes | the invalid-sigma row, and the `EFFECT_PARAMETER_INVALID` frame-log row |
+| E16 | The blur declares half the bounds expansion it actually needs | yes | the bounds declarations row |
+| E17 | A tint amount above 1 is accepted | yes | the refusal row for amount 1.5 |
+| E18 | A negative sigma is accepted | yes | the refusal row for sigma -1 |
+| C1 | A second effect may reuse an existing instance ID | yes | the duplicate-ID refusal, message and all |
+| C2 | Settings for one effect type may be written onto another | yes | the type-change refusal |
+| C3 | An effect added with no index goes to the bottom of the stack instead of the end | yes | `add in order` |
+| X1 | The layer transform is not shifted back by the bounds expansion, so a blurred layer moves | yes | the alpha centroid, which stayed at (15.50, 15.50) and would not have |
+| P1 | Saving writes every effect as enabled, so a bypassed effect comes back switched on | yes | the save-and-reopen row |
+| P2 | Saving reverses the effect stack | yes | the same row |
+
+E10 and X1 are the same fault seen from the two ends of one contract, and both had to be here.
+A blur grows the layer buffer by the kernel radius on every side; if the blur does not say how
+far it grew, or the caller does not move the transform back by that much, the whole layer slides
+by three pixels and every other row in the file still passes, because the layer's own pixels are
+correct. The check that catches both is not a pixel at all but the alpha centroid of the finished
+frame, which is the one number that notices a picture that is right and in the wrong place.
+
+## Eighteenth pass: the one that got through, and what was added
+
+| Break that survived | Why the fixture missed it | Added |
+|---|---|---|
+| Samples outside the cel clamp to the edge instead of being transparent black (E12) | Every image the fixture blurred was transparent at its border - the impulse sits in the middle of an empty field, and the flat-region row reads the middle of a large square. Clamping to a transparent edge and reading nothing off the end give the same answer, so no row could tell them apart | Two rows on an opaque 8x8 cel: the total alpha in the blurred result, which must still be exactly the 64 units that went in, and the far corner of the enlarged buffer, which must be one kernel tap squared - 0.000020 - rather than a repeated edge pixel at 1.000000 |
+
+The cause is new to this report and is worth naming, because it is not a weak assertion. Every row
+that touched the blur was checking real arithmetic against an independently generated kernel, and
+all of them were right. What was missing was a *subject*: the fixture never blurred anything that
+reached its own edge with something in it. A break at the boundary cannot be seen by a picture
+whose boundary is empty.
+
+It also matters more than most of the twenty-four, because clamping is what most image libraries
+do by default and is a single flag away in almost any of them. The visible result is a hard bright
+rim around every blurred cel, exactly where a person would be looking - and until these two rows
+existed, this project's own fixture would have signed it off.
+
+Nothing in `Fixtures/` was touched, no expected value was edited and no tolerance was loosened. The
+one tolerance in the two new rows is stated in the test beside it: the alpha sum is compared to
+four decimal places rather than six, because it is 64 single-precision additions, and the break it
+exists to catch misses by 132 units rather than by a rounding error. The table grew from 58 checks
+to 60.
 
 ## First pass: the six that got through, and what was added
 

@@ -13,6 +13,7 @@ pub mod command;
 pub mod compose;
 pub mod composite;
 pub mod diagnostics;
+pub mod effects;
 pub mod export;
 pub mod mask;
 pub mod media;
