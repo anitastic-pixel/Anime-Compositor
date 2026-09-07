@@ -37,6 +37,10 @@ MORNING_REPORT.md
 DAY_RUN.md
 DAY_REPORT.md
 
+# Mutation scripts and other throwaway working files. They are kept inside the repository so they
+# survive a session, and ignored because their output is the mutation report, not the script.
+scratchpad/
+
 # Claude Code's own scratch state. The permission rules in .claude/settings.json are
 # committed on purpose - they are project policy - but this lock file is per-session.
 .claude/scheduled_tasks.lock
