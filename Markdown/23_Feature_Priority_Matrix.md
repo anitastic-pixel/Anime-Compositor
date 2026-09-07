@@ -36,7 +36,7 @@ Render trace scores low on workflow value and is still a Must, because its value
 | Alpha matte | 5 | 3 | 4 | R-04 | Same |
 | Exposure, tint, Gaussian blur effects | 4 | 3 | 3 | R-05 | Repeated manual effort in real shots |
 
-Both remaining entries are parked on triggers worded as things that happen in a real shot, and neither has happened. They are still specified, still not built.
+Both remaining entries were parked on triggers worded as things that happen in a real shot. **Both fired on 2026-09-06 and the owner lifted both**, recorded as the D-12 amendment in document 14 and written into R-04 and R-05 in document 03. What fired them is the reference shot and W-01: B-12 / G1 acceptance is defined against W-01 completed on that shot, and W-01 calls for a matte, a blur and a colour operation, so the shot cannot be finished without them. The scores in the table above are unchanged - lifting a park is a decision about sequence, not a re-estimate. G1-rest is now empty of parked entries; the three rows stay in the table as the record of what was parked and for how long.
 
 ## Unparked on 2026-09-05: the bounded preview cache
 
