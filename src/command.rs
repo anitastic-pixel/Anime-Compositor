@@ -87,6 +87,21 @@ pub enum Command {
         composition: Id,
         layer_id: Id,
         matte: Option<Id>,
+        /// D-42: whether the layer named in `matte` stops being drawn in its own right.
+        /// Ignored when `matte` is `None`, since there is then no layer to keep out of the stack.
+        matte_only: bool,
+    },
+    /// Set or clear a layer's polygon mask. B-06.
+    ///
+    /// The whole mask is the unit of change, not a vertex, because document 19 makes
+    /// self-intersection a property of the polygon rather than of any one point in it: a vertex
+    /// moved one at a time would have to pass through states this build rejects to get anywhere.
+    /// Editing a mask is therefore a drag that commits one `SetMask`, which is the same shape
+    /// document 26 already gives a transform drag.
+    SetMask {
+        composition: Id,
+        layer_id: Id,
+        mask: Option<crate::mask::PolygonMask>,
     },
 }
 
@@ -106,6 +121,7 @@ impl Command {
             Command::SetKeyframe { .. } => "SET_KEYFRAME",
             Command::RemoveKeyframe { .. } => "REMOVE_KEYFRAME",
             Command::SetMatte { .. } => "SET_MATTE",
+            Command::SetMask { .. } => "SET_MASK",
         }
     }
 
@@ -131,9 +147,16 @@ impl Command {
             Command::RemoveKeyframe { prop, frame, .. } => {
                 format!("Remove {prop} keyframe at frame {frame}")
             }
-            Command::SetMatte { matte, .. } => match matte {
+            Command::SetMatte {
+                matte, matte_only, ..
+            } => match matte {
+                Some(id) if *matte_only => format!("Set matte to {id}, matte only"),
                 Some(id) => format!("Set matte to {id}"),
                 None => "Clear matte".to_string(),
+            },
+            Command::SetMask { mask, .. } => match mask {
+                Some(m) => format!("Set mask of {} points", m.vertices.len()),
+                None => "Clear mask".to_string(),
             },
         }
     }
@@ -150,7 +173,8 @@ impl Command {
             | Command::SetPropertyBase { composition, .. }
             | Command::SetKeyframe { composition, .. }
             | Command::RemoveKeyframe { composition, .. }
-            | Command::SetMatte { composition, .. } => Some(composition),
+            | Command::SetMatte { composition, .. }
+            | Command::SetMask { composition, .. } => Some(composition),
         }
     }
 
@@ -168,7 +192,8 @@ impl Command {
             | Command::ReorderLayer { layer_id, .. }
             | Command::SetPropertyBase { layer_id, .. }
             | Command::SetKeyframe { layer_id, .. }
-            | Command::RemoveKeyframe { layer_id, .. } => ids.push(layer_id.clone()),
+            | Command::RemoveKeyframe { layer_id, .. }
+            | Command::SetMask { layer_id, .. } => ids.push(layer_id.clone()),
             Command::SetMatte {
                 layer_id, matte, ..
             } => {
@@ -202,7 +227,8 @@ impl Command {
             | Command::SetPropertyBase { layer_id, .. }
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
-            | Command::SetMatte { layer_id, .. } => Some(layer_id),
+            | Command::SetMatte { layer_id, .. }
+            | Command::SetMask { layer_id, .. } => Some(layer_id),
             _ => None,
         }
     }
@@ -685,7 +711,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             }
         }
         Command::SetMatte {
-            layer_id, matte, ..
+            layer_id,
+            matte,
+            matte_only,
+            ..
         } => {
             if let Some(target) = matte {
                 let comp = project.composition(&comp_id).expect("checked above");
@@ -698,7 +727,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     ));
                 }
             }
-            let matte_ref = matte.clone().map(|layer_id| MatteReference { layer_id });
+            let matte_ref = matte.clone().map(|layer_id| MatteReference {
+                layer_id,
+                matte_only: *matte_only,
+            });
             layer_mut(project, &comp_id, layer_id)?.matte = matte_ref;
             // Checked after the write, then rolled back by the caller's working clone if bad.
             let comp = project.composition(&comp_id).expect("checked above");
@@ -711,6 +743,49 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 )
                 .with_remediation("Choose a layer that does not already use this one as its matte."));
             }
+        }
+        Command::SetMask { layer_id, mask, .. } => {
+            // Document 19: a polygon mask is "an ordered list of vec2 vertices, closed by
+            // definition", and "self-intersection behavior is unsupported in G1 and must be
+            // rejected or normalized only through an explicit command". This build rejects.
+            // Normalizing would hand back a different shape from the one that was drawn, and
+            // doing that silently inside an edit is how a person loses work without being told.
+            //
+            // MASK_INVALID_OUTLINE is document 28's identifier for both refusals, added to
+            // the catalogue by D-43 rather than reusing COMMAND_INVALID_VALUE. It is an ERROR
+            // here because a command that would create one is refused outright.
+            if let Some(m) = mask {
+                if !m.has_enough_vertices() {
+                    return Err(Diagnostic::new(
+                        DiagnosticId::MaskInvalidOutline,
+                        Severity::Error,
+                        format!(
+                            "A mask needs at least three points, and this one has {}.",
+                            m.vertices.len()
+                        ),
+                        "Document 19: a polygon mask is a closed ordered list of vertices. Fewer \
+                         than three enclose no area, so there is nothing for the mask to keep."
+                            .to_string(),
+                    )
+                    .with_remediation("Add points until the shape closes on an area."));
+                }
+                if !crate::mask::is_simple(&m.vertices) {
+                    return Err(Diagnostic::new(
+                        DiagnosticId::MaskInvalidOutline,
+                        Severity::Error,
+                        "The mask crosses itself, which this build does not draw.".to_string(),
+                        "Document 19: self-intersection is unsupported in G1 and must be \
+                         rejected, never normalized silently, because a normalized polygon is a \
+                         different shape from the one that was drawn."
+                            .to_string(),
+                    )
+                    .with_remediation(
+                        "Move the points so that no edge crosses another. A figure-of-eight has \
+                         to become two masks, which this build does not have yet.",
+                    ));
+                }
+            }
+            layer_mut(project, &comp_id, layer_id)?.mask = mask.clone();
         }
     }
     Ok(())

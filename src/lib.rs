@@ -14,6 +14,7 @@ pub mod compose;
 pub mod composite;
 pub mod diagnostics;
 pub mod export;
+pub mod mask;
 pub mod media;
 pub mod model;
 pub mod persist;

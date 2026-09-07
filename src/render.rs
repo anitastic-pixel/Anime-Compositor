@@ -15,9 +15,13 @@
 //! order with thread count. `tests/b05a_transform.rs` proves it anyway, across thread counts
 //! and tile sizes, because ADR-011 says B-05a proves this rather than assuming it.
 //!
-//! Not here, and deliberately: masks (parked with R-04), effects (B-06) and alpha mattes
-//! (B-06, and they need the matte layer rendered through its own transform first). Those are
-//! steps 2, 3 and 5 of document 21's layer render order.
+//! Steps 2 and 5 of document 21 -- the polygon mask, in layer space, and the alpha matte, in
+//! composition space -- arrived with B-06. The matte is sampled through its own inverse transform
+//! rather than the drawn layer's, because document 21 evaluates the matte layer through its own
+//! source, mask and transform at the same frame.
+//!
+//! Not here: step 3, effects, which is B-07. A layer carrying effects renders without them and
+//! says so in the frame log rather than rendering silently.
 
 use rayon::prelude::*;
 
@@ -188,8 +192,33 @@ pub struct LayerDraw {
     pub source: WorkingBuffer,
     pub transform: Affine,
     pub opacity: f32,
+    /// Document 21's step 5, the alpha matte, or `None` for a layer that has no matte.
+    ///
+    /// Step 5 is after the transform at step 4, so unlike the mask this cannot be baked into the
+    /// source: "Alpha matte coverage is the matte layer's post-transform alpha sampled at the
+    /// destination pixel." Both layers are sampled at the same composition pixel, each through
+    /// its own transform, which is exactly what makes a matte follow the matte layer's animation
+    /// rather than the masked layer's.
+    pub matte: Option<Box<MatteDraw>>,
     /// Document 21's step 7. Applied after opacity, against whatever is already accumulated.
     pub blend: crate::model::BlendMode,
+}
+
+/// The matte layer as the renderer needs it: a source in the working space and the map from its
+/// pixels into composition pixels.
+///
+/// Document 21: "The matte layer is evaluated through its own source, mask, effects and
+/// transform at the same frame." Its own mask is already baked into `source` by the time this is
+/// built, the same way a drawn layer's is. Effects are B-07 and are not here yet.
+///
+/// It carries no opacity and no blend mode on purpose. A matte contributes alpha, and document
+/// 21 says which alpha: the post-transform alpha of the matte layer. Layer opacity is step 6 and
+/// blending is step 7, both of which are about how a layer joins the stack it is drawn into —
+/// and a matte-only layer is not drawn into the stack at all.
+#[derive(Clone, Debug)]
+pub struct MatteDraw {
+    pub source: WorkingBuffer,
+    pub transform: Affine,
 }
 
 /// One frame of work: the output extent and the layers, bottom of the stack first.
@@ -265,6 +294,17 @@ fn render_tile(plan: &FramePlan, tile: Tile) -> Vec<f32> {
         let Some(inverse) = layer.transform.invert() else {
             continue;
         };
+        // A matte whose own transform cannot be inverted has collapsed to nothing, and nothing
+        // has no alpha anywhere. Skipping the layer is the honest reading: the matte covers no
+        // pixel, so the layer it mattes shows at no pixel either. Drawing it unmatted would show
+        // the whole layer, which is the opposite of what the project asks for.
+        let matte = match &layer.matte {
+            None => None,
+            Some(m) => match m.transform.invert() {
+                Some(inv) => Some((m, inv)),
+                None => continue,
+            },
+        };
         for row in 0..tile.height {
             for col in 0..tile.width {
                 // Document 21: geometry is continuous and pixel (i,j) is centred at
@@ -275,6 +315,18 @@ fn render_tile(plan: &FramePlan, tile: Tile) -> Vec<f32> {
                 if layer.opacity != 1.0 {
                     for c in &mut src {
                         *c *= layer.opacity;
+                    }
+                }
+                // Document 21 step 5: `C' = C * m` and `A' = A * m`, where m is the matte
+                // layer's post-transform alpha at this same destination pixel. The source is
+                // premultiplied, so the same factor multiplies all four channels.
+                if let Some((m, matte_inverse)) = &matte {
+                    let (mx, my) = matte_inverse.apply(dx, dy);
+                    let coverage = sample_bilinear(&m.source, mx, my)[3];
+                    if coverage != 1.0 {
+                        for c in &mut src {
+                            *c *= coverage;
+                        }
                     }
                 }
                 let i = (row * tile.width + col) * 4;

@@ -424,15 +424,16 @@ fn b09_persistence() {
         "opens with EFFECT_UNSUPPORTED",
         opening(&fixture("unknown_effect_project")),
     );
-    // D-24. Masks are parked by R-04 in document 23 and document 28 has no identifier for a
-    // structurally valid record of a parked feature.
+    // B-06 draws masks. Until it did, this pair of rows recorded D-24: a mask was a structurally
+    // valid record of a parked feature, warned about and kept. A usable mask is now ordinary,
+    // and the warning has moved to the masks this build still cannot draw.
     let masked = fixture("cel_holds_project").replace(
         "\"mask\": null",
         "\"mask\": {\"inverted\": false, \"vertices\": [[0, 0], [10, 0], [10, 10]]}",
     );
     report.check(
-        "a mask, which this build cannot draw, is a warning and the record is kept (D-24)",
-        "opens with PROJECT_FEATURE_UNSUPPORTED",
+        "a mask this build can draw opens with nothing to say",
+        "opens with none",
         opening(&masked),
     );
     let mask_loaded = persist::load_str(&masked).expect("opens");
@@ -441,6 +442,39 @@ fn b09_persistence() {
         true,
         persist::to_json(mask_loaded.document.project(), &mask_loaded.preserved)
             .contains("\"vertices\""),
+    );
+
+    // Document 19 rejects a self-intersecting mask rather than repairing it, and document 28
+    // forbids dropping what was in the file. Both at once: warn, do not draw, do not lose it.
+    let bowtie = fixture("cel_holds_project").replace(
+        "\"mask\": null",
+        "\"mask\": {\"inverted\": false, \"vertices\": [[0, 0], [10, 0], [0, 10], [10, 10]]}",
+    );
+    report.check(
+        "a mask whose outline crosses itself cannot be drawn, and says so",
+        "opens with MASK_INVALID_OUTLINE",
+        opening(&bowtie),
+    );
+    let bowtie_loaded = persist::load_str(&bowtie).expect("opens");
+    // Saved, then opened again: the four corners that were in the file come back unchanged.
+    // Round-tripping is the check rather than a string search, because it is the shape that has
+    // to survive, not the formatting.
+    let bowtie_saved = persist::to_json(bowtie_loaded.document.project(), &bowtie_loaded.preserved);
+    let bowtie_again = persist::load_str(&bowtie_saved).expect("what this build wrote, it opens");
+    report.check(
+        "and saving keeps the shape that was in the file rather than dropping it",
+        "[(0.0, 0.0), (10.0, 0.0), (0.0, 10.0), (10.0, 10.0)]",
+        match bowtie_again
+            .document
+            .project()
+            .compositions
+            .iter()
+            .flat_map(|c| c.layers_in_order())
+            .find_map(|l| l.mask.as_ref())
+        {
+            Some(m) => format!("{:?}", m.vertices),
+            None => "the mask was dropped".to_string(),
+        },
     );
 
     let dangling = fixture("cel_holds_project").replace(

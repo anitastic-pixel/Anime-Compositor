@@ -333,13 +333,20 @@ impl BlendMode {
 }
 
 /// Document 19: "MatteReference stores another layer ID and mode `alpha`."
-///
-/// The record exists; matte *rendering* is parked to G1-rest with R-04 under D-12. Modelling
-/// it now is what lets document 26's "deleting/recovering a matte preserves dependent records"
-/// be tested at B-05 rather than waiting for the renderer.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct MatteReference {
     pub layer_id: Id,
+    /// Whether the layer being used as a matte should be kept out of the visible stack.
+    ///
+    /// Document 21 calls for a matte layer that is "not separately composited into the final
+    /// stack", and document 19 gave `MatteReference` nothing to say that with. The obvious
+    /// alternative was to reuse the matte layer's own `enabled: false`, and D-42 rejected it:
+    /// that would make one field mean two unrelated things, so a file showing a layer switched
+    /// off while it visibly shapes the picture would read as a fault rather than as a setting.
+    ///
+    /// False is the neutral value and the one a file that predates D-42 gets, which leaves such
+    /// a project rendering exactly as it did before.
+    pub matte_only: bool,
 }
 
 /// Document 19's raster layer, minus the parts G1-core has not reached.
@@ -355,6 +362,10 @@ pub struct Layer {
     pub source_offset_frames: i32,
     pub transform: Transform,
     pub exposure_spans: Vec<ExposureSpan>,
+    /// Document 19's optional polygon mask, in layer/source space. Document 21 applies it at
+    /// step 2, before the transform, which is why it holds source coordinates and not
+    /// composition ones.
+    pub mask: Option<crate::mask::PolygonMask>,
     pub matte: Option<MatteReference>,
     pub blend_mode: BlendMode,
 }
@@ -379,6 +390,7 @@ impl Layer {
             source_offset_frames: 0,
             transform: Transform::default(),
             exposure_spans: Vec::new(),
+            mask: None,
             matte: None,
             blend_mode: BlendMode::Normal,
         }

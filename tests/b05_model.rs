@@ -637,6 +637,7 @@ fn b05_model_and_undo() {
         composition: id(COMP),
         layer_id: id("layer-fx"),
         matte: Some(id("layer-3")),
+        matte_only: false,
     })
     .expect("set matte");
     report.check(
@@ -658,6 +659,7 @@ fn b05_model_and_undo() {
             composition: id(COMP),
             layer_id: id("layer-3"),
             matte: Some(id("layer-fx")),
+            matte_only: false,
         }) {
             Err(d) => d.id.to_string(),
             Ok(_) => "applied".to_string(),
@@ -670,6 +672,7 @@ fn b05_model_and_undo() {
             composition: id(COMP),
             layer_id: id("layer-fx"),
             matte: Some(id("layer-99")),
+            matte_only: false,
         }) {
             Err(d) => d.id.to_string(),
             Ok(_) => "applied".to_string(),
@@ -862,9 +865,9 @@ fn write_artifact(report: &Report, before: &str, after: &str) {
            empty\". That is B-09 and T-07.\n\
          - Cache invalidation domains, which document 26 requires every committed command to \
            report to document 27. There is no cache yet; it is B-07.\n\
-         - Effects and masks. Effects are B-06; masks are parked to G1-rest with R-04 under \
-           D-12. A layer therefore serialises `\"effects\": []`, which is accurate rather than \
-           a placeholder, and carries no mask field at all.\n\
+         - Effects. A layer serialises `\"effects\": []`, which is accurate rather than a \
+           placeholder; effects themselves are B-07. Masks arrived with B-06, so a layer now \
+           carries a mask field and this table's dumps show it as null where there is none.\n\
          - Colour4 and boolean properties, which document 19 lists. G1 needs them once effects \
            have colour parameters, which is B-06.\n",
     );

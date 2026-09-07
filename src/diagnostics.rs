@@ -54,10 +54,14 @@ pub enum DiagnosticId {
     /// bypassed.
     EffectUnsupported,
     /// **Proposed (D-24).** A structurally valid record for a project feature this build does
-    /// not implement, other than an effect. Masks are the only case today: document 23 parks
-    /// them with R-04, the schema carries them, and document 28 has an identifier for an
-    /// unsupported effect but none for an unsupported feature. The record is preserved and
-    /// takes no part in rendering.
+    /// not implement, other than an effect. The record is preserved and takes no part in
+    /// rendering.
+    ///
+    /// Masks were the only case until B-06 drew them on 2026-09-06. A mask this build refuses
+    /// now says so through `MaskInvalidOutline`, which D-43 added to document 28 because a
+    /// crossed outline is a specific fault with a specific fix rather than an unimplemented
+    /// feature. Nothing produces this identifier today; it is kept because D-24 registered it
+    /// and because export still treats it as grounds for marking a file's fidelity incomplete.
     ProjectFeatureUnsupported,
     /// Document 28: requested drawing number absent; do not substitute adjacent frame.
     MediaSequenceGap,
@@ -79,6 +83,11 @@ pub enum DiagnosticId {
     MatteReferenceMissing,
     /// Document 28: matte dependency cycle detected; reject the command.
     MatteCycle,
+    /// Document 28, added by D-43: a mask outline this build refuses to draw -- fewer than
+    /// three corners, or an outline that crosses itself. ERROR when a command would create
+    /// one, WARNING when a project already on disk holds one, in which case the record is
+    /// preserved, the layer draws unmasked, and the output says its fidelity is incomplete.
+    MaskInvalidOutline,
     /// **Proposed (D-21).** A command named a composition, layer or keyframe that is not there.
     CommandTargetMissing,
     /// **Proposed (D-21).** A command carried a value the model cannot hold: the wrong value
@@ -117,6 +126,7 @@ impl DiagnosticId {
             DiagnosticId::MediaSequenceNameVariant => "MEDIA_SEQUENCE_NAME_VARIANT",
             DiagnosticId::MatteReferenceMissing => "MATTE_REFERENCE_MISSING",
             DiagnosticId::MatteCycle => "MATTE_CYCLE",
+            DiagnosticId::MaskInvalidOutline => "MASK_INVALID_OUTLINE",
             DiagnosticId::CommandTargetMissing => "COMMAND_TARGET_MISSING",
             DiagnosticId::CommandInvalidValue => "COMMAND_INVALID_VALUE",
             DiagnosticId::CommandLayerLocked => "COMMAND_LAYER_LOCKED",
@@ -144,6 +154,7 @@ impl DiagnosticId {
                 | DiagnosticId::MediaDecodeFailed
                 | DiagnosticId::MatteReferenceMissing
                 | DiagnosticId::MatteCycle
+                | DiagnosticId::MaskInvalidOutline
                 | DiagnosticId::ExportWriteFailed
                 | DiagnosticId::ExportCancelled
         )
