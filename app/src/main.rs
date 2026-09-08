@@ -48,9 +48,11 @@ use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR, TINT};
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
-use anime_compositor::model::{Id, Layer, Project, Prop, Value};
+use anime_compositor::media;
+use anime_compositor::model::{Asset, Id, Layer, Project, Prop, Value};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
+use anime_compositor::time::ExposureSpan;
 use anime_compositor::{OutputAlpha, OutputDepth};
 use tauri::http::{Request, Response};
 use tauri::{AppHandle, DragDropEvent, Manager, WindowEvent};
@@ -743,6 +745,99 @@ fn unused_effect_id(project: &Project) -> Id {
     Id::new(format!("fx-{}", highest.map_or(1, |n| n + 1)))
 }
 
+/// An asset ID nothing in this project is using, counted the way layer IDs are.
+fn unused_asset_id(project: &Project) -> Id {
+    let highest = project
+        .assets
+        .iter()
+        .filter_map(|a| a.id.as_str().strip_prefix("asset-"))
+        .filter_map(|n| n.parse::<u64>().ok())
+        .max();
+    Id::new(format!("asset-{}", highest.map_or(1, |n| n + 1)))
+}
+
+/// A list of numbers as somebody would read it out: `7`, `7 and 9`, `7, 9 and 11`.
+fn spoken(numbers: &[u32]) -> String {
+    let text: Vec<String> = numbers.iter().map(u32::to_string).collect();
+    match text.split_last() {
+        None => String::new(),
+        Some((last, [])) => last.clone(),
+        Some((last, rest)) => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+/// Document 24's `media.import`: group the chosen files into one sequence and add it.
+///
+/// The selection is the person's and is never widened here. Document 07: "Search only
+/// user-selected locations" — B-03's importer takes the files it is given and does not look in
+/// the folder around them, and this passes on what it was handed.
+///
+/// Everything the importer said travels to the notes list unchanged, because a gap, a duplicate
+/// number or a file that was left out is a fact about the project now on screen and not about
+/// the button that was just pressed. The status line gets the summary a person checks a scan
+/// against: how many drawings arrived, which numbers they run between, and what is missing.
+fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
+    let result = media::import_sequence(files);
+    let told: Vec<String> = result.diagnostics.iter().map(sentence).collect();
+    let Some(sequence) = result.asset else {
+        let mut said = match files.len() {
+            1 => "The chosen file does not form an image sequence, so nothing was imported."
+                .to_string(),
+            n => format!(
+                "None of the {n} chosen files form an image sequence, so nothing was imported."
+            ),
+        };
+        for note in told {
+            said.push(' ');
+            said.push_str(&note);
+        }
+        return said;
+    };
+
+    let asset = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        let frames = sequence
+            .frames()
+            .iter()
+            .map(|(n, p)| (*n, persist::stored_path(&held.root, p)))
+            .collect();
+        // The pattern is the name, because it is what the folder shows and what a person
+        // recognises. It is a description of the naming, never the authority on which files
+        // exist; the frame list is that, and it is what the record carries.
+        Asset::sequence(
+            unused_asset_id(held.document.project()),
+            sequence.pattern(),
+            sequence.pattern(),
+        )
+        .with_frames(frames)
+    };
+    let id = asset.id.clone();
+    let said = edit(viewer, Command::AddAsset { asset });
+
+    {
+        let mut held = viewer.lock().expect("the viewer lock was poisoned");
+        if !held.document.project().assets.iter().any(|a| a.id == id) {
+            return said;
+        }
+        held.notes.extend(told);
+    }
+    let (lo, hi) = sequence
+        .range()
+        .expect("an imported sequence has at least one drawing");
+    let count = sequence.frames().len();
+    match sequence.missing().as_slice() {
+        [] => format!("{said}: {count} drawings, numbered {lo} to {hi}."),
+        [one] => format!(
+            "{said}: {count} drawings, numbered {lo} to {hi}, and drawing {one} is missing."
+        ),
+        many => format!(
+            "{said}: {count} drawings, numbered {lo} to {hi}, and {} drawings are missing: {}.",
+            many.len(),
+            spoken(many)
+        ),
+    }
+}
+
 /// The three effects of document 21, at the settings that change no pixels.
 ///
 /// Adding an effect and setting it are two commands rather than one, so that a stack can be
@@ -830,8 +925,26 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // it to be right about something it has no way to check.
         "property.drag_end" => return Some(end_drag(viewer)),
         "property.drag_cancel" => return Some(cancel_drag(viewer)),
+        // The one command that names files rather than anything in the project. Without any,
+        // the request never reaches here: the window answers it with the operating system's
+        // file dialog, which only the app handle can open.
+        "media.import" => {
+            let files: Vec<PathBuf> = parameters(query, "file")
+                .into_iter()
+                .map(PathBuf::from)
+                .collect();
+            return Some(match files.is_empty() {
+                true => "Which drawings should be imported? Choose the files themselves, not \
+                         the folder they are in."
+                    .to_string(),
+                false => import(viewer, &files),
+            });
+        }
         _ => {}
     }
+    // A drawing number an exposure names that its sequence has not got, filled in by the arm
+    // that can see both and said at the end, once the core has accepted the change.
+    let mut absent: Option<u32> = None;
     let command = {
         let held = viewer.lock().expect("the viewer lock was poisoned");
         let composition = held.composition.clone();
@@ -965,6 +1078,95 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         .map(Id::new),
                     matte_only: parameter(query, "only").as_deref() == Some("true"),
                 },
+                // Document 24's `exposure.set_span`, which assigns one span. The core takes the
+                // whole ordered list, so the list is built here out of the one the layer has:
+                // a span starting where an existing one starts replaces it, which is what
+                // editing a row does, and anything else is inserted in frame order. Whether the
+                // result is legal is document 20's rule and stays in the core.
+                //
+                // No drawing number means the row is being cleared, which is the only way to
+                // remove an exposure and is not the same as setting it to drawing zero.
+                "exposure.set_span" => {
+                    let Some(start) = parameter(query, "start") else {
+                        return Some("Which frame does the exposure start at?".to_string());
+                    };
+                    let Ok(start) = start.parse::<i32>() else {
+                        return Some(format!(
+                            "An exposure starts at a whole frame number. Not \"{start}\"."
+                        ));
+                    };
+                    // Which row this is, when it is not the frame the row is moving to. An
+                    // exposure moved to another frame is one row edited, not one added and one
+                    // left behind, and the page is the only thing that knows which row was
+                    // being typed in.
+                    let at = match parameter(query, "was") {
+                        None => start,
+                        Some(was) => match was.parse::<i32>() {
+                            Ok(was) => was,
+                            Err(_) => {
+                                return Some(format!(
+                                    "An exposure starts at a whole frame number. Not \"{was}\"."
+                                ))
+                            }
+                        },
+                    };
+                    let mut spans = layer.exposure_spans.clone();
+                    let held = spans.iter().position(|s| s.start_frame == at);
+                    if let Some(index) = held {
+                        spans.remove(index);
+                    }
+                    match parameter(query, "drawing").filter(|d| !d.is_empty()) {
+                        None if held.is_none() => {
+                            return Some(format!(
+                                "There is no exposure starting at frame {at} to clear."
+                            ))
+                        }
+                        None => {}
+                        Some(drawing) => {
+                            let Ok(drawing_number) = drawing.parse::<u32>() else {
+                                return Some(format!(
+                                    "A drawing number is a whole number, counting from zero. \
+                                     Not \"{drawing}\"."
+                                ));
+                            };
+                            let Some(end) = parameter(query, "end") else {
+                                return Some(
+                                    "Which frame does the exposure end before?".to_string(),
+                                );
+                            };
+                            let Ok(end_frame_exclusive) = end.parse::<i32>() else {
+                                return Some(format!(
+                                    "An exposure ends before a whole frame number. Not \"{end}\"."
+                                ));
+                            };
+                            let span = ExposureSpan {
+                                start_frame: start,
+                                end_frame_exclusive,
+                                drawing_number,
+                            };
+                            spans.retain(|s| s.start_frame != start);
+                            spans.push(span);
+                            spans.sort_by_key(|s| s.start_frame);
+                            // Document 28 renders a frame whose drawing is absent as nothing
+                            // and substitutes no neighbour. That is a decision somebody should
+                            // meet while typing the number, not three hundred frames into an
+                            // export, so the answer says it.
+                            if !project
+                                .assets
+                                .iter()
+                                .find(|a| a.id == layer.asset_id)
+                                .is_some_and(|a| a.frames.contains_key(&drawing_number))
+                            {
+                                absent = Some(drawing_number);
+                            }
+                        }
+                    }
+                    Command::SetExposureSpans {
+                        composition,
+                        layer_id,
+                        spans,
+                    }
+                }
                 // A new effect goes on the end of the stack, which document 21 evaluates last,
                 // because that is where somebody who has just added one looks for it.
                 "effect.add" => {
@@ -1028,11 +1230,30 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             }
         }
     };
+    let before = viewer
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .document
+        .undo_depth();
     let said = if id == "property.drag_update" {
         drag_update(viewer, command)
     } else {
         edit(viewer, command)
     };
+    // Only when the change landed. A command the core refused changed nothing, and a warning
+    // about what it would have done reads as though it had happened.
+    let landed = viewer
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .document
+        .undo_depth()
+        > before;
+    if let (Some(drawing), true) = (absent, landed) {
+        return Some(format!(
+            "{said} Drawing {drawing} is not in this sequence, so the frames exposing it stay \
+             empty; no neighbouring drawing is put there instead."
+        ));
+    }
     // Deleting a layer that another layer was using as its matte leaves that reference behind.
     // The project loader treats it as a warning and keeps it rather than clearing it, so this
     // is a legal state and not a fault -- but nothing else would tell the person at the moment
@@ -1330,6 +1551,21 @@ fn remember(app: &AppHandle, path: &Path) {
 // -------------------------------------------------------------------------------------------
 
 /// The value of `name` in a query string, percent-decoded.
+/// Every value given for one parameter, in the order they appear.
+///
+/// [`parameter`] takes the first, which is what a setting with one value wants. An import names
+/// one file per value: a selection is a list, and joining it into a single string would need a
+/// separator, which is a character a Japanese file name is entitled to contain.
+fn parameters(query: Option<&str>, name: &str) -> Vec<String> {
+    let prefix = format!("{name}=");
+    query
+        .into_iter()
+        .flat_map(|q| q.split('&'))
+        .filter_map(|pair| pair.strip_prefix(&prefix))
+        .map(from_a_query)
+        .collect()
+}
+
 fn parameter(query: Option<&str>, name: &str) -> Option<String> {
     let prefix = format!("{name}=");
     query
@@ -1392,6 +1628,33 @@ fn ask_to_open(app: &AppHandle) {
         });
 }
 
+/// Ask the operating system which drawings to import, then import them.
+///
+/// The dialog takes many files at once, because a sequence is a selection and B-03 groups the
+/// files it is given. It filters to PNG, which is the format G1 reads; a person who selects
+/// something else is told by the importer rather than by a dialog that will not let them.
+fn ask_what_to_import(app: &AppHandle) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Import drawings")
+        .add_filter("PNG drawings", &["png"])
+        .pick_files(move |chosen| {
+            let files: Vec<PathBuf> = chosen
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|c| c.into_path().ok())
+                .collect();
+            if files.is_empty() {
+                return;
+            }
+            let viewer = handle.state::<Mutex<Viewer>>();
+            let said = import(&viewer, &files);
+            announce(&viewer, said);
+            refresh(&handle);
+        });
+}
+
 /// Ask the operating system where to write the project, then write it there.
 fn ask_where_to_save(app: &AppHandle) {
     let handle = app.clone();
@@ -1442,6 +1705,16 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             .header("content-type", "application/json; charset=utf-8")
             .body(state(&viewer).into_bytes())
             .expect("build the state response");
+    }
+    // An import with no files named is the button in the media bin, and what it needs is the
+    // operating system's file dialog, which belongs to the app handle and not to the viewer.
+    // Answered before `edit_command`, which would otherwise refuse it for naming no files.
+    if path == "media.import" && parameter(query, "file").is_none() {
+        ask_what_to_import(app);
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "text/plain; charset=utf-8")
+            .body(Vec::new())
+            .expect("build the import response");
     }
     // An edit answers here rather than falling through the match below, because its answer is
     // also what the status line should say: the page asks for the frame again straight
@@ -3299,6 +3572,446 @@ mod editing {
          window yet. A matte is a whole layer here, which is what an artist with a scanned shape \
          has and what W-01 describes.\n\nWhich channel the matte uses. Document 21 defines an \
          alpha matte and this build has one kind; a luminance matte is not in G1.",
+    ];
+
+    /// A layer's exposures as an exposure sheet reads them: which frames, and which drawing.
+    fn exposures(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        layer(viewer, layer_id, |l| {
+            l.exposure_spans
+                .iter()
+                .map(|s| {
+                    format!(
+                        "{}-{}:{}",
+                        s.start_frame, s.end_frame_exclusive, s.drawing_number
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// The project's drawings, as the media bin lists them.
+    fn bin(viewer: &Mutex<Viewer>) -> String {
+        held(viewer)
+            .document
+            .project()
+            .assets
+            .iter()
+            .map(|a| format!("{} \"{}\" {} drawings", a.id, a.name, a.frames.len()))
+            .collect::<Vec<_>>()
+            .join("; ")
+    }
+
+    /// Where one drawing of an imported sequence ended up in the project record.
+    fn stored(viewer: &Mutex<Viewer>, asset: &str, drawing: u32) -> String {
+        held(viewer)
+            .document
+            .project()
+            .assets
+            .iter()
+            .find(|a| a.id == Id::new(asset))
+            .and_then(|a| a.frames.get(&drawing).cloned())
+            .unwrap_or_else(|| "(no such drawing)".to_string())
+    }
+
+    fn notes_mention(viewer: &Mutex<Viewer>, words: &str) -> bool {
+        held(viewer).notes.iter().any(|n| n.contains(words))
+    }
+
+    /// The PNG files in one folder of the reference shot, which is the selection a person makes
+    /// in the dialog. Sorted, because a file dialog's order is its own business.
+    fn drawings_in(folder: &str) -> Vec<PathBuf> {
+        let dir = repo(&format!("Fixtures/reference_shot/{folder}"));
+        let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("read {}: {e}", dir.display()))
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "png"))
+            .collect();
+        files.sort();
+        files
+    }
+
+    /// The request the media bin sends once the file dialog has been answered.
+    fn import_of(files: &[PathBuf]) -> String {
+        let parts: Vec<String> = files
+            .iter()
+            .map(|p| format!("file={}", for_a_header(&p.display().to_string())))
+            .collect();
+        format!("media.import?{}", parts.join("&"))
+    }
+
+    #[test]
+    fn the_media_bin_imports_a_sequence_and_the_exposures_it_is_given() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        // ---- the exposures the file already holds -------------------------------------------
+        report.check(
+            "the fixture holds drawing 1 for two frames and drawing 2 for three",
+            "0-2:1, 2-5:2",
+            exposures(&viewer, "layer-cel"),
+        );
+        {
+            let answer: serde_json::Value =
+                serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+            report.check(
+                "and the panels are given them to draw",
+                r#"[{"drawing_number":1,"end_frame_exclusive":2,"start_frame":0},"#.to_string()
+                    + r#"{"drawing_number":2,"end_frame_exclusive":5,"start_frame":2}]"#,
+                answer["project"]["compositions"][0]["layers"][0]["exposure_spans"].to_string(),
+            );
+        }
+
+        // ---- changing one ------------------------------------------------------------------
+        report.check(
+            "shortening a hold says how many exposures the layer now has",
+            "Set 2 exposures",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&was=2&start=2&end=4&drawing=2",
+            ),
+        );
+        report.check(
+            "and the hold is one frame shorter, with the other one untouched",
+            "0-2:1, 2-4:2",
+            exposures(&viewer, "layer-cel"),
+        );
+        // Document 20's own example: drawing numbers are under no ordering constraint, because a
+        // re-exposure of an earlier drawing is ordinary cel work.
+        report.check(
+            "a later exposure may show an earlier drawing again",
+            "Set 3 exposures",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=4&end=5&drawing=1",
+            ),
+        );
+        report.check(
+            "and the sheet reads in frame order, not drawing order",
+            "0-2:1, 2-4:2, 4-5:1",
+            exposures(&viewer, "layer-cel"),
+        );
+        // Moving a row is one row edited. The request carries the frame the row starts at now as
+        // well as the one being typed, so that an exposure dragged along the sheet does not
+        // leave a copy of itself where it was.
+        report.check(
+            "moving an exposure to another frame moves it rather than copying it",
+            "0-2:1, 2-4:2, 5-6:1",
+            {
+                run(
+                    &viewer,
+                    "exposure.set_span?layer=layer-cel&was=4&start=5&end=6&drawing=1",
+                );
+                exposures(&viewer, "layer-cel")
+            },
+        );
+        report.check(
+            "clearing one says how many are left",
+            "Set 2 exposures",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&was=5&start=5&drawing=",
+            ),
+        );
+        report.check(
+            "and it is the cleared one that has gone",
+            "0-2:1, 2-4:2",
+            exposures(&viewer, "layer-cel"),
+        );
+
+        // ---- a drawing the sequence has not got -----------------------------------------------
+        // Document 28: a frame whose drawing is missing renders as nothing and no neighbouring
+        // drawing is put there instead. The command is allowed - a person may be exposing a
+        // drawing that has not been scanned yet - and is told what it will look like.
+        report.check(
+            "exposing a drawing that is not in the sequence is allowed and said",
+            "Set 3 exposures Drawing 7 is not in this sequence, so the frames exposing it stay \
+             empty; no neighbouring drawing is put there instead.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=4&end=5&drawing=7",
+            ),
+        );
+        report.check(
+            "and it was applied, not refused",
+            "0-2:1, 2-4:2, 4-5:7",
+            exposures(&viewer, "layer-cel"),
+        );
+        report.check(
+            "undo takes that exposure back off the sheet",
+            "0-2:1, 2-4:2",
+            {
+                undo(&viewer);
+                exposures(&viewer, "layer-cel")
+            },
+        );
+
+        // ---- what is refused ------------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        // Document 20's rule, in the core's words. The window does not have a copy of it.
+        report.check(
+            "two exposures cannot cover one frame",
+            "Those exposures cannot be used: exposure spans overlap or are out of order: a span \
+             ends at 2 and the next starts at 1.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=1&end=3&drawing=2",
+            ),
+        );
+        report.check(
+            "an exposure that covers no frame is not an exposure",
+            "Those exposures cannot be used: exposure span [6, 6) covers no frame.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=6&end=6&drawing=1",
+            ),
+        );
+        report.check(
+            "clearing an exposure that is not there says so",
+            "There is no exposure starting at frame 9 to clear.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=9&drawing=",
+            ),
+        );
+        report.check(
+            "a frame number that is not a number is named before the core sees it",
+            "An exposure starts at a whole frame number. Not \"two\".",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=two&end=4&drawing=1",
+            ),
+        );
+        report.check(
+            "and so is a drawing number that is not one",
+            "A drawing number is a whole number, counting from zero. Not \"-1\".",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=6&end=7&drawing=-1",
+            ),
+        );
+        report.check(
+            "an exposure with no end is asked for rather than guessed at",
+            "Which frame does the exposure end before?",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=6&drawing=1",
+            ),
+        );
+        report.check(
+            "none of those six refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and the sheet is the one that was there",
+            "0-2:1, 2-4:2",
+            exposures(&viewer, "layer-cel"),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a locked layer refuses an exposure, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=6&end=7&drawing=1",
+            ),
+        );
+        report.check(
+            "which changed nothing",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        // ---- importing drawings -----------------------------------------------------------------
+        report.check(
+            "the media bin starts with the one sequence the file names",
+            "asset-cel \"Cel\" 2 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "an import that names no file asks for one rather than importing nothing",
+            "Which drawings should be imported? Choose the files themselves, not the folder \
+             they are in.",
+            run(&viewer, "media.import"),
+        );
+        // Layer 3 of the reference shot is the sequence with a hole in it: eleven files
+        // numbered 0 to 11, and no drawing 7.
+        let layer3 = drawings_in("layer3");
+        report.check(
+            "importing a sequence with a gap says how many drawings arrived and what is missing",
+            "Import layer3_%03d.png: 11 drawings, numbered 0 to 11, and drawing 7 is missing.",
+            run(&viewer, &import_of(&layer3)),
+        );
+        report.check(
+            "the drawing that is missing is missing from the record, not filled in",
+            "0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11",
+            held(&viewer)
+                .document
+                .project()
+                .assets
+                .iter()
+                .find(|a| a.id == Id::new("asset-1"))
+                .map(|a| {
+                    a.frames
+                        .keys()
+                        .map(u32::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                })
+                .unwrap_or_else(|| "(the sequence was not imported)".to_string()),
+        );
+        report.check(
+            "the importer's own warning about the gap is kept, in its words",
+            true,
+            notes_mention(&viewer, "One drawing is missing from layer3_%03d.png: 7."),
+        );
+        report.check(
+            "media chosen from outside the project's folder keeps its whole path",
+            true,
+            stored(&viewer, "asset-1", 0)
+                .ends_with("Fixtures/reference_shot/layer3/layer3_000.png"),
+        );
+        report.check(
+            "and it is written with forward slashes, so the project can be handed over",
+            true,
+            !stored(&viewer, "asset-1", 0).contains('\\'),
+        );
+        // Layer 2 is the other trap: drawing 13 is called `layer2_桜_013.png`, which the pattern
+        // does not generate. It is a complete sequence and must not be reported as one with a
+        // hole at 13.
+        let layer2 = drawings_in("layer2");
+        report.check(
+            "a sequence whose names are not all alike is complete, not full of holes",
+            "Import layer2_%03d.png: 24 drawings, numbered 0 to 23.",
+            run(&viewer, &import_of(&layer2)),
+        );
+        report.check(
+            "the drawing with the Japanese name is stored under the name it has",
+            true,
+            stored(&viewer, "asset-2", 13).ends_with("layer2_桜_013.png"),
+        );
+        report.check(
+            "and it was noticed rather than passed over in silence",
+            true,
+            notes_mention(
+                &viewer,
+                "One file does not match the pattern layer2_%03d.png but carries a clear number",
+            ),
+        );
+        report.check(
+            "both sequences are in the bin, beside the one the file came with",
+            "asset-cel \"Cel\" 2 drawings; asset-1 \"layer3_%03d.png\" 11 drawings; \
+             asset-2 \"layer2_%03d.png\" 24 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "an import can be undone",
+            "Undone: Import layer2_%03d.png",
+            undo(&viewer),
+        );
+        report.check(
+            "and the drawings go with it",
+            "asset-cel \"Cel\" 2 drawings; asset-1 \"layer3_%03d.png\" 11 drawings",
+            bin(&viewer),
+        );
+        // Not every file is a drawing. A selection that forms no sequence imports nothing and
+        // says what the importer made of it.
+        report.check(
+            "a file that is not a numbered drawing imports nothing and says why",
+            "The chosen file does not form an image sequence, so nothing was imported. One \
+             selected file has no number in its name and was not imported. Import it as a still \
+             image, or rename it so it carries a drawing number.",
+            run(&viewer, &import_of(std::slice::from_ref(&source))),
+        );
+
+        // ---- back to the file ---------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, drawings, exposures and all";
+        report.check(
+            "undoing everything gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-12a_media_table.md",
+            "B-12a: what the media bin and the exposure sheet do",
+            MEDIA_INTRO,
+            MEDIA_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const MEDIA_INTRO: &[&str] = &[
+        "W-01 begins before any layer exists: the artist \"imports media, reviews sequence \
+         grouping and missing-frame warnings, creates a composition and assigns exposures\". \
+         This is the window's half of those steps. That B-03 groups a selection correctly is \
+         checked in `verification/B-03_import_table.md`, and that the exposure sheet resolves \
+         to the right drawing at each frame in `verification/B-04_exposure_table.md`; neither \
+         is repeated here. What is checked here is the part between a panel and those two: that \
+         what the importer found reaches the person in words, that the record written into the \
+         project is the one the importer described, and that a row typed into the exposure \
+         sheet becomes the span the file holds.",
+        "The exposures run on `Fixtures/projects/cel_holds_project.json`, which already holds a \
+         drawing for two frames and another for three. The imports run on the reference shot, \
+         whose layer 3 is missing drawing 7 and whose layer 2 carries drawing 13 under a \
+         Japanese name the pattern does not generate. Those two folders are the reason the \
+         importer was written the way it was, and they are the two cases a media bin can most \
+         easily lie about.",
+        "`exposure.set_span` is in document 24's table and had no command behind it. \
+         `SetExposureSpans` is added to the core by this unit, taking the whole ordered list \
+         the way `SetMask` takes a whole outline, and the reason is written beside it.",
+    ];
+
+    const MEDIA_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The gap is a fact, not an absence.** Layer 3 imports as \
+         eleven drawings numbered 0 to 11 with no 7, and the record says so. An importer that \
+         renumbered what it found would slide every later drawing one frame early and nothing \
+         would look wrong until somebody counted.\n- **The complete sequence is not reported as \
+         a broken one.** Layer 2's drawing 13 is called `layer2_桜_013.png`. It is imported \
+         under its own name, the sequence is complete, and the mismatch is mentioned rather \
+         than treated as a hole.\n- **Exposing a drawing that does not exist is allowed and \
+         said.** Document 28 renders such a frame as nothing and substitutes no neighbour. A \
+         person exposing a drawing that has not been scanned yet is told what it will look \
+         like; they are not stopped.\n- **The rule about overlapping exposures is the core's.** \
+         The two refusals quote document 20's own words through the same check the loader and \
+         the renderer use. The window has no copy of that rule to fall out of step with.\n- \
+         **Moving an exposure moves it.** The row carries the frame it starts at now as well as \
+         the frame being typed, so an exposure dragged along the sheet does not leave a copy of \
+         itself behind.",
+        "## What this does not cover\n\nThe file dialog. Choosing files belongs to the \
+         operating system and a test has no hands to answer one, so every row here begins at \
+         the selection a person made. The button that opens it is in the media bin and is in \
+         the photographs.\n\nStills. `media.import` builds an image sequence, because that is \
+         what W-01 imports and what the reference shot is. A single still image is a record \
+         this build's model already has and its own import is not built.\n\nRelinking, which is \
+         W-02 and its own table.",
     ];
 
     fn cell(text: &str) -> String {

@@ -138,8 +138,14 @@
   .group { margin-bottom: 14px; }
   /* The effects panel of document 24's wireframe, under the layer's own fields in the same
      column. One block per effect, in the order document 21 evaluates them. */
-  #inspector h2 + div + h2 { margin-top: 14px; }
-  #inspector #addeffect { margin-top: 8px; }
+  #inspector h2 ~ h2 { margin-top: 14px; }
+  #inspector #addeffect, #inspector #addexposure { margin-top: 8px; }
+  /* One row per exposure span, in frame order: which frames it covers and which drawing they
+     show. This is the exposure sheet W-01 asks the artist to assign, in the panel. */
+  .exposure { display: flex; align-items: baseline; gap: 4px; margin-bottom: 4px; }
+  .exposure span { color: #8b8b94; }
+  .exposure input[type=number] { width: 4.5em; }
+  .exposure .gone { color: #e8b06a; }
   .effect { border: 1px solid #26262b; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; }
   .effect .head { display: flex; align-items: center; gap: 6px; }
   .effect .head .name { flex: 1; font-weight: 600; }
@@ -156,11 +162,15 @@
     <h2>Drawings</h2>
     <ul class="rows" id="assets"></ul>
     <p class="empty" id="noassets" hidden>This project has no drawings in it.</p>
+    <button id="import">Import drawings&hellip;</button>
   </div>
   <div id="stage"><canvas id="view" width="480" height="270"></canvas></div>
   <div class="panel" id="inspector">
     <h2>Layer</h2>
     <div id="detail"><p class="empty">No layer is selected.</p></div>
+    <h2>Exposures</h2>
+    <div id="exposures"><p class="empty">No layer is selected.</p></div>
+    <button id="addexposure">Add an exposure</button>
     <h2>Effects</h2>
     <div id="effects"><p class="empty">No layer is selected.</p></div>
     <select id="addeffect" aria-label="Add an effect to the selected layer">
@@ -618,6 +628,79 @@ const EFFECT_PARAMS = {
   'core.tint': [['color', 'Colour, linear RGB', 3], ['amount', 'Amount, 0 to 1', 1]],
 };
 
+// The drawings the layer's own sequence has, as a set, so a row can say when it names one the
+// folder does not contain. The core allows it — document 28 renders such a frame as nothing
+// rather than reaching for a neighbour — so this is said, never prevented.
+function drawingsOf(layer) {
+  const asset = (doc.project.assets || []).find((a) => a.id === layer.asset_id);
+  return new Set(Object.keys((asset && asset.frames) || {}).map(Number));
+}
+
+// One exposure span: the frames it covers and the drawing they show. The row carries the frame
+// it currently starts at as well as the one being typed, so that moving an exposure is one row
+// edited rather than one added beside the one it left behind.
+function exposureRow(layer, span, drawings) {
+  const line = document.createElement('div');
+  line.className = 'exposure';
+  const fields = {};
+  const box = (name, value, words) => {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = '1';
+    input.value = value;
+    input.setAttribute('aria-label', words + ' of the exposure at frame ' + span.start_frame);
+    input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } };
+    input.onchange = send;
+    fields[name] = input;
+    return input;
+  };
+  const where = '/exposure.set_span?layer=' + encodeURIComponent(layer.id)
+    + '&was=' + span.start_frame;
+  const send = () => command(where
+    + '&start=' + encodeURIComponent(fields.start.value.trim())
+    + '&end=' + encodeURIComponent(fields.end.value.trim())
+    + '&drawing=' + encodeURIComponent(fields.drawing.value.trim()));
+  line.append(
+    Object.assign(document.createElement('span'), { textContent: 'frames' }),
+    box('start', span.start_frame, 'First frame'),
+    Object.assign(document.createElement('span'), { textContent: 'to' }),
+    box('end', span.end_frame_exclusive, 'Frame it ends before'),
+    Object.assign(document.createElement('span'), { textContent: 'show drawing' }),
+    box('drawing', span.drawing_number, 'Drawing number'));
+  if (!drawings.has(span.drawing_number)) {
+    line.append(Object.assign(document.createElement('span'),
+      { className: 'gone', textContent: 'not in the sequence' }));
+  }
+  // Clearing is the same command with no drawing named, which is what the core takes as a
+  // removal. There is no other way to take an exposure out.
+  line.append(iconButton('✕', 'Clear the exposure at frame ' + span.start_frame,
+    () => command(where + '&start=' + span.start_frame + '&drawing=')));
+  return line;
+}
+
+// Document 20 orders spans by frame, and so does this. A layer with none is not an error: the
+// drawings then follow the composition frame, which is what a layer starts life doing.
+function drawExposures() {
+  const layer = selected();
+  const into = $('exposures');
+  $('addexposure').disabled = !layer;
+  if (!layer) {
+    into.replaceChildren(Object.assign(document.createElement('p'),
+      { className: 'empty', textContent: 'No layer is selected.' }));
+    return;
+  }
+  const spans = layer.exposure_spans || [];
+  if (!spans.length) {
+    into.replaceChildren(Object.assign(document.createElement('p'), {
+      className: 'empty',
+      textContent: 'No exposures. Each frame shows the drawing of the same number.',
+    }));
+    return;
+  }
+  const drawings = drawingsOf(layer);
+  into.replaceChildren(...spans.map((span) => exposureRow(layer, span, drawings)));
+}
+
 // One effect in the stack: whether it is bypassed, what it is, a way to remove it, and its
 // settings. Every parameter of the effect travels on every change, because a request that named
 // one would leave the core to guess the others and guessing would reset them.
@@ -696,6 +779,7 @@ function drawPanels() {
   drawAssets();
   drawLayers();
   drawInspector();
+  drawExposures();
   drawEffects();
   const layer = selected();
   $('dellayer').disabled = !layer;
@@ -814,6 +898,20 @@ $('addlayer').onclick = () => {
 $('dellayer').onclick = onSelected('layer.delete');
 $('up').onclick = onSelected('layer.move_up');
 $('down').onclick = onSelected('layer.move_down');
+$('import').onclick = () => command('/media.import');
+// A new exposure starts where the last one ends and lasts one frame, showing the drawing after
+// the last one shown — the next line of an exposure sheet being written downwards. A layer with
+// no exposures yet starts at the frame the layer itself starts at, on drawing zero.
+$('addexposure').onclick = () => {
+  const layer = selected();
+  if (!layer) return;
+  const spans = layer.exposure_spans || [];
+  const last = spans[spans.length - 1];
+  const start = last ? last.end_frame_exclusive : layer.in_frame;
+  const drawing = last ? last.drawing_number + 1 : 0;
+  command('/exposure.set_span?layer=' + encodeURIComponent(layer.id)
+    + '&start=' + start + '&end=' + (start + 1) + '&drawing=' + drawing);
+};
 $('addeffect').onchange = (e) => {
   const chosen = e.target.value;
   e.target.selectedIndex = 0;
