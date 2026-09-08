@@ -532,6 +532,37 @@ function propRow(into, layer, prop, parts) {
   into.append(dt, dd);
 }
 
+// Which layer shapes this one, and whether that layer is still drawn in its own right.
+//
+// Both travel in one request, because the core takes them in one command and document 19 holds
+// them in one record; sending half of one would be a state the file has no way to hold.
+function matteRow(into, layer) {
+  const dt = document.createElement('dt');
+  dt.textContent = 'Matte';
+  const dd = document.createElement('dd');
+  const held = layer.matte || null;
+  const only = document.createElement('input');
+  only.type = 'checkbox';
+  only.checked = !!(held && held.matte_only);
+  const chooser = document.createElement('select');
+  chooser.setAttribute('aria-label', 'Matte for ' + layer.name);
+  chooser.append(new Option('none', ''), ...layers()
+    // A layer cannot be its own matte — document 19 forbids the cycle and the core refuses it,
+    // so the list does not offer it in the first place.
+    .filter((l) => l.id !== layer.id)
+    .map((l) => new Option(l.name, l.id)));
+  chooser.value = held ? held.layer_id : '';
+  const send = () => command('/layer.set_matte?layer=' + encodeURIComponent(layer.id)
+    + '&matte=' + encodeURIComponent(chooser.value) + '&only=' + only.checked);
+  chooser.onchange = send;
+  only.onchange = send;
+  const label = document.createElement('label');
+  label.append(only, 'matte only');
+  label.title = 'Keep the matte layer out of the visible stack';
+  dd.append(chooser, ' ', label);
+  into.append(dt, dd);
+}
+
 function drawInspector() {
   // Rebuilding these fields under a pointer that is holding one of them would take the drag's
   // own element away mid-gesture, and the value would stop following the mouse with nothing on
@@ -564,8 +595,7 @@ function drawInspector() {
   // What is on this layer that this panel cannot yet change is still said, because a person
   // deciding whether a layer is the one they want needs to know it carries a mask.
   field(dl, 'Mask', layer.mask ? layer.mask.vertices.length + ' points' : 'none');
-  field(dl, 'Matte', layer.matte
-    ? layer.matte.layer_id + (layer.matte.matte_only ? ', matte only' : '') : 'none');
+  matteRow(dl, layer);
   into.replaceChildren(dl);
 }
 

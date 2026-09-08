@@ -949,6 +949,22 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         value,
                     }
                 }
+                // One command for all three of choosing a matte, changing whether the matte
+                // layer is still drawn in its own right, and clearing it. Document 19 holds
+                // them in one record and the core takes them in one command, so splitting them
+                // here would only give the page a way to send half of one.
+                //
+                // No layer named means no matte, which is what the "none" entry in the list
+                // sends. A layer that has gone is not the same thing and is refused by the
+                // core, which is the reader that knows what is in the composition.
+                "layer.set_matte" => Command::SetMatte {
+                    composition,
+                    layer_id,
+                    matte: parameter(query, "matte")
+                        .filter(|m| !m.is_empty())
+                        .map(Id::new),
+                    matte_only: parameter(query, "only").as_deref() == Some("true"),
+                },
                 // A new effect goes on the end of the stack, which document 21 evaluates last,
                 // because that is where somebody who has just added one looks for it.
                 "effect.add" => {
@@ -1012,11 +1028,41 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             }
         }
     };
-    Some(if id == "property.drag_update" {
+    let said = if id == "property.drag_update" {
         drag_update(viewer, command)
     } else {
         edit(viewer, command)
+    };
+    // Deleting a layer that another layer was using as its matte leaves that reference behind.
+    // The project loader treats it as a warning and keeps it rather than clearing it, so this
+    // is a legal state and not a fault -- but nothing else would tell the person at the moment
+    // it happened, and they would meet it as a warning the next time the file was opened.
+    Some(match dangling_mattes(viewer) {
+        names if id == "layer.delete" && !names.is_empty() => format!(
+            "{said} {} now shaped by a layer that is not here; undo puts it back.",
+            match names.as_slice() {
+                [one] => format!("\"{one}\" is"),
+                many => format!("{} layers are", many.len()),
+            }
+        ),
+        _ => said,
     })
+}
+
+/// The names of layers whose matte points at a layer the composition does not have.
+fn dangling_mattes(viewer: &Mutex<Viewer>) -> Vec<String> {
+    let held = viewer.lock().expect("the viewer lock was poisoned");
+    let Some(comp) = held.document.project().composition(&held.composition) else {
+        return Vec::new();
+    };
+    comp.layers_in_order()
+        .filter(|l| {
+            l.matte
+                .as_ref()
+                .is_some_and(|m| comp.layer(&m.layer_id).is_none())
+        })
+        .map(|l| l.name.clone())
+        .collect()
 }
 
 // -------------------------------------------------------------------------------------------
@@ -3009,6 +3055,250 @@ mod editing {
          the end; there is no command in document 24 for moving one, and W-01 does not ask to \
          move one.\n\nA parameter over time. The settings here are constants, which is what \
          document 19 calls a parameter with no keyframes on it.",
+    ];
+
+    /// What shapes a layer, as the panels are given it.
+    fn matte(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .map(|l| l["matte"].to_string())
+            .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    #[test]
+    fn the_inspector_chooses_a_matte_and_refuses_the_ones_that_would_not_work() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        report.check(
+            "the fixture's layer is shaped by nothing",
+            "null",
+            matte(&viewer, "layer-cel"),
+        );
+        // A matte is one layer shaping another, so there has to be another. This is the second
+        // layer a person would draw the shape on.
+        run(&viewer, "layer.create?asset=asset-cel&name=Shape");
+
+        // ---- choosing one ------------------------------------------------------------------------
+        report.check(
+            "choosing a matte says which layer was chosen",
+            "Set matte to layer-1",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-cel&matte=layer-1&only=false",
+            ),
+        );
+        report.check(
+            "and the panels are given it back, with the matte layer still drawn in its own right",
+            r#"{"layer_id":"layer-1","matte_only":false,"mode":"alpha"}"#,
+            matte(&viewer, "layer-cel"),
+        );
+        // D-42: the matte layer being kept out of the visible stack is a setting of its own,
+        // rather than the matte layer being switched off, so that a file cannot say one thing
+        // and mean another.
+        report.check(
+            "keeping the matte layer out of the picture is said in the words undo will use",
+            "Set matte to layer-1, matte only",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-cel&matte=layer-1&only=true",
+            ),
+        );
+        report.check(
+            "and it is that setting that changed, not the matte layer's own switch",
+            r#"{"layer_id":"layer-1","matte_only":true,"mode":"alpha"}"#,
+            matte(&viewer, "layer-cel"),
+        );
+        report.check(
+            "the layer used as a matte is still switched on, which is D-42's whole point",
+            true,
+            layer(&viewer, "layer-1", |l| l.enabled).unwrap_or(false),
+        );
+
+        // ---- clearing it ---------------------------------------------------------------------------
+        report.check(
+            "clearing the matte says so",
+            "Clear matte",
+            run(&viewer, "layer.set_matte?layer=layer-cel&matte=&only=false"),
+        );
+        report.check(
+            "and the layer is shaped by nothing again",
+            "null",
+            matte(&viewer, "layer-cel"),
+        );
+        report.check(
+            "undo puts back the matte that was cleared, and its setting with it",
+            r#"{"layer_id":"layer-1","matte_only":true,"mode":"alpha"}"#,
+            {
+                undo(&viewer);
+                matte(&viewer, "layer-cel")
+            },
+        );
+
+        // ---- what is refused ------------------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a layer that is not in this composition cannot be a matte, and is named",
+            "The layer chosen as a matte, layer-gone, is not in this composition.",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-cel&matte=layer-gone&only=false",
+            ),
+        );
+        // Document 19 forbids the cycle and the core refuses it. The list in the panel does not
+        // offer a layer itself, so this is the second line of defence rather than the first.
+        report.check(
+            "a layer cannot be its own matte",
+            "That matte would make two layers depend on each other. Choose a layer that does \
+             not already use this one as its matte.",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-cel&matte=layer-cel&only=false",
+            ),
+        );
+        report.check(
+            "and two layers cannot shape each other",
+            "That matte would make two layers depend on each other. Choose a layer that does \
+             not already use this one as its matte.",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-1&matte=layer-cel&only=false",
+            ),
+        );
+        report.check(
+            "no layer named at all is asked for",
+            "Which layer? Choose one in the layer list.",
+            run(&viewer, "layer.set_matte?matte=layer-1"),
+        );
+        report.check(
+            "none of those four refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and the matte is the one that was chosen",
+            r#"{"layer_id":"layer-1","matte_only":true,"mode":"alpha"}"#,
+            matte(&viewer, "layer-cel"),
+        );
+
+        // ---- a locked layer ---------------------------------------------------------------------------
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a locked layer refuses a matte, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(&viewer, "layer.set_matte?layer=layer-cel&matte=&only=false"),
+        );
+        report.check(
+            "which changed nothing",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        // ---- the matte layer going away ----------------------------------------------------------------
+        // A matte names a layer, and a layer can be deleted. The reference is kept rather than
+        // cleared -- that is the project loader's rule, which reports it as a warning and leaves
+        // it alone -- so what this window owes the person is to say it at the moment it happens
+        // rather than the next time the file is opened.
+        report.check(
+            "deleting the layer used as a matte says what it did to the layer it was shaping",
+            "Delete layer layer-1 \"Cel\" is now shaped by a layer that is not here; undo puts \
+             it back.",
+            run(&viewer, "layer.delete?layer=layer-1"),
+        );
+        report.check(
+            "and the reference is kept, which is what the project loader expects to find",
+            r#"{"layer_id":"layer-1","matte_only":true,"mode":"alpha"}"#,
+            matte(&viewer, "layer-cel"),
+        );
+        report.check(
+            "and undo brings the layer back, with the matte pointing at it again",
+            "Cel, Shape",
+            {
+                undo(&viewer);
+                names(&viewer)
+            },
+        );
+
+        // ---- back to the file ---------------------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, including the effect this build cannot model";
+        report.check(
+            "undoing everything gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-12a_matte_table.md",
+            "B-12a: what the matte chooser does",
+            MATTE_INTRO,
+            MATTE_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const MATTE_INTRO: &[&str] = &[
+        "W-01 asks the artist to apply a matte: one layer shaping another, which is how a cel is \
+         held inside a shape rather than being cut with a pair of scissors. That the matte is \
+         then drawn the way document 21 says - the alpha of one layer multiplying the other's - \
+         is checked in `verification/B-06_matte_table.md` and is not repeated here. What is \
+         checked here is the part between a chooser in a panel and that arithmetic: that the \
+         layer chosen is the layer used, that the settings the file holds together travel \
+         together, and that the arrangements document 19 forbids are refused in a sentence.",
+        "One command carries all three of choosing a matte, clearing it, and choosing whether \
+         the matte layer is still drawn in its own right. `layer.set_matte` is added to \
+         document 24 for it, which is written up beside the row.",
+    ];
+
+    const MATTE_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The matte layer is not switched off.** D-42 made \"keep this \
+         layer out of the visible stack\" a setting of its own rather than reusing the layer's \
+         own switch, so that a file showing a layer switched off while it visibly shapes the \
+         picture cannot happen. The row after the one that sets it checks the matte layer is \
+         still on.\n- **A cycle is refused, twice over.** The chooser does not offer a layer \
+         itself, and the core refuses it as well; the rows here go through the request the \
+         chooser sends, so what they check is the second line of defence.\n- **Deleting the \
+         layer that was being used as a matte keeps the reference, and says so.** That is the \
+         project loader's rule - it reports such a reference as a warning and leaves it alone, \
+         so that a layer deleted by mistake can be undone back into place - and this window \
+         says it in the status line at the moment it happens rather than leaving it to be met \
+         the next time the file is opened.\n- **Clearing is the same command with no layer named**, which is what the \
+         \"none\" entry in the list sends. A layer that has gone is a different thing and is \
+         refused.",
+        "## What this does not cover\n\nThe shape. This panel chooses which layer is the matte; \
+         drawing an outline to be the matte is `SetMask` in the core and has no gesture in this \
+         window yet. A matte is a whole layer here, which is what an artist with a scanned shape \
+         has and what W-01 describes.\n\nWhich channel the matte uses. Document 21 defines an \
+         alpha matte and this build has one kind; a luminance matte is not in G1.",
     ];
 
     fn cell(text: &str) -> String {
