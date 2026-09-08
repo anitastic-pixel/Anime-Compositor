@@ -22,14 +22,15 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelexport, cancelrelink, checker, dellayer, down, export, fwd, import, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelexport, cancelrelink, checker, dellayer, down, export, fwd, import, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up | pass |
+| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the drag handle beside a transform value is put into the Tab order by hand | true | true | pass |
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
-| the keys the window answers with nothing focused are the ones written down here | A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, O, S, Space, Z, [, ] | A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, O, S, Space, Z, [, ] | pass |
+| the keys the window answers with nothing focused are the ones written down here | A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, N, O, S, Space, Z, [, ] | A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, N, O, S, Space, Z, [, ] | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
+| `composition.create` can be asked for without a mouse | yes | yes | pass |
 | `edit.redo` can be asked for without a mouse | yes | yes | pass |
 | `edit.undo` can be asked for without a mouse | yes | yes | pass |
 | `effect.add` can be asked for without a mouse | yes | yes | pass |
@@ -63,4 +64,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | double clicking a layer is not the only way to rename it | true | true | pass |
 | dragging a transform value is not the only way to change it | true | true | pass |
 
-**40 of 40 checks pass.**
+**41 of 41 checks pass.**

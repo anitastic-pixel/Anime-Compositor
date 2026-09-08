@@ -35,6 +35,20 @@ pub enum Command {
     RelinkAsset {
         asset: Box<Asset>,
     },
+    /// Document 24's `composition.create`. B-12d.
+    ///
+    /// W-01 lists "creates a composition" third of thirteen and no command reached it: the
+    /// composition a person worked in was whichever one their project file already held, so a
+    /// project with none could not be opened into anything. The whole record is the unit of
+    /// change because document 19 line 52 makes size and duration a property of the composition
+    /// rather than of a later edit, and because there is nothing else to change yet - a new
+    /// composition has no layers, and every command that would give it one already exists.
+    ///
+    /// No inverse data is carried, for the reason every other command here carries none: the
+    /// document stores the whole project as it was before the record.
+    AddComposition {
+        composition: Box<Composition>,
+    },
     AddLayer {
         composition: Id,
         layer: Box<Layer>,
@@ -168,6 +182,7 @@ impl Command {
         match self {
             Command::AddAsset { .. } => "ADD_ASSET",
             Command::RelinkAsset { .. } => "RELINK_ASSET",
+            Command::AddComposition { .. } => "ADD_COMPOSITION",
             Command::AddLayer { .. } => "ADD_LAYER",
             Command::RemoveLayer { .. } => "REMOVE_LAYER",
             Command::RenameLayer { .. } => "RENAME_LAYER",
@@ -192,6 +207,9 @@ impl Command {
         match self {
             Command::AddAsset { asset } => format!("Import {}", asset.name),
             Command::RelinkAsset { asset } => format!("Relink {}", asset.name),
+            Command::AddComposition { composition } => {
+                format!("New composition {}", composition.name)
+            }
             Command::AddLayer { layer, .. } => format!("Add layer {}", layer.name),
             Command::RemoveLayer { layer_id, .. } => format!("Delete layer {layer_id}"),
             Command::RenameLayer { name, .. } => format!("Rename layer to {name}"),
@@ -246,7 +264,9 @@ impl Command {
 
     fn composition(&self) -> Option<&Id> {
         match self {
-            Command::AddAsset { .. } | Command::RelinkAsset { .. } => None,
+            Command::AddAsset { .. }
+            | Command::RelinkAsset { .. }
+            | Command::AddComposition { .. } => None,
             Command::AddLayer { composition, .. }
             | Command::RemoveLayer { composition, .. }
             | Command::RenameLayer { composition, .. }
@@ -272,6 +292,7 @@ impl Command {
         match self {
             Command::AddAsset { asset } => ids.push(asset.id.clone()),
             Command::RelinkAsset { asset } => ids.push(asset.id.clone()),
+            Command::AddComposition { composition } => ids.push(composition.id.clone()),
             Command::AddLayer { layer, .. } => ids.push(layer.id.clone()),
             Command::RemoveLayer { layer_id, .. }
             | Command::RenameLayer { layer_id, .. }
@@ -311,6 +332,7 @@ impl Command {
             Command::SetLayerLocked { .. }
                 | Command::AddAsset { .. }
                 | Command::RelinkAsset { .. }
+                | Command::AddComposition { .. }
                 | Command::AddLayer { .. }
         )
     }
@@ -617,6 +639,72 @@ fn missing(message: String, detail: String) -> Diagnostic {
     .with_remediation("The edit was not applied. Nothing in the project changed.")
 }
 
+/// The largest side a new composition may have, and the largest number of pixels in one.
+///
+/// Document 19 line 52: "Composition dimensions and duration are positive and bounded by
+/// implementation safety limits." Until B-12d nothing in this build created a composition, so
+/// there was no place for that bound to live and no number in it. These are that number, and
+/// the reasoning is memory rather than taste: document 21 works in linear-light premultiplied
+/// float32 RGBA, which is sixteen bytes a pixel, so a layer buffer at the pixel ceiling is one
+/// gibibyte and a frame of a few layers is several. Anything past this is not a shot somebody
+/// is finishing on the reference machine; it is a typo in a field, and the point of the limit is
+/// that a typo is refused rather than allocated.
+///
+/// Both are provisional and neither is in document 14. See
+/// `verification/B-12d_new_composition_table.md`.
+const LARGEST_SIDE: u32 = 16_384;
+const LARGEST_PIXELS: u64 = 67_108_864;
+
+/// Ten thousand frames is nearly seven minutes at 24 fps. A composition is a shot.
+const LONGEST_COMPOSITION: u32 = 10_000;
+
+/// Document 19 line 52's positivity and safety bounds, and document 19 line 13's unique IDs.
+///
+/// Checked here rather than in [`Composition::new`] because the model constructor is what the
+/// loader and the fixtures use, and a project file that already holds a composition this build
+/// would not create is document 28's business, not a panic in a constructor.
+fn check_a_new_composition(project: &Project, composition: &Composition) -> Result<(), Diagnostic> {
+    if project.composition(&composition.id).is_some() {
+        return Err(reject(
+            &format!(
+                "A composition with the ID {} is already in the project.",
+                composition.id
+            ),
+            "Document 19: stable IDs are unique within a project.",
+        ));
+    }
+    if composition.width == 0 || composition.height == 0 || composition.duration_frames == 0 {
+        return Err(reject(
+            "A composition needs a width, a height and a length, and one of them was zero.",
+            "Document 19 line 52: composition dimensions and duration are positive.",
+        ));
+    }
+    if composition.width > LARGEST_SIDE
+        || composition.height > LARGEST_SIDE
+        || composition.width as u64 * composition.height as u64 > LARGEST_PIXELS
+    {
+        return Err(reject(
+            &format!(
+                "{}x{} is larger than this build will make: no side past {LARGEST_SIDE} and no \
+                 more than {LARGEST_PIXELS} pixels in all.",
+                composition.width, composition.height
+            ),
+            "Document 19 line 52: bounded by implementation safety limits.",
+        ));
+    }
+    if composition.duration_frames > LONGEST_COMPOSITION {
+        return Err(reject(
+            &format!(
+                "{} frames is longer than this build will make; the limit is \
+                 {LONGEST_COMPOSITION}.",
+                composition.duration_frames
+            ),
+            "Document 19 line 52: bounded by implementation safety limits.",
+        ));
+    }
+    Ok(())
+}
+
 /// Validate and apply one command to a project. Every failure path returns before mutating.
 fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> {
     if let Command::AddAsset { asset } = command {
@@ -644,9 +732,15 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         return Ok(());
     }
 
+    if let Command::AddComposition { composition } = command {
+        check_a_new_composition(project, composition)?;
+        project.compositions.push((**composition).clone());
+        return Ok(());
+    }
+
     let comp_id = command
         .composition()
-        .expect("only the asset commands have none")
+        .expect("only the project-level commands have none")
         .clone();
     // Locked and existence checks read the composition before anything is mutated.
     {
@@ -688,7 +782,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
     }
 
     match command {
-        Command::AddAsset { .. } | Command::RelinkAsset { .. } => {
+        Command::AddAsset { .. } | Command::RelinkAsset { .. } | Command::AddComposition { .. } => {
             unreachable!("handled above")
         }
         Command::AddLayer { layer, index, .. } => {

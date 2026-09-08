@@ -6,12 +6,19 @@ That is what these five photographs are for, and Q-03 — display scaling and ke
 reachability — is the requirement they answer for this window. Three defects were found here and
 all three are fixed.
 
-**Retaken on 2026-09-08, under B-12c.** All five were captured against the build of that day. The
-four that existed before were stale in a way worth naming: their keyboard hint line still read
-`Ctrl+E` for the export, which document 24 names as `Ctrl+M` and the nineteenth hardening pass
-corrected in the page months after the pictures were taken. A photograph is the one artifact in
-this repository that no test regenerates, so a photograph of a window that no longer exists goes
-on looking right. Retaking them found the second and third defects below.
+**Retaken twice on 2026-09-08, first under B-12c and then under B-12d.** A photograph is the one
+artifact in this repository that no test regenerates, so a photograph of a window that no longer
+exists goes on looking right, and both retakes were for that reason.
+
+The B-12c retake found the four older pictures stale in a way worth naming: their keyboard hint
+line still read `Ctrl+E` for the export, which document 24 names as `Ctrl+M` and the nineteenth
+hardening pass corrected in the page months after the pictures were taken. It also found the
+second and third defects below.
+
+The B-12d retake was needed because B-12d put a COMPOSITION section and a **New composition…**
+button at the top of the left-hand column, which is a new stop on the Tab order ahead of
+everything else. Every count on this page went up by one, and every count was re-checked against
+the picture rather than adjusted on paper.
 
 ## 1. The five panels
 
@@ -22,7 +29,7 @@ present at once, which is the claim:
 
 | Area | Where | What it shows here |
 | --- | --- | --- |
-| the media bin | left | layer1 to layer4 with their frame counts, **Import drawings…**, **Relink drawings…** |
+| the composition and the media bin | left | the composition on screen with its size, rate and length, **New composition…**, then layer1 to layer4 with their frame counts, **Import drawings…**, **Relink drawings…** |
 | the viewer | centre | frame 0 of the reference shot, composited |
 | the inspectors | right | LAYER, EXPOSURES, EFFECTS, each saying "No layer is selected." |
 | the transport | below the viewer | Play, the two step arrows, the frame number, the draft warning, Full resolution, Alpha only, Hide grid |
@@ -37,19 +44,21 @@ empty box is never mistaken for a value of zero.
 
 ![layer4 chosen by keyboard](B-12a_keyboard.png)
 
-Twelve presses of Tab and then a space, no mouse at any point. The twelfth stop is layer4
+Thirteen presses of Tab and then a space, no mouse at any point. The thirteenth stop is layer4
 in the layer list, the space chooses it, and the LAYER panel fills in on the right: Name,
 Identifier, Drawing, Frames, Anchor, Position, Scale, Rotation, Opacity, Blend, Mask, Matte. The
 transform inspector being populated is the evidence — it is only ever populated for a selected
 layer.
 
 ```
-powershell -ExecutionPolicy Bypass -Command "& ./tools/capture_window.ps1 -Name B-12a_keyboard -Keys (([char]9).ToString()*12 + ' ')"
+powershell -ExecutionPolicy Bypass -Command "& ./tools/capture_window.ps1 -Name B-12a_keyboard -Keys (([char]9).ToString()*13 + ' ')"
 ```
 
-Twelve rather than the thirteen this said before, because a disabled button is not a stop on the
-Tab order and Relink drawings…, Add an exposure and Add effect… are all disabled while nothing is
-selected. The count is a property of the window in this state, not a promise.
+Thirteen rather than the twelve this said before B-12d, because **New composition…** is a stop
+ahead of everything else. The count went from thirteen to twelve once already, when it turned out
+a disabled button is not a stop on the Tab order and Relink drawings…, Add an exposure and Add
+effect… are all disabled while nothing is selected. The count is a property of the window in this
+state, not a promise, and it is read off the picture each time rather than reasoned about.
 
 **The defect this found, and the fix.** The rows in the layer list and the media bin were
 reachable by Tab and showed a focus ring, so they looked keyboard-operable. They were not: a row
@@ -123,7 +132,7 @@ without scrolling the panel sideways, which is the one thing an exposure sheet i
 now wraps onto a second line, which is why each one reads across two lines above.
 
 ```
-powershell -ExecutionPolicy Bypass -Command "& ./tools/capture_window.ps1 -Name B-12c_effects_panel -Open 'verification/B-12c_effects_shot.json' -Scale 1.0 -Keys (([char]9).ToString()*9 + ' ')"
+powershell -ExecutionPolicy Bypass -Command "& ./tools/capture_window.ps1 -Name B-12c_effects_panel -Open 'verification/B-12c_effects_shot.json' -Scale 1.0 -Keys (([char]9).ToString()*10 + ' ')"
 ```
 
 ## What these five do not cover

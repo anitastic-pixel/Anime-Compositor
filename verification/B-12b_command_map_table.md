@@ -31,12 +31,13 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 24 names the identifiers this table walks | 35 | 35 | pass |
-| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
+| document 24 names the identifiers this table walks | 36 | 36 | pass |
+| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, composition.create, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, composition.create, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
 | `project.new` is reached by | nothing yet | nothing yet | pass |
 | `project.open` is reached by | a route the shell answers | a route the shell answers | pass |
 | `project.save` is reached by | a route the shell answers | a route the shell answers | pass |
 | `project.save_as` is reached by | a route the shell answers | a route the shell answers | pass |
+| `composition.create` is reached by | a command the window answers | a command the window answers | pass |
 | `edit.undo` is reached by | a command the window answers | a command the window answers | pass |
 | `edit.redo` is reached by | a command the window answers | a command the window answers | pass |
 | `media.import` is reached by | a command the window answers | a command the window answers | pass |
@@ -76,6 +77,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and Ctrl+S is bound | yes | yes | pass |
 | document 24 gives `project.save_as` the shortcut | Ctrl+Shift+S | Ctrl+Shift+S | pass |
 | and Ctrl+Shift+S is bound | yes | yes | pass |
+| document 24 gives `composition.create` the shortcut | Ctrl+Shift+N | Ctrl+Shift+N | pass |
+| and Ctrl+Shift+N is bound | yes | yes | pass |
 | document 24 gives `edit.undo` the shortcut | Ctrl+Z | Ctrl+Z | pass |
 | and Ctrl+Z is bound | yes | yes | pass |
 | document 24 gives `edit.redo` the shortcut | Ctrl+Shift+Z | Ctrl+Shift+Z | pass |
@@ -112,6 +115,7 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and Ctrl+Shift+P is bound | no, and the command is not built either | no, and the command is not built either | pass |
 | and Ctrl+M presses | $('export') | $('export') | pass |
 | and Ctrl+I presses | $('import') | $('import') | pass |
+| and Ctrl+Shift+N presses | $('newcomp') | $('newcomp') | pass |
 | and Ctrl+Alt+L presses | $('addlayer') | $('addlayer') | pass |
 | and Ctrl+] presses | $('up') | $('up') | pass |
 | and Ctrl+[ presses | $('down') | $('down') | pass |
@@ -121,4 +125,4 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and A presses | $('alpha') | $('alpha') | pass |
 | and G presses | $('checker') | $('checker') | pass |
 
-**89 of 89 checks pass.**
+**93 of 93 checks pass.**

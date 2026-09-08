@@ -59,6 +59,14 @@ jobs:
           python tools/gen_dependencies.py
           git diff --exit-code -- docs/DEPENDENCIES.md
 
+      # Two things drift silently in the prose: a document names a file that was renamed or
+      # never existed, and a document quotes another artifact's score that has since changed.
+      # Neither is visible to cargo, and the owner reads the prose rather than the code, so a
+      # planning document that names a table which is not there is a defect in the thing being
+      # delivered. It ran by hand until B-12d; a check nobody remembers to run is not a check.
+      - name: The prose names files that exist and scores that agree
+        run: python tools/audit_references.py
+
       - name: Formatting
         run: cargo fmt --all --check
 

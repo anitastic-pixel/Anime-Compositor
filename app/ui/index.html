@@ -164,12 +164,36 @@
   .effect dl { margin-top: 4px; }
   .effect input[type=text] { width: 8em; }
   #relinking { border: 1px solid #e8b06a; border-radius: 4px; padding: 6px; margin-top: 6px; }
+  #newcomposition { border: 1px solid #7a8ba0; border-radius: 4px; padding: 6px; margin-top: 6px; }
+  #newcomposition p { margin: 0 0 6px; }
+  #newcomposition label { display: block; margin-top: 4px; }
+  #newcomposition input { width: 100%; box-sizing: border-box; }
+  #newcomposition button { margin-top: 6px; }
   #relinking p { margin: 0 0 6px; }
 </style>
 </head>
 <body>
 <div id="work">
   <div class="panel" id="bin">
+    <h2>Composition</h2>
+    <p id="comp">&mdash;</p>
+    <button id="newcomp">New composition&hellip;</button>
+    <div id="newcomposition" hidden>
+      <p>A new composition is empty. It is the frame the drawings are laid into, so its size,
+        its rate and its length are what the finished shot will be.</p>
+      <label for="compname">Name</label>
+      <input id="compname" type="text" value="New composition">
+      <label for="compwidth">Width in pixels</label>
+      <input id="compwidth" type="number" min="1" value="1920">
+      <label for="compheight">Height in pixels</label>
+      <input id="compheight" type="number" min="1" value="1080">
+      <label for="compfps">Frames per second</label>
+      <input id="compfps" type="number" min="1" value="24">
+      <label for="compframes">Length in frames</label>
+      <input id="compframes" type="number" min="1" value="240">
+      <button id="makecomp">Create it</button>
+      <button id="cancelcomp">Leave it</button>
+    </div>
     <h2>Drawings</h2>
     <ul class="rows" id="assets"></ul>
     <p class="empty" id="noassets" hidden>This project has no drawings in it.</p>
@@ -226,7 +250,7 @@
   <button id="export">Export&hellip;</button>
   <button id="cancelexport" hidden>Cancel export</button>
   <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
-  <span class="hint">space, arrows, D, A, G &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
+  <span class="hint">space, arrows, D, A, G &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
   <span id="status"></span>
   <span id="autosaved"></span>
   <span id="report"></span>
@@ -828,6 +852,15 @@ function drawPanels() {
   $('dellayer').disabled = !layer;
   $('up').disabled = !layer;
   $('down').disabled = !layer;
+  // W-01 step 3 asks the person to make a composition, so the window has to say which one
+  // they are in and what it is. Without this the only evidence of a new composition would be
+  // that the picture changed size.
+  const comp = composition();
+  $('comp').textContent = comp
+    ? comp.name + ' \u2014 ' + comp.width + '\u00d7' + comp.height + ' at '
+      + Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator) + ' fps, '
+      + comp.duration_frames + ' frames'
+    : 'No composition is open.';
   $('addlayer').disabled = !selectedAsset;
   $('relink').disabled = !selectedAsset;
   // Document 26 requires a label on every history record, and this is where it earns its keep:
@@ -947,6 +980,24 @@ $('dellayer').onclick = onSelected('layer.delete');
 $('up').onclick = onSelected('layer.move_up');
 $('down').onclick = onSelected('layer.move_down');
 $('import').onclick = () => command('/media.import');
+// W-01 step 3. The fields are read at the moment Create is pressed, not as they are typed: a
+// half-typed width is not a composition somebody asked for, and the core would refuse it in a
+// status line the person had not finished causing.
+$('newcomp').onclick = () => {
+  const box = $('newcomposition');
+  box.hidden = !box.hidden;
+  if (!box.hidden) $('compname').focus();
+};
+$('cancelcomp').onclick = () => { $('newcomposition').hidden = true; };
+$('makecomp').onclick = () => {
+  const q = 'name=' + encodeURIComponent($('compname').value)
+    + '&width=' + encodeURIComponent($('compwidth').value)
+    + '&height=' + encodeURIComponent($('compheight').value)
+    + '&fps=' + encodeURIComponent($('compfps').value)
+    + '&frames=' + encodeURIComponent($('compframes').value);
+  $('newcomposition').hidden = true;
+  command('/composition.create?' + q);
+};
 // W-02's three steps, one request each: ask what to point at, read what would change, then agree
 // to it or not. The asset an Apply names is the one the proposal came back with, never the one
 // selected in the bin, so a click elsewhere between reading and agreeing cannot redirect it.
@@ -1055,6 +1106,13 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && (e.key === 'i' || e.key === 'I')) {
     e.preventDefault();
     $('import').click();
+  }
+  // Document 24 gives Ctrl+N to `project.new`, which this build does not have. B-12d added
+  // `composition.create` beside it and Ctrl+Shift+N is its shortcut, so the two stay apart: a
+  // person who later presses Ctrl+N for a new project must not get a new composition instead.
+  else if (e.ctrlKey && e.shiftKey && (e.key === 'n' || e.key === 'N')) {
+    e.preventDefault();
+    $('newcomp').click();
   }
   // Document 24: Ctrl+Z undo, Ctrl+Shift+Z redo, Ctrl+Alt+L add layer, Ctrl+] and Ctrl+[ move
   // the selected layer toward the front and toward the back.

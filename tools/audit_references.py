@@ -14,10 +14,11 @@ Both are read here. Run it from the repository root:
     python tools/audit_references.py
 
 It prints one line per inconsistency and exits non-zero, or prints "clean" and exits zero.
-It is a reading aid rather than a gate: it cannot know that a name in a sentence is a name
-rather than a path, so the names that are deliberately not files - the drawing the reference
-shot does not have, an exported frame written to an ignored folder, an example filename in a
-walkthrough - are listed in ALLOWED with the reason each one is there.
+Since B-12d it is a CI gate. It cannot know that a name in a sentence is a name rather than a
+path, so the names that are deliberately not files - the drawing the reference shot does not
+have, an exported frame written to an ignored folder, an example filename in a walkthrough -
+are listed in ALLOWED with the reason each one is there, and a new one of those is added to
+ALLOWED rather than left to fail.
 """
 
 import re
