@@ -6,12 +6,14 @@ B-12 is the owner's acceptance run of W-01: thirteen steps by hand, from importi
 
 The shot is built from nothing: a copy of `Fixtures/projects/minimal_project.json`, which is one empty 1920 by 1080 composition of twenty-four frames with no drawings and no layers in it. Everything after that goes through the same function the window's URL scheme calls, with the same text the page would put in it.
 
-**Step 3 is the one step that cannot be walked.** W-01 says "create a composition", and this build has no command that creates one -- document 24 has no `composition.create` row, and the composition somebody works in is the one their project file already holds. The first two rows record that rather than working around it. It is the one thing in this table the owner will meet as missing.
+**Step 3 used to be the one step that could not be walked.** W-01 says "create a composition", and until B-12d this build had no command that made one: document 24 had no `composition.create` row, and the composition somebody worked in was the one their project file already held. This table recorded that as missing rather than working around it. B-12d built it, and the four rows below are that step actually taken -- the composition everything after step 3 happens in is one this walk made, not one it was handed. The composition the file came with is still in the project, untouched, because making one is not replacing one.
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| step 3: a composition to work in, its size, its rate and its length | comp-main 1920x1080 at 24 fps, 24 frames | comp-main 1920x1080 at 24 fps, 24 frames | pass |
-| and no command in this build makes one, so this step is the project file's | no composition command | no composition command | pass |
+| step 3: a composition, made by the command document 24 names | New composition My shot, 1920x1080 at 24 fps, 24 frames | New composition My shot, 1920x1080 at 24 fps, 24 frames | pass |
+| and the person is told it is empty, rather than left looking at a blank frame | It is empty; import drawings and add layers to fill it. | It is empty; import drawings and add layers to fill it. | pass |
+| and the window is showing the one that was just made, not the one the file held | comp-1 My shot 1920x1080 at 24 fps, 24 frames | comp-1 My shot 1920x1080 at 24 fps, 24 frames | pass |
+| and the one the file held is still there, because making one is not replacing one | comp-main, comp-1 | comp-main, comp-1 | pass |
 | step 1: four sequences imported into a project that had none | asset-1, asset-2, asset-3, asset-4 | asset-1, asset-2, asset-3, asset-4 | pass |
 | and the person is told what each one holds | 24 drawings, numbered 0 to 23 | 24 drawings, numbered 0 to 23 | pass |
 | step 2: twenty-four files chosen at once are one sequence, not twenty-four | layer2_%03d.png | layer2_%03d.png | pass |
@@ -31,7 +33,7 @@ The shot is built from nothing: a copy of `Fixtures/projects/minimal_project.jso
 | steps 8 and 9: a blur, then a colour operation, in the order they were added | core.gaussian_blur then core.tint | core.gaussian_blur then core.tint | pass |
 | step 10: alpha-only inspection says what it is showing | the picture is the alpha channel | the picture is the alpha channel | pass |
 | and what comes back is grey everywhere, and the same size as the picture was | a different picture, every pixel grey, same size | a different picture, every pixel grey, same size | pass |
-| and looking at it changed nothing about the project, which is what makes it looking | revision 37 | revision 37 | pass |
+| and looking at it changed nothing about the project, which is what makes it looking | revision 38 | revision 38 | pass |
 | step 11: every frame of the work area answers, and answers with itself | 200:0 200:1 200:2 200:3 200:4 200:5 200:6 200:7 200:8 200:9 200:10 200:11 200:12 200:13 200:14 200:15 200:16 200:17 200:18 200:19 200:20 200:21 200:22 200:23 | 200:0 200:1 200:2 200:3 200:4 200:5 200:6 200:7 200:8 200:9 200:10 200:11 200:12 200:13 200:14 200:15 200:16 200:17 200:18 200:19 200:20 200:21 200:22 200:23 | pass |
 | and playing rather than stepping asks the clock, which starts at the first frame | 200:0 | 200:0 | pass |
 | step 12: the shot is written to the file it was opened from | Saved to | Saved to | pass |
@@ -47,7 +49,7 @@ The shot is built from nothing: a copy of `Fixtures/projects/minimal_project.jso
 | twenty-four files are on the disk, named for the project and numbered from zero | 24 files, my_shot_0000.png to my_shot_0023.png | 24 files, my_shot_0000.png to my_shot_0023.png | pass |
 | and not one of them is empty | true | true | pass |
 
-**36 of 36 checks pass.**
+**38 of 38 checks pass.**
 
 ## The defect this walk found
 

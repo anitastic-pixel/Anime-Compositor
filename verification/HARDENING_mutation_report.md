@@ -13,15 +13,17 @@ The rule every pass here follows: **if a break survives, the fixture is fixed,
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**329 breaks were made across thirty units. 326 of them are caught by the tests as they stand
-today; three are not, and are named.**
+**346 breaks were made across thirty-one units. 342 of them are caught by the tests as they
+stand today; four are not, and are named.**
 
-Twenty-six were not caught the first time. Each of those was closed by a new check or a
+Twenty-nine were not caught the first time. Each of those was closed by a new check or a
 strengthened fixture before its pass was written up, and each row says which - the table records
 what the break did when it was made and what catches it now, so a reader can see where the
-fixtures were weak. The three that remain are all in one function, `fn command`, which needs a
+fixtures were weak. Three of the four that remain are in one function, `fn command`, which needs a
 running application to be called at all; the twentieth pass names them and says which window
-behaviour stands in for them, rather than claiming a check that does not exist.
+behaviour stands in for them, rather than claiming a check that does not exist. The fourth is a
+guard that is written twice, and the twenty-first pass says why a row for it would be checking
+nothing.
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -105,7 +107,13 @@ survivor is the only one of the 305 breaks in this report that was invisible bec
 every picture the fixture blurred was transparent where it mattered. The twenty-first is B-12a,
 the editing window - the panels W-01 walks an artist through, which is the first unit in this
 report that computes no pixels at all: 24 breaks, all caught, none through, and its own section
-below on what a toggle that cannot toggle does to a table.
+below on what a toggle that cannot toggle does to a table. The twenty-second and twenty-third,
+B-12b the page and B-12c the routing layer, have their own sections below as well. The
+twenty-fourth and last is B-12d, making a composition, which is the first unit here whose
+subject is a set of limits the specification never gave numbers to: 17 breaks, **three of which
+got through**, all seventeen caught afterwards, and a fourth that gets through because the guard
+it breaks is written twice - the three survivors are one finding, that a table which only ever
+asks a limit to refuse something cannot tell that the limit is in the right place.
 
 
 ## B-02 colour and alpha
@@ -1228,6 +1236,101 @@ The response. Every row checks the decision, not the bytes: no row reads a conte
 status code or the header that carries the status sentence back to the page. A build that
 answered every route correctly and set the wrong content type would pass this table completely,
 and what stands in for it is the window itself.
+
+## B-12d making a composition: the one W-01 step that had no control
+
+`Command::AddComposition` and `check_a_new_composition` in `src/command.rs`, and the
+`composition.create` arm, `settle` and `open` in `app/src/main.rs`, checked by the `editing`
+test whose table is `verification/B-12d_new_composition_table.md`.
+
+**13 of 17 breaks caught first time. Three more are closed and are the most useful result of
+this pass; the fourth gets through for a reason that is not a hole, and no row was added for
+it.**
+
+This unit is the first in this report whose subject is a set of limits nobody had written down.
+Document 19 line 52 says composition dimensions and duration are "bounded by implementation
+safety limits" and never says what the limits are, because until B-12d nothing in this build
+made a composition. Three constants now say - no side past 16384, no more than 67108864 pixels
+in all, no more than 10000 frames - and the reason this pass matters more than its size suggests
+is that a limit is the easiest thing in a codebase to check in the wrong direction and never
+notice.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| C1 | The duplicate-identifier check is gone | yes | a composition whose identifier is already in the project is refused |
+| C2 | The positivity check needs all three of width, height and length to be zero rather than any one | yes | a composition with no width is refused, and the refusal says which three matter |
+| C3 | A length of zero is no longer one of the three that must be positive | **no, first time** | after the case was added: a composition with no length is refused by the same sentence as one with no width |
+| C4 | The largest side this build allows is itself refused, `>=` where the rule is `>` | **no, first time** | after the case was added: a composition exactly at the pixel budget is made rather than refused |
+| C5 | The total-pixel limit is deleted, so only the two sides are checked | **no, first time** | after the case was added: a composition inside both side limits but past the pixel budget is still refused |
+| C6 | The history label for a new composition forgets its name | yes | undo names the composition it took back rather than saying "undone" |
+| C7 | The new composition is not named as affected by the record that made it | yes | and the window is showing it again |
+| A1 | The default width is not the reference shot's | yes | creating one with nothing filled in says what was made and that it is empty |
+| A2 | A field that is not a number falls back to the default instead of refusing | yes | a width that is not a number is refused before the core is asked |
+| A3 | The window moves to the new composition whether or not the core took it | **no** | nothing failed |
+| A4 | The identifier for a new composition does not count past the first | yes | a second composition gets an identifier the first one is not using |
+| A5 | Undo and redo no longer prefer the composition the record touched | yes | and the window is showing it again |
+| A6 | There is no fallback when the composition on screen has been taken away | yes | and the window has moved off the composition that is no longer there |
+| A7 | The composition the record touched is used without checking it still exists | yes | and the window has moved off the composition that is no longer there |
+| A8 | A reopened project shows the first composition rather than the first with work in it | yes | a saved project reopens looking at the composition with work in it |
+| A9 | The sentence after a composition is made no longer says it is empty | yes | creating one with nothing filled in says what was made and that it is empty |
+| A10 | The frame rate somebody asked for is ignored and 24 is always used | yes | a frame rate of zero is refused by the rule that owns frame rates |
+
+## Twenty-first pass: the three that got through, and the one that is not a hole
+
+**C3, C4 and C5 are one finding in three parts: a table of limits that only ever asks for a
+refusal cannot see a limit.** The three rows this pass started with all handed the command
+something obviously too big or too small and checked the sentence it came back with. Every one
+of them passes a build whose limits are wrong in the other direction, or missing a term, or
+short of one of the three things that must be positive:
+
+- C3 stopped checking that a length is positive. `?width=0` was still refused, so the row that
+  names the rule went on passing while a composition of no frames could be made.
+- C4 refused a side of exactly 16384, the largest this build claims to allow. Every "too large"
+  row still passed. What a person would meet is a legal size turned down for no reason they can
+  see, which is the failure a limit exists to avoid being.
+- C5 deleted the pixel-budget term entirely. `20000x1080` was still refused - by the side check -
+  so the row that was meant to be about the budget passed without the budget existing.
+
+Three cases were added and each fails its break by name: `?frames=0`, which must be refused by
+the same sentence as `?width=0`; `?width=16384&height=16384`, inside both side limits and four
+times over the pixel budget, which must be refused; and `?name=Biggest&width=16384&height=4096`,
+which is exactly 16384 on a side and exactly 67108864 pixels, and which **must be made**. That
+last one is the row this pass exists for. It is the only check in the table that fails when the
+build becomes too strict rather than too loose, and both of the other two limit rows were blind
+to that.
+
+**C3 also cost the table its own failure the first time.** Broken, it ended the run with a stack
+trace: a composition of zero frames was saved, and the schema refused to read the file back, so
+the test panicked at the reopen before it had written a single row. That is the same defect this
+report has recorded three times before in other units, and it is closed the same way - the
+reopen now reports a sentence into a row rather than panicking, so a build that writes a project
+it cannot read produces a table with two lines marked wrong instead of a stack trace.
+
+**A3 is a survivor and no row was added.** The break moves the window to the new composition
+without first checking that the core accepted it. Nothing fails, because `fn show` is already
+written to do nothing when handed a composition that is not in the project - the guard in the
+`composition.create` arm and the guard inside `show` are the same guard, twice. The `made` flag
+is still load-bearing for the sentence the person is told, which is why the flag stays; what a
+row here would be checking is that a redundancy is redundant. The window behaviour it protects -
+a refusal leaves the window looking at what it was looking at - is checked, by the row of that
+name, and that row passes under this break because the second guard holds.
+
+## What this pass did not cover, in making a composition
+
+The numbers themselves. Every row here checks that this build enforces the limits it chose, and
+no row can say the limits are right - 16384, 67108864 and 10000 are this build's arithmetic
+about memory, they are not in document 14, and they are the owner's to change. A build with a
+sensible rule and a foolish constant passes this table completely.
+
+The control. Every row calls the same function the window's URL scheme calls. That the **New
+composition…** button and its five fields send it, and that Ctrl+Shift+N reaches the button, are
+`verification/B-12b_page_table.md`, `verification/B-12c_keyboard_table.md` and the photograph in
+`verification/B-12d_new_composition.md`.
+
+Which composition a reopened project shows. A8 breaks the rule of thumb and the row catches it,
+but the rule of thumb is not the right answer and no break can show that: document 07's project
+format has no field for which composition was open, so an artist who deliberately leaves an
+empty composition ready to work in is returned to a different one and nothing here objects.
 
 ## First pass: the six that got through, and what was added
 

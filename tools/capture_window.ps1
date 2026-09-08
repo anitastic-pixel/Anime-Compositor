@@ -15,8 +15,9 @@
 # It writes verification/B-08_window_shell.png and prints the size it captured. -Name writes a
 # different file; -Keys presses keys in the window first and -Settle waits that many milliseconds
 # afterwards, which is how the playback screenshot is taken; -Ctrl holds Control down while those
-# keys are pressed, which is how a Ctrl+S is photographed actually saving; -Open starts the shell
-# on a project file, which is the same path a dropped file takes and the only one a script can
+# keys are pressed, which is how a Ctrl+S is photographed actually saving; -Shift does the same
+# with Shift, which is how Ctrl+Shift+N is photographed opening the new-composition fields; -Open
+# starts the shell on a project file, which is the same path a dropped file takes and the only one a script can
 # drive.
 #
 # -Scale photographs the window as it would look on a display set to that scaling, by telling the
@@ -30,6 +31,7 @@ param(
   [string]$Name = 'B-08_window_shell',
   [string]$Keys = '',
   [switch]$Ctrl,
+  [switch]$Shift,
   [int]$Settle = 1500,
   [string]$Open = '',
   [double]$Scale = 0
@@ -143,6 +145,7 @@ try {
     # 0x11 is Control. Held around the whole run of keys rather than per key, because that is what
     # a person's hand does and what a webview's keydown reports.
     if ($Ctrl) { [Win]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero) }
+    if ($Shift) { [Win]::keybd_event(0x10, 0, 0, [UIntPtr]::Zero) }
     foreach ($c in $Keys.ToCharArray()) {
       # Tab has no printable character for VkKeyScan to look up, and Tab is the whole of the
       # keyboard-reachability question, so it is named directly. Write it as "`t" in -Keys.
@@ -151,6 +154,7 @@ try {
       [Win]::keybd_event($vk, 0, 2, [UIntPtr]::Zero)
       Start-Sleep -Milliseconds 80
     }
+    if ($Shift) { [Win]::keybd_event(0x10, 0, 2, [UIntPtr]::Zero) }
     if ($Ctrl) { [Win]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero) }
     Start-Sleep -Milliseconds $Settle
   }

@@ -39,9 +39,11 @@ Everything G1-core names exists: the colour and compositing core, PNG import wit
 format diagnostics, the rational time model and exposure spans, the command model with undo and
 redo, the tiled multithreaded renderer, trace mode, masks and mattes, effects, the bounded preview
 cache, persistence with autosave and recovery, PNG sequence export, the offline package, and the
-editing window in `app/`. Every W-01 and W-02 step except one is reachable in that window by
-keyboard; the exception is **creating a composition, which has no control at all** — a composition
-comes from a fixture script and the window edits one that already exists.
+editing window in `app/`. Every W-01 and W-02 step is reachable in that window by keyboard.
+The last one to be built was **creating a composition**, which B-12d added on 2026-09-08 as
+`composition.create` on Ctrl+Shift+N; before that a composition came from a fixture script and the
+window only edited one that already existed. It is a new capability rather than a correction, and
+the acceptance run is the place the owner decides whether to keep it.
 
 **B-12 is a person, not a test.** The owner completes W-01 and W-02 on the reference shot unaided
 and writes down what was awkward. `verification/B-12_acceptance_run.md` is the sheet for that run,
@@ -99,8 +101,9 @@ the owner reads, `tools/` the few generators and checks that are not `cargo test
 archived licence texts, `design/` interface design work, `spikes/` the quarantined G0 code.
 `CONTEXT.md` is the vocabulary; `AGENTS.md` and `CLAUDE.md` are the enforceable agent rules.
 
-`cargo test --workspace` is the build. Three things are not in it and are run by hand: the
+`cargo test --workspace` is the build. Two things are not in it and are run by hand: the
 `#[ignore]`d timing tests (`tests/t06_envelope.rs`, `tests/b12b_declared_fixture.rs`,
-`tests/b10_full_shot.rs`), the photographs (`tools/capture_window.ps1`), and the cross-reference
+`tests/b10_full_shot.rs`) and the photographs (`tools/capture_window.ps1`). The cross-reference
 audit (`python tools/audit_references.py`, which reports a named file that does not exist or a
-score quoted differently from the artifact that states it).
+score quoted differently from the artifact that states it) was the third until B-12d, and is now
+a CI gate.

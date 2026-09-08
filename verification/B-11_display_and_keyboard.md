@@ -54,15 +54,24 @@ check that finds nothing on a machine set to one scaling factor has not been run
 
 ![the Open button holding the keyboard](B-11_keyboard_focus.png)
 
-Six presses of Tab from a freshly opened window, and the sixth lands on **Open…**, which is
-outlined in blue. That is the whole of the claim: the controls are ordinary buttons and a
+Seven presses of Tab from a freshly opened window, and the seventh lands on **Full resolution**,
+which is outlined in blue. That is the whole of the claim: the controls are ordinary buttons and a
 `select` in the order they appear, Tab walks them, and the one holding the keyboard says so
 visibly. The ring is its own colour because the other two colours in this window already mean
 things — orange is a warning, green is a save that happened.
 
 ```
-powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-11_keyboard_focus -Open "target\shot\my_shot.json" -Keys "`t`t`t`t`t`t"
+powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-11_keyboard_focus -Open "target\shot\my_shot.json" -Keys "`t`t`t`t`t`t`t"
 ```
+
+**Retaken on 2026-09-08, under B-12d.** Every photograph on this page was, because a
+photograph is the one artifact in this repository that no test regenerates and this window has
+gained controls since B-11: the whole editing interface under B-12a, and then a COMPOSITION
+section with a **New composition…** button under B-12d, which is a Tab stop ahead of
+everything else. The count above went from six to seven for that reason, and where the seventh
+press lands was read off the new picture rather than worked out on paper. It is a different
+control from the one this said before, which does not weaken the claim: the claim is that Tab
+walks the controls in the order they appear and the one holding the keyboard says so visibly.
 
 **A defect, found here and fixed.** Space, an arrow and D are accelerators in this window: play,
 step, and switch resolution. They were being read before the focused control got them, so

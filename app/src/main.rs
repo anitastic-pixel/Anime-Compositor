@@ -49,10 +49,10 @@ use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity
 use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR, TINT};
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
 use anime_compositor::media;
-use anime_compositor::model::{Asset, Id, Layer, Project, Prop, Value};
+use anime_compositor::model::{Asset, Composition, Id, Layer, Project, Prop, Value};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
-use anime_compositor::time::ExposureSpan;
+use anime_compositor::time::{ExposureSpan, FrameRate};
 use anime_compositor::{AlphaMode, ColorSpace};
 use anime_compositor::{OutputAlpha, OutputDepth};
 use tauri::http::{Request, Response};
@@ -364,11 +364,26 @@ fn serve(
 /// renders and what the core warned about are the same set of files.
 fn open(path: &Path) -> Result<Viewer, Diagnostic> {
     let loaded = persist::load(path)?;
+    // The first composition that has anything in it, and the first composition otherwise.
+    //
+    // Until B-12d a project this window edited had exactly one composition and `first` was the
+    // whole rule. `composition.create` makes a second one reachable, and `verification/
+    // B-12b_w01_walkthrough.md` immediately found what that costs: the walk made a composition,
+    // filled it, saved, closed and reopened, and came back looking at the empty one the file had
+    // started with. Nothing was lost, but a person cannot tell that from a blank viewer.
+    //
+    // This is a rule of thumb and not the answer. Document 07's project format has no field for
+    // which composition was open, so there is nothing to restore; adding one is a schema change
+    // and the owner's decision, and it is written up in
+    // `verification/B-12d_new_composition_table.md`. Until then, an empty composition is never
+    // the one somebody was working in.
     let composition = loaded
         .document
         .project()
         .compositions
-        .first()
+        .iter()
+        .find(|c| !c.is_empty())
+        .or_else(|| loaded.document.project().compositions.first())
         .ok_or_else(|| {
             Diagnostic::new(
                 DiagnosticId::ProjectSchemaInvalid,
@@ -673,24 +688,77 @@ fn edit(viewer: &Mutex<Viewer>, command: Command) -> String {
     }
 }
 
+/// Put a composition of the open project on screen, with a playback clock to match it.
+///
+/// The clock is rebuilt rather than kept, because it carries the composition's first and last
+/// frame and its rate: a viewer that switched composition without it would play the new shot to
+/// the old one's length.
+fn show(viewer: &Mutex<Viewer>, id: &Id) {
+    let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    let Some(comp) = held.document.project().composition(id) else {
+        return;
+    };
+    let first = comp.start_frame;
+    let last = first + comp.duration_frames as i32 - 1;
+    held.playback = Playback::new(first, last, comp.frame_rate);
+    held.composition = id.clone();
+}
+
+/// Put the window on the composition an undo or a redo moved, and never on one that is gone.
+///
+/// `touched` is the record's own affected list. Three rules in order of preference, and they are
+/// one rule: show the person the change they just asked for.
+///
+/// If the record names a composition that is in the project, that is where the change was, and
+/// that is where the window goes -- which for a redone `composition.create` is the composition
+/// that has just come back, and for any layer edit is the composition it happened in. If it
+/// names none that exist, the window stays where it is. If where it is has itself been taken
+/// away -- which is what undoing `composition.create` does -- it falls back to the first
+/// composition, which is where [`open`] starts. Without that last rule the window keeps an ID
+/// nothing answers, every frame request finds nothing, and the person is left looking at a
+/// viewer that says there is no composition on screen with no way back to one there is.
+fn settle(viewer: &Mutex<Viewer>, touched: &[Id]) {
+    let go = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        let project = held.document.project();
+        touched
+            .iter()
+            .find(|id| project.composition(id).is_some())
+            .or_else(|| project.composition(&held.composition).map(|c| &c.id))
+            .or_else(|| project.compositions.first().map(|c| &c.id))
+            .cloned()
+    };
+    if let Some(id) = go {
+        show(viewer, &id);
+    }
+}
+
 /// `edit.undo` and `edit.redo` from document 24.
 ///
 /// Both name what they moved. "Undone" alone would be true and useless: the whole reason undo is
 /// trusted is that the person can see it took back the thing they meant.
 fn undo(viewer: &Mutex<Viewer>) -> String {
-    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
-    match viewer.document.undo() {
-        Some(record) => format!("Undone: {}", record.label),
-        None => "There is nothing to undo.".to_string(),
-    }
+    let (said, touched) = {
+        let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        match held.document.undo() {
+            Some(record) => (format!("Undone: {}", record.label), record.affected.clone()),
+            None => ("There is nothing to undo.".to_string(), Vec::new()),
+        }
+    };
+    settle(viewer, &touched);
+    said
 }
 
 fn redo(viewer: &Mutex<Viewer>) -> String {
-    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
-    match viewer.document.redo() {
-        Some(record) => format!("Redone: {}", record.label),
-        None => "There is nothing to redo.".to_string(),
-    }
+    let (said, touched) = {
+        let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        match held.document.redo() {
+            Some(record) => (format!("Redone: {}", record.label), record.affected.clone()),
+            None => ("There is nothing to redo.".to_string(), Vec::new()),
+        }
+    };
+    settle(viewer, &touched);
+    said
 }
 
 /// Which transform property a request names, or `None` for a word that is not one of them.
@@ -811,6 +879,17 @@ fn unused_effect_id(project: &Project) -> Id {
         .filter_map(|n| n.parse::<u64>().ok())
         .max();
     Id::new(format!("fx-{}", highest.map_or(1, |n| n + 1)))
+}
+
+/// A composition ID nothing in this project is using, counted the way layer IDs are.
+fn unused_composition_id(project: &Project) -> Id {
+    let highest = project
+        .compositions
+        .iter()
+        .filter_map(|c| c.id.as_str().strip_prefix("comp-"))
+        .filter_map(|n| n.parse::<u64>().ok())
+        .max();
+    Id::new(format!("comp-{}", highest.map_or(1, |n| n + 1)))
 }
 
 /// An asset ID nothing in this project is using, counted the way layer IDs are.
@@ -1104,6 +1183,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
 /// `verification/B-12b_page_table.md` checks that everything the page sends is in this list, and
 /// `verification/B-12b_command_map_table.md` checks that nothing outside it is answered.
 const ANSWERS: &[&str] = &[
+    "composition.create",
     "edit.redo",
     "edit.undo",
     "effect.add",
@@ -1220,6 +1300,88 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .to_string(),
                 false => propose_relink(viewer, &asset, &files),
             });
+        }
+        // W-01 step 3, which had no command until B-12d. Answered here rather than below
+        // because everything below reads the composition on screen first, and this is the one
+        // command whose whole purpose is that there may not be one worth working in yet.
+        //
+        // The five fields are document 19 line 15's own: name, width, height, frame rate, and a
+        // length in frames. A start frame is not asked for. Document 19 has one and every
+        // fixture in this build starts at 0; a field nobody in W-01 is told what to put in is a
+        // field somebody puts the wrong thing in, and `SetExposureSpans` can move the work
+        // afterwards if a shot ever needs it.
+        "composition.create" => {
+            let name = parameter(query, "name").unwrap_or_else(|| "New composition".to_string());
+            let number = |field: &str, fallback: u32| -> Result<u32, String> {
+                match parameter(query, field) {
+                    None => Ok(fallback),
+                    Some(text) => text.trim().parse::<u32>().map_err(|_| {
+                        format!(
+                            "\"{}\" is not a number of {field}. A composition needs whole \
+                             numbers for its width, its height, its frame rate and its length.",
+                            text.trim()
+                        )
+                    }),
+                }
+            };
+            let (width, height, rate, frames) = match (
+                number("width", 1920),
+                number("height", 1080),
+                number("fps", 24),
+                number("frames", 240),
+            ) {
+                (Ok(w), Ok(h), Ok(r), Ok(f)) => (w, h, r, f),
+                (Err(said), _, _, _)
+                | (_, Err(said), _, _)
+                | (_, _, Err(said), _)
+                | (_, _, _, Err(said)) => return Some(said),
+            };
+            // The rate goes through the core's own constructor, so a zero is refused by the
+            // rule that owns it rather than by a second copy of that rule written here.
+            let Ok(frame_rate) = FrameRate::new(rate, 1) else {
+                return Some(
+                    "A frame rate of zero is not a frame rate. Twenty-four is the one the \
+                     reference shot uses."
+                        .to_string(),
+                );
+            };
+            let composition = {
+                let held = viewer.lock().expect("the viewer lock was poisoned");
+                Composition::new(
+                    unused_composition_id(held.document.project()),
+                    name,
+                    width,
+                    height,
+                    frame_rate,
+                    0,
+                    frames,
+                )
+            };
+            let id = composition.id.clone();
+            let said = edit(
+                viewer,
+                Command::AddComposition {
+                    composition: Box::new(composition),
+                },
+            );
+            // Only if the core took it. A refused command must leave the window looking at what
+            // it was looking at, and `show` would otherwise move it to a composition that is
+            // not in the project.
+            let made = viewer
+                .lock()
+                .expect("the viewer lock was poisoned")
+                .document
+                .project()
+                .composition(&id)
+                .is_some();
+            if made {
+                show(viewer, &id);
+                return Some(format!(
+                    "{said}, {width}x{height} at {rate} fps, {frames} frames. It is empty; \
+                     import drawings and add layers to fill it."
+                ));
+            }
+            return Some(said);
         }
         "media.import" => {
             let files: Vec<PathBuf> = parameters(query, "file")
@@ -4629,6 +4791,296 @@ mod editing {
          contradict the project; a format that states them is not in G1.",
     ];
 
+    /// Every composition in the project, in the order the file holds them.
+    fn comp_ids(viewer: &Mutex<Viewer>) -> String {
+        held(viewer)
+            .document
+            .project()
+            .compositions
+            .iter()
+            .map(|c| c.id.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    /// The composition the window is showing, written out the way a person would read it.
+    fn on_screen(viewer: &Mutex<Viewer>) -> String {
+        let held = held(viewer);
+        match held.document.project().composition(&held.composition) {
+            None => format!("{} is not in the project", held.composition),
+            Some(comp) => format!(
+                "{} {} {}x{} at {} fps, {} frames",
+                comp.id,
+                comp.name,
+                comp.width,
+                comp.height,
+                comp.frame_rate.numerator() / comp.frame_rate.denominator(),
+                comp.duration_frames
+            ),
+        }
+    }
+
+    /// W-01's third step, which had no command in this build until B-12d.
+    ///
+    /// Writes `verification/B-12d_new_composition_table.md`.
+    #[test]
+    fn a_composition_can_be_made_and_the_window_moves_into_it() {
+        let mut report = Report { rows: Vec::new() };
+        // `minimal_project.json` is the one fixture whose only composition is empty, which is
+        // the state this command exists for: a project somebody can open with nothing in it to
+        // work in.
+        let source = repo("Fixtures/projects/minimal_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let before = held(&viewer).document.undo_depth();
+
+        // ---- what somebody who fills in nothing gets -----------------------------------------
+        let made = run(&viewer, "composition.create");
+        report.check(
+            "creating one with nothing filled in says what was made and that it is empty",
+            "New composition New composition, 1920x1080 at 24 fps, 240 frames. It is empty; \
+             import drawings and add layers to fill it.",
+            &made,
+        );
+        report.check(
+            "and the window is showing the composition that was just made",
+            "comp-1 New composition 1920x1080 at 24 fps, 240 frames",
+            on_screen(&viewer),
+        );
+        report.check(
+            "and the one the file already held is still in the project",
+            "comp-main, comp-1",
+            comp_ids(&viewer),
+        );
+        report.check(
+            "and the transport is the new composition's length, not the old one's",
+            240,
+            held(&viewer).playback.length(),
+        );
+        report.check(
+            "and it is one history record, so one undo takes it back",
+            before + 1,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- the four refusals, each a sentence rather than a control springing back ----------
+        let where_it_was = on_screen(&viewer);
+        report.check(
+            "a composition with no width is refused, and the refusal says which three matter",
+            "A composition needs a width, a height and a length, and one of them was zero.",
+            run(&viewer, "composition.create?width=0"),
+        );
+        report.check(
+            "a composition larger than this build will make is refused with the limit in it",
+            "20000x1080 is larger than this build will make: no side past 16384 and no more \
+             than 67108864 pixels in all.",
+            run(&viewer, "composition.create?width=20000"),
+        );
+        report.check(
+            "a composition with no length is refused by the same sentence as one with no width",
+            "A composition needs a width, a height and a length, and one of them was zero.",
+            run(&viewer, "composition.create?frames=0"),
+        );
+        report.check(
+            "a composition inside both side limits but past the pixel budget is still refused",
+            "16384x16384 is larger than this build will make: no side past 16384 and no more \
+             than 67108864 pixels in all.",
+            run(&viewer, "composition.create?width=16384&height=16384"),
+        );
+        report.check(
+            "a composition longer than this build will make is refused with the limit in it",
+            "50000 frames is longer than this build will make; the limit is 10000.",
+            run(&viewer, "composition.create?frames=50000"),
+        );
+        report.check(
+            "a width that is not a number is refused before the core is asked",
+            "\"wide\" is not a number of width. A composition needs whole numbers for its \
+             width, its height, its frame rate and its length.",
+            run(&viewer, "composition.create?width=wide"),
+        );
+        report.check(
+            "a frame rate of zero is refused by the rule that owns frame rates",
+            "A frame rate of zero is not a frame rate. Twenty-four is the one the reference \
+             shot uses.",
+            run(&viewer, "composition.create?fps=0"),
+        );
+        report.check(
+            "and after seven refusals the project has exactly what it had before them",
+            "comp-main, comp-1",
+            comp_ids(&viewer),
+        );
+        report.check(
+            "and the window is still looking at what it was looking at",
+            where_it_was,
+            on_screen(&viewer),
+        );
+
+        // ---- undo, which takes away the composition the window is showing --------------------
+        report.check(
+            "undo names the composition it took back rather than saying \"undone\"",
+            "Undone: New composition New composition",
+            undo(&viewer),
+        );
+        report.check(
+            "and the window has moved off the composition that is no longer there",
+            "comp-main Main 1920x1080 at 24 fps, 24 frames",
+            on_screen(&viewer),
+        );
+        report.check(
+            "and the project is back to the one composition the file held",
+            "comp-main",
+            comp_ids(&viewer),
+        );
+        report.check(
+            "redo puts it back",
+            "Redone: New composition New composition",
+            redo(&viewer),
+        );
+        report.check(
+            "and the window is showing it again",
+            "comp-1 New composition 1920x1080 at 24 fps, 240 frames",
+            on_screen(&viewer),
+        );
+
+        // ---- a second one, which must not be given the first one's identifier ----------------
+        run(&viewer, "composition.create?name=Second&frames=48");
+        report.check(
+            "a second composition gets an identifier the first one is not using",
+            "comp-main, comp-1, comp-2",
+            comp_ids(&viewer),
+        );
+        report.check(
+            "and a composition whose identifier is already in the project is refused",
+            "A composition with the ID comp-1 is already in the project.",
+            {
+                let composition = Composition::new(
+                    Id::new("comp-1"),
+                    "A second comp-1",
+                    1920,
+                    1080,
+                    FrameRate::new(24, 1).expect("24 fps"),
+                    0,
+                    240,
+                );
+                edit(
+                    &viewer,
+                    Command::AddComposition {
+                        composition: Box::new(composition),
+                    },
+                )
+            },
+        );
+
+        // ---- which composition a reopened project shows --------------------------------------
+        // The defect the W-01 walkthrough found. Everything above happens in a project whose
+        // first composition is the empty one the file came with, so before B-12d's rule of
+        // thumb a save, close and reopen came back looking at that empty one and the work
+        // looked lost.
+        let folder = std::env::temp_dir().join("anime_compositor_b12d");
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).expect("make the scratch directory");
+        let drawings = drawings_in("layer1");
+        run(&viewer, &import_of(&drawings));
+        run(&viewer, "layer.create?asset=asset-1&name=Background");
+        let file = folder.join("reopened.json");
+        save_as(&viewer, &file);
+        // A row rather than a panic. A project this test wrote that will not open again is a
+        // line in the table the owner reads, not a stack trace: the hardening pass broke the
+        // rule that a composition has a positive length and the schema caught it here, on the
+        // way back through the disk, which ended the run before the table was written at all.
+        let (showing, still_there) = match open(&file) {
+            Ok(viewer) => {
+                let reopened = Mutex::new(viewer);
+                (on_screen(&reopened), comp_ids(&reopened))
+            }
+            Err(d) => (d.message.clone(), d.message),
+        };
+        report.check(
+            "a saved project reopens looking at the composition with work in it",
+            "comp-2 Second 1920x1080 at 24 fps, 48 frames",
+            showing,
+        );
+        report.check(
+            "and the empty compositions are still there, because none of them was thrown away",
+            "comp-main, comp-1, comp-2",
+            still_there,
+        );
+
+        // ---- the largest one this build will make, which must be allowed ---------------------
+        // The limit rows above all check that something too large is refused. Without this one
+        // the same rows pass a build that refuses everything, and the row a person would hit is
+        // the one where a legal size is turned down for no reason they can see.
+        report.check(
+            "a composition exactly at the pixel budget is made rather than refused",
+            "New composition Biggest, 16384x4096 at 24 fps, 240 frames. It is empty; import \
+             drawings and add layers to fill it.",
+            run(
+                &viewer,
+                "composition.create?name=Biggest&width=16384&height=4096",
+            ),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-12d_new_composition_table.md",
+            "B-12d: making a composition",
+            NEW_COMPOSITION_INTRO,
+            NEW_COMPOSITION_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const NEW_COMPOSITION_INTRO: &[&str] = &[
+        "W-01 lists \"creates a composition\" third of its thirteen steps, and until B-12d this \
+         build could not take that step. There was no `composition.create` in document 24 and \
+         no command in the core behind it: the composition somebody worked in was whichever one \
+         their project file already held, and `verification/B-12_acceptance_run.md` recorded \
+         step 3 as **not built**. This table is that step, made to work and then checked.",
+        "It is a new capability rather than a correction of an omission, which is written up \
+         beside the new row in document 24. The owner may cut it; nothing else in the build \
+         depends on it existing.",
+    ];
+
+    const NEW_COMPOSITION_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The size limits are this build's, not the \
+         specification's.** Document 19 line 52 says a composition is \"bounded by \
+         implementation safety limits\" and never says what they are. This build chose no side \
+         past 16384, no more than 67108864 pixels in all, and no more than 10000 frames, and \
+         the three rows that check them are the only place those numbers are visible. They are \
+         provisional and are the owner's to change.\n- **A refusal is a sentence and changes \
+         nothing.** Seven commands here are turned down, and the two rows after them check that \
+         the project holds exactly what it held before and that the window is still looking at \
+         the same composition. A control that springs back with nothing said is the failure \
+         this guards against.\n- **Undo takes away the composition on screen.** That is the one \
+         genuinely new way this command can break a window, because no other command could \
+         remove what the viewer was pointed at. Undo and redo both put the window on the \
+         composition the record touched, and fall back to the first composition when that one \
+         has been taken away. Before that rule a redo said \"Redone\" and left the person \
+         looking at a different composition, which is what the row for it caught.",
+        "## What this does not cover\n\n**Which composition a reopened project shows is a rule \
+         of thumb, not a restored setting.** Document 07's project format has no field for \
+         which composition was open, so there is nothing on disk to come back to. This build \
+         opens the first composition that has anything in it, and the first composition \
+         otherwise. The last two rows check that rule, and they pass, but the rule is wrong for \
+         anyone who deliberately leaves an empty composition ready to work in and expects to \
+         find it. Fixing it properly means adding a field to the project format, which is a \
+         schema change and the owner's decision.\n\n**There is no `project.new`.** Document 24 \
+         names one on Ctrl+N and this build does not have it, so every composition here is made \
+         inside a project that was opened from a file. Ctrl+Shift+N is what this build binds, \
+         leaving Ctrl+N free for the command the table already promises.\n\n**The page.** Every \
+         row calls the same function the window's URL scheme calls. That the New composition \
+         button and its five fields send it, and that Ctrl+Shift+N reaches the button, are in \
+         `verification/B-12b_page_table.md`, `verification/B-12c_keyboard_table.md` and the \
+         photograph beside this table.",
+    ];
+
     fn cell(text: &str) -> String {
         text.replace('|', r"\|")
     }
@@ -6315,6 +6767,7 @@ mod contract {
     /// Pinned rather than counted: a new `send` of an identifier nobody listed is a change to
     /// what the window can do, and it should have to be written down here as well as there.
     const SENT: &[&str] = &[
+        "composition.create",
         "edit.redo",
         "edit.undo",
         "effect.add",
@@ -6587,6 +7040,7 @@ mod contract {
         ("project.open", "a route the shell answers"),
         ("project.save", "a route the shell answers"),
         ("project.save_as", "a route the shell answers"),
+        ("composition.create", "a command the window answers"),
         ("edit.undo", "a command the window answers"),
         ("edit.redo", "a command the window answers"),
         ("media.import", "a command the window answers"),
@@ -6629,6 +7083,11 @@ mod contract {
         ("project.open", "Ctrl+O", "e.ctrlKey && (e.key === 'o'"),
         ("project.save", "Ctrl+S", "e.ctrlKey && (e.key === 's'"),
         ("project.save_as", "Ctrl+Shift+S", "e.shiftKey ? '/save-as'"),
+        (
+            "composition.create",
+            "Ctrl+Shift+N",
+            "e.shiftKey && (e.key === 'n'",
+        ),
         ("edit.undo", "Ctrl+Z", "e.key === 'z'"),
         ("edit.redo", "Ctrl+Shift+Z", "e.shiftKey ? $('redo')"),
         ("media.import", "Ctrl+I", "e.key === 'i'"),
@@ -6657,6 +7116,7 @@ mod contract {
     const PRESSES: &[(&str, &str, &str)] = &[
         ("Ctrl+M", "e.key === 'm'", "$('export')"),
         ("Ctrl+I", "e.key === 'i'", "$('import')"),
+        ("Ctrl+Shift+N", "e.key === 'n'", "$('newcomp')"),
         ("Ctrl+Alt+L", "e.key === 'l'", "$('addlayer')"),
         ("Ctrl+]", "e.key === ']'", "$('up')"),
         ("Ctrl+[", "e.key === '['", "$('down')"),
@@ -7766,7 +8226,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 26] = [
+    const CONTROLS: [&str; 29] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -7774,6 +8234,7 @@ mod contract {
         "anyway",
         "applyrelink",
         "back",
+        "cancelcomp",
         "cancelexport",
         "cancelrelink",
         "checker",
@@ -7782,6 +8243,8 @@ mod contract {
         "export",
         "fwd",
         "import",
+        "makecomp",
+        "newcomp",
         "open",
         "play",
         "recent",
@@ -7797,7 +8260,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 16] = [
+    const KEYS: [&str; 17] = [
         "A",
         "ArrowLeft",
         "ArrowRight",
@@ -7808,6 +8271,7 @@ mod contract {
         "I",
         "L",
         "M",
+        "N",
         "O",
         "S",
         "Space",
@@ -8069,7 +8533,15 @@ mod acceptance {
     fn transform(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
         let answer: serde_json::Value =
             serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
-        let Some(layer) = answer["project"]["compositions"][0]["layers"]
+        // The composition named by `composition`, not the first one in the list. Since B-12d this
+        // walk makes its own composition and the project holds two, and the page picks the same
+        // way -- `doc.project.compositions.find((c) => c.id === doc.composition)`.
+        let Some(layer) = answer["project"]["compositions"]
+            .as_array()
+            .expect("a project has compositions")
+            .iter()
+            .find(|c| c["id"] == answer["composition"])
+            .expect("the composition on screen")["layers"]
             .as_array()
             .expect("a composition has layers")
             .iter()
@@ -8177,13 +8649,34 @@ mod acceptance {
         let export_state = Mutex::new(Export::default());
 
         // ---- step 3, taken first: the composition -------------------------------------------
-        // W-01 lists "create a composition" third. This build has no command that creates one:
-        // document 24 has no `composition.create` row, and the composition a person works in is
-        // the one their project file already holds. That is recorded as what it is rather than
-        // walked around, because it is the one step of the thirteen nobody can take.
+        // W-01 lists "create a composition" third, and until B-12d nothing in this build could
+        // take that step: the composition a person worked in was whichever one their project
+        // file already held. `composition.create` is that step, and the twenty-four frames at
+        // 1920x1080 and 24 fps are the reference shot's own shape, so everything below happens
+        // in a composition this walkthrough made rather than one it was handed.
+        let made = run(
+            &viewer,
+            "composition.create?name=My shot&width=1920&height=1080&fps=24&frames=24",
+        );
         report.check(
-            "step 3: a composition to work in, its size, its rate and its length",
-            "comp-main 1920x1080 at 24 fps, 24 frames",
+            "step 3: a composition, made by the command document 24 names",
+            "New composition My shot, 1920x1080 at 24 fps, 24 frames",
+            says(
+                "New composition My shot, 1920x1080 at 24 fps, 24 frames",
+                &made,
+            ),
+        );
+        report.check(
+            "and the person is told it is empty, rather than left looking at a blank frame",
+            "It is empty; import drawings and add layers to fill it.",
+            says(
+                "It is empty; import drawings and add layers to fill it.",
+                &made,
+            ),
+        );
+        report.check(
+            "and the window is showing the one that was just made, not the one the file held",
+            "comp-1 My shot 1920x1080 at 24 fps, 24 frames",
             {
                 let held = held(&viewer);
                 let comp = held
@@ -8192,8 +8685,9 @@ mod acceptance {
                     .composition(&held.composition)
                     .expect("the composition on screen");
                 format!(
-                    "{} {}x{} at {} fps, {} frames",
+                    "{} {} {}x{} at {} fps, {} frames",
                     comp.id,
+                    comp.name,
                     comp.width,
                     comp.height,
                     comp.frame_rate.numerator() / comp.frame_rate.denominator(),
@@ -8202,12 +8696,16 @@ mod acceptance {
             },
         );
         report.check(
-            "and no command in this build makes one, so this step is the project file's",
-            "no composition command",
-            match ANSWERS.iter().any(|id| id.starts_with("composition.")) {
-                true => "a composition command exists",
-                false => "no composition command",
-            },
+            "and the one the file held is still there, because making one is not replacing one",
+            "comp-main, comp-1",
+            held(&viewer)
+                .document
+                .project()
+                .compositions
+                .iter()
+                .map(|c| c.id.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
         );
 
         // ---- step 1: import the drawings ----------------------------------------------------
@@ -8636,11 +9134,14 @@ mod acceptance {
          which is one empty 1920 by 1080 composition of twenty-four frames with no drawings and \
          no layers in it. Everything after that goes through the same function the window's URL \
          scheme calls, with the same text the page would put in it.",
-        "**Step 3 is the one step that cannot be walked.** W-01 says \"create a composition\", \
-         and this build has no command that creates one -- document 24 has no \
-         `composition.create` row, and the composition somebody works in is the one their \
-         project file already holds. The first two rows record that rather than working around \
-         it. It is the one thing in this table the owner will meet as missing.",
+        "**Step 3 used to be the one step that could not be walked.** W-01 says \"create a \
+         composition\", and until B-12d this build had no command that made one: document 24 had \
+         no `composition.create` row, and the composition somebody worked in was the one their \
+         project file already held. This table recorded that as missing rather than working \
+         around it. B-12d built it, and the four rows below are that step actually taken -- the \
+         composition everything after step 3 happens in is one this walk made, not one it was \
+         handed. The composition the file came with is still in the project, untouched, because \
+         making one is not replacing one.",
     ];
 
     const NOTES: &[&str] = &[

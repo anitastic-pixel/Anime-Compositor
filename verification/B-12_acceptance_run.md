@@ -27,11 +27,14 @@ run cannot damage `Fixtures/`.
 you expected to be there and was not, anything you did by accident. Awkwardness is the finding
 here, not a complaint. A step you could not complete at all is the most valuable line on the sheet.
 
-**The one step that has no control.** Step 3, creating a composition, is not in this build. There
-is no New Project and no New Composition; a composition is created by the fixture scripts and this
-window edits one that already exists. The run therefore starts from an opened project, and step 3
-is recorded as **not built** rather than passed. It is the honest answer and it should be one of
-the first things the acceptance run reports back.
+**The step that used to have no control.** Step 3, creating a composition, had none when this
+sheet was first written: a composition came from the fixture scripts and this window only edited
+one that already existed. B-12d built it, and step 3 below is now a step to take like the rest.
+Two things about it are worth knowing before the run. It makes a composition **inside the project
+already open** — there is still no New Project, so open the reference shot first. And it is a
+**new capability the owner may cut**: nothing else in the build depends on it, and if the answer
+after the run is that a composition should come from somewhere else, saying so costs nothing.
+`verification/B-12d_new_composition_table.md` is what it does, checked.
 
 ## The thirteen steps at a glance
 
@@ -39,7 +42,7 @@ the first things the acceptance run reports back.
 | --- | --- | --- |
 | 1 | Import media | **Import drawings…**, top left, or Ctrl+I |
 | 2 | Review sequence grouping and missing-frame warnings | the DRAWINGS list, and the notes along the bottom |
-| 3 | Create a composition | **not built** — see above |
+| 3 | Create a composition | **New composition…**, top left, or Ctrl+Shift+N |
 | 4 | Assign exposures | EXPOSURES, right-hand column |
 | 5 | Stack layers | **Add layer**, **Forward**, **Back** on the bottom bar; the layer list above it |
 | 6 | Adjust anchors and transforms | LAYER, right-hand column |
@@ -85,7 +88,26 @@ give you a few and then a summary with the frame ranges.
 
 ## 3. Create a composition
 
-**Not built.** See *Before starting*. Record it and move on.
+**Where.** **New composition…** at the top of the left-hand column, above DRAWINGS, or Ctrl+Shift+N.
+
+**What to do.** The button opens five fields — a name, a width, a height, a frame rate and a
+length in frames — filled in with 1920 by 1080 at 24 fps for 240 frames, which is the reference
+shot's own shape. *Create it* makes it; *Leave it* closes the fields and makes nothing. The new
+composition becomes the one on screen, and the line above the button says which one that is.
+
+**Right.** The composition line changes to the name you typed and the size, rate and length you
+asked for. The picture goes empty, and the window says so in words rather than leaving you looking
+at a blank rectangle wondering whether something broke. The composition the project already had is
+still in the project — making one does not replace one. Ctrl+Z takes it back and puts you on the
+composition you were on before.
+
+**Wrong.** A blank picture with nothing said. A refusal with no sentence — a zero width, a
+ridiculous size and a ridiculous length are all meant to be turned down in a sentence that names
+the limit, and a control that just springs back is the failure. The composition you had being
+replaced rather than added to. Undo leaving the window on a composition that is no longer there.
+
+**Worth writing down.** Whether 240 frames at 1920 by 1080 is the right thing to be offered
+before you have said anything, and whether five fields is too many to be asked at once.
 
 ## 4. Assign exposures
 
