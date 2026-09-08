@@ -718,12 +718,19 @@ fn property(name: &str) -> Option<Prop> {
 /// is document 19's decision and is made in one place.
 fn property_value(prop: Prop, text: &str) -> Option<Value> {
     let number = |t: &str| t.trim().parse::<f64>().ok();
+    // D-22: the file holds a scale as a percentage and the model holds the factor document 21
+    // composes with, and `persist` divides on the way in and multiplies on the way out. The panel
+    // is given the file's numbers and sends them back in the same units, so the same division
+    // belongs here. Without it, somebody who typed the 100 the field was already showing got a
+    // layer a hundred times its size, and the walkthrough in `acceptance` is what found that:
+    // every earlier test of this function set a position or checked a scale being refused.
+    let percent = if prop == Prop::Scale { 100.0 } else { 1.0 };
     match prop.kind() {
         "vec2" => {
             let (x, y) = text.split_once(',')?;
-            Some(Value::Vec2(number(x)?, number(y)?))
+            Some(Value::Vec2(number(x)? / percent, number(y)? / percent))
         }
-        _ => Some(Value::Scalar(number(text)?)),
+        _ => Some(Value::Scalar(number(text)? / percent)),
     }
 }
 
@@ -3066,8 +3073,13 @@ mod editing {
             ),
         );
         report.check(
+            // The percent typed in is divided into the factor the model holds before the core
+            // sees it, which is why the second number comes back as 0.01 rather than the 1 that
+            // was typed. The refusal names the model's value, not the field's; that the two
+            // spellings differ is D-22's, and `verification/B-12b_w01_walkthrough.md` writes up
+            // what it costs a person reading the status line.
             "a value that is not a finite number is refused",
-            "scale cannot be set to (NaN, 1).",
+            "scale cannot be set to (NaN, 0.01).",
             run(
                 &viewer,
                 "property.set_base?layer=layer-cel&prop=scale&value=NaN,1",
@@ -6805,6 +6817,986 @@ mod contract {
         ));
         std::fs::write(repo(file), out).expect("write the artifact");
     }
+
+    // ---- document 26, the text half of coalescing ---------------------------------------------
+
+    /// The three places in the page where somebody types into a field and the window is sent a
+    /// command: the control, the text that wires it, and what commits it.
+    ///
+    /// All three use `onchange`, which is the browser's own answer to document 26's rule.
+    /// `change` fires when a field is committed **and** its value differs from the value it had
+    /// when it took focus - not on a keystroke, and not on a visit that changed nothing. Using
+    /// it rather than `input` is the whole of the coalescing here, and swapping one for the
+    /// other is a one-word edit, which is why it is pinned rather than trusted.
+    const TYPED_FIELDS: &[(&str, &str, &str)] = &[
+        (
+            "a layer's name",
+            "layer.rename",
+            "box.onblur = () => finish(true);",
+        ),
+        (
+            "an effect's settings",
+            "effect.set_parameters",
+            "input.onchange = send;",
+        ),
+        (
+            "an exposure's frames",
+            "exposure.set_span",
+            "input.onchange = send;",
+        ),
+    ];
+
+    #[test]
+    fn typing_into_a_field_is_one_history_entry_when_it_is_committed() {
+        let mut report = Report { rows: Vec::new() };
+        let page = page();
+
+        // The page half. Nothing here can press a key -- what it can say is that no handler in
+        // the page is attached to the event that fires per keystroke.
+        report.check(
+            "no field in the page sends anything while a key is being pressed",
+            "no input event handler",
+            match page.contains("oninput") || page.contains("addEventListener('input'") {
+                true => "an input event handler",
+                false => "no input event handler",
+            },
+        );
+        for (control, id, wiring) in TYPED_FIELDS {
+            report.check(
+                &format!("{control} is committed by losing focus, and sends `{id}`"),
+                true,
+                page.contains(wiring),
+            );
+        }
+        report.check(
+            "and a name committed unchanged sends nothing at all",
+            true,
+            page.contains("if (commit && wanted !== layer.name) {"),
+        );
+
+        // The window half. One committed field, one entry in the undo list, named in the words
+        // the person will read on the Undo button.
+        let viewer = Mutex::new(demo());
+        let before = held(&viewer).document.undo_depth();
+        run(&viewer, "layer.rename?layer=layer-1&name=the background");
+        report.check(
+            "committing a new name is one entry in the undo list",
+            format!("undo list {}", before + 1),
+            format!("undo list {}", held(&viewer).document.undo_depth()),
+        );
+        report.check(
+            "and the entry says what it will undo",
+            "Rename layer to the background",
+            held(&viewer)
+                .document
+                .undo_labels()
+                .last()
+                .unwrap_or(&"(nothing)")
+                .to_string(),
+        );
+
+        run(&viewer, "effect.add?layer=layer-1&type=core.gaussian_blur");
+        let before = held(&viewer).document.undo_depth();
+        for sigma in [2, 6, 9] {
+            run(
+                &viewer,
+                &format!("effect.set_parameters?layer=layer-1&effect=fx-1&sigma_px={sigma}"),
+            );
+        }
+        report.check(
+            "three settings committed one after another are three entries, not one and not thirty",
+            format!("undo list {}", before + 3),
+            format!("undo list {}", held(&viewer).document.undo_depth()),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "so undoing once goes back one commit, not back to before the field was touched",
+            "GaussianBlur { sigma_px: 6.0 }",
+            layer(&viewer, "layer-1", |l| {
+                l.effects
+                    .iter()
+                    .map(|e| format!("{:?}", e.effect))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_else(|| "(no such layer)".to_string()),
+        );
+
+        // The numeric half of the same rule, for contrast: a drag is many requests and one
+        // entry, because document 26 makes the release the commit.
+        let before = held(&viewer).document.undo_depth();
+        for x in [100.0_f64, 140.0, 180.0] {
+            run(
+                &viewer,
+                &format!("property.drag_update?layer=layer-2&prop=position&value={x}, 0"),
+            );
+        }
+        run(&viewer, "property.drag_end?layer=layer-2&prop=position");
+        report.check(
+            "and a drag of three steps is one entry, which is the same rule for a number",
+            format!("undo list {}", before + 1),
+            format!("undo list {}", held(&viewer).document.undo_depth()),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-12b_text_coalescing_table.md",
+            "B-12b: one entry in the undo list per thing typed",
+            TEXT_INTRO,
+            TEXT_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    fn held(viewer: &Mutex<Viewer>) -> std::sync::MutexGuard<'_, Viewer> {
+        viewer.lock().expect("the viewer lock was poisoned")
+    }
+
+    fn run(viewer: &Mutex<Viewer>, what: &str) -> String {
+        let (id, query) = match what.split_once('?') {
+            Some((id, query)) => (id, Some(query)),
+            None => (what, None),
+        };
+        edit_command(viewer, id, query).expect("a command document 24 lists")
+    }
+
+    fn layer<T>(viewer: &Mutex<Viewer>, id: &str, read: impl FnOnce(&Layer) -> T) -> Option<T> {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layer(&Id::new(id)).map(read)
+    }
+
+    const TEXT_INTRO: &[&str] = &[
+        "Document 26: \"Text edits may coalesce while one field has focus; committing or focus \
+         exit ends the transaction.\" In plain terms, the promise is that typing `1`, `2`, `0` \
+         into a field is one thing to undo and not three, and that leaving a field you did not \
+         change is not a thing to undo at all.",
+        "There are three fields in this window a person types into: a layer's name, an effect's \
+         settings, and the frames of an exposure. All three keep that promise the same way, and \
+         it is worth saying plainly because it is not code anybody in this project wrote: they \
+         are wired to the browser's `change` event, which fires when a field is committed **and** \
+         its value is not the one it had when it took focus. The alternative event, `input`, \
+         fires on every keystroke, and a field wired to it would put one entry in the undo list \
+         per letter. The first row below is the check that no field in this page is.",
+    ];
+
+    const TEXT_NOTES: &[&str] = &[
+        "## What this cannot cover\n\nNo test in this project presses a key. The rows about the \
+         page read the file and say which event each field is attached to; what the browser then \
+         does with that event is the browser's, and is documented behaviour rather than \
+         something measured here. The rows about the window send the command a committed field \
+         would send and count what lands in the undo list, which is the half that is this \
+         project's own.\n\nThe last row is not about text at all. It drags a position through \
+         three values and ends the drag, and is here because it is the same sentence of document \
+         26 read the other way: many requests, one entry. Without it a reader has no way to see \
+         that three entries for three committed settings is the intended answer rather than the \
+         same defect in the other direction.",
+    ];
+
+    fn cell(text: &str) -> String {
+        text.replace('|', r"\|")
+    }
+}
+
+/// W-01 walked end to end, from an empty composition to an exported sequence.
+///
+/// B-12 is the owner's acceptance run of this workflow by hand. This is the same thirteen steps
+/// driven by script first, for one reason: a defect found here costs a re-run of a test, and the
+/// same defect found in the middle of the owner's run costs the run. It is not a substitute for
+/// it -- a script cannot say whether the window was pleasant to use, whether a sentence read
+/// well, or whether the picture looked right -- and it does not touch the page, which is
+/// `verification/B-12b_page_table.md` and the photographs beside it.
+///
+/// Every step goes through the same function the window's URL scheme calls, with the same text
+/// the page would put in it, so what is walked is the window from the request inwards.
+///
+/// Writes `verification/B-12b_w01_walkthrough.md` and `verification/B-12b_w01_frame_12.png`,
+/// and leaves the exported sequence in `target/b12b_w01/frames`.
+#[cfg(test)]
+mod acceptance {
+    use super::*;
+    use anime_compositor::time::ExposureMap;
+
+    struct Report {
+        rows: Vec<(String, String, String)>,
+    }
+
+    impl Report {
+        fn check(&mut self, check: &str, expected: impl ToString, actual: impl ToString) {
+            self.rows
+                .push((check.to_string(), expected.to_string(), actual.to_string()));
+        }
+    }
+
+    fn repo(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the app crate has a parent directory")
+            .join(rel)
+    }
+
+    /// The walkthrough's own directory under `target/`, emptied first so that a previous run's
+    /// frames cannot make a later one pass. Under `target/` rather than the system temporary
+    /// directory because the frames are half the artifact: they are meant to be opened.
+    fn workspace(name: &str) -> PathBuf {
+        let directory = repo("target/b12b_w01").join(name);
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("make the walkthrough directory");
+        directory
+    }
+
+    /// One command, by the document 24 identifier the page would send.
+    fn run(viewer: &Mutex<Viewer>, what: &str) -> String {
+        let (id, query) = match what.split_once('?') {
+            Some((id, query)) => (id, Some(query)),
+            None => (what, None),
+        };
+        edit_command(viewer, id, query).expect("a command document 24 lists")
+    }
+
+    fn held(viewer: &Mutex<Viewer>) -> std::sync::MutexGuard<'_, Viewer> {
+        viewer.lock().expect("the viewer lock was poisoned")
+    }
+
+    /// The phrase asked for, when it was in what the window said, and everything the window did
+    /// say when it was not. The exact wording of a diagnostic belongs to the core and is pinned
+    /// there; what matters here is that the person was told the thing at all.
+    fn says(phrase: &str, said: &str) -> String {
+        match said.contains(phrase) {
+            true => phrase.to_string(),
+            false => format!("the window said: {said}"),
+        }
+    }
+
+    /// The files in a directory, in name order.
+    fn written(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .map(|entries| {
+                entries
+                    .filter_map(|e| e.ok())
+                    .map(|e| e.file_name().to_string_lossy().into_owned())
+                    .collect()
+            })
+            .unwrap_or_default();
+        names.sort();
+        names
+    }
+
+    fn layer<T>(viewer: &Mutex<Viewer>, id: &str, read: impl FnOnce(&Layer) -> T) -> Option<T> {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layer(&Id::new(id)).map(read)
+    }
+
+    /// The layers of the composition, back to front, as `name(identifier)`.
+    fn stack(viewer: &Mutex<Viewer>) -> String {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layers_in_order()
+            .map(|l| format!("{}({})", l.name, l.id))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    fn exposures(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        layer(viewer, layer_id, |l| {
+            l.exposure_spans
+                .iter()
+                .map(|s| {
+                    format!(
+                        "{}-{}:{}",
+                        s.start_frame, s.end_frame_exclusive, s.drawing_number
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// Which drawing of its sequence a layer shows at every frame of the composition, read the
+    /// way the renderer reads it -- through `ExposureMap` and the layer's own timing -- rather
+    /// than by re-reading the spans that were typed in. This is W-01's acceptance line, "cel
+    /// identity per frame matches the exposure reference", and [`CEL_REFERENCE`] is the
+    /// reference.
+    fn cel_identity(viewer: &Mutex<Viewer>, layer_id: &str, frames: i32) -> String {
+        let Some((spans, timing)) =
+            layer(viewer, layer_id, |l| (l.exposure_spans.clone(), l.timing()))
+        else {
+            return "(no such layer)".to_string();
+        };
+        let map = match ExposureMap::new(spans) {
+            Ok(map) => map,
+            // Document 20's rules about spans are the core's, and a sheet that breaks one is a
+            // failed row here rather than a panic: the table is the thing that has to say so.
+            Err(error) => return format!("(not a legal sheet: {error:?})"),
+        };
+        (0..frames)
+            .map(|frame| match timing.local_frame(frame) {
+                None => "-".to_string(),
+                Some(local) => match map.drawing_at(local) {
+                    None => "-".to_string(),
+                    Some(number) => number.to_string(),
+                },
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    /// The effect stack of a layer, in evaluation order.
+    fn effects(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        layer(viewer, layer_id, |l| {
+            l.effects
+                .iter()
+                .map(|e| e.type_id().to_string())
+                .collect::<Vec<_>>()
+                .join(" then ")
+        })
+        .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// One number of a transform, as a number rather than as a spelling of one. `110` and
+    /// `110.0` are the same value, and a table that failed on which of the two a serialiser
+    /// chose would be failing on something nobody can see in a panel.
+    fn number(value: &serde_json::Value) -> String {
+        match value.as_f64() {
+            Some(number) => format!("{number}"),
+            None => value.to_string(),
+        }
+    }
+
+    /// The transform of a layer, read out of the same JSON the inspector is given rather than
+    /// out of the model, so that what is checked is what a person would read in the panel --
+    /// including its units, which is where this walk found a defect.
+    fn transform(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        let Some(layer) = answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .cloned()
+        else {
+            return "(no such layer)".to_string();
+        };
+        ["anchor", "position", "scale", "rotation", "opacity"]
+            .iter()
+            .map(|prop| {
+                let base = &layer["transform"][prop]["base"];
+                let numbers = match base.as_array() {
+                    Some(pair) => pair.iter().map(number).collect::<Vec<_>>(),
+                    None => vec![number(base)],
+                };
+                format!("{prop} {}", numbers.join(", "))
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    }
+
+    fn matte(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        layer(viewer, layer_id, |l| match &l.matte {
+            None => "none".to_string(),
+            Some(m) => format!("{} matte_only={}", m.layer_id, m.matte_only),
+        })
+        .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// The drawings of one folder of the reference shot, sorted, which is the selection a person
+    /// makes in the import dialog.
+    fn drawings_in(folder: &str) -> Vec<PathBuf> {
+        let dir = repo(&format!("Fixtures/reference_shot/{folder}"));
+        let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("read {}: {e}", dir.display()))
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "png"))
+            .collect();
+        files.sort();
+        files
+    }
+
+    /// The request the media bin sends once the file dialog has been answered.
+    fn import_of(files: &[PathBuf]) -> String {
+        let parts: Vec<String> = files
+            .iter()
+            .map(|p| format!("file={}", for_a_header(&p.display().to_string())))
+            .collect();
+        format!("media.import?{}", parts.join("&"))
+    }
+
+    fn header(response: &Response<Vec<u8>>, name: &str) -> String {
+        response
+            .headers()
+            .get(name)
+            .map(|v| v.to_str().unwrap_or("(not text)").to_string())
+            .unwrap_or_else(|| "(no such header)".to_string())
+    }
+
+    /// The exposure sheet this walk assigns to the cel layer, as somebody would type it into the
+    /// exposure panel: start frame, end frame exclusive, drawing number. Threes and twos with
+    /// two single-frame accents at the end, which is what a sheet looks like and what the
+    /// on-twos fixtures in this repository do not exercise.
+    const SHEET: &[(i32, i32, u32)] = &[
+        (0, 3, 0),
+        (3, 6, 1),
+        (6, 8, 2),
+        (8, 10, 3),
+        (10, 13, 4),
+        (13, 16, 5),
+        (16, 19, 6),
+        (19, 22, 7),
+        (22, 23, 8),
+        (23, 24, 9),
+    ];
+
+    /// The same sheet read out one composition frame at a time, written by hand from the spans
+    /// above rather than from a run of the code (ADR-009). This is the exposure reference W-01's
+    /// acceptance criterion compares cel identity against.
+    const CEL_REFERENCE: &str = "0,0,0,1,1,1,2,2,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,9";
+
+    /// The transform typed into the inspector at step 6, in the units the panel reads back.
+    /// `app/ui/index.html` shows the project file's own numbers and sends them back unconverted,
+    /// so scale is the percentage document 19 stores and opacity the nought-to-one it stores.
+    const TRANSFORM_TYPED_IN: &str =
+        "anchor 960, 540; position 980, 520; scale 110, 110; rotation 6; opacity 0.8";
+
+    #[test]
+    // Slow: twenty-five full-resolution previews and a twenty-four frame export. Run by name,
+    // exactly as B-10's whole shot is, and its artifact is committed rather than made again on
+    // every build.
+    #[ignore = "renders and exports full-resolution frames; run by name"]
+    fn the_thirteen_steps_of_w01_end_in_a_sequence_on_the_disk() {
+        let mut report = Report { rows: Vec::new() };
+        let folder = workspace("project");
+        let source = repo("Fixtures/projects/minimal_project.json");
+        let project_file = folder.join("my_shot.json");
+        std::fs::copy(&source, &project_file).expect("copy the empty project to work in");
+
+        let viewer = Mutex::new(
+            open(&project_file)
+                .unwrap_or_else(|d| panic!("open {}: {}", project_file.display(), d.message)),
+        );
+        let export_state = Mutex::new(Export::default());
+
+        // ---- step 3, taken first: the composition -------------------------------------------
+        // W-01 lists "create a composition" third. This build has no command that creates one:
+        // document 24 has no `composition.create` row, and the composition a person works in is
+        // the one their project file already holds. That is recorded as what it is rather than
+        // walked around, because it is the one step of the thirteen nobody can take.
+        report.check(
+            "step 3: a composition to work in, its size, its rate and its length",
+            "comp-main 1920x1080 at 24 fps, 24 frames",
+            {
+                let held = held(&viewer);
+                let comp = held
+                    .document
+                    .project()
+                    .composition(&held.composition)
+                    .expect("the composition on screen");
+                format!(
+                    "{} {}x{} at {} fps, {} frames",
+                    comp.id,
+                    comp.width,
+                    comp.height,
+                    comp.frame_rate.numerator() / comp.frame_rate.denominator(),
+                    comp.duration_frames
+                )
+            },
+        );
+        report.check(
+            "and no command in this build makes one, so this step is the project file's",
+            "no composition command",
+            match ANSWERS.iter().any(|id| id.starts_with("composition.")) {
+                true => "a composition command exists",
+                false => "no composition command",
+            },
+        );
+
+        // ---- step 1: import the drawings ----------------------------------------------------
+        let background = run(&viewer, &import_of(&drawings_in("layer1")));
+        let cel = run(&viewer, &import_of(&drawings_in("layer2")));
+        let shape = run(&viewer, &import_of(&drawings_in("layer3")));
+        let overlay = run(&viewer, &import_of(&drawings_in("layer4")));
+        report.check(
+            "step 1: four sequences imported into a project that had none",
+            "asset-1, asset-2, asset-3, asset-4",
+            held(&viewer)
+                .document
+                .project()
+                .assets
+                .iter()
+                .map(|a| a.id.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        report.check(
+            "and the person is told what each one holds",
+            "24 drawings, numbered 0 to 23",
+            says("24 drawings, numbered 0 to 23", &cel),
+        );
+
+        // ---- step 2: grouping, and the warning about the gap --------------------------------
+        report.check(
+            "step 2: twenty-four files chosen at once are one sequence, not twenty-four",
+            "layer2_%03d.png",
+            held(&viewer)
+                .document
+                .project()
+                .assets
+                .iter()
+                .find(|a| a.id == Id::new("asset-2"))
+                .map(|a| a.name.clone())
+                .unwrap_or_else(|| "(no asset-2)".to_string()),
+        );
+        report.check(
+            "and the sequence with a hole in it says so at import, not at export",
+            "drawing 7 is missing",
+            says("drawing 7 is missing", &shape),
+        );
+        report.check(
+            "the one-drawing sequence and the twenty-drawing one are read as they are",
+            "1 drawings, numbered 0 to 0 | 20 drawings, numbered 0 to 19",
+            format!(
+                "{} | {}",
+                says("1 drawings, numbered 0 to 0", &background),
+                says("20 drawings, numbered 0 to 19", &overlay)
+            ),
+        );
+
+        // ---- step 5, taken before step 4: stack the layers -----------------------------------
+        // The exposures of step 4 are assigned to a layer, so the layers have to exist first.
+        // W-01's order is the order a person thinks in, not an order the build enforces.
+        run(&viewer, "layer.create?asset=asset-1&name=background");
+        run(&viewer, "layer.create?asset=asset-2&name=cel");
+        run(&viewer, "layer.create?asset=asset-4&name=overlay");
+        run(&viewer, "layer.create?asset=asset-3&name=shape");
+        report.check(
+            "step 5: four layers, the newest at the front",
+            "background(layer-1), cel(layer-2), overlay(layer-3), shape(layer-4)",
+            stack(&viewer),
+        );
+        let said = run(&viewer, "layer.move_down?layer=layer-4");
+        report.check(
+            "and one of them moved back a place, which is what the reorder button sends",
+            "background(layer-1), cel(layer-2), shape(layer-4), overlay(layer-3)",
+            stack(&viewer),
+        );
+        report.check(
+            "the window says what moved, in the words undo will use",
+            "Move layer to position 2",
+            says("Move layer to position 2", &said),
+        );
+
+        // ---- step 4: assign exposures --------------------------------------------------------
+        // A layer with no exposures renders transparent (document 20), so this step is not
+        // decoration: without it the export below writes twenty-four empty frames.
+        for (start, end, drawing) in SHEET {
+            run(
+                &viewer,
+                &format!(
+                    "exposure.set_span?layer=layer-2&start={start}&end={end}&drawing={drawing}"
+                ),
+            );
+        }
+        report.check(
+            "step 4: the cel layer holds the sheet that was typed into it",
+            SHEET
+                .iter()
+                .map(|(s, e, d)| format!("{s}-{e}:{d}"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            exposures(&viewer, "layer-2"),
+        );
+        report.check(
+            "and the drawing on screen at each of the twenty-four frames is the reference sheet",
+            CEL_REFERENCE,
+            cel_identity(&viewer, "layer-2", 24),
+        );
+        // The other three layers, so that every one of them draws something. The layer whose
+        // sequence has a hole in it is deliberately never given drawing 7.
+        run(
+            &viewer,
+            "exposure.set_span?layer=layer-1&start=0&end=24&drawing=0",
+        );
+        for (start, end, drawing) in [(0, 8, 0), (8, 16, 3), (16, 24, 9)] {
+            run(
+                &viewer,
+                &format!(
+                    "exposure.set_span?layer=layer-4&start={start}&end={end}&drawing={drawing}"
+                ),
+            );
+        }
+        for (start, end, drawing) in [(0, 12, 0), (12, 24, 10)] {
+            run(
+                &viewer,
+                &format!(
+                    "exposure.set_span?layer=layer-3&start={start}&end={end}&drawing={drawing}"
+                ),
+            );
+        }
+        report.check(
+            "the sequence with the hole is given exposures that step around it",
+            "0-8:0, 8-16:3, 16-24:9",
+            exposures(&viewer, "layer-4"),
+        );
+        // And the panel says so when one does not. Undone straight away: what is being checked
+        // is the warning, not a change to the shot.
+        let onto_the_hole = run(
+            &viewer,
+            "exposure.set_span?layer=layer-4&start=8&end=16&drawing=7",
+        );
+        report.check(
+            "and typing the missing drawing into the panel is answered there and then",
+            "Drawing 7 is not in this sequence",
+            says("Drawing 7 is not in this sequence", &onto_the_hole),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "undo puts the exposure back, so meeting the warning cost the shot nothing",
+            "0-8:0, 8-16:3, 16-24:9",
+            exposures(&viewer, "layer-4"),
+        );
+
+        // ---- step 6: anchors and transforms ---------------------------------------------------
+        for (prop, value) in [
+            ("anchor", "960, 540"),
+            ("position", "980, 520"),
+            ("scale", "110, 110"),
+            ("rotation", "6"),
+            ("opacity", "0.8"),
+        ] {
+            run(
+                &viewer,
+                &format!("property.set_base?layer=layer-3&prop={prop}&value={value}"),
+            );
+        }
+        report.check(
+            "step 6: the anchor and the transform, in the units the panel shows and sends",
+            TRANSFORM_TYPED_IN,
+            transform(&viewer, "layer-3"),
+        );
+
+        // ---- step 7: apply a matte ------------------------------------------------------------
+        let said = run(
+            &viewer,
+            "layer.set_matte?layer=layer-3&matte=layer-4&only=true",
+        );
+        report.check(
+            "step 7: the overlay is shaped by the layer under it",
+            "layer-4 matte_only=true",
+            matte(&viewer, "layer-3"),
+        );
+        report.check(
+            "and the window says which layer is shaping it, and that it is a matte only",
+            "Set matte to layer-4, matte only",
+            says("Set matte to layer-4, matte only", &said),
+        );
+
+        // ---- steps 8 and 9: one blur and one colour operation ---------------------------------
+        run(&viewer, "effect.add?layer=layer-3&type=core.gaussian_blur");
+        run(
+            &viewer,
+            "effect.set_parameters?layer=layer-3&effect=fx-1&sigma_px=4",
+        );
+        run(&viewer, "effect.add?layer=layer-3&type=core.tint");
+        run(
+            &viewer,
+            "effect.set_parameters?layer=layer-3&effect=fx-2&color=0.2,0.4,1&amount=0.5",
+        );
+        report.check(
+            "steps 8 and 9: a blur, then a colour operation, in the order they were added",
+            "core.gaussian_blur then core.tint",
+            effects(&viewer, "layer-3"),
+        );
+
+        // ---- step 10: inspect the alpha -------------------------------------------------------
+        let revision_before = held(&viewer).document.revision();
+        let ordinary = serve(&viewer, &export_state, Ask::Frame(12), None);
+        let said = run(&viewer, "viewer.toggle_alpha");
+        let inspected = serve(&viewer, &export_state, Ask::Frame(12), None);
+        report.check(
+            "step 10: alpha-only inspection says what it is showing",
+            "the picture is the alpha channel",
+            says("the picture is the alpha channel", &said.to_lowercase()),
+        );
+        report.check(
+            "and what comes back is grey everywhere, and the same size as the picture was",
+            "a different picture, every pixel grey, same size",
+            {
+                let same_size = ordinary.body().len() == inspected.body().len();
+                let changed = ordinary.body() != inspected.body();
+                let grey = inspected
+                    .body()
+                    .chunks_exact(4)
+                    .all(|p| p[0] == p[1] && p[1] == p[2]);
+                match (same_size, changed, grey) {
+                    (true, true, true) => {
+                        "a different picture, every pixel grey, same size".to_string()
+                    }
+                    _ => format!("same size {same_size}, changed {changed}, all grey {grey}"),
+                }
+            },
+        );
+        report.check(
+            "and looking at it changed nothing about the project, which is what makes it looking",
+            format!("revision {revision_before}"),
+            format!("revision {}", held(&viewer).document.revision()),
+        );
+        run(&viewer, "viewer.toggle_alpha");
+
+        // ---- step 11: preview the work area ---------------------------------------------------
+        let mut stepped = Vec::new();
+        for frame in 0..24 {
+            let response = serve(&viewer, &export_state, Ask::Frame(frame), None);
+            stepped.push(format!(
+                "{}:{}",
+                response.status().as_u16(),
+                header(&response, "x-frame")
+            ));
+        }
+        report.check(
+            "step 11: every frame of the work area answers, and answers with itself",
+            (0..24)
+                .map(|f| format!("200:{f}"))
+                .collect::<Vec<_>>()
+                .join(" "),
+            stepped.join(" "),
+        );
+        let played = serve(&viewer, &export_state, Ask::At(0), None);
+        report.check(
+            "and playing rather than stepping asks the clock, which starts at the first frame",
+            "200:0",
+            format!(
+                "{}:{}",
+                played.status().as_u16(),
+                header(&played, "x-frame")
+            ),
+        );
+
+        // ---- step 12: save, close, reopen ------------------------------------------------------
+        let said = save_as(&viewer, &project_file);
+        report.check(
+            "step 12: the shot is written to the file it was opened from",
+            "Saved to",
+            says("Saved to", &said),
+        );
+        report.check(
+            "and the window no longer holds unsaved work",
+            "false",
+            held(&viewer).document.is_dirty().to_string(),
+        );
+        drop(viewer);
+        let viewer = Mutex::new(
+            open(&project_file)
+                .unwrap_or_else(|d| panic!("reopen {}: {}", project_file.display(), d.message)),
+        );
+        report.check(
+            "reopened, the layers are in the order they were left in",
+            "background(layer-1), cel(layer-2), shape(layer-4), overlay(layer-3)",
+            stack(&viewer),
+        );
+        report.check(
+            "the effect order survives the reopening, which W-01 asks for by name",
+            "core.gaussian_blur then core.tint",
+            effects(&viewer, "layer-3"),
+        );
+        report.check(
+            "so does the matte",
+            "layer-4 matte_only=true",
+            matte(&viewer, "layer-3"),
+        );
+        report.check(
+            "so does the transform",
+            TRANSFORM_TYPED_IN,
+            transform(&viewer, "layer-3"),
+        );
+        report.check(
+            "and the cel identity at every frame is still the reference sheet",
+            CEL_REFERENCE,
+            cel_identity(&viewer, "layer-2", 24),
+        );
+        report.check(
+            "the reopened project had nothing to warn about",
+            "[]",
+            format!("{:?}", held(&viewer).notes),
+        );
+
+        // ---- step 13: export a PNG sequence -----------------------------------------------------
+        let into = workspace("frames");
+        let (snapshot, root, request) = {
+            let held = held(&viewer);
+            export_job(&held, &into, MissingSource::Block)
+        };
+        report.check(
+            "step 13: the range offered is the whole composition, first to last inclusive",
+            "0 to 23",
+            format!("{} to {}", request.first_frame, request.last_frame),
+        );
+        let said = run_export(&snapshot, &root, &request, &AtomicBool::new(false));
+        report.check(
+            "the export finishes under the default missing-drawing policy and says where",
+            format!("Exported 24 frames into {}.", into.display()),
+            says(
+                &format!("Exported 24 frames into {}.", into.display()),
+                &said,
+            ),
+        );
+        report.check(
+            "twenty-four files are on the disk, named for the project and numbered from zero",
+            "24 files, my_shot_0000.png to my_shot_0023.png",
+            {
+                let names = written(&into);
+                format!(
+                    "{} files, {} to {}",
+                    names.len(),
+                    names.first().map(String::as_str).unwrap_or("(none)"),
+                    names.last().map(String::as_str).unwrap_or("(none)")
+                )
+            },
+        );
+        report.check(
+            "and not one of them is empty",
+            "true",
+            written(&into)
+                .iter()
+                .all(|name| {
+                    std::fs::metadata(into.join(name))
+                        .map(|m| m.len() > 0)
+                        .unwrap_or(false)
+                })
+                .to_string(),
+        );
+
+        // One frame kept beside the table, so that the end of the walk is something to look at
+        // rather than a count of files. The rest stay under `target/b12b_w01/frames`.
+        std::fs::copy(
+            into.join("my_shot_0012.png"),
+            repo("verification/B-12b_w01_frame_12.png"),
+        )
+        .expect("keep one exported frame");
+
+        write_artifact(&report);
+        let failed: Vec<&(String, String, String)> =
+            report.rows.iter().filter(|(_, e, a)| e != a).collect();
+        assert!(
+            failed.is_empty(),
+            "W-01 did not walk end to end: {failed:#?}"
+        );
+    }
+
+    fn write_artifact(report: &Report) {
+        let passed = report.rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut out = String::from("# W-01 walked end to end, before the owner walks it\n\n");
+        out.push_str(
+            "Generated by `app/src/main.rs`, module `acceptance`. Slow, so it does not run with \
+             the rest: `cargo test -p anime_compositor_app the_thirteen_steps -- --ignored`.\n\n",
+        );
+        for paragraph in INTRO {
+            out.push_str(paragraph);
+            out.push_str("\n\n");
+        }
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in &report.rows {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                cell(expected),
+                cell(actual),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            report.rows.len()
+        ));
+        for paragraph in NOTES {
+            out.push('\n');
+            out.push_str(paragraph);
+            out.push('\n');
+        }
+        std::fs::write(repo("verification/B-12b_w01_walkthrough.md"), out)
+            .expect("write the artifact");
+    }
+
+    const INTRO: &[&str] = &[
+        "B-12 is the owner's acceptance run of W-01: thirteen steps by hand, from importing \
+         drawings to an exported sequence. This table is the same thirteen steps driven by \
+         script first. The reason for doing it twice is arithmetic -- a defect found here costs \
+         a re-run of a test, and the same defect found on step twelve of the owner's run costs \
+         the run. Two were found this way. One of them, a release-blocking one, is written up in \
+         `verification/B-12b_save_works.md`; the other is below.",
+        "The shot is built from nothing: a copy of `Fixtures/projects/minimal_project.json`, \
+         which is one empty 1920 by 1080 composition of twenty-four frames with no drawings and \
+         no layers in it. Everything after that goes through the same function the window's URL \
+         scheme calls, with the same text the page would put in it.",
+        "**Step 3 is the one step that cannot be walked.** W-01 says \"create a composition\", \
+         and this build has no command that creates one -- document 24 has no \
+         `composition.create` row, and the composition somebody works in is the one their \
+         project file already holds. The first two rows record that rather than working around \
+         it. It is the one thing in this table the owner will meet as missing.",
+    ];
+
+    const NOTES: &[&str] = &[
+        "## The defect this walk found\n\nTyping into the scale field made the layer a hundred \
+         times too big. The panel is given the project file's own numbers and sends them back in \
+         the same units; a scale in the file is a percentage -- `100` for full size -- while the \
+         model holds the factor document 21 composes with. Nothing between the two divided by a \
+         hundred. So somebody who typed the `100` the field was already showing, or who dragged \
+         the label one step, got a layer a hundred times its size. It survived because every \
+         earlier test of that function either set a position, where the two units are the same, \
+         or checked a scale being refused. The division now happens once, where typing and \
+         dragging both pass through, and the two transform rows above are what check it.\n\nOne \
+         part of it is left for the owner rather than quietly reworded: the status line reports \
+         what the *model* was set to, so typing 110 into scale is answered \"Set scale to (1.1, \
+         1.1)\". That sentence belongs to the core, which is right about its own units, and \
+         changing it is a decision rather than a fix.",
+        "## What to look at\n\n- **The exposure sheet is threes and twos with two single-frame \
+         accents**, not the on-twos cadence every fixture in this repository uses. The reference \
+         it is checked against was written out by hand from the spans, not from a run of the \
+         code, and it is compared twice: once after it is typed in, and once after the project \
+         has been saved, closed and reopened. That is W-01's acceptance line.\n- **The layer \
+         whose sequence has a hole in it is given exposures that step around the hole**, and the \
+         row after that types the missing drawing in on purpose, to check the panel says so at \
+         the moment it is typed rather than three hundred frames into an export. The undo after \
+         it costs the shot nothing.\n- **The export runs under the default policy**, which \
+         refuses a frame whose drawing is missing, and it finishes -- because nothing in this \
+         shot exposes a drawing that is not there.",
+        "## What this cannot cover\n\n- **The page.** Every row calls the request rather than \
+         clicking the control that sends it. What is wired to what is \
+         `verification/B-12b_page_table.md`; that it is on the screen and reachable by keyboard \
+         is `verification/B-12a_window_and_keyboard.md`.\n- **The three dialogs.** Import, Save \
+         As and Export each open a window Windows draws, and no script can answer one. What is \
+         walked here is the request underneath.\n- **Whether it was pleasant.** A script cannot \
+         say whether a sentence read well, whether the picture looked right, or whether a step \
+         was hard to find. That is what B-12 is for, and it is why this is a rehearsal and not a \
+         replacement.\n- **The 240-frame shot.** This composition is twenty-four frames. W-01's \
+         \"exactly 240 correctly named files\" is `verification/B-10_full_shot_table.md`, which \
+         exports the reference shot twice and compares the two byte for byte.",
+        "## Where the frames are\n\nAll twenty-four are written to `target/b12b_w01/frames` and \
+         are not cleaned between runs, so they can be opened or flipped through straight after \
+         the test. One of them, frame 12, is kept beside this table as \
+         `B-12b_w01_frame_12.png`: the background, the cel on its fifth drawing, and the overlay \
+         blurred, tinted, moved off centre and shaped by the layer under it.",
+    ];
 
     fn cell(text: &str) -> String {
         text.replace('|', r"\|")

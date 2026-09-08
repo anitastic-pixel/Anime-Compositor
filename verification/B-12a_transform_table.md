@@ -33,7 +33,7 @@ Keyframes. The inspector sets a property's base value, which is what document 19
 | text that is not numbers is refused in the shape the property wants | position needs two numbers, like 12, -4. Not "over there". | position needs two numbers, like 12, -4. Not "over there". | pass |
 | one number for a two-number property is refused the same way | position needs two numbers, like 12, -4. Not "7". | position needs two numbers, like 12, -4. Not "7". | pass |
 | two numbers for a one-number property never reach the core, and are named here | rotation needs a number. Not "1,2". | rotation needs a number. Not "1,2". | pass |
-| a value that is not a finite number is refused | scale cannot be set to (NaN, 1). | scale cannot be set to (NaN, 1). | pass |
+| a value that is not a finite number is refused | scale cannot be set to (NaN, 0.01). | scale cannot be set to (NaN, 0.01). | pass |
 | none of those six refusals put anything in the history | 3 | 3 | pass |
 | and the position is the one that was typed | [120,-40] | [120,-40] | pass |
 | the value follows the drag while it is being dragged | [210,-40] | [210,-40] | pass |
