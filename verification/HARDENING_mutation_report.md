@@ -13,7 +13,7 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**281 breaks were made across twenty-seven units. All 281 were caught.**
+**305 breaks were made across twenty-eight units. All 305 were caught.**
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -93,8 +93,11 @@ the sample grid out of the implementation it was written to argue with - and the
 not a weak fixture at all but a hole in ADR-016, which had chosen a fill rule and said nothing
 about a sample lying exactly on the outline. The twentieth is B-07, the effect stack, the second
 of the two: 24 breaks, one of which got through, and all twenty-four caught afterwards. The
-survivor is the only one of the 281 breaks in this report that was invisible because
-every picture the fixture blurred was transparent where it mattered.
+survivor is the only one of the 305 breaks in this report that was invisible because
+every picture the fixture blurred was transparent where it mattered. The twenty-first is B-12a,
+the editing window - the panels W-01 walks an artist through, which is the first unit in this
+report that computes no pixels at all: 24 breaks, all caught, none through, and its own section
+below on what a toggle that cannot toggle does to a table.
 
 
 ## B-02 colour and alpha
@@ -989,6 +992,79 @@ one tolerance in the two new rows is stated in the test beside it: the alpha sum
 four decimal places rather than six, because it is 64 single-precision additions, and the break it
 exists to catch misses by 132 units rather than by a rounding error. The table grew from 58 checks
 to 60.
+
+## B-12a the editing window: the panels W-01 is walked through
+
+`app/src/main.rs` - `edit_command` and the helpers it calls - checked by the `editing` and
+`serving` tests, whose tables are `verification/B-12a_editing_table.md`,
+`B-12a_transform_table.md`, `B-12a_effects_table.md`, `B-12a_matte_table.md`,
+`B-12a_media_table.md`, `B-12a_inspect_table.md` and `B-12a_relink_table.md`.
+
+**24 of 24 breaks caught, none through.**
+
+This is the window itself: the layer list, the transform inspector, the effects panel, the matte,
+the media bin and the exposure sheet, the two ways of looking at a frame without changing it, and
+relinking. None of it computes a pixel - every one of these commands only turns a click into one
+of the core's commands - so the mistakes worth making here are the ones where the right thing
+happens to the wrong layer, or the right sentence is said about something that did not happen.
+The breaks are all of that kind: a toggle that always sets rather than flips, a parameter read
+under a name the page does not send, a value taken twice, a proposal agreed to that nobody
+proposed.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| W1 | A new layer goes to the back of the picture instead of the front | yes | `a new layer is added in front of the ones already there`, and nine more |
+| W2 | Moving a layer forward leaves it where it was | yes | `moving a layer forward puts it one place nearer the front` |
+| W3 | The visibility toggle always turns a layer on rather than flipping it | yes | `hiding a visible layer switches it off` |
+| W4 | The lock toggle always unlocks | yes | `locking a layer locks it`, and every row about what a locked layer refuses |
+| W5 | Rename reads a parameter the page does not send | yes | `renaming changes the name and nothing else` |
+| W6 | A two-number property takes its first number twice | yes | `typing a position says what it set, in the words undo will use`, and eight more, including the drag rows |
+| W7 | Clearing the matte sets a matte with no name instead of none | yes | `clearing the matte says so` and `and the layer is shaped by nothing again` |
+| W8 | Whether the matte layer is still drawn in its own right is read the wrong way round | yes | `and the panels are given it back, with the matte layer still drawn in its own right` |
+| W9 | The exposure sheet is left in the order the rows were typed instead of frame order | yes | `two exposures cannot cover one frame`, which is document 20's rule refusing a sheet that is legal but out of order |
+| W10 | An exposure moved along the sheet leaves a copy of itself behind | yes | `moving an exposure to another frame moves it rather than copying it` |
+| W11 | Exposing a drawing the sequence has not got is not mentioned | yes | `exposing a drawing that is not in the sequence is allowed and said` |
+| W12 | A gap in an imported sequence is not reported | yes | `importing a sequence with a gap says how many drawings arrived and what is missing` |
+| W13 | An imported drawing is recorded by the path the dialog gave, unnormalised | yes | `and it is written with forward slashes, so the project can be handed over` |
+| W14 | A new effect goes to the front of the stack instead of the end | yes | `and it goes on the end of the stack, which is where it is evaluated last` |
+| W15 | Bypassing an effect always switches it on | yes | `bypassing an effect says so` |
+| W16 | A setting the panel did not send is filled in with zero | yes | `a setting left out is refused rather than filled in from a default` |
+| W17 | The alpha view leaves the alpha channel in the picture it draws | yes | `a pixel that is half transparent is drawn as the grey half way up (expected 128, 128, 128, 255, got 128, 128, 128, 128)` |
+| W18 | The alpha view shows the red channel rather than the alpha channel | yes | `a pixel that is half transparent is drawn as the grey half way up (expected 128, 128, 128, 255, got 255, 255, 255, 255)` |
+| W19 | The page is always told the transparency grid is on | yes | `the frame says the grid is off (expected false, got true)` |
+| W20 | A relink is applied whatever sequence it was proposed for | yes | `a proposal about one sequence cannot be applied to another` |
+| W21 | Dropping a relink says it was dropped and keeps it | yes | `the panel goes with it` and `and dropping a second time has nothing to drop` |
+| W22 | The size of the drawings a sequence points at now is never read, so nothing is ever compared | yes | `relinking a sequence that can be read says what size it is now and what size it would become` |
+| W23 | Straight alpha is described to the person as premultiplied | yes | `and says the alpha is read the way this project already reads it, because a PNG does not say` |
+| W24 | The drawing a relink would leave missing is not named | yes | `choosing the replacement drawings answers with what relinking would do` |
+
+Nothing survived, so nothing was added and no fixture was changed. Two things about the result are
+worth putting on the page anyway.
+
+The first is that the breaks with the widest blast radius were the two toggles, W3 and W4. Each is
+one character - `!layer.enabled` becoming `true` - and each turns a switch into a button that can
+only be pressed one way. W4 failed thirteen rows rather than one, because every row about what a
+locked layer refuses stops meaning anything once nothing can be locked. That is the shape a lock
+bug has in real life too: it does not look like a lock that is broken, it looks like a lock that
+is never on.
+
+The second is W9, the exposure sheet left unsorted. It was caught, but not by a row about order -
+it was caught by document 20's own rule, in the core, refusing a sheet whose spans were out of
+sequence. That is the right answer and it is also a reminder of where the rule lives: this window
+builds a list and hands it over, and the thing that decides whether an exposure sheet is legal is
+`ExposureMap::new` and nothing here.
+
+## What this pass did not cover, in this window
+
+The dialogs. Every file the window opens, imports or relinks to is chosen in an operating-system
+dialog, and no test in this project has hands to answer one. Every row in every B-12a table begins
+at the selection a person made, and the buttons that open the dialogs are checked only by the
+photographs.
+
+The page. `app/ui/index.html` is not broken by anything in this pass, and nothing in it can be:
+these breaks are all made in Rust, and the page has no test at all. What the page does - which
+button sends which command, which key presses which button, what the panels draw from the state
+they are given - is checked by the owner looking at the window, which is what B-12 is for.
 
 ## First pass: the six that got through, and what was added
 

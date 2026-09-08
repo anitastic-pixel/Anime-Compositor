@@ -411,6 +411,13 @@ function row(selectedId, id, label, extra) {
   li.tabIndex = 0;
   li.setAttribute('role', 'option');
   li.setAttribute('aria-selected', String(id === selectedId));
+  // Reachable by Tab was not the same as usable: a row is chosen by clicking it, and until this
+  // existed the row a person had tabbed to could not be chosen at all. Space and Enter do what
+  // the mouse does. The global accelerators already stand aside for a focused control, so the
+  // space bar here selects the row rather than starting playback.
+  li.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.click(); }
+  };
   if (extra) li.append(...extra);
   const name = document.createElement('span');
   name.className = 'name';
