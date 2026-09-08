@@ -17,7 +17,7 @@ The fixture is `Fixtures/projects/unknown_effect_project.json`, which names an e
 
 The page. Every row here calls the same function the window's URL scheme calls, with the same text the page would put in it, so what is checked is everything from the request inwards. That a button is wired to the right request, that the list is drawn front-first, and that the keyboard reaches all of it are in the photographs beside this table, not in it.
 
-The transform, the effect stack and the matte are not editable from these panels yet. The inspector shows what a layer carries, so a mask or an effect from a file is visible; changing one is later work and is named as missing rather than quietly absent.
+The transform and the effect stack are edited from the same inspector and are checked in `verification/B-12a_transform_table.md` and `verification/B-12a_effects_table.md`. The matte and the mask are shown and cannot yet be changed; that is later work and is named as missing rather than quietly absent.
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|

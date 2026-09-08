@@ -46,6 +46,7 @@ use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
 use anime_compositor::command::{Command, Document};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
+use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR, TINT};
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
 use anime_compositor::model::{Id, Layer, Project, Prop, Value};
 use anime_compositor::persist::{self, Preserved};
@@ -726,6 +727,91 @@ fn unused_layer_id(project: &Project) -> Id {
     Id::new(format!("layer-{}", highest.map_or(1, |n| n + 1)))
 }
 
+/// An effect instance ID nothing in this project is using, counted the way layer IDs are.
+///
+/// Counted across the whole project rather than the one layer, so that an effect keeps its
+/// identity if it is ever moved between layers and two saves of the same steps match.
+fn unused_effect_id(project: &Project) -> Id {
+    let highest = project
+        .compositions
+        .iter()
+        .flat_map(|c| c.layers_in_order())
+        .flat_map(|l| l.effects.iter())
+        .filter_map(|e| e.instance_id.as_str().strip_prefix("fx-"))
+        .filter_map(|n| n.parse::<u64>().ok())
+        .max();
+    Id::new(format!("fx-{}", highest.map_or(1, |n| n + 1)))
+}
+
+/// The three effects of document 21, at the settings that change no pixels.
+///
+/// Adding an effect and setting it are two commands rather than one, so that a stack can be
+/// built before any of it is tuned; starting each one at its identity means the picture does
+/// not jump the instant an effect is added, and the change a person then sees is the one they
+/// typed.
+fn new_effect(type_id: &str) -> Option<Effect> {
+    match type_id {
+        EXPOSURE => Some(Effect::Exposure { stops: 0.0 }),
+        GAUSSIAN_BLUR => Some(Effect::GaussianBlur { sigma_px: 0.0 }),
+        TINT => Some(Effect::Tint {
+            color: [0.0, 0.0, 0.0],
+            amount: 0.0,
+        }),
+        _ => None,
+    }
+}
+
+/// The settings for an effect of `type_id`, read from the request.
+///
+/// Every parameter of the type has to be present. The alternative -- filling a missing one in
+/// from a default -- would let a request that named one parameter quietly reset the others, and
+/// this is the request a panel sends after somebody types in one field. Whether the numbers are
+/// in range is document 21's decision and is made in the core, so a negative sigma is refused
+/// there, in its words, rather than judged twice.
+fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, String> {
+    let number = |name: &str| -> Result<f64, String> {
+        let Some(text) = parameter(query, name) else {
+            return Err(format!("What should {name} be set to?"));
+        };
+        text.trim()
+            .parse::<f64>()
+            .map_err(|_| format!("{name} needs a number. Not \"{text}\"."))
+    };
+    match type_id {
+        EXPOSURE => Ok(Effect::Exposure {
+            stops: number("stops")?,
+        }),
+        GAUSSIAN_BLUR => Ok(Effect::GaussianBlur {
+            sigma_px: number("sigma_px")?,
+        }),
+        TINT => {
+            let Some(text) = parameter(query, "color") else {
+                return Err("What colour should the tint be?".to_string());
+            };
+            let parts: Vec<f64> = text
+                .split(',')
+                .filter_map(|p| p.trim().parse::<f64>().ok())
+                .collect();
+            let [r, g, b] = parts[..] else {
+                return Err(format!(
+                    "color needs three numbers, like 1, 0.5, 0. Not \"{text}\"."
+                ));
+            };
+            Ok(Effect::Tint {
+                color: [r, g, b],
+                amount: number("amount")?,
+            })
+        }
+        // Document 19 keeps an effect this build does not have rather than dropping it, and
+        // keeping it means keeping its settings as they were written. There is no schema here
+        // to read them against, so they are left alone and said to be left alone.
+        _ => Err(format!(
+            "{type_id} is not an effect this build has, so its settings are kept as the file \
+             wrote them and cannot be changed here."
+        )),
+    }
+}
+
 /// Everything the page can do to the open document, keyed by document 24's own command IDs.
 ///
 /// The IDs are the URL paths, so what the page asks for and what the map lists are the same
@@ -861,6 +947,65 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         layer_id,
                         prop,
                         value,
+                    }
+                }
+                // A new effect goes on the end of the stack, which document 21 evaluates last,
+                // because that is where somebody who has just added one looks for it.
+                "effect.add" => {
+                    let Some(type_id) = parameter(query, "type") else {
+                        return Some(
+                            "Which effect? Say core.gaussian_blur, core.exposure or core.tint."
+                                .to_string(),
+                        );
+                    };
+                    let Some(effect) = new_effect(&type_id) else {
+                        return Some(format!(
+                            "This build has no effect called {type_id}. It has \
+                             core.gaussian_blur, core.exposure and core.tint."
+                        ));
+                    };
+                    Command::AddEffect {
+                        composition,
+                        layer_id,
+                        effect: EffectInstance::new(unused_effect_id(project), effect),
+                        index: None,
+                    }
+                }
+                // The other three all name an instance that is already on the layer, so the
+                // lookup and its refusal are written once.
+                "effect.delete" | "effect.toggle_bypass" | "effect.set_parameters" => {
+                    let Some(instance_id) = parameter(query, "effect").map(Id::new) else {
+                        return Some("Which effect? Choose one in the effects list.".to_string());
+                    };
+                    let Some(existing) =
+                        layer.effects.iter().find(|e| e.instance_id == instance_id)
+                    else {
+                        return Some(format!("{instance_id} is not an effect on this layer."));
+                    };
+                    match id {
+                        "effect.delete" => Command::RemoveEffect {
+                            composition,
+                            layer_id,
+                            instance_id,
+                        },
+                        "effect.toggle_bypass" => Command::SetEffectEnabled {
+                            composition,
+                            layer_id,
+                            instance_id,
+                            enabled: !existing.enabled,
+                        },
+                        // The type is read off the effect rather than sent by the page. The
+                        // core refuses settings of the wrong kind for an instance, and this
+                        // makes that mistake unreachable from here instead of catchable.
+                        _ => match effect_parameters(existing.type_id(), query) {
+                            Ok(effect) => Command::SetEffectParameters {
+                                composition,
+                                layer_id,
+                                instance_id,
+                                effect,
+                            },
+                            Err(said) => return Some(said),
+                        },
                     }
                 }
                 _ => return None,
@@ -2170,10 +2315,11 @@ mod editing {
              the window's URL scheme calls, with the same text the page would put in it, so what \
              is checked is everything from the request inwards. That a button is wired to the \
              right request, that the list is drawn front-first, and that the keyboard reaches all \
-             of it are in the photographs beside this table, not in it.\n\nThe transform, the \
-             effect stack and the matte are not editable from these panels yet. The inspector \
-             shows what a layer carries, so a mask or an effect from a file is visible; changing \
-             one is later work and is named as missing rather than quietly absent.",
+             of it are in the photographs beside this table, not in it.\n\nThe transform and \
+             the effect stack are edited from the same inspector and are checked in \
+             `verification/B-12a_transform_table.md` and `verification/B-12a_effects_table.md`. \
+             The matte and the mask are shown and cannot yet be changed; that is later work and \
+             is named as missing rather than quietly absent.",
     ];
 
     /// The transform property a layer carries, as a string, from the same JSON the panels get.
@@ -2478,6 +2624,391 @@ mod editing {
          about the project format rather than about this window.\n\nKeyframes. The inspector sets \
          a property's base value, which is what document 19 calls the value with no keyframes on \
          it. `keyframe.add_remove` is in document 24 and is not built.",
+    ];
+
+    /// The effect records of one layer, out of the same JSON the panels are drawn from.
+    fn effect_records(viewer: &Mutex<Viewer>, layer_id: &str) -> Vec<serde_json::Value> {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .and_then(|l| l["effects"].as_array().cloned())
+            .unwrap_or_default()
+    }
+
+    /// The stack in the order document 21 evaluates it: what each effect is and whether it runs.
+    fn stack(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        effect_records(viewer, layer_id)
+            .iter()
+            .map(|e| {
+                format!(
+                    "{} {} {}",
+                    e["instance_id"].as_str().unwrap_or("?"),
+                    e["type_id"].as_str().unwrap_or("?"),
+                    if e["enabled"] == serde_json::Value::Bool(true) {
+                        "on"
+                    } else {
+                        "bypassed"
+                    }
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    /// One effect's settings, as they would be written to the file.
+    fn settings(viewer: &Mutex<Viewer>, layer_id: &str, instance: &str) -> String {
+        effect_records(viewer, layer_id)
+            .iter()
+            .find(|e| e["instance_id"] == instance)
+            .map(|e| e["parameters"].to_string())
+            .unwrap_or_else(|| "(no such effect)".to_string())
+    }
+
+    #[test]
+    fn the_effects_panel_builds_a_stack_and_keeps_the_one_it_cannot_draw() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let l = "layer-cel";
+
+        // ---- what was in the file ---------------------------------------------------------------
+        report.check(
+            "the layer arrives with the effect no version of this build has",
+            "fx-unknown-1 vendor.future.effect on",
+            stack(&viewer, l),
+        );
+
+        // ---- adding ----------------------------------------------------------------------------
+        report.check(
+            "adding a blur says what was added, in the words undo will use",
+            "Add core.gaussian_blur",
+            run(
+                &viewer,
+                "effect.add?layer=layer-cel&type=core.gaussian_blur",
+            ),
+        );
+        report.check(
+            "and it goes on the end of the stack, which is where it is evaluated last",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on",
+            stack(&viewer, l),
+        );
+        report.check(
+            "a new effect starts at the setting that changes no pixels",
+            r#"{"sigma_px":0}"#,
+            settings(&viewer, l, "fx-1"),
+        );
+
+        // ---- settings ---------------------------------------------------------------------------
+        report.check(
+            "setting the radius says which effect's settings changed",
+            "Change core.gaussian_blur settings",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=4.5",
+            ),
+        );
+        report.check(
+            "and the panels are given the new radius back",
+            r#"{"sigma_px":4.5}"#,
+            settings(&viewer, l, "fx-1"),
+        );
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a negative radius is refused in document 21's own words, not clamped",
+            "A Gaussian blur needs a sigma of zero or more, and this is -1. Choose a value \
+             inside the range.",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=-1",
+            ),
+        );
+        report.check(
+            "text that is not a number is refused by the window, before the core sees it",
+            "sigma_px needs a number. Not \"wide\".",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=wide",
+            ),
+        );
+        report.check(
+            "a setting left out is refused rather than filled in from a default",
+            "What should sigma_px be set to?",
+            run(&viewer, "effect.set_parameters?layer=layer-cel&effect=fx-1"),
+        );
+        report.check(
+            "none of those three refusals changed the radius",
+            r#"{"sigma_px":4.5}"#,
+            settings(&viewer, l, "fx-1"),
+        );
+        report.check(
+            "and none of them put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- an effect with more than one setting -------------------------------------------------
+        run(&viewer, "effect.add?layer=layer-cel&type=core.tint");
+        report.check(
+            "a tint takes a colour and an amount together",
+            r#"{"amount":0.25,"color":[1,0,0]}"#,
+            {
+                run(
+                    &viewer,
+                    "effect.set_parameters?layer=layer-cel&effect=fx-2&color=1,0,0&amount=0.25",
+                );
+                settings(&viewer, l, "fx-2")
+            },
+        );
+        report.check(
+            "an amount outside document 21's range is refused",
+            "A tint amount runs from 0 to 1, and this is 1.5. Choose a value inside the range.",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-2&color=1,0,0&amount=1.5",
+            ),
+        );
+        report.check(
+            "a colour that is not three numbers is refused by the window",
+            "color needs three numbers, like 1, 0.5, 0. Not \"1,0\".",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-2&color=1,0&amount=0.25",
+            ),
+        );
+        report.check(
+            "and the tint is as it was set",
+            r#"{"amount":0.25,"color":[1,0,0]}"#,
+            settings(&viewer, l, "fx-2"),
+        );
+
+        // ---- bypass ------------------------------------------------------------------------------
+        // Document 24 calls this a bypass rather than a delete: the effect stays in the file with
+        // its settings, and the picture is drawn without it.
+        report.check(
+            "bypassing an effect says so",
+            "Bypass effect fx-1",
+            run(&viewer, "effect.toggle_bypass?layer=layer-cel&effect=fx-1"),
+        );
+        report.check(
+            "and the stack says which one is not running",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur bypassed, \
+             fx-2 core.tint on",
+            stack(&viewer, l),
+        );
+        report.check(
+            "a bypassed effect keeps its settings",
+            r#"{"sigma_px":4.5}"#,
+            settings(&viewer, l, "fx-1"),
+        );
+        report.check(
+            "switching it back on says that instead",
+            "Switch effect fx-1 on",
+            run(&viewer, "effect.toggle_bypass?layer=layer-cel&effect=fx-1"),
+        );
+
+        // ---- the effect this build does not have ---------------------------------------------------
+        // Document 19: an unknown effect record must survive load and save and may not be
+        // silently discarded. It can be switched off and it can be removed, because both are
+        // things a person decided; what cannot happen is this window writing settings for a
+        // schema it has never seen.
+        report.check(
+            "the effect from another version can be bypassed like any other",
+            "Bypass effect fx-unknown-1",
+            run(
+                &viewer,
+                "effect.toggle_bypass?layer=layer-cel&effect=fx-unknown-1",
+            ),
+        );
+        run(
+            &viewer,
+            "effect.toggle_bypass?layer=layer-cel&effect=fx-unknown-1",
+        );
+        report.check(
+            "but its settings cannot be changed from here, and it says why",
+            "vendor.future.effect is not an effect this build has, so its settings are kept as \
+             the file wrote them and cannot be changed here.",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-unknown-1&strength=0.9",
+            ),
+        );
+        report.check(
+            "and its settings are the ones the file wrote",
+            r#"{"strength":0.5}"#,
+            settings(&viewer, l, "fx-unknown-1"),
+        );
+
+        // ---- deleting ------------------------------------------------------------------------------
+        run(&viewer, "effect.add?layer=layer-cel&type=core.exposure");
+        report.check(
+            "deleting an effect from the middle of the stack names the one that went",
+            "Remove effect fx-2",
+            run(&viewer, "effect.delete?layer=layer-cel&effect=fx-2"),
+        );
+        report.check(
+            "and the rest of the stack is untouched, in the order it was in",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, \
+             fx-3 core.exposure on",
+            stack(&viewer, l),
+        );
+        report.check(
+            "the gap a deleted effect left is not filled by the next one",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, \
+             fx-3 core.exposure on, fx-4 core.gaussian_blur on",
+            {
+                run(
+                    &viewer,
+                    "effect.add?layer=layer-cel&type=core.gaussian_blur",
+                );
+                stack(&viewer, l)
+            },
+        );
+        run(&viewer, "effect.delete?layer=layer-cel&effect=fx-4");
+        run(&viewer, "effect.delete?layer=layer-cel&effect=fx-3");
+
+        // ---- what the window refuses before the core sees it ------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "an effect that is not on this layer is said, not silently ignored",
+            "fx-99 is not an effect on this layer.",
+            run(&viewer, "effect.delete?layer=layer-cel&effect=fx-99"),
+        );
+        report.check(
+            "no effect named at all is asked for",
+            "Which effect? Choose one in the effects list.",
+            run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
+        );
+        report.check(
+            "an effect type this build does not have is refused, and the three are named",
+            "This build has no effect called core.warp. It has core.gaussian_blur, \
+             core.exposure and core.tint.",
+            run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
+        );
+        report.check(
+            "adding without saying which effect asks",
+            "Which effect? Say core.gaussian_blur, core.exposure or core.tint.",
+            run(&viewer, "effect.add?layer=layer-cel"),
+        );
+        report.check(
+            "and a layer that is not in this composition is named",
+            "layer-gone is not a layer in this composition.",
+            run(&viewer, "effect.add?layer=layer-gone&type=core.exposure"),
+        );
+        report.check(
+            "none of those five refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- a locked layer ----------------------------------------------------------------------------
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a locked layer refuses an effect, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(&viewer, "effect.add?layer=layer-cel&type=core.exposure"),
+        );
+        report.check(
+            "and refuses a settings change too",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=2",
+            ),
+        );
+        report.check(
+            "and neither did the two the lock stopped",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        report.check(
+            "and the stack is the one that was built",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on",
+            stack(&viewer, l),
+        );
+
+        // ---- back to the file -----------------------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, including the effect this build cannot model";
+        report.check(
+            "undoing every effect edit gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-12a_effects_table.md",
+            "B-12a: what the effects panel does",
+            EFFECTS_INTRO,
+            EFFECTS_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const EFFECTS_INTRO: &[&str] = &[
+        "Document 21's three effects, built into a stack from the panel: added, bypassed, \
+         deleted, and their settings typed. That each effect draws what document 21 says it \
+         draws is checked in `verification/B-07_effect_table.md` and is not repeated here. What \
+         is checked here is the part between a field in a panel and that arithmetic - that the \
+         right effect is reached, that every setting travels on every change, and that a number \
+         outside the range is refused in words rather than quietly turned into a different one.",
+        "Every row runs on `Fixtures/projects/unknown_effect_project.json`, whose one layer \
+         already carries an effect no version of this build has. It is there for the whole \
+         table on purpose: a panel that lists effects is the place where an effect it cannot \
+         draw is most likely to be dropped, and the last row saves the project back and compares \
+         it to the file that was opened.",
+    ];
+
+    const EFFECTS_NOTES: &[&str] = &[
+        "## What to look at\n\n- **An effect this build does not have is kept, and is honest \
+         about it.** It can be bypassed and it can be deleted, because both are things a person \
+         decided. Its settings cannot be changed, because this build has never seen the schema \
+         they belong to, and the panel says so in a sentence rather than showing empty \
+         fields.\n- **A new effect starts at the setting that changes no pixels.** Adding a blur \
+         does not make the picture jump; the change a person then sees is the one they \
+         typed.\n- **Every setting travels on every change.** A tint is a colour and an amount, \
+         and a request that named only one would leave the other to a default - which would \
+         reset it. A missing setting is refused instead.\n- **Where a refusal comes from is \
+         visible in its words.** \"needs a number\" is the window, refusing text. \"needs a sigma \
+         of zero or more\" is the core, refusing a number document 21 has no meaning for. Both \
+         reach the status line the same way, and neither changes anything.\n- **A gap left by a \
+         deleted effect is not filled.** Identifiers are counted from the highest in use, so an \
+         effect in the middle of a stack cannot be replaced by a different one wearing its \
+         identifier, and two runs of the same steps write the same file.",
+        "## What this does not cover\n\nThe picture. These rows check what the panel does to the \
+         project, not what the renderer then draws; the blur, exposure and tint themselves are \
+         checked against independently generated weights in `verification/B-07_effect_table.md`, \
+         and the frame with an effect on it is in the photographs beside this table.\n\nReordering \
+         the stack. Document 21 evaluates effects in order and this panel adds each new one at \
+         the end; there is no command in document 24 for moving one, and W-01 does not ask to \
+         move one.\n\nA parameter over time. The settings here are constants, which is what \
+         document 19 calls a parameter with no keyframes on it.",
     ];
 
     fn cell(text: &str) -> String {

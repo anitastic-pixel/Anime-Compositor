@@ -136,6 +136,18 @@
   .scrub { cursor: ew-resize; user-select: none; border-bottom: 1px dotted #57575f; }
   .scrub:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   .group { margin-bottom: 14px; }
+  /* The effects panel of document 24's wireframe, under the layer's own fields in the same
+     column. One block per effect, in the order document 21 evaluates them. */
+  #inspector h2 + div + h2 { margin-top: 14px; }
+  #inspector #addeffect { margin-top: 8px; }
+  .effect { border: 1px solid #26262b; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; }
+  .effect .head { display: flex; align-items: center; gap: 6px; }
+  .effect .head .name { flex: 1; font-weight: 600; }
+  .effect .head .name.off { color: #6a6a72; font-weight: 400; }
+  .effect .head .mark { color: #e8b06a; font-size: 11px; }
+  .effect .head button { padding: 0 4px; border-color: transparent; background: transparent; }
+  .effect dl { margin-top: 4px; }
+  .effect input[type=text] { width: 8em; }
 </style>
 </head>
 <body>
@@ -149,6 +161,14 @@
   <div class="panel" id="inspector">
     <h2>Layer</h2>
     <div id="detail"><p class="empty">No layer is selected.</p></div>
+    <h2>Effects</h2>
+    <div id="effects"><p class="empty">No layer is selected.</p></div>
+    <select id="addeffect" aria-label="Add an effect to the selected layer">
+      <option value="">Add effect&hellip;</option>
+      <option value="core.gaussian_blur">Blur</option>
+      <option value="core.exposure">Exposure</option>
+      <option value="core.tint">Tint</option>
+    </select>
   </div>
 </div>
 <div id="timeline">
@@ -543,12 +563,100 @@ function drawInspector() {
   field(dl, 'Blend', layer.blend_mode);
   // What is on this layer that this panel cannot yet change is still said, because a person
   // deciding whether a layer is the one they want needs to know it carries a mask.
-  field(dl, 'Effects', (layer.effects || []).length
-    ? (layer.effects || []).map((e) => e.type_id).join(', ') : 'none');
   field(dl, 'Mask', layer.mask ? layer.mask.vertices.length + ' points' : 'none');
   field(dl, 'Matte', layer.matte
     ? layer.matte.layer_id + (layer.matte.matte_only ? ', matte only' : '') : 'none');
   into.replaceChildren(dl);
+}
+
+// The three effects this build has, by the identifier the file uses. A type that is not here is
+// one from another version: it is listed by its own identifier and said to be unchangeable,
+// because document 19 requires an unknown effect to survive a load and save and never to be
+// silently dropped.
+const EFFECT_NAMES = {
+  'core.gaussian_blur': 'Blur',
+  'core.exposure': 'Exposure',
+  'core.tint': 'Tint',
+};
+
+// Each effect's parameters, named as the file names them, with the words a person reads and
+// whether the field takes one number or three. Document 21 states the units, and they are the
+// file's own here as everywhere else in this panel.
+const EFFECT_PARAMS = {
+  'core.gaussian_blur': [['sigma_px', 'Radius σ, in source pixels', 1]],
+  'core.exposure': [['stops', 'Stops', 1]],
+  'core.tint': [['color', 'Colour, linear RGB', 3], ['amount', 'Amount, 0 to 1', 1]],
+};
+
+// One effect in the stack: whether it is bypassed, what it is, a way to remove it, and its
+// settings. Every parameter of the effect travels on every change, because a request that named
+// one would leave the core to guess the others and guessing would reset them.
+function effectRow(layer, fx) {
+  const box = document.createElement('div');
+  box.className = 'effect';
+  const known = EFFECT_PARAMS[fx.type_id];
+  const label = EFFECT_NAMES[fx.type_id] || fx.type_id;
+  const where = '?layer=' + encodeURIComponent(layer.id)
+    + '&effect=' + encodeURIComponent(fx.instance_id);
+  const head = document.createElement('div');
+  head.className = 'head';
+  head.append(
+    iconButton(fx.enabled ? '●' : '○',
+      (fx.enabled ? 'Bypass ' : 'Switch on ') + label,
+      () => command('/effect.toggle_bypass' + where)),
+    Object.assign(document.createElement('span'),
+      { className: fx.enabled ? 'name' : 'name off', textContent: label }),
+    // Colour is not the only carrier: a bypassed effect says so in a word as well as a symbol.
+    Object.assign(document.createElement('span'),
+      { className: 'mark', textContent: fx.enabled ? '' : 'bypassed' }),
+    iconButton('✕', 'Delete ' + label, () => command('/effect.delete' + where)));
+  box.append(head);
+  if (!known) {
+    box.append(Object.assign(document.createElement('p'), {
+      className: 'empty',
+      textContent: 'This build does not have this effect. It is kept as the file wrote it, is '
+        + 'not drawn, and its settings cannot be changed here.',
+    }));
+    return box;
+  }
+  const dl = document.createElement('dl');
+  const fields = {};
+  const send = () => {
+    const parts = known.map(([name]) => '&' + name + '='
+      + encodeURIComponent(fields[name].value.trim()));
+    command('/effect.set_parameters' + where + parts.join(''));
+  };
+  for (const [name, words, count] of known) {
+    const dt = document.createElement('dt');
+    dt.textContent = words;
+    const dd = document.createElement('dd');
+    const held = (fx.parameters || {})[name];
+    const input = document.createElement('input');
+    input.type = count === 1 ? 'number' : 'text';
+    if (count === 1) input.step = 'any';
+    input.value = Array.isArray(held) ? held.map(number).join(', ') : number(held || 0);
+    input.setAttribute('aria-label', label + ' ' + words);
+    input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } };
+    input.onchange = send;
+    fields[name] = input;
+    dd.append(input);
+    dl.append(dt, dd);
+  }
+  box.append(dl);
+  return box;
+}
+
+// Document 21 evaluates the stack in order, so it is listed in order, top to bottom.
+function drawEffects() {
+  const layer = selected();
+  const into = $('effects');
+  $('addeffect').disabled = !layer;
+  const empty = (words) => Object.assign(document.createElement('p'),
+    { className: 'empty', textContent: words });
+  if (!layer) { into.replaceChildren(empty('No layer is selected.')); return; }
+  const stack = layer.effects || [];
+  if (!stack.length) { into.replaceChildren(empty('This layer has no effects.')); return; }
+  into.replaceChildren(...stack.map((fx) => effectRow(layer, fx)));
 }
 
 function drawPanels() {
@@ -558,6 +666,7 @@ function drawPanels() {
   drawAssets();
   drawLayers();
   drawInspector();
+  drawEffects();
   const layer = selected();
   $('dellayer').disabled = !layer;
   $('up').disabled = !layer;
@@ -675,6 +784,13 @@ $('addlayer').onclick = () => {
 $('dellayer').onclick = onSelected('layer.delete');
 $('up').onclick = onSelected('layer.move_up');
 $('down').onclick = onSelected('layer.move_down');
+$('addeffect').onchange = (e) => {
+  const chosen = e.target.value;
+  e.target.selectedIndex = 0;
+  if (chosen && selectedLayer) {
+    command('/effect.add?layer=' + encodeURIComponent(selectedLayer) + '&type=' + chosen);
+  }
+};
 $('undo').onclick = () => command('/edit.undo');
 $('redo').onclick = () => command('/edit.redo');
 
