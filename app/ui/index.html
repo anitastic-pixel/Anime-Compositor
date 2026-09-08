@@ -11,11 +11,30 @@
     font: 13px/1.5 "Segoe UI", system-ui, sans-serif;
     user-select: none;
   }
-  /* `minmax(0, 1fr)` and not `1fr`: a grid track sizes itself to its item first, so the canvas
-     would make the row taller than the stage and then be cut off by the bar at large text sizes
-     rather than shrinking to fit. */
+  /* Document 24's G1 default layout: "media bin left, composition viewer center,
+     inspector/effects right, timeline bottom, status/diagnostics strip". The three columns are
+     one row, the timeline is under them and the strip is under that.
+
+     `minmax(0, 1fr)` and not `1fr` throughout: a grid track sizes itself to its item first, so
+     the canvas would make its row taller than the window and be cut off rather than shrinking
+     to fit. That is Q-03's second defect and it comes straight back if these are simplified. */
+  #work {
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr) 260px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .panel {
+    min-width: 0; min-height: 0; overflow: auto;
+    border-right: 1px solid #26262b; padding: 8px;
+  }
+  .panel h2 {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #8b8b94; margin: 0 0 6px; font-weight: 600;
+  }
+  #inspector { border-right: none; border-left: 1px solid #26262b; }
   #stage {
-    flex: 1; display: grid; place-items: center; min-height: 0; padding: 12px;
+    display: grid; place-items: center; min-height: 0; min-width: 0; padding: 12px;
     grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
   }
   /* Checkerboard, so a transparent frame reads as transparent rather than as black. */
@@ -27,24 +46,25 @@
       linear-gradient(45deg, #333338 25%, transparent 25%, transparent 75%, #333338 75%);
     background-size: 16px 16px; background-position: 0 0, 8px 8px;
   }
-  /* Q-03, display scaling: at a large text size in a small window the bar wraps onto many lines,
-     and a bar allowed to grow without limit takes the whole window and the picture disappears.
-     It keeps at most half and scrolls the rest, so the thing being composited is always on
-     screen. */
-  #bar {
+  /* Q-03, display scaling: at a large text size in a small window these wrap onto many lines,
+     and a strip allowed to grow without limit takes the whole window and the picture
+     disappears. Each keeps at most a third and scrolls the rest, so the thing being composited
+     is always on screen. */
+  #timeline, #bar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 8px 12px; border-top: 1px solid #26262b; background: #1a1a1d;
-    max-height: 50vh; overflow-y: auto;
+    max-height: 33vh; overflow-y: auto;
   }
   button {
     font: inherit; color: inherit; background: #26262b;
     border: 1px solid #35353c; border-radius: 4px; padding: 3px 10px; cursor: pointer;
   }
   button:hover { background: #303038; }
+  button:disabled { color: #5a5a62; cursor: default; background: #202024; }
   /* Q-03: every control must be reachable by keyboard and it must be obvious which one has the
      keyboard. The ring is its own colour — orange already means a warning here and green already
      means a save happened, so a third meaning would have to borrow one of those. */
-  button:focus-visible, select:focus-visible {
+  button:focus-visible, select:focus-visible, input:focus-visible, li:focus-visible {
     outline: 2px solid #7aa7ff; outline-offset: 2px;
   }
   #quality { font-weight: 600; }
@@ -73,7 +93,7 @@
   #exported.running { color: #7fb37f; }
   label { display: inline-flex; align-items: center; gap: 5px; }
   input[type=checkbox]:focus-visible { outline: 2px solid #7aa7ff; outline-offset: 2px; }
-  select {
+  select, input[type=text] {
     font: inherit; color: inherit; background: #26262b;
     border: 1px solid #35353c; border-radius: 4px; padding: 3px 6px; max-width: 260px;
   }
@@ -85,17 +105,63 @@
     color: #e8b06a; white-space: pre-wrap;
   }
   #notes:empty { display: none; }
+
+  /* The two lists — drawings on the left, layers in the timeline. Both are real lists rather
+     than rows of buttons, so a screen reader and the Tab key see a list. */
+  ul.rows { list-style: none; margin: 0; padding: 0; }
+  ul.rows li {
+    display: flex; align-items: center; gap: 6px;
+    padding: 2px 4px; border-radius: 3px; cursor: default;
+  }
+  ul.rows li:hover { background: #202026; }
+  ul.rows li[aria-selected=true] { background: #2c3a52; }
+  ul.rows .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* A layer that is switched off or locked says so in text as well as in colour, because
+     document 24's accessibility baseline forbids colour as the only carrier of a state. */
+  ul.rows .off { color: #6a6a72; }
+  ul.rows .mark { color: #8b8b94; font-size: 11px; }
+  ul.rows button {
+    padding: 0 4px; border-color: transparent; background: transparent; line-height: 1;
+  }
+  #layers { min-width: 260px; flex: 1; }
+  #bin .kind { color: #6a6a72; font-size: 11px; }
+  #inspector dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; }
+  #inspector dt { color: #8b8b94; }
+  #inspector dd { margin: 0; overflow-wrap: anywhere; }
+  #inspector .empty { color: #6a6a72; }
+  .group { margin-bottom: 14px; }
 </style>
 </head>
 <body>
-<div id="stage"><canvas id="view" width="480" height="270"></canvas></div>
-<div id="bar">
+<div id="work">
+  <div class="panel" id="bin">
+    <h2>Drawings</h2>
+    <ul class="rows" id="assets"></ul>
+    <p class="empty" id="noassets" hidden>This project has no drawings in it.</p>
+  </div>
+  <div id="stage"><canvas id="view" width="480" height="270"></canvas></div>
+  <div class="panel" id="inspector">
+    <h2>Layer</h2>
+    <div id="detail"><p class="empty">No layer is selected.</p></div>
+  </div>
+</div>
+<div id="timeline">
   <button id="play">Play</button>
   <button id="back">&#8592;</button>
   <button id="fwd">&#8594;</button>
   <span id="frame">frame &mdash;</span>
   <span id="quality">&mdash;</span>
   <button id="toggle">Full resolution</button>
+  <ul class="rows" id="layers"></ul>
+  <span class="hint" id="nolayers" hidden>This composition has no layers.</span>
+</div>
+<div id="bar">
+  <button id="addlayer">Add layer</button>
+  <button id="dellayer">Delete layer</button>
+  <button id="up">Forward</button>
+  <button id="down">Back</button>
+  <button id="undo">Undo</button>
+  <button id="redo">Redo</button>
   <span id="project">&mdash;</span><span id="dirty"></span>
   <button id="open">Open&hellip;</button>
   <button id="save">Save</button>
@@ -105,7 +171,7 @@
   <button id="export">Export&hellip;</button>
   <button id="cancelexport" hidden>Cancel export</button>
   <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
-  <span class="hint">space, arrows, D &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E &middot; or drop a project file here</span>
+  <span class="hint">space, arrows, D &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E &middot; or drop a project file here</span>
   <span id="status"></span>
   <span id="autosaved"></span>
   <span id="report"></span>
@@ -124,11 +190,13 @@ addEventListener('error', (e) => {
 // way they do rather than as a scheme of their own. Both addresses are on this machine, and
 // `tests/b11_offline_record.rs` requires that every address written in this file is.
 const FRAMES = 'http://frame.localhost';
-// The command transport, beside the frame one: open, save, save as, recent. A command is a
-// request with an answer, and its answer is the sentence the status line shows.
+// The command transport, beside the frame one. A command is a request with an answer, and its
+// answer is the sentence the status line shows. `/state` is the one exception: it answers with
+// the open project, which is what the panels below are drawn from.
 const PROJECT = 'http://project.localhost';
 
-const view = document.getElementById('view');
+const $ = (id) => document.getElementById(id);
+const view = $('view');
 const paint = view.getContext('2d');
 
 let playing = false;
@@ -137,6 +205,15 @@ let quality = 'draft';
 let frame = 0;
 let inFlight = false;
 let watching = 0;     // the timer that asks again while an export is running
+
+// The open project as the core last described it, and which layer and drawing are being worked
+// on. Document 24: "One primary selection context exists at a time." Selection lives here and
+// nowhere else — it is not a fact about the project and does not belong in the file, so it is
+// not sent to Rust and it is not saved.
+let doc = null;
+let selectedLayer = null;
+let selectedAsset = null;
+let renaming = false; // an inline edit is open; accelerators keep off the keyboard while it is
 
 // A request already on its way is never joined by a second one. That is the whole of this
 // page's part in D-32: the clock keeps running while a frame is being made, so the next answer
@@ -148,10 +225,10 @@ async function show(url) {
   try {
     const response = await fetch(url);
     if (!response.ok) {
-      document.getElementById('report').textContent = await response.text();
-      document.getElementById('report').className = 'dropped';
+      $('report').textContent = await response.text();
+      $('report').className = 'dropped';
       playing = false;
-      document.getElementById('play').textContent = 'Play';
+      $('play').textContent = 'Play';
       return;
     }
     const h = response.headers;
@@ -163,50 +240,45 @@ async function show(url) {
     paint.putImageData(new ImageData(pixels, width, height), 0, 0);
 
     frame = +h.get('x-frame');
-    document.getElementById('frame').textContent = 'frame ' + frame;
+    $('frame').textContent = 'frame ' + frame;
 
     // The indicator describes the render that just arrived, because it came back with it.
     const differs = h.get('x-differs') === 'true';
-    const label = document.getElementById('quality');
+    const label = $('quality');
     label.textContent = h.get('x-quality') + ' — ' + width + '×' + height
       + (differs ? ', not final pixels' : ', same as export');
     label.className = differs ? 'differs' : '';
-    document.getElementById('toggle').textContent =
-      differs ? 'Full resolution' : 'Draft resolution';
+    $('toggle').textContent = differs ? 'Full resolution' : 'Draft resolution';
     quality = differs ? 'draft' : 'full';
 
-    const report = document.getElementById('report');
+    const report = $('report');
     report.textContent = h.get('x-report') || '';
     report.className = +h.get('x-skipped') > 0 ? 'dropped' : '';
 
     // Which project these pixels came from, and what the core said when it opened it. Both
     // travel percent-encoded, because a project named in Japanese cannot ride a header raw.
-    document.getElementById('project').textContent =
-      decodeURIComponent(h.get('x-project') || '');
+    $('project').textContent = decodeURIComponent(h.get('x-project') || '');
     // Document 26's dirty state, as the core answers it. A dot, because it has to be visible
     // without being read.
-    document.getElementById('dirty').textContent =
-      h.get('x-dirty') === 'true' ? ' • unsaved' : '';
-    document.getElementById('status').textContent =
-      decodeURIComponent(h.get('x-status') || '');
-    document.getElementById('autosaved').textContent =
-      decodeURIComponent(h.get('x-autosaved') || '');
+    $('dirty').textContent = h.get('x-dirty') === 'true' ? ' • unsaved' : '';
+    $('status').textContent = decodeURIComponent(h.get('x-status') || '');
+    $('autosaved').textContent = decodeURIComponent(h.get('x-autosaved') || '');
     // The export writes on a thread in Rust and says nothing until asked, so while one is
     // running the page asks again every second. Nothing here decides what it wrote: the sentence
     // is the core's report, built in Rust from what actually reached the disk.
     const exporting = h.get('x-exporting') === 'true';
-    const exported = document.getElementById('exported');
+    const exported = $('exported');
     exported.textContent = decodeURIComponent(h.get('x-export') || '');
     exported.className = exporting ? 'running' : '';
-    document.getElementById('cancelexport').hidden = !exporting;
-    document.getElementById('export').disabled = exporting;
+    $('cancelexport').hidden = !exporting;
+    $('export').disabled = exporting;
     clearTimeout(watching);
     if (exporting && !playing) {
       watching = setTimeout(() => show(FRAMES + '/frame/' + frame + '?q=' + quality), 1000);
     }
     // The snapshots there are to recover, rebuilt from the frame that just arrived because the
     // timer adds one every two minutes and the list must not go stale while somebody works.
-    const recovery = document.getElementById('recovery');
+    const recovery = $('recovery');
     const paths = decodeURIComponent(h.get('x-recovery') || '').split('\n').filter(Boolean);
     recovery.hidden = paths.length === 0;
     if (recovery.dataset.paths !== paths.join('\n')) {
@@ -215,17 +287,17 @@ async function show(url) {
         (path) => new Option(path, path)));
     }
     const notes = decodeURIComponent(h.get('x-notes') || '');
-    const list = document.getElementById('notes');
+    const list = $('notes');
     list.replaceChildren(...(notes ? notes.split('\n') : []).map((line) => {
       const item = document.createElement('li');
       item.textContent = line;
       return item;
     }));
   } catch (e) {
-    document.getElementById('report').textContent = 'the frame did not arrive: ' + e;
-    document.getElementById('report').className = 'dropped';
+    $('report').textContent = 'the frame did not arrive: ' + e;
+    $('report').className = 'dropped';
     playing = false;
-    document.getElementById('play').textContent = 'Play';
+    $('play').textContent = 'Play';
   } finally {
     inFlight = false;
   }
@@ -238,53 +310,277 @@ function tick() {
 
 function step(by) {
   playing = false;
-  document.getElementById('play').textContent = 'Play';
+  $('play').textContent = 'Play';
   show(FRAMES + '/frame/' + (frame + by) + '?q=' + quality);
 }
 
-document.getElementById('play').onclick = () => {
+// -------------------------------------------------------------------------------------------
+// The panels
+// -------------------------------------------------------------------------------------------
+
+// The composition being edited, out of the project the core last sent.
+function composition() {
+  if (!doc) return null;
+  return (doc.project.compositions || []).find((c) => c.id === doc.composition) || null;
+}
+
+// Layers in document 19's composition order, which `compose.rs` draws bottom first. The list
+// shows them the other way up, because in a stack the thing in front belongs at the top.
+function layers() {
+  const comp = composition();
+  return comp ? (comp.layers || []) : [];
+}
+
+function selected() {
+  return layers().find((l) => l.id === selectedLayer) || null;
+}
+
+function row(selectedId, id, label, extra) {
+  const li = document.createElement('li');
+  li.dataset.id = id;
+  li.tabIndex = 0;
+  li.setAttribute('role', 'option');
+  li.setAttribute('aria-selected', String(id === selectedId));
+  if (extra) li.append(...extra);
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = label;
+  li.append(name);
+  return li;
+}
+
+// An icon-only control needs an accessible name, per document 24's accessibility baseline.
+function iconButton(text, title, onClick) {
+  const b = document.createElement('button');
+  b.textContent = text;
+  b.title = title;
+  b.setAttribute('aria-label', title);
+  b.onclick = (e) => { e.stopPropagation(); onClick(); };
+  return b;
+}
+
+function drawAssets() {
+  const assets = doc ? (doc.project.assets || []) : [];
+  const list = $('assets');
+  $('noassets').hidden = assets.length > 0;
+  list.replaceChildren(...assets.map((asset) => {
+    const kind = document.createElement('span');
+    kind.className = 'kind';
+    // "still" or "image_sequence", and for a sequence how many drawings are in it — which is
+    // the number a person checks a scan against before making a layer out of it.
+    kind.textContent = asset.kind === 'image_sequence'
+      ? Object.keys(asset.frames || {}).length + ' frames' : 'still';
+    const li = row(selectedAsset, asset.id, asset.name, []);
+    li.append(kind);
+    li.onclick = () => { selectedAsset = asset.id; drawPanels(); };
+    li.ondblclick = () => command('/layer.create?asset=' + encodeURIComponent(asset.id)
+      + '&name=' + encodeURIComponent(asset.name));
+    return li;
+  }));
+}
+
+function drawLayers() {
+  const all = layers();
+  $('nolayers').hidden = all.length > 0;
+  // Reversed: the last layer in composition order is drawn last and so is in front.
+  const list = $('layers');
+  list.replaceChildren(...all.slice().reverse().map((layer) => {
+    const eye = iconButton(layer.enabled ? '●' : '○',
+      layer.enabled ? 'Hide ' + layer.name : 'Show ' + layer.name,
+      () => command('/layer.toggle_visibility?layer=' + encodeURIComponent(layer.id)));
+    const lock = iconButton(layer.locked ? '🔒' : '🔓',
+      layer.locked ? 'Unlock ' + layer.name : 'Lock ' + layer.name,
+      () => command('/layer.toggle_lock?layer=' + encodeURIComponent(layer.id)));
+    const li = row(selectedLayer, layer.id, layer.name, [eye, lock]);
+    // Colour is not the only carrier: a layer that is off or locked says so in words.
+    if (!layer.enabled || layer.locked) {
+      const mark = document.createElement('span');
+      mark.className = 'mark';
+      mark.textContent = [!layer.enabled ? 'hidden' : null, layer.locked ? 'locked' : null]
+        .filter(Boolean).join(', ');
+      li.append(mark);
+      if (!layer.enabled) li.querySelector('.name').className = 'name off';
+    }
+    li.onclick = () => { selectedLayer = layer.id; drawPanels(); };
+    li.ondblclick = () => beginRename();
+    return li;
+  }));
+}
+
+function field(into, term, value) {
+  const dt = document.createElement('dt');
+  dt.textContent = term;
+  const dd = document.createElement('dd');
+  dd.textContent = value;
+  into.append(dt, dd);
+}
+
+function drawInspector() {
+  const layer = selected();
+  const into = $('detail');
+  if (!layer) {
+    into.replaceChildren(Object.assign(document.createElement('p'),
+      { className: 'empty', textContent: 'No layer is selected.' }));
+    return;
+  }
+  const dl = document.createElement('dl');
+  field(dl, 'Name', layer.name);
+  field(dl, 'Identifier', layer.id);
+  field(dl, 'Drawing', layer.asset_id);
+  field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive');
+  field(dl, 'Blend', layer.blend_mode);
+  // What is on this layer that this panel cannot yet change is still said, because a person
+  // deciding whether a layer is the one they want needs to know it carries a mask.
+  field(dl, 'Effects', (layer.effects || []).length
+    ? (layer.effects || []).map((e) => e.type_id).join(', ') : 'none');
+  field(dl, 'Mask', layer.mask ? layer.mask.vertices.length + ' points' : 'none');
+  field(dl, 'Matte', layer.matte
+    ? layer.matte.layer_id + (layer.matte.matte_only ? ', matte only' : '') : 'none');
+  into.replaceChildren(dl);
+}
+
+function drawPanels() {
+  // A layer that has gone — deleted, or undone into existence and back out — must not stay
+  // selected, or the next Delete would name something that is not there.
+  if (selectedLayer && !selected()) selectedLayer = null;
+  drawAssets();
+  drawLayers();
+  drawInspector();
+  const layer = selected();
+  $('dellayer').disabled = !layer;
+  $('up').disabled = !layer;
+  $('down').disabled = !layer;
+  $('addlayer').disabled = !selectedAsset;
+  // Document 26 requires a label on every history record, and this is where it earns its keep:
+  // a person who has been away from the window cannot otherwise know what Undo is about to
+  // take back.
+  const undoable = doc ? doc.undo : [];
+  const redoable = doc ? doc.redo : [];
+  $('undo').disabled = undoable.length === 0;
+  $('undo').textContent = undoable.length ? 'Undo ' + undoable[undoable.length - 1] : 'Undo';
+  $('redo').disabled = redoable.length === 0;
+  $('redo').textContent = redoable.length ? 'Redo ' + redoable[0] : 'Redo';
+}
+
+// The open project, as the core describes it. Asked for after every command rather than tracked
+// here: the page holds no model of its own, so it cannot come to disagree with the file.
+async function refreshState() {
+  try {
+    doc = await (await fetch(PROJECT + '/state')).json();
+  } catch (e) {
+    $('report').textContent = 'the project did not arrive: ' + e;
+    $('report').className = 'dropped';
+    return;
+  }
+  drawPanels();
+}
+
+// -------------------------------------------------------------------------------------------
+// Renaming, which is the one edit made in place
+// -------------------------------------------------------------------------------------------
+
+// F2, or a double click. Document 24: "Escape cancels an active drag/edit before it clears
+// selection", so Escape puts the old name back and Enter commits.
+function beginRename() {
+  const layer = selected();
+  if (!layer || renaming) return;
+  const li = $('layers').querySelector('li[data-id="' + CSS.escape(layer.id) + '"]');
+  if (!li) return;
+  const name = li.querySelector('.name');
+  const box = document.createElement('input');
+  box.type = 'text';
+  box.value = layer.name;
+  box.className = 'name';
+  box.setAttribute('aria-label', 'Rename ' + layer.name);
+  renaming = true;
+  const finish = (commit) => {
+    if (!renaming) return;
+    renaming = false;
+    const wanted = box.value;
+    if (commit && wanted !== layer.name) {
+      command('/layer.rename?layer=' + encodeURIComponent(layer.id)
+        + '&name=' + encodeURIComponent(wanted));
+    } else {
+      drawPanels();
+    }
+  };
+  box.onkeydown = (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') finish(true);
+    else if (e.key === 'Escape') finish(false);
+  };
+  box.onblur = () => finish(true);   // document 24: losing focus commits, and never half-applies
+  name.replaceWith(box);
+  box.focus();
+  box.select();
+}
+
+// -------------------------------------------------------------------------------------------
+// Wiring
+// -------------------------------------------------------------------------------------------
+
+$('play').onclick = () => {
   playing = !playing;
   if (playing) started = performance.now();
-  document.getElementById('play').textContent = playing ? 'Pause' : 'Play';
+  $('play').textContent = playing ? 'Pause' : 'Play';
 };
-document.getElementById('back').onclick = () => step(-1);
-document.getElementById('fwd').onclick = () => step(1);
-document.getElementById('toggle').onclick = () => {
+$('back').onclick = () => step(-1);
+$('fwd').onclick = () => step(1);
+$('toggle').onclick = () => {
   quality = quality === 'draft' ? 'full' : 'draft';
   show(FRAMES + '/frame/' + frame + '?q=' + quality);
 };
 
-// A command, and then the current frame again so that everything the window says about the
-// project — its name, its warnings, whether it has unsaved work — comes back from the same
-// place it always does. A command that opens a dialog answers immediately and says nothing;
-// what it eventually does reaches the page as a reload, from Rust.
+// A command, then the project again, then the current frame — in that order, so that everything
+// the window says about the project comes back from the core rather than being guessed here.
+// A command that opens a dialog answers immediately and says nothing; what it eventually does
+// reaches the page as a reload, from Rust.
 async function command(what) {
   try {
     const said = await (await fetch(PROJECT + what)).text();
-    if (said) document.getElementById('status').textContent = said;
+    if (said) $('status').textContent = said;
   } catch (e) {
-    document.getElementById('report').textContent = 'the command did not arrive: ' + e;
-    document.getElementById('report').className = 'dropped';
+    $('report').textContent = 'the command did not arrive: ' + e;
+    $('report').className = 'dropped';
     return;
   }
+  await refreshState();
   show(FRAMES + '/frame/' + frame + '?q=' + quality);
 }
 
-document.getElementById('open').onclick = () => command('/open');
-document.getElementById('save').onclick = () => command('/save');
-document.getElementById('saveas').onclick = () => command('/save-as');
+// The layer commands. Each sends the selection it was clicked with; Rust looks the layer up
+// again and refuses if it has gone, because this list can be older than the document.
+const onSelected = (id) => () => {
+  if (!selectedLayer) return;
+  command('/' + id + '?layer=' + encodeURIComponent(selectedLayer));
+};
+$('addlayer').onclick = () => {
+  if (!selectedAsset) return;
+  const asset = (doc.project.assets || []).find((a) => a.id === selectedAsset);
+  command('/layer.create?asset=' + encodeURIComponent(selectedAsset)
+    + '&name=' + encodeURIComponent(asset ? asset.name : 'New layer'));
+};
+$('dellayer').onclick = onSelected('layer.delete');
+$('up').onclick = onSelected('layer.move_up');
+$('down').onclick = onSelected('layer.move_down');
+$('undo').onclick = () => command('/edit.undo');
+$('redo').onclick = () => command('/edit.redo');
+
+$('open').onclick = () => command('/open');
+$('save').onclick = () => command('/save');
+$('saveas').onclick = () => command('/save-as');
 // The checkbox travels with the command rather than being remembered anywhere: document 07's
 // default is that a missing drawing blocks the export, and an override has to be a thing the
 // person did this time, in front of the words that say what it does.
-document.getElementById('export').onclick = () =>
-  command('/export' + (document.getElementById('anyway').checked ? '?missing=write' : ''));
-document.getElementById('cancelexport').onclick = () => command('/cancel-export');
-document.getElementById('recent').onchange = (e) => {
+$('export').onclick = () =>
+  command('/export' + ($('anyway').checked ? '?missing=write' : ''));
+$('cancelexport').onclick = () => command('/cancel-export');
+$('recent').onchange = (e) => {
   const chosen = e.target.value;
   e.target.selectedIndex = 0;
   if (chosen) command('/open?path=' + encodeURIComponent(chosen));
 };
-document.getElementById('recovery').onchange = (e) => {
+$('recovery').onchange = (e) => {
   const chosen = e.target.value;
   e.target.selectedIndex = 0;
   if (chosen) command('/recover?path=' + encodeURIComponent(chosen));
@@ -293,7 +589,7 @@ document.getElementById('recovery').onchange = (e) => {
 // The list is rebuilt on every load, which is also every open and every save-as, because those
 // reload the page. Full paths, because two shots in two directories are often both "shot.json".
 async function fillRecent() {
-  const list = document.getElementById('recent');
+  const list = $('recent');
   try {
     const text = await (await fetch(PROJECT + '/recent')).text();
     for (const path of text.split('\n').filter(Boolean)) {
@@ -306,12 +602,20 @@ async function fillRecent() {
 }
 
 addEventListener('keydown', (e) => {
-  // Q-03: a control that has the keyboard keeps it. Space on the focused Save button has to save,
-  // not start playback, and an arrow on the recent list has to move through the list. The
-  // accelerators below are for when nothing in particular is focused; Ctrl combinations are not,
-  // because those mean the same thing everywhere and no button answers them.
-  const onAControl = e.target instanceof Element && e.target.closest('button, select, input');
-  if (onAControl && !e.ctrlKey) return;
+  // Q-03: a control that has the keyboard keeps it. This found three real defects once already
+  // and the rules below are what fixed them, so read before simplifying.
+  //
+  // A text field keeps every key it can use, including Delete and F2, and only Ctrl passes it.
+  // Any other focused control keeps Space and the arrows — Space on the focused Save button has
+  // to save rather than start playback, and an arrow on the recent list has to move through the
+  // list. Everything else falls through to the accelerators, which are for when nothing in
+  // particular is focused.
+  const el = e.target instanceof Element
+    ? e.target.closest('button, select, input, [contenteditable]') : null;
+  const typing = renaming || (el && el.tagName === 'INPUT' && el.type !== 'checkbox');
+  if (typing && !e.ctrlKey) return;
+  if (el && !e.ctrlKey && (e.key === ' ' || e.key.startsWith('Arrow'))) return;
+
   if (e.ctrlKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); command('/open'); }
   else if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
     e.preventDefault();
@@ -319,17 +623,35 @@ addEventListener('keydown', (e) => {
   }
   else if (e.ctrlKey && (e.key === 'e' || e.key === 'E')) {
     e.preventDefault();
-    document.getElementById('export').click();
+    $('export').click();
   }
+  // Document 24: Ctrl+Z undo, Ctrl+Shift+Z redo, Ctrl+Alt+L add layer, Ctrl+] and Ctrl+[ move
+  // the selected layer toward the front and toward the back.
+  else if (e.ctrlKey && (e.key === 'z' || e.key === 'Z')) {
+    e.preventDefault();
+    (e.shiftKey ? $('redo') : $('undo')).click();
+  }
+  else if (e.ctrlKey && e.altKey && (e.key === 'l' || e.key === 'L')) {
+    e.preventDefault();
+    $('addlayer').click();
+  }
+  else if (e.ctrlKey && e.key === ']') { e.preventDefault(); $('up').click(); }
+  else if (e.ctrlKey && e.key === '[') { e.preventDefault(); $('down').click(); }
   else if (e.ctrlKey) { /* leave every other accelerator alone */ }
-  else if (e.key === ' ') { e.preventDefault(); document.getElementById('play').click(); }
+  else if (e.key === 'F2') { e.preventDefault(); beginRename(); }
+  // Document 24: "Deleting uses the focused context and must show the target clearly before
+  // destructive commands." The target is the row that is visibly selected, and the button that
+  // does the same thing names it too.
+  else if (e.key === 'Delete') { e.preventDefault(); $('dellayer').click(); }
+  else if (e.key === ' ') { e.preventDefault(); $('play').click(); }
   else if (e.key === 'ArrowLeft') step(-1);
   else if (e.key === 'ArrowRight') step(1);
-  else if (e.key === 'd' || e.key === 'D') document.getElementById('toggle').click();
+  else if (e.key === 'd' || e.key === 'D') $('toggle').click();
 });
 
 // D-35: at rest the viewer shows the work area's first frame.
 show(FRAMES + '/frame/0?q=draft');
+refreshState();
 fillRecent();
 requestAnimationFrame(tick);
 </script>

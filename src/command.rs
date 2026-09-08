@@ -402,6 +402,12 @@ impl Document {
     pub fn undo_labels(&self) -> Vec<&str> {
         self.undo.iter().map(|r| r.label.as_str()).collect()
     }
+    /// Newest first, so the first entry is the label a Redo button should carry. The undo side
+    /// is oldest first because a history panel reads downwards; this one has no panel and only
+    /// ever answers "what would Redo do next".
+    pub fn redo_labels(&self) -> Vec<&str> {
+        self.redo.iter().rev().map(|r| r.label.as_str()).collect()
+    }
 
     /// Document 26: "If the current document state becomes byte/semantic-equivalent to the
     /// last successful save revision, dirty becomes false even if history contains later

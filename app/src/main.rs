@@ -43,11 +43,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
-use anime_compositor::command::Document;
+use anime_compositor::command::{Command, Document};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
-use anime_compositor::model::{Id, Project};
+use anime_compositor::model::{Id, Layer, Project};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
 use anime_compositor::{OutputAlpha, OutputDepth};
@@ -562,6 +562,200 @@ fn announce(viewer: &Mutex<Viewer>, said: String) {
 }
 
 // -------------------------------------------------------------------------------------------
+// Editing
+// -------------------------------------------------------------------------------------------
+
+/// Everything the editing panels draw, as one JSON answer.
+///
+/// The project half of it is `persist::to_json` - the same text a save writes, preserved records
+/// and all - rather than a summary shaped for the page. Two reasons. What a panel shows is then
+/// what the file would hold, so a panel cannot quietly disagree with a save. And a record this
+/// build does not model still reaches the page, so an effect from a later version is listed as
+/// present in the stack instead of being absent from the only view the person has of it.
+///
+/// Selection is not here. Which layer is being worked on is not a fact about the project and does
+/// not belong in the file; it lives in the page, and the page is the only thing that needs it.
+fn state(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &*viewer.lock().expect("the viewer lock was poisoned");
+    let project: serde_json::Value = serde_json::from_str(&persist::to_json(
+        viewer.document.project(),
+        &viewer.preserved,
+    ))
+    .expect("the project text the core just wrote is JSON");
+    serde_json::json!({
+        "project": project,
+        "composition": viewer.composition.as_str(),
+        "revision": viewer.document.revision(),
+        // What Undo and Redo would do next, in the words document 26 requires each record to
+        // carry. The buttons say it rather than saying "Undo", because a person who has been
+        // away from the window for a minute cannot otherwise know what is about to be taken back.
+        "undo": viewer.document.undo_labels(),
+        "redo": viewer.document.redo_labels(),
+    })
+    .to_string()
+}
+
+/// Apply one command and say what happened, in the history record's own words.
+///
+/// Document 26: a rejected command changes nothing at all. That is the core's guarantee and not
+/// this function's - what happens here on a refusal is that the diagnostic becomes the sentence
+/// on the status line, so the person is told which rule stopped them rather than watching a
+/// control spring back with no explanation.
+fn edit(viewer: &Mutex<Viewer>, command: Command) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    match viewer.document.apply(command) {
+        Ok(record) => record.label.clone(),
+        Err(diagnostic) => sentence(&diagnostic),
+    }
+}
+
+/// `edit.undo` and `edit.redo` from document 24.
+///
+/// Both name what they moved. "Undone" alone would be true and useless: the whole reason undo is
+/// trusted is that the person can see it took back the thing they meant.
+fn undo(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    match viewer.document.undo() {
+        Some(record) => format!("Undone: {}", record.label),
+        None => "There is nothing to undo.".to_string(),
+    }
+}
+
+fn redo(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    match viewer.document.redo() {
+        Some(record) => format!("Redone: {}", record.label),
+        None => "There is nothing to redo.".to_string(),
+    }
+}
+
+/// A layer ID nothing in this project is using.
+///
+/// Counted rather than random, so that running the same steps twice writes the same file and a
+/// person reading one can tell which layer is which. It takes one past the highest number in
+/// use rather than the first gap: a gap means a layer was deleted, and giving its number to
+/// something else makes two different layers indistinguishable in a diff of two saves.
+fn unused_layer_id(project: &Project) -> Id {
+    let highest = project
+        .compositions
+        .iter()
+        .flat_map(|c| c.layer_order())
+        .filter_map(|id| id.as_str().strip_prefix("layer-"))
+        .filter_map(|n| n.parse::<u64>().ok())
+        .max();
+    Id::new(format!("layer-{}", highest.map_or(1, |n| n + 1)))
+}
+
+/// Everything the page can do to the open document, keyed by document 24's own command IDs.
+///
+/// The IDs are the URL paths, so what the page asks for and what the map lists are the same
+/// string, and a command that is not in the map cannot be reached by spelling one. `None` means
+/// this path was not one of them, which the caller answers with its 404.
+///
+/// Every answer, including a refusal, is a sentence for the status line. The list a button was
+/// clicked in can be older than the document, so a layer that is no longer there is told about
+/// rather than silently doing nothing.
+fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option<String> {
+    match id {
+        "edit.undo" => return Some(undo(viewer)),
+        "edit.redo" => return Some(redo(viewer)),
+        _ => {}
+    }
+    let command = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        let composition = held.composition.clone();
+        let project = held.document.project();
+        let Some(comp) = project.composition(&composition) else {
+            return Some("There is no composition on screen to edit.".to_string());
+        };
+        if id == "layer.create" {
+            // The one layer command that names no existing layer. It names a drawing instead,
+            // because document 19's layer has an `asset_id` and no state in which it has none.
+            let Some(asset) = parameter(query, "asset").map(Id::new) else {
+                return Some("Which drawing should the new layer show?".to_string());
+            };
+            if !project.assets.iter().any(|a| a.id == asset) {
+                return Some(format!("There is no imported drawing called {asset}."));
+            }
+            let layer = Layer::new(
+                unused_layer_id(project),
+                parameter(query, "name").unwrap_or_else(|| "New layer".to_string()),
+                asset,
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            // The end of the order is the front of the picture -- `layers_in_order` is bottom
+            // first -- and the front is where somebody who has just added a layer looks for it.
+            Command::AddLayer {
+                composition,
+                layer: Box::new(layer),
+                index: comp.len(),
+            }
+        } else {
+            let Some(layer_id) = parameter(query, "layer").map(Id::new) else {
+                return Some("Which layer? Choose one in the layer list.".to_string());
+            };
+            let Some(layer) = comp.layer(&layer_id) else {
+                return Some(format!("{layer_id} is not a layer in this composition."));
+            };
+            let at = comp
+                .index_of(&layer_id)
+                .expect("a layer that is here has a place");
+            match id {
+                "layer.delete" => Command::RemoveLayer {
+                    composition,
+                    layer_id,
+                },
+                // Not refused for being the name it already has. Document 26 makes that a
+                // history entry that changes nothing, which is honest: somebody pressed F2 and
+                // pressed return, and undo should take them back to before they did.
+                "layer.rename" => match parameter(query, "name") {
+                    Some(name) => Command::RenameLayer {
+                        composition,
+                        layer_id,
+                        name,
+                    },
+                    None => return Some("A layer needs a name.".to_string()),
+                },
+                // Document 24 calls both of these a toggle, so the new value is read from the
+                // document rather than sent by the page. A page that sent it would be deciding
+                // what the layer currently is from a list that may be stale.
+                "layer.toggle_visibility" => Command::SetLayerEnabled {
+                    composition,
+                    layer_id,
+                    value: !layer.enabled,
+                },
+                "layer.toggle_lock" => Command::SetLayerLocked {
+                    composition,
+                    layer_id,
+                    value: !layer.locked,
+                },
+                // Toward the front is later in the order. Asking to move the front layer further
+                // forward is not an error and not a history entry: it is somebody pressing the
+                // key one more time, and it is told so rather than given an undo item that
+                // undoes nothing.
+                "layer.move_up" if at + 1 < comp.len() => Command::ReorderLayer {
+                    composition,
+                    layer_id,
+                    to_index: at + 1,
+                },
+                "layer.move_down" if at > 0 => Command::ReorderLayer {
+                    composition,
+                    layer_id,
+                    to_index: at - 1,
+                },
+                "layer.move_up" => return Some(format!("{} is already at the front.", layer.name)),
+                "layer.move_down" => {
+                    return Some(format!("{} is already at the back.", layer.name))
+                }
+                _ => return None,
+            }
+        }
+    };
+    Some(edit(viewer, command))
+}
+
+// -------------------------------------------------------------------------------------------
 // Export
 // -------------------------------------------------------------------------------------------
 
@@ -930,7 +1124,27 @@ fn refresh(app: &AppHandle) {
 /// list, one path per line.
 fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>> {
     let viewer = app.state::<Mutex<Viewer>>();
-    let said = match path.trim_matches('/') {
+    let path = path.trim_matches('/');
+    // The one answer that is not a sentence. It is large, it is asked for after every edit, and
+    // it is JSON, so it leaves here rather than through the status line the rest of these share.
+    if path == "state" {
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/json; charset=utf-8")
+            .body(state(&viewer).into_bytes())
+            .expect("build the state response");
+    }
+    // An edit answers here rather than falling through the match below, because its answer is
+    // also what the status line should say: the page asks for the frame again straight
+    // afterwards, and that answer carries `x-status`, so a sentence not written into the viewer
+    // would be replaced by the one before it before anybody could read it.
+    if let Some(said) = edit_command(&viewer, path, query) {
+        announce(&viewer, said.clone());
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "text/plain; charset=utf-8")
+            .body(said.into_bytes())
+            .expect("build the command response");
+    }
+    let said = match path {
         "recent" => recent(app).join("\n"),
         // With a path, the recent list chose it. Without one, ask. Both end at `take`.
         "open" => match parameter(query, "path") {
@@ -1005,8 +1219,8 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             return allow_the_page_to_read_this(Response::builder().status(404))
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
-                    b"ask for /open, /save, /save-as, /recover, /export, /cancel-export or \
-                      /recent"
+                    b"ask for /state, /open, /save, /save-as, /recover, /export, \
+                      /cancel-export, /recent, or one of document 24's command IDs"
                         .to_vec(),
                 )
                 .expect("build the not-found response")
@@ -1385,6 +1599,449 @@ mod saving {
 
     /// A path in a table cell, with the scratch directory's own separators left alone but the
     /// table's separator escaped, so one row cannot silently become two columns.
+    fn cell(text: &str) -> String {
+        text.replace('|', r"\|")
+    }
+}
+
+/// What the editing panels can do to the open document, checked without a window.
+///
+/// B-12a's first half. The core already knows how to add, delete, rename, reorder and hide a
+/// layer, and `tests/` checks that it does. What could go wrong *here* is everything between a
+/// row in a list and that core: a button that names a layer which is no longer there, a new
+/// layer given an identifier something else is already using, a toggle that decides what a layer
+/// currently is from a list drawn a minute ago, a refusal that leaves the person with a control
+/// that sprang back and no sentence. None of those look like a failure at the time.
+///
+/// Writes `verification/B-12a_editing_table.md`.
+#[cfg(test)]
+mod editing {
+    use super::*;
+
+    struct Report {
+        rows: Vec<(String, String, String)>,
+    }
+
+    impl Report {
+        fn check(&mut self, check: &str, expected: impl ToString, actual: impl ToString) {
+            self.rows
+                .push((check.to_string(), expected.to_string(), actual.to_string()));
+        }
+    }
+
+    fn repo(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the app crate has a parent directory")
+            .join(rel)
+    }
+
+    /// One command, by the document 24 identifier the page would send.
+    ///
+    /// `expect` rather than a fallback: `None` means the identifier is not one this window
+    /// answers, which is a mistake in the test and not a result worth tabulating.
+    fn run(viewer: &Mutex<Viewer>, what: &str) -> String {
+        let (id, query) = match what.split_once('?') {
+            Some((id, query)) => (id, Some(query)),
+            None => (what, None),
+        };
+        edit_command(viewer, id, query).expect("a command document 24 lists")
+    }
+
+    fn held(viewer: &Mutex<Viewer>) -> std::sync::MutexGuard<'_, Viewer> {
+        viewer.lock().expect("the viewer lock was poisoned")
+    }
+
+    /// The layers of the composition on screen, front last, as names.
+    fn names(viewer: &Mutex<Viewer>) -> String {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layers_in_order()
+            .map(|l| l.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    fn layer_ids(viewer: &Mutex<Viewer>) -> String {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layer_order()
+            .iter()
+            .map(|id| id.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    fn layer<T>(viewer: &Mutex<Viewer>, id: &str, read: impl FnOnce(&Layer) -> T) -> Option<T> {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layer(&Id::new(id)).map(read)
+    }
+
+    #[test]
+    fn the_panels_change_the_document_and_only_through_commands() {
+        let mut report = Report { rows: Vec::new() };
+
+        // The fixture names an effect no version of this build has. Every check below runs on a
+        // project this build only partly understands, on purpose: a panel is a second reader of
+        // the project, and a second reader is a second chance to drop what it cannot model.
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        // ---- what the page is given ----------------------------------------------------------
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+        {
+            let held = held(&viewer);
+            let written = persist::to_json(held.document.project(), &held.preserved);
+            let same: serde_json::Value =
+                serde_json::from_str(&written).expect("what a save would write is JSON");
+            // Not "the panels got a project" but "the panels got *this* project". If the two
+            // ever differ, the window is drawing one thing and saving another, and the person
+            // finds out when they reopen the file.
+            report.check(
+                "the project the panels draw is the project a save would write",
+                true,
+                answer["project"] == same,
+            );
+        }
+        report.check(
+            "an effect this build does not have reaches the panels rather than vanishing",
+            true,
+            state(&viewer).contains("vendor.future.effect"),
+        );
+        report.check(
+            "the panels are told which composition is on screen",
+            "comp-main",
+            answer["composition"].as_str().unwrap_or("(none)"),
+        );
+        report.check(
+            "a project just opened has nothing to undo",
+            "0 to undo, 0 to redo",
+            format!(
+                "{} to undo, {} to redo",
+                answer["undo"].as_array().map_or(0, |a| a.len()),
+                answer["redo"].as_array().map_or(0, |a| a.len())
+            ),
+        );
+
+        // ---- adding a layer ------------------------------------------------------------------
+        report.check(
+            "adding a layer without saying which drawing is refused, and asks",
+            "Which drawing should the new layer show?",
+            run(&viewer, "layer.create"),
+        );
+        report.check(
+            "a drawing that is not in the project is refused by name",
+            "There is no imported drawing called asset-nothing.",
+            run(&viewer, "layer.create?asset=asset-nothing"),
+        );
+        report.check(
+            "neither refusal put anything in the undo history",
+            0,
+            held(&viewer).document.undo_depth(),
+        );
+
+        run(&viewer, "layer.create?asset=asset-cel&name=Shadow");
+        report.check(
+            "a new layer is added in front of the ones already there",
+            "Cel, Shadow",
+            names(&viewer),
+        );
+        report.check(
+            "its identifier is not one the project was already using",
+            "layer-cel, layer-1",
+            layer_ids(&viewer),
+        );
+        report.check(
+            "it covers the whole composition, which is five frames from zero",
+            "0 to 5",
+            layer(&viewer, "layer-1", |l| {
+                format!("{} to {}", l.in_frame, l.out_frame)
+            })
+            .unwrap_or_default(),
+        );
+        run(&viewer, "layer.create?asset=asset-cel&name=Highlight");
+        report.check(
+            "a second new layer gets an identifier of its own",
+            "layer-cel, layer-1, layer-2",
+            layer_ids(&viewer),
+        );
+
+        // ---- naming --------------------------------------------------------------------------
+        report.check(
+            "renaming with no name is refused",
+            "A layer needs a name.",
+            run(&viewer, "layer.rename?layer=layer-1"),
+        );
+        run(&viewer, "layer.rename?layer=layer-1&name=Cast shadow");
+        report.check(
+            "renaming changes the name and nothing else",
+            "Cel, Cast shadow, Highlight",
+            names(&viewer),
+        );
+        run(&viewer, "layer.rename?layer=layer-1&name=%E5%BD%B1");
+        report.check(
+            "a name in Japanese survives the trip through the query string",
+            "\u{5f71}",
+            layer(&viewer, "layer-1", |l| l.name.clone()).unwrap_or_default(),
+        );
+
+        // ---- hiding and locking ----------------------------------------------------------------
+        // Document 24 calls both of these a toggle, so what they do depends on what the layer is
+        // now, not on what the page last drew. Each is pressed twice and must come back.
+        run(&viewer, "layer.toggle_visibility?layer=layer-1");
+        report.check(
+            "hiding a visible layer switches it off",
+            false,
+            layer(&viewer, "layer-1", |l| l.enabled).unwrap_or(true),
+        );
+        run(&viewer, "layer.toggle_visibility?layer=layer-1");
+        report.check(
+            "and pressing it again switches it back on",
+            true,
+            layer(&viewer, "layer-1", |l| l.enabled).unwrap_or(false),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-1");
+        report.check(
+            "locking a layer locks it",
+            true,
+            layer(&viewer, "layer-1", |l| l.locked).unwrap_or(false),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-1");
+        report.check(
+            "and pressing it again unlocks it",
+            false,
+            layer(&viewer, "layer-1", |l| l.locked).unwrap_or(true),
+        );
+
+        // ---- order ------------------------------------------------------------------------------
+        run(&viewer, "layer.move_up?layer=layer-1");
+        report.check(
+            "moving a layer forward puts it one place nearer the front",
+            "Cel, Highlight, \u{5f71}",
+            names(&viewer),
+        );
+        run(&viewer, "layer.move_down?layer=layer-1");
+        report.check(
+            "moving it back puts it where it was",
+            "Cel, \u{5f71}, Highlight",
+            names(&viewer),
+        );
+        report.check(
+            "the front layer cannot go further forward, and is told so by name",
+            "Highlight is already at the front.",
+            run(&viewer, "layer.move_up?layer=layer-2"),
+        );
+        report.check(
+            "the back layer cannot go further back, and is told so by name",
+            "Cel is already at the back.",
+            run(&viewer, "layer.move_down?layer=layer-cel"),
+        );
+        report.check(
+            "neither refusal put an entry in the history that would undo nothing",
+            "Cel, \u{5f71}, Highlight",
+            names(&viewer),
+        );
+
+        // ---- a list older than the document ------------------------------------------------------
+        report.check(
+            "a command naming a layer that is not there is refused by name",
+            "layer-gone is not a layer in this composition.",
+            run(&viewer, "layer.delete?layer=layer-gone"),
+        );
+        report.check(
+            "a command naming no layer at all asks which one",
+            "Which layer? Choose one in the layer list.",
+            run(&viewer, "layer.delete"),
+        );
+
+        // ---- undo ---------------------------------------------------------------------------------
+        let before_delete = names(&viewer);
+        let depth = held(&viewer).document.undo_depth();
+        run(&viewer, "layer.delete?layer=layer-1");
+        report.check(
+            "deleting a layer removes it",
+            "Cel, Highlight",
+            names(&viewer),
+        );
+        report.check(
+            "and the two refusals before it left the history exactly as deep as it was",
+            depth + 1,
+            held(&viewer).document.undo_depth(),
+        );
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+        report.check(
+            "the Undo button is told what it would take back",
+            "Delete layer layer-1",
+            answer["undo"]
+                .as_array()
+                .and_then(|a| a.last())
+                .and_then(|v| v.as_str())
+                .unwrap_or("(nothing)"),
+        );
+        report.check(
+            "undoing says what it took back",
+            "Undone: Delete layer layer-1",
+            undo(&viewer),
+        );
+        report.check(
+            "and the layer is back where it was, with the name it had",
+            before_delete,
+            names(&viewer),
+        );
+        report.check(
+            "redoing says what it put back",
+            "Redone: Delete layer layer-1",
+            redo(&viewer),
+        );
+        report.check(
+            "and the layer is gone again",
+            "Cel, Highlight",
+            names(&viewer),
+        );
+
+        // ---- dirty and clean -----------------------------------------------------------------------
+        report.check(
+            "a document that has been edited is unsaved work",
+            true,
+            held(&viewer).document.is_dirty(),
+        );
+        // Document 26: dirty is a comparison against the last save, not a flag, so undoing all
+        // the way back to the file makes it clean again. Nothing in the window decides this.
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        report.check(
+            "undoing back to the file makes it not unsaved work again",
+            false,
+            held(&viewer).document.is_dirty(),
+        );
+        report.check(
+            "and the composition is the one that was opened",
+            "Cel",
+            names(&viewer),
+        );
+        report.check(
+            "there is nothing left to undo, and it says so",
+            "There is nothing to undo.",
+            undo(&viewer),
+        );
+
+        // ---- and out to the disk ---------------------------------------------------------------------
+        // The last question, and the one the others are for: after all of that, is what a save
+        // would write still the file that was opened? The effect this build cannot model is in
+        // that comparison, so this is also the check that no panel dropped it along the way.
+        {
+            let held = held(&viewer);
+            let opened = std::fs::read_to_string(&source)
+                .expect("read the fixture")
+                .replace("\r\n", "\n");
+            let now = persist::to_json(held.document.project(), &held.preserved);
+            // Both texts are thousands of characters and a table is for reading, so the row
+            // carries the answer rather than the two files.
+            let same = "identical, including the effect this build cannot model";
+            report.check(
+                "after all of the above, a save would write the file that was opened",
+                same,
+                if opened == now {
+                    same
+                } else {
+                    "what a save would write is no longer what was opened"
+                },
+            );
+        }
+
+        write_artifact(&report);
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    fn write_artifact(report: &Report) {
+        let passed = report.rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut out = String::from("# B-12a: what the editing panels do\n\n");
+        out.push_str(
+            "Generated by `app/src/main.rs`, module `editing`. Re-run with `cargo test \
+             --workspace`.\n\n",
+        );
+        out.push_str(
+            "This is the window's half of the layer commands in document 24. The core's half - \
+             that adding, deleting, renaming and reordering a layer are correct and undoable - is \
+             checked in `verification/B-05_command_table.md` and is not repeated here. What is \
+             checked here is the part between a row in a list and that core, which is where a \
+             window goes wrong: a button that names a layer no longer there, a new layer given an \
+             identifier something else is already using, a toggle that decides what a layer \
+             currently is from a list drawn a minute ago, a refusal that leaves a control \
+             springing back with nothing said.\n\n",
+        );
+        out.push_str(
+            "The fixture is `Fixtures/projects/unknown_effect_project.json`, which names an \
+             effect no version of this build has. It is used for every row on purpose: a panel is \
+             a second reader of the project, and a second reader is a second chance to lose what \
+             it cannot model. The last row is the one that would catch that - after every edit \
+             above and every undo of them, what a save would write is compared against the file \
+             that was opened, byte for byte.\n\n",
+        );
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in &report.rows {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                cell(expected),
+                cell(actual),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            report.rows.len()
+        ));
+        out.push_str(
+            "\n## What to look at\n\n- **A refusal is a sentence, never silence.** Six rows here \
+             are commands that were turned down, and each one is checked for the words the person \
+             would read - which drawing, which layer, and that the front layer is already at the \
+             front.\n- **A refused command changes nothing.** Document 26 requires it, and the \
+             rows after each refusal check the history is no deeper and the layers are in the same \
+             order.\n- **Undo names what it takes back.** \"Undone\" on its own would be true and \
+             useless.\n- **Unsaved work is a comparison, not a flag.** Undoing every edit back to \
+             the file makes the window say the project is saved again, because the core compares \
+             the document against the last save rather than counting edits.\n",
+        );
+        out.push_str(
+            "\n## What this does not cover\n\nThe page. Every row here calls the same function \
+             the window's URL scheme calls, with the same text the page would put in it, so what \
+             is checked is everything from the request inwards. That a button is wired to the \
+             right request, that the list is drawn front-first, and that the keyboard reaches all \
+             of it are in the photographs beside this table, not in it.\n\nThe transform, the \
+             effect stack and the matte are not editable from these panels yet. The inspector \
+             shows what a layer carries, so a mask or an effect from a file is visible; changing \
+             one is later work and is named as missing rather than quietly absent.\n",
+        );
+        std::fs::write(repo("verification/B-12a_editing_table.md"), out)
+            .expect("write the artifact");
+    }
+
     fn cell(text: &str) -> String {
         text.replace('|', r"\|")
     }

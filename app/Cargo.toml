@@ -18,6 +18,11 @@ tauri = "2"
 # its own. Its purpose, version and licence are recorded in `docs/DEPENDENCIES.md` and
 # `Licenses/`, which `tests/b11_dependency_record.rs` checks.
 tauri-plugin-dialog = "2"
+# The editing panels ask for the open project and get `persist::to_json` back inside a small
+# envelope. Already in this build through the core, so it adds no crate to `docs/DEPENDENCIES.md`;
+# it is named here because the shell now assembles JSON of its own rather than only forwarding
+# the core's.
+serde_json = "1.0.151"
 
 [build-dependencies]
 tauri-build = "2"
