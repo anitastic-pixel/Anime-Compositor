@@ -155,11 +155,9 @@ const REFERENCE_OFFSETS: [f64; 4] = [0.125, 0.375, 0.625, 0.875];
 fn coverage_independent(vertices: &[(f64, f64)], x: usize, y: usize) -> f32 {
     let n = REFERENCE_OFFSETS.len();
     let mut hits = 0u32;
-    for j in 0..n {
-        for i in 0..n {
-            let sx = x as f64 + REFERENCE_OFFSETS[i];
-            let sy = y as f64 + REFERENCE_OFFSETS[j];
-            if inside_by_winding(vertices, sx, sy) {
+    for &dy in &REFERENCE_OFFSETS {
+        for &dx in &REFERENCE_OFFSETS {
+            if inside_by_winding(vertices, x as f64 + dx, y as f64 + dy) {
                 hits += 1;
             }
         }
@@ -822,7 +820,7 @@ fn seeded_document() -> Document {
         // matte-only rows below need a plan, and a sequence with no frames would have every
         // layer dropped for missing media before the flag could be seen doing anything.
         let asset = anime_compositor::model::Asset::still(
-            Id::new(&format!("asset-{name}")),
+            Id::new(format!("asset-{name}")),
             name,
             mask_fixture_png()
                 .file_name()
