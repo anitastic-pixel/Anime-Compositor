@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
-use anime_compositor::model::{Id, Layer, Project};
+use anime_compositor::model::{Id, Layer, Project, Prop, Value};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
 use anime_compositor::{OutputAlpha, OutputDepth};
@@ -629,6 +629,86 @@ fn redo(viewer: &Mutex<Viewer>) -> String {
     }
 }
 
+/// Which transform property a request names, or `None` for a word that is not one of them.
+///
+/// The five names are document 19's own, which are also the keys `persist` writes, so the page
+/// sends back the word it was given rather than a number this file would have to keep in step.
+fn property(name: &str) -> Option<Prop> {
+    [
+        Prop::Anchor,
+        Prop::Position,
+        Prop::Scale,
+        Prop::Rotation,
+        Prop::Opacity,
+    ]
+    .into_iter()
+    .find(|p| p.as_str() == name)
+}
+
+/// A property value from the page: `x,y` for the three vec2 properties, one number for the two
+/// scalar ones.
+///
+/// Shaped by the property rather than guessed from the text, so that sending one number for
+/// position is refused by the core's own rule about kinds instead of being quietly read as a
+/// scalar. Whether the number is in range is not decided here either - opacity clamps, and that
+/// is document 19's decision and is made in one place.
+fn property_value(prop: Prop, text: &str) -> Option<Value> {
+    let number = |t: &str| t.trim().parse::<f64>().ok();
+    match prop.kind() {
+        "vec2" => {
+            let (x, y) = text.split_once(',')?;
+            Some(Value::Vec2(number(x)?, number(y)?))
+        }
+        _ => Some(Value::Scalar(number(text)?)),
+    }
+}
+
+/// Release a drag: one history entry covering everything the scrub passed through.
+///
+/// A drag that ended where it started is not an edit. The core returns `None` for it and puts
+/// the value back, and this says so rather than reporting a change nobody made.
+fn end_drag(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    match viewer.document.end_drag() {
+        Some(record) => record.label.clone(),
+        None => "Nothing moved.".to_string(),
+    }
+}
+
+/// Escape during a drag. Document 24: "Escape restores the pre-drag value."
+fn cancel_drag(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    let was = viewer.document.drag_in_progress();
+    viewer.document.cancel_drag();
+    if was {
+        "Cancelled; the value is back where the drag started.".to_string()
+    } else {
+        "Nothing is being dragged.".to_string()
+    }
+}
+
+/// One intermediate value of a scrub, starting the transaction if this is the first one.
+///
+/// Document 26 wants a drag to be one history entry, which means something has to open the
+/// transaction. Doing it here rather than on a separate request from the page removes the state
+/// the page would otherwise have to keep in step with the document - a page that forgot to open
+/// one would write a history entry per pixel of mouse movement, and nothing would look wrong
+/// until somebody pressed Ctrl+Z.
+fn drag_update(viewer: &Mutex<Viewer>, command: Command) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    if !viewer.document.drag_in_progress() {
+        if let Err(diagnostic) = viewer.document.begin_drag() {
+            return sentence(&diagnostic);
+        }
+    }
+    match viewer.document.update_drag(command) {
+        // Not the label: a scrub sends these several times a second and the status line is for
+        // reading. What it moved to is the useful half.
+        Ok(()) => "Dragging.".to_string(),
+        Err(diagnostic) => sentence(&diagnostic),
+    }
+}
+
 /// A layer ID nothing in this project is using.
 ///
 /// Counted rather than random, so that running the same steps twice writes the same file and a
@@ -659,6 +739,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
     match id {
         "edit.undo" => return Some(undo(viewer)),
         "edit.redo" => return Some(redo(viewer)),
+        // The two ends of an interaction transaction. Neither names a layer: the drag already
+        // knows which value it is holding, and asking the page to name it again would be asking
+        // it to be right about something it has no way to check.
+        "property.drag_end" => return Some(end_drag(viewer)),
+        "property.drag_cancel" => return Some(cancel_drag(viewer)),
         _ => {}
     }
     let command = {
@@ -748,11 +833,45 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "layer.move_down" => {
                     return Some(format!("{} is already at the back.", layer.name))
                 }
+                // Typed into a field, or scrubbed on its label. The same command either way;
+                // what differs is whether it becomes a history entry on its own or joins the one
+                // the drag will commit at release.
+                "property.set_base" | "property.drag_update" => {
+                    let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
+                        return Some(
+                            "Which property? Say anchor, position, scale, rotation or opacity."
+                                .to_string(),
+                        );
+                    };
+                    let Some(text) = parameter(query, "value") else {
+                        return Some(format!("What should {prop} be set to?"));
+                    };
+                    let Some(value) = property_value(prop, &text) else {
+                        // Named before the core sees it, because the core's refusal is about
+                        // kinds and this one is about the text not being numbers at all.
+                        return Some(match prop.kind() {
+                            "vec2" => {
+                                format!("{prop} needs two numbers, like 12, -4. Not \"{text}\".")
+                            }
+                            _ => format!("{prop} needs a number. Not \"{text}\"."),
+                        });
+                    };
+                    Command::SetPropertyBase {
+                        composition,
+                        layer_id,
+                        prop,
+                        value,
+                    }
+                }
                 _ => return None,
             }
         }
     };
-    Some(edit(viewer, command))
+    Some(if id == "property.drag_update" {
+        drag_update(viewer, command)
+    } else {
+        edit(viewer, command)
+    })
 }
 
 // -------------------------------------------------------------------------------------------
@@ -1967,7 +2086,13 @@ mod editing {
             );
         }
 
-        write_artifact(&report);
+        write_artifact(
+            &report,
+            "verification/B-12a_editing_table.md",
+            "B-12a: what the layer panel does",
+            LAYER_INTRO,
+            LAYER_NOTES,
+        );
         let failed: Vec<&String> = report
             .rows
             .iter()
@@ -1977,31 +2102,21 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
-    fn write_artifact(report: &Report) {
+    /// One table with its own prose around it.
+    ///
+    /// Two tests in this module write one each, and everything they have in common - the header
+    /// row, the escaping, the count at the bottom - is written here rather than twice.
+    fn write_artifact(report: &Report, file: &str, title: &str, intro: &[&str], notes: &[&str]) {
         let passed = report.rows.iter().filter(|(_, e, a)| e == a).count();
-        let mut out = String::from("# B-12a: what the editing panels do\n\n");
+        let mut out = format!("# {title}\n\n");
         out.push_str(
             "Generated by `app/src/main.rs`, module `editing`. Re-run with `cargo test \
              --workspace`.\n\n",
         );
-        out.push_str(
-            "This is the window's half of the layer commands in document 24. The core's half - \
-             that adding, deleting, renaming and reordering a layer are correct and undoable - is \
-             checked in `verification/B-05_command_table.md` and is not repeated here. What is \
-             checked here is the part between a row in a list and that core, which is where a \
-             window goes wrong: a button that names a layer no longer there, a new layer given an \
-             identifier something else is already using, a toggle that decides what a layer \
-             currently is from a list drawn a minute ago, a refusal that leaves a control \
-             springing back with nothing said.\n\n",
-        );
-        out.push_str(
-            "The fixture is `Fixtures/projects/unknown_effect_project.json`, which names an \
-             effect no version of this build has. It is used for every row on purpose: a panel is \
-             a second reader of the project, and a second reader is a second chance to lose what \
-             it cannot model. The last row is the one that would catch that - after every edit \
-             above and every undo of them, what a save would write is compared against the file \
-             that was opened, byte for byte.\n\n",
-        );
+        for paragraph in intro.iter().chain(notes) {
+            out.push_str(paragraph);
+            out.push_str("\n\n");
+        }
         out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
         for (check, expected, actual) in &report.rows {
             out.push_str(&format!(
@@ -2017,8 +2132,32 @@ mod editing {
             passed,
             report.rows.len()
         ));
-        out.push_str(
-            "\n## What to look at\n\n- **A refusal is a sentence, never silence.** Six rows here \
+        std::fs::write(repo(file), out).expect("write the artifact");
+    }
+
+    /// The prose around the layer table.
+    ///
+    /// Out here rather than inline so that the test above reads as the sequence of steps it is,
+    /// which is the thing worth checking against document 24.
+    const LAYER_INTRO: &[&str] = &[
+        "This is the window's half of the layer commands in document 24. The core's half - \
+             that adding, deleting, renaming and reordering a layer are correct and undoable - is \
+             checked in `verification/B-05_command_table.md` and is not repeated here. What is \
+             checked here is the part between a row in a list and that core, which is where a \
+             window goes wrong: a button that names a layer no longer there, a new layer given an \
+             identifier something else is already using, a toggle that decides what a layer \
+             currently is from a list drawn a minute ago, a refusal that leaves a control \
+             springing back with nothing said.",
+        "The fixture is `Fixtures/projects/unknown_effect_project.json`, which names an \
+             effect no version of this build has. It is used for every row on purpose: a panel is \
+             a second reader of the project, and a second reader is a second chance to lose what \
+             it cannot model. The last row is the one that would catch that - after every edit \
+             above and every undo of them, what a save would write is compared against the file \
+             that was opened, byte for byte.",
+    ];
+
+    const LAYER_NOTES: &[&str] = &[
+        "## What to look at\n\n- **A refusal is a sentence, never silence.** Six rows here \
              are commands that were turned down, and each one is checked for the words the person \
              would read - which drawing, which layer, and that the front layer is already at the \
              front.\n- **A refused command changes nothing.** Document 26 requires it, and the \
@@ -2026,21 +2165,320 @@ mod editing {
              order.\n- **Undo names what it takes back.** \"Undone\" on its own would be true and \
              useless.\n- **Unsaved work is a comparison, not a flag.** Undoing every edit back to \
              the file makes the window say the project is saved again, because the core compares \
-             the document against the last save rather than counting edits.\n",
-        );
-        out.push_str(
-            "\n## What this does not cover\n\nThe page. Every row here calls the same function \
+             the document against the last save rather than counting edits.",
+        "## What this does not cover\n\nThe page. Every row here calls the same function \
              the window's URL scheme calls, with the same text the page would put in it, so what \
              is checked is everything from the request inwards. That a button is wired to the \
              right request, that the list is drawn front-first, and that the keyboard reaches all \
              of it are in the photographs beside this table, not in it.\n\nThe transform, the \
              effect stack and the matte are not editable from these panels yet. The inspector \
              shows what a layer carries, so a mask or an effect from a file is visible; changing \
-             one is later work and is named as missing rather than quietly absent.\n",
-        );
-        std::fs::write(repo("verification/B-12a_editing_table.md"), out)
-            .expect("write the artifact");
+             one is later work and is named as missing rather than quietly absent.",
+    ];
+
+    /// The transform property a layer carries, as a string, from the same JSON the panels get.
+    fn base(viewer: &Mutex<Viewer>, layer_id: &str, prop: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .map(|l| l["transform"][prop]["base"].to_string())
+            .unwrap_or_else(|| "(no such layer)".to_string())
     }
+
+    #[test]
+    fn the_inspector_changes_a_transform_and_a_drag_is_one_history_entry() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let l = "layer-cel";
+
+        // ---- typing a number ------------------------------------------------------------------
+        report.check(
+            "the fixture's layer starts where document 19's default puts it",
+            "[0,0]",
+            base(&viewer, l, "position"),
+        );
+        report.check(
+            "typing a position says what it set, in the words undo will use",
+            "Set position to (120, -40)",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=120,-40",
+            ),
+        );
+        report.check(
+            "and the panels are given the new value back",
+            "[120,-40]",
+            base(&viewer, l, "position"),
+        );
+        report.check("a scalar property takes one number", "45", {
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=rotation&value=45",
+            );
+            base(&viewer, l, "rotation")
+        });
+        // Document 19 makes opacity nought to one and the core clamps rather than refuses, so a
+        // person who typed 5 gets the fully opaque layer they were reaching for.
+        report.check("opacity above one is clamped rather than refused", "1", {
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=opacity&value=5",
+            );
+            base(&viewer, l, "opacity")
+        });
+
+        // ---- what the panel refuses before the core sees it -------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a property name that is not one of the five is refused, and the five are named",
+            "Which property? Say anchor, position, scale, rotation or opacity.",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=wobble&value=1",
+            ),
+        );
+        report.check(
+            "no value at all is refused, and asks",
+            "What should scale be set to?",
+            run(&viewer, "property.set_base?layer=layer-cel&prop=scale"),
+        );
+        report.check(
+            "text that is not numbers is refused in the shape the property wants",
+            "position needs two numbers, like 12, -4. Not \"over there\".",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=over%20there",
+            ),
+        );
+        report.check(
+            "one number for a two-number property is refused the same way",
+            "position needs two numbers, like 12, -4. Not \"7\".",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=7",
+            ),
+        );
+        report.check(
+            "two numbers for a one-number property never reach the core, and are named here",
+            "rotation needs a number. Not \"1,2\".",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=rotation&value=1,2",
+            ),
+        );
+        report.check(
+            "a value that is not a finite number is refused",
+            "scale cannot be set to (NaN, 1).",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=scale&value=NaN,1",
+            ),
+        );
+        report.check(
+            "none of those six refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and the position is the one that was typed",
+            "[120,-40]",
+            base(&viewer, l, "position"),
+        );
+
+        // ---- a drag ------------------------------------------------------------------------------
+        // Document 26: a drag previews without creating hundreds of history entries and commits
+        // one command at release. This is the check that the window opens the transaction at all -
+        // a page that forgot to would look identical until somebody pressed Ctrl+Z.
+        let depth = held(&viewer).document.undo_depth();
+        for x in [130, 150, 180, 210] {
+            run(
+                &viewer,
+                &format!("property.drag_update?layer=layer-cel&prop=position&value={x},-40"),
+            );
+        }
+        report.check(
+            "the value follows the drag while it is being dragged",
+            "[210,-40]",
+            base(&viewer, l, "position"),
+        );
+        report.check(
+            "and four intermediate values are not four history entries",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "releasing commits one entry, named for what it set",
+            "Set position to (210, -40)",
+            run(&viewer, "property.drag_end"),
+        );
+        report.check(
+            "which is one entry, not four",
+            depth + 1,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and undoing it goes back to before the drag, not to one step inside it",
+            "[120,-40]",
+            {
+                undo(&viewer);
+                base(&viewer, l, "position")
+            },
+        );
+        redo(&viewer);
+
+        // ---- Escape during a drag ------------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        for x in [220, 260, 300] {
+            run(
+                &viewer,
+                &format!("property.drag_update?layer=layer-cel&prop=position&value={x},-40"),
+            );
+        }
+        report.check(
+            "Escape during a drag says the value has gone back",
+            "Cancelled; the value is back where the drag started.",
+            run(&viewer, "property.drag_cancel"),
+        );
+        report.check(
+            "and it has - document 24: Escape restores the pre-drag value",
+            "[210,-40]",
+            base(&viewer, l, "position"),
+        );
+        report.check(
+            "a cancelled drag leaves no history entry",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- the two ends on their own ---------------------------------------------------------------
+        report.check(
+            "releasing when nothing is being dragged is said, not silently ignored",
+            "Nothing moved.",
+            run(&viewer, "property.drag_end"),
+        );
+        report.check(
+            "and so is Escape when nothing is being dragged",
+            "Nothing is being dragged.",
+            run(&viewer, "property.drag_cancel"),
+        );
+        // A drag that ends where it started is somebody who thought better of it. Document 26
+        // says that is not an edit, and an undo item that undoes nothing is worse than none.
+        let depth = held(&viewer).document.undo_depth();
+        run(
+            &viewer,
+            "property.drag_update?layer=layer-cel&prop=position&value=260,-40",
+        );
+        run(
+            &viewer,
+            "property.drag_update?layer=layer-cel&prop=position&value=210,-40",
+        );
+        report.check(
+            "a drag that ends where it started is not an edit",
+            "Nothing moved.",
+            run(&viewer, "property.drag_end"),
+        );
+        report.check(
+            "and adds no history entry",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- a locked layer ---------------------------------------------------------------------------
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        report.check(
+            "a locked layer refuses a transform edit, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=0,0",
+            ),
+        );
+        report.check(
+            "and the value is untouched",
+            "[210,-40]",
+            base(&viewer, l, "position"),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        // ---- back to the file ---------------------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, including the effect this build cannot model";
+        report.check(
+            "undoing every transform edit gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-12a_transform_table.md",
+            "B-12a: what the transform inspector does",
+            TRANSFORM_INTRO,
+            TRANSFORM_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const TRANSFORM_INTRO: &[&str] = &[
+        "Document 19's five transform properties, edited the two ways an inspector offers: \
+         typing a number into a field, and dragging the handle beside it. Both send the same \
+         command ID. What differs is that typing commits an entry of its own and a drag commits \
+         one entry for the whole gesture, which is document 26's interaction transaction.",
+        "The core's half - that setting a property is correct, undoable, and clamped or refused \
+         by document 19's rules - is checked in `verification/B-05_command_table.md`. What is \
+         checked here is the part the window owns: that the text a field sends becomes the right \
+         kind of value, that a drag opens a transaction at all, and that every refusal is a \
+         sentence naming the rule.",
+    ];
+
+    const TRANSFORM_NOTES: &[&str] = &[
+        "## What to look at\n\n- **Four drag steps are one history entry.** The rows check the \
+         value follows the drag, that the history does not deepen while it is following, and \
+         that one entry appears at release. A window that forgot to open the transaction would \
+         look identical on screen and would put four entries in the history, and nobody would \
+         find out until they pressed Ctrl+Z.\n- **A drag that ends where it started is not an \
+         edit.** It is somebody who thought better of it, and an undo item that undoes nothing \
+         is worse than no undo item.\n- **Escape puts the value back.** Document 24 requires it \
+         and the row after it checks the value, not just the sentence.\n- **A value is read in \
+         the shape the property wants.** Sending one number for position is refused rather than \
+         read as a scalar the core would then reject for its kind, which means a wrong-kind \
+         value cannot reach the model at all. The row that would have shown the core's own \
+         refusal instead shows the window's, and that is the correct outcome.",
+        "## What this does not cover\n\nThe gesture. Every row here sends the requests a scrub \
+         sends, in the order it sends them, but that a pointer dragged across the handle produces \
+         those requests - and that the field stops being rebuilt underneath it while it does - is \
+         in the photographs beside this table.\n\nBlend mode is shown in the inspector and cannot \
+         be changed from it. There is no command in the core for changing one, W-01 does not ask \
+         to change one, and adding a command to the model to fill a gap in a panel is a decision \
+         about the project format rather than about this window.\n\nKeyframes. The inspector sets \
+         a property's base value, which is what document 19 calls the value with no keyframes on \
+         it. `keyframe.add_remove` is in document 24 and is not built.",
+    ];
 
     fn cell(text: &str) -> String {
         text.replace('|', r"\|")

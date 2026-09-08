@@ -129,6 +129,12 @@
   #inspector dt { color: #8b8b94; }
   #inspector dd { margin: 0; overflow-wrap: anywhere; }
   #inspector .empty { color: #6a6a72; }
+  #inspector input[type=number] { width: 5.5em; background: #17171b; color: #e8e8ea;
+    border: 1px solid #34343c; border-radius: 3px; padding: 1px 3px; font: inherit; }
+  /* The handle a value is scrubbed by. It is a separate target from the field so that typing a
+     number and dragging one are different gestures and neither can start the other. */
+  .scrub { cursor: ew-resize; user-select: none; border-bottom: 1px dotted #57575f; }
+  .scrub:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   .group { margin-bottom: 14px; }
 </style>
 </head>
@@ -214,6 +220,7 @@ let doc = null;
 let selectedLayer = null;
 let selectedAsset = null;
 let renaming = false; // an inline edit is open; accelerators keep off the keyboard while it is
+let dragging = false; // a scrub is in progress; the inspector must not be rebuilt under it
 
 // A request already on its way is never joined by a second one. That is the whole of this
 // page's part in D-32: the clock keeps running while a frame is being made, so the next answer
@@ -415,7 +422,101 @@ function field(into, term, value) {
   into.append(dt, dd);
 }
 
+// How far one pixel of drag moves each property. Position and anchor are in composition pixels
+// and scale is in percent, so one for one is the honest step; opacity runs 0 to 1 in the file
+// and needs a hundredth, or a short drag would cross the whole range.
+const STEP = { anchor: 1, position: 1, scale: 1, rotation: 1, opacity: 0.01 };
+
+// A number as the file holds it, without exponent notation or a trailing string of zeros from
+// the arithmetic a drag does.
+const number = (n) => String(Math.round(n * 1e6) / 1e6);
+
+function transformValue(layer, prop) {
+  const held = ((layer.transform || {})[prop] || {}).base;
+  return Array.isArray(held) ? held.slice() : [held];
+}
+
+// One transform property: its label, its one or two numbers, and a scrub handle per number.
+//
+// Both gestures send the same command ID. Typing commits on its own; scrubbing sends
+// `property.drag_update` until the pointer is released and one history entry covers the lot.
+function propRow(into, layer, prop, parts) {
+  const dt = document.createElement('dt');
+  dt.textContent = prop[0].toUpperCase() + prop.slice(1);
+  const dd = document.createElement('dd');
+  const held = transformValue(layer, prop);
+  const send = (id, values) => command('/' + id + '?layer=' + encodeURIComponent(layer.id)
+    + '&prop=' + prop + '&value=' + encodeURIComponent(values.map(number).join(',')));
+  parts.forEach((part, i) => {
+    const handle = document.createElement('span');
+    handle.className = 'scrub';
+    handle.tabIndex = 0;
+    handle.textContent = part;
+    handle.title = 'Drag to change ' + prop;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = 'any';
+    input.value = number(held[i]);
+    input.setAttribute('aria-label', prop + ' ' + part);
+    // Typing. Enter or leaving the field commits; nothing is sent per keystroke, because a
+    // half-typed "-" is not a value anybody meant.
+    const commit = () => {
+      const next = held.slice();
+      next[i] = Number(input.value);
+      if (!Number.isFinite(next[i])) { input.value = number(held[i]); return; }
+      send('property.set_base', next);
+    };
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { input.value = number(held[i]); input.blur(); }
+    };
+    input.onchange = commit;
+    handle.onpointerdown = (e) => {
+      e.preventDefault();
+      dragging = true;
+      handle.setPointerCapture(e.pointerId);
+      const from = e.clientX;
+      const start = held.slice();
+      // Document 24: "Escape restores the pre-drag value." The key listener is on the window
+      // because the pointer owns the events while it is captured.
+      const escape = (k) => { if (k.key === 'Escape') { stop(true); } };
+      const move = (m) => {
+        const next = start.slice();
+        next[i] = start[i] + (m.clientX - from) * STEP[prop];
+        send('property.drag_update', next);
+      };
+      const stop = (cancelled) => {
+        dragging = false;
+        handle.onpointermove = null;
+        handle.onpointerup = null;
+        window.removeEventListener('keydown', escape, true);
+        command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+      };
+      handle.onpointermove = move;
+      handle.onpointerup = () => stop(false);
+      window.addEventListener('keydown', escape, true);
+    };
+    // The keyboard equivalent, because document 05 asks for every control to be reachable
+    // without a mouse and a drag is not.
+    handle.onkeydown = (e) => {
+      const by = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }[e.key];
+      if (by === undefined) return;
+      e.preventDefault();
+      const next = held.slice();
+      next[i] = held[i] + by * STEP[prop] * (e.shiftKey ? 10 : 1);
+      send('property.set_base', next);
+    };
+    if (i) dd.append(' ');
+    dd.append(handle, ' ', input);
+  });
+  into.append(dt, dd);
+}
+
 function drawInspector() {
+  // Rebuilding these fields under a pointer that is holding one of them would take the drag's
+  // own element away mid-gesture, and the value would stop following the mouse with nothing on
+  // screen to say why. The values shown are the drag's, which are the document's.
+  if (dragging) return;
   const layer = selected();
   const into = $('detail');
   if (!layer) {
@@ -428,6 +529,17 @@ function drawInspector() {
   field(dl, 'Identifier', layer.id);
   field(dl, 'Drawing', layer.asset_id);
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive');
+  // Document 19's five transform properties, in its order. The numbers are the file's own — no
+  // unit is converted on the way in or out, so scale is the percent the file holds and opacity
+  // is the nought-to-one the file holds, and there is nowhere for a conversion to go wrong.
+  propRow(dl, layer, 'anchor', ['x', 'y']);
+  propRow(dl, layer, 'position', ['x', 'y']);
+  propRow(dl, layer, 'scale', ['x', 'y']);
+  propRow(dl, layer, 'rotation', ['°']);
+  propRow(dl, layer, 'opacity', ['×']);
+  // Read-only, and said rather than hidden: there is no command in the core for changing a
+  // blend mode, W-01 does not ask to change one, and inventing one to fill a gap in a panel
+  // would be a decision about the model made from the window.
   field(dl, 'Blend', layer.blend_mode);
   // What is on this layer that this panel cannot yet change is still said, because a person
   // deciding whether a layer is the one they want needs to know it carries a mask.
@@ -611,7 +723,7 @@ addEventListener('keydown', (e) => {
   // list. Everything else falls through to the accelerators, which are for when nothing in
   // particular is focused.
   const el = e.target instanceof Element
-    ? e.target.closest('button, select, input, [contenteditable]') : null;
+    ? e.target.closest('button, select, input, .scrub, [contenteditable]') : null;
   const typing = renaming || (el && el.tagName === 'INPUT' && el.type !== 'checkbox');
   if (typing && !e.ctrlKey) return;
   if (el && !e.ctrlKey && (e.key === ' ' || e.key.startsWith('Arrow'))) return;
