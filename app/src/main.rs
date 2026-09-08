@@ -6913,12 +6913,12 @@ mod contract {
         (
             "an effect's settings",
             "effect.set_parameters",
-            "input.onchange = send;",
+            "input.onchange = sendParameters;",
         ),
         (
             "an exposure's frames",
             "exposure.set_span",
-            "input.onchange = send;",
+            "input.onchange = sendSpan;",
         ),
     ];
 

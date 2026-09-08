@@ -690,13 +690,13 @@ function exposureRow(layer, span, drawings) {
     input.value = value;
     input.setAttribute('aria-label', words + ' of the exposure at frame ' + span.start_frame);
     input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } };
-    input.onchange = send;
+    input.onchange = sendSpan;
     fields[name] = input;
     return input;
   };
   const where = '/exposure.set_span?layer=' + encodeURIComponent(layer.id)
     + '&was=' + span.start_frame;
-  const send = () => command(where
+  const sendSpan = () => command(where
     + '&start=' + encodeURIComponent(fields.start.value.trim())
     + '&end=' + encodeURIComponent(fields.end.value.trim())
     + '&drawing=' + encodeURIComponent(fields.drawing.value.trim()));
@@ -774,7 +774,7 @@ function effectRow(layer, fx) {
   }
   const dl = document.createElement('dl');
   const fields = {};
-  const send = () => {
+  const sendParameters = () => {
     const parts = known.map(([name]) => '&' + name + '='
       + encodeURIComponent(fields[name].value.trim()));
     command('/effect.set_parameters' + where + parts.join(''));
@@ -790,7 +790,7 @@ function effectRow(layer, fx) {
     input.value = Array.isArray(held) ? held.map(number).join(', ') : number(held || 0);
     input.setAttribute('aria-label', label + ' ' + words);
     input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } };
-    input.onchange = send;
+    input.onchange = sendParameters;
     fields[name] = input;
     dd.append(input);
     dl.append(dt, dd);

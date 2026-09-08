@@ -1136,13 +1136,18 @@ it is deliberately blunt: document 26's rule is a property of the whole page rat
 one field, so the check is that no field anywhere is wired to the event that fires per keystroke.
 The three rows beside it, which pin each typed field to its own handler, are the precise half.
 
-The second is a weakness the pass found and did not fix. Two of those three rows look for the
-identical text `input.onchange = send;`, because the effect settings and the exposure fields are
-written the same way. Breaking one of them leaves the other's copy of that string in the file, so
-the rows cannot tell which field was broken - P9 was caught by the `oninput` row, not by the row
-that names the field. Making them distinguishable means giving the two fields distinguishable
-handlers, which is a change to the page for the benefit of a test, and it was not worth it while
-the blunt row still catches the mistake. It is written down here rather than fixed.
+The second is a weakness the pass found, wrote down rather than fixed, and that is now fixed.
+Two of those three rows used to look for the identical text `input.onchange = send;`, because the
+effect settings and the exposure fields were written the same way. Breaking one left the other's
+copy of that string in the file, so the rows could not tell which field was broken - P9 was
+caught by the blunt `oninput` row and not by the row that names the field. The two handlers are
+now named for what they send, `sendSpan` and `sendParameters`, and each row looks for its own.
+Re-running both breaks against the page as it stands today fails the row that names the field:
+P9 fails `an exposure's frames is committed by losing focus, and sends exposure.set_span`, and
+P10 fails `an effect's settings is committed by losing focus, and sends effect.set_parameters`.
+The change is two identifiers in `app/ui/index.html` and it was made for a test, which is worth
+saying out loud: the reason it is worth making is that a name saying which command a handler
+sends is a better name than `send` either way.
 
 ## What this pass did not cover, on the page
 
