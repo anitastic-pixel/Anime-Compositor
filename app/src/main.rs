@@ -107,6 +107,14 @@ struct Viewer {
     /// clean. Document 07 asks for a snapshot "after two minutes of dirty activity", so the two
     /// minutes are measured from here.
     dirty_since: Option<Instant>,
+    /// Document 05 line 31's alpha-only view and transparency grid, and document 21 line 97's
+    /// rule about both: they are presentation. Neither is in the project, neither is undoable
+    /// (document 24 says so in its own column), and neither may change a cached pixel or
+    /// anything exported. The grid is drawn by the page behind a canvas that already has
+    /// alpha, so it touches no pixel at all; the alpha view is applied to the copy of the
+    /// frame that is about to leave, after the cache has been given the frame it keeps.
+    alpha_only: bool,
+    checkerboard: bool,
     /// B-08b: the decoded cels this preview has already paid for. Belongs to the viewer rather
     /// than to a frame because its whole purpose is to outlive one, and it is replaced along with
     /// everything else when a different project is opened, so nothing from the old one survives.
@@ -182,6 +190,23 @@ fn allow_the_page_to_read_this(
         .header("access-control-expose-headers", "*")
 }
 
+/// Replace a frame's colour with its own alpha, in place, so the page draws the alpha channel.
+///
+/// Document 05 line 31 asks for an alpha-only view and document 21 line 97 requires it to be
+/// presentation: this runs on the bytes that are about to be sent, which
+/// `WorkingBuffer::to_srgb8_straight` has just allocated, so the cached frame and the export path
+/// never see it. Grey rather than false colour, and opaque rather than transparent, because the
+/// question the view answers is "how transparent is this pixel" and an answer that is itself
+/// transparent cannot be looked at.
+fn as_alpha_only(pixels: &mut [u8]) {
+    for pixel in pixels.chunks_exact_mut(4) {
+        pixel[0] = pixel[3];
+        pixel[1] = pixel[3];
+        pixel[2] = pixel[3];
+        pixel[3] = 255;
+    }
+}
+
 /// Render what was asked for and hand it back as raw display-ready pixels.
 ///
 /// The body is `WorkingBuffer::to_srgb8_straight` — the same bytes an 8-bit export writes, minus
@@ -250,6 +275,10 @@ fn serve(
         .header("x-width", width.to_string())
         .header("x-height", height.to_string())
         .header("x-quality", viewer.quality.label())
+        // What the person is looking through. The page needs both: one to draw the grid behind
+        // the canvas, and one so the buttons show which view is on.
+        .header("x-alpha", viewer.alpha_only.to_string())
+        .header("x-checkerboard", viewer.checkerboard.to_string())
         .header(
             "x-differs",
             viewer.quality.differs_from_export().to_string(),
@@ -297,7 +326,13 @@ fn serve(
                 Ask::Frame(_) => String::new(),
             },
         )
-        .body(buffer.to_srgb8_straight())
+        .body({
+            let mut pixels = buffer.to_srgb8_straight();
+            if viewer.alpha_only {
+                as_alpha_only(&mut pixels);
+            }
+            pixels
+        })
         .expect("build the frame response")
 }
 
@@ -352,6 +387,10 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         recovery: candidates.into_iter().map(|c| c.path).collect(),
         autosaved: String::new(),
         dirty_since: None,
+        alpha_only: false,
+        // On, because a transparent frame that reads as black is a frame a person
+        // misjudges, and every photograph of this window so far was taken with the grid there.
+        checkerboard: true,
         cache: CelCache::with_budget(DEFAULT_BUDGET_BYTES),
     })
 }
@@ -923,6 +962,32 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // The two ends of an interaction transaction. Neither names a layer: the drag already
         // knows which value it is holding, and asking the page to name it again would be asking
         // it to be right about something it has no way to check.
+        // The two ways of looking at a frame rather than changing it. Document 24's table gives
+        // both "no" under undoable, and document 21 line 97 calls them presentation, so neither
+        // touches the document: they set a flag the next frame is drawn through. That also means
+        // neither marks the project dirty, which is the part a person would notice if it were
+        // got wrong - looking at the alpha channel is not unsaved work.
+        "viewer.toggle_alpha" => {
+            let mut held = viewer.lock().expect("the viewer lock was poisoned");
+            held.alpha_only = !held.alpha_only;
+            return Some(match held.alpha_only {
+                true => "Alpha-only inspection is on. The picture is the alpha channel, white \
+                         where the frame is opaque and black where it is empty; what is exported \
+                         is unchanged."
+                    .to_string(),
+                false => "Alpha-only inspection is off.".to_string(),
+            });
+        }
+        "viewer.toggle_checkerboard" => {
+            let mut held = viewer.lock().expect("the viewer lock was poisoned");
+            held.checkerboard = !held.checkerboard;
+            return Some(match held.checkerboard {
+                true => "The transparency grid is on. It is drawn behind the frame and is not \
+                         part of it."
+                    .to_string(),
+                false => "The transparency grid is off.".to_string(),
+            });
+        }
         "property.drag_end" => return Some(end_drag(viewer)),
         "property.drag_cancel" => return Some(cancel_drag(viewer)),
         // The one command that names files rather than anything in the project. Without any,
@@ -4527,6 +4592,28 @@ mod serving {
         serve(viewer, export, ask, quality)
     }
 
+    /// One document 24 command, by the identifier the page would send.
+    fn run(viewer: &Mutex<Viewer>, what: &str) -> String {
+        let (id, query) = match what.split_once('?') {
+            Some((id, query)) => (id, Some(query)),
+            None => (what, None),
+        };
+        edit_command(viewer, id, query).expect("a command document 24 lists")
+    }
+
+    fn held(viewer: &Mutex<Viewer>) -> std::sync::MutexGuard<'_, Viewer> {
+        viewer.lock().expect("the viewer lock was poisoned")
+    }
+
+    /// A directory of this test's own, emptied first so a previous run cannot make a later one
+    /// pass.
+    fn scratch(name: &str) -> PathBuf {
+        let directory = std::env::temp_dir().join(name);
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("make the scratch directory");
+        directory
+    }
+
     #[test]
     fn what_the_page_gets_is_the_frame_it_asked_for() {
         let mut rows: Vec<(String, String, String)> = Vec::new();
@@ -4813,6 +4900,234 @@ mod serving {
             rows.len(),
             failed
         );
+    }
+
+    /// B-12a item 7: the two ways of looking at a frame, and the promise that neither changes it.
+    ///
+    /// Writes `verification/B-12a_inspect_table.md`.
+    #[test]
+    fn looking_at_the_alpha_channel_changes_nothing_but_the_looking() {
+        let mut rows: Vec<(String, String, String)> = Vec::new();
+        let mut check = |what: &str, expected: &dyn ToString, actual: &dyn ToString| {
+            rows.push((what.to_string(), expected.to_string(), actual.to_string()));
+        };
+        let pixel = |body: &[u8]| {
+            body[..4]
+                .iter()
+                .map(|b| b.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+
+        let project = a_half_transparent_red_project();
+        let viewer = Mutex::new(open(&project).expect("open the four-pixel project"));
+        let export = Mutex::new(Export::default());
+
+        let colour = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        check(
+            "the window opens looking at the picture itself",
+            &"false",
+            &header(&colour, "x-alpha"),
+        );
+        check(
+            "half-transparent red arrives as the red it was drawn as",
+            &"255, 0, 0, 128",
+            &pixel(colour.body()),
+        );
+        check(
+            "and the transparency grid starts on, because a transparent frame that reads as \
+             black is a frame somebody misjudges",
+            &"true",
+            &header(&colour, "x-checkerboard"),
+        );
+
+        // ---- the alpha-only view -------------------------------------------------------------
+        check(
+            "turning alpha inspection on says what will be on screen and what will not change",
+            &"Alpha-only inspection is on. The picture is the alpha channel, white where the \
+              frame is opaque and black where it is empty; what is exported is unchanged.",
+            &run(&viewer, "viewer.toggle_alpha"),
+        );
+        let alpha = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        check(
+            "and the frame that comes back says it is being looked at that way",
+            &"true",
+            &header(&alpha, "x-alpha"),
+        );
+        check(
+            "a pixel that is half transparent is drawn as the grey half way up",
+            &"128, 128, 128, 255",
+            &pixel(alpha.body()),
+        );
+        check(
+            "the alpha view is opaque, so what is being measured cannot itself be see-through",
+            &true,
+            &alpha.body().chunks_exact(4).all(|px| px[3] == 255),
+        );
+        check(
+            "it is the same picture, at the same size",
+            &format!(
+                "{}x{}",
+                header(&colour, "x-width"),
+                header(&colour, "x-height")
+            ),
+            &format!(
+                "{}x{}",
+                header(&alpha, "x-width"),
+                header(&alpha, "x-height")
+            ),
+        );
+
+        // Document 21 line 97: presentation must not alter cached final pixels. The frame was
+        // just rendered and cached while the alpha view was on; asking for it again with the
+        // view off is what proves the cache was given the picture and not the grey.
+        check(
+            "turning it off says so",
+            &"Alpha-only inspection is off.",
+            &run(&viewer, "viewer.toggle_alpha"),
+        );
+        let again = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        check(
+            "and the frame comes back byte for byte as it was, so what the cache kept was the \
+             picture and never the view",
+            &true,
+            &(again.body() == colour.body()),
+        );
+
+        // ---- neither is a change to the project -----------------------------------------------
+        check(
+            "looking at the alpha channel is not unsaved work",
+            &"false",
+            &header(&again, "x-dirty"),
+        );
+        check(
+            "and it is not in the undo history either, which is what document 24's own table \
+             says: undoable, no",
+            &0,
+            &held(&viewer).document.undo_depth(),
+        );
+
+        // ---- the grid ---------------------------------------------------------------------------
+        check(
+            "turning the grid off says what it was",
+            &"The transparency grid is off.",
+            &run(&viewer, "viewer.toggle_checkerboard"),
+        );
+        let plain = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        check(
+            "the frame says the grid is off",
+            &"false",
+            &header(&plain, "x-checkerboard"),
+        );
+        check(
+            "and not one byte of the frame is different, because the grid was never in it",
+            &true,
+            &(plain.body() == colour.body()),
+        );
+        check(
+            "turning it back on says so too",
+            &"The transparency grid is on. It is drawn behind the frame and is not part of it.",
+            &run(&viewer, "viewer.toggle_checkerboard"),
+        );
+
+        // ---- R-10: inspection must not alter export ---------------------------------------------
+        // The comparison is two exports of the same frame, one taken while the alpha view is on,
+        // rather than a claim about what an export ought to contain. Byte for byte, or the view
+        // reached the file.
+        let ordinary = scratch("anime_compositor_b12a_export_plain");
+        let (p, root, request) = export_job(&held(&viewer), &ordinary, MissingSource::Block);
+        run_export(&p, &root, &request, &AtomicBool::new(false));
+        run(&viewer, "viewer.toggle_alpha");
+        let inspecting = scratch("anime_compositor_b12a_export_alpha");
+        let (p, root, request) = export_job(&held(&viewer), &inspecting, MissingSource::Block);
+        run_export(&p, &root, &request, &AtomicBool::new(false));
+        let read = |dir: &Path| {
+            let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+                .expect("read the export directory")
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .collect();
+            files.sort();
+            files
+                .iter()
+                .map(|f| std::fs::read(f).expect("read an exported frame"))
+                .collect::<Vec<_>>()
+        };
+        let written = read(&ordinary);
+        check(
+            "an export writes the frames of the work area",
+            &1,
+            &written.len(),
+        );
+        check(
+            "and exporting while looking at the alpha channel writes the same file, byte for \
+             byte, which is what R-10 asks for",
+            &true,
+            &(read(&inspecting) == written),
+        );
+        run(&viewer, "viewer.toggle_alpha");
+
+        write_inspect_artifact(&rows);
+        let failed: Vec<&(String, String, String)> =
+            rows.iter().filter(|(_, e, a)| e != a).collect();
+        assert!(
+            failed.is_empty(),
+            "{} of {} checks failed, see verification/B-12a_inspect_table.md: {:#?}",
+            failed.len(),
+            rows.len(),
+            failed
+        );
+    }
+
+    fn write_inspect_artifact(rows: &[(String, String, String)]) {
+        let passed = rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut out = String::new();
+        out.push_str("# B-12a: looking at the alpha channel, and the grid behind the frame\n\n");
+        out.push_str(
+            "W-01 ends with the artist inspecting alpha, and document 05 line 31 lists the two \
+             views this is about: the transparency grid, and the alpha-only display. Both are in \
+             the viewer now, as document 24's `viewer.toggle_checkerboard` and \
+             `viewer.toggle_alpha`. Produced by `cargo test -p anime_compositor_app`, from \
+             `app/src/main.rs`.\n\n",
+        );
+        out.push_str(
+            "The promise these rows are about is document 21 line 97's, which R-10 states as a \
+             requirement: **checkerboard and alpha-only inspection must not alter export.** A \
+             view that quietly leaked into the file, or into the frames the preview keeps, would \
+             be found by whoever opened the exported sequence, long after the person who turned \
+             it on had forgotten it was on. So the grid is drawn by the page behind a canvas that \
+             already carries transparency and touches no pixel at all, and the alpha view is \
+             applied to the copy of the frame that is on its way to the screen, after the cache \
+             has been handed the picture it keeps.\n\n",
+        );
+        out.push_str(
+            "The fixture is four pixels of half-transparent red, drawn by this test. The \
+             reference shot cannot be used for this: every pixel in it is either opaque or empty, \
+             so an alpha view of it that was subtly wrong would still look right.\n\n",
+        );
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in rows {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                expected.replace('|', r"\|"),
+                actual.replace('|', r"\|"),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            rows.len()
+        ));
+        out.push_str(
+            "\n## What this does not cover\n\nWhat the grid looks like. It is eight-pixel squares \
+             of two greys in the page's stylesheet, fixed to the screen rather than to the \
+             picture so that zooming does not stretch them, and no test can see it. The \
+             photographs of the window are where it is judged.\n\nZoom and pan, which document 05 \
+             lists in the same line and which this build does not have: the viewer fits the frame \
+             to the space it has.\n",
+        );
+        std::fs::write(repo("verification/B-12a_inspect_table.md"), out).expect("write it");
     }
 
     fn write_artifact(rows: &[(String, String, String)]) {

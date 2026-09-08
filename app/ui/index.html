@@ -37,10 +37,16 @@
     display: grid; place-items: center; min-height: 0; min-width: 0; padding: 12px;
     grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
   }
-  /* Checkerboard, so a transparent frame reads as transparent rather than as black. */
+  /* Checkerboard, so a transparent frame reads as transparent rather than as black. Document
+     05 line 31 makes it a view that can be turned off, and document 21 line 97 makes it
+     presentation: it is behind a canvas that already carries alpha, so the frame's own pixels
+     are never touched by it and cannot be. Squares are a fixed size on screen rather than in
+     the picture, which is why this is not painted into the frame. */
   canvas {
     max-width: 100%; max-height: 100%; image-rendering: pixelated;
     background-color: #2a2a2e;
+  }
+  canvas.grid {
     background-image:
       linear-gradient(45deg, #333338 25%, transparent 25%, transparent 75%, #333338 75%),
       linear-gradient(45deg, #333338 25%, transparent 25%, transparent 75%, #333338 75%);
@@ -188,6 +194,8 @@
   <span id="frame">frame &mdash;</span>
   <span id="quality">&mdash;</span>
   <button id="toggle">Full resolution</button>
+  <button id="alpha">Alpha only</button>
+  <button id="checker">Hide grid</button>
   <ul class="rows" id="layers"></ul>
   <span class="hint" id="nolayers" hidden>This composition has no layers.</span>
 </div>
@@ -207,7 +215,7 @@
   <button id="export">Export&hellip;</button>
   <button id="cancelexport" hidden>Cancel export</button>
   <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
-  <span class="hint">space, arrows, D &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E &middot; or drop a project file here</span>
+  <span class="hint">space, arrows, D, A, G &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E &middot; or drop a project file here</span>
   <span id="status"></span>
   <span id="autosaved"></span>
   <span id="report"></span>
@@ -286,6 +294,14 @@ async function show(url) {
       + (differs ? ', not final pixels' : ', same as export');
     label.className = differs ? 'differs' : '';
     $('toggle').textContent = differs ? 'Full resolution' : 'Draft resolution';
+
+    // Which way the frame that just arrived is being looked at. The grid is a class on the
+    // canvas and nothing more, and the alpha view arrived already applied to these pixels.
+    const alphaOnly = h.get('x-alpha') === 'true';
+    $('alpha').textContent = alphaOnly ? 'Colour again' : 'Alpha only';
+    const grid = h.get('x-checkerboard') === 'true';
+    view.classList.toggle('grid', grid);
+    $('checker').textContent = grid ? 'Hide grid' : 'Show grid';
     quality = differs ? 'draft' : 'full';
 
     const report = $('report');
@@ -865,6 +881,10 @@ $('toggle').onclick = () => {
   quality = quality === 'draft' ? 'full' : 'draft';
   show(FRAMES + '/frame/' + frame + '?q=' + quality);
 };
+// Both views are the window's, not the project's, so neither goes near the document. What each
+// button says is what pressing it does, and the frame that comes back says which view is on.
+$('alpha').onclick = () => command('/viewer.toggle_alpha');
+$('checker').onclick = () => command('/viewer.toggle_checkerboard');
 
 // A command, then the project again, then the current frame — in that order, so that everything
 // the window says about the project comes back from the core rather than being guessed here.
@@ -1003,6 +1023,10 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowLeft') step(-1);
   else if (e.key === 'ArrowRight') step(1);
   else if (e.key === 'd' || e.key === 'D') $('toggle').click();
+  // The two inspection views. Single letters like D above, because they change nothing in the
+  // project and a person switches between them constantly while judging an edge.
+  else if (e.key === 'a' || e.key === 'A') $('alpha').click();
+  else if (e.key === 'g' || e.key === 'G') $('checker').click();
 });
 
 // D-35: at rest the viewer shows the work area's first frame.
