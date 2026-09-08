@@ -1061,10 +1061,94 @@ dialog, and no test in this project has hands to answer one. Every row in every 
 at the selection a person made, and the buttons that open the dialogs are checked only by the
 photographs.
 
-The page. `app/ui/index.html` is not broken by anything in this pass, and nothing in it can be:
-these breaks are all made in Rust, and the page has no test at all. What the page does - which
-button sends which command, which key presses which button, what the panels draw from the state
-they are given - is checked by the owner looking at the window, which is what B-12 is for.
+The page. `app/ui/index.html` is not broken by anything in this pass: these breaks are all made
+in Rust. It is broken by the pass after it, in the section below - which button sends which
+command, and which key presses which button, are both read out of the page now. What the panels
+draw from the state they are given is still checked only by the owner looking at the window, which
+is what B-12 is for.
+
+## B-12b the page itself: which button sends which command, and which key presses which button
+
+`app/ui/index.html`, checked by the `contract` tests in `app/src/main.rs`, whose tables are
+`verification/B-12b_page_table.md`, `B-12b_command_map_table.md` and
+`B-12b_text_coalescing_table.md`.
+
+**12 of 14 breaks caught, two through.**
+
+The paragraph below this section used to say that the page could not be broken on purpose because
+it had no test at all. It has one now, and this is the first time the file a person actually
+clicks on has been broken deliberately. Nothing in this pass runs a browser: the tests read the
+page as text, so the breaks are the ones that reading can see - a button wired to the wrong
+command, a command nothing answers, a shortcut on the wrong key, a field that sends on every
+keystroke instead of when it is committed.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| P1 | Delete layer sends `layer.remove`, which the window has never heard of | yes | the window answers `layer.remove` - nothing, the window has never heard of it - and two more |
+| P2 | Forward and Back both move a layer back | yes | the Forward control sends `layer.move_up` |
+| P3 | Undo redoes | yes | the Undo control sends `edit.undo` |
+| P4 | Alpha only turns the transparency grid off instead | yes | the Alpha only control sends `viewer.toggle_alpha` |
+| P5 | The transparency grid button asks for `viewer.grid`, which is not a command | yes | the window answers `viewer.grid`, and two more |
+| P6 | Export is bound to Ctrl+E rather than the Ctrl+M document 24 names | yes | `and Ctrl+M is bound` (expected yes, got no, though the command is built) |
+| P7 | The Ctrl+I arm is deleted, so importing has no shortcut | yes | `and Ctrl+I is bound` |
+| P8 | Ctrl+Z redoes and Ctrl+Shift+Z undoes | yes | `and Ctrl+Shift+Z is bound` |
+| P9 | An effect's settings are sent on every keystroke | yes | `no field in the page sends anything while a key is being pressed` |
+| P10 | A transform number is sent on every keystroke | yes | `no field in the page sends anything while a key is being pressed` |
+| P11 | Clicking away from a rename throws the new name away | yes | a layer's name is committed by losing focus, and sends `layer.rename` |
+| P12 | A name committed unchanged is sent anyway, and is an undo entry | yes | `and a name committed unchanged sends nothing at all` |
+| P13 | The Forward button is renamed in the markup and nowhere else | **no** | nothing failed |
+| P14 | Delete presses the Forward button instead of Delete layer | **no** | nothing failed |
+
+## Nineteenth pass: the two that got through, and what was added
+
+Both survivors are the same mistake seen from two sides: the table checked that the page *says*
+something and never checked what that something is attached to.
+
+**P13, the button renamed in one place.** Changing `<button id="up">` to `<button id="upward">`
+and leaving the handler saying `$('up')` passed every row. Nothing in the table had ever read the
+markup - the identifier rows, the wiring rows and the shortcut rows all read the script, and the
+script was untouched. In the window this is a Forward button that does nothing when clicked, with
+no error anywhere, which is the same failure P1 was written to catch and arrived at from the other
+end. What was added is one row that reads both halves at once: every name the script reaches for
+with `$('…')` has to be a name the markup defines. It fails P13 by naming `up`.
+
+**P14, the shortcut moved to the wrong button.** The shortcut rows ask whether a key is tested for
+somewhere in the accelerator handler, and moving Delete onto the Forward button leaves the key
+test exactly where it was. What was added is `PRESSES`: for each accelerator that works by
+pressing a button, the test slices the arm that key opens - from its test to the next `else if` -
+and reads which control that arm reaches for. Ten accelerators are covered and the row names the
+control, so the table now says `and Delete presses $('dellayer')` rather than `and Delete is
+bound`.
+
+Two things about the twelve that were caught are worth putting on the page.
+
+The first is that P9 and P10, the two per-keystroke breaks, were both caught by the same row, and
+that row is a search for the word `oninput` anywhere in the file. That is a blunt instrument and
+it is deliberately blunt: document 26's rule is a property of the whole page rather than of any
+one field, so the check is that no field anywhere is wired to the event that fires per keystroke.
+The three rows beside it, which pin each typed field to its own handler, are the precise half.
+
+The second is a weakness the pass found and did not fix. Two of those three rows look for the
+identical text `input.onchange = send;`, because the effect settings and the exposure fields are
+written the same way. Breaking one of them leaves the other's copy of that string in the file, so
+the rows cannot tell which field was broken - P9 was caught by the `oninput` row, not by the row
+that names the field. Making them distinguishable means giving the two fields distinguishable
+handlers, which is a change to the page for the benefit of a test, and it was not worth it while
+the blunt row still catches the mistake. It is written down here rather than fixed.
+
+## What this pass did not cover, on the page
+
+The browser. Every row is string matching over JavaScript. It can see that a handler names a
+command and that the control it reaches for exists in the markup; it cannot see that the control
+is on the screen, that it is enabled, that a click reaches the handler, or that the panel drew the
+value the state actually holds. Anything that goes wrong between the file being correct and the
+window behaving is invisible here, and what stands in for it is the photographs in
+`verification/B-12a_window_and_keyboard.md` and the owner's own run under B-12.
+
+The panels. What the page *draws* - the layer rows, the inspector, the effect stack, the exposure
+sheet - is not read by any of these tests. They cover the outward half, the requests the page
+sends, and say nothing about the half that turns a state document into what is on screen. That
+half is judged by looking at it.
 
 ## First pass: the six that got through, and what was added
 

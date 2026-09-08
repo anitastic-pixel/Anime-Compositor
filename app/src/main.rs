@@ -6489,6 +6489,30 @@ mod contract {
             );
         }
 
+        // Every check above this line reads the script and none of them reads the markup, which
+        // is how renaming `id="up"` to `id="upward"` and leaving the handler saying `$('up')`
+        // got through the whole table once. A handler hung on a name nothing is called is a
+        // button that does nothing, silently, exactly like an identifier nobody answers.
+        let defined: Vec<&str> = page
+            .match_indices("id=\"")
+            .map(|(at, _)| {
+                let rest = &page[at + 4..];
+                &rest[..rest.find('"').unwrap_or(0)]
+            })
+            .collect();
+        let missing: Vec<String> = sorted(after(&page, "$('"))
+            .into_iter()
+            .filter(|name| !defined.contains(&name.as_str()))
+            .collect();
+        report.check(
+            "every control the script reaches for is one the markup defines",
+            "none missing",
+            match missing.is_empty() {
+                true => "none missing".to_string(),
+                false => missing.join(", "),
+            },
+        );
+
         write_artifact(
             &report,
             "verification/B-12b_page_table.md",
@@ -6526,7 +6550,10 @@ mod contract {
          answer is a button that does nothing, with no error, no status line and nothing in the \
          log.\n- **The wiring rows anchor an identifier to its handler.** Checking only that \
          `layer.delete` appears somewhere in the page would pass if Delete layer and Forward \
-         swapped commands.",
+         swapped commands.\n- **The last row reads the markup rather than the script.** Every \
+         other row here reads the handlers; that one checks that each control a handler reaches \
+         for is a control this page actually contains, because renaming a button and forgetting \
+         its handler leaves the handler attached to nothing.",
         "## What this cannot cover\n\nThis is string matching over JavaScript, not a browser. It \
          can see that a handler names an identifier. It cannot see that the handler is attached \
          to a button, that the button is on the screen, that it is enabled, or that clicking it \
@@ -6609,6 +6636,25 @@ mod contract {
         ("viewer.zoom_100", "Ctrl+1", ""),
         ("export.sequence", "Ctrl+M", "e.key === 'm'"),
         ("app.command_palette", "Ctrl+Shift+P", ""),
+    ];
+
+    /// The accelerators that work by pressing a button, and the button each one presses.
+    ///
+    /// The table above only sees that a key is tested for somewhere in the handler. Moving
+    /// `Delete` onto the Forward button went straight through it, because the key test was still
+    /// there and only what it did had changed. This reads the arm each key opens - the text from
+    /// its test to the next `else if` - and says which control that arm reaches for.
+    const PRESSES: &[(&str, &str, &str)] = &[
+        ("Ctrl+M", "e.key === 'm'", "$('export')"),
+        ("Ctrl+I", "e.key === 'i'", "$('import')"),
+        ("Ctrl+Alt+L", "e.key === 'l'", "$('addlayer')"),
+        ("Ctrl+]", "e.key === ']'", "$('up')"),
+        ("Ctrl+[", "e.key === '['", "$('down')"),
+        ("Delete", "e.key === 'Delete'", "$('dellayer')"),
+        ("Space", "e.key === ' ') {", "$('play')"),
+        ("D", "e.key === 'd'", "$('toggle')"),
+        ("A", "e.key === 'a'", "$('alpha')"),
+        ("G", "e.key === 'g'", "$('checker')"),
     ];
 
     /// Document 24's command table, read out of the document itself.
@@ -6715,6 +6761,24 @@ mod contract {
             );
         }
 
+        for (shortcut, key, control) in PRESSES {
+            let arm = match keys.find(key) {
+                Some(at) => {
+                    let rest = &keys[at..];
+                    &rest[..rest.find("else if").unwrap_or(rest.len())]
+                }
+                None => "",
+            };
+            report.check(
+                &format!("and {shortcut} presses"),
+                *control,
+                match arm.split_once("$('") {
+                    Some((_, rest)) => format!("$('{}", &rest[..rest.find(')').unwrap_or(0) + 1]),
+                    None => format!("nothing - no arm tests for {key}"),
+                },
+            );
+        }
+
         write_artifact(
             &report,
             "verification/B-12b_command_map_table.md",
@@ -6766,7 +6830,9 @@ mod contract {
          one.\n- **`the page sends it and nothing answers`** is a value no row expects, and \
          seeing it in the Actual column would mean a button that does nothing.\n- **The shortcut \
          rows come in pairs.** The first says what document 24 promises, read from the document. \
-         The second says whether the page binds it.",
+         The second says whether the page binds it.\n- **The `presses` rows say what the key \
+         does, not only that it is bound.** A shortcut moved onto the wrong button keeps its key \
+         test and stops doing its job; those rows are the ones that would say so.",
         "## The six commands this build does not have\n\nEach is a deliberate absence, and none \
          of them is a step of W-01.\n\n- **`project.new`** - a new project is an empty window and \
          this build always opens on something: the reference shot when it is given nothing, or \

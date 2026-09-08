@@ -11,6 +11,7 @@ It reads the page and the window's own source, and asks three questions. Which i
 - **The first two rows are a list, not a count.** They name every identifier and every route the page can ask for, in one cell each. A button added tomorrow that sends something new fails this row until the new identifier is written down beside the others, which is the point: what the window can be asked to do should be a thing somebody wrote down.
 - **`nothing - the window has never heard of it`** is the answer this table exists to catch. A page sending an identifier the window does not answer is a button that does nothing, with no error, no status line and nothing in the log.
 - **The wiring rows anchor an identifier to its handler.** Checking only that `layer.delete` appears somewhere in the page would pass if Delete layer and Forward swapped commands.
+- **The last row reads the markup rather than the script.** Every other row here reads the handlers; that one checks that each control a handler reaches for is a control this page actually contains, because renaming a button and forgetting its handler leaves the handler attached to nothing.
 
 ## What this cannot cover
 
@@ -67,5 +68,6 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the Relink drawings control sends `media.relink` | true | true | pass |
 | the Apply the relink control sends `media.relink` | true | true | pass |
 | the Leave it as it is control sends `media.relink` | true | true | pass |
+| every control the script reaches for is one the markup defines | none missing | none missing | pass |
 
-**47 of 47 checks pass.**
+**48 of 48 checks pass.**

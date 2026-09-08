@@ -11,6 +11,7 @@ There are four ways a command is reached in this build, and the second column of
 - **`nothing yet` is checked as hard as the rest.** A row that says a command is not built is a claim, and the test confirms nothing answers that identifier. This is what stops the list quietly going stale after somebody builds one.
 - **`the page sends it and nothing answers`** is a value no row expects, and seeing it in the Actual column would mean a button that does nothing.
 - **The shortcut rows come in pairs.** The first says what document 24 promises, read from the document. The second says whether the page binds it.
+- **The `presses` rows say what the key does, not only that it is bound.** A shortcut moved onto the wrong button keeps its key test and stops doing its job; those rows are the ones that would say so.
 
 ## The six commands this build does not have
 
@@ -109,5 +110,15 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and Ctrl+M is bound | yes | yes | pass |
 | document 24 gives `app.command_palette` the shortcut | Ctrl+Shift+P | Ctrl+Shift+P | pass |
 | and Ctrl+Shift+P is bound | no, and the command is not built either | no, and the command is not built either | pass |
+| and Ctrl+M presses | $('export') | $('export') | pass |
+| and Ctrl+I presses | $('import') | $('import') | pass |
+| and Ctrl+Alt+L presses | $('addlayer') | $('addlayer') | pass |
+| and Ctrl+] presses | $('up') | $('up') | pass |
+| and Ctrl+[ presses | $('down') | $('down') | pass |
+| and Delete presses | $('dellayer') | $('dellayer') | pass |
+| and Space presses | $('play') | $('play') | pass |
+| and D presses | $('toggle') | $('toggle') | pass |
+| and A presses | $('alpha') | $('alpha') | pass |
+| and G presses | $('checker') | $('checker') | pass |
 
-**79 of 79 checks pass.**
+**89 of 89 checks pass.**
