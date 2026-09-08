@@ -15,11 +15,13 @@ Document 08 line 43 says of its own figures: *"These are validation targets, not
 Debug assertions in this build: false. A run with `true` there is a debug build, and its numbers say more about the compiler than about the renderer.
 
 
-## The fixture this could not use
+## The fixture this file could not use, and the one that has since been built
 
-Document 08 line 41 declares the reference fixture as *"1080p, 24 fps, 240 frames, ten raster layers, two alpha mattes and three simple effect instances"*. The reference shot is 1080p, 24 fps and 240 frames exactly, and it has **four raster layers, no mattes and no effects**, because mattes are B-06 and effects are B-07 and both are PARKED under D-12.
+Document 08 line 41 declares the reference fixture as *"1080p, 24 fps, 240 frames, ten raster layers, two alpha mattes and three simple effect instances"*. The reference shot is 1080p, 24 fps and 240 frames exactly, and it has **four raster layers, no mattes and no effects**, because mattes were B-06 and effects were B-07 and both were PARKED under D-12 when this was measured.
 
-The declared fixture is therefore not buildable in this build. Nothing below is a measurement of it. Every figure here is a **floor** for that fixture rather than an estimate of it: six more layers cost more, and the two parked features are the two document 08 itself says need bounds expansion and a second evaluation of alpha. This is registered as **D-41** rather than absorbed, and it stays registered until a park lifts or the owner amends line 41.
+Nothing below is a measurement of the declared fixture. Every figure here is a **floor** for it rather than an estimate of it: six more layers cost more, and the two parked features are the two document 08 itself says need bounds expansion and a second evaluation of alpha. That gap is registered as **D-41**.
+
+**B-06 and B-07 have both since landed, and the declared fixture has been built and measured.** It is `verification/T-06_declared_fixture.md`, and it is the file to read for what document 08's own fixture costs - it is about nine times the frame. This file stays what it is, the reference shot's own numbers, because the reference shot is what the viewer actually opens.
 
 ## Ten repeated work-area loops
 
@@ -84,7 +86,7 @@ That is not an argument for raising the default. `verification/B-08b_cache_budge
 | Cold-render throughput | The first loop above |
 | Peak RAM | Peak working set above |
 | Peak VRAM | **Not measurable**: there is no GPU path in this build |
-| The ten-layer, two-matte, three-effect fixture | **Not buildable**: B-06 and B-07 are parked under D-12. Every figure here is a floor, not an estimate. D-41 |
+| The ten-layer, two-matte, three-effect fixture | **Not this file's workload**: it was parked under D-12 when this was measured. Built and measured since, in `verification/T-06_declared_fixture.md`. Every figure here is a floor for it, not an estimate. D-41 |
 
 ## Two checks on the cache that every number above rests on
 

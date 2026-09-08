@@ -25,12 +25,14 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.move_down | Move layer toward back | Ctrl+[ | yes |
 | layer.toggle_visibility | Toggle selected layer | none | yes |
 | layer.toggle_lock | Toggle selected layer lock | none | yes |
+| layer.set_matte | Choose, change or clear the layer that shapes this one | none | yes |
 | timeline.previous_frame | Step one composition frame back | Left | no |
 | timeline.next_frame | Step one composition frame forward | Right | no |
 | timeline.play_pause | Toggle work-area playback | Space | no |
 | timeline.set_work_start | Set work-area start | B | yes/project setting |
 | timeline.set_work_end | Set work-area end | N | yes/project setting |
 | exposure.set_span | Assign drawing/hold span | none | yes |
+| property.set_base | Set a transform property's base value | none | yes |
 | keyframe.add_remove | Toggle keyframe for focused property | none | yes |
 | effect.add | Add effect instance | none | yes |
 | effect.delete | Remove selected effect | Delete when effect-focused | yes |
@@ -45,6 +47,12 @@ Every state-changing UI action invokes a stable command ID through the command l
 | app.command_palette | Search commands | Ctrl+Shift+P | no |
 
 Shortcuts are proposed defaults and must be tested for OS/framework conflicts. Users may remap commands later; command IDs remain stable.
+
+`layer.set_matte` was added on 2026-09-07 by B-12a, for the same reason and by the same reading. W-01 requires the artist to apply a matte, `SetMatte` has existed in the command layer since B-06, and this table named no ID for reaching it. One ID covers choosing a matte, clearing it and changing whether the matte layer is still drawn in its own right, because document 19 holds all three in one record and the core takes them in one command; an ID for each would give a window a way to send half of a setting the file cannot hold in halves.
+
+`property.set_base` was added on 2026-09-07 by B-12a. W-01 requires the artist to adjust anchors and transforms, `SetPropertyBase` has existed in the command layer since B-05, and this table named no ID for reaching it, so an inspector had nothing stable to invoke. This is a correction of an omission, not a new capability; if the owner would rather it were named something else, the string is changed in one place.
+
+An interaction transaction is not a command and has no row here. The three requests that carry one — beginning it, previewing a value inside it, and committing or cancelling it — produce no history record of their own; the single record they commit belongs to the command being dragged, and that command is the one this table names. `property.drag_update`, `property.drag_end` and `property.drag_cancel` are the names this build uses for them.
 
 ## Focus and selection
 

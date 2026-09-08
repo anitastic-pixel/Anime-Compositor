@@ -332,7 +332,8 @@ pub fn import_sequence(files: &[PathBuf]) -> ImportResult {
                     asset.pattern
                 ),
                 format!(
-                    "{} files do not match the pattern {} but carry a clear number                      and were imported.",
+                    "{} files do not match the pattern {} but carry a clear number \
+                     and were imported.",
                     variants.len(),
                     asset.pattern
                 ),

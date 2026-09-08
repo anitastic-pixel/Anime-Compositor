@@ -31,13 +31,8 @@ spikes/*/gen/
 # Cargo.lock is COMMITTED. ADR-005 requires it, and docs/DEPENDENCIES.md is generated from it,
 # so an ignored lock would make the dependency record unreproducible.
 
-# Standing instruction for the unattended overnight run; not part of the project.
-NIGHT_RUN.md
-MORNING_REPORT.md
-DAY_RUN.md
-DAY_REPORT.md
-
-# Mutation scripts and other throwaway working files. They are kept inside the repository so they
+# Mutation scripts, the standing instructions and reports of the unattended runs (in runs/),
+# and other throwaway working files. They are kept inside the repository so they
 # survive a session, and ignored because their output is the mutation report, not the script.
 scratchpad/
 

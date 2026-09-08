@@ -55,6 +55,7 @@ name = "anime_compositor_app"
 version = "0.1.0"
 dependencies = [
  "anime_compositor",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

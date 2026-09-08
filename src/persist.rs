@@ -1776,13 +1776,16 @@ pub struct RelinkCandidate {
 
 /// Normalise a media path for storage: relative to the project's directory when it is under
 /// it, with forward slashes, so a project and its media tree move together.
-fn stored_path(project_dir: &Path, file: &Path) -> String {
+///
+/// Public because importing media happens in the window rather than here — B-12a's
+/// `media.import` builds an asset record out of what B-03's importer found — and the rule for
+/// how a path is written into a project belongs to the format, not to whoever is building the
+/// record.
+pub fn stored_path(project_dir: &Path, file: &Path) -> String {
     let relative = file.strip_prefix(project_dir).unwrap_or(file);
-    relative
-        .components()
-        .map(|c| c.as_os_str().to_string_lossy().into_owned())
-        .collect::<Vec<_>>()
-        .join("/")
+    // Separator by separator rather than component by component: a path that is not under the
+    // project keeps its root, and this platform spells a root with the separator being replaced.
+    relative.to_string_lossy().replace('\\', "/")
 }
 
 /// Work out what relinking `asset_id` to `files` would produce.

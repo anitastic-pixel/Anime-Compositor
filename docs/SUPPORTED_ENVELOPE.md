@@ -18,44 +18,75 @@ written to be read before use, not after something goes wrong.
 
 ## What it does
 
-- Opens and saves projects — the toolbar, `Ctrl+O`, `Ctrl+S`, `Ctrl+Shift+S`, the recent list,
-  or dropping a project file onto the window.
-- Shows any frame of the shot, steps through frames, and plays in real time.
-- Switches between a draft preview and full resolution, and says on screen which one you are
-  looking at. A draft preview is never described as final pixels.
-- Saves a copy of itself in the background while a project has unsaved changes, and says when it
-  last did. The copies rotate through five slots beside the project and never touch the file you
-  saved yourself. If the program stops without saving, the next start offers those copies newest
-  first; choosing one opens it as unsaved work against the project on disk, so the file is only
-  overwritten if you save it.
-- Exports the shot as a PNG sequence — **Export…** or `Ctrl+E`, into a folder you choose. Every
-  frame of the shot is written at full size, whatever resolution the preview happens to be
-  showing, named for the project and the frame number. It exports the shot as it was when you
-  asked, so opening or changing something while it runs does not change what is being written,
-  and you can stop it: the frame being written is finished and the rest are not started.
-- Says out loud when something is wrong with a project — a missing drawing, an effect this build
-  does not have — and keeps what it does not understand rather than dropping it. A project saved
-  by this build still contains everything the project had when it arrived, including parts this
-  version cannot read.
+**Projects.** Opens and saves them — the toolbar, `Ctrl+O`, `Ctrl+S`, `Ctrl+Shift+S`, the recent
+list, or dropping a project file onto the window.
+
+**Drawings.** Imports a folder of numbered PNGs as one sequence — **Import drawings…** or
+`Ctrl+I` — and tells you how many drawings it found, which numbers they run between, and which
+numbers are missing from the run. **Relink drawings…** points a sequence at a folder that has
+moved, and shows you what the relink would do before it does it.
+
+**Building a shot.** Add and delete layers, rename one (`F2`), move one forward or back
+(`Ctrl+]`, `Ctrl+[`), hide one, lock one. Give a layer its exposure sheet — which drawing is on
+screen for which frames. Set a layer's anchor, position, scale, rotation and opacity, by typing
+a number or by dragging its label; a whole drag is one thing to undo, not thirty. Use one layer
+as another's track matte, showing the matte layer or not. Add, bypass and delete effects, which
+run in the order they were added: this build has three, an exposure adjustment, a Gaussian blur
+and a tint.
+
+**Undo.** Everything above, backwards and forwards, `Ctrl+Z` and `Ctrl+Shift+Z`, with the window
+naming what it is about to undo rather than saying "undo".
+
+**Watching it.** Shows any frame, steps through frames, and plays in real time. Switches between
+a draft preview and full resolution, and says on screen which one you are looking at — a draft
+preview is never described as final pixels. Shows the alpha channel on its own, and turns the
+transparency grid off.
+
+**Autosave.** Saves a copy of itself in the background while a project has unsaved changes, and
+says when it last did. The copies rotate through five slots beside the project and never touch
+the file you saved yourself. If the program stops without saving, the next start offers those
+copies newest first; choosing one opens it as unsaved work against the project on disk, so the
+file is only overwritten if you save it.
+
+**Export.** Writes the shot as a PNG sequence — **Export…** or `Ctrl+M`, into a folder you
+choose. Every frame is written at full size, whatever resolution the preview happens to be
+showing, named for the project and the frame number. It exports the shot as it was when you
+asked, so changing something while it runs does not change what is being written, and you can
+stop it: the frame being written is finished and the rest are not started.
+
+**Saying when something is wrong.** A missing drawing, an effect this build does not have, a
+project written by a newer version — it says so in words, and keeps what it does not understand
+rather than dropping it. A project saved by this build still contains everything the project had
+when it arrived, including the parts this version cannot read.
 
 ## What it does not do yet
 
+- **It cannot make a composition.** The composition you work in is the one your project file
+  already holds — its size, its frame rate and its length come from the file and nothing in the
+  window changes them. Starting a shot from nothing means starting from a project file somebody
+  else wrote.
+- **It cannot draw a mask or make a keyframe.** Both exist in the file format, both are drawn
+  correctly when a project arrives with them, and both survive a save. There is simply no
+  control in this window that creates one, so everything you set here holds for the whole shot.
+- **It cannot change a blend mode or the order of a layer's effects.** The layer panel shows
+  which blend mode a layer has — normal, multiply, screen or add — and all four are composited
+  correctly, but the value comes from the file. Effects run in the order they were added and
+  there is no way to move one.
+- **Three effects.** An exposure adjustment, a Gaussian blur and a tint. A project using any
+  other effect keeps it, renders without it, and says which one it skipped.
 - **An export stops on a missing drawing, and there is no progress bar.** If any frame in the
   range needs a drawing that is not on disk, nothing is written and you are told which frames and
   what to do about it; the checkbox beside the button writes them anyway, with the missing
   drawings still reported. While an export runs the window says so and offers to stop it, but it
   does not count the frames as they are written.
-- **No masks and no effects.** Both are deliberately parked, not missing by accident. A project
-  that has them keeps them and renders without them, and says so.
 - **Autosave is not a save.** It waits two minutes after a change and then keeps up to five
   copies; anything newer than the last copy is not in it, and nothing it writes replaces your
   file. Save deliberately.
-- **No editing.** This is a viewer: it opens, shows, plays, saves and exports. Nothing in the
-  window changes a project.
 - **No GPU rendering, no video files.** Frames are composited on the processor and written as
   images.
 - **No screen-reader support has been checked.** Display scaling, the keyboard and non-English
-  text have been; `verification/B-11_display_and_keyboard.md` shows how far that goes.
+  text have been; `verification/B-11_display_and_keyboard.md` and
+  `verification/B-12a_window_and_keyboard.md` show how far that goes.
 
 ## About the network
 

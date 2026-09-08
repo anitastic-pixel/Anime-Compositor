@@ -43,13 +43,17 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
-use anime_compositor::command::Document;
+use anime_compositor::command::{Command, Document};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
+use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR, TINT};
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
-use anime_compositor::model::{Id, Project};
+use anime_compositor::media;
+use anime_compositor::model::{Asset, Id, Layer, Project, Prop, Value};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
+use anime_compositor::time::ExposureSpan;
+use anime_compositor::{AlphaMode, ColorSpace};
 use anime_compositor::{OutputAlpha, OutputDepth};
 use tauri::http::{Request, Response};
 use tauri::{AppHandle, DragDropEvent, Manager, WindowEvent};
@@ -104,6 +108,18 @@ struct Viewer {
     /// clean. Document 07 asks for a snapshot "after two minutes of dirty activity", so the two
     /// minutes are measured from here.
     dirty_since: Option<Instant>,
+    /// Document 05 line 31's alpha-only view and transparency grid, and document 21 line 97's
+    /// rule about both: they are presentation. Neither is in the project, neither is undoable
+    /// (document 24 says so in its own column), and neither may change a cached pixel or
+    /// anything exported. The grid is drawn by the page behind a canvas that already has
+    /// alpha, so it touches no pixel at all; the alpha view is applied to the copy of the
+    /// frame that is about to leave, after the cache has been given the frame it keeps.
+    alpha_only: bool,
+    checkerboard: bool,
+    /// W-02's relink, worked out and not yet agreed to. See [`PendingRelink`]. At most one at a
+    /// time: a person is answering one question, and a second proposal replaces the first rather
+    /// than queueing behind it.
+    relink: Option<PendingRelink>,
     /// B-08b: the decoded cels this preview has already paid for. Belongs to the viewer rather
     /// than to a frame because its whole purpose is to outlive one, and it is replaced along with
     /// everything else when a different project is opened, so nothing from the old one survives.
@@ -179,6 +195,23 @@ fn allow_the_page_to_read_this(
         .header("access-control-expose-headers", "*")
 }
 
+/// Replace a frame's colour with its own alpha, in place, so the page draws the alpha channel.
+///
+/// Document 05 line 31 asks for an alpha-only view and document 21 line 97 requires it to be
+/// presentation: this runs on the bytes that are about to be sent, which
+/// `WorkingBuffer::to_srgb8_straight` has just allocated, so the cached frame and the export path
+/// never see it. Grey rather than false colour, and opaque rather than transparent, because the
+/// question the view answers is "how transparent is this pixel" and an answer that is itself
+/// transparent cannot be looked at.
+fn as_alpha_only(pixels: &mut [u8]) {
+    for pixel in pixels.chunks_exact_mut(4) {
+        pixel[0] = pixel[3];
+        pixel[1] = pixel[3];
+        pixel[2] = pixel[3];
+        pixel[3] = 255;
+    }
+}
+
 /// Render what was asked for and hand it back as raw display-ready pixels.
 ///
 /// The body is `WorkingBuffer::to_srgb8_straight` — the same bytes an 8-bit export writes, minus
@@ -247,6 +280,26 @@ fn serve(
         .header("x-width", width.to_string())
         .header("x-height", height.to_string())
         .header("x-quality", viewer.quality.label())
+        // What the person is looking through. The page needs both: one to draw the grid behind
+        // the canvas, and one so the buttons show which view is on.
+        // W-02's proposal, if one is waiting to be agreed to. It travels with the frame like
+        // everything else the window has to say, so the panel offering it cannot outlive it.
+        .header(
+            "x-relink",
+            for_a_header(match &viewer.relink {
+                Some(pending) => &pending.said,
+                None => "",
+            }),
+        )
+        .header(
+            "x-relink-asset",
+            for_a_header(match &viewer.relink {
+                Some(pending) => pending.asset.as_str(),
+                None => "",
+            }),
+        )
+        .header("x-alpha", viewer.alpha_only.to_string())
+        .header("x-checkerboard", viewer.checkerboard.to_string())
         .header(
             "x-differs",
             viewer.quality.differs_from_export().to_string(),
@@ -294,7 +347,13 @@ fn serve(
                 Ask::Frame(_) => String::new(),
             },
         )
-        .body(buffer.to_srgb8_straight())
+        .body({
+            let mut pixels = buffer.to_srgb8_straight();
+            if viewer.alpha_only {
+                as_alpha_only(&mut pixels);
+            }
+            pixels
+        })
         .expect("build the frame response")
 }
 
@@ -349,6 +408,11 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         recovery: candidates.into_iter().map(|c| c.path).collect(),
         autosaved: String::new(),
         dirty_since: None,
+        alpha_only: false,
+        // On, because a transparent frame that reads as black is a frame a person
+        // misjudges, and every photograph of this window so far was taken with the grid there.
+        checkerboard: true,
+        relink: None,
         cache: CelCache::with_budget(DEFAULT_BUDGET_BYTES),
     })
 }
@@ -559,6 +623,960 @@ fn recover(viewer: &Mutex<Viewer>, snapshot: &Path) -> String {
 /// Say something in the window's status line, replacing whatever it said before.
 fn announce(viewer: &Mutex<Viewer>, said: String) {
     viewer.lock().expect("the viewer lock was poisoned").status = said;
+}
+
+// -------------------------------------------------------------------------------------------
+// Editing
+// -------------------------------------------------------------------------------------------
+
+/// Everything the editing panels draw, as one JSON answer.
+///
+/// The project half of it is `persist::to_json` - the same text a save writes, preserved records
+/// and all - rather than a summary shaped for the page. Two reasons. What a panel shows is then
+/// what the file would hold, so a panel cannot quietly disagree with a save. And a record this
+/// build does not model still reaches the page, so an effect from a later version is listed as
+/// present in the stack instead of being absent from the only view the person has of it.
+///
+/// Selection is not here. Which layer is being worked on is not a fact about the project and does
+/// not belong in the file; it lives in the page, and the page is the only thing that needs it.
+fn state(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &*viewer.lock().expect("the viewer lock was poisoned");
+    let project: serde_json::Value = serde_json::from_str(&persist::to_json(
+        viewer.document.project(),
+        &viewer.preserved,
+    ))
+    .expect("the project text the core just wrote is JSON");
+    serde_json::json!({
+        "project": project,
+        "composition": viewer.composition.as_str(),
+        "revision": viewer.document.revision(),
+        // What Undo and Redo would do next, in the words document 26 requires each record to
+        // carry. The buttons say it rather than saying "Undo", because a person who has been
+        // away from the window for a minute cannot otherwise know what is about to be taken back.
+        "undo": viewer.document.undo_labels(),
+        "redo": viewer.document.redo_labels(),
+    })
+    .to_string()
+}
+
+/// Apply one command and say what happened, in the history record's own words.
+///
+/// Document 26: a rejected command changes nothing at all. That is the core's guarantee and not
+/// this function's - what happens here on a refusal is that the diagnostic becomes the sentence
+/// on the status line, so the person is told which rule stopped them rather than watching a
+/// control spring back with no explanation.
+fn edit(viewer: &Mutex<Viewer>, command: Command) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    match viewer.document.apply(command) {
+        Ok(record) => record.label.clone(),
+        Err(diagnostic) => sentence(&diagnostic),
+    }
+}
+
+/// `edit.undo` and `edit.redo` from document 24.
+///
+/// Both name what they moved. "Undone" alone would be true and useless: the whole reason undo is
+/// trusted is that the person can see it took back the thing they meant.
+fn undo(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    match viewer.document.undo() {
+        Some(record) => format!("Undone: {}", record.label),
+        None => "There is nothing to undo.".to_string(),
+    }
+}
+
+fn redo(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    match viewer.document.redo() {
+        Some(record) => format!("Redone: {}", record.label),
+        None => "There is nothing to redo.".to_string(),
+    }
+}
+
+/// Which transform property a request names, or `None` for a word that is not one of them.
+///
+/// The five names are document 19's own, which are also the keys `persist` writes, so the page
+/// sends back the word it was given rather than a number this file would have to keep in step.
+fn property(name: &str) -> Option<Prop> {
+    [
+        Prop::Anchor,
+        Prop::Position,
+        Prop::Scale,
+        Prop::Rotation,
+        Prop::Opacity,
+    ]
+    .into_iter()
+    .find(|p| p.as_str() == name)
+}
+
+/// A property value from the page: `x,y` for the three vec2 properties, one number for the two
+/// scalar ones.
+///
+/// Shaped by the property rather than guessed from the text, so that sending one number for
+/// position is refused by the core's own rule about kinds instead of being quietly read as a
+/// scalar. Whether the number is in range is not decided here either - opacity clamps, and that
+/// is document 19's decision and is made in one place.
+fn property_value(prop: Prop, text: &str) -> Option<Value> {
+    let number = |t: &str| t.trim().parse::<f64>().ok();
+    // D-22: the file holds a scale as a percentage and the model holds the factor document 21
+    // composes with, and `persist` divides on the way in and multiplies on the way out. The panel
+    // is given the file's numbers and sends them back in the same units, so the same division
+    // belongs here. Without it, somebody who typed the 100 the field was already showing got a
+    // layer a hundred times its size, and the walkthrough in `acceptance` is what found that:
+    // every earlier test of this function set a position or checked a scale being refused.
+    let percent = if prop == Prop::Scale { 100.0 } else { 1.0 };
+    match prop.kind() {
+        "vec2" => {
+            let (x, y) = text.split_once(',')?;
+            Some(Value::Vec2(number(x)? / percent, number(y)? / percent))
+        }
+        _ => Some(Value::Scalar(number(text)? / percent)),
+    }
+}
+
+/// Release a drag: one history entry covering everything the scrub passed through.
+///
+/// A drag that ended where it started is not an edit. The core returns `None` for it and puts
+/// the value back, and this says so rather than reporting a change nobody made.
+fn end_drag(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    match viewer.document.end_drag() {
+        Some(record) => record.label.clone(),
+        None => "Nothing moved.".to_string(),
+    }
+}
+
+/// Escape during a drag. Document 24: "Escape restores the pre-drag value."
+fn cancel_drag(viewer: &Mutex<Viewer>) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    let was = viewer.document.drag_in_progress();
+    viewer.document.cancel_drag();
+    if was {
+        "Cancelled; the value is back where the drag started.".to_string()
+    } else {
+        "Nothing is being dragged.".to_string()
+    }
+}
+
+/// One intermediate value of a scrub, starting the transaction if this is the first one.
+///
+/// Document 26 wants a drag to be one history entry, which means something has to open the
+/// transaction. Doing it here rather than on a separate request from the page removes the state
+/// the page would otherwise have to keep in step with the document - a page that forgot to open
+/// one would write a history entry per pixel of mouse movement, and nothing would look wrong
+/// until somebody pressed Ctrl+Z.
+fn drag_update(viewer: &Mutex<Viewer>, command: Command) -> String {
+    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    if !viewer.document.drag_in_progress() {
+        if let Err(diagnostic) = viewer.document.begin_drag() {
+            return sentence(&diagnostic);
+        }
+    }
+    match viewer.document.update_drag(command) {
+        // Not the label: a scrub sends these several times a second and the status line is for
+        // reading. What it moved to is the useful half.
+        Ok(()) => "Dragging.".to_string(),
+        Err(diagnostic) => sentence(&diagnostic),
+    }
+}
+
+/// A layer ID nothing in this project is using.
+///
+/// Counted rather than random, so that running the same steps twice writes the same file and a
+/// person reading one can tell which layer is which. It takes one past the highest number in
+/// use rather than the first gap: a gap means a layer was deleted, and giving its number to
+/// something else makes two different layers indistinguishable in a diff of two saves.
+fn unused_layer_id(project: &Project) -> Id {
+    let highest = project
+        .compositions
+        .iter()
+        .flat_map(|c| c.layer_order())
+        .filter_map(|id| id.as_str().strip_prefix("layer-"))
+        .filter_map(|n| n.parse::<u64>().ok())
+        .max();
+    Id::new(format!("layer-{}", highest.map_or(1, |n| n + 1)))
+}
+
+/// An effect instance ID nothing in this project is using, counted the way layer IDs are.
+///
+/// Counted across the whole project rather than the one layer, so that an effect keeps its
+/// identity if it is ever moved between layers and two saves of the same steps match.
+fn unused_effect_id(project: &Project) -> Id {
+    let highest = project
+        .compositions
+        .iter()
+        .flat_map(|c| c.layers_in_order())
+        .flat_map(|l| l.effects.iter())
+        .filter_map(|e| e.instance_id.as_str().strip_prefix("fx-"))
+        .filter_map(|n| n.parse::<u64>().ok())
+        .max();
+    Id::new(format!("fx-{}", highest.map_or(1, |n| n + 1)))
+}
+
+/// An asset ID nothing in this project is using, counted the way layer IDs are.
+fn unused_asset_id(project: &Project) -> Id {
+    let highest = project
+        .assets
+        .iter()
+        .filter_map(|a| a.id.as_str().strip_prefix("asset-"))
+        .filter_map(|n| n.parse::<u64>().ok())
+        .max();
+    Id::new(format!("asset-{}", highest.map_or(1, |n| n + 1)))
+}
+
+/// A list of numbers as somebody would read it out: `7`, `7 and 9`, `7, 9 and 11`.
+fn spoken(numbers: &[u32]) -> String {
+    let text: Vec<String> = numbers.iter().map(u32::to_string).collect();
+    match text.split_last() {
+        None => String::new(),
+        Some((last, [])) => last.clone(),
+        Some((last, rest)) => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+/// Document 24's `media.import`: group the chosen files into one sequence and add it.
+///
+/// The selection is the person's and is never widened here. Document 07: "Search only
+/// user-selected locations" — B-03's importer takes the files it is given and does not look in
+/// the folder around them, and this passes on what it was handed.
+///
+/// Everything the importer said travels to the notes list unchanged, because a gap, a duplicate
+/// number or a file that was left out is a fact about the project now on screen and not about
+/// the button that was just pressed. The status line gets the summary a person checks a scan
+/// against: how many drawings arrived, which numbers they run between, and what is missing.
+fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
+    let result = media::import_sequence(files);
+    let told: Vec<String> = result.diagnostics.iter().map(sentence).collect();
+    let Some(sequence) = result.asset else {
+        let mut said = match files.len() {
+            1 => "The chosen file does not form an image sequence, so nothing was imported."
+                .to_string(),
+            n => format!(
+                "None of the {n} chosen files form an image sequence, so nothing was imported."
+            ),
+        };
+        for note in told {
+            said.push(' ');
+            said.push_str(&note);
+        }
+        return said;
+    };
+
+    let asset = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        let frames = sequence
+            .frames()
+            .iter()
+            .map(|(n, p)| (*n, persist::stored_path(&held.root, p)))
+            .collect();
+        // The pattern is the name, because it is what the folder shows and what a person
+        // recognises. It is a description of the naming, never the authority on which files
+        // exist; the frame list is that, and it is what the record carries.
+        Asset::sequence(
+            unused_asset_id(held.document.project()),
+            sequence.pattern(),
+            sequence.pattern(),
+        )
+        .with_frames(frames)
+    };
+    let id = asset.id.clone();
+    let said = edit(viewer, Command::AddAsset { asset });
+
+    {
+        let mut held = viewer.lock().expect("the viewer lock was poisoned");
+        if !held.document.project().assets.iter().any(|a| a.id == id) {
+            return said;
+        }
+        held.notes.extend(told);
+    }
+    let (lo, hi) = sequence
+        .range()
+        .expect("an imported sequence has at least one drawing");
+    let count = sequence.frames().len();
+    match sequence.missing().as_slice() {
+        [] => format!("{said}: {count} drawings, numbered {lo} to {hi}."),
+        [one] => format!(
+            "{said}: {count} drawings, numbered {lo} to {hi}, and drawing {one} is missing."
+        ),
+        many => format!(
+            "{said}: {count} drawings, numbered {lo} to {hi}, and {} drawings are missing: {}.",
+            many.len(),
+            spoken(many)
+        ),
+    }
+}
+
+/// A relink that has been worked out and is waiting to be agreed to.
+///
+/// W-02 requires the window to "present changed dimensions, frame range or alpha interpretation
+/// before applying the change", so choosing the replacement drawings and relinking to them cannot
+/// be one action: the first works out what would happen and leaves it here, and the second either
+/// applies it or throws it away. Nothing about the project changes while one of these exists.
+struct PendingRelink {
+    asset: Id,
+    /// The description the person is being asked to agree to, in the words the panel shows.
+    said: String,
+    candidate: persist::RelinkCandidate,
+}
+
+/// The size of the drawings an asset points at now, or `None` when they cannot be read.
+///
+/// Relinking is what a person does when the media has gone, so the usual case is that there is
+/// nothing to compare against. Saying that is the point: an unanswerable comparison presented as
+/// "unchanged" would be a lie in the one place W-02 asks for the truth.
+fn size_now(root: &Path, asset: &Asset) -> Option<(usize, usize)> {
+    asset
+        .frames
+        .values()
+        .find_map(|relative| media::decode_png(&root.join(relative)).ok())
+        .map(|image| (image.width(), image.height()))
+}
+
+/// Work out what relinking `asset` to `files` would do, and hold it until it is agreed to.
+fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> String {
+    let mut held = viewer.lock().expect("the viewer lock was poisoned");
+    let candidate =
+        match persist::relink_candidate(held.document.project(), asset, files, &held.root) {
+            Ok(candidate) => candidate,
+            Err(diagnostic) => return sentence(&diagnostic),
+        };
+    let existing = held
+        .document
+        .project()
+        .assets
+        .iter()
+        .find(|a| &a.id == asset)
+        .cloned()
+        .expect("relink_candidate refuses an asset that is not there");
+    let was = size_now(&held.root, &existing);
+
+    let count = candidate.asset.frames.len();
+    let numbered = match candidate.range {
+        Some((lo, hi)) => format!("{count} drawings, numbered {lo} to {hi}"),
+        None => format!("{count} drawings"),
+    };
+    let gaps = match candidate.missing.as_slice() {
+        [] => String::new(),
+        [one] => format!(", and drawing {one} would be missing"),
+        many => format!(
+            ", and {} drawings would be missing: {}",
+            many.len(),
+            spoken(many)
+        ),
+    };
+    // The three things W-02 names, each stated whether or not it changed. "Unchanged" is as much
+    // of an answer as "1920 by 1080 becomes 1280 by 720", and a person about to replace the
+    // artwork in a shot needs to be told both.
+    let size = match was {
+        Some((w, h)) if (w, h) == (candidate.width as usize, candidate.height as usize) => format!(
+            "The drawings are {}x{}, the same size as the ones it points at now.",
+            candidate.width, candidate.height
+        ),
+        Some((w, h)) => format!(
+            "The drawings are {}x{}, where the ones it points at now are {w}x{h}.",
+            candidate.width, candidate.height
+        ),
+        None => format!(
+            "The drawings are {}x{}. What it points at now cannot be read, so there is nothing \
+             to compare that with.",
+            candidate.width, candidate.height
+        ),
+    };
+    let interpretation = format!(
+        "The colour is read as {} with {} alpha, which is what this project already recorded: a \
+         PNG does not state either, so relinking does not change how the pixels are read.",
+        match candidate.interpretation.color_space {
+            ColorSpace::Srgb => "sRGB",
+            ColorSpace::LinearLight => "linear light",
+        },
+        match candidate.interpretation.alpha {
+            AlphaMode::Straight => "straight",
+            AlphaMode::Premultiplied => "premultiplied",
+        }
+    );
+    let mut said = format!(
+        "Relinking \"{}\" to {} would give it {numbered}{gaps}. {size} {interpretation} The \
+         layers using it keep their stacking, transforms, exposures, masks and effects. Nothing \
+         has changed yet.",
+        existing.name, candidate.pattern,
+    );
+    for note in candidate.diagnostics.iter().map(sentence) {
+        said.push(' ');
+        said.push_str(&note);
+    }
+    held.relink = Some(PendingRelink {
+        asset: asset.clone(),
+        said: said.clone(),
+        candidate,
+    });
+    said
+}
+
+/// The three effects of document 21, at the settings that change no pixels.
+///
+/// Adding an effect and setting it are two commands rather than one, so that a stack can be
+/// built before any of it is tuned; starting each one at its identity means the picture does
+/// not jump the instant an effect is added, and the change a person then sees is the one they
+/// typed.
+fn new_effect(type_id: &str) -> Option<Effect> {
+    match type_id {
+        EXPOSURE => Some(Effect::Exposure { stops: 0.0 }),
+        GAUSSIAN_BLUR => Some(Effect::GaussianBlur { sigma_px: 0.0 }),
+        TINT => Some(Effect::Tint {
+            color: [0.0, 0.0, 0.0],
+            amount: 0.0,
+        }),
+        _ => None,
+    }
+}
+
+/// The settings for an effect of `type_id`, read from the request.
+///
+/// Every parameter of the type has to be present. The alternative -- filling a missing one in
+/// from a default -- would let a request that named one parameter quietly reset the others, and
+/// this is the request a panel sends after somebody types in one field. Whether the numbers are
+/// in range is document 21's decision and is made in the core, so a negative sigma is refused
+/// there, in its words, rather than judged twice.
+fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, String> {
+    let number = |name: &str| -> Result<f64, String> {
+        let Some(text) = parameter(query, name) else {
+            return Err(format!("What should {name} be set to?"));
+        };
+        text.trim()
+            .parse::<f64>()
+            .map_err(|_| format!("{name} needs a number. Not \"{text}\"."))
+    };
+    match type_id {
+        EXPOSURE => Ok(Effect::Exposure {
+            stops: number("stops")?,
+        }),
+        GAUSSIAN_BLUR => Ok(Effect::GaussianBlur {
+            sigma_px: number("sigma_px")?,
+        }),
+        TINT => {
+            let Some(text) = parameter(query, "color") else {
+                return Err("What colour should the tint be?".to_string());
+            };
+            let parts: Vec<f64> = text
+                .split(',')
+                .filter_map(|p| p.trim().parse::<f64>().ok())
+                .collect();
+            let [r, g, b] = parts[..] else {
+                return Err(format!(
+                    "color needs three numbers, like 1, 0.5, 0. Not \"{text}\"."
+                ));
+            };
+            Ok(Effect::Tint {
+                color: [r, g, b],
+                amount: number("amount")?,
+            })
+        }
+        // Document 19 keeps an effect this build does not have rather than dropping it, and
+        // keeping it means keeping its settings as they were written. There is no schema here
+        // to read them against, so they are left alone and said to be left alone.
+        _ => Err(format!(
+            "{type_id} is not an effect this build has, so its settings are kept as the file \
+             wrote them and cannot be changed here."
+        )),
+    }
+}
+
+/// Everything the page can do to the open document, keyed by document 24's own command IDs.
+///
+/// The IDs are the URL paths, so what the page asks for and what the map lists are the same
+/// string, and a command that is not in the map cannot be reached by spelling one. `None` means
+/// this path was not one of them, which the caller answers with its 404.
+///
+/// Every answer, including a refusal, is a sentence for the status line. The list a button was
+/// clicked in can be older than the document, so a layer that is no longer there is told about
+/// rather than silently doing nothing.
+/// The identifiers `edit_command` answers, and the only ones.
+///
+/// `None` is how this function says it has never heard of an identifier, and `fn command` reads
+/// that as permission to try the routes it answers itself -- opening, saving, exporting. Without
+/// this list an unknown identifier did not reach that `None`: it fell through to the layer
+/// lookup at the bottom of the function and was answered "Which layer? Choose one in the layer
+/// list.", which is a sentence, which is `Some`. Every route the shell answers was therefore
+/// swallowed on its way past, and Open, Save, Save As, Export, the recent list and recovery all
+/// stopped working in the built window while every test kept passing, because the tests call
+/// those functions directly and only the window goes through here.
+///
+/// `verification/B-12b_page_table.md` checks that everything the page sends is in this list, and
+/// `verification/B-12b_command_map_table.md` checks that nothing outside it is answered.
+const ANSWERS: &[&str] = &[
+    "edit.redo",
+    "edit.undo",
+    "effect.add",
+    "effect.delete",
+    "effect.set_parameters",
+    "effect.toggle_bypass",
+    "exposure.set_span",
+    "layer.create",
+    "layer.delete",
+    "layer.move_down",
+    "layer.move_up",
+    "layer.rename",
+    "layer.set_matte",
+    "layer.toggle_lock",
+    "layer.toggle_visibility",
+    "media.import",
+    "media.relink",
+    "property.drag_cancel",
+    "property.drag_end",
+    "property.drag_update",
+    "property.set_base",
+    "viewer.toggle_alpha",
+    "viewer.toggle_checkerboard",
+];
+
+fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option<String> {
+    if !ANSWERS.contains(&id) {
+        return None;
+    }
+    match id {
+        "edit.undo" => return Some(undo(viewer)),
+        "edit.redo" => return Some(redo(viewer)),
+        // The two ends of an interaction transaction. Neither names a layer: the drag already
+        // knows which value it is holding, and asking the page to name it again would be asking
+        // it to be right about something it has no way to check.
+        // The two ways of looking at a frame rather than changing it. Document 24's table gives
+        // both "no" under undoable, and document 21 line 97 calls them presentation, so neither
+        // touches the document: they set a flag the next frame is drawn through. That also means
+        // neither marks the project dirty, which is the part a person would notice if it were
+        // got wrong - looking at the alpha channel is not unsaved work.
+        "viewer.toggle_alpha" => {
+            let mut held = viewer.lock().expect("the viewer lock was poisoned");
+            held.alpha_only = !held.alpha_only;
+            return Some(match held.alpha_only {
+                true => "Alpha-only inspection is on. The picture is the alpha channel, white \
+                         where the frame is opaque and black where it is empty; what is exported \
+                         is unchanged."
+                    .to_string(),
+                false => "Alpha-only inspection is off.".to_string(),
+            });
+        }
+        "viewer.toggle_checkerboard" => {
+            let mut held = viewer.lock().expect("the viewer lock was poisoned");
+            held.checkerboard = !held.checkerboard;
+            return Some(match held.checkerboard {
+                true => "The transparency grid is on. It is drawn behind the frame and is not \
+                         part of it."
+                    .to_string(),
+                false => "The transparency grid is off.".to_string(),
+            });
+        }
+        "property.drag_end" => return Some(end_drag(viewer)),
+        "property.drag_cancel" => return Some(cancel_drag(viewer)),
+        // The one command that names files rather than anything in the project. Without any,
+        // the request never reaches here: the window answers it with the operating system's
+        // file dialog, which only the app handle can open.
+        // W-02, in three requests rather than one: choose the drawings, read what would change,
+        // then apply it or drop it. The middle step is the requirement - nothing about the
+        // project moves until `apply` arrives, and `cancel` leaves it pointing where it did.
+        "media.relink" => {
+            let Some(asset) = parameter(query, "asset") else {
+                return Some(
+                    "Which sequence should be relinked? Choose one in the media bin.".to_string(),
+                );
+            };
+            let asset = Id::new(&asset);
+            if parameter(query, "cancel").is_some() {
+                let waiting = viewer
+                    .lock()
+                    .expect("the viewer lock was poisoned")
+                    .relink
+                    .take();
+                return Some(match waiting {
+                    Some(_) => "The relink was dropped. The sequence still points at the \
+                                drawings it did."
+                        .to_string(),
+                    None => "There is no relink waiting to be dropped.".to_string(),
+                });
+            }
+            if parameter(query, "apply").is_some() {
+                let waiting = {
+                    let mut held = viewer.lock().expect("the viewer lock was poisoned");
+                    match held.relink.as_ref().is_some_and(|p| p.asset == asset) {
+                        true => held.relink.take(),
+                        false => None,
+                    }
+                };
+                let Some(waiting) = waiting else {
+                    return Some(
+                        "There is no relink waiting for that sequence. Choose the replacement \
+                         drawings first, so that what would change can be read before it happens."
+                            .to_string(),
+                    );
+                };
+                return Some(edit(viewer, persist::relink_command(&waiting.candidate)));
+            }
+            let files: Vec<PathBuf> = parameters(query, "file")
+                .into_iter()
+                .map(PathBuf::from)
+                .collect();
+            return Some(match files.is_empty() {
+                true => "Which drawings should the sequence point at? Choose the files \
+                         themselves, not the folder they are in."
+                    .to_string(),
+                false => propose_relink(viewer, &asset, &files),
+            });
+        }
+        "media.import" => {
+            let files: Vec<PathBuf> = parameters(query, "file")
+                .into_iter()
+                .map(PathBuf::from)
+                .collect();
+            return Some(match files.is_empty() {
+                true => "Which drawings should be imported? Choose the files themselves, not \
+                         the folder they are in."
+                    .to_string(),
+                false => import(viewer, &files),
+            });
+        }
+        _ => {}
+    }
+    // A drawing number an exposure names that its sequence has not got, filled in by the arm
+    // that can see both and said at the end, once the core has accepted the change.
+    let mut absent: Option<u32> = None;
+    let command = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        let composition = held.composition.clone();
+        let project = held.document.project();
+        let Some(comp) = project.composition(&composition) else {
+            return Some("There is no composition on screen to edit.".to_string());
+        };
+        if id == "layer.create" {
+            // The one layer command that names no existing layer. It names a drawing instead,
+            // because document 19's layer has an `asset_id` and no state in which it has none.
+            let Some(asset) = parameter(query, "asset").map(Id::new) else {
+                return Some("Which drawing should the new layer show?".to_string());
+            };
+            if !project.assets.iter().any(|a| a.id == asset) {
+                return Some(format!("There is no imported drawing called {asset}."));
+            }
+            let layer = Layer::new(
+                unused_layer_id(project),
+                parameter(query, "name").unwrap_or_else(|| "New layer".to_string()),
+                asset,
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            // The end of the order is the front of the picture -- `layers_in_order` is bottom
+            // first -- and the front is where somebody who has just added a layer looks for it.
+            Command::AddLayer {
+                composition,
+                layer: Box::new(layer),
+                index: comp.len(),
+            }
+        } else {
+            let Some(layer_id) = parameter(query, "layer").map(Id::new) else {
+                return Some("Which layer? Choose one in the layer list.".to_string());
+            };
+            let Some(layer) = comp.layer(&layer_id) else {
+                return Some(format!("{layer_id} is not a layer in this composition."));
+            };
+            let at = comp
+                .index_of(&layer_id)
+                .expect("a layer that is here has a place");
+            match id {
+                "layer.delete" => Command::RemoveLayer {
+                    composition,
+                    layer_id,
+                },
+                // Not refused for being the name it already has. Document 26 makes that a
+                // history entry that changes nothing, which is honest: somebody pressed F2 and
+                // pressed return, and undo should take them back to before they did.
+                "layer.rename" => match parameter(query, "name") {
+                    Some(name) => Command::RenameLayer {
+                        composition,
+                        layer_id,
+                        name,
+                    },
+                    None => return Some("A layer needs a name.".to_string()),
+                },
+                // Document 24 calls both of these a toggle, so the new value is read from the
+                // document rather than sent by the page. A page that sent it would be deciding
+                // what the layer currently is from a list that may be stale.
+                "layer.toggle_visibility" => Command::SetLayerEnabled {
+                    composition,
+                    layer_id,
+                    value: !layer.enabled,
+                },
+                "layer.toggle_lock" => Command::SetLayerLocked {
+                    composition,
+                    layer_id,
+                    value: !layer.locked,
+                },
+                // Toward the front is later in the order. Asking to move the front layer further
+                // forward is not an error and not a history entry: it is somebody pressing the
+                // key one more time, and it is told so rather than given an undo item that
+                // undoes nothing.
+                "layer.move_up" if at + 1 < comp.len() => Command::ReorderLayer {
+                    composition,
+                    layer_id,
+                    to_index: at + 1,
+                },
+                "layer.move_down" if at > 0 => Command::ReorderLayer {
+                    composition,
+                    layer_id,
+                    to_index: at - 1,
+                },
+                "layer.move_up" => return Some(format!("{} is already at the front.", layer.name)),
+                "layer.move_down" => {
+                    return Some(format!("{} is already at the back.", layer.name))
+                }
+                // Typed into a field, or scrubbed on its label. The same command either way;
+                // what differs is whether it becomes a history entry on its own or joins the one
+                // the drag will commit at release.
+                "property.set_base" | "property.drag_update" => {
+                    let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
+                        return Some(
+                            "Which property? Say anchor, position, scale, rotation or opacity."
+                                .to_string(),
+                        );
+                    };
+                    let Some(text) = parameter(query, "value") else {
+                        return Some(format!("What should {prop} be set to?"));
+                    };
+                    let Some(value) = property_value(prop, &text) else {
+                        // Named before the core sees it, because the core's refusal is about
+                        // kinds and this one is about the text not being numbers at all.
+                        return Some(match prop.kind() {
+                            "vec2" => {
+                                format!("{prop} needs two numbers, like 12, -4. Not \"{text}\".")
+                            }
+                            _ => format!("{prop} needs a number. Not \"{text}\"."),
+                        });
+                    };
+                    Command::SetPropertyBase {
+                        composition,
+                        layer_id,
+                        prop,
+                        value,
+                    }
+                }
+                // One command for all three of choosing a matte, changing whether the matte
+                // layer is still drawn in its own right, and clearing it. Document 19 holds
+                // them in one record and the core takes them in one command, so splitting them
+                // here would only give the page a way to send half of one.
+                //
+                // No layer named means no matte, which is what the "none" entry in the list
+                // sends. A layer that has gone is not the same thing and is refused by the
+                // core, which is the reader that knows what is in the composition.
+                "layer.set_matte" => Command::SetMatte {
+                    composition,
+                    layer_id,
+                    matte: parameter(query, "matte")
+                        .filter(|m| !m.is_empty())
+                        .map(Id::new),
+                    matte_only: parameter(query, "only").as_deref() == Some("true"),
+                },
+                // Document 24's `exposure.set_span`, which assigns one span. The core takes the
+                // whole ordered list, so the list is built here out of the one the layer has:
+                // a span starting where an existing one starts replaces it, which is what
+                // editing a row does, and anything else is inserted in frame order. Whether the
+                // result is legal is document 20's rule and stays in the core.
+                //
+                // No drawing number means the row is being cleared, which is the only way to
+                // remove an exposure and is not the same as setting it to drawing zero.
+                "exposure.set_span" => {
+                    let Some(start) = parameter(query, "start") else {
+                        return Some("Which frame does the exposure start at?".to_string());
+                    };
+                    let Ok(start) = start.parse::<i32>() else {
+                        return Some(format!(
+                            "An exposure starts at a whole frame number. Not \"{start}\"."
+                        ));
+                    };
+                    // Which row this is, when it is not the frame the row is moving to. An
+                    // exposure moved to another frame is one row edited, not one added and one
+                    // left behind, and the page is the only thing that knows which row was
+                    // being typed in.
+                    let at = match parameter(query, "was") {
+                        None => start,
+                        Some(was) => match was.parse::<i32>() {
+                            Ok(was) => was,
+                            Err(_) => {
+                                return Some(format!(
+                                    "An exposure starts at a whole frame number. Not \"{was}\"."
+                                ))
+                            }
+                        },
+                    };
+                    let mut spans = layer.exposure_spans.clone();
+                    let held = spans.iter().position(|s| s.start_frame == at);
+                    if let Some(index) = held {
+                        spans.remove(index);
+                    }
+                    match parameter(query, "drawing").filter(|d| !d.is_empty()) {
+                        None if held.is_none() => {
+                            return Some(format!(
+                                "There is no exposure starting at frame {at} to clear."
+                            ))
+                        }
+                        None => {}
+                        Some(drawing) => {
+                            let Ok(drawing_number) = drawing.parse::<u32>() else {
+                                return Some(format!(
+                                    "A drawing number is a whole number, counting from zero. \
+                                     Not \"{drawing}\"."
+                                ));
+                            };
+                            let Some(end) = parameter(query, "end") else {
+                                return Some(
+                                    "Which frame does the exposure end before?".to_string(),
+                                );
+                            };
+                            let Ok(end_frame_exclusive) = end.parse::<i32>() else {
+                                return Some(format!(
+                                    "An exposure ends before a whole frame number. Not \"{end}\"."
+                                ));
+                            };
+                            let span = ExposureSpan {
+                                start_frame: start,
+                                end_frame_exclusive,
+                                drawing_number,
+                            };
+                            spans.retain(|s| s.start_frame != start);
+                            spans.push(span);
+                            spans.sort_by_key(|s| s.start_frame);
+                            // Document 28 renders a frame whose drawing is absent as nothing
+                            // and substitutes no neighbour. That is a decision somebody should
+                            // meet while typing the number, not three hundred frames into an
+                            // export, so the answer says it.
+                            if !project
+                                .assets
+                                .iter()
+                                .find(|a| a.id == layer.asset_id)
+                                .is_some_and(|a| a.frames.contains_key(&drawing_number))
+                            {
+                                absent = Some(drawing_number);
+                            }
+                        }
+                    }
+                    Command::SetExposureSpans {
+                        composition,
+                        layer_id,
+                        spans,
+                    }
+                }
+                // A new effect goes on the end of the stack, which document 21 evaluates last,
+                // because that is where somebody who has just added one looks for it.
+                "effect.add" => {
+                    let Some(type_id) = parameter(query, "type") else {
+                        return Some(
+                            "Which effect? Say core.gaussian_blur, core.exposure or core.tint."
+                                .to_string(),
+                        );
+                    };
+                    let Some(effect) = new_effect(&type_id) else {
+                        return Some(format!(
+                            "This build has no effect called {type_id}. It has \
+                             core.gaussian_blur, core.exposure and core.tint."
+                        ));
+                    };
+                    Command::AddEffect {
+                        composition,
+                        layer_id,
+                        effect: EffectInstance::new(unused_effect_id(project), effect),
+                        index: None,
+                    }
+                }
+                // The other three all name an instance that is already on the layer, so the
+                // lookup and its refusal are written once.
+                "effect.delete" | "effect.toggle_bypass" | "effect.set_parameters" => {
+                    let Some(instance_id) = parameter(query, "effect").map(Id::new) else {
+                        return Some("Which effect? Choose one in the effects list.".to_string());
+                    };
+                    let Some(existing) =
+                        layer.effects.iter().find(|e| e.instance_id == instance_id)
+                    else {
+                        return Some(format!("{instance_id} is not an effect on this layer."));
+                    };
+                    match id {
+                        "effect.delete" => Command::RemoveEffect {
+                            composition,
+                            layer_id,
+                            instance_id,
+                        },
+                        "effect.toggle_bypass" => Command::SetEffectEnabled {
+                            composition,
+                            layer_id,
+                            instance_id,
+                            enabled: !existing.enabled,
+                        },
+                        // The type is read off the effect rather than sent by the page. The
+                        // core refuses settings of the wrong kind for an instance, and this
+                        // makes that mistake unreachable from here instead of catchable.
+                        _ => match effect_parameters(existing.type_id(), query) {
+                            Ok(effect) => Command::SetEffectParameters {
+                                composition,
+                                layer_id,
+                                instance_id,
+                                effect,
+                            },
+                            Err(said) => return Some(said),
+                        },
+                    }
+                }
+                _ => return None,
+            }
+        }
+    };
+    let before = viewer
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .document
+        .undo_depth();
+    let said = if id == "property.drag_update" {
+        drag_update(viewer, command)
+    } else {
+        edit(viewer, command)
+    };
+    // Only when the change landed. A command the core refused changed nothing, and a warning
+    // about what it would have done reads as though it had happened.
+    let landed = viewer
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .document
+        .undo_depth()
+        > before;
+    if let (Some(drawing), true) = (absent, landed) {
+        return Some(format!(
+            "{said} Drawing {drawing} is not in this sequence, so the frames exposing it stay \
+             empty; no neighbouring drawing is put there instead."
+        ));
+    }
+    // Deleting a layer that another layer was using as its matte leaves that reference behind.
+    // The project loader treats it as a warning and keeps it rather than clearing it, so this
+    // is a legal state and not a fault -- but nothing else would tell the person at the moment
+    // it happened, and they would meet it as a warning the next time the file was opened.
+    Some(match dangling_mattes(viewer) {
+        names if id == "layer.delete" && !names.is_empty() => format!(
+            "{said} {} now shaped by a layer that is not here; undo puts it back.",
+            match names.as_slice() {
+                [one] => format!("\"{one}\" is"),
+                many => format!("{} layers are", many.len()),
+            }
+        ),
+        _ => said,
+    })
+}
+
+/// The names of layers whose matte points at a layer the composition does not have.
+fn dangling_mattes(viewer: &Mutex<Viewer>) -> Vec<String> {
+    let held = viewer.lock().expect("the viewer lock was poisoned");
+    let Some(comp) = held.document.project().composition(&held.composition) else {
+        return Vec::new();
+    };
+    comp.layers_in_order()
+        .filter(|l| {
+            l.matte
+                .as_ref()
+                .is_some_and(|m| comp.layer(&m.layer_id).is_none())
+        })
+        .map(|l| l.name.clone())
+        .collect()
 }
 
 // -------------------------------------------------------------------------------------------
@@ -826,6 +1844,35 @@ fn remember(app: &AppHandle, path: &Path) {
 // -------------------------------------------------------------------------------------------
 
 /// The value of `name` in a query string, percent-decoded.
+/// Every value given for one parameter, in the order they appear.
+///
+/// [`parameter`] takes the first, which is what a setting with one value wants. An import names
+/// one file per value: a selection is a list, and joining it into a single string would need a
+/// separator, which is a character a Japanese file name is entitled to contain.
+fn parameters(query: Option<&str>, name: &str) -> Vec<String> {
+    let prefix = format!("{name}=");
+    query
+        .into_iter()
+        .flat_map(|q| q.split('&'))
+        .filter_map(|pair| pair.strip_prefix(&prefix))
+        .map(from_a_query)
+        .collect()
+}
+
+/// Whether this export writes the frames whose drawings are missing.
+///
+/// Document 07's default is that a missing drawing blocks a final export. `?missing=write` is the
+/// person overriding it in front of the checkbox that says what it does, which is document 28's
+/// recorded override rather than a silent fallback. Written down as its own function because it
+/// is the one place in this file where a query string decides what reaches the disk: everything
+/// that is not exactly `write` blocks, and that has a table row of its own.
+fn missing_source(query: Option<&str>) -> MissingSource {
+    match parameter(query, "missing").as_deref() {
+        Some("write") => MissingSource::RenderTransparent,
+        _ => MissingSource::Block,
+    }
+}
+
 fn parameter(query: Option<&str>, name: &str) -> Option<String> {
     let prefix = format!("{name}=");
     query
@@ -888,6 +1935,59 @@ fn ask_to_open(app: &AppHandle) {
         });
 }
 
+/// Ask the operating system which drawings to import, then import them.
+///
+/// The dialog takes many files at once, because a sequence is a selection and B-03 groups the
+/// files it is given. It filters to PNG, which is the format G1 reads; a person who selects
+/// something else is told by the importer rather than by a dialog that will not let them.
+fn ask_what_to_import(app: &AppHandle) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Import drawings")
+        .add_filter("PNG drawings", &["png"])
+        .pick_files(move |chosen| {
+            let files: Vec<PathBuf> = chosen
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|c| c.into_path().ok())
+                .collect();
+            if files.is_empty() {
+                return;
+            }
+            let viewer = handle.state::<Mutex<Viewer>>();
+            let said = import(&viewer, &files);
+            announce(&viewer, said);
+            refresh(&handle);
+        });
+}
+
+/// Ask which drawings a sequence should point at instead, and work out what that would do.
+///
+/// Document 07: "Search only user-selected locations." Nothing here scans for a replacement; the
+/// files are the ones a person chose, and what comes back is a proposal rather than a change.
+fn ask_what_to_relink_to(app: &AppHandle, asset: Id) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Relink to these drawings")
+        .add_filter("PNG drawings", &["png"])
+        .pick_files(move |chosen| {
+            let files: Vec<PathBuf> = chosen
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|c| c.into_path().ok())
+                .collect();
+            if files.is_empty() {
+                return;
+            }
+            let viewer = handle.state::<Mutex<Viewer>>();
+            let said = propose_relink(&viewer, &asset, &files);
+            announce(&viewer, said);
+            refresh(&handle);
+        });
+}
+
 /// Ask the operating system where to write the project, then write it there.
 fn ask_where_to_save(app: &AppHandle) {
     let handle = app.clone();
@@ -930,7 +2030,52 @@ fn refresh(app: &AppHandle) {
 /// list, one path per line.
 fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>> {
     let viewer = app.state::<Mutex<Viewer>>();
-    let said = match path.trim_matches('/') {
+    let path = path.trim_matches('/');
+    // The one answer that is not a sentence. It is large, it is asked for after every edit, and
+    // it is JSON, so it leaves here rather than through the status line the rest of these share.
+    if path == "state" {
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/json; charset=utf-8")
+            .body(state(&viewer).into_bytes())
+            .expect("build the state response");
+    }
+    // An import with no files named is the button in the media bin, and what it needs is the
+    // operating system's file dialog, which belongs to the app handle and not to the viewer.
+    // Answered before `edit_command`, which would otherwise refuse it for naming no files.
+    // The same for the first step of a relink, which needs the dialog for the same reason. The
+    // other two steps carry `apply` or `cancel` and are answered by `edit_command` below.
+    if path == "media.relink"
+        && parameter(query, "file").is_none()
+        && parameter(query, "apply").is_none()
+        && parameter(query, "cancel").is_none()
+    {
+        if let Some(asset) = parameter(query, "asset") {
+            ask_what_to_relink_to(app, Id::new(&asset));
+            return allow_the_page_to_read_this(Response::builder())
+                .header("content-type", "text/plain; charset=utf-8")
+                .body(Vec::new())
+                .expect("build the relink response");
+        }
+    }
+    if path == "media.import" && parameter(query, "file").is_none() {
+        ask_what_to_import(app);
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "text/plain; charset=utf-8")
+            .body(Vec::new())
+            .expect("build the import response");
+    }
+    // An edit answers here rather than falling through the match below, because its answer is
+    // also what the status line should say: the page asks for the frame again straight
+    // afterwards, and that answer carries `x-status`, so a sentence not written into the viewer
+    // would be replaced by the one before it before anybody could read it.
+    if let Some(said) = edit_command(&viewer, path, query) {
+        announce(&viewer, said.clone());
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "text/plain; charset=utf-8")
+            .body(said.into_bytes())
+            .expect("build the command response");
+    }
+    let said = match path {
         "recent" => recent(app).join("\n"),
         // With a path, the recent list chose it. Without one, ask. Both end at `take`.
         "open" => match parameter(query, "path") {
@@ -993,11 +2138,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
         // is the person overriding it in front of the checkbox that says what it does, which is
         // document 28's recorded override rather than a silent fallback.
         "export" => {
-            let missing = match parameter(query, "missing").as_deref() {
-                Some("write") => MissingSource::RenderTransparent,
-                _ => MissingSource::Block,
-            };
-            ask_where_to_export(app, missing);
+            ask_where_to_export(app, missing_source(query));
             String::new()
         }
         "cancel-export" => cancel_export(app),
@@ -1005,8 +2146,8 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             return allow_the_page_to_read_this(Response::builder().status(404))
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
-                    b"ask for /open, /save, /save-as, /recover, /export, /cancel-export or \
-                      /recent"
+                    b"ask for /state, /open, /save, /save-as, /recover, /export, \
+                      /cancel-export, /recent, or one of document 24's command IDs"
                         .to_vec(),
                 )
                 .expect("build the not-found response")
@@ -1385,6 +2526,2109 @@ mod saving {
 
     /// A path in a table cell, with the scratch directory's own separators left alone but the
     /// table's separator escaped, so one row cannot silently become two columns.
+    fn cell(text: &str) -> String {
+        text.replace('|', r"\|")
+    }
+}
+
+/// What the editing panels can do to the open document, checked without a window.
+///
+/// B-12a's first half. The core already knows how to add, delete, rename, reorder and hide a
+/// layer, and `tests/` checks that it does. What could go wrong *here* is everything between a
+/// row in a list and that core: a button that names a layer which is no longer there, a new
+/// layer given an identifier something else is already using, a toggle that decides what a layer
+/// currently is from a list drawn a minute ago, a refusal that leaves the person with a control
+/// that sprang back and no sentence. None of those look like a failure at the time.
+///
+/// Writes `verification/B-12a_editing_table.md`.
+#[cfg(test)]
+mod editing {
+    use super::*;
+
+    struct Report {
+        rows: Vec<(String, String, String)>,
+    }
+
+    impl Report {
+        fn check(&mut self, check: &str, expected: impl ToString, actual: impl ToString) {
+            self.rows
+                .push((check.to_string(), expected.to_string(), actual.to_string()));
+        }
+    }
+
+    fn repo(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the app crate has a parent directory")
+            .join(rel)
+    }
+
+    /// One command, by the document 24 identifier the page would send.
+    ///
+    /// `expect` rather than a fallback: `None` means the identifier is not one this window
+    /// answers, which is a mistake in the test and not a result worth tabulating.
+    fn run(viewer: &Mutex<Viewer>, what: &str) -> String {
+        let (id, query) = match what.split_once('?') {
+            Some((id, query)) => (id, Some(query)),
+            None => (what, None),
+        };
+        edit_command(viewer, id, query).expect("a command document 24 lists")
+    }
+
+    fn held(viewer: &Mutex<Viewer>) -> std::sync::MutexGuard<'_, Viewer> {
+        viewer.lock().expect("the viewer lock was poisoned")
+    }
+
+    /// The layers of the composition on screen, front last, as names.
+    fn names(viewer: &Mutex<Viewer>) -> String {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layers_in_order()
+            .map(|l| l.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    fn layer_ids(viewer: &Mutex<Viewer>) -> String {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layer_order()
+            .iter()
+            .map(|id| id.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    fn layer<T>(viewer: &Mutex<Viewer>, id: &str, read: impl FnOnce(&Layer) -> T) -> Option<T> {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layer(&Id::new(id)).map(read)
+    }
+
+    #[test]
+    fn the_panels_change_the_document_and_only_through_commands() {
+        let mut report = Report { rows: Vec::new() };
+
+        // The fixture names an effect no version of this build has. Every check below runs on a
+        // project this build only partly understands, on purpose: a panel is a second reader of
+        // the project, and a second reader is a second chance to drop what it cannot model.
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        // ---- what the page is given ----------------------------------------------------------
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+        {
+            let held = held(&viewer);
+            let written = persist::to_json(held.document.project(), &held.preserved);
+            let same: serde_json::Value =
+                serde_json::from_str(&written).expect("what a save would write is JSON");
+            // Not "the panels got a project" but "the panels got *this* project". If the two
+            // ever differ, the window is drawing one thing and saving another, and the person
+            // finds out when they reopen the file.
+            report.check(
+                "the project the panels draw is the project a save would write",
+                true,
+                answer["project"] == same,
+            );
+        }
+        report.check(
+            "an effect this build does not have reaches the panels rather than vanishing",
+            true,
+            state(&viewer).contains("vendor.future.effect"),
+        );
+        report.check(
+            "the panels are told which composition is on screen",
+            "comp-main",
+            answer["composition"].as_str().unwrap_or("(none)"),
+        );
+        report.check(
+            "a project just opened has nothing to undo",
+            "0 to undo, 0 to redo",
+            format!(
+                "{} to undo, {} to redo",
+                answer["undo"].as_array().map_or(0, |a| a.len()),
+                answer["redo"].as_array().map_or(0, |a| a.len())
+            ),
+        );
+
+        // ---- adding a layer ------------------------------------------------------------------
+        report.check(
+            "adding a layer without saying which drawing is refused, and asks",
+            "Which drawing should the new layer show?",
+            run(&viewer, "layer.create"),
+        );
+        report.check(
+            "a drawing that is not in the project is refused by name",
+            "There is no imported drawing called asset-nothing.",
+            run(&viewer, "layer.create?asset=asset-nothing"),
+        );
+        report.check(
+            "neither refusal put anything in the undo history",
+            0,
+            held(&viewer).document.undo_depth(),
+        );
+
+        run(&viewer, "layer.create?asset=asset-cel&name=Shadow");
+        report.check(
+            "a new layer is added in front of the ones already there",
+            "Cel, Shadow",
+            names(&viewer),
+        );
+        report.check(
+            "its identifier is not one the project was already using",
+            "layer-cel, layer-1",
+            layer_ids(&viewer),
+        );
+        report.check(
+            "it covers the whole composition, which is five frames from zero",
+            "0 to 5",
+            layer(&viewer, "layer-1", |l| {
+                format!("{} to {}", l.in_frame, l.out_frame)
+            })
+            .unwrap_or_default(),
+        );
+        run(&viewer, "layer.create?asset=asset-cel&name=Highlight");
+        report.check(
+            "a second new layer gets an identifier of its own",
+            "layer-cel, layer-1, layer-2",
+            layer_ids(&viewer),
+        );
+
+        // ---- naming --------------------------------------------------------------------------
+        report.check(
+            "renaming with no name is refused",
+            "A layer needs a name.",
+            run(&viewer, "layer.rename?layer=layer-1"),
+        );
+        run(&viewer, "layer.rename?layer=layer-1&name=Cast shadow");
+        report.check(
+            "renaming changes the name and nothing else",
+            "Cel, Cast shadow, Highlight",
+            names(&viewer),
+        );
+        run(&viewer, "layer.rename?layer=layer-1&name=%E5%BD%B1");
+        report.check(
+            "a name in Japanese survives the trip through the query string",
+            "\u{5f71}",
+            layer(&viewer, "layer-1", |l| l.name.clone()).unwrap_or_default(),
+        );
+
+        // ---- hiding and locking ----------------------------------------------------------------
+        // Document 24 calls both of these a toggle, so what they do depends on what the layer is
+        // now, not on what the page last drew. Each is pressed twice and must come back.
+        run(&viewer, "layer.toggle_visibility?layer=layer-1");
+        report.check(
+            "hiding a visible layer switches it off",
+            false,
+            layer(&viewer, "layer-1", |l| l.enabled).unwrap_or(true),
+        );
+        run(&viewer, "layer.toggle_visibility?layer=layer-1");
+        report.check(
+            "and pressing it again switches it back on",
+            true,
+            layer(&viewer, "layer-1", |l| l.enabled).unwrap_or(false),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-1");
+        report.check(
+            "locking a layer locks it",
+            true,
+            layer(&viewer, "layer-1", |l| l.locked).unwrap_or(false),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-1");
+        report.check(
+            "and pressing it again unlocks it",
+            false,
+            layer(&viewer, "layer-1", |l| l.locked).unwrap_or(true),
+        );
+
+        // ---- order ------------------------------------------------------------------------------
+        run(&viewer, "layer.move_up?layer=layer-1");
+        report.check(
+            "moving a layer forward puts it one place nearer the front",
+            "Cel, Highlight, \u{5f71}",
+            names(&viewer),
+        );
+        run(&viewer, "layer.move_down?layer=layer-1");
+        report.check(
+            "moving it back puts it where it was",
+            "Cel, \u{5f71}, Highlight",
+            names(&viewer),
+        );
+        report.check(
+            "the front layer cannot go further forward, and is told so by name",
+            "Highlight is already at the front.",
+            run(&viewer, "layer.move_up?layer=layer-2"),
+        );
+        report.check(
+            "the back layer cannot go further back, and is told so by name",
+            "Cel is already at the back.",
+            run(&viewer, "layer.move_down?layer=layer-cel"),
+        );
+        report.check(
+            "neither refusal put an entry in the history that would undo nothing",
+            "Cel, \u{5f71}, Highlight",
+            names(&viewer),
+        );
+
+        // ---- a list older than the document ------------------------------------------------------
+        report.check(
+            "a command naming a layer that is not there is refused by name",
+            "layer-gone is not a layer in this composition.",
+            run(&viewer, "layer.delete?layer=layer-gone"),
+        );
+        report.check(
+            "a command naming no layer at all asks which one",
+            "Which layer? Choose one in the layer list.",
+            run(&viewer, "layer.delete"),
+        );
+
+        // ---- undo ---------------------------------------------------------------------------------
+        let before_delete = names(&viewer);
+        let depth = held(&viewer).document.undo_depth();
+        run(&viewer, "layer.delete?layer=layer-1");
+        report.check(
+            "deleting a layer removes it",
+            "Cel, Highlight",
+            names(&viewer),
+        );
+        report.check(
+            "and the two refusals before it left the history exactly as deep as it was",
+            depth + 1,
+            held(&viewer).document.undo_depth(),
+        );
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+        report.check(
+            "the Undo button is told what it would take back",
+            "Delete layer layer-1",
+            answer["undo"]
+                .as_array()
+                .and_then(|a| a.last())
+                .and_then(|v| v.as_str())
+                .unwrap_or("(nothing)"),
+        );
+        report.check(
+            "undoing says what it took back",
+            "Undone: Delete layer layer-1",
+            undo(&viewer),
+        );
+        report.check(
+            "and the layer is back where it was, with the name it had",
+            before_delete,
+            names(&viewer),
+        );
+        report.check(
+            "redoing says what it put back",
+            "Redone: Delete layer layer-1",
+            redo(&viewer),
+        );
+        report.check(
+            "and the layer is gone again",
+            "Cel, Highlight",
+            names(&viewer),
+        );
+
+        // ---- dirty and clean -----------------------------------------------------------------------
+        report.check(
+            "a document that has been edited is unsaved work",
+            true,
+            held(&viewer).document.is_dirty(),
+        );
+        // Document 26: dirty is a comparison against the last save, not a flag, so undoing all
+        // the way back to the file makes it clean again. Nothing in the window decides this.
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        report.check(
+            "undoing back to the file makes it not unsaved work again",
+            false,
+            held(&viewer).document.is_dirty(),
+        );
+        report.check(
+            "and the composition is the one that was opened",
+            "Cel",
+            names(&viewer),
+        );
+        report.check(
+            "there is nothing left to undo, and it says so",
+            "There is nothing to undo.",
+            undo(&viewer),
+        );
+
+        // ---- and out to the disk ---------------------------------------------------------------------
+        // The last question, and the one the others are for: after all of that, is what a save
+        // would write still the file that was opened? The effect this build cannot model is in
+        // that comparison, so this is also the check that no panel dropped it along the way.
+        {
+            let held = held(&viewer);
+            let opened = std::fs::read_to_string(&source)
+                .expect("read the fixture")
+                .replace("\r\n", "\n");
+            let now = persist::to_json(held.document.project(), &held.preserved);
+            // Both texts are thousands of characters and a table is for reading, so the row
+            // carries the answer rather than the two files.
+            let same = "identical, including the effect this build cannot model";
+            report.check(
+                "after all of the above, a save would write the file that was opened",
+                same,
+                if opened == now {
+                    same
+                } else {
+                    "what a save would write is no longer what was opened"
+                },
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12a_editing_table.md",
+            "B-12a: what the layer panel does",
+            LAYER_INTRO,
+            LAYER_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// One table with its own prose around it.
+    ///
+    /// Two tests in this module write one each, and everything they have in common - the header
+    /// row, the escaping, the count at the bottom - is written here rather than twice.
+    fn write_artifact(report: &Report, file: &str, title: &str, intro: &[&str], notes: &[&str]) {
+        let passed = report.rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut out = format!("# {title}\n\n");
+        out.push_str(
+            "Generated by `app/src/main.rs`, module `editing`. Re-run with `cargo test \
+             --workspace`.\n\n",
+        );
+        for paragraph in intro.iter().chain(notes) {
+            out.push_str(paragraph);
+            out.push_str("\n\n");
+        }
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in &report.rows {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                cell(expected),
+                cell(actual),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            report.rows.len()
+        ));
+        std::fs::write(repo(file), out).expect("write the artifact");
+    }
+
+    /// The prose around the layer table.
+    ///
+    /// Out here rather than inline so that the test above reads as the sequence of steps it is,
+    /// which is the thing worth checking against document 24.
+    const LAYER_INTRO: &[&str] = &[
+        "This is the window's half of the layer commands in document 24. The core's half - \
+             that adding, deleting, renaming and reordering a layer are correct and undoable - is \
+             checked in `verification/B-05_model_table.md` and is not repeated here. What is \
+             checked here is the part between a row in a list and that core, which is where a \
+             window goes wrong: a button that names a layer no longer there, a new layer given an \
+             identifier something else is already using, a toggle that decides what a layer \
+             currently is from a list drawn a minute ago, a refusal that leaves a control \
+             springing back with nothing said.",
+        "The fixture is `Fixtures/projects/unknown_effect_project.json`, which names an \
+             effect no version of this build has. It is used for every row on purpose: a panel is \
+             a second reader of the project, and a second reader is a second chance to lose what \
+             it cannot model. The last row is the one that would catch that - after every edit \
+             above and every undo of them, what a save would write is compared against the file \
+             that was opened, byte for byte.",
+    ];
+
+    const LAYER_NOTES: &[&str] = &[
+        "## What to look at\n\n- **A refusal is a sentence, never silence.** Six rows here \
+             are commands that were turned down, and each one is checked for the words the person \
+             would read - which drawing, which layer, and that the front layer is already at the \
+             front.\n- **A refused command changes nothing.** Document 26 requires it, and the \
+             rows after each refusal check the history is no deeper and the layers are in the same \
+             order.\n- **Undo names what it takes back.** \"Undone\" on its own would be true and \
+             useless.\n- **Unsaved work is a comparison, not a flag.** Undoing every edit back to \
+             the file makes the window say the project is saved again, because the core compares \
+             the document against the last save rather than counting edits.",
+        "## What this does not cover\n\nThe page. Every row here calls the same function \
+             the window's URL scheme calls, with the same text the page would put in it, so what \
+             is checked is everything from the request inwards. That a button is wired to the \
+             right request, that the list is drawn front-first, and that the keyboard reaches all \
+             of it are in the photographs beside this table, not in it.\n\nThe transform and \
+             the effect stack are edited from the same inspector and are checked in \
+             `verification/B-12a_transform_table.md` and `verification/B-12a_effects_table.md`. \
+             The matte and the mask are shown and cannot yet be changed; that is later work and \
+             is named as missing rather than quietly absent.",
+    ];
+
+    /// The transform property a layer carries, as a string, from the same JSON the panels get.
+    fn base(viewer: &Mutex<Viewer>, layer_id: &str, prop: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .map(|l| l["transform"][prop]["base"].to_string())
+            .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    #[test]
+    fn the_inspector_changes_a_transform_and_a_drag_is_one_history_entry() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let l = "layer-cel";
+
+        // ---- typing a number ------------------------------------------------------------------
+        report.check(
+            "the fixture's layer starts where document 19's default puts it",
+            "[0,0]",
+            base(&viewer, l, "position"),
+        );
+        report.check(
+            "typing a position says what it set, in the words undo will use",
+            "Set position to (120, -40)",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=120,-40",
+            ),
+        );
+        report.check(
+            "and the panels are given the new value back",
+            "[120,-40]",
+            base(&viewer, l, "position"),
+        );
+        report.check("a scalar property takes one number", "45", {
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=rotation&value=45",
+            );
+            base(&viewer, l, "rotation")
+        });
+        // Document 19 makes opacity nought to one and the core clamps rather than refuses, so a
+        // person who typed 5 gets the fully opaque layer they were reaching for.
+        report.check("opacity above one is clamped rather than refused", "1", {
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=opacity&value=5",
+            );
+            base(&viewer, l, "opacity")
+        });
+
+        // ---- what the panel refuses before the core sees it -------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a property name that is not one of the five is refused, and the five are named",
+            "Which property? Say anchor, position, scale, rotation or opacity.",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=wobble&value=1",
+            ),
+        );
+        report.check(
+            "no value at all is refused, and asks",
+            "What should scale be set to?",
+            run(&viewer, "property.set_base?layer=layer-cel&prop=scale"),
+        );
+        report.check(
+            "text that is not numbers is refused in the shape the property wants",
+            "position needs two numbers, like 12, -4. Not \"over there\".",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=over%20there",
+            ),
+        );
+        report.check(
+            "one number for a two-number property is refused the same way",
+            "position needs two numbers, like 12, -4. Not \"7\".",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=7",
+            ),
+        );
+        report.check(
+            "two numbers for a one-number property never reach the core, and are named here",
+            "rotation needs a number. Not \"1,2\".",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=rotation&value=1,2",
+            ),
+        );
+        report.check(
+            // The percent typed in is divided into the factor the model holds before the core
+            // sees it, which is why the second number comes back as 0.01 rather than the 1 that
+            // was typed. The refusal names the model's value, not the field's; that the two
+            // spellings differ is D-22's, and `verification/B-12b_w01_walkthrough.md` writes up
+            // what it costs a person reading the status line.
+            "a value that is not a finite number is refused",
+            "scale cannot be set to (NaN, 0.01).",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=scale&value=NaN,1",
+            ),
+        );
+        report.check(
+            "none of those six refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and the position is the one that was typed",
+            "[120,-40]",
+            base(&viewer, l, "position"),
+        );
+
+        // ---- a drag ------------------------------------------------------------------------------
+        // Document 26: a drag previews without creating hundreds of history entries and commits
+        // one command at release. This is the check that the window opens the transaction at all -
+        // a page that forgot to would look identical until somebody pressed Ctrl+Z.
+        let depth = held(&viewer).document.undo_depth();
+        for x in [130, 150, 180, 210] {
+            run(
+                &viewer,
+                &format!("property.drag_update?layer=layer-cel&prop=position&value={x},-40"),
+            );
+        }
+        report.check(
+            "the value follows the drag while it is being dragged",
+            "[210,-40]",
+            base(&viewer, l, "position"),
+        );
+        report.check(
+            "and four intermediate values are not four history entries",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "releasing commits one entry, named for what it set",
+            "Set position to (210, -40)",
+            run(&viewer, "property.drag_end"),
+        );
+        report.check(
+            "which is one entry, not four",
+            depth + 1,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and undoing it goes back to before the drag, not to one step inside it",
+            "[120,-40]",
+            {
+                undo(&viewer);
+                base(&viewer, l, "position")
+            },
+        );
+        redo(&viewer);
+
+        // ---- Escape during a drag ------------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        for x in [220, 260, 300] {
+            run(
+                &viewer,
+                &format!("property.drag_update?layer=layer-cel&prop=position&value={x},-40"),
+            );
+        }
+        report.check(
+            "Escape during a drag says the value has gone back",
+            "Cancelled; the value is back where the drag started.",
+            run(&viewer, "property.drag_cancel"),
+        );
+        report.check(
+            "and it has - document 24: Escape restores the pre-drag value",
+            "[210,-40]",
+            base(&viewer, l, "position"),
+        );
+        report.check(
+            "a cancelled drag leaves no history entry",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- the two ends on their own ---------------------------------------------------------------
+        report.check(
+            "releasing when nothing is being dragged is said, not silently ignored",
+            "Nothing moved.",
+            run(&viewer, "property.drag_end"),
+        );
+        report.check(
+            "and so is Escape when nothing is being dragged",
+            "Nothing is being dragged.",
+            run(&viewer, "property.drag_cancel"),
+        );
+        // A drag that ends where it started is somebody who thought better of it. Document 26
+        // says that is not an edit, and an undo item that undoes nothing is worse than none.
+        let depth = held(&viewer).document.undo_depth();
+        run(
+            &viewer,
+            "property.drag_update?layer=layer-cel&prop=position&value=260,-40",
+        );
+        run(
+            &viewer,
+            "property.drag_update?layer=layer-cel&prop=position&value=210,-40",
+        );
+        report.check(
+            "a drag that ends where it started is not an edit",
+            "Nothing moved.",
+            run(&viewer, "property.drag_end"),
+        );
+        report.check(
+            "and adds no history entry",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- a locked layer ---------------------------------------------------------------------------
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        report.check(
+            "a locked layer refuses a transform edit, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=0,0",
+            ),
+        );
+        report.check(
+            "and the value is untouched",
+            "[210,-40]",
+            base(&viewer, l, "position"),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        // ---- back to the file ---------------------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, including the effect this build cannot model";
+        report.check(
+            "undoing every transform edit gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-12a_transform_table.md",
+            "B-12a: what the transform inspector does",
+            TRANSFORM_INTRO,
+            TRANSFORM_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const TRANSFORM_INTRO: &[&str] = &[
+        "Document 19's five transform properties, edited the two ways an inspector offers: \
+         typing a number into a field, and dragging the handle beside it. Both send the same \
+         command ID. What differs is that typing commits an entry of its own and a drag commits \
+         one entry for the whole gesture, which is document 26's interaction transaction.",
+        "The core's half - that setting a property is correct, undoable, and clamped or refused \
+         by document 19's rules - is checked in `verification/B-05_model_table.md`. What is \
+         checked here is the part the window owns: that the text a field sends becomes the right \
+         kind of value, that a drag opens a transaction at all, and that every refusal is a \
+         sentence naming the rule.",
+    ];
+
+    const TRANSFORM_NOTES: &[&str] = &[
+        "## What to look at\n\n- **Four drag steps are one history entry.** The rows check the \
+         value follows the drag, that the history does not deepen while it is following, and \
+         that one entry appears at release. A window that forgot to open the transaction would \
+         look identical on screen and would put four entries in the history, and nobody would \
+         find out until they pressed Ctrl+Z.\n- **A drag that ends where it started is not an \
+         edit.** It is somebody who thought better of it, and an undo item that undoes nothing \
+         is worse than no undo item.\n- **Escape puts the value back.** Document 24 requires it \
+         and the row after it checks the value, not just the sentence.\n- **A value is read in \
+         the shape the property wants.** Sending one number for position is refused rather than \
+         read as a scalar the core would then reject for its kind, which means a wrong-kind \
+         value cannot reach the model at all. The row that would have shown the core's own \
+         refusal instead shows the window's, and that is the correct outcome.",
+        "## What this does not cover\n\nThe gesture. Every row here sends the requests a scrub \
+         sends, in the order it sends them, but that a pointer dragged across the handle produces \
+         those requests - and that the field stops being rebuilt underneath it while it does - is \
+         in the photographs beside this table.\n\nBlend mode is shown in the inspector and cannot \
+         be changed from it. There is no command in the core for changing one, W-01 does not ask \
+         to change one, and adding a command to the model to fill a gap in a panel is a decision \
+         about the project format rather than about this window.\n\nKeyframes. The inspector sets \
+         a property's base value, which is what document 19 calls the value with no keyframes on \
+         it. `keyframe.add_remove` is in document 24 and is not built.",
+    ];
+
+    /// The effect records of one layer, out of the same JSON the panels are drawn from.
+    fn effect_records(viewer: &Mutex<Viewer>, layer_id: &str) -> Vec<serde_json::Value> {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .and_then(|l| l["effects"].as_array().cloned())
+            .unwrap_or_default()
+    }
+
+    /// The stack in the order document 21 evaluates it: what each effect is and whether it runs.
+    fn stack(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        effect_records(viewer, layer_id)
+            .iter()
+            .map(|e| {
+                format!(
+                    "{} {} {}",
+                    e["instance_id"].as_str().unwrap_or("?"),
+                    e["type_id"].as_str().unwrap_or("?"),
+                    if e["enabled"] == serde_json::Value::Bool(true) {
+                        "on"
+                    } else {
+                        "bypassed"
+                    }
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    /// One effect's settings, as they would be written to the file.
+    fn settings(viewer: &Mutex<Viewer>, layer_id: &str, instance: &str) -> String {
+        effect_records(viewer, layer_id)
+            .iter()
+            .find(|e| e["instance_id"] == instance)
+            .map(|e| e["parameters"].to_string())
+            .unwrap_or_else(|| "(no such effect)".to_string())
+    }
+
+    #[test]
+    fn the_effects_panel_builds_a_stack_and_keeps_the_one_it_cannot_draw() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let l = "layer-cel";
+
+        // ---- what was in the file ---------------------------------------------------------------
+        report.check(
+            "the layer arrives with the effect no version of this build has",
+            "fx-unknown-1 vendor.future.effect on",
+            stack(&viewer, l),
+        );
+
+        // ---- adding ----------------------------------------------------------------------------
+        report.check(
+            "adding a blur says what was added, in the words undo will use",
+            "Add core.gaussian_blur",
+            run(
+                &viewer,
+                "effect.add?layer=layer-cel&type=core.gaussian_blur",
+            ),
+        );
+        report.check(
+            "and it goes on the end of the stack, which is where it is evaluated last",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on",
+            stack(&viewer, l),
+        );
+        report.check(
+            "a new effect starts at the setting that changes no pixels",
+            r#"{"sigma_px":0}"#,
+            settings(&viewer, l, "fx-1"),
+        );
+
+        // ---- settings ---------------------------------------------------------------------------
+        report.check(
+            "setting the radius says which effect's settings changed",
+            "Change core.gaussian_blur settings",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=4.5",
+            ),
+        );
+        report.check(
+            "and the panels are given the new radius back",
+            r#"{"sigma_px":4.5}"#,
+            settings(&viewer, l, "fx-1"),
+        );
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a negative radius is refused in document 21's own words, not clamped",
+            "A Gaussian blur needs a sigma of zero or more, and this is -1. Choose a value \
+             inside the range.",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=-1",
+            ),
+        );
+        report.check(
+            "text that is not a number is refused by the window, before the core sees it",
+            "sigma_px needs a number. Not \"wide\".",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=wide",
+            ),
+        );
+        report.check(
+            "a setting left out is refused rather than filled in from a default",
+            "What should sigma_px be set to?",
+            run(&viewer, "effect.set_parameters?layer=layer-cel&effect=fx-1"),
+        );
+        report.check(
+            "none of those three refusals changed the radius",
+            r#"{"sigma_px":4.5}"#,
+            settings(&viewer, l, "fx-1"),
+        );
+        report.check(
+            "and none of them put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- an effect with more than one setting -------------------------------------------------
+        run(&viewer, "effect.add?layer=layer-cel&type=core.tint");
+        report.check(
+            "a tint takes a colour and an amount together",
+            r#"{"amount":0.25,"color":[1,0,0]}"#,
+            {
+                run(
+                    &viewer,
+                    "effect.set_parameters?layer=layer-cel&effect=fx-2&color=1,0,0&amount=0.25",
+                );
+                settings(&viewer, l, "fx-2")
+            },
+        );
+        report.check(
+            "an amount outside document 21's range is refused",
+            "A tint amount runs from 0 to 1, and this is 1.5. Choose a value inside the range.",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-2&color=1,0,0&amount=1.5",
+            ),
+        );
+        report.check(
+            "a colour that is not three numbers is refused by the window",
+            "color needs three numbers, like 1, 0.5, 0. Not \"1,0\".",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-2&color=1,0&amount=0.25",
+            ),
+        );
+        report.check(
+            "and the tint is as it was set",
+            r#"{"amount":0.25,"color":[1,0,0]}"#,
+            settings(&viewer, l, "fx-2"),
+        );
+
+        // ---- bypass ------------------------------------------------------------------------------
+        // Document 24 calls this a bypass rather than a delete: the effect stays in the file with
+        // its settings, and the picture is drawn without it.
+        report.check(
+            "bypassing an effect says so",
+            "Bypass effect fx-1",
+            run(&viewer, "effect.toggle_bypass?layer=layer-cel&effect=fx-1"),
+        );
+        report.check(
+            "and the stack says which one is not running",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur bypassed, \
+             fx-2 core.tint on",
+            stack(&viewer, l),
+        );
+        report.check(
+            "a bypassed effect keeps its settings",
+            r#"{"sigma_px":4.5}"#,
+            settings(&viewer, l, "fx-1"),
+        );
+        report.check(
+            "switching it back on says that instead",
+            "Switch effect fx-1 on",
+            run(&viewer, "effect.toggle_bypass?layer=layer-cel&effect=fx-1"),
+        );
+
+        // ---- the effect this build does not have ---------------------------------------------------
+        // Document 19: an unknown effect record must survive load and save and may not be
+        // silently discarded. It can be switched off and it can be removed, because both are
+        // things a person decided; what cannot happen is this window writing settings for a
+        // schema it has never seen.
+        report.check(
+            "the effect from another version can be bypassed like any other",
+            "Bypass effect fx-unknown-1",
+            run(
+                &viewer,
+                "effect.toggle_bypass?layer=layer-cel&effect=fx-unknown-1",
+            ),
+        );
+        run(
+            &viewer,
+            "effect.toggle_bypass?layer=layer-cel&effect=fx-unknown-1",
+        );
+        report.check(
+            "but its settings cannot be changed from here, and it says why",
+            "vendor.future.effect is not an effect this build has, so its settings are kept as \
+             the file wrote them and cannot be changed here.",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-unknown-1&strength=0.9",
+            ),
+        );
+        report.check(
+            "and its settings are the ones the file wrote",
+            r#"{"strength":0.5}"#,
+            settings(&viewer, l, "fx-unknown-1"),
+        );
+
+        // ---- deleting ------------------------------------------------------------------------------
+        run(&viewer, "effect.add?layer=layer-cel&type=core.exposure");
+        report.check(
+            "deleting an effect from the middle of the stack names the one that went",
+            "Remove effect fx-2",
+            run(&viewer, "effect.delete?layer=layer-cel&effect=fx-2"),
+        );
+        report.check(
+            "and the rest of the stack is untouched, in the order it was in",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, \
+             fx-3 core.exposure on",
+            stack(&viewer, l),
+        );
+        report.check(
+            "the gap a deleted effect left is not filled by the next one",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, \
+             fx-3 core.exposure on, fx-4 core.gaussian_blur on",
+            {
+                run(
+                    &viewer,
+                    "effect.add?layer=layer-cel&type=core.gaussian_blur",
+                );
+                stack(&viewer, l)
+            },
+        );
+        run(&viewer, "effect.delete?layer=layer-cel&effect=fx-4");
+        run(&viewer, "effect.delete?layer=layer-cel&effect=fx-3");
+
+        // ---- what the window refuses before the core sees it ------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "an effect that is not on this layer is said, not silently ignored",
+            "fx-99 is not an effect on this layer.",
+            run(&viewer, "effect.delete?layer=layer-cel&effect=fx-99"),
+        );
+        report.check(
+            "no effect named at all is asked for",
+            "Which effect? Choose one in the effects list.",
+            run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
+        );
+        report.check(
+            "an effect type this build does not have is refused, and the three are named",
+            "This build has no effect called core.warp. It has core.gaussian_blur, \
+             core.exposure and core.tint.",
+            run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
+        );
+        report.check(
+            "adding without saying which effect asks",
+            "Which effect? Say core.gaussian_blur, core.exposure or core.tint.",
+            run(&viewer, "effect.add?layer=layer-cel"),
+        );
+        report.check(
+            "and a layer that is not in this composition is named",
+            "layer-gone is not a layer in this composition.",
+            run(&viewer, "effect.add?layer=layer-gone&type=core.exposure"),
+        );
+        report.check(
+            "none of those five refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- a locked layer ----------------------------------------------------------------------------
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a locked layer refuses an effect, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(&viewer, "effect.add?layer=layer-cel&type=core.exposure"),
+        );
+        report.check(
+            "and refuses a settings change too",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=2",
+            ),
+        );
+        report.check(
+            "and neither did the two the lock stopped",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        report.check(
+            "and the stack is the one that was built",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on",
+            stack(&viewer, l),
+        );
+
+        // ---- back to the file -----------------------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, including the effect this build cannot model";
+        report.check(
+            "undoing every effect edit gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-12a_effects_table.md",
+            "B-12a: what the effects panel does",
+            EFFECTS_INTRO,
+            EFFECTS_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const EFFECTS_INTRO: &[&str] = &[
+        "Document 21's three effects, built into a stack from the panel: added, bypassed, \
+         deleted, and their settings typed. That each effect draws what document 21 says it \
+         draws is checked in `verification/B-07_effects_table.md` and is not repeated here. What \
+         is checked here is the part between a field in a panel and that arithmetic - that the \
+         right effect is reached, that every setting travels on every change, and that a number \
+         outside the range is refused in words rather than quietly turned into a different one.",
+        "Every row runs on `Fixtures/projects/unknown_effect_project.json`, whose one layer \
+         already carries an effect no version of this build has. It is there for the whole \
+         table on purpose: a panel that lists effects is the place where an effect it cannot \
+         draw is most likely to be dropped, and the last row saves the project back and compares \
+         it to the file that was opened.",
+    ];
+
+    const EFFECTS_NOTES: &[&str] = &[
+        "## What to look at\n\n- **An effect this build does not have is kept, and is honest \
+         about it.** It can be bypassed and it can be deleted, because both are things a person \
+         decided. Its settings cannot be changed, because this build has never seen the schema \
+         they belong to, and the panel says so in a sentence rather than showing empty \
+         fields.\n- **A new effect starts at the setting that changes no pixels.** Adding a blur \
+         does not make the picture jump; the change a person then sees is the one they \
+         typed.\n- **Every setting travels on every change.** A tint is a colour and an amount, \
+         and a request that named only one would leave the other to a default - which would \
+         reset it. A missing setting is refused instead.\n- **Where a refusal comes from is \
+         visible in its words.** \"needs a number\" is the window, refusing text. \"needs a sigma \
+         of zero or more\" is the core, refusing a number document 21 has no meaning for. Both \
+         reach the status line the same way, and neither changes anything.\n- **A gap left by a \
+         deleted effect is not filled.** Identifiers are counted from the highest in use, so an \
+         effect in the middle of a stack cannot be replaced by a different one wearing its \
+         identifier, and two runs of the same steps write the same file.",
+        "## What this does not cover\n\nThe picture. These rows check what the panel does to the \
+         project, not what the renderer then draws; the blur, exposure and tint themselves are \
+         checked against independently generated weights in `verification/B-07_effects_table.md`, \
+         and the frame with an effect on it is in the photographs beside this table.\n\nReordering \
+         the stack. Document 21 evaluates effects in order and this panel adds each new one at \
+         the end; there is no command in document 24 for moving one, and W-01 does not ask to \
+         move one.\n\nA parameter over time. The settings here are constants, which is what \
+         document 19 calls a parameter with no keyframes on it.",
+    ];
+
+    /// What shapes a layer, as the panels are given it.
+    fn matte(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .map(|l| l["matte"].to_string())
+            .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    #[test]
+    fn the_inspector_chooses_a_matte_and_refuses_the_ones_that_would_not_work() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        report.check(
+            "the fixture's layer is shaped by nothing",
+            "null",
+            matte(&viewer, "layer-cel"),
+        );
+        // A matte is one layer shaping another, so there has to be another. This is the second
+        // layer a person would draw the shape on.
+        run(&viewer, "layer.create?asset=asset-cel&name=Shape");
+
+        // ---- choosing one ------------------------------------------------------------------------
+        report.check(
+            "choosing a matte says which layer was chosen",
+            "Set matte to layer-1",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-cel&matte=layer-1&only=false",
+            ),
+        );
+        report.check(
+            "and the panels are given it back, with the matte layer still drawn in its own right",
+            r#"{"layer_id":"layer-1","matte_only":false,"mode":"alpha"}"#,
+            matte(&viewer, "layer-cel"),
+        );
+        // D-42: the matte layer being kept out of the visible stack is a setting of its own,
+        // rather than the matte layer being switched off, so that a file cannot say one thing
+        // and mean another.
+        report.check(
+            "keeping the matte layer out of the picture is said in the words undo will use",
+            "Set matte to layer-1, matte only",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-cel&matte=layer-1&only=true",
+            ),
+        );
+        report.check(
+            "and it is that setting that changed, not the matte layer's own switch",
+            r#"{"layer_id":"layer-1","matte_only":true,"mode":"alpha"}"#,
+            matte(&viewer, "layer-cel"),
+        );
+        report.check(
+            "the layer used as a matte is still switched on, which is D-42's whole point",
+            true,
+            layer(&viewer, "layer-1", |l| l.enabled).unwrap_or(false),
+        );
+
+        // ---- clearing it ---------------------------------------------------------------------------
+        report.check(
+            "clearing the matte says so",
+            "Clear matte",
+            run(&viewer, "layer.set_matte?layer=layer-cel&matte=&only=false"),
+        );
+        report.check(
+            "and the layer is shaped by nothing again",
+            "null",
+            matte(&viewer, "layer-cel"),
+        );
+        report.check(
+            "undo puts back the matte that was cleared, and its setting with it",
+            r#"{"layer_id":"layer-1","matte_only":true,"mode":"alpha"}"#,
+            {
+                undo(&viewer);
+                matte(&viewer, "layer-cel")
+            },
+        );
+
+        // ---- what is refused ------------------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a layer that is not in this composition cannot be a matte, and is named",
+            "The layer chosen as a matte, layer-gone, is not in this composition.",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-cel&matte=layer-gone&only=false",
+            ),
+        );
+        // Document 19 forbids the cycle and the core refuses it. The list in the panel does not
+        // offer a layer itself, so this is the second line of defence rather than the first.
+        report.check(
+            "a layer cannot be its own matte",
+            "That matte would make two layers depend on each other. Choose a layer that does \
+             not already use this one as its matte.",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-cel&matte=layer-cel&only=false",
+            ),
+        );
+        report.check(
+            "and two layers cannot shape each other",
+            "That matte would make two layers depend on each other. Choose a layer that does \
+             not already use this one as its matte.",
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-1&matte=layer-cel&only=false",
+            ),
+        );
+        report.check(
+            "no layer named at all is asked for",
+            "Which layer? Choose one in the layer list.",
+            run(&viewer, "layer.set_matte?matte=layer-1"),
+        );
+        report.check(
+            "none of those four refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and the matte is the one that was chosen",
+            r#"{"layer_id":"layer-1","matte_only":true,"mode":"alpha"}"#,
+            matte(&viewer, "layer-cel"),
+        );
+
+        // ---- a locked layer ---------------------------------------------------------------------------
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a locked layer refuses a matte, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(&viewer, "layer.set_matte?layer=layer-cel&matte=&only=false"),
+        );
+        report.check(
+            "which changed nothing",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        // ---- the matte layer going away ----------------------------------------------------------------
+        // A matte names a layer, and a layer can be deleted. The reference is kept rather than
+        // cleared -- that is the project loader's rule, which reports it as a warning and leaves
+        // it alone -- so what this window owes the person is to say it at the moment it happens
+        // rather than the next time the file is opened.
+        report.check(
+            "deleting the layer used as a matte says what it did to the layer it was shaping",
+            "Delete layer layer-1 \"Cel\" is now shaped by a layer that is not here; undo puts \
+             it back.",
+            run(&viewer, "layer.delete?layer=layer-1"),
+        );
+        report.check(
+            "and the reference is kept, which is what the project loader expects to find",
+            r#"{"layer_id":"layer-1","matte_only":true,"mode":"alpha"}"#,
+            matte(&viewer, "layer-cel"),
+        );
+        report.check(
+            "and undo brings the layer back, with the matte pointing at it again",
+            "Cel, Shape",
+            {
+                undo(&viewer);
+                names(&viewer)
+            },
+        );
+
+        // ---- back to the file ---------------------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, including the effect this build cannot model";
+        report.check(
+            "undoing everything gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-12a_matte_table.md",
+            "B-12a: what the matte chooser does",
+            MATTE_INTRO,
+            MATTE_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const MATTE_INTRO: &[&str] = &[
+        "W-01 asks the artist to apply a matte: one layer shaping another, which is how a cel is \
+         held inside a shape rather than being cut with a pair of scissors. That the matte is \
+         then drawn the way document 21 says - the alpha of one layer multiplying the other's - \
+         is checked in `verification/B-06_mask_table.md` and is not repeated here. What is \
+         checked here is the part between a chooser in a panel and that arithmetic: that the \
+         layer chosen is the layer used, that the settings the file holds together travel \
+         together, and that the arrangements document 19 forbids are refused in a sentence.",
+        "One command carries all three of choosing a matte, clearing it, and choosing whether \
+         the matte layer is still drawn in its own right. `layer.set_matte` is added to \
+         document 24 for it, which is written up beside the row.",
+    ];
+
+    const MATTE_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The matte layer is not switched off.** D-42 made \"keep this \
+         layer out of the visible stack\" a setting of its own rather than reusing the layer's \
+         own switch, so that a file showing a layer switched off while it visibly shapes the \
+         picture cannot happen. The row after the one that sets it checks the matte layer is \
+         still on.\n- **A cycle is refused, twice over.** The chooser does not offer a layer \
+         itself, and the core refuses it as well; the rows here go through the request the \
+         chooser sends, so what they check is the second line of defence.\n- **Deleting the \
+         layer that was being used as a matte keeps the reference, and says so.** That is the \
+         project loader's rule - it reports such a reference as a warning and leaves it alone, \
+         so that a layer deleted by mistake can be undone back into place - and this window \
+         says it in the status line at the moment it happens rather than leaving it to be met \
+         the next time the file is opened.\n- **Clearing is the same command with no layer named**, which is what the \
+         \"none\" entry in the list sends. A layer that has gone is a different thing and is \
+         refused.",
+        "## What this does not cover\n\nThe shape. This panel chooses which layer is the matte; \
+         drawing an outline to be the matte is `SetMask` in the core and has no gesture in this \
+         window yet. A matte is a whole layer here, which is what an artist with a scanned shape \
+         has and what W-01 describes.\n\nWhich channel the matte uses. Document 21 defines an \
+         alpha matte and this build has one kind; a luminance matte is not in G1.",
+    ];
+
+    /// A layer's exposures as an exposure sheet reads them: which frames, and which drawing.
+    fn exposures(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        layer(viewer, layer_id, |l| {
+            l.exposure_spans
+                .iter()
+                .map(|s| {
+                    format!(
+                        "{}-{}:{}",
+                        s.start_frame, s.end_frame_exclusive, s.drawing_number
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// The project's drawings, as the media bin lists them.
+    fn bin(viewer: &Mutex<Viewer>) -> String {
+        held(viewer)
+            .document
+            .project()
+            .assets
+            .iter()
+            .map(|a| format!("{} \"{}\" {} drawings", a.id, a.name, a.frames.len()))
+            .collect::<Vec<_>>()
+            .join("; ")
+    }
+
+    /// Where one drawing of an imported sequence ended up in the project record.
+    fn stored(viewer: &Mutex<Viewer>, asset: &str, drawing: u32) -> String {
+        held(viewer)
+            .document
+            .project()
+            .assets
+            .iter()
+            .find(|a| a.id == Id::new(asset))
+            .and_then(|a| a.frames.get(&drawing).cloned())
+            .unwrap_or_else(|| "(no such drawing)".to_string())
+    }
+
+    fn notes_mention(viewer: &Mutex<Viewer>, words: &str) -> bool {
+        held(viewer).notes.iter().any(|n| n.contains(words))
+    }
+
+    /// The PNG files in one folder of the reference shot, which is the selection a person makes
+    /// in the dialog. Sorted, because a file dialog's order is its own business.
+    fn drawings_in(folder: &str) -> Vec<PathBuf> {
+        let dir = repo(&format!("Fixtures/reference_shot/{folder}"));
+        let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("read {}: {e}", dir.display()))
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "png"))
+            .collect();
+        files.sort();
+        files
+    }
+
+    /// The request the media bin sends once the file dialog has been answered.
+    fn import_of(files: &[PathBuf]) -> String {
+        let parts: Vec<String> = files
+            .iter()
+            .map(|p| format!("file={}", for_a_header(&p.display().to_string())))
+            .collect();
+        format!("media.import?{}", parts.join("&"))
+    }
+
+    #[test]
+    fn the_media_bin_imports_a_sequence_and_the_exposures_it_is_given() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        // ---- the exposures the file already holds -------------------------------------------
+        report.check(
+            "the fixture holds drawing 1 for two frames and drawing 2 for three",
+            "0-2:1, 2-5:2",
+            exposures(&viewer, "layer-cel"),
+        );
+        {
+            let answer: serde_json::Value =
+                serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+            report.check(
+                "and the panels are given them to draw",
+                r#"[{"drawing_number":1,"end_frame_exclusive":2,"start_frame":0},"#.to_string()
+                    + r#"{"drawing_number":2,"end_frame_exclusive":5,"start_frame":2}]"#,
+                answer["project"]["compositions"][0]["layers"][0]["exposure_spans"].to_string(),
+            );
+        }
+
+        // ---- changing one ------------------------------------------------------------------
+        report.check(
+            "shortening a hold says how many exposures the layer now has",
+            "Set 2 exposures",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&was=2&start=2&end=4&drawing=2",
+            ),
+        );
+        report.check(
+            "and the hold is one frame shorter, with the other one untouched",
+            "0-2:1, 2-4:2",
+            exposures(&viewer, "layer-cel"),
+        );
+        // Document 20's own example: drawing numbers are under no ordering constraint, because a
+        // re-exposure of an earlier drawing is ordinary cel work.
+        report.check(
+            "a later exposure may show an earlier drawing again",
+            "Set 3 exposures",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=4&end=5&drawing=1",
+            ),
+        );
+        report.check(
+            "and the sheet reads in frame order, not drawing order",
+            "0-2:1, 2-4:2, 4-5:1",
+            exposures(&viewer, "layer-cel"),
+        );
+        // Moving a row is one row edited. The request carries the frame the row starts at now as
+        // well as the one being typed, so that an exposure dragged along the sheet does not
+        // leave a copy of itself where it was.
+        report.check(
+            "moving an exposure to another frame moves it rather than copying it",
+            "0-2:1, 2-4:2, 5-6:1",
+            {
+                run(
+                    &viewer,
+                    "exposure.set_span?layer=layer-cel&was=4&start=5&end=6&drawing=1",
+                );
+                exposures(&viewer, "layer-cel")
+            },
+        );
+        report.check(
+            "clearing one says how many are left",
+            "Set 2 exposures",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&was=5&start=5&drawing=",
+            ),
+        );
+        report.check(
+            "and it is the cleared one that has gone",
+            "0-2:1, 2-4:2",
+            exposures(&viewer, "layer-cel"),
+        );
+
+        // ---- a drawing the sequence has not got -----------------------------------------------
+        // Document 28: a frame whose drawing is missing renders as nothing and no neighbouring
+        // drawing is put there instead. The command is allowed - a person may be exposing a
+        // drawing that has not been scanned yet - and is told what it will look like.
+        report.check(
+            "exposing a drawing that is not in the sequence is allowed and said",
+            "Set 3 exposures Drawing 7 is not in this sequence, so the frames exposing it stay \
+             empty; no neighbouring drawing is put there instead.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=4&end=5&drawing=7",
+            ),
+        );
+        report.check(
+            "and it was applied, not refused",
+            "0-2:1, 2-4:2, 4-5:7",
+            exposures(&viewer, "layer-cel"),
+        );
+        report.check(
+            "undo takes that exposure back off the sheet",
+            "0-2:1, 2-4:2",
+            {
+                undo(&viewer);
+                exposures(&viewer, "layer-cel")
+            },
+        );
+
+        // ---- what is refused ------------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        // Document 20's rule, in the core's words. The window does not have a copy of it.
+        report.check(
+            "two exposures cannot cover one frame",
+            "Those exposures cannot be used: exposure spans overlap or are out of order: a span \
+             ends at 2 and the next starts at 1.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=1&end=3&drawing=2",
+            ),
+        );
+        report.check(
+            "an exposure that covers no frame is not an exposure",
+            "Those exposures cannot be used: exposure span [6, 6) covers no frame.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=6&end=6&drawing=1",
+            ),
+        );
+        report.check(
+            "clearing an exposure that is not there says so",
+            "There is no exposure starting at frame 9 to clear.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=9&drawing=",
+            ),
+        );
+        report.check(
+            "a frame number that is not a number is named before the core sees it",
+            "An exposure starts at a whole frame number. Not \"two\".",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=two&end=4&drawing=1",
+            ),
+        );
+        report.check(
+            "and so is a drawing number that is not one",
+            "A drawing number is a whole number, counting from zero. Not \"-1\".",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=6&end=7&drawing=-1",
+            ),
+        );
+        report.check(
+            "an exposure with no end is asked for rather than guessed at",
+            "Which frame does the exposure end before?",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=6&drawing=1",
+            ),
+        );
+        report.check(
+            "none of those six refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and the sheet is the one that was there",
+            "0-2:1, 2-4:2",
+            exposures(&viewer, "layer-cel"),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a locked layer refuses an exposure, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(
+                &viewer,
+                "exposure.set_span?layer=layer-cel&start=6&end=7&drawing=1",
+            ),
+        );
+        report.check(
+            "which changed nothing",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        // ---- importing drawings -----------------------------------------------------------------
+        report.check(
+            "the media bin starts with the one sequence the file names",
+            "asset-cel \"Cel\" 2 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "an import that names no file asks for one rather than importing nothing",
+            "Which drawings should be imported? Choose the files themselves, not the folder \
+             they are in.",
+            run(&viewer, "media.import"),
+        );
+        // Layer 3 of the reference shot is the sequence with a hole in it: eleven files
+        // numbered 0 to 11, and no drawing 7.
+        let layer3 = drawings_in("layer3");
+        report.check(
+            "importing a sequence with a gap says how many drawings arrived and what is missing",
+            "Import layer3_%03d.png: 11 drawings, numbered 0 to 11, and drawing 7 is missing.",
+            run(&viewer, &import_of(&layer3)),
+        );
+        report.check(
+            "the drawing that is missing is missing from the record, not filled in",
+            "0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11",
+            held(&viewer)
+                .document
+                .project()
+                .assets
+                .iter()
+                .find(|a| a.id == Id::new("asset-1"))
+                .map(|a| {
+                    a.frames
+                        .keys()
+                        .map(u32::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                })
+                .unwrap_or_else(|| "(the sequence was not imported)".to_string()),
+        );
+        report.check(
+            "the importer's own warning about the gap is kept, in its words",
+            true,
+            notes_mention(&viewer, "One drawing is missing from layer3_%03d.png: 7."),
+        );
+        report.check(
+            "media chosen from outside the project's folder keeps its whole path",
+            true,
+            stored(&viewer, "asset-1", 0)
+                .ends_with("Fixtures/reference_shot/layer3/layer3_000.png"),
+        );
+        report.check(
+            "and it is written with forward slashes, so the project can be handed over",
+            true,
+            !stored(&viewer, "asset-1", 0).contains('\\'),
+        );
+        // Layer 2 is the other trap: drawing 13 is called `layer2_桜_013.png`, which the pattern
+        // does not generate. It is a complete sequence and must not be reported as one with a
+        // hole at 13.
+        let layer2 = drawings_in("layer2");
+        report.check(
+            "a sequence whose names are not all alike is complete, not full of holes",
+            "Import layer2_%03d.png: 24 drawings, numbered 0 to 23.",
+            run(&viewer, &import_of(&layer2)),
+        );
+        report.check(
+            "the drawing with the Japanese name is stored under the name it has",
+            true,
+            stored(&viewer, "asset-2", 13).ends_with("layer2_桜_013.png"),
+        );
+        report.check(
+            "and it was noticed rather than passed over in silence",
+            true,
+            notes_mention(
+                &viewer,
+                "One file does not match the pattern layer2_%03d.png but carries a clear number",
+            ),
+        );
+        report.check(
+            "both sequences are in the bin, beside the one the file came with",
+            "asset-cel \"Cel\" 2 drawings; asset-1 \"layer3_%03d.png\" 11 drawings; \
+             asset-2 \"layer2_%03d.png\" 24 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "an import can be undone",
+            "Undone: Import layer2_%03d.png",
+            undo(&viewer),
+        );
+        report.check(
+            "and the drawings go with it",
+            "asset-cel \"Cel\" 2 drawings; asset-1 \"layer3_%03d.png\" 11 drawings",
+            bin(&viewer),
+        );
+        // Not every file is a drawing. A selection that forms no sequence imports nothing and
+        // says what the importer made of it.
+        report.check(
+            "a file that is not a numbered drawing imports nothing and says why",
+            "The chosen file does not form an image sequence, so nothing was imported. One \
+             selected file has no number in its name and was not imported. Import it as a still \
+             image, or rename it so it carries a drawing number.",
+            run(&viewer, &import_of(std::slice::from_ref(&source))),
+        );
+
+        // ---- back to the file ---------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, drawings, exposures and all";
+        report.check(
+            "undoing everything gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-12a_media_table.md",
+            "B-12a: what the media bin and the exposure sheet do",
+            MEDIA_INTRO,
+            MEDIA_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const MEDIA_INTRO: &[&str] = &[
+        "W-01 begins before any layer exists: the artist \"imports media, reviews sequence \
+         grouping and missing-frame warnings, creates a composition and assigns exposures\". \
+         This is the window's half of those steps. That B-03 groups a selection correctly is \
+         checked in `verification/B-03_import_table.md`, and that the exposure sheet resolves \
+         to the right drawing at each frame in `verification/B-04_exposure_table.md`; neither \
+         is repeated here. What is checked here is the part between a panel and those two: that \
+         what the importer found reaches the person in words, that the record written into the \
+         project is the one the importer described, and that a row typed into the exposure \
+         sheet becomes the span the file holds.",
+        "The exposures run on `Fixtures/projects/cel_holds_project.json`, which already holds a \
+         drawing for two frames and another for three. The imports run on the reference shot, \
+         whose layer 3 is missing drawing 7 and whose layer 2 carries drawing 13 under a \
+         Japanese name the pattern does not generate. Those two folders are the reason the \
+         importer was written the way it was, and they are the two cases a media bin can most \
+         easily lie about.",
+        "`exposure.set_span` is in document 24's table and had no command behind it. \
+         `SetExposureSpans` is added to the core by this unit, taking the whole ordered list \
+         the way `SetMask` takes a whole outline, and the reason is written beside it.",
+    ];
+
+    const MEDIA_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The gap is a fact, not an absence.** Layer 3 imports as \
+         eleven drawings numbered 0 to 11 with no 7, and the record says so. An importer that \
+         renumbered what it found would slide every later drawing one frame early and nothing \
+         would look wrong until somebody counted.\n- **The complete sequence is not reported as \
+         a broken one.** Layer 2's drawing 13 is called `layer2_桜_013.png`. It is imported \
+         under its own name, the sequence is complete, and the mismatch is mentioned rather \
+         than treated as a hole.\n- **Exposing a drawing that does not exist is allowed and \
+         said.** Document 28 renders such a frame as nothing and substitutes no neighbour. A \
+         person exposing a drawing that has not been scanned yet is told what it will look \
+         like; they are not stopped.\n- **The rule about overlapping exposures is the core's.** \
+         The two refusals quote document 20's own words through the same check the loader and \
+         the renderer use. The window has no copy of that rule to fall out of step with.\n- \
+         **Moving an exposure moves it.** The row carries the frame it starts at now as well as \
+         the frame being typed, so an exposure dragged along the sheet does not leave a copy of \
+         itself behind.",
+        "## What this does not cover\n\nThe file dialog. Choosing files belongs to the \
+         operating system and a test has no hands to answer one, so every row here begins at \
+         the selection a person made. The button that opens it is in the media bin and is in \
+         the photographs.\n\nStills. `media.import` builds an image sequence, because that is \
+         what W-01 imports and what the reference shot is. A single still image is a record \
+         this build's model already has and its own import is not built.\n\nRelinking, which is \
+         W-02 and its own table.",
+    ];
+
+    /// The request the media bin sends once the relink dialog has been answered.
+    fn relink_of(asset: &str, files: &[PathBuf]) -> String {
+        let parts: Vec<String> = files
+            .iter()
+            .map(|p| format!("file={}", for_a_header(&p.display().to_string())))
+            .collect();
+        format!("media.relink?asset={asset}&{}", parts.join("&"))
+    }
+
+    /// Two drawings of a size nothing in the reference shot has.
+    fn tiny_drawings() -> Vec<PathBuf> {
+        let directory = std::env::temp_dir().join("anime_compositor_b12a_relink");
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("make the scratch directory");
+        (0..2)
+            .map(|n| {
+                let file = directory.join(format!("tiny_{n:03}.png"));
+                anime_compositor::png_out::write_rgba(
+                    &file,
+                    8,
+                    8,
+                    OutputDepth::Eight,
+                    &[],
+                    &[0u8; 8 * 8 * 4],
+                )
+                .expect("write a tiny drawing");
+                file
+            })
+            .collect()
+    }
+
+    /// One sentence out of a proposal, so that a row can show the part it is about.
+    fn sentence_about(said: &str, opening: &str) -> String {
+        said.split(". ")
+            .find(|s| s.starts_with(opening))
+            .map(|s| format!("{}.", s.trim_end_matches('.')))
+            .unwrap_or_else(|| format!("(nothing was said starting \"{opening}\")"))
+    }
+
+    /// What the frame carries about a relink waiting to be agreed to, which is all the panel
+    /// offering it ever knows. It rides on the frame rather than on an answer of its own so that
+    /// a panel cannot outlive the proposal it is showing.
+    fn on_the_frame(viewer: &Mutex<Viewer>) -> (String, String) {
+        let export = Mutex::new(Export::default());
+        let (ask, quality) = parse("/frame/0", None).expect("a readable request");
+        let response = serve(viewer, &export, ask, quality);
+        let text = |name: &str| {
+            response.headers().get(name).map_or_else(String::new, |v| {
+                from_a_query(v.to_str().unwrap_or_default())
+            })
+        };
+        (text("x-relink"), text("x-relink-asset"))
+    }
+
+    #[test]
+    fn relinking_says_what_would_change_before_anything_changes() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let replacements = drawings_in("layer3");
+
+        // ---- what cannot be relinked -------------------------------------------------------
+        report.check(
+            "relinking without naming a sequence asks which one",
+            "Which sequence should be relinked? Choose one in the media bin.",
+            run(&viewer, "media.relink"),
+        );
+        report.check(
+            "naming a sequence but no drawings asks for the drawings themselves",
+            "Which drawings should the sequence point at? Choose the files themselves, not the \
+             folder they are in.",
+            run(&viewer, "media.relink?asset=asset-cel"),
+        );
+        report.check(
+            "a sequence that is not in the project is refused",
+            "That media is not in this project. Nothing was changed.",
+            run(&viewer, &relink_of("asset-gone", &replacements)),
+        );
+        report.check(
+            "and agreeing to a relink nobody proposed is refused",
+            "There is no relink waiting for that sequence. Choose the replacement drawings \
+             first, so that what would change can be read before it happens.",
+            run(&viewer, "media.relink?asset=asset-cel&apply=1"),
+        );
+
+        // ---- what would change, said before it does -----------------------------------------
+        let said = run(&viewer, &relink_of("asset-cel", &replacements));
+        report.check(
+            "choosing the replacement drawings answers with what relinking would do",
+            "Relinking \"Cel\" to layer3_%03d.png would give it 11 drawings, numbered 0 to 11, \
+             and drawing 7 would be missing. The drawings are 1920x1080. What it points at now \
+             cannot be read, so there is nothing to compare that with. The colour is read as \
+             sRGB with straight alpha, which is what this project already recorded: a PNG does \
+             not state either, so relinking does not change how the pixels are read. The layers \
+             using it keep their stacking, transforms, exposures, masks and effects. Nothing \
+             has changed yet. One drawing is missing from layer3_%03d.png: 7. Add the missing \
+             files to the folder and relink the sequence, or leave the gap if the hole is \
+             intended.",
+            &said,
+        );
+        let (waiting, about) = on_the_frame(&viewer);
+        report.check(
+            "the panel offering it reads it off the frame, word for word",
+            &said,
+            &waiting,
+        );
+        report.check(
+            "and the frame says which sequence it is about",
+            "asset-cel",
+            &about,
+        );
+        report.check(
+            "the drawings the sequence points at have not moved",
+            "asset-cel \"Cel\" 2 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "there is nothing to undo, because nothing was done",
+            0,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- and it can be walked away from -------------------------------------------------
+        report.check(
+            "leaving it as it is says so",
+            "The relink was dropped. The sequence still points at the drawings it did.",
+            run(&viewer, "media.relink?asset=asset-cel&cancel=1"),
+        );
+        report.check("the panel goes with it", "", on_the_frame(&viewer).0);
+        report.check(
+            "the sequence still points where it did",
+            "asset-cel \"Cel\" 2 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "and dropping a second time has nothing to drop",
+            "There is no relink waiting to be dropped.",
+            run(&viewer, "media.relink?asset=asset-cel&cancel=1"),
+        );
+
+        // ---- agreeing to it ------------------------------------------------------------------
+        run(&viewer, &relink_of("asset-cel", &replacements));
+        report.check(
+            "a proposal about one sequence cannot be applied to another",
+            "There is no relink waiting for that sequence. Choose the replacement drawings \
+             first, so that what would change can be read before it happens.",
+            run(&viewer, "media.relink?asset=asset-1&apply=1"),
+        );
+        report.check(
+            "and the proposal it was not about is still waiting",
+            "asset-cel",
+            on_the_frame(&viewer).1,
+        );
+        report.check(
+            "agreeing names what was done, so that undo can be recognised",
+            "Relink Cel",
+            run(&viewer, "media.relink?asset=asset-cel&apply=1"),
+        );
+        report.check(
+            "the sequence now points at the drawings that were chosen",
+            "asset-cel \"Cel\" 11 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "the gap is still a gap: the drawing that is not there was not invented",
+            "(no such drawing)",
+            stored(&viewer, "asset-cel", 7),
+        );
+        report.check(
+            "the layer that used it is the same layer, holding the same drawings for the same \
+             frames",
+            "0-2:1, 2-5:2",
+            exposures(&viewer, "layer-cel"),
+        );
+        report.check(
+            "the panel is gone, because there is nothing left to agree to",
+            "",
+            on_the_frame(&viewer).0,
+        );
+        report.check(
+            "and it is one thing to undo",
+            "Undone: Relink Cel",
+            undo(&viewer),
+        );
+        report.check(
+            "which puts the drawings back",
+            "asset-cel \"Cel\" 2 drawings",
+            bin(&viewer),
+        );
+
+        // ---- the comparison W-02 asks for, when there is something to compare -----------------
+        run(&viewer, &import_of(&drawings_in("layer3")));
+        let said = run(&viewer, &relink_of("asset-1", &tiny_drawings()));
+        report.check(
+            "relinking a sequence that can be read says what size it is now and what size it \
+             would become",
+            "The drawings are 8x8, where the ones it points at now are 1920x1080.",
+            sentence_about(&said, "The drawings are"),
+        );
+        report.check(
+            "and says the alpha is read the way this project already reads it, because a PNG \
+             does not say",
+            "The colour is read as sRGB with straight alpha, which is what this project \
+             already recorded: a PNG does not state either, so relinking does not change how \
+             the pixels are read.",
+            sentence_about(&said, "The colour is read"),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-12a_relink_table.md",
+            "B-12a: relinking, and what is said before anything changes",
+            RELINK_INTRO,
+            RELINK_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const RELINK_INTRO: &[&str] = &[
+        "W-02 is one sentence: relink \"by explicit user choice; preserve layer identity, \
+         timing, masks and effects\", and \"present changed dimensions, frame range or alpha \
+         interpretation before applying the change\". The presenting is the part that cannot be \
+         done by a core command, because it happens before there is a command, so it is built \
+         here and checked here. That relinking preserves layer identity once it is applied is \
+         the core's own behaviour and is checked in \
+         `verification/B-09_persistence_table.md`; this table checks the window's half.",
+        "Relinking is three requests rather than one, and that is the requirement rather than a \
+         convenience: choosing the drawings works out what would happen and says it, and a \
+         second request either agrees to it or drops it. Between the two, nothing about the \
+         project has moved - the rows below check the drawings, the history and the file rather \
+         than trusting the sentence that says so.",
+    ];
+
+    const RELINK_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The proposal is on the frame.** The sentence a person is \
+         being asked to agree to travels back with the picture, like everything else this \
+         window says, so a panel offering a relink cannot outlive the proposal it describes. \
+         Cancel it, apply it, or open another project, and the panel goes with the next \
+         frame.\n- **All three of W-02's changes are stated whether or not they changed.** The \
+         size is given even when it is the same, the range and the gaps are given in full, and \
+         the alpha reading is stated as carried over. \"Unchanged\" is an answer; silence is \
+         not.\n- **What cannot be read is said to be unreadable.** Relinking is what a person \
+         does when the media has gone, so the usual case is that there is nothing to compare \
+         the new size against. That case says so rather than reporting the drawings as the \
+         same size.\n- **A proposal belongs to one sequence.** Agreeing to it while another \
+         sequence is selected is refused, and the proposal is still there afterwards.\n- **The \
+         gap survives.** Relinking to a sequence missing drawing 7 leaves drawing 7 missing, \
+         which document 28 renders as nothing.",
+        "## What this does not cover\n\nThe file dialog, as everywhere else in this window: a \
+         test has no hands to answer one, so every row begins at the selection a person \
+         made.\n\nMasks. W-02 names them among what a relink preserves, and it does preserve \
+         them - relinking replaces one asset record and cannot reach a layer - but this build \
+         has no gesture for drawing a mask, so there is no mask here to photograph surviving \
+         one.\n\nRelinking to a sequence in a different colour space. A PNG states neither the \
+         colour space nor the alpha mode, so nothing read off the new drawings could \
+         contradict the project; a format that states them is not in G1.",
+    ];
+
     fn cell(text: &str) -> String {
         text.replace('|', r"\|")
     }
@@ -1898,6 +5142,28 @@ mod serving {
         serve(viewer, export, ask, quality)
     }
 
+    /// One document 24 command, by the identifier the page would send.
+    fn run(viewer: &Mutex<Viewer>, what: &str) -> String {
+        let (id, query) = match what.split_once('?') {
+            Some((id, query)) => (id, Some(query)),
+            None => (what, None),
+        };
+        edit_command(viewer, id, query).expect("a command document 24 lists")
+    }
+
+    fn held(viewer: &Mutex<Viewer>) -> std::sync::MutexGuard<'_, Viewer> {
+        viewer.lock().expect("the viewer lock was poisoned")
+    }
+
+    /// A directory of this test's own, emptied first so a previous run cannot make a later one
+    /// pass.
+    fn scratch(name: &str) -> PathBuf {
+        let directory = std::env::temp_dir().join(name);
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("make the scratch directory");
+        directory
+    }
+
     #[test]
     fn what_the_page_gets_is_the_frame_it_asked_for() {
         let mut rows: Vec<(String, String, String)> = Vec::new();
@@ -2184,6 +5450,234 @@ mod serving {
             rows.len(),
             failed
         );
+    }
+
+    /// B-12a item 7: the two ways of looking at a frame, and the promise that neither changes it.
+    ///
+    /// Writes `verification/B-12a_inspect_table.md`.
+    #[test]
+    fn looking_at_the_alpha_channel_changes_nothing_but_the_looking() {
+        let mut rows: Vec<(String, String, String)> = Vec::new();
+        let mut check = |what: &str, expected: &dyn ToString, actual: &dyn ToString| {
+            rows.push((what.to_string(), expected.to_string(), actual.to_string()));
+        };
+        let pixel = |body: &[u8]| {
+            body[..4]
+                .iter()
+                .map(|b| b.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+
+        let project = a_half_transparent_red_project();
+        let viewer = Mutex::new(open(&project).expect("open the four-pixel project"));
+        let export = Mutex::new(Export::default());
+
+        let colour = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        check(
+            "the window opens looking at the picture itself",
+            &"false",
+            &header(&colour, "x-alpha"),
+        );
+        check(
+            "half-transparent red arrives as the red it was drawn as",
+            &"255, 0, 0, 128",
+            &pixel(colour.body()),
+        );
+        check(
+            "and the transparency grid starts on, because a transparent frame that reads as \
+             black is a frame somebody misjudges",
+            &"true",
+            &header(&colour, "x-checkerboard"),
+        );
+
+        // ---- the alpha-only view -------------------------------------------------------------
+        check(
+            "turning alpha inspection on says what will be on screen and what will not change",
+            &"Alpha-only inspection is on. The picture is the alpha channel, white where the \
+              frame is opaque and black where it is empty; what is exported is unchanged.",
+            &run(&viewer, "viewer.toggle_alpha"),
+        );
+        let alpha = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        check(
+            "and the frame that comes back says it is being looked at that way",
+            &"true",
+            &header(&alpha, "x-alpha"),
+        );
+        check(
+            "a pixel that is half transparent is drawn as the grey half way up",
+            &"128, 128, 128, 255",
+            &pixel(alpha.body()),
+        );
+        check(
+            "the alpha view is opaque, so what is being measured cannot itself be see-through",
+            &true,
+            &alpha.body().chunks_exact(4).all(|px| px[3] == 255),
+        );
+        check(
+            "it is the same picture, at the same size",
+            &format!(
+                "{}x{}",
+                header(&colour, "x-width"),
+                header(&colour, "x-height")
+            ),
+            &format!(
+                "{}x{}",
+                header(&alpha, "x-width"),
+                header(&alpha, "x-height")
+            ),
+        );
+
+        // Document 21 line 97: presentation must not alter cached final pixels. The frame was
+        // just rendered and cached while the alpha view was on; asking for it again with the
+        // view off is what proves the cache was given the picture and not the grey.
+        check(
+            "turning it off says so",
+            &"Alpha-only inspection is off.",
+            &run(&viewer, "viewer.toggle_alpha"),
+        );
+        let again = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        check(
+            "and the frame comes back byte for byte as it was, so what the cache kept was the \
+             picture and never the view",
+            &true,
+            &(again.body() == colour.body()),
+        );
+
+        // ---- neither is a change to the project -----------------------------------------------
+        check(
+            "looking at the alpha channel is not unsaved work",
+            &"false",
+            &header(&again, "x-dirty"),
+        );
+        check(
+            "and it is not in the undo history either, which is what document 24's own table \
+             says: undoable, no",
+            &0,
+            &held(&viewer).document.undo_depth(),
+        );
+
+        // ---- the grid ---------------------------------------------------------------------------
+        check(
+            "turning the grid off says what it was",
+            &"The transparency grid is off.",
+            &run(&viewer, "viewer.toggle_checkerboard"),
+        );
+        let plain = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        check(
+            "the frame says the grid is off",
+            &"false",
+            &header(&plain, "x-checkerboard"),
+        );
+        check(
+            "and not one byte of the frame is different, because the grid was never in it",
+            &true,
+            &(plain.body() == colour.body()),
+        );
+        check(
+            "turning it back on says so too",
+            &"The transparency grid is on. It is drawn behind the frame and is not part of it.",
+            &run(&viewer, "viewer.toggle_checkerboard"),
+        );
+
+        // ---- R-10: inspection must not alter export ---------------------------------------------
+        // The comparison is two exports of the same frame, one taken while the alpha view is on,
+        // rather than a claim about what an export ought to contain. Byte for byte, or the view
+        // reached the file.
+        let ordinary = scratch("anime_compositor_b12a_export_plain");
+        let (p, root, request) = export_job(&held(&viewer), &ordinary, MissingSource::Block);
+        run_export(&p, &root, &request, &AtomicBool::new(false));
+        run(&viewer, "viewer.toggle_alpha");
+        let inspecting = scratch("anime_compositor_b12a_export_alpha");
+        let (p, root, request) = export_job(&held(&viewer), &inspecting, MissingSource::Block);
+        run_export(&p, &root, &request, &AtomicBool::new(false));
+        let read = |dir: &Path| {
+            let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+                .expect("read the export directory")
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .collect();
+            files.sort();
+            files
+                .iter()
+                .map(|f| std::fs::read(f).expect("read an exported frame"))
+                .collect::<Vec<_>>()
+        };
+        let written = read(&ordinary);
+        check(
+            "an export writes the frames of the work area",
+            &1,
+            &written.len(),
+        );
+        check(
+            "and exporting while looking at the alpha channel writes the same file, byte for \
+             byte, which is what R-10 asks for",
+            &true,
+            &(read(&inspecting) == written),
+        );
+        run(&viewer, "viewer.toggle_alpha");
+
+        write_inspect_artifact(&rows);
+        let failed: Vec<&(String, String, String)> =
+            rows.iter().filter(|(_, e, a)| e != a).collect();
+        assert!(
+            failed.is_empty(),
+            "{} of {} checks failed, see verification/B-12a_inspect_table.md: {:#?}",
+            failed.len(),
+            rows.len(),
+            failed
+        );
+    }
+
+    fn write_inspect_artifact(rows: &[(String, String, String)]) {
+        let passed = rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut out = String::new();
+        out.push_str("# B-12a: looking at the alpha channel, and the grid behind the frame\n\n");
+        out.push_str(
+            "W-01 ends with the artist inspecting alpha, and document 05 line 31 lists the two \
+             views this is about: the transparency grid, and the alpha-only display. Both are in \
+             the viewer now, as document 24's `viewer.toggle_checkerboard` and \
+             `viewer.toggle_alpha`. Produced by `cargo test -p anime_compositor_app`, from \
+             `app/src/main.rs`.\n\n",
+        );
+        out.push_str(
+            "The promise these rows are about is document 21 line 97's, which R-10 states as a \
+             requirement: **checkerboard and alpha-only inspection must not alter export.** A \
+             view that quietly leaked into the file, or into the frames the preview keeps, would \
+             be found by whoever opened the exported sequence, long after the person who turned \
+             it on had forgotten it was on. So the grid is drawn by the page behind a canvas that \
+             already carries transparency and touches no pixel at all, and the alpha view is \
+             applied to the copy of the frame that is on its way to the screen, after the cache \
+             has been handed the picture it keeps.\n\n",
+        );
+        out.push_str(
+            "The fixture is four pixels of half-transparent red, drawn by this test. The \
+             reference shot cannot be used for this: every pixel in it is either opaque or empty, \
+             so an alpha view of it that was subtly wrong would still look right.\n\n",
+        );
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in rows {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                expected.replace('|', r"\|"),
+                actual.replace('|', r"\|"),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            rows.len()
+        ));
+        out.push_str(
+            "\n## What this does not cover\n\nWhat the grid looks like. It is eight-pixel squares \
+             of two greys in the page's stylesheet, fixed to the screen rather than to the \
+             picture so that zooming does not stretch them, and no test can see it. The \
+             photographs of the window are where it is judged.\n\nZoom and pan, which document 05 \
+             lists in the same line and which this build does not have: the viewer fits the frame \
+             to the space it has.\n",
+        );
+        std::fs::write(repo("verification/B-12a_inspect_table.md"), out).expect("write it");
     }
 
     fn write_artifact(rows: &[(String, String, String)]) {
@@ -2726,5 +6220,2863 @@ mod tests {
             for_a_header("2 of the files for \"layer3\" are missing."),
             "2 of the files for \"layer3\" are missing."
         );
+    }
+}
+
+/// The window against document 24, in both directions.
+///
+/// Every other table under `verification/` checks what a command *does*. These two check that
+/// the command is *reachable*: that the page asks for the identifier document 24 names, that
+/// something answers every identifier the page asks for, and that a shortcut the document
+/// promises is bound to something. Both read the real files rather than a copy of them -
+/// `app/ui/index.html` and `Markdown/24_UI_Command_and_Interaction_Map.md` - so a rename on one
+/// side and not the other is what they are for.
+///
+/// This is the first test in this project that reads the page at all. It is string matching over
+/// JavaScript and not a browser, which bounds it exactly: it can see which identifier a handler
+/// names, and it cannot see whether the button that handler is attached to is on the screen. The
+/// photographs beside it are what say that.
+#[cfg(test)]
+mod contract {
+    use super::*;
+
+    struct Report {
+        rows: Vec<(String, String, String)>,
+    }
+
+    impl Report {
+        fn check(&mut self, check: &str, expected: impl ToString, actual: impl ToString) {
+            self.rows
+                .push((check.to_string(), expected.to_string(), actual.to_string()));
+        }
+    }
+
+    fn repo(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the app crate has a parent directory")
+            .join(rel)
+    }
+
+    fn page() -> String {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html");
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
+    }
+
+    fn source() -> String {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/main.rs");
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
+    }
+
+    /// Everything that follows `needle`, up to the first character a route cannot contain.
+    ///
+    /// A route is written in the page in one of three shapes, and this reads all three by being
+    /// given each opening in turn: a quoted string beginning with a slash, the identifier handed
+    /// to `onSelected`, and the one handed to `send`.
+    fn after(text: &str, needle: &str) -> Vec<String> {
+        text.match_indices(needle)
+            .map(|(at, _)| {
+                let rest = &text[at + needle.len()..];
+                let end = rest
+                    .find(|c: char| !(c.is_ascii_lowercase() || c == '.' || c == '_' || c == '-'))
+                    .unwrap_or(rest.len());
+                rest[..end].to_string()
+            })
+            .filter(|found| !found.is_empty())
+            .collect()
+    }
+
+    fn sorted(mut list: Vec<String>) -> Vec<String> {
+        list.sort();
+        list.dedup();
+        list
+    }
+
+    /// Every route the page can ask the window for.
+    fn asked_for(page: &str) -> Vec<String> {
+        let mut found = after(page, "'/");
+        found.extend(after(page, "onSelected('"));
+        found.extend(after(page, "send('"));
+        sorted(found)
+    }
+
+    /// The global accelerator handler, which is the last `keydown` listener in the page.
+    fn accelerators(page: &str) -> String {
+        let at = page
+            .find("addEventListener('keydown', (e) => {")
+            .expect("the page has a global keydown handler");
+        page[at..].to_string()
+    }
+
+    // ---- the page ----------------------------------------------------------------------------
+
+    /// Every command identifier written into the page, in the order a sorted list puts them.
+    ///
+    /// Pinned rather than counted: a new `send` of an identifier nobody listed is a change to
+    /// what the window can do, and it should have to be written down here as well as there.
+    const SENT: &[&str] = &[
+        "edit.redo",
+        "edit.undo",
+        "effect.add",
+        "effect.delete",
+        "effect.set_parameters",
+        "effect.toggle_bypass",
+        "exposure.set_span",
+        "layer.create",
+        "layer.delete",
+        "layer.move_down",
+        "layer.move_up",
+        "layer.rename",
+        "layer.set_matte",
+        "layer.toggle_lock",
+        "layer.toggle_visibility",
+        "media.import",
+        "media.relink",
+        "property.drag_cancel",
+        "property.drag_end",
+        "property.drag_update",
+        "property.set_base",
+        "viewer.toggle_alpha",
+        "viewer.toggle_checkerboard",
+    ];
+
+    /// The routes that are not commands: the shell's own, and the two the transport uses.
+    const ROUTES: &[&str] = &[
+        // The frame scheme's two, which are not commands and are not answered by the shell:
+        // `frame` is a numbered frame and `at` is the frame playback has reached by a given
+        // number of milliseconds. Both are checked in `verification/B-08_preview_table.md`.
+        "at",
+        "cancel-export",
+        "export",
+        "frame",
+        "open",
+        "recent",
+        "recover",
+        "save",
+        "save-as",
+        "state",
+    ];
+
+    /// A control, the identifier it must send, and the text in the page that says it does.
+    ///
+    /// The third column is what makes this more than a list: it anchors the identifier to the
+    /// handler that sends it, so moving `layer.delete` onto the button that moves a layer
+    /// forward fails here rather than passing because the string is still somewhere in the file.
+    const WIRING: &[(&str, &str, &str)] = &[
+        (
+            "Delete layer",
+            "layer.delete",
+            "$('dellayer').onclick = onSelected('layer.delete')",
+        ),
+        (
+            "Forward",
+            "layer.move_up",
+            "$('up').onclick = onSelected('layer.move_up')",
+        ),
+        (
+            "Back",
+            "layer.move_down",
+            "$('down').onclick = onSelected('layer.move_down')",
+        ),
+        (
+            "Undo",
+            "edit.undo",
+            "$('undo').onclick = () => command('/edit.undo')",
+        ),
+        (
+            "Redo",
+            "edit.redo",
+            "$('redo').onclick = () => command('/edit.redo')",
+        ),
+        (
+            "Alpha only",
+            "viewer.toggle_alpha",
+            "$('alpha').onclick = () => command('/viewer.toggle_alpha')",
+        ),
+        (
+            "the transparency grid",
+            "viewer.toggle_checkerboard",
+            "$('checker').onclick = () => command('/viewer.toggle_checkerboard')",
+        ),
+        (
+            "Import drawings",
+            "media.import",
+            "$('import').onclick = () => command('/media.import')",
+        ),
+        (
+            "Add an exposure",
+            "exposure.set_span",
+            "command('/exposure.set_span?layer='",
+        ),
+        ("Add effect", "effect.add", "command('/effect.add?layer='"),
+        (
+            "Add layer",
+            "layer.create",
+            "command('/layer.create?asset='",
+        ),
+        (
+            "Relink drawings",
+            "media.relink",
+            "command('/media.relink?asset=' + encodeURIComponent(selectedAsset))",
+        ),
+        (
+            "Apply the relink",
+            "media.relink",
+            "encodeURIComponent(relinking) + '&apply=1'",
+        ),
+        (
+            "Leave it as it is",
+            "media.relink",
+            "encodeURIComponent(relinking) + '&cancel=1'",
+        ),
+    ];
+
+    #[test]
+    fn the_page_asks_for_nothing_the_window_cannot_answer() {
+        let mut report = Report { rows: Vec::new() };
+        let page = page();
+        let source = source();
+        let asked = asked_for(&page);
+
+        let (commands, routes): (Vec<String>, Vec<String>) =
+            asked.into_iter().partition(|found| found.contains('.'));
+
+        report.check(
+            "the identifiers the page sends are the ones written down here",
+            SENT.join(", "),
+            commands.join(", "),
+        );
+        report.check(
+            "the routes the page asks for that are not commands are the ones written down here",
+            ROUTES.join(", "),
+            routes.join(", "),
+        );
+
+        // Every command identifier, answered. `None` is the window saying it has never heard of
+        // the identifier, which is what a page sending `layer.remove` for `layer.delete` would
+        // look like: a button that does nothing at all, silently.
+        let viewer = Mutex::new(demo());
+        for id in &commands {
+            report.check(
+                &format!("the window answers `{id}`"),
+                "a sentence",
+                match edit_command(&viewer, id, None) {
+                    Some(said) if said.is_empty() => "an empty answer".to_string(),
+                    Some(_) => "a sentence".to_string(),
+                    None => "nothing - the window has never heard of it".to_string(),
+                },
+            );
+        }
+        // The two inspection toggles were flipped by the loop above, because answering them is
+        // what they do. Put them back, so that nothing after this reads a viewer this test left
+        // looking at the alpha channel.
+        for id in ["viewer.toggle_alpha", "viewer.toggle_checkerboard"] {
+            edit_command(&viewer, id, None);
+        }
+
+        // The routes are answered by `fn command` rather than by `edit_command`, so what is
+        // checked is that the shell has an arm of that name. `frame` and `state` are not in
+        // that match: one is the other scheme, one is answered before it.
+        for route in &routes {
+            // `frame` and `at` belong to the other scheme and are served by `fn frame`, not by
+            // the command shell, so there is no arm of that name to look for.
+            if route == "frame" || route == "at" {
+                continue;
+            }
+            let arm = format!("\"{route}\"");
+            report.check(
+                &format!("the window's shell answers `/{route}`"),
+                true,
+                source.contains(&arm),
+            );
+        }
+
+        for (control, id, wiring) in WIRING {
+            report.check(
+                &format!("the {control} control sends `{id}`"),
+                true,
+                page.contains(wiring),
+            );
+        }
+
+        // Every check above this line reads the script and none of them reads the markup, which
+        // is how renaming `id="up"` to `id="upward"` and leaving the handler saying `$('up')`
+        // got through the whole table once. A handler hung on a name nothing is called is a
+        // button that does nothing, silently, exactly like an identifier nobody answers.
+        let defined: Vec<&str> = page
+            .match_indices("id=\"")
+            .map(|(at, _)| {
+                let rest = &page[at + 4..];
+                &rest[..rest.find('"').unwrap_or(0)]
+            })
+            .collect();
+        let missing: Vec<String> = sorted(after(&page, "$('"))
+            .into_iter()
+            .filter(|name| !defined.contains(&name.as_str()))
+            .collect();
+        report.check(
+            "every control the script reaches for is one the markup defines",
+            "none missing",
+            match missing.is_empty() {
+                true => "none missing".to_string(),
+                false => missing.join(", "),
+            },
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-12b_page_table.md",
+            "B-12b: what the page asks the window for",
+            PAGE_INTRO,
+            PAGE_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const PAGE_INTRO: &[&str] = &[
+        "`app/ui/index.html` is the one file in this project that no test has ever read. Every \
+         B-12a table calls the same function the window's URL scheme calls, which checks \
+         everything from the request inwards and nothing outwards of it; what the page does with \
+         a click has been checked only by looking at photographs. This table is the outward half, \
+         as far as reading a file can take it.",
+        "It reads the page and the window's own source, and asks three questions. Which \
+         identifiers does the page send? Does anything answer them? And is each named control \
+         wired to the identifier document 24 gives it?",
+    ];
+
+    const PAGE_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The first two rows are a list, not a count.** They name every \
+         identifier and every route the page can ask for, in one cell each. A button added \
+         tomorrow that sends something new fails this row until the new identifier is written \
+         down beside the others, which is the point: what the window can be asked to do should \
+         be a thing somebody wrote down.\n- **`nothing - the window has never heard of it`** is \
+         the answer this table exists to catch. A page sending an identifier the window does not \
+         answer is a button that does nothing, with no error, no status line and nothing in the \
+         log.\n- **The wiring rows anchor an identifier to its handler.** Checking only that \
+         `layer.delete` appears somewhere in the page would pass if Delete layer and Forward \
+         swapped commands.\n- **The last row reads the markup rather than the script.** Every \
+         other row here reads the handlers; that one checks that each control a handler reaches \
+         for is a control this page actually contains, because renaming a button and forgetting \
+         its handler leaves the handler attached to nothing.",
+        "## What this cannot cover\n\nThis is string matching over JavaScript, not a browser. It \
+         can see that a handler names an identifier. It cannot see that the handler is attached \
+         to a button, that the button is on the screen, that it is enabled, or that clicking it \
+         reaches the handler. `verification/B-12a_window_and_keyboard.md` and its photographs are \
+         what say those, and the owner's run under B-12 is what says it for real.\n\nIt also \
+         cannot see the shell routes actually working. `/save` is checked here only as far as \
+         `fn command` having an arm of that name; what a save writes is \
+         `verification/B-09_save_table.md`.",
+    ];
+
+    // ---- document 24 -------------------------------------------------------------------------
+
+    /// How each of document 24's command identifiers is reached in this build.
+    ///
+    /// Written down rather than derived, because the interesting half is the identifiers nothing
+    /// reaches: an identifier that is simply absent from a build looks exactly like one nobody
+    /// has noticed is absent. The test measures which of the four this build actually does and
+    /// compares; a row that says `nothing yet` is checked to be true as hard as the others.
+    const REACHED: &[(&str, &str)] = &[
+        ("project.new", "nothing yet"),
+        ("project.open", "a route the shell answers"),
+        ("project.save", "a route the shell answers"),
+        ("project.save_as", "a route the shell answers"),
+        ("edit.undo", "a command the window answers"),
+        ("edit.redo", "a command the window answers"),
+        ("media.import", "a command the window answers"),
+        ("media.relink", "a command the window answers"),
+        ("layer.create", "a command the window answers"),
+        ("layer.delete", "a command the window answers"),
+        ("layer.rename", "a command the window answers"),
+        ("layer.move_up", "a command the window answers"),
+        ("layer.move_down", "a command the window answers"),
+        ("layer.toggle_visibility", "a command the window answers"),
+        ("layer.toggle_lock", "a command the window answers"),
+        ("layer.set_matte", "a command the window answers"),
+        ("timeline.previous_frame", "the page, with no request"),
+        ("timeline.next_frame", "the page, with no request"),
+        ("timeline.play_pause", "the page, with no request"),
+        ("timeline.set_work_start", "nothing yet"),
+        ("timeline.set_work_end", "nothing yet"),
+        ("exposure.set_span", "a command the window answers"),
+        ("property.set_base", "a command the window answers"),
+        ("keyframe.add_remove", "nothing yet"),
+        ("effect.add", "a command the window answers"),
+        ("effect.delete", "a command the window answers"),
+        ("effect.toggle_bypass", "a command the window answers"),
+        ("effect.set_parameters", "a command the window answers"),
+        ("viewer.fit", "nothing yet"),
+        ("viewer.zoom_100", "nothing yet"),
+        ("viewer.toggle_checkerboard", "a command the window answers"),
+        ("viewer.toggle_alpha", "a command the window answers"),
+        ("render.preview_current", "the page, with no request"),
+        ("export.sequence", "a route the shell answers"),
+        ("app.command_palette", "nothing yet"),
+    ];
+
+    /// Document 24's identifier, and the text in the page that binds the shortcut it promises.
+    ///
+    /// Only the identifiers document 24 gives a G1 shortcut appear here. `none` in that column
+    /// is not a gap and is not listed.
+    const SHORTCUTS: &[(&str, &str, &str)] = &[
+        ("project.new", "Ctrl+N", ""),
+        ("project.open", "Ctrl+O", "e.ctrlKey && (e.key === 'o'"),
+        ("project.save", "Ctrl+S", "e.ctrlKey && (e.key === 's'"),
+        ("project.save_as", "Ctrl+Shift+S", "e.shiftKey ? '/save-as'"),
+        ("edit.undo", "Ctrl+Z", "e.key === 'z'"),
+        ("edit.redo", "Ctrl+Shift+Z", "e.shiftKey ? $('redo')"),
+        ("media.import", "Ctrl+I", "e.key === 'i'"),
+        ("layer.create", "Ctrl+Alt+L", "e.altKey && (e.key === 'l'"),
+        ("layer.delete", "Delete", "e.key === 'Delete'"),
+        ("layer.rename", "F2", "e.key === 'F2'"),
+        ("layer.move_up", "Ctrl+]", "e.key === ']'"),
+        ("layer.move_down", "Ctrl+[", "e.key === '['"),
+        ("timeline.previous_frame", "Left", "e.key === 'ArrowLeft'"),
+        ("timeline.next_frame", "Right", "e.key === 'ArrowRight'"),
+        ("timeline.play_pause", "Space", "e.key === ' '"),
+        ("timeline.set_work_start", "B", ""),
+        ("timeline.set_work_end", "N", ""),
+        ("viewer.fit", "Shift+/", ""),
+        ("viewer.zoom_100", "Ctrl+1", ""),
+        ("export.sequence", "Ctrl+M", "e.key === 'm'"),
+        ("app.command_palette", "Ctrl+Shift+P", ""),
+    ];
+
+    /// The accelerators that work by pressing a button, and the button each one presses.
+    ///
+    /// The table above only sees that a key is tested for somewhere in the handler. Moving
+    /// `Delete` onto the Forward button went straight through it, because the key test was still
+    /// there and only what it did had changed. This reads the arm each key opens - the text from
+    /// its test to the next `else if` - and says which control that arm reaches for.
+    const PRESSES: &[(&str, &str, &str)] = &[
+        ("Ctrl+M", "e.key === 'm'", "$('export')"),
+        ("Ctrl+I", "e.key === 'i'", "$('import')"),
+        ("Ctrl+Alt+L", "e.key === 'l'", "$('addlayer')"),
+        ("Ctrl+]", "e.key === ']'", "$('up')"),
+        ("Ctrl+[", "e.key === '['", "$('down')"),
+        ("Delete", "e.key === 'Delete'", "$('dellayer')"),
+        ("Space", "e.key === ' ') {", "$('play')"),
+        ("D", "e.key === 'd'", "$('toggle')"),
+        ("A", "e.key === 'a'", "$('alpha')"),
+        ("G", "e.key === 'g'", "$('checker')"),
+    ];
+
+    /// Document 24's command table, read out of the document itself.
+    fn document_24() -> Vec<(String, String)> {
+        let text = std::fs::read_to_string(repo("Markdown/24_UI_Command_and_Interaction_Map.md"))
+            .expect("read document 24");
+        text.lines()
+            .filter(|line| line.starts_with('|'))
+            .map(|line| {
+                line.trim_matches('|')
+                    .split('|')
+                    .map(str::trim)
+                    .collect::<Vec<_>>()
+            })
+            .filter(|cells| cells.len() == 4 && cells[0].contains('.'))
+            .map(|cells| (cells[0].to_string(), cells[2].to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn every_command_document_24_names_is_accounted_for() {
+        let mut report = Report { rows: Vec::new() };
+        let page = page();
+        let keys = accelerators(&page);
+        let listed = document_24();
+        let viewer = Mutex::new(demo());
+        let source = source();
+        let asked = asked_for(&page);
+
+        report.check(
+            "document 24 names the identifiers this table walks",
+            REACHED.len(),
+            listed.len(),
+        );
+        report.check(
+            "and they are the same identifiers, in the same order",
+            REACHED
+                .iter()
+                .map(|(id, _)| *id)
+                .collect::<Vec<_>>()
+                .join(", "),
+            listed
+                .iter()
+                .map(|(id, _)| id.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+
+        for (id, expected) in REACHED {
+            // Measured four ways, in the order a request would find them: the shell answers a
+            // route before `edit_command` sees it, `edit_command` answers a command, the page
+            // may do something with no request at all, and otherwise nothing does.
+            let route = match *id {
+                "project.open" => "open",
+                "project.save" => "save",
+                "project.save_as" => "save-as",
+                "export.sequence" => "export",
+                _ => "",
+            };
+            let reached = if !route.is_empty() && source.contains(&format!("\"{route}\"")) {
+                "a route the shell answers"
+            } else if edit_command(&viewer, id, None).is_some() {
+                "a command the window answers"
+            } else if asked.iter().any(|sent| sent == id) {
+                "the page sends it and nothing answers"
+            } else if PAGE_SIDE.contains(id) {
+                "the page, with no request"
+            } else {
+                "nothing yet"
+            };
+            report.check(&format!("`{id}` is reached by"), expected, reached);
+        }
+        for id in ["viewer.toggle_alpha", "viewer.toggle_checkerboard"] {
+            edit_command(&viewer, id, None);
+        }
+
+        for (id, shortcut, binding) in SHORTCUTS {
+            let promised = listed
+                .iter()
+                .find(|(listed_id, _)| listed_id == id)
+                .map(|(_, shortcut)| shortcut.clone())
+                .unwrap_or_else(|| "(not in document 24)".to_string());
+            report.check(
+                &format!("document 24 gives `{id}` the shortcut"),
+                shortcut,
+                promised,
+            );
+            let reached = REACHED
+                .iter()
+                .find(|(reached_id, _)| reached_id == id)
+                .map(|(_, how)| *how)
+                .unwrap_or("nothing yet");
+            report.check(
+                &format!("and {shortcut} is bound"),
+                match reached {
+                    "nothing yet" => "no, and the command is not built either",
+                    _ => "yes",
+                },
+                match (binding.is_empty(), keys.contains(binding)) {
+                    (true, _) => "no, and the command is not built either",
+                    (false, true) => "yes",
+                    (false, false) => "no, though the command is built",
+                },
+            );
+        }
+
+        for (shortcut, key, control) in PRESSES {
+            let arm = match keys.find(key) {
+                Some(at) => {
+                    let rest = &keys[at..];
+                    &rest[..rest.find("else if").unwrap_or(rest.len())]
+                }
+                None => "",
+            };
+            report.check(
+                &format!("and {shortcut} presses"),
+                *control,
+                match arm.split_once("$('") {
+                    Some((_, rest)) => format!("$('{}", &rest[..rest.find(')').unwrap_or(0) + 1]),
+                    None => format!("nothing - no arm tests for {key}"),
+                },
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12b_command_map_table.md",
+            "B-12b: document 24's command map against the window",
+            MAP_INTRO,
+            MAP_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// The three document 24 identifiers the page carries out itself.
+    ///
+    /// Stepping and playback change nothing in the project - document 24 marks all three not
+    /// undoable - so they are a number the page holds and a frame it asks for, and there is no
+    /// command for them to send. `render.preview_current` is the same thing said differently:
+    /// every frame this window shows is rendered when it is asked for.
+    const PAGE_SIDE: &[&str] = &[
+        "timeline.previous_frame",
+        "timeline.next_frame",
+        "timeline.play_pause",
+        "render.preview_current",
+    ];
+
+    const MAP_INTRO: &[&str] = &[
+        "Document 24 names thirty-five command identifiers. This walks all thirty-five against \
+         the build and says, for each, what actually reaches it - and then walks the twenty-one \
+         it gives a keyboard shortcut and says whether that shortcut is bound. The identifiers \
+         and the shortcuts are read out of `Markdown/24_UI_Command_and_Interaction_Map.md` \
+         itself, so an edit to the document that nothing implements fails here.",
+        "There are four ways a command is reached in this build, and the second column of every \
+         row is one of them. **A route the shell answers** is one that needs the operating system \
+         - opening, saving, exporting - and is answered before the command layer sees it. **A \
+         command the window answers** goes through `edit_command`, which is the command layer \
+         document 24's first paragraph describes. **The page, with no request** is the transport: \
+         stepping and playing change nothing in the project, so there is nothing to send. \
+         **Nothing yet** is a command this build does not have.",
+    ];
+
+    const MAP_NOTES: &[&str] = &[
+        "## What to look at\n\n- **`nothing yet` is checked as hard as the rest.** A row that \
+         says a command is not built is a claim, and the test confirms nothing answers that \
+         identifier. This is what stops the list quietly going stale after somebody builds \
+         one.\n- **`the page sends it and nothing answers`** is a value no row expects, and \
+         seeing it in the Actual column would mean a button that does nothing.\n- **The shortcut \
+         rows come in pairs.** The first says what document 24 promises, read from the document. \
+         The second says whether the page binds it.\n- **The `presses` rows say what the key \
+         does, not only that it is bound.** A shortcut moved onto the wrong button keeps its key \
+         test and stops doing its job; those rows are the ones that would say so.",
+        "## The six commands this build does not have\n\nEach is a deliberate absence, and none \
+         of them is a step of W-01.\n\n- **`project.new`** - a new project is an empty window and \
+         this build always opens on something: the reference shot when it is given nothing, or \
+         the project it was given. Making a new one is Save As over a copy.\n- \
+         **`timeline.set_work_start` and `set_work_end`** - the work area is the whole \
+         composition in this build, which is what `verification/B-08_preview_table.md` measures \
+         and what B-10 exports. Narrowing it is a setting nothing yet reads.\n- \
+         **`keyframe.add_remove`** - the core has interpolated properties since B-05 and the \
+         inspector edits base values only. W-01 asks the artist to adjust transforms, not to \
+         animate them.\n- **`viewer.fit` and `viewer.zoom_100`** - the viewer fits the frame to \
+         the space it has and has no zoom to set, so there is nothing for either to do yet.\n- \
+         **`app.command_palette`** - a search over commands, which needs the commands to be \
+         worth searching first.",
+        "## What this cannot cover\n\nThat a bound shortcut reaches the command. The binding is \
+         read as text in the page's accelerator handler; that pressing the key really runs it is \
+         `verification/B-12a_window_and_keyboard.md`, where a Q-03 photograph found exactly that \
+         defect - rows that Tab reached and no key could operate.\n\nWhether document 24's \
+         shortcuts conflict with Windows or with the web view, which document 24 itself asks for \
+         and which needs a person at the keyboard.",
+    ];
+
+    /// One table with its own prose around it.
+    fn write_artifact(report: &Report, file: &str, title: &str, intro: &[&str], notes: &[&str]) {
+        let passed = report.rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut out = format!("# {title}\n\n");
+        out.push_str(
+            "Generated by `app/src/main.rs`, module `contract`. Re-run with `cargo test \
+             --workspace`.\n\n",
+        );
+        for paragraph in intro.iter().chain(notes) {
+            out.push_str(paragraph);
+            out.push_str("\n\n");
+        }
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in &report.rows {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                cell(expected),
+                cell(actual),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            report.rows.len()
+        ));
+        std::fs::write(repo(file), out).expect("write the artifact");
+    }
+
+    // ---- document 26, the text half of coalescing ---------------------------------------------
+
+    /// The three places in the page where somebody types into a field and the window is sent a
+    /// command: the control, the text that wires it, and what commits it.
+    ///
+    /// All three use `onchange`, which is the browser's own answer to document 26's rule.
+    /// `change` fires when a field is committed **and** its value differs from the value it had
+    /// when it took focus - not on a keystroke, and not on a visit that changed nothing. Using
+    /// it rather than `input` is the whole of the coalescing here, and swapping one for the
+    /// other is a one-word edit, which is why it is pinned rather than trusted.
+    const TYPED_FIELDS: &[(&str, &str, &str)] = &[
+        (
+            "a layer's name",
+            "layer.rename",
+            "box.onblur = () => finish(true);",
+        ),
+        (
+            "an effect's settings",
+            "effect.set_parameters",
+            "input.onchange = sendParameters;",
+        ),
+        (
+            "an exposure's frames",
+            "exposure.set_span",
+            "input.onchange = sendSpan;",
+        ),
+    ];
+
+    #[test]
+    fn typing_into_a_field_is_one_history_entry_when_it_is_committed() {
+        let mut report = Report { rows: Vec::new() };
+        let page = page();
+
+        // The page half. Nothing here can press a key -- what it can say is that no handler in
+        // the page is attached to the event that fires per keystroke.
+        report.check(
+            "no field in the page sends anything while a key is being pressed",
+            "no input event handler",
+            match page.contains("oninput") || page.contains("addEventListener('input'") {
+                true => "an input event handler",
+                false => "no input event handler",
+            },
+        );
+        for (control, id, wiring) in TYPED_FIELDS {
+            report.check(
+                &format!("{control} is committed by losing focus, and sends `{id}`"),
+                true,
+                page.contains(wiring),
+            );
+        }
+        report.check(
+            "and a name committed unchanged sends nothing at all",
+            true,
+            page.contains("if (commit && wanted !== layer.name) {"),
+        );
+
+        // The window half. One committed field, one entry in the undo list, named in the words
+        // the person will read on the Undo button.
+        let viewer = Mutex::new(demo());
+        let before = held(&viewer).document.undo_depth();
+        run(&viewer, "layer.rename?layer=layer-1&name=the background");
+        report.check(
+            "committing a new name is one entry in the undo list",
+            format!("undo list {}", before + 1),
+            format!("undo list {}", held(&viewer).document.undo_depth()),
+        );
+        report.check(
+            "and the entry says what it will undo",
+            "Rename layer to the background",
+            held(&viewer)
+                .document
+                .undo_labels()
+                .last()
+                .unwrap_or(&"(nothing)")
+                .to_string(),
+        );
+
+        run(&viewer, "effect.add?layer=layer-1&type=core.gaussian_blur");
+        let before = held(&viewer).document.undo_depth();
+        for sigma in [2, 6, 9] {
+            run(
+                &viewer,
+                &format!("effect.set_parameters?layer=layer-1&effect=fx-1&sigma_px={sigma}"),
+            );
+        }
+        report.check(
+            "three settings committed one after another are three entries, not one and not thirty",
+            format!("undo list {}", before + 3),
+            format!("undo list {}", held(&viewer).document.undo_depth()),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "so undoing once goes back one commit, not back to before the field was touched",
+            "GaussianBlur { sigma_px: 6.0 }",
+            layer(&viewer, "layer-1", |l| {
+                l.effects
+                    .iter()
+                    .map(|e| format!("{:?}", e.effect))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_else(|| "(no such layer)".to_string()),
+        );
+
+        // The numeric half of the same rule, for contrast: a drag is many requests and one
+        // entry, because document 26 makes the release the commit.
+        let before = held(&viewer).document.undo_depth();
+        for x in [100.0_f64, 140.0, 180.0] {
+            run(
+                &viewer,
+                &format!("property.drag_update?layer=layer-2&prop=position&value={x}, 0"),
+            );
+        }
+        run(&viewer, "property.drag_end?layer=layer-2&prop=position");
+        report.check(
+            "and a drag of three steps is one entry, which is the same rule for a number",
+            format!("undo list {}", before + 1),
+            format!("undo list {}", held(&viewer).document.undo_depth()),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-12b_text_coalescing_table.md",
+            "B-12b: one entry in the undo list per thing typed",
+            TEXT_INTRO,
+            TEXT_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    fn held(viewer: &Mutex<Viewer>) -> std::sync::MutexGuard<'_, Viewer> {
+        viewer.lock().expect("the viewer lock was poisoned")
+    }
+
+    fn run(viewer: &Mutex<Viewer>, what: &str) -> String {
+        let (id, query) = match what.split_once('?') {
+            Some((id, query)) => (id, Some(query)),
+            None => (what, None),
+        };
+        edit_command(viewer, id, query).expect("a command document 24 lists")
+    }
+
+    fn layer<T>(viewer: &Mutex<Viewer>, id: &str, read: impl FnOnce(&Layer) -> T) -> Option<T> {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layer(&Id::new(id)).map(read)
+    }
+
+    const TEXT_INTRO: &[&str] = &[
+        "Document 26: \"Text edits may coalesce while one field has focus; committing or focus \
+         exit ends the transaction.\" In plain terms, the promise is that typing `1`, `2`, `0` \
+         into a field is one thing to undo and not three, and that leaving a field you did not \
+         change is not a thing to undo at all.",
+        "There are three fields in this window a person types into: a layer's name, an effect's \
+         settings, and the frames of an exposure. All three keep that promise the same way, and \
+         it is worth saying plainly because it is not code anybody in this project wrote: they \
+         are wired to the browser's `change` event, which fires when a field is committed **and** \
+         its value is not the one it had when it took focus. The alternative event, `input`, \
+         fires on every keystroke, and a field wired to it would put one entry in the undo list \
+         per letter. The first row below is the check that no field in this page is.",
+    ];
+
+    const TEXT_NOTES: &[&str] = &[
+        "## What this cannot cover\n\nNo test in this project presses a key. The rows about the \
+         page read the file and say which event each field is attached to; what the browser then \
+         does with that event is the browser's, and is documented behaviour rather than \
+         something measured here. The rows about the window send the command a committed field \
+         would send and count what lands in the undo list, which is the half that is this \
+         project's own.\n\nThe last row is not about text at all. It drags a position through \
+         three values and ends the drag, and is here because it is the same sentence of document \
+         26 read the other way: many requests, one entry. Without it a reader has no way to see \
+         that three entries for three committed settings is the intended answer rather than the \
+         same defect in the other direction.",
+    ];
+
+    // ---- what the panels draw ------------------------------------------------------------------
+
+    /// The variables the page reads project data out of, and where each one comes from in the
+    /// answer `/state` gives.
+    ///
+    /// The fields themselves are not written down here. They are read out of the page, so a panel
+    /// that starts reading something new is checked from the moment it does rather than when
+    /// somebody remembers to add a row.
+    const READ_FROM: &[(&str, &str)] = &[
+        ("doc", "the whole answer"),
+        ("comp", "the composition on screen"),
+        ("layer", "one of its layers"),
+        ("asset", "one sequence in the media bin"),
+        ("span", "one exposure on a layer"),
+        ("fx", "one effect in a layer's stack"),
+    ];
+
+    /// Words that follow a dot in this page and are not fields of the project.
+    ///
+    /// Every one of them is JavaScript's own - a method or a property of the language rather than
+    /// of the document. Kept short deliberately: anything not on this list is treated as a field
+    /// the panels read, so the mistake this list can make is letting a check through, never
+    /// inventing one.
+    const NOT_OURS: &[&str] = &[
+        "concat", "every", "filter", "find", "forEach", "includes", "indexOf", "join", "length",
+        "map", "push", "slice", "some", "sort", "split", "has", "trim", "toFixed", "value",
+    ];
+
+    /// Every `<var>.<field>` the page reads, for one variable name.
+    ///
+    /// The character in front of the name is what separates a field read from a command
+    /// identifier: `layer.move_up` inside `onSelected('layer.move_up')` follows a quote, and
+    /// `'/layer.create?asset='` follows a slash. Neither is a field.
+    fn fields_read(page: &str, var: &str) -> Vec<String> {
+        let needle = format!("{var}.");
+        let mut found = Vec::new();
+        for (at, _) in page.match_indices(&needle) {
+            let before = page[..at].chars().next_back().unwrap_or(' ');
+            if before == '/'
+                || before == '\''
+                || before == '.'
+                || before == '_'
+                || before.is_alphanumeric()
+            {
+                continue;
+            }
+            let rest = &page[at + needle.len()..];
+            let end = rest
+                .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+                .unwrap_or(rest.len());
+            let field = &rest[..end];
+            if field.is_empty() || NOT_OURS.contains(&field) {
+                continue;
+            }
+            found.push(field.to_string());
+        }
+        sorted(found)
+    }
+
+    /// A layer of the answer, by identifier.
+    fn layer_of<'a>(answer: &'a serde_json::Value, id: &str) -> &'a serde_json::Value {
+        let comp = answer["project"]["compositions"]
+            .as_array()
+            .expect("the answer holds a list of compositions")
+            .iter()
+            .find(|c| c["id"] == answer["composition"])
+            .expect("the composition the viewer says is on screen");
+        comp["layers"]
+            .as_array()
+            .expect("the composition holds a list of layers")
+            .iter()
+            .find(|l| l["id"] == id)
+            .unwrap_or_else(|| panic!("no layer {id} in the composition"))
+    }
+
+    #[test]
+    fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
+        let mut report = Report { rows: Vec::new() };
+        let page = page();
+        let viewer = Mutex::new(demo());
+        // The reference shot carries no effect and no matte, because nothing in it needs one, and
+        // those are the two panels most likely to be reading a name that has moved. They are put
+        // there with the same commands a person would use.
+        for kind in ["core.gaussian_blur", "core.exposure", "core.tint"] {
+            run(&viewer, &format!("effect.add?layer=layer-3&type={kind}"));
+        }
+        run(
+            &viewer,
+            "layer.set_matte?layer=layer-3&matte=layer-2&only=false",
+        );
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+        let layer = layer_of(&answer, "layer-3");
+
+        let node = |var: &str| -> serde_json::Value {
+            match var {
+                "doc" => answer.clone(),
+                "comp" => {
+                    let mut comp = answer["project"]["compositions"]
+                        .as_array()
+                        .expect("compositions")
+                        .iter()
+                        .find(|c| c["id"] == answer["composition"])
+                        .expect("the composition on screen")
+                        .clone();
+                    // The page reads `comp.layers`, which is there; nothing else of the
+                    // composition is read by name today.
+                    comp["layers"] = comp["layers"].clone();
+                    comp
+                }
+                "layer" => layer.clone(),
+                "asset" => answer["project"]["assets"][0].clone(),
+                "span" => layer["exposure_spans"][0].clone(),
+                "fx" => layer["effects"][0].clone(),
+                other => panic!("no node for {other}"),
+            }
+        };
+
+        for (var, where_from) in READ_FROM {
+            let holds = node(var);
+            let fields = fields_read(&page, var);
+            report.check(
+                &format!(
+                    "the panels read {} field{} out of {where_from}",
+                    fields.len(),
+                    match fields.len() {
+                        1 => "",
+                        _ => "s",
+                    }
+                ),
+                true,
+                !fields.is_empty(),
+            );
+            for field in fields {
+                report.check(
+                    &format!("`{var}.{field}` is in the answer"),
+                    "present",
+                    match holds.get(&field) {
+                        Some(_) => "present".to_string(),
+                        None => format!("missing - the panel would draw nothing for {field}"),
+                    },
+                );
+            }
+        }
+
+        // Three reads the loop above cannot see, because they are one level further in and the
+        // page reaches them through a local name rather than through `layer`.
+        for prop in ["anchor", "position", "scale", "rotation", "opacity"] {
+            report.check(
+                &format!("`layer.transform.{prop}.base` is in the answer"),
+                "present",
+                match layer["transform"][prop].get("base") {
+                    Some(_) => "present",
+                    None => "missing - the inspector would show an empty field",
+                },
+            );
+        }
+        for field in ["layer_id", "matte_only"] {
+            report.check(
+                &format!("`layer.matte.{field}` is in the answer"),
+                "present",
+                match layer["matte"].get(field) {
+                    Some(_) => "present",
+                    None => "missing - the matte row would forget which layer it is",
+                },
+            );
+        }
+
+        // The mask, which no command in this build can make: the panel says how many points a
+        // layer's mask has, and the only way to have one is to open a project that carries one.
+        // A wrong name here would not be a blank field, it would be `undefined points`.
+        let with_a_mask = std::fs::read_to_string(repo("Fixtures/projects/cel_holds_project.json"))
+            .expect("read the cel-holds fixture")
+            .replace(
+                "\"mask\": null",
+                "\"mask\": { \"vertices\": [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0]], \
+                 \"enabled\": true, \"inverted\": false }",
+            );
+        let loaded = persist::load_str(&with_a_mask).expect("a project carrying a mask opens");
+        let written: serde_json::Value = serde_json::from_str(&persist::to_json(
+            loaded.document.project(),
+            &loaded.preserved,
+        ))
+        .expect("what a save would write is JSON");
+        report.check(
+            "`layer.mask.vertices` is in a saved project that has a mask",
+            "present",
+            match written["compositions"][0]["layers"][0]["mask"].get("vertices") {
+                Some(_) => "present",
+                None => "missing - the inspector would say `undefined points`",
+            },
+        );
+
+        // The effect panel's own vocabulary. These are not fields of the answer, they are the
+        // names the panel puts in a request, and a name the command does not read is a field a
+        // person can type into that changes nothing.
+        for (type_id, params) in EFFECT_KINDS {
+            report.check(
+                &format!("the panel's `{type_id}` is an effect this build has"),
+                "added",
+                match run(&viewer, &format!("effect.add?layer=layer-4&type={type_id}")) {
+                    said if said.starts_with("Add ") => "added".to_string(),
+                    said => said,
+                },
+            );
+            let effects = layer_of(
+                &serde_json::from_str::<serde_json::Value>(&state(&viewer)).expect("JSON"),
+                "layer-4",
+            )["effects"]
+                .clone();
+            let instance = effects[effects.as_array().map_or(0, |e| e.len() - 1)]["instance_id"]
+                .as_str()
+                .expect("the effect just added has an identifier")
+                .to_string();
+            let sent = params
+                .iter()
+                .map(|(name, value)| format!("&{name}={value}"))
+                .collect::<String>();
+            report.check(
+                &format!(
+                    "and the settings it sends for it - {} - are the ones the command reads",
+                    params
+                        .iter()
+                        .map(|(name, _)| *name)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+                "accepted",
+                match run(
+                    &viewer,
+                    &format!("effect.set_parameters?layer=layer-4&effect={instance}{sent}"),
+                ) {
+                    said if said.starts_with("Set ") || said.starts_with("Change ") => {
+                        "accepted".to_string()
+                    }
+                    said => said,
+                },
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12b_state_fields_table.md",
+            "B-12b: what the panels read, against what the window sends them",
+            FIELDS_INTRO,
+            FIELDS_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// The effect identifiers the page's own tables name, and one full set of settings for each.
+    ///
+    /// Read off `EFFECT_PARAMS` and `EFFECT_NAMES` in the page by eye rather than by parser: this
+    /// is three effects and the parser to read a JavaScript object literal would be longer than
+    /// the list. The check is that the command reads these names, so an effect renamed on one
+    /// side and not the other fails here.
+    const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
+        ("core.gaussian_blur", &[("sigma_px", "4")]),
+        ("core.exposure", &[("stops", "0.5")]),
+        (
+            "core.tint",
+            &[("color", "0.9, 0.7, 0.5"), ("amount", "0.3")],
+        ),
+    ];
+
+    const FIELDS_INTRO: &[&str] = &[
+        "The five panels draw themselves out of one JSON answer, `/state`, whose project half is \
+         the same text a save writes. Nothing has ever checked that the names the panels read are \
+         the names the window sends. A field renamed on one side is a panel that draws a blank \
+         space: no error, no status line, nothing in the log, and a person who assumes the layer \
+         simply has no name.",
+        "This is that check, and the names are read out of `app/ui/index.html` itself rather than \
+         written down here. Every `doc.`, `comp.`, `layer.`, `asset.`, `span.` and `fx.` the page \
+         reads is looked for in a real answer from a real project, with an effect stack and a \
+         matte added by command first, because the reference shot has neither.",
+    ];
+
+    const FIELDS_NOTES: &[&str] = &[
+        "## What to look at\n\n- **`missing`** in the Actual column is the failure this table \
+         exists to catch, and it names the field. Every other row is a name the panels read and \
+         the window sends.\n- **The transform, matte and mask rows are one level further in.** \
+         The page reaches those through a local name rather than through `layer`, so the scan \
+         cannot see them and they are asked for by name.\n- **The last six rows are the other \
+         direction**: not what the panel reads, but what it sends. The effect panel builds a \
+         request out of the parameter names in its own table, so a setting renamed in the core \
+         and not in the page is a field a person can type into that changes nothing.",
+        "## What this cannot cover\n\nThat the panel draws the value correctly once it has it. \
+         This says the name resolves, not that the number is put in the right box, formatted the \
+         right way, or updated when it changes. `verification/B-12a_window_and_keyboard.md` and \
+         the photographs are what say that, and the owner's run under B-12 is what says it for \
+         real.\n\nIt also cannot see a field that is present and always null. `mask` is null on \
+         every layer of the reference shot, which is why the mask row opens a project that \
+         carries one.",
+    ];
+
+    // ---- the routes the shell owns ---------------------------------------------------------
+
+    #[test]
+    fn the_windows_own_routes_are_not_swallowed_on_the_way_past() {
+        let mut report = Report { rows: Vec::new() };
+        let source = source();
+        let viewer = Mutex::new(demo());
+
+        // The defect this test exists for. `fn command` offers every request to `edit_command`
+        // first and reads `None` as permission to try its own routes, so an `edit_command` that
+        // answers something it has never heard of takes Open, Save, Save As, Export, the recent
+        // list and recovery with it. That is what happened, it reached a photograph, and every
+        // test that saves calls `save` directly - only the window goes through this path.
+        for route in ROUTES {
+            if *route == "frame" || *route == "at" {
+                continue;
+            }
+            report.check(
+                &format!("`/{route}` is left alone by the command layer"),
+                "not mine - the shell answers it",
+                match edit_command(&viewer, route, None) {
+                    None => "not mine - the shell answers it".to_string(),
+                    Some(said) => format!("swallowed, and answered: {said}"),
+                },
+            );
+        }
+
+        // A word that is neither. Nothing may claim it, or the shell's 404 - the only thing that
+        // tells a page it asked for something that does not exist - never happens.
+        for nonsense in ["layer.remove", "save-it", "", "state/../save"] {
+            report.check(
+                &format!("`/{nonsense}`, which is nothing this window has, is refused"),
+                "not mine",
+                match edit_command(&viewer, nonsense, None) {
+                    None => "not mine".to_string(),
+                    Some(said) => format!("answered: {said}"),
+                },
+            );
+        }
+
+        // The sentence a 404 carries is the only list of routes a person or a page ever sees, and
+        // it is written by hand. This is the one check that it still names what the shell has.
+        let listed: Vec<String> = {
+            let at = source
+                .find("ask for /state,")
+                .expect("the not-found answer is in this file");
+            let rest = &source[at..];
+            sorted(after(
+                &rest[..rest.find("command IDs").unwrap_or(rest.len())],
+                "/",
+            ))
+        };
+        let shell: Vec<String> = ROUTES
+            .iter()
+            .filter(|route| **route != "frame" && **route != "at")
+            .map(|route| route.to_string())
+            .collect();
+        report.check(
+            "the answer to a route that does not exist names the routes that do",
+            shell.join(", "),
+            listed.join(", "),
+        );
+
+        // Query strings, which every command in this window arrives with. The page builds them
+        // with `encodeURIComponent`, so what comes back has to be what was typed.
+        let cases: &[(&str, &str, &str)] = &[
+            ("layer=layer%201", "layer", "layer 1"),
+            ("name=a%26b", "name", "a&b"),
+            ("name=%E7%8C%AB", "name", "猫"),
+            ("layers=1&layer=2", "layer", "2"),
+            // A name that ends with the name being asked for. `matte_layer` is a real one, and
+            // a search that looks for `layer=` anywhere in a pair rather than at its start
+            // answers this with the wrong sequence's identifier.
+            ("matte_layer=layer-9&layer=layer-2", "layer", "layer-2"),
+            ("start=12&drawing=", "drawing", ""),
+        ];
+        for (query, name, expected) in cases {
+            report.check(
+                &format!("`?{query}` gives `{name}`"),
+                *expected,
+                parameter(Some(query), name).unwrap_or_else(|| "(nothing)".to_string()),
+            );
+        }
+        report.check(
+            "and a name that is not in the query gives nothing at all",
+            "(nothing)",
+            parameter(Some("layer=layer-1"), "name").unwrap_or_else(|| "(nothing)".to_string()),
+        );
+
+        // The one query string in this file that decides what reaches the disk.
+        for (query, expected) in [
+            (Some("missing=write"), "RenderTransparent"),
+            (Some("missing=Write"), "Block"),
+            (Some("missing=1"), "Block"),
+            (Some("missing="), "Block"),
+            (None, "Block"),
+        ] {
+            report.check(
+                &format!(
+                    "what an export asked for with `{}` does with a missing drawing",
+                    query.unwrap_or("no query at all")
+                ),
+                expected,
+                format!("{:?}", missing_source(query)),
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12b_routes_table.md",
+            "B-12b: the routes the window answers itself",
+            ROUTES_INTRO,
+            ROUTES_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const ROUTES_INTRO: &[&str] = &[
+        "Every request from the page arrives at one function, which offers it to the command \
+         layer first and answers it itself if the command layer has never heard of it. That \
+         hand-off is the whole of the window's routing, and on 2026-09-07 it was broken: the \
+         command layer answered everything, including identifiers it did not have, so Open, \
+         Save, Save As, Export, the recent list and recovery were all swallowed on the way past. \
+         The editing window worked perfectly and the project could not be written.",
+        "No test saw it, because every test that saves calls the save function directly and only \
+         the window goes through the hand-off. This table is that path: for each route the shell \
+         owns, that the command layer leaves it alone; that a word neither of them has is refused \
+         by both; that the sentence a person gets when they ask for something that does not exist \
+         still names what does; and that a query string is read back as what was typed into it.",
+    ];
+
+    const ROUTES_NOTES: &[&str] = &[
+        "## What to look at\n\n- **`swallowed, and answered:`** in the Actual column is the \
+         defect this table was written for, and the sentence beside it is what the person would \
+         have got instead of their project being saved.\n- **The empty route** is in the list on \
+         purpose. A page can ask for `/` and something has to refuse it.\n- **`missing=Write` \
+         blocks.** The override that writes frames with drawings missing is exactly the word \
+         `write`; everything else takes document 07's default and refuses the job. A comparison \
+         that ignored case would let a typo become an export nobody asked for.",
+        "## What this cannot cover\n\nThe three routes that open a dialog. Import, Save As and \
+         Export hand the request to Windows before anything of ours runs, and no test in this \
+         project has hands to answer a file dialog. What is checked here is that the request \
+         reaches the shell at all; what happens after the dialog is \
+         `verification/B-09_save_table.md` and `verification/B-10_export_table.md`.\n\nAnd the \
+         function itself. It needs a running application to be called, so what is checked is the \
+         decision it makes rather than the response it builds: the hand-off, the list, the query \
+         reading and the export override are each called directly.",
+    ];
+
+    // ---- document 05 line 69, the keyboard claim ----------------------------------------------
+
+    /// The name a `$('id')` in the page reaches for, where that lookup is followed by something
+    /// that makes it a control: a handler, a synthetic click, or a checkbox being read.
+    fn controls(page: &str) -> Vec<String> {
+        page.match_indices("$('")
+            .filter_map(|(at, _)| {
+                let rest = &page[at + 3..];
+                let end = rest.find('\'')?;
+                let after = &rest[end + 2..];
+                let is_a_control = after.starts_with(".on")
+                    || after.starts_with(".click")
+                    || after.starts_with(".checked");
+                is_a_control.then(|| rest[..end].to_string())
+            })
+            .collect()
+    }
+
+    /// The tag the markup gives an element, read backwards from its identifier.
+    fn tag_of(page: &str, id: &str) -> String {
+        let needle = format!("id=\"{id}\"");
+        match page.find(&needle) {
+            None => "not in the markup".to_string(),
+            Some(at) => {
+                let before = &page[..at];
+                let open = before.rfind('<').map(|o| &before[o + 1..]).unwrap_or("");
+                open.split(|c: char| c.is_whitespace() || c == '>')
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+            }
+        }
+    }
+
+    /// The page with every mouse-only handler cut out of it.
+    ///
+    /// A double click and a pointer drag are the two gestures a keyboard cannot make. Whatever
+    /// a handler for one of them sends is unreachable without a mouse unless the same request is
+    /// sent from somewhere else as well, so the question "can this be done without a mouse" is
+    /// the question "does this identifier still appear once those handlers are gone".
+    ///
+    /// A handler is cut from its name to the end of its statement, which is the first semicolon
+    /// at depth zero - handlers here are written both as a braced body and as a one-line arrow.
+    fn without_the_mouse(page: &str) -> String {
+        const MOUSE: [&str; 4] = [
+            "ondblclick",
+            "onpointerdown",
+            "onpointermove",
+            "onpointerup",
+        ];
+        let mut out = String::with_capacity(page.len());
+        let bytes: Vec<char> = page.chars().collect();
+        let mut i = 0;
+        while i < bytes.len() {
+            let rest: String = bytes[i..].iter().take(20).collect();
+            match MOUSE.iter().find(|m| rest.starts_with(**m)) {
+                None => {
+                    out.push(bytes[i]);
+                    i += 1;
+                }
+                Some(_) => {
+                    let mut depth = 0i32;
+                    while i < bytes.len() {
+                        match bytes[i] {
+                            '(' | '{' | '[' => depth += 1,
+                            ')' | '}' | ']' => depth -= 1,
+                            ';' if depth <= 0 => {
+                                i += 1;
+                                break;
+                            }
+                            _ => {}
+                        }
+                        i += 1;
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// The keys the window answers when nothing in particular is focused, as the page writes
+    /// them: every `e.key === '...'` in the one global handler.
+    fn key_names(page: &str) -> Vec<String> {
+        let block = accelerators(page);
+        let block = block.as_str();
+        let mut keys: Vec<String> = block
+            .match_indices("e.key === '")
+            .filter_map(|(at, _)| {
+                let rest = &block[at + 11..];
+                let end = rest.find('\'')?;
+                Some(rest[..end].to_string())
+            })
+            // A letter is written in the page in both cases and is one key; anything longer
+            // is already the name of a key and is left as it is.
+            .map(|key| match key.as_str() {
+                " " => "Space".to_string(),
+                one if one.chars().count() == 1 => one.to_uppercase(),
+                other => other.to_string(),
+            })
+            .collect();
+        keys.sort();
+        keys.dedup();
+        keys
+    }
+
+    /// Document 05 line 69: "complete W-01 without assistance, with all required controls
+    /// reachable by keyboard."
+    ///
+    /// Every other artifact in B-12 checks what a request does. This one checks that a person
+    /// with no mouse can make the request at all, by reading the page the way the claim is
+    /// worded: which controls exist, whether each is a thing the Tab key stops at, which keys
+    /// the window answers on its own, and - the row this table is really for - whether every
+    /// command the page can send survives having the mouse-only handlers cut out of it.
+    ///
+    /// Writes `verification/B-12c_keyboard_table.md`.
+    #[test]
+    fn every_command_the_page_sends_can_be_asked_for_without_a_mouse() {
+        let page = page();
+        let mut report = Report { rows: Vec::new() };
+
+        let mut named = controls(&page);
+        named.sort();
+        named.dedup();
+        report.check(
+            "the controls the page wires are the ones written down here",
+            CONTROLS.join(", "),
+            named.join(", "),
+        );
+        // A button, a select and a checkbox are stops on the Tab order because the browser makes
+        // them so. A span or a div with a click handler is not, and that is the shape this row
+        // exists to catch.
+        let not_focusable: Vec<String> = named
+            .iter()
+            .map(|id| (id, tag_of(&page, id)))
+            .filter(|(_, tag)| !matches!(tag.as_str(), "button" | "select" | "input"))
+            .map(|(id, tag)| format!("{id} is a {tag}"))
+            .collect();
+        report.check(
+            "and every one of them is a control the Tab key stops at on its own",
+            "none of them is anything else",
+            match not_focusable.is_empty() {
+                true => "none of them is anything else".to_string(),
+                false => not_focusable.join(", "),
+            },
+        );
+
+        // The two lists are built out of `li`, which nothing focuses by itself.
+        for (what, marker) in [
+            (
+                "a row in the media bin or the layer list",
+                "  li.tabIndex = 0;",
+            ),
+            (
+                "the drag handle beside a transform value",
+                "    handle.tabIndex = 0;",
+            ),
+        ] {
+            report.check(
+                &format!("{what} is put into the Tab order by hand"),
+                true,
+                page.contains(marker),
+            );
+        }
+        report.check(
+            "and a focused row is chosen with Enter or Space, which is what a click does",
+            true,
+            page.contains(
+                "if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.click(); }",
+            ),
+        );
+        report.check(
+            "and a focused drag handle is moved with the arrow keys, which is what a drag does",
+            true,
+            page.contains("const by = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }"),
+        );
+
+        report.check(
+            "the keys the window answers with nothing focused are the ones written down here",
+            KEYS.join(", "),
+            key_names(&page).join(", "),
+        );
+
+        // The row this table is for. Everything the page can ask the window to do, asked of a
+        // copy of the page with the double clicks and the pointer drags cut out.
+        let without = asked_for(&without_the_mouse(&page));
+        for id in asked_for(&page) {
+            if matches!(id.as_str(), "frame" | "at" | "state") {
+                continue; // Not a control: the page asks for these itself, to draw with.
+            }
+            let reachable = without.contains(&id);
+            report.check(
+                &format!("`{id}` can be asked for without a mouse"),
+                match MOUSE_ONLY.contains(&id.as_str()) {
+                    true => "no - it is a drag, and a drag is a mouse",
+                    false => "yes",
+                },
+                match reachable {
+                    true => "yes",
+                    false => "no - it is a drag, and a drag is a mouse",
+                },
+            );
+        }
+
+        // The three gestures that are mouse-only, each with the thing that does the same job.
+        for (gesture, does, instead) in MOUSE_GESTURES {
+            report.check(
+                &format!("{gesture} is not the only way to {does}"),
+                true,
+                page.contains(instead),
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12c_keyboard_table.md",
+            "B-12c: the keyboard claim, and what is mouse-only",
+            KEYBOARD_INTRO,
+            KEYBOARD_NOTES,
+        );
+        assert!(
+            report.rows.iter().all(|(_, e, a)| e == a),
+            "the keyboard claim does not hold: {:?}",
+            report
+                .rows
+                .iter()
+                .filter(|(_, e, a)| e != a)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Every control the page wires a handler to, or clicks for the person, or reads.
+    const CONTROLS: [&str; 26] = [
+        "addeffect",
+        "addexposure",
+        "addlayer",
+        "alpha",
+        "anyway",
+        "applyrelink",
+        "back",
+        "cancelexport",
+        "cancelrelink",
+        "checker",
+        "dellayer",
+        "down",
+        "export",
+        "fwd",
+        "import",
+        "open",
+        "play",
+        "recent",
+        "recovery",
+        "redo",
+        "relink",
+        "save",
+        "saveas",
+        "toggle",
+        "undo",
+        "up",
+    ];
+
+    /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
+    /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
+    const KEYS: [&str; 16] = [
+        "A",
+        "ArrowLeft",
+        "ArrowRight",
+        "D",
+        "Delete",
+        "F2",
+        "G",
+        "I",
+        "L",
+        "M",
+        "O",
+        "S",
+        "Space",
+        "Z",
+        "[",
+        "]",
+    ];
+
+    /// The identifiers that are a drag and cannot be anything else.
+    const MOUSE_ONLY: [&str; 3] = [
+        "property.drag_cancel",
+        "property.drag_end",
+        "property.drag_update",
+    ];
+
+    /// A mouse gesture, what it does, and the text in the page that does the same job without one.
+    const MOUSE_GESTURES: [(&str, &str, &str); 3] = [
+        (
+            "double clicking a drawing sequence in the media bin",
+            "make a layer out of it",
+            "$('addlayer').click();",
+        ),
+        (
+            "double clicking a layer",
+            "rename it",
+            "else if (e.key === 'F2') { e.preventDefault(); beginRename(); }",
+        ),
+        (
+            "dragging a transform value",
+            "change it",
+            "next[i] = held[i] + by * STEP[prop] * (e.shiftKey ? 10 : 1);",
+        ),
+    ];
+
+    const KEYBOARD_INTRO: &[&str] = &[
+        "Document 05 line 69 sets B-12's bar: \"complete W-01 without assistance, with all \
+         required controls reachable by keyboard.\" `verification/B-11_display_and_keyboard.md` \
+         is a photograph of the Tab key reaching the Open button, which says the order exists \
+         and that the control holding it is visible. This is the other half, and it is the half \
+         a photograph cannot take: whether there is any command in this window that a person \
+         without a mouse cannot ask for.",
+        "It reads `app/ui/index.html`. The question it asks is not \"is there a keyboard \
+         shortcut\" but \"is this request sent from anywhere that is not a mouse gesture\", and \
+         it asks it by cutting every double-click and pointer-drag handler out of a copy of the \
+         page and looking for the request in what is left.",
+    ];
+
+    const KEYBOARD_NOTES: &[&str] = &[
+        "## What to look at\n\nThe three rows that say **no**. `property.drag_update`, \
+         `property.drag_end` and `property.drag_cancel` are a drag: they are the running \
+         transaction a pointer opens when it takes hold of a number and the coalescing document \
+         26 asks for. A keyboard cannot make that gesture and nothing here pretends otherwise. \
+         What it can do is change the number, and the last three rows are the three mouse \
+         gestures in this window each paired with the thing that does the same job without one: \
+         the arrow keys on a focused handle send `property.set_base`, which is one undo step per \
+         press rather than one per drag.",
+        "The two lists are the part that had to be built rather than inherited. Every button \
+         here is a `button` and every chooser a `select`, so the Tab order is the browser's and \
+         nothing had to be arranged; the rows of the media bin and the layer list are `li` \
+         elements, which nothing focuses, and they carry a tab stop and an Enter/Space handler \
+         put there by hand. The row that checks the list of controls is a list rather than a \
+         count for the same reason as the one in `verification/B-12b_page_table.md`: a control \
+         added tomorrow fails this table until somebody writes it down beside the others, and \
+         the row underneath then asks what kind of element it is.",
+        "## What this cannot cover\n\nThat the Tab order is a sensible one. It says every \
+         control is in it; it does not say the order walks the window in the order a person \
+         reads it, and nothing but a person pressing Tab can say that. The photograph in \
+         `verification/B-11_display_and_keyboard.md` counts six presses to Open, which is one \
+         sample of it.",
+        "Whether a focused control can be seen. The focus ring is a colour in a stylesheet, and \
+         this reads the page as text. That is the photograph's job as well.",
+        "And the file dialogs. Import, Open, Save As and Export hand over to Windows, which \
+         brings its own keyboard handling and is not this project's to check.",
+    ];
+
+    fn cell(text: &str) -> String {
+        text.replace('|', r"\|")
+    }
+}
+
+/// W-01 walked end to end, from an empty composition to an exported sequence.
+///
+/// B-12 is the owner's acceptance run of this workflow by hand. This is the same thirteen steps
+/// driven by script first, for one reason: a defect found here costs a re-run of a test, and the
+/// same defect found in the middle of the owner's run costs the run. It is not a substitute for
+/// it -- a script cannot say whether the window was pleasant to use, whether a sentence read
+/// well, or whether the picture looked right -- and it does not touch the page, which is
+/// `verification/B-12b_page_table.md` and the photographs beside it.
+///
+/// Every step goes through the same function the window's URL scheme calls, with the same text
+/// the page would put in it, so what is walked is the window from the request inwards.
+///
+/// Writes `verification/B-12b_w01_walkthrough.md` and `verification/B-12b_w01_frame_12.png`,
+/// and leaves the exported sequence in `target/b12b_w01/frames`.
+#[cfg(test)]
+mod acceptance {
+    use super::*;
+    use anime_compositor::time::ExposureMap;
+
+    struct Report {
+        rows: Vec<(String, String, String)>,
+    }
+
+    impl Report {
+        fn check(&mut self, check: &str, expected: impl ToString, actual: impl ToString) {
+            self.rows
+                .push((check.to_string(), expected.to_string(), actual.to_string()));
+        }
+    }
+
+    fn repo(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the app crate has a parent directory")
+            .join(rel)
+    }
+
+    /// The walkthrough's own directory under `target/`, emptied first so that a previous run's
+    /// frames cannot make a later one pass. Under `target/` rather than the system temporary
+    /// directory because the frames are half the artifact: they are meant to be opened.
+    fn workspace(name: &str) -> PathBuf {
+        let directory = repo("target/b12b_w01").join(name);
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("make the walkthrough directory");
+        directory
+    }
+
+    /// One command, by the document 24 identifier the page would send.
+    fn run(viewer: &Mutex<Viewer>, what: &str) -> String {
+        let (id, query) = match what.split_once('?') {
+            Some((id, query)) => (id, Some(query)),
+            None => (what, None),
+        };
+        edit_command(viewer, id, query).expect("a command document 24 lists")
+    }
+
+    fn held(viewer: &Mutex<Viewer>) -> std::sync::MutexGuard<'_, Viewer> {
+        viewer.lock().expect("the viewer lock was poisoned")
+    }
+
+    /// The phrase asked for, when it was in what the window said, and everything the window did
+    /// say when it was not. The exact wording of a diagnostic belongs to the core and is pinned
+    /// there; what matters here is that the person was told the thing at all.
+    fn says(phrase: &str, said: &str) -> String {
+        match said.contains(phrase) {
+            true => phrase.to_string(),
+            false => format!("the window said: {said}"),
+        }
+    }
+
+    /// The files in a directory, in name order.
+    fn written(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .map(|entries| {
+                entries
+                    .filter_map(|e| e.ok())
+                    .map(|e| e.file_name().to_string_lossy().into_owned())
+                    .collect()
+            })
+            .unwrap_or_default();
+        names.sort();
+        names
+    }
+
+    fn layer<T>(viewer: &Mutex<Viewer>, id: &str, read: impl FnOnce(&Layer) -> T) -> Option<T> {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layer(&Id::new(id)).map(read)
+    }
+
+    /// The layers of the composition, back to front, as `name(identifier)`.
+    fn stack(viewer: &Mutex<Viewer>) -> String {
+        let held = held(viewer);
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .expect("the composition on screen");
+        comp.layers_in_order()
+            .map(|l| format!("{}({})", l.name, l.id))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    fn exposures(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        layer(viewer, layer_id, |l| {
+            l.exposure_spans
+                .iter()
+                .map(|s| {
+                    format!(
+                        "{}-{}:{}",
+                        s.start_frame, s.end_frame_exclusive, s.drawing_number
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// Which drawing of its sequence a layer shows at every frame of the composition, read the
+    /// way the renderer reads it -- through `ExposureMap` and the layer's own timing -- rather
+    /// than by re-reading the spans that were typed in. This is W-01's acceptance line, "cel
+    /// identity per frame matches the exposure reference", and [`CEL_REFERENCE`] is the
+    /// reference.
+    fn cel_identity(viewer: &Mutex<Viewer>, layer_id: &str, frames: i32) -> String {
+        let Some((spans, timing)) =
+            layer(viewer, layer_id, |l| (l.exposure_spans.clone(), l.timing()))
+        else {
+            return "(no such layer)".to_string();
+        };
+        let map = match ExposureMap::new(spans) {
+            Ok(map) => map,
+            // Document 20's rules about spans are the core's, and a sheet that breaks one is a
+            // failed row here rather than a panic: the table is the thing that has to say so.
+            Err(error) => return format!("(not a legal sheet: {error:?})"),
+        };
+        (0..frames)
+            .map(|frame| match timing.local_frame(frame) {
+                None => "-".to_string(),
+                Some(local) => match map.drawing_at(local) {
+                    None => "-".to_string(),
+                    Some(number) => number.to_string(),
+                },
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    /// The effect stack of a layer, in evaluation order.
+    fn effects(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        layer(viewer, layer_id, |l| {
+            l.effects
+                .iter()
+                .map(|e| e.type_id().to_string())
+                .collect::<Vec<_>>()
+                .join(" then ")
+        })
+        .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// One number of a transform, as a number rather than as a spelling of one. `110` and
+    /// `110.0` are the same value, and a table that failed on which of the two a serialiser
+    /// chose would be failing on something nobody can see in a panel.
+    fn number(value: &serde_json::Value) -> String {
+        match value.as_f64() {
+            Some(number) => format!("{number}"),
+            None => value.to_string(),
+        }
+    }
+
+    /// The transform of a layer, read out of the same JSON the inspector is given rather than
+    /// out of the model, so that what is checked is what a person would read in the panel --
+    /// including its units, which is where this walk found a defect.
+    fn transform(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        let Some(layer) = answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .cloned()
+        else {
+            return "(no such layer)".to_string();
+        };
+        ["anchor", "position", "scale", "rotation", "opacity"]
+            .iter()
+            .map(|prop| {
+                let base = &layer["transform"][prop]["base"];
+                let numbers = match base.as_array() {
+                    Some(pair) => pair.iter().map(number).collect::<Vec<_>>(),
+                    None => vec![number(base)],
+                };
+                format!("{prop} {}", numbers.join(", "))
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    }
+
+    fn matte(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        layer(viewer, layer_id, |l| match &l.matte {
+            None => "none".to_string(),
+            Some(m) => format!("{} matte_only={}", m.layer_id, m.matte_only),
+        })
+        .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// The drawings of one folder of the reference shot, sorted, which is the selection a person
+    /// makes in the import dialog.
+    fn drawings_in(folder: &str) -> Vec<PathBuf> {
+        let dir = repo(&format!("Fixtures/reference_shot/{folder}"));
+        let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("read {}: {e}", dir.display()))
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "png"))
+            .collect();
+        files.sort();
+        files
+    }
+
+    /// The request the media bin sends once the file dialog has been answered.
+    fn import_of(files: &[PathBuf]) -> String {
+        let parts: Vec<String> = files
+            .iter()
+            .map(|p| format!("file={}", for_a_header(&p.display().to_string())))
+            .collect();
+        format!("media.import?{}", parts.join("&"))
+    }
+
+    fn header(response: &Response<Vec<u8>>, name: &str) -> String {
+        response
+            .headers()
+            .get(name)
+            .map(|v| v.to_str().unwrap_or("(not text)").to_string())
+            .unwrap_or_else(|| "(no such header)".to_string())
+    }
+
+    /// The exposure sheet this walk assigns to the cel layer, as somebody would type it into the
+    /// exposure panel: start frame, end frame exclusive, drawing number. Threes and twos with
+    /// two single-frame accents at the end, which is what a sheet looks like and what the
+    /// on-twos fixtures in this repository do not exercise.
+    const SHEET: &[(i32, i32, u32)] = &[
+        (0, 3, 0),
+        (3, 6, 1),
+        (6, 8, 2),
+        (8, 10, 3),
+        (10, 13, 4),
+        (13, 16, 5),
+        (16, 19, 6),
+        (19, 22, 7),
+        (22, 23, 8),
+        (23, 24, 9),
+    ];
+
+    /// The same sheet read out one composition frame at a time, written by hand from the spans
+    /// above rather than from a run of the code (ADR-009). This is the exposure reference W-01's
+    /// acceptance criterion compares cel identity against.
+    const CEL_REFERENCE: &str = "0,0,0,1,1,1,2,2,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,9";
+
+    /// The transform typed into the inspector at step 6, in the units the panel reads back.
+    /// `app/ui/index.html` shows the project file's own numbers and sends them back unconverted,
+    /// so scale is the percentage document 19 stores and opacity the nought-to-one it stores.
+    const TRANSFORM_TYPED_IN: &str =
+        "anchor 960, 540; position 980, 520; scale 110, 110; rotation 6; opacity 0.8";
+
+    #[test]
+    // Slow: twenty-five full-resolution previews and a twenty-four frame export. Run by name,
+    // exactly as B-10's whole shot is, and its artifact is committed rather than made again on
+    // every build.
+    #[ignore = "renders and exports full-resolution frames; run by name"]
+    fn the_thirteen_steps_of_w01_end_in_a_sequence_on_the_disk() {
+        let mut report = Report { rows: Vec::new() };
+        let folder = workspace("project");
+        let source = repo("Fixtures/projects/minimal_project.json");
+        let project_file = folder.join("my_shot.json");
+        std::fs::copy(&source, &project_file).expect("copy the empty project to work in");
+
+        let viewer = Mutex::new(
+            open(&project_file)
+                .unwrap_or_else(|d| panic!("open {}: {}", project_file.display(), d.message)),
+        );
+        let export_state = Mutex::new(Export::default());
+
+        // ---- step 3, taken first: the composition -------------------------------------------
+        // W-01 lists "create a composition" third. This build has no command that creates one:
+        // document 24 has no `composition.create` row, and the composition a person works in is
+        // the one their project file already holds. That is recorded as what it is rather than
+        // walked around, because it is the one step of the thirteen nobody can take.
+        report.check(
+            "step 3: a composition to work in, its size, its rate and its length",
+            "comp-main 1920x1080 at 24 fps, 24 frames",
+            {
+                let held = held(&viewer);
+                let comp = held
+                    .document
+                    .project()
+                    .composition(&held.composition)
+                    .expect("the composition on screen");
+                format!(
+                    "{} {}x{} at {} fps, {} frames",
+                    comp.id,
+                    comp.width,
+                    comp.height,
+                    comp.frame_rate.numerator() / comp.frame_rate.denominator(),
+                    comp.duration_frames
+                )
+            },
+        );
+        report.check(
+            "and no command in this build makes one, so this step is the project file's",
+            "no composition command",
+            match ANSWERS.iter().any(|id| id.starts_with("composition.")) {
+                true => "a composition command exists",
+                false => "no composition command",
+            },
+        );
+
+        // ---- step 1: import the drawings ----------------------------------------------------
+        let background = run(&viewer, &import_of(&drawings_in("layer1")));
+        let cel = run(&viewer, &import_of(&drawings_in("layer2")));
+        let shape = run(&viewer, &import_of(&drawings_in("layer3")));
+        let overlay = run(&viewer, &import_of(&drawings_in("layer4")));
+        report.check(
+            "step 1: four sequences imported into a project that had none",
+            "asset-1, asset-2, asset-3, asset-4",
+            held(&viewer)
+                .document
+                .project()
+                .assets
+                .iter()
+                .map(|a| a.id.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        report.check(
+            "and the person is told what each one holds",
+            "24 drawings, numbered 0 to 23",
+            says("24 drawings, numbered 0 to 23", &cel),
+        );
+
+        // ---- step 2: grouping, and the warning about the gap --------------------------------
+        report.check(
+            "step 2: twenty-four files chosen at once are one sequence, not twenty-four",
+            "layer2_%03d.png",
+            held(&viewer)
+                .document
+                .project()
+                .assets
+                .iter()
+                .find(|a| a.id == Id::new("asset-2"))
+                .map(|a| a.name.clone())
+                .unwrap_or_else(|| "(no asset-2)".to_string()),
+        );
+        report.check(
+            "and the sequence with a hole in it says so at import, not at export",
+            "drawing 7 is missing",
+            says("drawing 7 is missing", &shape),
+        );
+        report.check(
+            "the one-drawing sequence and the twenty-drawing one are read as they are",
+            "1 drawings, numbered 0 to 0 | 20 drawings, numbered 0 to 19",
+            format!(
+                "{} | {}",
+                says("1 drawings, numbered 0 to 0", &background),
+                says("20 drawings, numbered 0 to 19", &overlay)
+            ),
+        );
+
+        // ---- step 5, taken before step 4: stack the layers -----------------------------------
+        // The exposures of step 4 are assigned to a layer, so the layers have to exist first.
+        // W-01's order is the order a person thinks in, not an order the build enforces.
+        run(&viewer, "layer.create?asset=asset-1&name=background");
+        run(&viewer, "layer.create?asset=asset-2&name=cel");
+        run(&viewer, "layer.create?asset=asset-4&name=overlay");
+        run(&viewer, "layer.create?asset=asset-3&name=shape");
+        report.check(
+            "step 5: four layers, the newest at the front",
+            "background(layer-1), cel(layer-2), overlay(layer-3), shape(layer-4)",
+            stack(&viewer),
+        );
+        let said = run(&viewer, "layer.move_down?layer=layer-4");
+        report.check(
+            "and one of them moved back a place, which is what the reorder button sends",
+            "background(layer-1), cel(layer-2), shape(layer-4), overlay(layer-3)",
+            stack(&viewer),
+        );
+        report.check(
+            "the window says what moved, in the words undo will use",
+            "Move layer to position 2",
+            says("Move layer to position 2", &said),
+        );
+
+        // ---- step 4: assign exposures --------------------------------------------------------
+        // A layer with no exposures renders transparent (document 20), so this step is not
+        // decoration: without it the export below writes twenty-four empty frames.
+        for (start, end, drawing) in SHEET {
+            run(
+                &viewer,
+                &format!(
+                    "exposure.set_span?layer=layer-2&start={start}&end={end}&drawing={drawing}"
+                ),
+            );
+        }
+        report.check(
+            "step 4: the cel layer holds the sheet that was typed into it",
+            SHEET
+                .iter()
+                .map(|(s, e, d)| format!("{s}-{e}:{d}"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            exposures(&viewer, "layer-2"),
+        );
+        report.check(
+            "and the drawing on screen at each of the twenty-four frames is the reference sheet",
+            CEL_REFERENCE,
+            cel_identity(&viewer, "layer-2", 24),
+        );
+        // The other three layers, so that every one of them draws something. The layer whose
+        // sequence has a hole in it is deliberately never given drawing 7.
+        run(
+            &viewer,
+            "exposure.set_span?layer=layer-1&start=0&end=24&drawing=0",
+        );
+        for (start, end, drawing) in [(0, 8, 0), (8, 16, 3), (16, 24, 9)] {
+            run(
+                &viewer,
+                &format!(
+                    "exposure.set_span?layer=layer-4&start={start}&end={end}&drawing={drawing}"
+                ),
+            );
+        }
+        for (start, end, drawing) in [(0, 12, 0), (12, 24, 10)] {
+            run(
+                &viewer,
+                &format!(
+                    "exposure.set_span?layer=layer-3&start={start}&end={end}&drawing={drawing}"
+                ),
+            );
+        }
+        report.check(
+            "the sequence with the hole is given exposures that step around it",
+            "0-8:0, 8-16:3, 16-24:9",
+            exposures(&viewer, "layer-4"),
+        );
+        // And the panel says so when one does not. Undone straight away: what is being checked
+        // is the warning, not a change to the shot.
+        let onto_the_hole = run(
+            &viewer,
+            "exposure.set_span?layer=layer-4&start=8&end=16&drawing=7",
+        );
+        report.check(
+            "and typing the missing drawing into the panel is answered there and then",
+            "Drawing 7 is not in this sequence",
+            says("Drawing 7 is not in this sequence", &onto_the_hole),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "undo puts the exposure back, so meeting the warning cost the shot nothing",
+            "0-8:0, 8-16:3, 16-24:9",
+            exposures(&viewer, "layer-4"),
+        );
+
+        // ---- step 6: anchors and transforms ---------------------------------------------------
+        for (prop, value) in [
+            ("anchor", "960, 540"),
+            ("position", "980, 520"),
+            ("scale", "110, 110"),
+            ("rotation", "6"),
+            ("opacity", "0.8"),
+        ] {
+            run(
+                &viewer,
+                &format!("property.set_base?layer=layer-3&prop={prop}&value={value}"),
+            );
+        }
+        report.check(
+            "step 6: the anchor and the transform, in the units the panel shows and sends",
+            TRANSFORM_TYPED_IN,
+            transform(&viewer, "layer-3"),
+        );
+
+        // ---- step 7: apply a matte ------------------------------------------------------------
+        let said = run(
+            &viewer,
+            "layer.set_matte?layer=layer-3&matte=layer-4&only=true",
+        );
+        report.check(
+            "step 7: the overlay is shaped by the layer under it",
+            "layer-4 matte_only=true",
+            matte(&viewer, "layer-3"),
+        );
+        report.check(
+            "and the window says which layer is shaping it, and that it is a matte only",
+            "Set matte to layer-4, matte only",
+            says("Set matte to layer-4, matte only", &said),
+        );
+
+        // ---- steps 8 and 9: one blur and one colour operation ---------------------------------
+        run(&viewer, "effect.add?layer=layer-3&type=core.gaussian_blur");
+        run(
+            &viewer,
+            "effect.set_parameters?layer=layer-3&effect=fx-1&sigma_px=4",
+        );
+        run(&viewer, "effect.add?layer=layer-3&type=core.tint");
+        run(
+            &viewer,
+            "effect.set_parameters?layer=layer-3&effect=fx-2&color=0.2,0.4,1&amount=0.5",
+        );
+        report.check(
+            "steps 8 and 9: a blur, then a colour operation, in the order they were added",
+            "core.gaussian_blur then core.tint",
+            effects(&viewer, "layer-3"),
+        );
+
+        // ---- step 10: inspect the alpha -------------------------------------------------------
+        let revision_before = held(&viewer).document.revision();
+        let ordinary = serve(&viewer, &export_state, Ask::Frame(12), None);
+        let said = run(&viewer, "viewer.toggle_alpha");
+        let inspected = serve(&viewer, &export_state, Ask::Frame(12), None);
+        report.check(
+            "step 10: alpha-only inspection says what it is showing",
+            "the picture is the alpha channel",
+            says("the picture is the alpha channel", &said.to_lowercase()),
+        );
+        report.check(
+            "and what comes back is grey everywhere, and the same size as the picture was",
+            "a different picture, every pixel grey, same size",
+            {
+                let same_size = ordinary.body().len() == inspected.body().len();
+                let changed = ordinary.body() != inspected.body();
+                let grey = inspected
+                    .body()
+                    .chunks_exact(4)
+                    .all(|p| p[0] == p[1] && p[1] == p[2]);
+                match (same_size, changed, grey) {
+                    (true, true, true) => {
+                        "a different picture, every pixel grey, same size".to_string()
+                    }
+                    _ => format!("same size {same_size}, changed {changed}, all grey {grey}"),
+                }
+            },
+        );
+        report.check(
+            "and looking at it changed nothing about the project, which is what makes it looking",
+            format!("revision {revision_before}"),
+            format!("revision {}", held(&viewer).document.revision()),
+        );
+        run(&viewer, "viewer.toggle_alpha");
+
+        // ---- step 11: preview the work area ---------------------------------------------------
+        let mut stepped = Vec::new();
+        for frame in 0..24 {
+            let response = serve(&viewer, &export_state, Ask::Frame(frame), None);
+            stepped.push(format!(
+                "{}:{}",
+                response.status().as_u16(),
+                header(&response, "x-frame")
+            ));
+        }
+        report.check(
+            "step 11: every frame of the work area answers, and answers with itself",
+            (0..24)
+                .map(|f| format!("200:{f}"))
+                .collect::<Vec<_>>()
+                .join(" "),
+            stepped.join(" "),
+        );
+        let played = serve(&viewer, &export_state, Ask::At(0), None);
+        report.check(
+            "and playing rather than stepping asks the clock, which starts at the first frame",
+            "200:0",
+            format!(
+                "{}:{}",
+                played.status().as_u16(),
+                header(&played, "x-frame")
+            ),
+        );
+
+        // ---- step 12: save, close, reopen ------------------------------------------------------
+        let said = save_as(&viewer, &project_file);
+        report.check(
+            "step 12: the shot is written to the file it was opened from",
+            "Saved to",
+            says("Saved to", &said),
+        );
+        report.check(
+            "and the window no longer holds unsaved work",
+            "false",
+            held(&viewer).document.is_dirty().to_string(),
+        );
+        drop(viewer);
+        let viewer = Mutex::new(
+            open(&project_file)
+                .unwrap_or_else(|d| panic!("reopen {}: {}", project_file.display(), d.message)),
+        );
+        report.check(
+            "reopened, the layers are in the order they were left in",
+            "background(layer-1), cel(layer-2), shape(layer-4), overlay(layer-3)",
+            stack(&viewer),
+        );
+        report.check(
+            "the effect order survives the reopening, which W-01 asks for by name",
+            "core.gaussian_blur then core.tint",
+            effects(&viewer, "layer-3"),
+        );
+        report.check(
+            "so does the matte",
+            "layer-4 matte_only=true",
+            matte(&viewer, "layer-3"),
+        );
+        report.check(
+            "so does the transform",
+            TRANSFORM_TYPED_IN,
+            transform(&viewer, "layer-3"),
+        );
+        report.check(
+            "and the cel identity at every frame is still the reference sheet",
+            CEL_REFERENCE,
+            cel_identity(&viewer, "layer-2", 24),
+        );
+        report.check(
+            "the reopened project had nothing to warn about",
+            "[]",
+            format!("{:?}", held(&viewer).notes),
+        );
+
+        // ---- step 13: export a PNG sequence -----------------------------------------------------
+        let into = workspace("frames");
+        let (snapshot, root, request) = {
+            let held = held(&viewer);
+            export_job(&held, &into, MissingSource::Block)
+        };
+        report.check(
+            "step 13: the range offered is the whole composition, first to last inclusive",
+            "0 to 23",
+            format!("{} to {}", request.first_frame, request.last_frame),
+        );
+        let said = run_export(&snapshot, &root, &request, &AtomicBool::new(false));
+        report.check(
+            "the export finishes under the default missing-drawing policy and says where",
+            format!("Exported 24 frames into {}.", into.display()),
+            says(
+                &format!("Exported 24 frames into {}.", into.display()),
+                &said,
+            ),
+        );
+        report.check(
+            "twenty-four files are on the disk, named for the project and numbered from zero",
+            "24 files, my_shot_0000.png to my_shot_0023.png",
+            {
+                let names = written(&into);
+                format!(
+                    "{} files, {} to {}",
+                    names.len(),
+                    names.first().map(String::as_str).unwrap_or("(none)"),
+                    names.last().map(String::as_str).unwrap_or("(none)")
+                )
+            },
+        );
+        report.check(
+            "and not one of them is empty",
+            "true",
+            written(&into)
+                .iter()
+                .all(|name| {
+                    std::fs::metadata(into.join(name))
+                        .map(|m| m.len() > 0)
+                        .unwrap_or(false)
+                })
+                .to_string(),
+        );
+
+        // One frame kept beside the table, so that the end of the walk is something to look at
+        // rather than a count of files. The rest stay under `target/b12b_w01/frames`.
+        std::fs::copy(
+            into.join("my_shot_0012.png"),
+            repo("verification/B-12b_w01_frame_12.png"),
+        )
+        .expect("keep one exported frame");
+
+        write_artifact(&report);
+        let failed: Vec<&(String, String, String)> =
+            report.rows.iter().filter(|(_, e, a)| e != a).collect();
+        assert!(
+            failed.is_empty(),
+            "W-01 did not walk end to end: {failed:#?}"
+        );
+    }
+
+    fn write_artifact(report: &Report) {
+        write_report(
+            report,
+            "verification/B-12b_w01_walkthrough.md",
+            "# W-01 walked end to end, before the owner walks it\n\nGenerated by \
+             `app/src/main.rs`, module `acceptance`. Slow, so it does not run with the rest: \
+             `cargo test -p anime_compositor_app the_thirteen_steps -- --ignored`.\n\n",
+            INTRO,
+            NOTES,
+        );
+    }
+
+    /// One walkthrough's table, with its own heading, opening paragraphs and closing notes.
+    fn write_report(report: &Report, path: &str, heading: &str, intro: &[&str], notes: &[&str]) {
+        let passed = report.rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut out = String::from(heading);
+        for paragraph in intro {
+            out.push_str(paragraph);
+            out.push_str("\n\n");
+        }
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in &report.rows {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                cell(expected),
+                cell(actual),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            report.rows.len()
+        ));
+        for paragraph in notes {
+            out.push('\n');
+            out.push_str(paragraph);
+            out.push('\n');
+        }
+        std::fs::write(repo(path), out).expect("write the artifact");
+    }
+
+    const INTRO: &[&str] = &[
+        "B-12 is the owner's acceptance run of W-01: thirteen steps by hand, from importing \
+         drawings to an exported sequence. This table is the same thirteen steps driven by \
+         script first. The reason for doing it twice is arithmetic -- a defect found here costs \
+         a re-run of a test, and the same defect found on step twelve of the owner's run costs \
+         the run. Two were found this way. One of them, a release-blocking one, is written up in \
+         `verification/B-12b_save_works.md`; the other is below.",
+        "The shot is built from nothing: a copy of `Fixtures/projects/minimal_project.json`, \
+         which is one empty 1920 by 1080 composition of twenty-four frames with no drawings and \
+         no layers in it. Everything after that goes through the same function the window's URL \
+         scheme calls, with the same text the page would put in it.",
+        "**Step 3 is the one step that cannot be walked.** W-01 says \"create a composition\", \
+         and this build has no command that creates one -- document 24 has no \
+         `composition.create` row, and the composition somebody works in is the one their \
+         project file already holds. The first two rows record that rather than working around \
+         it. It is the one thing in this table the owner will meet as missing.",
+    ];
+
+    const NOTES: &[&str] = &[
+        "## The defect this walk found\n\nTyping into the scale field made the layer a hundred \
+         times too big. The panel is given the project file's own numbers and sends them back in \
+         the same units; a scale in the file is a percentage -- `100` for full size -- while the \
+         model holds the factor document 21 composes with. Nothing between the two divided by a \
+         hundred. So somebody who typed the `100` the field was already showing, or who dragged \
+         the label one step, got a layer a hundred times its size. It survived because every \
+         earlier test of that function either set a position, where the two units are the same, \
+         or checked a scale being refused. The division now happens once, where typing and \
+         dragging both pass through, and the two transform rows above are what check it.\n\nOne \
+         part of it is left for the owner rather than quietly reworded: the status line reports \
+         what the *model* was set to, so typing 110 into scale is answered \"Set scale to (1.1, \
+         1.1)\". That sentence belongs to the core, which is right about its own units, and \
+         changing it is a decision rather than a fix.",
+        "## What to look at\n\n- **The exposure sheet is threes and twos with two single-frame \
+         accents**, not the on-twos cadence every fixture in this repository uses. The reference \
+         it is checked against was written out by hand from the spans, not from a run of the \
+         code, and it is compared twice: once after it is typed in, and once after the project \
+         has been saved, closed and reopened. That is W-01's acceptance line.\n- **The layer \
+         whose sequence has a hole in it is given exposures that step around the hole**, and the \
+         row after that types the missing drawing in on purpose, to check the panel says so at \
+         the moment it is typed rather than three hundred frames into an export. The undo after \
+         it costs the shot nothing.\n- **The export runs under the default policy**, which \
+         refuses a frame whose drawing is missing, and it finishes -- because nothing in this \
+         shot exposes a drawing that is not there.",
+        "## What this cannot cover\n\n- **The page.** Every row calls the request rather than \
+         clicking the control that sends it. What is wired to what is \
+         `verification/B-12b_page_table.md`; that it is on the screen and reachable by keyboard \
+         is `verification/B-12a_window_and_keyboard.md`.\n- **The three dialogs.** Import, Save \
+         As and Export each open a window Windows draws, and no script can answer one. What is \
+         walked here is the request underneath.\n- **Whether it was pleasant.** A script cannot \
+         say whether a sentence read well, whether the picture looked right, or whether a step \
+         was hard to find. That is what B-12 is for, and it is why this is a rehearsal and not a \
+         replacement.\n- **The 240-frame shot.** This composition is twenty-four frames. W-01's \
+         \"exactly 240 correctly named files\" is `verification/B-10_full_shot_table.md`, which \
+         exports the reference shot twice and compares the two byte for byte.",
+        "## Where the frames are\n\nAll twenty-four are written to `target/b12b_w01/frames` and \
+         are not cleaned between runs, so they can be opened or flipped through straight after \
+         the test. One of them, frame 12, is kept beside this table as \
+         `B-12b_w01_frame_12.png`: the background, the cel on its fifth drawing, and the overlay \
+         blurred, tinted, moved off centre and shaped by the layer under it.",
+    ];
+
+    // ---- W-02, walked the same way ---------------------------------------------------------
+
+    /// One sequence of the media bin, by identifier.
+    fn sequence(viewer: &Mutex<Viewer>, asset: &str) -> String {
+        held(viewer)
+            .document
+            .project()
+            .assets
+            .iter()
+            .find(|a| a.id == Id::new(asset))
+            .map(|a| {
+                let mut numbers: Vec<u32> = a.frames.keys().copied().collect();
+                numbers.sort_unstable();
+                format!(
+                    "{} {} drawings, numbered {}, drawing 0 at {}",
+                    a.pattern.clone().unwrap_or_default(),
+                    numbers.len(),
+                    runs(&numbers),
+                    a.frames
+                        .get(&0)
+                        .map(|f| f.replace('\\', "/"))
+                        .unwrap_or_else(|| "(no drawing 0)".to_string())
+                )
+            })
+            .unwrap_or_else(|| "(no such sequence)".to_string())
+    }
+
+    /// The drawing numbers a sequence holds, as the runs they fall into, so that a gap in the
+    /// middle of eleven drawings is something a person reads rather than counts.
+    fn runs(numbers: &[u32]) -> String {
+        let mut out: Vec<String> = Vec::new();
+        let mut at = 0;
+        while at < numbers.len() {
+            let mut end = at;
+            while end + 1 < numbers.len() && numbers[end + 1] == numbers[end] + 1 {
+                end += 1;
+            }
+            out.push(match end == at {
+                true => numbers[at].to_string(),
+                false => format!("{} to {}", numbers[at], numbers[end]),
+            });
+            at = end + 1;
+        }
+        out.join(", ")
+    }
+
+    /// A picture, short enough to put in a table cell and long enough that two different
+    /// pictures cannot share one. Not a cryptographic digest: this is a table a person reads,
+    /// and what it has to do is differ when the drawings differ and match when they are the
+    /// same file rendered twice.
+    fn picture(response: &Response<Vec<u8>>) -> String {
+        let body = response.body();
+        let mut sum: u64 = 1469598103934665603;
+        for byte in body {
+            sum ^= *byte as u64;
+            sum = sum.wrapping_mul(1099511628211);
+        }
+        format!("{} bytes, {sum:016x}", body.len())
+    }
+
+    /// Copy one folder of drawings into the walkthrough's own directory, so that the project
+    /// being walked has its own media and nothing here can write into `Fixtures/`.
+    fn copy_drawings(from: &Path, into: &Path, rename: Option<&str>) {
+        std::fs::create_dir_all(into).expect("make the drawings directory");
+        for entry in std::fs::read_dir(from).expect("read the drawings folder") {
+            let path = entry.expect("a directory entry").path();
+            if path.extension().is_some_and(|x| x == "png") {
+                let name = path
+                    .file_name()
+                    .expect("a file has a name")
+                    .to_string_lossy()
+                    .into_owned();
+                let name = match rename {
+                    // `layer4_004.png` delivered as the revised `layer3_004.png`: the drawing
+                    // number is what a relink matches on, so the revised artwork has to arrive
+                    // under the numbers the exposure sheet already names.
+                    Some(stem) => match name.split_once('_') {
+                        Some((_, number)) => format!("{stem}_{number}"),
+                        None => name,
+                    },
+                    None => name,
+                };
+                std::fs::copy(&path, into.join(name)).expect("copy a drawing");
+            }
+        }
+    }
+
+    /// The five things W-02 asks for, walked in one go on the reference shot.
+    ///
+    /// W-02 is a sentence and a half: relink "by explicit user choice", "present changed
+    /// dimensions, frame range or alpha interpretation before applying the change", "media
+    /// replacement invalidates affected cache entries and preserves intentional holds", "if
+    /// frames are absent, report them", "never silently slide subsequent drawings to fill a
+    /// gap", and "undo restores the prior reference".
+    ///
+    /// `verification/B-12a_relink_table.md` checks the window's half of that on a small project
+    /// built for it: what is said, what is refused, and what has not moved yet. What it cannot
+    /// check is the picture, and the picture is where two of those clauses live. Invalidating a
+    /// cache entry is invisible unless the frame that comes back afterwards is a different one,
+    /// and not sliding drawings to fill a gap is invisible unless the frame at the gap is
+    /// looked at. This walk renders the same frame before the relink, after it and after the
+    /// undo, on the 240-frame reference shot with its holds, and compares the three.
+    ///
+    /// Writes `verification/B-12c_w02_walkthrough.md`.
+    #[test]
+    // Slow: it copies the reference shot's drawings and renders full-resolution previews.
+    #[ignore = "copies the reference shot and renders previews; run by name"]
+    fn the_revised_drawings_replace_the_old_ones_and_the_shot_keeps_its_timing() {
+        let mut report = Report { rows: Vec::new() };
+        let folder = workspace("w02");
+        // The shot as delivered: the reference project and its four folders of drawings, copied
+        // so that the media sits beside the project file exactly as a person's would.
+        let project_file = folder.join("revised_shot.json");
+        std::fs::copy(repo("verification/B-08a_project.json"), &project_file)
+            .expect("copy the reference shot project");
+        for name in ["layer1", "layer2", "layer3", "layer4"] {
+            copy_drawings(
+                &repo(&format!("Fixtures/reference_shot/{name}")),
+                &folder.join(name),
+                None,
+            );
+        }
+        // The revised artwork, delivered in a folder of its own the way a revision arrives:
+        // layer 3 redrawn. It is layer 4's drawings under layer 3's numbers, so every drawing
+        // is a different picture from the one it replaces, and drawing 7 is not delivered -
+        // the hole in this sequence is deliberate and stays a hole.
+        let revised = folder.join("revised");
+        copy_drawings(
+            &repo("Fixtures/reference_shot/layer4"),
+            &revised,
+            Some("layer3"),
+        );
+        for number in [7, 12, 13, 14, 15, 16, 17, 18, 19] {
+            let _ = std::fs::remove_file(revised.join(format!("layer3_{number:03}.png")));
+        }
+        let mut delivered: Vec<PathBuf> = std::fs::read_dir(&revised)
+            .expect("read the revised folder")
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .collect();
+        delivered.sort();
+
+        let viewer = Mutex::new(
+            open(&project_file)
+                .unwrap_or_else(|d| panic!("open {}: {}", project_file.display(), d.message)),
+        );
+        let export_state = Mutex::new(Export::default());
+
+        // ---- the shot as it stands ---------------------------------------------------------
+        report.check(
+            "the shot opens with the four sequences and the four layers it was left with",
+            "layer3_%03d.png 11 drawings, numbered 0 to 6, 8 to 11, drawing 0 at layer3/layer3_000.png",
+            sequence(&viewer, "asset-layer3"),
+        );
+        report.check(
+            "the layer that uses the sequence being revised holds its drawings on twos",
+            "0-2:0, 2-4:1, 4-6:2",
+            exposures(&viewer, "layer-3")
+                .split(", ")
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        let before = picture(&serve(&viewer, &export_state, Ask::Frame(8), None));
+        let at_the_gap_before = picture(&serve(&viewer, &export_state, Ask::Frame(14), None));
+        report.check(
+            "and a frame of it can be looked at, which is what a relink has to change",
+            true,
+            before != "0 bytes, 0000000000000000",
+        );
+
+        // ---- W-02 step 1: choose the revised drawings --------------------------------------
+        let said = run(
+            &viewer,
+            &format!(
+                "media.relink?asset=asset-layer3&{}",
+                delivered
+                    .iter()
+                    .map(|p| format!("file={}", for_a_header(&p.display().to_string())))
+                    .collect::<Vec<_>>()
+                    .join("&")
+            ),
+        );
+        report.check(
+            "step 1: choosing the revised drawings says what the sequence would become",
+            "would give it 11 drawings, numbered 0 to 11, and drawing 7 would be missing",
+            says(
+                "would give it 11 drawings, numbered 0 to 11, and drawing 7 would be missing",
+                &said,
+            ),
+        );
+        report.check(
+            "and states the size, which W-02 asks for whether or not it changed",
+            "The drawings are 1920x1080, the same size as the ones it points at now.",
+            says(
+                "The drawings are 1920x1080, the same size as the ones it points at now.",
+                &said,
+            ),
+        );
+        report.check(
+            "and how the colour and the alpha will be read, which W-02 also asks for",
+            "The colour is read as sRGB with straight alpha",
+            says("The colour is read as sRGB with straight alpha", &said),
+        );
+        report.check(
+            "and that the drawing that was not delivered is missing, at the moment of choosing",
+            "One drawing is missing from layer3_%03d.png: 7.",
+            says("One drawing is missing from layer3_%03d.png: 7.", &said),
+        );
+
+        // ---- step 2: nothing has moved yet -------------------------------------------------
+        report.check(
+            "step 2: the sequence still points at the drawings it did",
+            "layer3_%03d.png 11 drawings, numbered 0 to 6, 8 to 11, drawing 0 at layer3/layer3_000.png",
+            sequence(&viewer, "asset-layer3"),
+        );
+        report.check(
+            "and there is nothing to undo, because nothing has been done",
+            0,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and the frame that comes back is the frame that came back before",
+            &before,
+            picture(&serve(&viewer, &export_state, Ask::Frame(8), None)),
+        );
+
+        // ---- step 3: agree to it -----------------------------------------------------------
+        let said = run(&viewer, "media.relink?asset=asset-layer3&apply=1");
+        report.check(
+            "step 3: agreeing names what was done, in the words undo will use",
+            "Relink layer3",
+            says("Relink layer3", &said),
+        );
+        report.check(
+            "the sequence now points at the drawings that were chosen",
+            "layer3_%03d.png 11 drawings, numbered 0 to 6, 8 to 11, drawing 0 at revised/layer3_000.png",
+            sequence(&viewer, "asset-layer3"),
+        );
+        report.check(
+            "the layer is the same layer, holding the same drawings for the same frames",
+            "0-2:0, 2-4:1, 4-6:2",
+            exposures(&viewer, "layer-3")
+                .split(", ")
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        report.check(
+            "and its whole exposure sheet is untouched, which is W-02's intentional holds",
+            120,
+            layer(&viewer, "layer-3", |l| l.exposure_spans.len()).unwrap_or(0),
+        );
+        report.check(
+            "the other three sequences were not touched by a relink of this one",
+            "layer2_%03d.png 24 drawings, numbered 0 to 23, drawing 0 at layer2/layer2_000.png",
+            sequence(&viewer, "asset-layer2"),
+        );
+
+        // ---- step 4: the picture, which is where the cache lives ---------------------------
+        let after = picture(&serve(&viewer, &export_state, Ask::Frame(8), None));
+        report.check(
+            "step 4: the frame that had been looked at before the relink comes back different",
+            "a different picture",
+            match after == before {
+                true => "the same picture, so a cached frame outlived the drawings it was made \
+                         from"
+                    .to_string(),
+                false => "a different picture".to_string(),
+            },
+        );
+        report.check(
+            "and the frame at the gap is the picture it was, because nothing was slid \
+             into it",
+            &at_the_gap_before,
+            picture(&serve(&viewer, &export_state, Ask::Frame(14), None)),
+        );
+        report.check(
+            "and frames 14 to 17 still ask for drawings 7, 7, 8, 8 - the two frames over the \
+             gap keep asking for the drawing nobody drew, rather than being given the next one",
+            "7,7,8,8",
+            cel_identity(&viewer, "layer-3", 20)
+                .split(',')
+                .skip(14)
+                .take(4)
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+
+        // ---- step 5: undo restores the prior reference -------------------------------------
+        let said = run(&viewer, "edit.undo");
+        report.check(
+            "step 5: undo says which thing it undid",
+            "Undone: Relink layer3",
+            says("Undone: Relink layer3", &said),
+        );
+        report.check(
+            "the sequence points at the drawings it pointed at before",
+            "layer3_%03d.png 11 drawings, numbered 0 to 6, 8 to 11, drawing 0 at layer3/layer3_000.png",
+            sequence(&viewer, "asset-layer3"),
+        );
+        report.check(
+            "and the frame is the picture it was, byte for byte, not a cached revised one",
+            &before,
+            picture(&serve(&viewer, &export_state, Ask::Frame(8), None)),
+        );
+
+        // ---- and it survives being written down --------------------------------------------
+        run(&viewer, "edit.redo");
+        let said = save_as(&viewer, &project_file);
+        report.check(
+            "redone and saved, the file names the drawings that were chosen",
+            "Saved to",
+            says("Saved to", &said),
+        );
+        let reopened = Mutex::new(
+            open(&project_file)
+                .unwrap_or_else(|d| panic!("reopen {}: {}", project_file.display(), d.message)),
+        );
+        report.check(
+            "and reopening it finds the revised sequence, with the gap still a gap",
+            "layer3_%03d.png 11 drawings, numbered 0 to 6, 8 to 11, drawing 0 at revised/layer3_000.png",
+            sequence(&reopened, "asset-layer3"),
+        );
+        report.check(
+            "and the exposure sheet that was typed before the revision, unchanged",
+            120,
+            layer(&reopened, "layer-3", |l| l.exposure_spans.len()).unwrap_or(0),
+        );
+
+        write_report(
+            &report,
+            "verification/B-12c_w02_walkthrough.md",
+            "# W-02 walked end to end, on the shot W-01 built\n\n\
+             Generated by `app/src/main.rs`, module `acceptance`. Slow, so it does not run with \
+             the rest: `cargo test -p anime_compositor_app the_revised_drawings -- --ignored`.\n\n",
+            W02_INTRO,
+            W02_NOTES,
+        );
+        let failed: Vec<&(String, String, String)> =
+            report.rows.iter().filter(|(_, e, a)| e != a).collect();
+        assert!(
+            failed.is_empty(),
+            "W-02 did not walk end to end: {failed:#?}"
+        );
+    }
+
+    const W02_INTRO: &[&str] = &[
+        "W-02 is the other acceptance run: an existing shot, a folder of redrawn artwork, and \
+         the question of whether replacing one costs the other. The window's half of it - what \
+         is said before anything changes, what is refused, what has not moved yet - is \
+         `verification/B-12a_relink_table.md`, on a small project built for it. This is the same \
+         workflow on the 240-frame reference shot, and it is here for the two clauses of W-02 \
+         that table cannot reach, because both of them are about the picture.",
+        "**\"Media replacement invalidates affected cache entries.\"** A frame is decoded once \
+         and kept. The failure is invisible in the project file and visible only in the window: \
+         the sequence says it points at the new drawings, and the frame that comes back is the \
+         old ones. So the same frame is rendered before the relink, after it, and again after \
+         the undo, and the three are compared. The last of those is the sharper check - after \
+         undoing, the picture has to be the first one back byte for byte.",
+        "**\"Never silently slide subsequent drawings to fill a gap.\"** The revised folder is \
+         delivered one drawing short, which is what happens. Nothing is renumbered to close the \
+         hole: the frames that exposed drawing 7 still ask for drawing 7, and document 28 draws \
+         a drawing that is not there as nothing.",
+    ];
+
+    const W02_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The two pictures that must differ and the two that must \
+         match.** Frame 8 before the relink and after it are different pictures; frame 8 before \
+         the relink and after the undo are the same picture, to the byte. A build that cached \
+         the decoded drawing and never dropped it would fail the first; a build that dropped \
+         everything and re-decoded from the wrong reference would fail the second.\n- **The \
+         exposure sheet is not touched.** 120 spans before, 120 spans after - the 240 frames of \
+         the shot held on twos - and the drawing \
+         each frame asks for either side of the gap is what it was. Relinking replaces one \
+         record in the media bin and cannot reach a layer, which is the design; these rows are \
+         what says so on the shot rather than in the abstract.\n- **The revised artwork arrives \
+         in a folder of its own.** It is layer4's drawings delivered under layer3's numbers, \
+         which is what a revision looks like: same names, same numbers, different pictures, one \
+         of them late.",
+        "## What this cannot cover\n\n- **The file dialog.** As everywhere in this window, the \
+         walk begins at the files a person chose.\n- **Whether the revised artwork is the right \
+         artwork.** Nothing here can say the redraw was the one that was asked for; it can say \
+         the shot now shows it and kept its timing.\n- **Masks.** W-02 names them among what a \
+         relink preserves. It does preserve them, for the same reason it preserves exposures - \
+         it replaces an asset record and cannot reach a layer - but this build has no gesture \
+         for drawing a mask, so there is no mask in this shot to watch survive one.\n- **The \
+         page.** Every row calls the request the panel sends rather than clicking the panel. \
+         What is wired to what is `verification/B-12b_page_table.md`.",
+    ];
+
+    fn cell(text: &str) -> String {
+        text.replace('|', r"\|")
     }
 }

@@ -25,7 +25,7 @@
 //! them had two survivors: with every anchor at the origin, `T(-anchor)` is the identity and the
 //! transform chain can be composed in the wrong order unnoticed, and with every sampled layer
 //! transparent at its border, clamping to the edge pixel looks exactly like transparent black.
-//! The fixture was changed, per `DAY_RUN.md`, never the assertion.
+//! The fixture was changed, never the assertion.
 //!
 //! **Rotation is deliberately not here.** `cos(90°)` in floating point is 6.1e-17 rather than
 //! zero, so a rotated layer's sample points miss the pixel centres by a hair and two honest

@@ -18,6 +18,7 @@ use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::{
     Asset, Composition, Id, Interp, Keyframe, Layer, MatteReference, Project, Prop, Value,
 };
+use crate::time::{ExposureMap, ExposureSpan};
 
 /// One user action. Document 26 requires a stable command ID and a human-readable label on
 /// every history record; both are derived from the variant rather than passed in, so a caller
@@ -91,6 +92,21 @@ pub enum Command {
         /// Ignored when `matte` is `None`, since there is then no layer to keep out of the stack.
         matte_only: bool,
     },
+    /// Document 24's `exposure.set_span`. B-12a.
+    ///
+    /// The whole ordered list is the unit of change, for the reason [`Command::SetMask`] gives.
+    /// Document 20 requires "the unique ExposureSpan" covering a frame, which is a property of
+    /// the list rather than of any one span in it: a command that added one span at a time
+    /// would have to pass through overlapping states this build rejects to reach an ordering
+    /// that is legal, and rejecting the step would make the destination unreachable.
+    ///
+    /// Document 24 named this ID and no command existed for it. This is the second such
+    /// omission after `property.set_base`, and it is registered here rather than assumed.
+    SetExposureSpans {
+        composition: Id,
+        layer_id: Id,
+        spans: Vec<ExposureSpan>,
+    },
     /// Set or clear a layer's polygon mask. B-06.
     ///
     /// The whole mask is the unit of change, not a vertex, because document 19 makes
@@ -162,6 +178,7 @@ impl Command {
             Command::SetKeyframe { .. } => "SET_KEYFRAME",
             Command::RemoveKeyframe { .. } => "REMOVE_KEYFRAME",
             Command::SetMatte { .. } => "SET_MATTE",
+            Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
             Command::SetMask { .. } => "SET_MASK",
             Command::AddEffect { .. } => "ADD_EFFECT",
             Command::RemoveEffect { .. } => "REMOVE_EFFECT",
@@ -199,6 +216,11 @@ impl Command {
                 Some(id) => format!("Set matte to {id}"),
                 None => "Clear matte".to_string(),
             },
+            Command::SetExposureSpans { spans, .. } => match spans.len() {
+                0 => "Clear the exposures".to_string(),
+                1 => "Set one exposure".to_string(),
+                n => format!("Set {n} exposures"),
+            },
             Command::SetMask { mask, .. } => match mask {
                 Some(m) => format!("Set mask of {} points", m.vertices.len()),
                 None => "Clear mask".to_string(),
@@ -235,6 +257,7 @@ impl Command {
             | Command::SetKeyframe { composition, .. }
             | Command::RemoveKeyframe { composition, .. }
             | Command::SetMatte { composition, .. }
+            | Command::SetExposureSpans { composition, .. }
             | Command::SetMask { composition, .. }
             | Command::AddEffect { composition, .. }
             | Command::RemoveEffect { composition, .. }
@@ -258,6 +281,7 @@ impl Command {
             | Command::SetPropertyBase { layer_id, .. }
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
+            | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
@@ -302,6 +326,7 @@ impl Command {
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
+            | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
             | Command::AddEffect { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
@@ -401,6 +426,12 @@ impl Document {
     }
     pub fn undo_labels(&self) -> Vec<&str> {
         self.undo.iter().map(|r| r.label.as_str()).collect()
+    }
+    /// Newest first, so the first entry is the label a Redo button should carry. The undo side
+    /// is oldest first because a history panel reads downwards; this one has no panel and only
+    /// ever answers "what would Redo do next".
+    pub fn redo_labels(&self) -> Vec<&str> {
+        self.redo.iter().rev().map(|r| r.label.as_str()).collect()
     }
 
     /// Document 26: "If the current document state becomes byte/semantic-equivalent to the
@@ -821,6 +852,20 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 )
                 .with_remediation("Choose a layer that does not already use this one as its matte."));
             }
+        }
+        Command::SetExposureSpans {
+            layer_id, spans, ..
+        } => {
+            // Document 20's rule, checked by the same constructor the renderer and the loader
+            // use rather than by a second copy of it written here.
+            ExposureMap::new(spans.clone()).map_err(|e| {
+                reject(
+                    &format!("Those exposures cannot be used: {e}."),
+                    "Document 20: exactly one exposure span covers each frame, so spans are \
+                     ordered and do not overlap.",
+                )
+            })?;
+            layer_mut(project, &comp_id, layer_id)?.exposure_spans = spans.clone();
         }
         Command::SetMask { layer_id, mask, .. } => {
             // Document 19: a polygon mask is "an ordered list of vec2 vertices, closed by

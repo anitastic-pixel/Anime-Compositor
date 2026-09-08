@@ -25,14 +25,17 @@
 //! would be reporting the desktop's, not this program's, so the row says so instead of carrying a
 //! number.
 //!
-//! # The fixture document 08 asks for cannot be built
+//! # The fixture document 08 asks for could not be built when this was written
 //!
 //! Line 41 declares the reference fixture as "1080p, 24 fps, 240 frames, ten raster layers, two
 //! alpha mattes and three simple effect instances". The reference shot is 1080p, 24 fps and 240
 //! frames exactly. It has four raster layers, no mattes and no effects, **because mattes are B-06
-//! and effects are B-07 and both are PARKED under D-12.** The declared fixture is therefore not
-//! buildable in this build, and this is not a fixture that may be quietly substituted: a
-//! measurement of four layers is not a measurement of ten.
+//! and effects are B-07 and both are PARKED under D-12.** The declared fixture was therefore
+//! not buildable when this test was written, and it is not a fixture that may be quietly
+//! substituted: a measurement of four layers is not a measurement of ten. Both parks have
+//! since lifted and `tests/b12b_declared_fixture.rs` measures the declared fixture itself,
+//! into `verification/T-06_declared_fixture.md`; this test stays on the reference shot,
+//! which is the shot the viewer opens.
 //!
 //! What is measured is what exists, said plainly in the artifact, with the shortfall named as a
 //! registered conflict rather than absorbed. Every number below is a floor for the declared
@@ -114,84 +117,12 @@ const SCATTER: i32 = 97;
 /// a frame that costs more than this is a frame the viewer would drop.
 const FRAME_BUDGET_MS: f64 = 1000.0 / 24.0;
 
-// ---------------------------------------------------------------------------------------
-// Reading the process's memory, which is the only number here the program cannot tell us
-// ---------------------------------------------------------------------------------------
-
-/// Working set and peak working set of this process, in bytes.
-///
-/// `K32GetProcessMemoryInfo` is declared here rather than pulled in through a crate deliberately.
-/// Adding `windows-sys` as a dev-dependency would change what the build resolves, and
-/// `docs/DEPENDENCIES.md`, `Licenses/` and `tools/archive_licenses.py --check` are all keyed to
-/// that resolution — a licence archive rewritten to take one measurement is a poor trade for ten
-/// lines. The function has lived in kernel32 since Windows 7, which is below the floor
-/// `docs/SUPPORTED_ENVELOPE.md` declares.
-#[cfg(windows)]
-mod process_memory {
-    /// Windows writes all ten of these; this file reads two. The rest are named rather than padded
-    /// over because the struct's layout is the contract, and `cb` is checked against its size.
-    #[repr(C)]
-    #[derive(Default)]
-    #[allow(dead_code)]
-    struct Counters {
-        cb: u32,
-        page_fault_count: u32,
-        peak_working_set_size: usize,
-        working_set_size: usize,
-        quota_peak_paged_pool_usage: usize,
-        quota_paged_pool_usage: usize,
-        quota_peak_non_paged_pool_usage: usize,
-        quota_non_paged_pool_usage: usize,
-        pagefile_usage: usize,
-        peak_pagefile_usage: usize,
-    }
-
-    #[allow(non_snake_case)]
-    extern "system" {
-        fn GetCurrentProcess() -> isize;
-        fn K32GetProcessMemoryInfo(process: isize, counters: *mut Counters, cb: u32) -> i32;
-    }
-
-    /// `(working set, peak working set)` in bytes, or `None` if the call refused.
-    pub fn read() -> Option<(usize, usize)> {
-        let mut counters = Counters {
-            cb: std::mem::size_of::<Counters>() as u32,
-            ..Default::default()
-        };
-        // Read `cb` out before the call: passing `&mut counters` and `counters.cb` as two
-        // arguments of one call is a borrow of the whole struct alongside a read of part of it.
-        let cb = counters.cb;
-        // Safety: `counters` is a live, correctly sized `PROCESS_MEMORY_COUNTERS` and `cb` is its
-        // size; the pseudo-handle from `GetCurrentProcess` needs no closing.
-        let ok = unsafe { K32GetProcessMemoryInfo(GetCurrentProcess(), &mut counters, cb) };
-        (ok != 0).then_some((counters.working_set_size, counters.peak_working_set_size))
-    }
-}
-
-#[cfg(not(windows))]
-mod process_memory {
-    pub fn read() -> Option<(usize, usize)> {
-        None
-    }
-}
-
-/// The working set, or 0 if this platform will not say. A zero here is visible in the artifact as a
-/// zero rather than as a plausible number.
-fn working_set() -> usize {
-    process_memory::read().map_or(0, |(now, _)| now)
-}
-
-fn peak_working_set() -> usize {
-    process_memory::read().map_or(0, |(_, peak)| peak)
-}
+mod common;
+use common::{peak_working_set, repo, working_set};
 
 // ---------------------------------------------------------------------------------------
 // The workload
 // ---------------------------------------------------------------------------------------
-
-fn repo(rel: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel)
-}
 
 fn root() -> PathBuf {
     repo("Fixtures/reference_shot")
@@ -525,18 +456,21 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize) {
     );
 
     s.push_str(
-        "\n## The fixture this could not use\n\n\
+        "\n## The fixture this file could not use, and the one that has since been built\n\n\
          Document 08 line 41 declares the reference fixture as *\"1080p, 24 fps, 240 frames, ten \
          raster layers, two alpha mattes and three simple effect instances\"*. The reference shot \
          is 1080p, 24 fps and 240 frames exactly, and it has **four raster layers, no mattes and \
-         no effects**, because mattes are B-06 and effects are B-07 and both are PARKED under \
-         D-12.\n\n\
-         The declared fixture is therefore not buildable in this build. Nothing below is a \
-         measurement of it. Every figure here is a **floor** for that fixture rather than an \
-         estimate of it: six more layers cost more, and the two parked features are the two \
-         document 08 itself says need bounds expansion and a second evaluation of alpha. This is \
-         registered as **D-41** rather than absorbed, and it stays registered until a park lifts \
-         or the owner amends line 41.\n",
+         no effects**, because mattes were B-06 and effects were B-07 and both were PARKED under \
+         D-12 when this was measured.\n\n\
+         Nothing below is a measurement of the declared fixture. Every figure here is a **floor** \
+         for it rather than an estimate of it: six more layers cost more, and the two parked \
+         features are the two document 08 itself says need bounds expansion and a second \
+         evaluation of alpha. That gap is registered as **D-41**.\n\n\
+         **B-06 and B-07 have both since landed, and the declared fixture has been built and \
+         measured.** It is `verification/T-06_declared_fixture.md`, and it is the file to read \
+         for what document 08's own fixture costs - it is about nine times the frame. This file \
+         stays what it is, the reference shot's own numbers, because the reference shot is what \
+         the viewer actually opens.\n",
     );
 
     // --- Ten loops. ---------------------------------------------------------------------------
@@ -738,8 +672,10 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize) {
          | Cold-render throughput | The first loop above |\n\
          | Peak RAM | Peak working set above |\n\
          | Peak VRAM | **Not measurable**: there is no GPU path in this build |\n\
-         | The ten-layer, two-matte, three-effect fixture | **Not buildable**: B-06 and B-07 are \
-         parked under D-12. Every figure here is a floor, not an estimate. D-41 |\n\n\
+         | The ten-layer, two-matte, three-effect fixture | **Not this file's workload**: it \
+         was parked under D-12 when this was measured. Built and measured since, in \
+         `verification/T-06_declared_fixture.md`. Every figure here is a floor for it, not \
+         an estimate. D-41 |\n\n\
          ## Two checks on the cache that every number above rests on\n\n\
          Every figure in this file is read out of the cache, so a fault in the cache's own \
          accounting would move all of them at once without failing anything. A mutation pass found \

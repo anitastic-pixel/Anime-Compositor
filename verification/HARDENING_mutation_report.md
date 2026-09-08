@@ -9,11 +9,19 @@ way round, a step skipped. The build is then run. If the tests still pass, the m
 have reached the owner unnoticed, and the fixture is too weak. Every break is undone
 immediately afterwards; nothing here is left in the code.
 
-The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixture is fixed,
+The rule every pass here follows: **if a break survives, the fixture is fixed,
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**281 breaks were made across twenty-seven units. All 281 were caught.**
+**329 breaks were made across thirty units. 326 of them are caught by the tests as they stand
+today; three are not, and are named.**
+
+Twenty-six were not caught the first time. Each of those was closed by a new check or a
+strengthened fixture before its pass was written up, and each row says which - the table records
+what the break did when it was made and what catches it now, so a reader can see where the
+fixtures were weak. The three that remain are all in one function, `fn command`, which needs a
+running application to be called at all; the twentieth pass names them and says which window
+behaviour stands in for them, rather than claiming a check that does not exist.
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -93,8 +101,11 @@ the sample grid out of the implementation it was written to argue with - and the
 not a weak fixture at all but a hole in ADR-016, which had chosen a fill rule and said nothing
 about a sample lying exactly on the outline. The twentieth is B-07, the effect stack, the second
 of the two: 24 breaks, one of which got through, and all twenty-four caught afterwards. The
-survivor is the only one of the 281 breaks in this report that was invisible because
-every picture the fixture blurred was transparent where it mattered.
+survivor is the only one of the 305 breaks in this report that was invisible because
+every picture the fixture blurred was transparent where it mattered. The twenty-first is B-12a,
+the editing window - the panels W-01 walks an artist through, which is the first unit in this
+report that computes no pixels at all: 24 breaks, all caught, none through, and its own section
+below on what a toggle that cannot toggle does to a table.
 
 
 ## B-02 colour and alpha
@@ -989,6 +1000,234 @@ one tolerance in the two new rows is stated in the test beside it: the alpha sum
 four decimal places rather than six, because it is 64 single-precision additions, and the break it
 exists to catch misses by 132 units rather than by a rounding error. The table grew from 58 checks
 to 60.
+
+## B-12a the editing window: the panels W-01 is walked through
+
+`app/src/main.rs` - `edit_command` and the helpers it calls - checked by the `editing` and
+`serving` tests, whose tables are `verification/B-12a_editing_table.md`,
+`B-12a_transform_table.md`, `B-12a_effects_table.md`, `B-12a_matte_table.md`,
+`B-12a_media_table.md`, `B-12a_inspect_table.md` and `B-12a_relink_table.md`.
+
+**24 of 24 breaks caught, none through.**
+
+This is the window itself: the layer list, the transform inspector, the effects panel, the matte,
+the media bin and the exposure sheet, the two ways of looking at a frame without changing it, and
+relinking. None of it computes a pixel - every one of these commands only turns a click into one
+of the core's commands - so the mistakes worth making here are the ones where the right thing
+happens to the wrong layer, or the right sentence is said about something that did not happen.
+The breaks are all of that kind: a toggle that always sets rather than flips, a parameter read
+under a name the page does not send, a value taken twice, a proposal agreed to that nobody
+proposed.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| W1 | A new layer goes to the back of the picture instead of the front | yes | `a new layer is added in front of the ones already there`, and nine more |
+| W2 | Moving a layer forward leaves it where it was | yes | `moving a layer forward puts it one place nearer the front` |
+| W3 | The visibility toggle always turns a layer on rather than flipping it | yes | `hiding a visible layer switches it off` |
+| W4 | The lock toggle always unlocks | yes | `locking a layer locks it`, and every row about what a locked layer refuses |
+| W5 | Rename reads a parameter the page does not send | yes | `renaming changes the name and nothing else` |
+| W6 | A two-number property takes its first number twice | yes | `typing a position says what it set, in the words undo will use`, and eight more, including the drag rows |
+| W7 | Clearing the matte sets a matte with no name instead of none | yes | `clearing the matte says so` and `and the layer is shaped by nothing again` |
+| W8 | Whether the matte layer is still drawn in its own right is read the wrong way round | yes | `and the panels are given it back, with the matte layer still drawn in its own right` |
+| W9 | The exposure sheet is left in the order the rows were typed instead of frame order | yes | `two exposures cannot cover one frame`, which is document 20's rule refusing a sheet that is legal but out of order |
+| W10 | An exposure moved along the sheet leaves a copy of itself behind | yes | `moving an exposure to another frame moves it rather than copying it` |
+| W11 | Exposing a drawing the sequence has not got is not mentioned | yes | `exposing a drawing that is not in the sequence is allowed and said` |
+| W12 | A gap in an imported sequence is not reported | yes | `importing a sequence with a gap says how many drawings arrived and what is missing` |
+| W13 | An imported drawing is recorded by the path the dialog gave, unnormalised | yes | `and it is written with forward slashes, so the project can be handed over` |
+| W14 | A new effect goes to the front of the stack instead of the end | yes | `and it goes on the end of the stack, which is where it is evaluated last` |
+| W15 | Bypassing an effect always switches it on | yes | `bypassing an effect says so` |
+| W16 | A setting the panel did not send is filled in with zero | yes | `a setting left out is refused rather than filled in from a default` |
+| W17 | The alpha view leaves the alpha channel in the picture it draws | yes | `a pixel that is half transparent is drawn as the grey half way up (expected 128, 128, 128, 255, got 128, 128, 128, 128)` |
+| W18 | The alpha view shows the red channel rather than the alpha channel | yes | `a pixel that is half transparent is drawn as the grey half way up (expected 128, 128, 128, 255, got 255, 255, 255, 255)` |
+| W19 | The page is always told the transparency grid is on | yes | `the frame says the grid is off (expected false, got true)` |
+| W20 | A relink is applied whatever sequence it was proposed for | yes | `a proposal about one sequence cannot be applied to another` |
+| W21 | Dropping a relink says it was dropped and keeps it | yes | `the panel goes with it` and `and dropping a second time has nothing to drop` |
+| W22 | The size of the drawings a sequence points at now is never read, so nothing is ever compared | yes | `relinking a sequence that can be read says what size it is now and what size it would become` |
+| W23 | Straight alpha is described to the person as premultiplied | yes | `and says the alpha is read the way this project already reads it, because a PNG does not say` |
+| W24 | The drawing a relink would leave missing is not named | yes | `choosing the replacement drawings answers with what relinking would do` |
+
+Nothing survived, so nothing was added and no fixture was changed. Two things about the result are
+worth putting on the page anyway.
+
+The first is that the breaks with the widest blast radius were the two toggles, W3 and W4. Each is
+one character - `!layer.enabled` becoming `true` - and each turns a switch into a button that can
+only be pressed one way. W4 failed thirteen rows rather than one, because every row about what a
+locked layer refuses stops meaning anything once nothing can be locked. That is the shape a lock
+bug has in real life too: it does not look like a lock that is broken, it looks like a lock that
+is never on.
+
+The second is W9, the exposure sheet left unsorted. It was caught, but not by a row about order -
+it was caught by document 20's own rule, in the core, refusing a sheet whose spans were out of
+sequence. That is the right answer and it is also a reminder of where the rule lives: this window
+builds a list and hands it over, and the thing that decides whether an exposure sheet is legal is
+`ExposureMap::new` and nothing here.
+
+## What this pass did not cover, in this window
+
+The dialogs. Every file the window opens, imports or relinks to is chosen in an operating-system
+dialog, and no test in this project has hands to answer one. Every row in every B-12a table begins
+at the selection a person made, and the buttons that open the dialogs are checked only by the
+photographs.
+
+The page. `app/ui/index.html` is not broken by anything in this pass: these breaks are all made
+in Rust. It is broken by the pass after it, in the section below - which button sends which
+command, and which key presses which button, are both read out of the page now. What the panels
+draw from the state they are given is still checked only by the owner looking at the window, which
+is what B-12 is for.
+
+## B-12b the page itself: which button sends which command, and which key presses which button
+
+`app/ui/index.html`, checked by the `contract` tests in `app/src/main.rs`, whose tables are
+`verification/B-12b_page_table.md`, `B-12b_command_map_table.md` and
+`B-12b_text_coalescing_table.md`.
+
+**12 of 14 breaks caught first time. Both survivors are closed; the nineteenth pass says how.**
+
+The paragraph below this section used to say that the page could not be broken on purpose because
+it had no test at all. It has one now, and this is the first time the file a person actually
+clicks on has been broken deliberately. Nothing in this pass runs a browser: the tests read the
+page as text, so the breaks are the ones that reading can see - a button wired to the wrong
+command, a command nothing answers, a shortcut on the wrong key, a field that sends on every
+keystroke instead of when it is committed.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| P1 | Delete layer sends `layer.remove`, which the window has never heard of | yes | the window answers `layer.remove` - nothing, the window has never heard of it - and two more |
+| P2 | Forward and Back both move a layer back | yes | the Forward control sends `layer.move_up` |
+| P3 | Undo redoes | yes | the Undo control sends `edit.undo` |
+| P4 | Alpha only turns the transparency grid off instead | yes | the Alpha only control sends `viewer.toggle_alpha` |
+| P5 | The transparency grid button asks for `viewer.grid`, which is not a command | yes | the window answers `viewer.grid`, and two more |
+| P6 | Export is bound to Ctrl+E rather than the Ctrl+M document 24 names | yes | `and Ctrl+M is bound` (expected yes, got no, though the command is built) |
+| P7 | The Ctrl+I arm is deleted, so importing has no shortcut | yes | `and Ctrl+I is bound` |
+| P8 | Ctrl+Z redoes and Ctrl+Shift+Z undoes | yes | `and Ctrl+Shift+Z is bound` |
+| P9 | An effect's settings are sent on every keystroke | yes | `no field in the page sends anything while a key is being pressed` |
+| P10 | A transform number is sent on every keystroke | yes | `no field in the page sends anything while a key is being pressed` |
+| P11 | Clicking away from a rename throws the new name away | yes | a layer's name is committed by losing focus, and sends `layer.rename` |
+| P12 | A name committed unchanged is sent anyway, and is an undo entry | yes | `and a name committed unchanged sends nothing at all` |
+| P13 | The Forward button is renamed in the markup and nowhere else | **no, first time** | after the row was added: `every control the script reaches for is one the markup defines` (naming `up`) |
+| P14 | Delete presses the Forward button instead of Delete layer | **no, first time** | after `PRESSES` was added: `and Delete presses` (expected `$('dellayer')`, got `$('up')`) |
+
+## Nineteenth pass: the two that got through, and what was added
+
+Both survivors are the same mistake seen from two sides: the table checked that the page *says*
+something and never checked what that something is attached to.
+
+**P13, the button renamed in one place.** Changing `<button id="up">` to `<button id="upward">`
+and leaving the handler saying `$('up')` passed every row. Nothing in the table had ever read the
+markup - the identifier rows, the wiring rows and the shortcut rows all read the script, and the
+script was untouched. In the window this is a Forward button that does nothing when clicked, with
+no error anywhere, which is the same failure P1 was written to catch and arrived at from the other
+end. What was added is one row that reads both halves at once: every name the script reaches for
+with `$('…')` has to be a name the markup defines. It fails P13 by naming `up`.
+
+**P14, the shortcut moved to the wrong button.** The shortcut rows ask whether a key is tested for
+somewhere in the accelerator handler, and moving Delete onto the Forward button leaves the key
+test exactly where it was. What was added is `PRESSES`: for each accelerator that works by
+pressing a button, the test slices the arm that key opens - from its test to the next `else if` -
+and reads which control that arm reaches for. Ten accelerators are covered and the row names the
+control, so the table now says `and Delete presses $('dellayer')` rather than `and Delete is
+bound`.
+
+Two things about the twelve that were caught are worth putting on the page.
+
+The first is that P9 and P10, the two per-keystroke breaks, were both caught by the same row, and
+that row is a search for the word `oninput` anywhere in the file. That is a blunt instrument and
+it is deliberately blunt: document 26's rule is a property of the whole page rather than of any
+one field, so the check is that no field anywhere is wired to the event that fires per keystroke.
+The three rows beside it, which pin each typed field to its own handler, are the precise half.
+
+The second is a weakness the pass found, wrote down rather than fixed, and that is now fixed.
+Two of those three rows used to look for the identical text `input.onchange = send;`, because the
+effect settings and the exposure fields were written the same way. Breaking one left the other's
+copy of that string in the file, so the rows could not tell which field was broken - P9 was
+caught by the blunt `oninput` row and not by the row that names the field. The two handlers are
+now named for what they send, `sendSpan` and `sendParameters`, and each row looks for its own.
+Re-running both breaks against the page as it stands today fails the row that names the field:
+P9 fails `an exposure's frames is committed by losing focus, and sends exposure.set_span`, and
+P10 fails `an effect's settings is committed by losing focus, and sends effect.set_parameters`.
+The change is two identifiers in `app/ui/index.html` and it was made for a test, which is worth
+saying out loud: the reason it is worth making is that a name saying which command a handler
+sends is a better name than `send` either way.
+
+## What this pass did not cover, on the page
+
+The browser. Every row is string matching over JavaScript. It can see that a handler names a
+command and that the control it reaches for exists in the markup; it cannot see that the control
+is on the screen, that it is enabled, that a click reaches the handler, or that the panel drew the
+value the state actually holds. Anything that goes wrong between the file being correct and the
+window behaving is invisible here, and what stands in for it is the photographs in
+`verification/B-12a_window_and_keyboard.md` and the owner's own run under B-12.
+
+The panels. What the page *draws* - the layer rows, the inspector, the effect stack, the exposure
+sheet - is not read by any of these tests. They cover the outward half, the requests the page
+sends, and say nothing about the half that turns a state document into what is on screen. That
+half is judged by looking at it.
+
+## B-12c the routing layer: which request the command layer answers and which the window keeps
+
+`fn command` and `fn edit_command` in `app/src/main.rs`, checked by the `contract` test whose
+table is `verification/B-12b_routes_table.md`.
+
+**6 of 10 breaks caught first time. One more is closed; the other three are in a function no
+test can call, and the twentieth pass says what stands in for them.**
+
+This is the path that failed in the built window on 2026-09-07 while every test passed: the
+command layer answered identifiers it had never heard of, so Open, Save, Save As, Export, the
+recent list and recovery were all swallowed before the window saw them. The person could edit
+and could not save. The pass breaks that hand-off deliberately, and it also breaks the two
+decisions the hand-off leans on - how a query string is read, and what the one query string that
+reaches the disk means.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| R1 | The command layer claims `save` as one of its own | yes | `/save` is left alone by the command layer |
+| R2 | The written-down list is deleted, so the command layer answers anything | yes | all eight shell routes, all four nonsense identifiers, and eleven of document 24's unbuilt commands |
+| R3 | A route is matched after only its leading slashes are trimmed | **no** | nothing failed |
+| R4 | The export override ignores the case of the word | yes | what an export asked for with `missing=Write` does with a missing drawing |
+| R5 | A missing drawing is written by default instead of blocking the export | yes | the same row and three more |
+| R6 | A query parameter is found by name anywhere in a pair rather than at its start | **no, first time** | after the case was added: `` `?matte_layer=layer-9&layer=layer-2` gives `layer` `` (expected layer-2, got layer-9) |
+| R7 | The sentence for an unknown route forgets to name Save As | yes | the answer to a route that does not exist names the routes that do |
+| R8 | Cancelling an export is no longer a route the window answers | **no** | nothing failed |
+| R9 | An escape that is not an escape eats the next two characters | yes | `tests::japanese_survives_the_journey_back` (`50%f it`, not `50% of it`) |
+| R10 | Importing with no files named goes to the command layer instead of the file dialog | **no** | nothing failed |
+
+## Twentieth pass: the four that got through, and what was added
+
+R6 is a real hole and was closed. The other three are all the same thing, and it is not a hole
+that a new row can close.
+
+**R6, the parameter found in the wrong half of the pair.** Reading `layer=` anywhere inside a
+pair rather than at its start passed every row, because no case in the table had two parameters
+whose names end the same way. `matte_layer` is one this window actually sends, so the break is a
+matte assignment that reads back the other sequence's identifier - the wrong layer used as a
+matte, no error anywhere. What was added is one case, `?matte_layer=layer-9&layer=layer-2`,
+which must answer `layer-2`. It fails the break by name.
+
+**R3, R8 and R10 are `fn command` itself**, and nothing in this project can call it. It takes a
+running application handle, because three of its routes open a Windows file dialog and one
+reloads the page. What the table checks is every decision the function makes - the hand-off, the
+list of routes the refusal names, how a query is read, what the export override means - each
+called directly. The body that strings those decisions together is not covered, so trimming a
+route wrongly, deleting an arm from its match, or inverting the condition that sends an import
+to the dialog are all invisible here. They are visible immediately in the window: they are the
+Cancel button doing nothing and the Import button doing nothing, which is what B-12's owner run
+and the photographs in `verification/B-12a_window_and_keyboard.md` are for.
+
+R9 is worth a line for the opposite reason. The break was aimed at this table and was caught by
+a test written months earlier for a Japanese layer name, which is the round trip through a query
+string arriving at the same code from the other end. Nothing was added.
+
+## What this pass did not cover, in the routing layer
+
+The dialogs. Import, Save As and Export hand the request to Windows before any of this project's
+code runs again, and no test here has hands to answer a file dialog. What is checked is that the
+request reaches the shell; what happens after the dialog is `verification/B-09_save_table.md`
+and `verification/B-10_export_table.md`.
+
+The response. Every row checks the decision, not the bytes: no row reads a content type, a
+status code or the header that carries the status sentence back to the page. A build that
+answered every route correctly and set the wrong content type would pass this table completely,
+and what stands in for it is the window itself.
 
 ## First pass: the six that got through, and what was added
 
