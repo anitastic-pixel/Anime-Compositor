@@ -148,7 +148,10 @@
   #inspector #addeffect, #inspector #addexposure { margin-top: 8px; }
   /* One row per exposure span, in frame order: which frames it covers and which drawing they
      show. This is the exposure sheet W-01 asks the artist to assign, in the panel. */
-  .exposure { display: flex; align-items: baseline; gap: 4px; margin-bottom: 4px; }
+  /* Wrapping, because the column is narrow and a row that cannot wrap makes the whole
+     inspector scroll sideways instead: the photograph of the effects panel found
+     "show drawing" cut off at the column's edge. */
+  .exposure { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin-bottom: 4px; }
   .exposure span { color: #8b8b94; }
   .exposure input[type=number] { width: 4.5em; }
   .exposure .gone { color: #e8b06a; }
@@ -1024,6 +1027,13 @@ addEventListener('keydown', (e) => {
   // to save rather than start playback, and an arrow on the recent list has to move through the
   // list. Everything else falls through to the accelerators, which are for when nothing in
   // particular is focused.
+  //
+  // And a key a control has already answered is finished with. A row in one of the lists is an
+  // `li`, which the search below does not match and cannot be made to match without matching
+  // every other element too; its own handler answers Space by choosing the row and says so by
+  // preventing the default. Without this line the same press also reached the accelerators and
+  // started playback, which is a photograph of a layer being selected and the shot playing.
+  if (e.defaultPrevented) return;
   const el = e.target instanceof Element
     ? e.target.closest('button, select, input, .scrub, [contenteditable]') : null;
   const typing = renaming || (el && el.tagName === 'INPUT' && el.type !== 'checkbox');
