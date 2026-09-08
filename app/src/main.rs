@@ -1859,6 +1859,20 @@ fn parameters(query: Option<&str>, name: &str) -> Vec<String> {
         .collect()
 }
 
+/// Whether this export writes the frames whose drawings are missing.
+///
+/// Document 07's default is that a missing drawing blocks a final export. `?missing=write` is the
+/// person overriding it in front of the checkbox that says what it does, which is document 28's
+/// recorded override rather than a silent fallback. Written down as its own function because it
+/// is the one place in this file where a query string decides what reaches the disk: everything
+/// that is not exactly `write` blocks, and that has a table row of its own.
+fn missing_source(query: Option<&str>) -> MissingSource {
+    match parameter(query, "missing").as_deref() {
+        Some("write") => MissingSource::RenderTransparent,
+        _ => MissingSource::Block,
+    }
+}
+
 fn parameter(query: Option<&str>, name: &str) -> Option<String> {
     let prefix = format!("{name}=");
     query
@@ -2124,11 +2138,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
         // is the person overriding it in front of the checkbox that says what it does, which is
         // document 28's recorded override rather than a silent fallback.
         "export" => {
-            let missing = match parameter(query, "missing").as_deref() {
-                Some("write") => MissingSource::RenderTransparent,
-                _ => MissingSource::Block,
-            };
-            ask_where_to_export(app, missing);
+            ask_where_to_export(app, missing_source(query));
             String::new()
         }
         "cancel-export" => cancel_export(app),
@@ -7067,6 +7077,458 @@ mod contract {
          26 read the other way: many requests, one entry. Without it a reader has no way to see \
          that three entries for three committed settings is the intended answer rather than the \
          same defect in the other direction.",
+    ];
+
+    // ---- what the panels draw ------------------------------------------------------------------
+
+    /// The variables the page reads project data out of, and where each one comes from in the
+    /// answer `/state` gives.
+    ///
+    /// The fields themselves are not written down here. They are read out of the page, so a panel
+    /// that starts reading something new is checked from the moment it does rather than when
+    /// somebody remembers to add a row.
+    const READ_FROM: &[(&str, &str)] = &[
+        ("doc", "the whole answer"),
+        ("comp", "the composition on screen"),
+        ("layer", "one of its layers"),
+        ("asset", "one sequence in the media bin"),
+        ("span", "one exposure on a layer"),
+        ("fx", "one effect in a layer's stack"),
+    ];
+
+    /// Words that follow a dot in this page and are not fields of the project.
+    ///
+    /// Every one of them is JavaScript's own - a method or a property of the language rather than
+    /// of the document. Kept short deliberately: anything not on this list is treated as a field
+    /// the panels read, so the mistake this list can make is letting a check through, never
+    /// inventing one.
+    const NOT_OURS: &[&str] = &[
+        "concat", "every", "filter", "find", "forEach", "includes", "indexOf", "join", "length",
+        "map", "push", "slice", "some", "sort", "split", "has", "trim", "toFixed", "value",
+    ];
+
+    /// Every `<var>.<field>` the page reads, for one variable name.
+    ///
+    /// The character in front of the name is what separates a field read from a command
+    /// identifier: `layer.move_up` inside `onSelected('layer.move_up')` follows a quote, and
+    /// `'/layer.create?asset='` follows a slash. Neither is a field.
+    fn fields_read(page: &str, var: &str) -> Vec<String> {
+        let needle = format!("{var}.");
+        let mut found = Vec::new();
+        for (at, _) in page.match_indices(&needle) {
+            let before = page[..at].chars().next_back().unwrap_or(' ');
+            if before == '/'
+                || before == '\''
+                || before == '.'
+                || before == '_'
+                || before.is_alphanumeric()
+            {
+                continue;
+            }
+            let rest = &page[at + needle.len()..];
+            let end = rest
+                .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+                .unwrap_or(rest.len());
+            let field = &rest[..end];
+            if field.is_empty() || NOT_OURS.contains(&field) {
+                continue;
+            }
+            found.push(field.to_string());
+        }
+        sorted(found)
+    }
+
+    /// A layer of the answer, by identifier.
+    fn layer_of<'a>(answer: &'a serde_json::Value, id: &str) -> &'a serde_json::Value {
+        let comp = answer["project"]["compositions"]
+            .as_array()
+            .expect("the answer holds a list of compositions")
+            .iter()
+            .find(|c| c["id"] == answer["composition"])
+            .expect("the composition the viewer says is on screen");
+        comp["layers"]
+            .as_array()
+            .expect("the composition holds a list of layers")
+            .iter()
+            .find(|l| l["id"] == id)
+            .unwrap_or_else(|| panic!("no layer {id} in the composition"))
+    }
+
+    #[test]
+    fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
+        let mut report = Report { rows: Vec::new() };
+        let page = page();
+        let viewer = Mutex::new(demo());
+        // The reference shot carries no effect and no matte, because nothing in it needs one, and
+        // those are the two panels most likely to be reading a name that has moved. They are put
+        // there with the same commands a person would use.
+        for kind in ["core.gaussian_blur", "core.exposure", "core.tint"] {
+            run(&viewer, &format!("effect.add?layer=layer-3&type={kind}"));
+        }
+        run(
+            &viewer,
+            "layer.set_matte?layer=layer-3&matte=layer-2&only=false",
+        );
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+        let layer = layer_of(&answer, "layer-3");
+
+        let node = |var: &str| -> serde_json::Value {
+            match var {
+                "doc" => answer.clone(),
+                "comp" => {
+                    let mut comp = answer["project"]["compositions"]
+                        .as_array()
+                        .expect("compositions")
+                        .iter()
+                        .find(|c| c["id"] == answer["composition"])
+                        .expect("the composition on screen")
+                        .clone();
+                    // The page reads `comp.layers`, which is there; nothing else of the
+                    // composition is read by name today.
+                    comp["layers"] = comp["layers"].clone();
+                    comp
+                }
+                "layer" => layer.clone(),
+                "asset" => answer["project"]["assets"][0].clone(),
+                "span" => layer["exposure_spans"][0].clone(),
+                "fx" => layer["effects"][0].clone(),
+                other => panic!("no node for {other}"),
+            }
+        };
+
+        for (var, where_from) in READ_FROM {
+            let holds = node(var);
+            let fields = fields_read(&page, var);
+            report.check(
+                &format!(
+                    "the panels read {} field{} out of {where_from}",
+                    fields.len(),
+                    match fields.len() {
+                        1 => "",
+                        _ => "s",
+                    }
+                ),
+                true,
+                !fields.is_empty(),
+            );
+            for field in fields {
+                report.check(
+                    &format!("`{var}.{field}` is in the answer"),
+                    "present",
+                    match holds.get(&field) {
+                        Some(_) => "present".to_string(),
+                        None => format!("missing - the panel would draw nothing for {field}"),
+                    },
+                );
+            }
+        }
+
+        // Three reads the loop above cannot see, because they are one level further in and the
+        // page reaches them through a local name rather than through `layer`.
+        for prop in ["anchor", "position", "scale", "rotation", "opacity"] {
+            report.check(
+                &format!("`layer.transform.{prop}.base` is in the answer"),
+                "present",
+                match layer["transform"][prop].get("base") {
+                    Some(_) => "present",
+                    None => "missing - the inspector would show an empty field",
+                },
+            );
+        }
+        for field in ["layer_id", "matte_only"] {
+            report.check(
+                &format!("`layer.matte.{field}` is in the answer"),
+                "present",
+                match layer["matte"].get(field) {
+                    Some(_) => "present",
+                    None => "missing - the matte row would forget which layer it is",
+                },
+            );
+        }
+
+        // The mask, which no command in this build can make: the panel says how many points a
+        // layer's mask has, and the only way to have one is to open a project that carries one.
+        // A wrong name here would not be a blank field, it would be `undefined points`.
+        let with_a_mask = std::fs::read_to_string(repo("Fixtures/projects/cel_holds_project.json"))
+            .expect("read the cel-holds fixture")
+            .replace(
+                "\"mask\": null",
+                "\"mask\": { \"vertices\": [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0]], \
+                 \"enabled\": true, \"inverted\": false }",
+            );
+        let loaded = persist::load_str(&with_a_mask).expect("a project carrying a mask opens");
+        let written: serde_json::Value = serde_json::from_str(&persist::to_json(
+            loaded.document.project(),
+            &loaded.preserved,
+        ))
+        .expect("what a save would write is JSON");
+        report.check(
+            "`layer.mask.vertices` is in a saved project that has a mask",
+            "present",
+            match written["compositions"][0]["layers"][0]["mask"].get("vertices") {
+                Some(_) => "present",
+                None => "missing - the inspector would say `undefined points`",
+            },
+        );
+
+        // The effect panel's own vocabulary. These are not fields of the answer, they are the
+        // names the panel puts in a request, and a name the command does not read is a field a
+        // person can type into that changes nothing.
+        for (type_id, params) in EFFECT_KINDS {
+            report.check(
+                &format!("the panel's `{type_id}` is an effect this build has"),
+                "added",
+                match run(&viewer, &format!("effect.add?layer=layer-4&type={type_id}")) {
+                    said if said.starts_with("Add ") => "added".to_string(),
+                    said => said,
+                },
+            );
+            let effects = layer_of(
+                &serde_json::from_str::<serde_json::Value>(&state(&viewer)).expect("JSON"),
+                "layer-4",
+            )["effects"]
+                .clone();
+            let instance = effects[effects.as_array().map_or(0, |e| e.len() - 1)]["instance_id"]
+                .as_str()
+                .expect("the effect just added has an identifier")
+                .to_string();
+            let sent = params
+                .iter()
+                .map(|(name, value)| format!("&{name}={value}"))
+                .collect::<String>();
+            report.check(
+                &format!(
+                    "and the settings it sends for it - {} - are the ones the command reads",
+                    params
+                        .iter()
+                        .map(|(name, _)| *name)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+                "accepted",
+                match run(
+                    &viewer,
+                    &format!("effect.set_parameters?layer=layer-4&effect={instance}{sent}"),
+                ) {
+                    said if said.starts_with("Set ") || said.starts_with("Change ") => {
+                        "accepted".to_string()
+                    }
+                    said => said,
+                },
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12b_state_fields_table.md",
+            "B-12b: what the panels read, against what the window sends them",
+            FIELDS_INTRO,
+            FIELDS_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// The effect identifiers the page's own tables name, and one full set of settings for each.
+    ///
+    /// Read off `EFFECT_PARAMS` and `EFFECT_NAMES` in the page by eye rather than by parser: this
+    /// is three effects and the parser to read a JavaScript object literal would be longer than
+    /// the list. The check is that the command reads these names, so an effect renamed on one
+    /// side and not the other fails here.
+    const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
+        ("core.gaussian_blur", &[("sigma_px", "4")]),
+        ("core.exposure", &[("stops", "0.5")]),
+        (
+            "core.tint",
+            &[("color", "0.9, 0.7, 0.5"), ("amount", "0.3")],
+        ),
+    ];
+
+    const FIELDS_INTRO: &[&str] = &[
+        "The five panels draw themselves out of one JSON answer, `/state`, whose project half is \
+         the same text a save writes. Nothing has ever checked that the names the panels read are \
+         the names the window sends. A field renamed on one side is a panel that draws a blank \
+         space: no error, no status line, nothing in the log, and a person who assumes the layer \
+         simply has no name.",
+        "This is that check, and the names are read out of `app/ui/index.html` itself rather than \
+         written down here. Every `doc.`, `comp.`, `layer.`, `asset.`, `span.` and `fx.` the page \
+         reads is looked for in a real answer from a real project, with an effect stack and a \
+         matte added by command first, because the reference shot has neither.",
+    ];
+
+    const FIELDS_NOTES: &[&str] = &[
+        "## What to look at\n\n- **`missing`** in the Actual column is the failure this table \
+         exists to catch, and it names the field. Every other row is a name the panels read and \
+         the window sends.\n- **The transform, matte and mask rows are one level further in.** \
+         The page reaches those through a local name rather than through `layer`, so the scan \
+         cannot see them and they are asked for by name.\n- **The last six rows are the other \
+         direction**: not what the panel reads, but what it sends. The effect panel builds a \
+         request out of the parameter names in its own table, so a setting renamed in the core \
+         and not in the page is a field a person can type into that changes nothing.",
+        "## What this cannot cover\n\nThat the panel draws the value correctly once it has it. \
+         This says the name resolves, not that the number is put in the right box, formatted the \
+         right way, or updated when it changes. `verification/B-12a_window_and_keyboard.md` and \
+         the photographs are what say that, and the owner's run under B-12 is what says it for \
+         real.\n\nIt also cannot see a field that is present and always null. `mask` is null on \
+         every layer of the reference shot, which is why the mask row opens a project that \
+         carries one.",
+    ];
+
+    // ---- the routes the shell owns ---------------------------------------------------------
+
+    #[test]
+    fn the_windows_own_routes_are_not_swallowed_on_the_way_past() {
+        let mut report = Report { rows: Vec::new() };
+        let source = source();
+        let viewer = Mutex::new(demo());
+
+        // The defect this test exists for. `fn command` offers every request to `edit_command`
+        // first and reads `None` as permission to try its own routes, so an `edit_command` that
+        // answers something it has never heard of takes Open, Save, Save As, Export, the recent
+        // list and recovery with it. That is what happened, it reached a photograph, and every
+        // test that saves calls `save` directly - only the window goes through this path.
+        for route in ROUTES {
+            if *route == "frame" || *route == "at" {
+                continue;
+            }
+            report.check(
+                &format!("`/{route}` is left alone by the command layer"),
+                "not mine - the shell answers it",
+                match edit_command(&viewer, route, None) {
+                    None => "not mine - the shell answers it".to_string(),
+                    Some(said) => format!("swallowed, and answered: {said}"),
+                },
+            );
+        }
+
+        // A word that is neither. Nothing may claim it, or the shell's 404 - the only thing that
+        // tells a page it asked for something that does not exist - never happens.
+        for nonsense in ["layer.remove", "save-it", "", "state/../save"] {
+            report.check(
+                &format!("`/{nonsense}`, which is nothing this window has, is refused"),
+                "not mine",
+                match edit_command(&viewer, nonsense, None) {
+                    None => "not mine".to_string(),
+                    Some(said) => format!("answered: {said}"),
+                },
+            );
+        }
+
+        // The sentence a 404 carries is the only list of routes a person or a page ever sees, and
+        // it is written by hand. This is the one check that it still names what the shell has.
+        let listed: Vec<String> = {
+            let at = source
+                .find("ask for /state,")
+                .expect("the not-found answer is in this file");
+            let rest = &source[at..];
+            sorted(after(
+                &rest[..rest.find("command IDs").unwrap_or(rest.len())],
+                "/",
+            ))
+        };
+        let shell: Vec<String> = ROUTES
+            .iter()
+            .filter(|route| **route != "frame" && **route != "at")
+            .map(|route| route.to_string())
+            .collect();
+        report.check(
+            "the answer to a route that does not exist names the routes that do",
+            shell.join(", "),
+            listed.join(", "),
+        );
+
+        // Query strings, which every command in this window arrives with. The page builds them
+        // with `encodeURIComponent`, so what comes back has to be what was typed.
+        let cases: &[(&str, &str, &str)] = &[
+            ("layer=layer%201", "layer", "layer 1"),
+            ("name=a%26b", "name", "a&b"),
+            ("name=%E7%8C%AB", "name", "猫"),
+            ("layers=1&layer=2", "layer", "2"),
+            ("start=12&drawing=", "drawing", ""),
+        ];
+        for (query, name, expected) in cases {
+            report.check(
+                &format!("`?{query}` gives `{name}`"),
+                *expected,
+                parameter(Some(query), name).unwrap_or_else(|| "(nothing)".to_string()),
+            );
+        }
+        report.check(
+            "and a name that is not in the query gives nothing at all",
+            "(nothing)",
+            parameter(Some("layer=layer-1"), "name").unwrap_or_else(|| "(nothing)".to_string()),
+        );
+
+        // The one query string in this file that decides what reaches the disk.
+        for (query, expected) in [
+            (Some("missing=write"), "RenderTransparent"),
+            (Some("missing=Write"), "Block"),
+            (Some("missing=1"), "Block"),
+            (Some("missing="), "Block"),
+            (None, "Block"),
+        ] {
+            report.check(
+                &format!(
+                    "what an export asked for with `{}` does with a missing drawing",
+                    query.unwrap_or("no query at all")
+                ),
+                expected,
+                format!("{:?}", missing_source(query)),
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12b_routes_table.md",
+            "B-12b: the routes the window answers itself",
+            ROUTES_INTRO,
+            ROUTES_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const ROUTES_INTRO: &[&str] = &[
+        "Every request from the page arrives at one function, which offers it to the command \
+         layer first and answers it itself if the command layer has never heard of it. That \
+         hand-off is the whole of the window's routing, and on 2026-09-07 it was broken: the \
+         command layer answered everything, including identifiers it did not have, so Open, \
+         Save, Save As, Export, the recent list and recovery were all swallowed on the way past. \
+         The editing window worked perfectly and the project could not be written.",
+        "No test saw it, because every test that saves calls the save function directly and only \
+         the window goes through the hand-off. This table is that path: for each route the shell \
+         owns, that the command layer leaves it alone; that a word neither of them has is refused \
+         by both; that the sentence a person gets when they ask for something that does not exist \
+         still names what does; and that a query string is read back as what was typed into it.",
+    ];
+
+    const ROUTES_NOTES: &[&str] = &[
+        "## What to look at\n\n- **`swallowed, and answered:`** in the Actual column is the \
+         defect this table was written for, and the sentence beside it is what the person would \
+         have got instead of their project being saved.\n- **The empty route** is in the list on \
+         purpose. A page can ask for `/` and something has to refuse it.\n- **`missing=Write` \
+         blocks.** The override that writes frames with drawings missing is exactly the word \
+         `write`; everything else takes document 07's default and refuses the job. A comparison \
+         that ignored case would let a typo become an export nobody asked for.",
+        "## What this cannot cover\n\nThe three routes that open a dialog. Import, Save As and \
+         Export hand the request to Windows before anything of ours runs, and no test in this \
+         project has hands to answer a file dialog. What is checked here is that the request \
+         reaches the shell at all; what happens after the dialog is \
+         `verification/B-09_save_table.md` and `verification/B-10_export_table.md`.\n\nAnd the \
+         function itself. It needs a running application to be called, so what is checked is the \
+         decision it makes rather than the response it builds: the hand-off, the list, the query \
+         reading and the export override are each called directly.",
     ];
 
     fn cell(text: &str) -> String {
