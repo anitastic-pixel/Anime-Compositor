@@ -12,13 +12,13 @@ cargo build -p anime_compositor_app --release
 powershell -ExecutionPolicy Bypass -File tools/package.ps1
 ```
 
-`target/package/AnimeCompositor-0.1.0/`, and a zip of the same, 3.7 MB:
+`target/package/AnimeCompositor-0.1.0/`, and a zip of the same, 3.9 MB:
 
 | In the folder | Size | What it is |
 | --- | --- | --- |
-| `Anime Compositor.exe` | 9.3 MB | the whole program — the interface is compiled into it, there is nothing beside it to load |
-| `READ ME FIRST.md` | 4.9 KB | `docs/SUPPORTED_ENVELOPE.md`: what it needs, what it does, what it does not do yet, and the network finding |
-| `DEPENDENCIES.md` | 44.6 KB | every crate in this build with its version and licence, generated from the build |
+| `Anime Compositor.exe` | 9.9 MB | the whole program — the interface is compiled into it, there is nothing beside it to load |
+| `READ ME FIRST.md` | 8.1 KB | `docs/SUPPORTED_ENVELOPE.md`: what it needs, what it does, what it does not do yet, and the network finding |
+| `DEPENDENCIES.md` | 44.2 KB | every crate in this build with its version and licence, generated from the build |
 | `LICENSE-MIT`, `LICENSE-APACHE` | 12 KB | this project's own terms, D-31 |
 | `Licenses/` | 486 files in 271 directories | the licence and notice text of every crate, one directory each |
 
@@ -28,6 +28,12 @@ if a single crate in the resolved graph has no directory or a single directory h
 the package copies that archive whole rather than rebuilding it. The staging script keeps the
 path below `Licenses/`, because many crates ship a file called `LICENSE-MIT` and flattening them
 into one folder would keep one and silently lose 270.
+
+**These are the sizes of a package staged again on 2026-09-08**, after B-12b rewrote the envelope
+document and B-12a and B-12b added to the window. Three numbers moved and nothing else did: the
+executable grew from 9.3 MB, the zip from 3.7 MB, and `READ ME FIRST.md` from 4.9 KB, which is
+the rewritten envelope. The crate count, the licence archive and the file list are unchanged, and
+`tools/archive_licenses.py --check` still finds 271 crates and 271 directories agreeing.
 
 ## What this is not
 
@@ -44,7 +50,7 @@ had a compiler on it is the check that matters and it needs a second machine. Th
 depends on and does not carry is the Microsoft Edge WebView2 Runtime, which Windows 11 includes.
 
 **Nothing here is committed.** The package is written to `target/`, which is gitignored, because
-a 3.7 MB zip rebuilt from the same inputs does not belong in the history. This file, the script
+a 3.9 MB zip rebuilt from the same inputs does not belong in the history. This file, the script
 and the envelope document are what is committed.
 
 ## What T-16 still owes
