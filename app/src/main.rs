@@ -53,6 +53,7 @@ use anime_compositor::model::{Asset, Id, Layer, Project, Prop, Value};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
 use anime_compositor::time::ExposureSpan;
+use anime_compositor::{AlphaMode, ColorSpace};
 use anime_compositor::{OutputAlpha, OutputDepth};
 use tauri::http::{Request, Response};
 use tauri::{AppHandle, DragDropEvent, Manager, WindowEvent};
@@ -115,6 +116,10 @@ struct Viewer {
     /// frame that is about to leave, after the cache has been given the frame it keeps.
     alpha_only: bool,
     checkerboard: bool,
+    /// W-02's relink, worked out and not yet agreed to. See [`PendingRelink`]. At most one at a
+    /// time: a person is answering one question, and a second proposal replaces the first rather
+    /// than queueing behind it.
+    relink: Option<PendingRelink>,
     /// B-08b: the decoded cels this preview has already paid for. Belongs to the viewer rather
     /// than to a frame because its whole purpose is to outlive one, and it is replaced along with
     /// everything else when a different project is opened, so nothing from the old one survives.
@@ -277,6 +282,22 @@ fn serve(
         .header("x-quality", viewer.quality.label())
         // What the person is looking through. The page needs both: one to draw the grid behind
         // the canvas, and one so the buttons show which view is on.
+        // W-02's proposal, if one is waiting to be agreed to. It travels with the frame like
+        // everything else the window has to say, so the panel offering it cannot outlive it.
+        .header(
+            "x-relink",
+            for_a_header(match &viewer.relink {
+                Some(pending) => &pending.said,
+                None => "",
+            }),
+        )
+        .header(
+            "x-relink-asset",
+            for_a_header(match &viewer.relink {
+                Some(pending) => pending.asset.as_str(),
+                None => "",
+            }),
+        )
         .header("x-alpha", viewer.alpha_only.to_string())
         .header("x-checkerboard", viewer.checkerboard.to_string())
         .header(
@@ -391,6 +412,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         // On, because a transparent frame that reads as black is a frame a person
         // misjudges, and every photograph of this window so far was taken with the grid there.
         checkerboard: true,
+        relink: None,
         cache: CelCache::with_budget(DEFAULT_BUDGET_BYTES),
     })
 }
@@ -877,6 +899,112 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
     }
 }
 
+/// A relink that has been worked out and is waiting to be agreed to.
+///
+/// W-02 requires the window to "present changed dimensions, frame range or alpha interpretation
+/// before applying the change", so choosing the replacement drawings and relinking to them cannot
+/// be one action: the first works out what would happen and leaves it here, and the second either
+/// applies it or throws it away. Nothing about the project changes while one of these exists.
+struct PendingRelink {
+    asset: Id,
+    /// The description the person is being asked to agree to, in the words the panel shows.
+    said: String,
+    candidate: persist::RelinkCandidate,
+}
+
+/// The size of the drawings an asset points at now, or `None` when they cannot be read.
+///
+/// Relinking is what a person does when the media has gone, so the usual case is that there is
+/// nothing to compare against. Saying that is the point: an unanswerable comparison presented as
+/// "unchanged" would be a lie in the one place W-02 asks for the truth.
+fn size_now(root: &Path, asset: &Asset) -> Option<(usize, usize)> {
+    asset
+        .frames
+        .values()
+        .find_map(|relative| media::decode_png(&root.join(relative)).ok())
+        .map(|image| (image.width(), image.height()))
+}
+
+/// Work out what relinking `asset` to `files` would do, and hold it until it is agreed to.
+fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> String {
+    let mut held = viewer.lock().expect("the viewer lock was poisoned");
+    let candidate =
+        match persist::relink_candidate(held.document.project(), asset, files, &held.root) {
+            Ok(candidate) => candidate,
+            Err(diagnostic) => return sentence(&diagnostic),
+        };
+    let existing = held
+        .document
+        .project()
+        .assets
+        .iter()
+        .find(|a| &a.id == asset)
+        .cloned()
+        .expect("relink_candidate refuses an asset that is not there");
+    let was = size_now(&held.root, &existing);
+
+    let count = candidate.asset.frames.len();
+    let numbered = match candidate.range {
+        Some((lo, hi)) => format!("{count} drawings, numbered {lo} to {hi}"),
+        None => format!("{count} drawings"),
+    };
+    let gaps = match candidate.missing.as_slice() {
+        [] => String::new(),
+        [one] => format!(", and drawing {one} would be missing"),
+        many => format!(
+            ", and {} drawings would be missing: {}",
+            many.len(),
+            spoken(many)
+        ),
+    };
+    // The three things W-02 names, each stated whether or not it changed. "Unchanged" is as much
+    // of an answer as "1920 by 1080 becomes 1280 by 720", and a person about to replace the
+    // artwork in a shot needs to be told both.
+    let size = match was {
+        Some((w, h)) if (w, h) == (candidate.width as usize, candidate.height as usize) => format!(
+            "The drawings are {}x{}, the same size as the ones it points at now.",
+            candidate.width, candidate.height
+        ),
+        Some((w, h)) => format!(
+            "The drawings are {}x{}, where the ones it points at now are {w}x{h}.",
+            candidate.width, candidate.height
+        ),
+        None => format!(
+            "The drawings are {}x{}. What it points at now cannot be read, so there is nothing \
+             to compare that with.",
+            candidate.width, candidate.height
+        ),
+    };
+    let interpretation = format!(
+        "The colour is read as {} with {} alpha, which is what this project already recorded: a \
+         PNG does not state either, so relinking does not change how the pixels are read.",
+        match candidate.interpretation.color_space {
+            ColorSpace::Srgb => "sRGB",
+            ColorSpace::LinearLight => "linear light",
+        },
+        match candidate.interpretation.alpha {
+            AlphaMode::Straight => "straight",
+            AlphaMode::Premultiplied => "premultiplied",
+        }
+    );
+    let mut said = format!(
+        "Relinking \"{}\" to {} would give it {numbered}{gaps}. {size} {interpretation} The \
+         layers using it keep their stacking, transforms, exposures, masks and effects. Nothing \
+         has changed yet.",
+        existing.name, candidate.pattern,
+    );
+    for note in candidate.diagnostics.iter().map(sentence) {
+        said.push(' ');
+        said.push_str(&note);
+    }
+    held.relink = Some(PendingRelink {
+        asset: asset.clone(),
+        said: said.clone(),
+        candidate,
+    });
+    said
+}
+
 /// The three effects of document 21, at the settings that change no pixels.
 ///
 /// Adding an effect and setting it are two commands rather than one, so that a stack can be
@@ -993,6 +1121,57 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // The one command that names files rather than anything in the project. Without any,
         // the request never reaches here: the window answers it with the operating system's
         // file dialog, which only the app handle can open.
+        // W-02, in three requests rather than one: choose the drawings, read what would change,
+        // then apply it or drop it. The middle step is the requirement - nothing about the
+        // project moves until `apply` arrives, and `cancel` leaves it pointing where it did.
+        "media.relink" => {
+            let Some(asset) = parameter(query, "asset") else {
+                return Some(
+                    "Which sequence should be relinked? Choose one in the media bin.".to_string(),
+                );
+            };
+            let asset = Id::new(&asset);
+            if parameter(query, "cancel").is_some() {
+                let waiting = viewer
+                    .lock()
+                    .expect("the viewer lock was poisoned")
+                    .relink
+                    .take();
+                return Some(match waiting {
+                    Some(_) => "The relink was dropped. The sequence still points at the \
+                                drawings it did."
+                        .to_string(),
+                    None => "There is no relink waiting to be dropped.".to_string(),
+                });
+            }
+            if parameter(query, "apply").is_some() {
+                let waiting = {
+                    let mut held = viewer.lock().expect("the viewer lock was poisoned");
+                    match held.relink.as_ref().is_some_and(|p| p.asset == asset) {
+                        true => held.relink.take(),
+                        false => None,
+                    }
+                };
+                let Some(waiting) = waiting else {
+                    return Some(
+                        "There is no relink waiting for that sequence. Choose the replacement \
+                         drawings first, so that what would change can be read before it happens."
+                            .to_string(),
+                    );
+                };
+                return Some(edit(viewer, persist::relink_command(&waiting.candidate)));
+            }
+            let files: Vec<PathBuf> = parameters(query, "file")
+                .into_iter()
+                .map(PathBuf::from)
+                .collect();
+            return Some(match files.is_empty() {
+                true => "Which drawings should the sequence point at? Choose the files \
+                         themselves, not the folder they are in."
+                    .to_string(),
+                false => propose_relink(viewer, &asset, &files),
+            });
+        }
         "media.import" => {
             let files: Vec<PathBuf> = parameters(query, "file")
                 .into_iter()
@@ -1720,6 +1899,32 @@ fn ask_what_to_import(app: &AppHandle) {
         });
 }
 
+/// Ask which drawings a sequence should point at instead, and work out what that would do.
+///
+/// Document 07: "Search only user-selected locations." Nothing here scans for a replacement; the
+/// files are the ones a person chose, and what comes back is a proposal rather than a change.
+fn ask_what_to_relink_to(app: &AppHandle, asset: Id) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Relink to these drawings")
+        .add_filter("PNG drawings", &["png"])
+        .pick_files(move |chosen| {
+            let files: Vec<PathBuf> = chosen
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|c| c.into_path().ok())
+                .collect();
+            if files.is_empty() {
+                return;
+            }
+            let viewer = handle.state::<Mutex<Viewer>>();
+            let said = propose_relink(&viewer, &asset, &files);
+            announce(&viewer, said);
+            refresh(&handle);
+        });
+}
+
 /// Ask the operating system where to write the project, then write it there.
 fn ask_where_to_save(app: &AppHandle) {
     let handle = app.clone();
@@ -1774,6 +1979,21 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
     // An import with no files named is the button in the media bin, and what it needs is the
     // operating system's file dialog, which belongs to the app handle and not to the viewer.
     // Answered before `edit_command`, which would otherwise refuse it for naming no files.
+    // The same for the first step of a relink, which needs the dialog for the same reason. The
+    // other two steps carry `apply` or `cancel` and are answered by `edit_command` below.
+    if path == "media.relink"
+        && parameter(query, "file").is_none()
+        && parameter(query, "apply").is_none()
+        && parameter(query, "cancel").is_none()
+    {
+        if let Some(asset) = parameter(query, "asset") {
+            ask_what_to_relink_to(app, Id::new(&asset));
+            return allow_the_page_to_read_this(Response::builder())
+                .header("content-type", "text/plain; charset=utf-8")
+                .body(Vec::new())
+                .expect("build the relink response");
+        }
+    }
     if path == "media.import" && parameter(query, "file").is_none() {
         ask_what_to_import(app);
         return allow_the_page_to_read_this(Response::builder())
@@ -4077,6 +4297,272 @@ mod editing {
          what W-01 imports and what the reference shot is. A single still image is a record \
          this build's model already has and its own import is not built.\n\nRelinking, which is \
          W-02 and its own table.",
+    ];
+
+    /// The request the media bin sends once the relink dialog has been answered.
+    fn relink_of(asset: &str, files: &[PathBuf]) -> String {
+        let parts: Vec<String> = files
+            .iter()
+            .map(|p| format!("file={}", for_a_header(&p.display().to_string())))
+            .collect();
+        format!("media.relink?asset={asset}&{}", parts.join("&"))
+    }
+
+    /// Two drawings of a size nothing in the reference shot has.
+    fn tiny_drawings() -> Vec<PathBuf> {
+        let directory = std::env::temp_dir().join("anime_compositor_b12a_relink");
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("make the scratch directory");
+        (0..2)
+            .map(|n| {
+                let file = directory.join(format!("tiny_{n:03}.png"));
+                anime_compositor::png_out::write_rgba(
+                    &file,
+                    8,
+                    8,
+                    OutputDepth::Eight,
+                    &[],
+                    &[0u8; 8 * 8 * 4],
+                )
+                .expect("write a tiny drawing");
+                file
+            })
+            .collect()
+    }
+
+    /// One sentence out of a proposal, so that a row can show the part it is about.
+    fn sentence_about(said: &str, opening: &str) -> String {
+        said.split(". ")
+            .find(|s| s.starts_with(opening))
+            .map(|s| format!("{}.", s.trim_end_matches('.')))
+            .unwrap_or_else(|| format!("(nothing was said starting \"{opening}\")"))
+    }
+
+    /// What the frame carries about a relink waiting to be agreed to, which is all the panel
+    /// offering it ever knows. It rides on the frame rather than on an answer of its own so that
+    /// a panel cannot outlive the proposal it is showing.
+    fn on_the_frame(viewer: &Mutex<Viewer>) -> (String, String) {
+        let export = Mutex::new(Export::default());
+        let (ask, quality) = parse("/frame/0", None).expect("a readable request");
+        let response = serve(viewer, &export, ask, quality);
+        let text = |name: &str| {
+            response.headers().get(name).map_or_else(String::new, |v| {
+                from_a_query(v.to_str().unwrap_or_default())
+            })
+        };
+        (text("x-relink"), text("x-relink-asset"))
+    }
+
+    #[test]
+    fn relinking_says_what_would_change_before_anything_changes() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let replacements = drawings_in("layer3");
+
+        // ---- what cannot be relinked -------------------------------------------------------
+        report.check(
+            "relinking without naming a sequence asks which one",
+            "Which sequence should be relinked? Choose one in the media bin.",
+            run(&viewer, "media.relink"),
+        );
+        report.check(
+            "naming a sequence but no drawings asks for the drawings themselves",
+            "Which drawings should the sequence point at? Choose the files themselves, not the \
+             folder they are in.",
+            run(&viewer, "media.relink?asset=asset-cel"),
+        );
+        report.check(
+            "a sequence that is not in the project is refused",
+            "That media is not in this project. Nothing was changed.",
+            run(&viewer, &relink_of("asset-gone", &replacements)),
+        );
+        report.check(
+            "and agreeing to a relink nobody proposed is refused",
+            "There is no relink waiting for that sequence. Choose the replacement drawings \
+             first, so that what would change can be read before it happens.",
+            run(&viewer, "media.relink?asset=asset-cel&apply=1"),
+        );
+
+        // ---- what would change, said before it does -----------------------------------------
+        let said = run(&viewer, &relink_of("asset-cel", &replacements));
+        report.check(
+            "choosing the replacement drawings answers with what relinking would do",
+            "Relinking \"Cel\" to layer3_%03d.png would give it 11 drawings, numbered 0 to 11, \
+             and drawing 7 would be missing. The drawings are 1920x1080. What it points at now \
+             cannot be read, so there is nothing to compare that with. The colour is read as \
+             sRGB with straight alpha, which is what this project already recorded: a PNG does \
+             not state either, so relinking does not change how the pixels are read. The layers \
+             using it keep their stacking, transforms, exposures, masks and effects. Nothing \
+             has changed yet. One drawing is missing from layer3_%03d.png: 7. Add the missing \
+             files to the folder and relink the sequence, or leave the gap if the hole is \
+             intended.",
+            &said,
+        );
+        let (waiting, about) = on_the_frame(&viewer);
+        report.check(
+            "the panel offering it reads it off the frame, word for word",
+            &said,
+            &waiting,
+        );
+        report.check(
+            "and the frame says which sequence it is about",
+            "asset-cel",
+            &about,
+        );
+        report.check(
+            "the drawings the sequence points at have not moved",
+            "asset-cel \"Cel\" 2 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "there is nothing to undo, because nothing was done",
+            0,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- and it can be walked away from -------------------------------------------------
+        report.check(
+            "leaving it as it is says so",
+            "The relink was dropped. The sequence still points at the drawings it did.",
+            run(&viewer, "media.relink?asset=asset-cel&cancel=1"),
+        );
+        report.check("the panel goes with it", "", on_the_frame(&viewer).0);
+        report.check(
+            "the sequence still points where it did",
+            "asset-cel \"Cel\" 2 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "and dropping a second time has nothing to drop",
+            "There is no relink waiting to be dropped.",
+            run(&viewer, "media.relink?asset=asset-cel&cancel=1"),
+        );
+
+        // ---- agreeing to it ------------------------------------------------------------------
+        run(&viewer, &relink_of("asset-cel", &replacements));
+        report.check(
+            "a proposal about one sequence cannot be applied to another",
+            "There is no relink waiting for that sequence. Choose the replacement drawings \
+             first, so that what would change can be read before it happens.",
+            run(&viewer, "media.relink?asset=asset-1&apply=1"),
+        );
+        report.check(
+            "and the proposal it was not about is still waiting",
+            "asset-cel",
+            on_the_frame(&viewer).1,
+        );
+        report.check(
+            "agreeing names what was done, so that undo can be recognised",
+            "Relink Cel",
+            run(&viewer, "media.relink?asset=asset-cel&apply=1"),
+        );
+        report.check(
+            "the sequence now points at the drawings that were chosen",
+            "asset-cel \"Cel\" 11 drawings",
+            bin(&viewer),
+        );
+        report.check(
+            "the gap is still a gap: the drawing that is not there was not invented",
+            "(no such drawing)",
+            stored(&viewer, "asset-cel", 7),
+        );
+        report.check(
+            "the layer that used it is the same layer, holding the same drawings for the same \
+             frames",
+            "0-2:1, 2-5:2",
+            exposures(&viewer, "layer-cel"),
+        );
+        report.check(
+            "the panel is gone, because there is nothing left to agree to",
+            "",
+            on_the_frame(&viewer).0,
+        );
+        report.check(
+            "and it is one thing to undo",
+            "Undone: Relink Cel",
+            undo(&viewer),
+        );
+        report.check(
+            "which puts the drawings back",
+            "asset-cel \"Cel\" 2 drawings",
+            bin(&viewer),
+        );
+
+        // ---- the comparison W-02 asks for, when there is something to compare -----------------
+        run(&viewer, &import_of(&drawings_in("layer3")));
+        let said = run(&viewer, &relink_of("asset-1", &tiny_drawings()));
+        report.check(
+            "relinking a sequence that can be read says what size it is now and what size it \
+             would become",
+            "The drawings are 8x8, where the ones it points at now are 1920x1080.",
+            sentence_about(&said, "The drawings are"),
+        );
+        report.check(
+            "and says the alpha is read the way this project already reads it, because a PNG \
+             does not say",
+            "The colour is read as sRGB with straight alpha, which is what this project \
+             already recorded: a PNG does not state either, so relinking does not change how \
+             the pixels are read.",
+            sentence_about(&said, "The colour is read"),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-12a_relink_table.md",
+            "B-12a: relinking, and what is said before anything changes",
+            RELINK_INTRO,
+            RELINK_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const RELINK_INTRO: &[&str] = &[
+        "W-02 is one sentence: relink \"by explicit user choice; preserve layer identity, \
+         timing, masks and effects\", and \"present changed dimensions, frame range or alpha \
+         interpretation before applying the change\". The presenting is the part that cannot be \
+         done by a core command, because it happens before there is a command, so it is built \
+         here and checked here. That relinking preserves layer identity once it is applied is \
+         the core's own behaviour and is checked in \
+         `verification/B-09_persistence_table.md`; this table checks the window's half.",
+        "Relinking is three requests rather than one, and that is the requirement rather than a \
+         convenience: choosing the drawings works out what would happen and says it, and a \
+         second request either agrees to it or drops it. Between the two, nothing about the \
+         project has moved - the rows below check the drawings, the history and the file rather \
+         than trusting the sentence that says so.",
+    ];
+
+    const RELINK_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The proposal is on the frame.** The sentence a person is \
+         being asked to agree to travels back with the picture, like everything else this \
+         window says, so a panel offering a relink cannot outlive the proposal it describes. \
+         Cancel it, apply it, or open another project, and the panel goes with the next \
+         frame.\n- **All three of W-02's changes are stated whether or not they changed.** The \
+         size is given even when it is the same, the range and the gaps are given in full, and \
+         the alpha reading is stated as carried over. \"Unchanged\" is an answer; silence is \
+         not.\n- **What cannot be read is said to be unreadable.** Relinking is what a person \
+         does when the media has gone, so the usual case is that there is nothing to compare \
+         the new size against. That case says so rather than reporting the drawings as the \
+         same size.\n- **A proposal belongs to one sequence.** Agreeing to it while another \
+         sequence is selected is refused, and the proposal is still there afterwards.\n- **The \
+         gap survives.** Relinking to a sequence missing drawing 7 leaves drawing 7 missing, \
+         which document 28 renders as nothing.",
+        "## What this does not cover\n\nThe file dialog, as everywhere else in this window: a \
+         test has no hands to answer one, so every row begins at the selection a person \
+         made.\n\nMasks. W-02 names them among what a relink preserves, and it does preserve \
+         them - relinking replaces one asset record and cannot reach a layer - but this build \
+         has no gesture for drawing a mask, so there is no mask here to photograph surviving \
+         one.\n\nRelinking to a sequence in a different colour space. A PNG states neither the \
+         colour space nor the alpha mode, so nothing read off the new drawings could \
+         contradict the project; a format that states them is not in G1.",
     ];
 
     fn cell(text: &str) -> String {

@@ -160,6 +160,8 @@
   .effect .head button { padding: 0 4px; border-color: transparent; background: transparent; }
   .effect dl { margin-top: 4px; }
   .effect input[type=text] { width: 8em; }
+  #relinking { border: 1px solid #e8b06a; border-radius: 4px; padding: 6px; margin-top: 6px; }
+  #relinking p { margin: 0 0 6px; }
 </style>
 </head>
 <body>
@@ -169,6 +171,12 @@
     <ul class="rows" id="assets"></ul>
     <p class="empty" id="noassets" hidden>This project has no drawings in it.</p>
     <button id="import">Import drawings&hellip;</button>
+    <button id="relink">Relink drawings&hellip;</button>
+    <div id="relinking" hidden>
+      <p id="proposal"></p>
+      <button id="applyrelink">Apply the relink</button>
+      <button id="cancelrelink">Leave it as it is</button>
+    </div>
   </div>
   <div id="stage"><canvas id="view" width="480" height="270"></canvas></div>
   <div class="panel" id="inspector">
@@ -259,6 +267,7 @@ let selectedLayer = null;
 let selectedAsset = null;
 let renaming = false; // an inline edit is open; accelerators keep off the keyboard while it is
 let dragging = false; // a scrub is in progress; the inspector must not be rebuilt under it
+let relinking = null; // the asset a proposed relink is waiting on, as the last frame reported it
 
 // A request already on its way is never joined by a second one. That is the whole of this
 // page's part in D-32: the clock keeps running while a frame is being made, so the next answer
@@ -303,6 +312,14 @@ async function show(url) {
     view.classList.toggle('grid', grid);
     $('checker').textContent = grid ? 'Hide grid' : 'Show grid';
     quality = differs ? 'draft' : 'full';
+
+    // W-02: a relink that has been worked out but not agreed to. It rides on the frame, so the
+    // panel offering it appears and disappears with the answer that describes it, and the page
+    // never keeps a proposal of its own that Rust has forgotten.
+    const proposal = decodeURIComponent(h.get('x-relink') || '');
+    relinking = decodeURIComponent(h.get('x-relink-asset') || '') || null;
+    $('relinking').hidden = !proposal;
+    $('proposal').textContent = proposal;
 
     const report = $('report');
     report.textContent = h.get('x-report') || '';
@@ -802,6 +819,7 @@ function drawPanels() {
   $('up').disabled = !layer;
   $('down').disabled = !layer;
   $('addlayer').disabled = !selectedAsset;
+  $('relink').disabled = !selectedAsset;
   // Document 26 requires a label on every history record, and this is where it earns its keep:
   // a person who has been away from the window cannot otherwise know what Undo is about to
   // take back.
@@ -919,6 +937,19 @@ $('dellayer').onclick = onSelected('layer.delete');
 $('up').onclick = onSelected('layer.move_up');
 $('down').onclick = onSelected('layer.move_down');
 $('import').onclick = () => command('/media.import');
+// W-02's three steps, one request each: ask what to point at, read what would change, then agree
+// to it or not. The asset an Apply names is the one the proposal came back with, never the one
+// selected in the bin, so a click elsewhere between reading and agreeing cannot redirect it.
+$('relink').onclick = () => {
+  if (!selectedAsset) return;
+  command('/media.relink?asset=' + encodeURIComponent(selectedAsset));
+};
+$('applyrelink').onclick = () => {
+  if (relinking) command('/media.relink?asset=' + encodeURIComponent(relinking) + '&apply=1');
+};
+$('cancelrelink').onclick = () => {
+  if (relinking) command('/media.relink?asset=' + encodeURIComponent(relinking) + '&cancel=1');
+};
 // A new exposure starts where the last one ends and lasts one frame, showing the drawing after
 // the last one shown — the next line of an exposure sheet being written downwards. A layer with
 // no exposures yet starts at the frame the layer itself starts at, on drawing zero.
