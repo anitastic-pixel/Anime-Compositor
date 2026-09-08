@@ -9,7 +9,7 @@ way round, a step skipped. The build is then run. If the tests still pass, the m
 have reached the owner unnoticed, and the fixture is too weak. Every break is undone
 immediately afterwards; nothing here is left in the code.
 
-The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixture is fixed,
+The rule every pass here follows: **if a break survives, the fixture is fixed,
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 

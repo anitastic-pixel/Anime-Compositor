@@ -49,7 +49,7 @@ project. Either half alone would be a lie of a different kind.
 
 ![a file that is not a project, refused](B-09_open_refused.png)
 
-`Markdown/CONTEXT.md`, handed to the viewer on purpose. The reference shot **is still on screen**
+`CONTEXT.md`, handed to the viewer on purpose. The reference shot **is still on screen**
 and still says it is the reference shot; the only thing that changed is the line underneath:
 
 > This project file could not be read. Nothing on disk was changed.

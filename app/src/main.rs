@@ -2950,7 +2950,7 @@ mod editing {
     const LAYER_INTRO: &[&str] = &[
         "This is the window's half of the layer commands in document 24. The core's half - \
              that adding, deleting, renaming and reordering a layer are correct and undoable - is \
-             checked in `verification/B-05_command_table.md` and is not repeated here. What is \
+             checked in `verification/B-05_model_table.md` and is not repeated here. What is \
              checked here is the part between a row in a list and that core, which is where a \
              window goes wrong: a button that names a layer no longer there, a new layer given an \
              identifier something else is already using, a toggle that decides what a layer \
@@ -3264,7 +3264,7 @@ mod editing {
          command ID. What differs is that typing commits an entry of its own and a drag commits \
          one entry for the whole gesture, which is document 26's interaction transaction.",
         "The core's half - that setting a property is correct, undoable, and clamped or refused \
-         by document 19's rules - is checked in `verification/B-05_command_table.md`. What is \
+         by document 19's rules - is checked in `verification/B-05_model_table.md`. What is \
          checked here is the part the window owns: that the text a field sends becomes the right \
          kind of value, that a drag opens a transaction at all, and that every refusal is a \
          sentence naming the rule.",
@@ -3642,7 +3642,7 @@ mod editing {
     const EFFECTS_INTRO: &[&str] = &[
         "Document 21's three effects, built into a stack from the panel: added, bypassed, \
          deleted, and their settings typed. That each effect draws what document 21 says it \
-         draws is checked in `verification/B-07_effect_table.md` and is not repeated here. What \
+         draws is checked in `verification/B-07_effects_table.md` and is not repeated here. What \
          is checked here is the part between a field in a panel and that arithmetic - that the \
          right effect is reached, that every setting travels on every change, and that a number \
          outside the range is refused in words rather than quietly turned into a different one.",
@@ -3671,7 +3671,7 @@ mod editing {
          identifier, and two runs of the same steps write the same file.",
         "## What this does not cover\n\nThe picture. These rows check what the panel does to the \
          project, not what the renderer then draws; the blur, exposure and tint themselves are \
-         checked against independently generated weights in `verification/B-07_effect_table.md`, \
+         checked against independently generated weights in `verification/B-07_effects_table.md`, \
          and the frame with an effect on it is in the photographs beside this table.\n\nReordering \
          the stack. Document 21 evaluates effects in order and this panel adds each new one at \
          the end; there is no command in document 24 for moving one, and W-01 does not ask to \
@@ -3892,7 +3892,7 @@ mod editing {
         "W-01 asks the artist to apply a matte: one layer shaping another, which is how a cel is \
          held inside a shape rather than being cut with a pair of scissors. That the matte is \
          then drawn the way document 21 says - the alpha of one layer multiplying the other's - \
-         is checked in `verification/B-06_matte_table.md` and is not repeated here. What is \
+         is checked in `verification/B-06_mask_table.md` and is not repeated here. What is \
          checked here is the part between a chooser in a panel and that arithmetic: that the \
          layer chosen is the layer used, that the settings the file holds together travel \
          together, and that the arrangements document 19 forbids are refused in a sentence.",
