@@ -1083,7 +1083,49 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
 /// Every answer, including a refusal, is a sentence for the status line. The list a button was
 /// clicked in can be older than the document, so a layer that is no longer there is told about
 /// rather than silently doing nothing.
+/// The identifiers `edit_command` answers, and the only ones.
+///
+/// `None` is how this function says it has never heard of an identifier, and `fn command` reads
+/// that as permission to try the routes it answers itself -- opening, saving, exporting. Without
+/// this list an unknown identifier did not reach that `None`: it fell through to the layer
+/// lookup at the bottom of the function and was answered "Which layer? Choose one in the layer
+/// list.", which is a sentence, which is `Some`. Every route the shell answers was therefore
+/// swallowed on its way past, and Open, Save, Save As, Export, the recent list and recovery all
+/// stopped working in the built window while every test kept passing, because the tests call
+/// those functions directly and only the window goes through here.
+///
+/// `verification/B-12b_page_table.md` checks that everything the page sends is in this list, and
+/// `verification/B-12b_command_map_table.md` checks that nothing outside it is answered.
+const ANSWERS: &[&str] = &[
+    "edit.redo",
+    "edit.undo",
+    "effect.add",
+    "effect.delete",
+    "effect.set_parameters",
+    "effect.toggle_bypass",
+    "exposure.set_span",
+    "layer.create",
+    "layer.delete",
+    "layer.move_down",
+    "layer.move_up",
+    "layer.rename",
+    "layer.set_matte",
+    "layer.toggle_lock",
+    "layer.toggle_visibility",
+    "media.import",
+    "media.relink",
+    "property.drag_cancel",
+    "property.drag_end",
+    "property.drag_update",
+    "property.set_base",
+    "viewer.toggle_alpha",
+    "viewer.toggle_checkerboard",
+];
+
 fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option<String> {
+    if !ANSWERS.contains(&id) {
+        return None;
+    }
     match id {
         "edit.undo" => return Some(undo(viewer)),
         "edit.redo" => return Some(redo(viewer)),
@@ -6156,5 +6198,615 @@ mod tests {
             for_a_header("2 of the files for \"layer3\" are missing."),
             "2 of the files for \"layer3\" are missing."
         );
+    }
+}
+
+/// The window against document 24, in both directions.
+///
+/// Every other table under `verification/` checks what a command *does*. These two check that
+/// the command is *reachable*: that the page asks for the identifier document 24 names, that
+/// something answers every identifier the page asks for, and that a shortcut the document
+/// promises is bound to something. Both read the real files rather than a copy of them -
+/// `app/ui/index.html` and `Markdown/24_UI_Command_and_Interaction_Map.md` - so a rename on one
+/// side and not the other is what they are for.
+///
+/// This is the first test in this project that reads the page at all. It is string matching over
+/// JavaScript and not a browser, which bounds it exactly: it can see which identifier a handler
+/// names, and it cannot see whether the button that handler is attached to is on the screen. The
+/// photographs beside it are what say that.
+#[cfg(test)]
+mod contract {
+    use super::*;
+
+    struct Report {
+        rows: Vec<(String, String, String)>,
+    }
+
+    impl Report {
+        fn check(&mut self, check: &str, expected: impl ToString, actual: impl ToString) {
+            self.rows
+                .push((check.to_string(), expected.to_string(), actual.to_string()));
+        }
+    }
+
+    fn repo(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the app crate has a parent directory")
+            .join(rel)
+    }
+
+    fn page() -> String {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html");
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
+    }
+
+    fn source() -> String {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/main.rs");
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
+    }
+
+    /// Everything that follows `needle`, up to the first character a route cannot contain.
+    ///
+    /// A route is written in the page in one of three shapes, and this reads all three by being
+    /// given each opening in turn: a quoted string beginning with a slash, the identifier handed
+    /// to `onSelected`, and the one handed to `send`.
+    fn after(text: &str, needle: &str) -> Vec<String> {
+        text.match_indices(needle)
+            .map(|(at, _)| {
+                let rest = &text[at + needle.len()..];
+                let end = rest
+                    .find(|c: char| !(c.is_ascii_lowercase() || c == '.' || c == '_' || c == '-'))
+                    .unwrap_or(rest.len());
+                rest[..end].to_string()
+            })
+            .filter(|found| !found.is_empty())
+            .collect()
+    }
+
+    fn sorted(mut list: Vec<String>) -> Vec<String> {
+        list.sort();
+        list.dedup();
+        list
+    }
+
+    /// Every route the page can ask the window for.
+    fn asked_for(page: &str) -> Vec<String> {
+        let mut found = after(page, "'/");
+        found.extend(after(page, "onSelected('"));
+        found.extend(after(page, "send('"));
+        sorted(found)
+    }
+
+    /// The global accelerator handler, which is the last `keydown` listener in the page.
+    fn accelerators(page: &str) -> String {
+        let at = page
+            .find("addEventListener('keydown', (e) => {")
+            .expect("the page has a global keydown handler");
+        page[at..].to_string()
+    }
+
+    // ---- the page ----------------------------------------------------------------------------
+
+    /// Every command identifier written into the page, in the order a sorted list puts them.
+    ///
+    /// Pinned rather than counted: a new `send` of an identifier nobody listed is a change to
+    /// what the window can do, and it should have to be written down here as well as there.
+    const SENT: &[&str] = &[
+        "edit.redo",
+        "edit.undo",
+        "effect.add",
+        "effect.delete",
+        "effect.set_parameters",
+        "effect.toggle_bypass",
+        "exposure.set_span",
+        "layer.create",
+        "layer.delete",
+        "layer.move_down",
+        "layer.move_up",
+        "layer.rename",
+        "layer.set_matte",
+        "layer.toggle_lock",
+        "layer.toggle_visibility",
+        "media.import",
+        "media.relink",
+        "property.drag_cancel",
+        "property.drag_end",
+        "property.drag_update",
+        "property.set_base",
+        "viewer.toggle_alpha",
+        "viewer.toggle_checkerboard",
+    ];
+
+    /// The routes that are not commands: the shell's own, and the two the transport uses.
+    const ROUTES: &[&str] = &[
+        // The frame scheme's two, which are not commands and are not answered by the shell:
+        // `frame` is a numbered frame and `at` is the frame playback has reached by a given
+        // number of milliseconds. Both are checked in `verification/B-08_preview_table.md`.
+        "at",
+        "cancel-export",
+        "export",
+        "frame",
+        "open",
+        "recent",
+        "recover",
+        "save",
+        "save-as",
+        "state",
+    ];
+
+    /// A control, the identifier it must send, and the text in the page that says it does.
+    ///
+    /// The third column is what makes this more than a list: it anchors the identifier to the
+    /// handler that sends it, so moving `layer.delete` onto the button that moves a layer
+    /// forward fails here rather than passing because the string is still somewhere in the file.
+    const WIRING: &[(&str, &str, &str)] = &[
+        (
+            "Delete layer",
+            "layer.delete",
+            "$('dellayer').onclick = onSelected('layer.delete')",
+        ),
+        (
+            "Forward",
+            "layer.move_up",
+            "$('up').onclick = onSelected('layer.move_up')",
+        ),
+        (
+            "Back",
+            "layer.move_down",
+            "$('down').onclick = onSelected('layer.move_down')",
+        ),
+        (
+            "Undo",
+            "edit.undo",
+            "$('undo').onclick = () => command('/edit.undo')",
+        ),
+        (
+            "Redo",
+            "edit.redo",
+            "$('redo').onclick = () => command('/edit.redo')",
+        ),
+        (
+            "Alpha only",
+            "viewer.toggle_alpha",
+            "$('alpha').onclick = () => command('/viewer.toggle_alpha')",
+        ),
+        (
+            "the transparency grid",
+            "viewer.toggle_checkerboard",
+            "$('checker').onclick = () => command('/viewer.toggle_checkerboard')",
+        ),
+        (
+            "Import drawings",
+            "media.import",
+            "$('import').onclick = () => command('/media.import')",
+        ),
+        (
+            "Add an exposure",
+            "exposure.set_span",
+            "command('/exposure.set_span?layer='",
+        ),
+        ("Add effect", "effect.add", "command('/effect.add?layer='"),
+        (
+            "Add layer",
+            "layer.create",
+            "command('/layer.create?asset='",
+        ),
+        (
+            "Relink drawings",
+            "media.relink",
+            "command('/media.relink?asset=' + encodeURIComponent(selectedAsset))",
+        ),
+        (
+            "Apply the relink",
+            "media.relink",
+            "encodeURIComponent(relinking) + '&apply=1'",
+        ),
+        (
+            "Leave it as it is",
+            "media.relink",
+            "encodeURIComponent(relinking) + '&cancel=1'",
+        ),
+    ];
+
+    #[test]
+    fn the_page_asks_for_nothing_the_window_cannot_answer() {
+        let mut report = Report { rows: Vec::new() };
+        let page = page();
+        let source = source();
+        let asked = asked_for(&page);
+
+        let (commands, routes): (Vec<String>, Vec<String>) =
+            asked.into_iter().partition(|found| found.contains('.'));
+
+        report.check(
+            "the identifiers the page sends are the ones written down here",
+            SENT.join(", "),
+            commands.join(", "),
+        );
+        report.check(
+            "the routes the page asks for that are not commands are the ones written down here",
+            ROUTES.join(", "),
+            routes.join(", "),
+        );
+
+        // Every command identifier, answered. `None` is the window saying it has never heard of
+        // the identifier, which is what a page sending `layer.remove` for `layer.delete` would
+        // look like: a button that does nothing at all, silently.
+        let viewer = Mutex::new(demo());
+        for id in &commands {
+            report.check(
+                &format!("the window answers `{id}`"),
+                "a sentence",
+                match edit_command(&viewer, id, None) {
+                    Some(said) if said.is_empty() => "an empty answer".to_string(),
+                    Some(_) => "a sentence".to_string(),
+                    None => "nothing - the window has never heard of it".to_string(),
+                },
+            );
+        }
+        // The two inspection toggles were flipped by the loop above, because answering them is
+        // what they do. Put them back, so that nothing after this reads a viewer this test left
+        // looking at the alpha channel.
+        for id in ["viewer.toggle_alpha", "viewer.toggle_checkerboard"] {
+            edit_command(&viewer, id, None);
+        }
+
+        // The routes are answered by `fn command` rather than by `edit_command`, so what is
+        // checked is that the shell has an arm of that name. `frame` and `state` are not in
+        // that match: one is the other scheme, one is answered before it.
+        for route in &routes {
+            // `frame` and `at` belong to the other scheme and are served by `fn frame`, not by
+            // the command shell, so there is no arm of that name to look for.
+            if route == "frame" || route == "at" {
+                continue;
+            }
+            let arm = format!("\"{route}\"");
+            report.check(
+                &format!("the window's shell answers `/{route}`"),
+                true,
+                source.contains(&arm),
+            );
+        }
+
+        for (control, id, wiring) in WIRING {
+            report.check(
+                &format!("the {control} control sends `{id}`"),
+                true,
+                page.contains(wiring),
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12b_page_table.md",
+            "B-12b: what the page asks the window for",
+            PAGE_INTRO,
+            PAGE_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const PAGE_INTRO: &[&str] = &[
+        "`app/ui/index.html` is the one file in this project that no test has ever read. Every \
+         B-12a table calls the same function the window's URL scheme calls, which checks \
+         everything from the request inwards and nothing outwards of it; what the page does with \
+         a click has been checked only by looking at photographs. This table is the outward half, \
+         as far as reading a file can take it.",
+        "It reads the page and the window's own source, and asks three questions. Which \
+         identifiers does the page send? Does anything answer them? And is each named control \
+         wired to the identifier document 24 gives it?",
+    ];
+
+    const PAGE_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The first two rows are a list, not a count.** They name every \
+         identifier and every route the page can ask for, in one cell each. A button added \
+         tomorrow that sends something new fails this row until the new identifier is written \
+         down beside the others, which is the point: what the window can be asked to do should \
+         be a thing somebody wrote down.\n- **`nothing - the window has never heard of it`** is \
+         the answer this table exists to catch. A page sending an identifier the window does not \
+         answer is a button that does nothing, with no error, no status line and nothing in the \
+         log.\n- **The wiring rows anchor an identifier to its handler.** Checking only that \
+         `layer.delete` appears somewhere in the page would pass if Delete layer and Forward \
+         swapped commands.",
+        "## What this cannot cover\n\nThis is string matching over JavaScript, not a browser. It \
+         can see that a handler names an identifier. It cannot see that the handler is attached \
+         to a button, that the button is on the screen, that it is enabled, or that clicking it \
+         reaches the handler. `verification/B-12a_window_and_keyboard.md` and its photographs are \
+         what say those, and the owner's run under B-12 is what says it for real.\n\nIt also \
+         cannot see the shell routes actually working. `/save` is checked here only as far as \
+         `fn command` having an arm of that name; what a save writes is \
+         `verification/B-09_save_table.md`.",
+    ];
+
+    // ---- document 24 -------------------------------------------------------------------------
+
+    /// How each of document 24's command identifiers is reached in this build.
+    ///
+    /// Written down rather than derived, because the interesting half is the identifiers nothing
+    /// reaches: an identifier that is simply absent from a build looks exactly like one nobody
+    /// has noticed is absent. The test measures which of the four this build actually does and
+    /// compares; a row that says `nothing yet` is checked to be true as hard as the others.
+    const REACHED: &[(&str, &str)] = &[
+        ("project.new", "nothing yet"),
+        ("project.open", "a route the shell answers"),
+        ("project.save", "a route the shell answers"),
+        ("project.save_as", "a route the shell answers"),
+        ("edit.undo", "a command the window answers"),
+        ("edit.redo", "a command the window answers"),
+        ("media.import", "a command the window answers"),
+        ("media.relink", "a command the window answers"),
+        ("layer.create", "a command the window answers"),
+        ("layer.delete", "a command the window answers"),
+        ("layer.rename", "a command the window answers"),
+        ("layer.move_up", "a command the window answers"),
+        ("layer.move_down", "a command the window answers"),
+        ("layer.toggle_visibility", "a command the window answers"),
+        ("layer.toggle_lock", "a command the window answers"),
+        ("layer.set_matte", "a command the window answers"),
+        ("timeline.previous_frame", "the page, with no request"),
+        ("timeline.next_frame", "the page, with no request"),
+        ("timeline.play_pause", "the page, with no request"),
+        ("timeline.set_work_start", "nothing yet"),
+        ("timeline.set_work_end", "nothing yet"),
+        ("exposure.set_span", "a command the window answers"),
+        ("property.set_base", "a command the window answers"),
+        ("keyframe.add_remove", "nothing yet"),
+        ("effect.add", "a command the window answers"),
+        ("effect.delete", "a command the window answers"),
+        ("effect.toggle_bypass", "a command the window answers"),
+        ("effect.set_parameters", "a command the window answers"),
+        ("viewer.fit", "nothing yet"),
+        ("viewer.zoom_100", "nothing yet"),
+        ("viewer.toggle_checkerboard", "a command the window answers"),
+        ("viewer.toggle_alpha", "a command the window answers"),
+        ("render.preview_current", "the page, with no request"),
+        ("export.sequence", "a route the shell answers"),
+        ("app.command_palette", "nothing yet"),
+    ];
+
+    /// Document 24's identifier, and the text in the page that binds the shortcut it promises.
+    ///
+    /// Only the identifiers document 24 gives a G1 shortcut appear here. `none` in that column
+    /// is not a gap and is not listed.
+    const SHORTCUTS: &[(&str, &str, &str)] = &[
+        ("project.new", "Ctrl+N", ""),
+        ("project.open", "Ctrl+O", "e.ctrlKey && (e.key === 'o'"),
+        ("project.save", "Ctrl+S", "e.ctrlKey && (e.key === 's'"),
+        ("project.save_as", "Ctrl+Shift+S", "e.shiftKey ? '/save-as'"),
+        ("edit.undo", "Ctrl+Z", "e.key === 'z'"),
+        ("edit.redo", "Ctrl+Shift+Z", "e.shiftKey ? $('redo')"),
+        ("media.import", "Ctrl+I", "e.key === 'i'"),
+        ("layer.create", "Ctrl+Alt+L", "e.altKey && (e.key === 'l'"),
+        ("layer.delete", "Delete", "e.key === 'Delete'"),
+        ("layer.rename", "F2", "e.key === 'F2'"),
+        ("layer.move_up", "Ctrl+]", "e.key === ']'"),
+        ("layer.move_down", "Ctrl+[", "e.key === '['"),
+        ("timeline.previous_frame", "Left", "e.key === 'ArrowLeft'"),
+        ("timeline.next_frame", "Right", "e.key === 'ArrowRight'"),
+        ("timeline.play_pause", "Space", "e.key === ' '"),
+        ("timeline.set_work_start", "B", ""),
+        ("timeline.set_work_end", "N", ""),
+        ("viewer.fit", "Shift+/", ""),
+        ("viewer.zoom_100", "Ctrl+1", ""),
+        ("export.sequence", "Ctrl+M", "e.key === 'm'"),
+        ("app.command_palette", "Ctrl+Shift+P", ""),
+    ];
+
+    /// Document 24's command table, read out of the document itself.
+    fn document_24() -> Vec<(String, String)> {
+        let text = std::fs::read_to_string(repo("Markdown/24_UI_Command_and_Interaction_Map.md"))
+            .expect("read document 24");
+        text.lines()
+            .filter(|line| line.starts_with('|'))
+            .map(|line| {
+                line.trim_matches('|')
+                    .split('|')
+                    .map(str::trim)
+                    .collect::<Vec<_>>()
+            })
+            .filter(|cells| cells.len() == 4 && cells[0].contains('.'))
+            .map(|cells| (cells[0].to_string(), cells[2].to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn every_command_document_24_names_is_accounted_for() {
+        let mut report = Report { rows: Vec::new() };
+        let page = page();
+        let keys = accelerators(&page);
+        let listed = document_24();
+        let viewer = Mutex::new(demo());
+        let source = source();
+        let asked = asked_for(&page);
+
+        report.check(
+            "document 24 names the identifiers this table walks",
+            REACHED.len(),
+            listed.len(),
+        );
+        report.check(
+            "and they are the same identifiers, in the same order",
+            REACHED
+                .iter()
+                .map(|(id, _)| *id)
+                .collect::<Vec<_>>()
+                .join(", "),
+            listed
+                .iter()
+                .map(|(id, _)| id.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+
+        for (id, expected) in REACHED {
+            // Measured four ways, in the order a request would find them: the shell answers a
+            // route before `edit_command` sees it, `edit_command` answers a command, the page
+            // may do something with no request at all, and otherwise nothing does.
+            let route = match *id {
+                "project.open" => "open",
+                "project.save" => "save",
+                "project.save_as" => "save-as",
+                "export.sequence" => "export",
+                _ => "",
+            };
+            let reached = if !route.is_empty() && source.contains(&format!("\"{route}\"")) {
+                "a route the shell answers"
+            } else if edit_command(&viewer, id, None).is_some() {
+                "a command the window answers"
+            } else if asked.iter().any(|sent| sent == id) {
+                "the page sends it and nothing answers"
+            } else if PAGE_SIDE.contains(id) {
+                "the page, with no request"
+            } else {
+                "nothing yet"
+            };
+            report.check(&format!("`{id}` is reached by"), expected, reached);
+        }
+        for id in ["viewer.toggle_alpha", "viewer.toggle_checkerboard"] {
+            edit_command(&viewer, id, None);
+        }
+
+        for (id, shortcut, binding) in SHORTCUTS {
+            let promised = listed
+                .iter()
+                .find(|(listed_id, _)| listed_id == id)
+                .map(|(_, shortcut)| shortcut.clone())
+                .unwrap_or_else(|| "(not in document 24)".to_string());
+            report.check(
+                &format!("document 24 gives `{id}` the shortcut"),
+                shortcut,
+                promised,
+            );
+            let reached = REACHED
+                .iter()
+                .find(|(reached_id, _)| reached_id == id)
+                .map(|(_, how)| *how)
+                .unwrap_or("nothing yet");
+            report.check(
+                &format!("and {shortcut} is bound"),
+                match reached {
+                    "nothing yet" => "no, and the command is not built either",
+                    _ => "yes",
+                },
+                match (binding.is_empty(), keys.contains(binding)) {
+                    (true, _) => "no, and the command is not built either",
+                    (false, true) => "yes",
+                    (false, false) => "no, though the command is built",
+                },
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12b_command_map_table.md",
+            "B-12b: document 24's command map against the window",
+            MAP_INTRO,
+            MAP_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// The three document 24 identifiers the page carries out itself.
+    ///
+    /// Stepping and playback change nothing in the project - document 24 marks all three not
+    /// undoable - so they are a number the page holds and a frame it asks for, and there is no
+    /// command for them to send. `render.preview_current` is the same thing said differently:
+    /// every frame this window shows is rendered when it is asked for.
+    const PAGE_SIDE: &[&str] = &[
+        "timeline.previous_frame",
+        "timeline.next_frame",
+        "timeline.play_pause",
+        "render.preview_current",
+    ];
+
+    const MAP_INTRO: &[&str] = &[
+        "Document 24 names thirty-five command identifiers. This walks all thirty-five against \
+         the build and says, for each, what actually reaches it - and then walks the twenty-one \
+         it gives a keyboard shortcut and says whether that shortcut is bound. The identifiers \
+         and the shortcuts are read out of `Markdown/24_UI_Command_and_Interaction_Map.md` \
+         itself, so an edit to the document that nothing implements fails here.",
+        "There are four ways a command is reached in this build, and the second column of every \
+         row is one of them. **A route the shell answers** is one that needs the operating system \
+         - opening, saving, exporting - and is answered before the command layer sees it. **A \
+         command the window answers** goes through `edit_command`, which is the command layer \
+         document 24's first paragraph describes. **The page, with no request** is the transport: \
+         stepping and playing change nothing in the project, so there is nothing to send. \
+         **Nothing yet** is a command this build does not have.",
+    ];
+
+    const MAP_NOTES: &[&str] = &[
+        "## What to look at\n\n- **`nothing yet` is checked as hard as the rest.** A row that \
+         says a command is not built is a claim, and the test confirms nothing answers that \
+         identifier. This is what stops the list quietly going stale after somebody builds \
+         one.\n- **`the page sends it and nothing answers`** is a value no row expects, and \
+         seeing it in the Actual column would mean a button that does nothing.\n- **The shortcut \
+         rows come in pairs.** The first says what document 24 promises, read from the document. \
+         The second says whether the page binds it.",
+        "## The six commands this build does not have\n\nEach is a deliberate absence, and none \
+         of them is a step of W-01.\n\n- **`project.new`** - a new project is an empty window and \
+         this build always opens on something: the reference shot when it is given nothing, or \
+         the project it was given. Making a new one is Save As over a copy.\n- \
+         **`timeline.set_work_start` and `set_work_end`** - the work area is the whole \
+         composition in this build, which is what `verification/B-08_preview_table.md` measures \
+         and what B-10 exports. Narrowing it is a setting nothing yet reads.\n- \
+         **`keyframe.add_remove`** - the core has interpolated properties since B-05 and the \
+         inspector edits base values only. W-01 asks the artist to adjust transforms, not to \
+         animate them.\n- **`viewer.fit` and `viewer.zoom_100`** - the viewer fits the frame to \
+         the space it has and has no zoom to set, so there is nothing for either to do yet.\n- \
+         **`app.command_palette`** - a search over commands, which needs the commands to be \
+         worth searching first.",
+        "## What this cannot cover\n\nThat a bound shortcut reaches the command. The binding is \
+         read as text in the page's accelerator handler; that pressing the key really runs it is \
+         `verification/B-12a_window_and_keyboard.md`, where a Q-03 photograph found exactly that \
+         defect - rows that Tab reached and no key could operate.\n\nWhether document 24's \
+         shortcuts conflict with Windows or with the web view, which document 24 itself asks for \
+         and which needs a person at the keyboard.",
+    ];
+
+    /// One table with its own prose around it.
+    fn write_artifact(report: &Report, file: &str, title: &str, intro: &[&str], notes: &[&str]) {
+        let passed = report.rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut out = format!("# {title}\n\n");
+        out.push_str(
+            "Generated by `app/src/main.rs`, module `contract`. Re-run with `cargo test \
+             --workspace`.\n\n",
+        );
+        for paragraph in intro.iter().chain(notes) {
+            out.push_str(paragraph);
+            out.push_str("\n\n");
+        }
+        out.push_str("| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
+        for (check, expected, actual) in &report.rows {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                check,
+                cell(expected),
+                cell(actual),
+                if expected == actual { "pass" } else { "FAIL" }
+            ));
+        }
+        out.push_str(&format!(
+            "\n**{} of {} checks pass.**\n",
+            passed,
+            report.rows.len()
+        ));
+        std::fs::write(repo(file), out).expect("write the artifact");
+    }
+
+    fn cell(text: &str) -> String {
+        text.replace('|', r"\|")
     }
 }

@@ -223,7 +223,7 @@
   <button id="export">Export&hellip;</button>
   <button id="cancelexport" hidden>Cancel export</button>
   <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
-  <span class="hint">space, arrows, D, A, G &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E &middot; or drop a project file here</span>
+  <span class="hint">space, arrows, D, A, G &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
   <span id="status"></span>
   <span id="autosaved"></span>
   <span id="report"></span>
@@ -1035,9 +1035,16 @@ addEventListener('keydown', (e) => {
     e.preventDefault();
     command(e.shiftKey ? '/save-as' : '/save');
   }
-  else if (e.ctrlKey && (e.key === 'e' || e.key === 'E')) {
+  // Document 24 names Ctrl+M for the export and Ctrl+I for the import. Both were unbound until
+  // B-12b read this file against that table; an accelerator a document promises and a window
+  // does not answer is a promise, not a shortcut.
+  else if (e.ctrlKey && (e.key === 'm' || e.key === 'M')) {
     e.preventDefault();
     $('export').click();
+  }
+  else if (e.ctrlKey && (e.key === 'i' || e.key === 'I')) {
+    e.preventDefault();
+    $('import').click();
   }
   // Document 24: Ctrl+Z undo, Ctrl+Shift+Z redo, Ctrl+Alt+L add layer, Ctrl+] and Ctrl+[ move
   // the selected layer toward the front and toward the back.
