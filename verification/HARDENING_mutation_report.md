@@ -13,7 +13,15 @@ The rule this pass follows, from `NIGHT_RUN.md`: **if a break survives, the fixt
 never the assertion.** No expected value was changed, no tolerance was loosened, and nothing in
 `Fixtures/` was touched.
 
-**305 breaks were made across twenty-eight units. All 305 were caught.**
+**329 breaks were made across thirty units. 326 of them are caught by the tests as they stand
+today; three are not, and are named.**
+
+Twenty-six were not caught the first time. Each of those was closed by a new check or a
+strengthened fixture before its pass was written up, and each row says which - the table records
+what the break did when it was made and what catches it now, so a reader can see where the
+fixtures were weak. The three that remain are all in one function, `fn command`, which needs a
+running application to be called at all; the twentieth pass names them and says which window
+behaviour stands in for them, rather than claiming a check that does not exist.
 
 That number is the total of three passes. The first covered five units and made 55 breaks, six of
 which got through before the import fixture was strengthened. The second covered the remaining
@@ -1073,7 +1081,7 @@ is what B-12 is for.
 `verification/B-12b_page_table.md`, `B-12b_command_map_table.md` and
 `B-12b_text_coalescing_table.md`.
 
-**12 of 14 breaks caught, two through.**
+**12 of 14 breaks caught first time. Both survivors are closed; the nineteenth pass says how.**
 
 The paragraph below this section used to say that the page could not be broken on purpose because
 it had no test at all. It has one now, and this is the first time the file a person actually
@@ -1096,8 +1104,8 @@ keystroke instead of when it is committed.
 | P10 | A transform number is sent on every keystroke | yes | `no field in the page sends anything while a key is being pressed` |
 | P11 | Clicking away from a rename throws the new name away | yes | a layer's name is committed by losing focus, and sends `layer.rename` |
 | P12 | A name committed unchanged is sent anyway, and is an undo entry | yes | `and a name committed unchanged sends nothing at all` |
-| P13 | The Forward button is renamed in the markup and nowhere else | **no** | nothing failed |
-| P14 | Delete presses the Forward button instead of Delete layer | **no** | nothing failed |
+| P13 | The Forward button is renamed in the markup and nowhere else | **no, first time** | after the row was added: `every control the script reaches for is one the markup defines` (naming `up`) |
+| P14 | Delete presses the Forward button instead of Delete layer | **no, first time** | after `PRESSES` was added: `and Delete presses` (expected `$('dellayer')`, got `$('up')`) |
 
 ## Nineteenth pass: the two that got through, and what was added
 
@@ -1149,6 +1157,72 @@ The panels. What the page *draws* - the layer rows, the inspector, the effect st
 sheet - is not read by any of these tests. They cover the outward half, the requests the page
 sends, and say nothing about the half that turns a state document into what is on screen. That
 half is judged by looking at it.
+
+## B-12c the routing layer: which request the command layer answers and which the window keeps
+
+`fn command` and `fn edit_command` in `app/src/main.rs`, checked by the `contract` test whose
+table is `verification/B-12b_routes_table.md`.
+
+**6 of 10 breaks caught first time. One more is closed; the other three are in a function no
+test can call, and the twentieth pass says what stands in for them.**
+
+This is the path that failed in the built window on 2026-09-07 while every test passed: the
+command layer answered identifiers it had never heard of, so Open, Save, Save As, Export, the
+recent list and recovery were all swallowed before the window saw them. The person could edit
+and could not save. The pass breaks that hand-off deliberately, and it also breaks the two
+decisions the hand-off leans on - how a query string is read, and what the one query string that
+reaches the disk means.
+
+| # | What was broken | Caught | The check that failed |
+|---|---|---|---|
+| R1 | The command layer claims `save` as one of its own | yes | `/save` is left alone by the command layer |
+| R2 | The written-down list is deleted, so the command layer answers anything | yes | all eight shell routes, all four nonsense identifiers, and eleven of document 24's unbuilt commands |
+| R3 | A route is matched after only its leading slashes are trimmed | **no** | nothing failed |
+| R4 | The export override ignores the case of the word | yes | what an export asked for with `missing=Write` does with a missing drawing |
+| R5 | A missing drawing is written by default instead of blocking the export | yes | the same row and three more |
+| R6 | A query parameter is found by name anywhere in a pair rather than at its start | **no, first time** | after the case was added: `` `?matte_layer=layer-9&layer=layer-2` gives `layer` `` (expected layer-2, got layer-9) |
+| R7 | The sentence for an unknown route forgets to name Save As | yes | the answer to a route that does not exist names the routes that do |
+| R8 | Cancelling an export is no longer a route the window answers | **no** | nothing failed |
+| R9 | An escape that is not an escape eats the next two characters | yes | `tests::japanese_survives_the_journey_back` (`50%f it`, not `50% of it`) |
+| R10 | Importing with no files named goes to the command layer instead of the file dialog | **no** | nothing failed |
+
+## Twentieth pass: the four that got through, and what was added
+
+R6 is a real hole and was closed. The other three are all the same thing, and it is not a hole
+that a new row can close.
+
+**R6, the parameter found in the wrong half of the pair.** Reading `layer=` anywhere inside a
+pair rather than at its start passed every row, because no case in the table had two parameters
+whose names end the same way. `matte_layer` is one this window actually sends, so the break is a
+matte assignment that reads back the other sequence's identifier - the wrong layer used as a
+matte, no error anywhere. What was added is one case, `?matte_layer=layer-9&layer=layer-2`,
+which must answer `layer-2`. It fails the break by name.
+
+**R3, R8 and R10 are `fn command` itself**, and nothing in this project can call it. It takes a
+running application handle, because three of its routes open a Windows file dialog and one
+reloads the page. What the table checks is every decision the function makes - the hand-off, the
+list of routes the refusal names, how a query is read, what the export override means - each
+called directly. The body that strings those decisions together is not covered, so trimming a
+route wrongly, deleting an arm from its match, or inverting the condition that sends an import
+to the dialog are all invisible here. They are visible immediately in the window: they are the
+Cancel button doing nothing and the Import button doing nothing, which is what B-12's owner run
+and the photographs in `verification/B-12a_window_and_keyboard.md` are for.
+
+R9 is worth a line for the opposite reason. The break was aimed at this table and was caught by
+a test written months earlier for a Japanese layer name, which is the round trip through a query
+string arriving at the same code from the other end. Nothing was added.
+
+## What this pass did not cover, in the routing layer
+
+The dialogs. Import, Save As and Export hand the request to Windows before any of this project's
+code runs again, and no test here has hands to answer a file dialog. What is checked is that the
+request reaches the shell; what happens after the dialog is `verification/B-09_save_table.md`
+and `verification/B-10_export_table.md`.
+
+The response. Every row checks the decision, not the bytes: no row reads a content type, a
+status code or the header that carries the status sentence back to the page. A build that
+answered every route correctly and set the wrong content type would pass this table completely,
+and what stands in for it is the window itself.
 
 ## First pass: the six that got through, and what was added
 

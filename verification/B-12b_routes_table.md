@@ -37,6 +37,7 @@ And the function itself. It needs a running application to be called, so what is
 | `?name=a%26b` gives `name` | a&b | a&b | pass |
 | `?name=%E7%8C%AB` gives `name` | 猫 | 猫 | pass |
 | `?layers=1&layer=2` gives `layer` | 2 | 2 | pass |
+| `?matte_layer=layer-9&layer=layer-2` gives `layer` | layer-2 | layer-2 | pass |
 | `?start=12&drawing=` gives `drawing` |  |  | pass |
 | and a name that is not in the query gives nothing at all | (nothing) | (nothing) | pass |
 | what an export asked for with `missing=write` does with a missing drawing | RenderTransparent | RenderTransparent | pass |
@@ -45,4 +46,4 @@ And the function itself. It needs a running application to be called, so what is
 | what an export asked for with `missing=` does with a missing drawing | Block | Block | pass |
 | what an export asked for with `no query at all` does with a missing drawing | Block | Block | pass |
 
-**24 of 24 checks pass.**
+**25 of 25 checks pass.**

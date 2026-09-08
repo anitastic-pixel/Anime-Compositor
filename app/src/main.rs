@@ -7450,6 +7450,10 @@ mod contract {
             ("name=a%26b", "name", "a&b"),
             ("name=%E7%8C%AB", "name", "猫"),
             ("layers=1&layer=2", "layer", "2"),
+            // A name that ends with the name being asked for. `matte_layer` is a real one, and
+            // a search that looks for `layer=` anywhere in a pair rather than at its start
+            // answers this with the wrong sequence's identifier.
+            ("matte_layer=layer-9&layer=layer-2", "layer", "layer-2"),
             ("start=12&drawing=", "drawing", ""),
         ];
         for (query, name, expected) in cases {
