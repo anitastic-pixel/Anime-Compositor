@@ -7535,6 +7535,354 @@ mod contract {
          reading and the export override are each called directly.",
     ];
 
+    // ---- document 05 line 69, the keyboard claim ----------------------------------------------
+
+    /// The name a `$('id')` in the page reaches for, where that lookup is followed by something
+    /// that makes it a control: a handler, a synthetic click, or a checkbox being read.
+    fn controls(page: &str) -> Vec<String> {
+        page.match_indices("$('")
+            .filter_map(|(at, _)| {
+                let rest = &page[at + 3..];
+                let end = rest.find('\'')?;
+                let after = &rest[end + 2..];
+                let is_a_control = after.starts_with(".on")
+                    || after.starts_with(".click")
+                    || after.starts_with(".checked");
+                is_a_control.then(|| rest[..end].to_string())
+            })
+            .collect()
+    }
+
+    /// The tag the markup gives an element, read backwards from its identifier.
+    fn tag_of(page: &str, id: &str) -> String {
+        let needle = format!("id=\"{id}\"");
+        match page.find(&needle) {
+            None => "not in the markup".to_string(),
+            Some(at) => {
+                let before = &page[..at];
+                let open = before.rfind('<').map(|o| &before[o + 1..]).unwrap_or("");
+                open.split(|c: char| c.is_whitespace() || c == '>')
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+            }
+        }
+    }
+
+    /// The page with every mouse-only handler cut out of it.
+    ///
+    /// A double click and a pointer drag are the two gestures a keyboard cannot make. Whatever
+    /// a handler for one of them sends is unreachable without a mouse unless the same request is
+    /// sent from somewhere else as well, so the question "can this be done without a mouse" is
+    /// the question "does this identifier still appear once those handlers are gone".
+    ///
+    /// A handler is cut from its name to the end of its statement, which is the first semicolon
+    /// at depth zero - handlers here are written both as a braced body and as a one-line arrow.
+    fn without_the_mouse(page: &str) -> String {
+        const MOUSE: [&str; 4] = [
+            "ondblclick",
+            "onpointerdown",
+            "onpointermove",
+            "onpointerup",
+        ];
+        let mut out = String::with_capacity(page.len());
+        let bytes: Vec<char> = page.chars().collect();
+        let mut i = 0;
+        while i < bytes.len() {
+            let rest: String = bytes[i..].iter().take(20).collect();
+            match MOUSE.iter().find(|m| rest.starts_with(**m)) {
+                None => {
+                    out.push(bytes[i]);
+                    i += 1;
+                }
+                Some(_) => {
+                    let mut depth = 0i32;
+                    while i < bytes.len() {
+                        match bytes[i] {
+                            '(' | '{' | '[' => depth += 1,
+                            ')' | '}' | ']' => depth -= 1,
+                            ';' if depth <= 0 => {
+                                i += 1;
+                                break;
+                            }
+                            _ => {}
+                        }
+                        i += 1;
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// The keys the window answers when nothing in particular is focused, as the page writes
+    /// them: every `e.key === '...'` in the one global handler.
+    fn key_names(page: &str) -> Vec<String> {
+        let block = accelerators(page);
+        let block = block.as_str();
+        let mut keys: Vec<String> = block
+            .match_indices("e.key === '")
+            .filter_map(|(at, _)| {
+                let rest = &block[at + 11..];
+                let end = rest.find('\'')?;
+                Some(rest[..end].to_string())
+            })
+            // A letter is written in the page in both cases and is one key; anything longer
+            // is already the name of a key and is left as it is.
+            .map(|key| match key.as_str() {
+                " " => "Space".to_string(),
+                one if one.chars().count() == 1 => one.to_uppercase(),
+                other => other.to_string(),
+            })
+            .collect();
+        keys.sort();
+        keys.dedup();
+        keys
+    }
+
+    /// Document 05 line 69: "complete W-01 without assistance, with all required controls
+    /// reachable by keyboard."
+    ///
+    /// Every other artifact in B-12 checks what a request does. This one checks that a person
+    /// with no mouse can make the request at all, by reading the page the way the claim is
+    /// worded: which controls exist, whether each is a thing the Tab key stops at, which keys
+    /// the window answers on its own, and - the row this table is really for - whether every
+    /// command the page can send survives having the mouse-only handlers cut out of it.
+    ///
+    /// Writes `verification/B-12c_keyboard_table.md`.
+    #[test]
+    fn every_command_the_page_sends_can_be_asked_for_without_a_mouse() {
+        let page = page();
+        let mut report = Report { rows: Vec::new() };
+
+        let mut named = controls(&page);
+        named.sort();
+        named.dedup();
+        report.check(
+            "the controls the page wires are the ones written down here",
+            CONTROLS.join(", "),
+            named.join(", "),
+        );
+        // A button, a select and a checkbox are stops on the Tab order because the browser makes
+        // them so. A span or a div with a click handler is not, and that is the shape this row
+        // exists to catch.
+        let not_focusable: Vec<String> = named
+            .iter()
+            .map(|id| (id, tag_of(&page, id)))
+            .filter(|(_, tag)| !matches!(tag.as_str(), "button" | "select" | "input"))
+            .map(|(id, tag)| format!("{id} is a {tag}"))
+            .collect();
+        report.check(
+            "and every one of them is a control the Tab key stops at on its own",
+            "none of them is anything else",
+            match not_focusable.is_empty() {
+                true => "none of them is anything else".to_string(),
+                false => not_focusable.join(", "),
+            },
+        );
+
+        // The two lists are built out of `li`, which nothing focuses by itself.
+        for (what, marker) in [
+            (
+                "a row in the media bin or the layer list",
+                "  li.tabIndex = 0;",
+            ),
+            (
+                "the drag handle beside a transform value",
+                "    handle.tabIndex = 0;",
+            ),
+        ] {
+            report.check(
+                &format!("{what} is put into the Tab order by hand"),
+                true,
+                page.contains(marker),
+            );
+        }
+        report.check(
+            "and a focused row is chosen with Enter or Space, which is what a click does",
+            true,
+            page.contains(
+                "if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.click(); }",
+            ),
+        );
+        report.check(
+            "and a focused drag handle is moved with the arrow keys, which is what a drag does",
+            true,
+            page.contains("const by = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }"),
+        );
+
+        report.check(
+            "the keys the window answers with nothing focused are the ones written down here",
+            KEYS.join(", "),
+            key_names(&page).join(", "),
+        );
+
+        // The row this table is for. Everything the page can ask the window to do, asked of a
+        // copy of the page with the double clicks and the pointer drags cut out.
+        let without = asked_for(&without_the_mouse(&page));
+        for id in asked_for(&page) {
+            if matches!(id.as_str(), "frame" | "at" | "state") {
+                continue; // Not a control: the page asks for these itself, to draw with.
+            }
+            let reachable = without.contains(&id);
+            report.check(
+                &format!("`{id}` can be asked for without a mouse"),
+                match MOUSE_ONLY.contains(&id.as_str()) {
+                    true => "no - it is a drag, and a drag is a mouse",
+                    false => "yes",
+                },
+                match reachable {
+                    true => "yes",
+                    false => "no - it is a drag, and a drag is a mouse",
+                },
+            );
+        }
+
+        // The three gestures that are mouse-only, each with the thing that does the same job.
+        for (gesture, does, instead) in MOUSE_GESTURES {
+            report.check(
+                &format!("{gesture} is not the only way to {does}"),
+                true,
+                page.contains(instead),
+            );
+        }
+
+        write_artifact(
+            &report,
+            "verification/B-12c_keyboard_table.md",
+            "B-12c: the keyboard claim, and what is mouse-only",
+            KEYBOARD_INTRO,
+            KEYBOARD_NOTES,
+        );
+        assert!(
+            report.rows.iter().all(|(_, e, a)| e == a),
+            "the keyboard claim does not hold: {:?}",
+            report
+                .rows
+                .iter()
+                .filter(|(_, e, a)| e != a)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Every control the page wires a handler to, or clicks for the person, or reads.
+    const CONTROLS: [&str; 26] = [
+        "addeffect",
+        "addexposure",
+        "addlayer",
+        "alpha",
+        "anyway",
+        "applyrelink",
+        "back",
+        "cancelexport",
+        "cancelrelink",
+        "checker",
+        "dellayer",
+        "down",
+        "export",
+        "fwd",
+        "import",
+        "open",
+        "play",
+        "recent",
+        "recovery",
+        "redo",
+        "relink",
+        "save",
+        "saveas",
+        "toggle",
+        "undo",
+        "up",
+    ];
+
+    /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
+    /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
+    const KEYS: [&str; 16] = [
+        "A",
+        "ArrowLeft",
+        "ArrowRight",
+        "D",
+        "Delete",
+        "F2",
+        "G",
+        "I",
+        "L",
+        "M",
+        "O",
+        "S",
+        "Space",
+        "Z",
+        "[",
+        "]",
+    ];
+
+    /// The identifiers that are a drag and cannot be anything else.
+    const MOUSE_ONLY: [&str; 3] = [
+        "property.drag_cancel",
+        "property.drag_end",
+        "property.drag_update",
+    ];
+
+    /// A mouse gesture, what it does, and the text in the page that does the same job without one.
+    const MOUSE_GESTURES: [(&str, &str, &str); 3] = [
+        (
+            "double clicking a drawing sequence in the media bin",
+            "make a layer out of it",
+            "$('addlayer').click();",
+        ),
+        (
+            "double clicking a layer",
+            "rename it",
+            "else if (e.key === 'F2') { e.preventDefault(); beginRename(); }",
+        ),
+        (
+            "dragging a transform value",
+            "change it",
+            "next[i] = held[i] + by * STEP[prop] * (e.shiftKey ? 10 : 1);",
+        ),
+    ];
+
+    const KEYBOARD_INTRO: &[&str] = &[
+        "Document 05 line 69 sets B-12's bar: \"complete W-01 without assistance, with all \
+         required controls reachable by keyboard.\" `verification/B-11_display_and_keyboard.md` \
+         is a photograph of the Tab key reaching the Open button, which says the order exists \
+         and that the control holding it is visible. This is the other half, and it is the half \
+         a photograph cannot take: whether there is any command in this window that a person \
+         without a mouse cannot ask for.",
+        "It reads `app/ui/index.html`. The question it asks is not \"is there a keyboard \
+         shortcut\" but \"is this request sent from anywhere that is not a mouse gesture\", and \
+         it asks it by cutting every double-click and pointer-drag handler out of a copy of the \
+         page and looking for the request in what is left.",
+    ];
+
+    const KEYBOARD_NOTES: &[&str] = &[
+        "## What to look at\n\nThe three rows that say **no**. `property.drag_update`, \
+         `property.drag_end` and `property.drag_cancel` are a drag: they are the running \
+         transaction a pointer opens when it takes hold of a number and the coalescing document \
+         26 asks for. A keyboard cannot make that gesture and nothing here pretends otherwise. \
+         What it can do is change the number, and the last three rows are the three mouse \
+         gestures in this window each paired with the thing that does the same job without one: \
+         the arrow keys on a focused handle send `property.set_base`, which is one undo step per \
+         press rather than one per drag.",
+        "The two lists are the part that had to be built rather than inherited. Every button \
+         here is a `button` and every chooser a `select`, so the Tab order is the browser's and \
+         nothing had to be arranged; the rows of the media bin and the layer list are `li` \
+         elements, which nothing focuses, and they carry a tab stop and an Enter/Space handler \
+         put there by hand. The row that checks the list of controls is a list rather than a \
+         count for the same reason as the one in `verification/B-12b_page_table.md`: a control \
+         added tomorrow fails this table until somebody writes it down beside the others, and \
+         the row underneath then asks what kind of element it is.",
+        "## What this cannot cover\n\nThat the Tab order is a sensible one. It says every \
+         control is in it; it does not say the order walks the window in the order a person \
+         reads it, and nothing but a person pressing Tab can say that. The photograph in \
+         `verification/B-11_display_and_keyboard.md` counts six presses to Open, which is one \
+         sample of it.",
+        "Whether a focused control can be seen. The focus ring is a colour in a stylesheet, and \
+         this reads the page as text. That is the photograph's job as well.",
+        "And the file dialogs. Import, Open, Save As and Export hand over to Windows, which \
+         brings its own keyboard handling and is not this project's to check.",
+    ];
+
     fn cell(text: &str) -> String {
         text.replace('|', r"\|")
     }
