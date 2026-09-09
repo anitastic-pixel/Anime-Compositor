@@ -18,6 +18,7 @@ pub mod export;
 pub mod mask;
 pub mod media;
 pub mod model;
+pub mod perf;
 pub mod persist;
 pub mod png_out;
 pub mod preview;
@@ -141,7 +142,9 @@ impl ImageBuffer {
                 actual: bytes.len(),
             });
         }
-        let data = bytes.iter().map(|&v| color::dequantise_u8(v)).collect();
+        let data = perf::time(perf::Stage::Dequantise, || {
+            bytes.iter().map(|&v| color::dequantise_u8(v)).collect()
+        });
         ImageBuffer::new(width, height, ColorSpace::Srgb, AlphaMode::Straight, data)
     }
 
@@ -184,19 +187,21 @@ impl ImageBuffer {
             alpha_mode,
             mut data,
         } = self;
-        for px in data.chunks_exact_mut(4) {
-            if color_space == ColorSpace::Srgb {
-                for c in &mut px[..3] {
-                    *c = color::srgb_to_linear(*c);
+        perf::time(perf::Stage::ToLinear, || {
+            for px in data.chunks_exact_mut(4) {
+                if color_space == ColorSpace::Srgb {
+                    for c in &mut px[..3] {
+                        *c = color::srgb_to_linear(*c);
+                    }
+                }
+                if alpha_mode == AlphaMode::Straight {
+                    let a = px[3];
+                    for c in &mut px[..3] {
+                        *c *= a;
+                    }
                 }
             }
-            if alpha_mode == AlphaMode::Straight {
-                let a = px[3];
-                for c in &mut px[..3] {
-                    *c *= a;
-                }
-            }
-        }
+        });
         WorkingBuffer(ImageBuffer {
             width,
             height,
@@ -249,7 +254,9 @@ impl WorkingBuffer {
     /// then quantise. Document 21 line 31: output "converts the linear working RGB to the
     /// declared output encoding, then writes straight alpha".
     pub fn to_srgb8_straight(&self) -> Vec<u8> {
-        self.encode(OutputDepth::Eight, OutputAlpha::Straight)
+        perf::time(perf::Stage::Encode, || {
+            self.encode(OutputDepth::Eight, OutputAlpha::Straight)
+        })
     }
 
     /// [`to_srgb8_straight`](Self::to_srgb8_straight) at either depth and either alpha policy,

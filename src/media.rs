@@ -439,20 +439,23 @@ pub fn decode_png(path: &Path) -> Result<ImageBuffer, Diagnostic> {
     };
     check_format(path, color, depth)?;
 
-    let mut raw = vec![0u8; reader.output_buffer_size().unwrap_or(0)];
-    let frame = reader
-        .next_frame(&mut raw)
-        .map_err(|e| decode_failed(path, &e.to_string()))?;
-    let (w, h) = (frame.width as usize, frame.height as usize);
+    let (w, h, rgba) = crate::perf::time(crate::perf::Stage::FileRead, || {
+        let mut raw = vec![0u8; reader.output_buffer_size().unwrap_or(0)];
+        let frame = reader
+            .next_frame(&mut raw)
+            .map_err(|e| decode_failed(path, &e.to_string()))?;
+        let (w, h) = (frame.width as usize, frame.height as usize);
 
-    let rgba = match color {
-        png::ColorType::Rgba => raw[..frame.buffer_size()].to_vec(),
-        // Opaque by definition: a PNG without an alpha channel has no transparency to lose.
-        _ => raw[..frame.buffer_size()]
-            .chunks_exact(3)
-            .flat_map(|p| [p[0], p[1], p[2], 255])
-            .collect(),
-    };
+        let rgba = match color {
+            png::ColorType::Rgba => raw[..frame.buffer_size()].to_vec(),
+            // Opaque by definition: a PNG without an alpha channel has no transparency to lose.
+            _ => raw[..frame.buffer_size()]
+                .chunks_exact(3)
+                .flat_map(|p| [p[0], p[1], p[2], 255])
+                .collect(),
+        };
+        Ok::<_, Diagnostic>((w, h, rgba))
+    })?;
 
     ImageBuffer::from_srgb8_straight(w, h, &rgba).map_err(|e: BufferError| {
         decode_failed(path, &format!("{e} while building a {w}x{h} buffer"))

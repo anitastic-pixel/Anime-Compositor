@@ -158,10 +158,14 @@ impl CelCache {
         let key = Key::of(path, interpretation);
 
         if let Some(key) = &key {
-            if let Some(at) = self.entries.iter().position(|(k, _)| k == key) {
+            let hit = crate::perf::time(crate::perf::Stage::CacheHit, || {
+                let at = self.entries.iter().position(|(k, _)| k == key)?;
                 let entry = self.entries.remove(at);
                 let buffer = entry.1.clone();
                 self.entries.push(entry);
+                Some(buffer)
+            });
+            if let Some(buffer) = hit {
                 self.hits += 1;
                 return Ok(buffer);
             }
@@ -170,7 +174,9 @@ impl CelCache {
         self.misses += 1;
         let buffer = retag(media::decode_png(path)?, interpretation).into_working();
         if let Some(key) = key {
-            self.store(key, buffer.clone());
+            crate::perf::time(crate::perf::Stage::CacheStore, || {
+                self.store(key, buffer.clone())
+            });
         }
         Ok(buffer)
     }

@@ -231,7 +231,14 @@ fn serve(
         let export = export.lock().expect("the export lock was poisoned");
         (export.cancel.is_some(), export.said.clone())
     };
+    // P-01: how long the page waited for the frame already in flight. The guard outlives this
+    // statement, so the duration is recorded rather than wrapped around a closure.
+    let waited = std::time::Instant::now();
     let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    anime_compositor::perf::record(
+        anime_compositor::perf::Stage::LockWait,
+        waited.elapsed().as_nanos() as u64,
+    );
     if let Some(quality) = quality {
         viewer.quality = quality;
     }
