@@ -358,6 +358,106 @@ fn p01_frame_trace() {
     write_artifact(&sections);
 }
 
+/// P-03(b): the row P-01 has no place for, which is the one a person actually sits through.
+///
+/// P-01's three cache states are two `CelCache::none` passes and a pass with everything already
+/// held. None of them is what a viewer does when a project is opened and play is pressed: a real
+/// budget, and every cel of every frame a miss. That row is where a parallel decode can show
+/// anything at all -- `CelCache::none` has nothing to decode ahead for, since it may not keep
+/// what it decodes, and a fully warm cache decodes nothing.
+///
+/// This writes its own artifact rather than adding a fourth state to `write_artifact`, because
+/// `verification/P-01_frame_trace.md` is the dated baseline every P-03 item is measured against
+/// and a baseline that grows a column is not one.
+///
+/// The budget is `cache::DEFAULT_BUDGET_BYTES`, D-40's 1 GiB, and not this file's 6 GiB
+/// `WARM_BUDGET_BYTES`: this row is the viewer's own configuration, so it is measured with the
+/// viewer's own budget, evictions and all.
+#[test]
+#[ignore = "P-03(b): a measurement, run deliberately with --release --ignored"]
+fn p03b_first_playthrough() {
+    let workloads = [reference_shot(), declared_fixture()];
+    let frames = sample_frames();
+    let mut s = String::from(
+        "# P-03(b): a first playthrough, before and after the parallel decode\n\n\
+         Every frame below is a cache miss on every layer, with the viewer's own 1 GiB budget \
+         (D-40) rather than P-01's 6 GiB. That is what opening a project and pressing play costs \
+         on the first pass through the shot, and it is the only cache state a decode done ahead \
+         of the layer loop can change: an export and P-01's two cold rows hold \
+         `CelCache::none`, which may not keep what it decodes and so is never decoded ahead \
+         for, and a warm cache decodes nothing.\n\n\
+         Same machine, build and harness as `verification/P-01_frame_trace.md`, and the same \
+         twenty frames spread across the shot.\n\n",
+    );
+    for workload in &workloads {
+        for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
+            let mut cache = CelCache::with_budget(anime_compositor::cache::DEFAULT_BUDGET_BYTES);
+            let measured: Vec<Measured> = frames
+                .iter()
+                .map(|&f| measure(workload, f, quality, &mut cache))
+                .collect();
+            let row = Row {
+                cache_state: "application cache cold with the viewer's own budget, first \
+                              playthrough",
+                frames: measured,
+                evictions: cache.evictions(),
+                hits: cache.hits(),
+                misses: cache.misses(),
+            };
+            let residual = row.residual_ms();
+            assert!(
+                residual.iter().all(|&ms| ms >= 0.0),
+                "{} at {}: a negative residual means a stage was counted twice, which is what \
+                 `perf::untimed` exists to prevent",
+                workload.name,
+                quality.label()
+            );
+            let totals = row.totals_ms();
+            let _ = writeln!(
+                s,
+                "## {} ({} layers) — {}\n",
+                workload.name,
+                workload.layers,
+                quality.label()
+            );
+            let _ = writeln!(
+                s,
+                "Frame time: p50 **{:.3} ms**, p95 **{:.3} ms**, over {} frames. That is \
+                 {:.2}x the {FRAME_BUDGET_MS:.3} ms a 24 fps clock allows.\n",
+                median(&totals),
+                percentile(&totals, 0.95),
+                row.calls(),
+                median(&totals) / FRAME_BUDGET_MS
+            );
+            let _ = writeln!(
+                s,
+                "Cache over the pass: {} hits, {} misses, {} evictions.\n",
+                row.hits, row.misses, row.evictions
+            );
+            s.push_str("| Stage | p50 ms | p95 ms | share of the frame |\n|---|---|---|---|\n");
+            for (index, stage) in Stage::ALL.iter().enumerate() {
+                let ms = row.stage_ms(index);
+                let _ = writeln!(
+                    s,
+                    "| {} | {:.3} | {:.3} | {:.1}% |",
+                    stage.label(),
+                    median(&ms),
+                    percentile(&ms, 0.95),
+                    row.share(index)
+                );
+            }
+            let _ = writeln!(
+                s,
+                "| **unaccounted for** | {:.3} | {:.3} | {:.1}% |\n",
+                median(&residual),
+                percentile(&residual, 0.95),
+                row.residual_share()
+            );
+        }
+    }
+    write_lf(&repo("verification/P-03b_first_playthrough.md"), &s);
+}
+
 fn write_artifact(sections: &[(String, PreviewQuality, Vec<Row>)]) {
     let mut s = String::from("# P-01: where the frame goes\n\n");
     s.push_str(
