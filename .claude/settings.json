@@ -33,8 +33,7 @@
       "Bash(git rebase:*)",
       "Bash(git filter-branch:*)",
       "Bash(git update-ref:*)",
-      "Edit(./Fixtures/**)",
-      "Write(./Fixtures/**)"
+      "Edit(./Fixtures/**)"
     ]
   }
 }

@@ -57,8 +57,8 @@ use crate::WorkingBuffer;
 /// bytes to hold and one frame needs ten of them, which is 316.4 MiB, so at 128 MB the cache
 /// could not hold a single frame of the shot the project's own performance target is written
 /// against: showing a frame evicted the cels that made it, every loop decoded 2,340 cels against
-/// 480 from memory, and asking for the frame just shown cost 375.13 ms at the median. At a budget
-/// with room for one frame the same request cost 195.20 ms. That is the whole of what this number
+/// 480 from memory, and asking for the frame just shown cost 371.71 ms at the median. At a budget
+/// with room for one frame the same request cost 190.15 ms. That is the whole of what this number
 /// decides, and it is worth about half the cost of a repeated frame on the declared fixture.
 ///
 /// One gibibyte is 32 cels of that size: a frame of the heaviest fixture this project declares,
@@ -67,7 +67,7 @@ use crate::WorkingBuffer;
 /// layers' worth and this costs it nothing. Reaching the ceiling on the reference machine's 32 GB
 /// is about 1.3 GB of working set.
 ///
-/// **What it does not buy is the target.** 195.20 ms is not document 08 line 41's 100 ms, and no
+/// **What it does not buy is the target.** 190.15 ms is not document 08 line 41's 100 ms, and no
 /// budget reaches it: with all ten cels in memory the remaining cost is compositing, not decoding.
 /// Raising this closes half of D-40 and leaves the other half open for the owner.
 pub const DEFAULT_BUDGET_BYTES: usize = 1024 * 1024 * 1024;
