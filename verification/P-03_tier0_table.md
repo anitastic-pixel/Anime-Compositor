@@ -2,7 +2,7 @@
 
 Document 15's P-03 is a list of six small changes, each of which must show a before and after from
 P-01's timer and prove that no pixel moved. This file is the table, and it gains a section per
-item as each one lands. **Items (c) and (a) are done. (b), (d), (e) and (f) are not started.**
+item as each one lands. **Items (c), (a) and (b) are done. (d), (e) and (f) are not started.**
 
 The order is `verification/P-01_frame_trace.md`'s measured order and not either research
 document's estimate: (c), (a), (b), then (d), (e), (f).
@@ -285,13 +285,140 @@ and that call takes a few, so the test could fail on a machine that was quick en
 intermittent failure already merged with P-01, not one this item introduced. It now spins until
 the clock has actually moved.
 
+---
+
+# Item (b): the frame's cels decoded together
+
+Document 15's P-03, item (b). A frame's cels are separate files and nothing about decoding one
+depends on another, but they were decoded one at a time because the `&mut CelCache` threaded
+through `plan_frame_cached`'s layer loop made that loop the only place a decode could happen.
+After items (c) and (a), the read, the byte-to-float pass and the transfer function are what a
+cold frame *is*: 77.5 ms of an 89.7 ms reference-shot draft frame.
+
+**One line: opening a project and pressing play costs 39.3% less a frame on the reference shot and
+34.4% less on the declared fixture, the first pass through the shot goes from 1.04x the 24 fps
+budget to 0.63x, and the cache's hit, miss and eviction counts are unchanged to the digit.**
+
+## What changed
+
+`CelCache::prewarm` takes the list of cels a frame is about to ask for, drops the ones it already
+holds, deduplicates the rest — a matte and the layer that uses it name the same file and decode
+once — and decodes what is left in one rayon fan-out. The results are staged in a `pending` list.
+Nothing is admitted there: `decoded` collects a staged cel, still counts it as a **miss**, because
+it was decoded, and still admits it through `store` in composition order. `plan_frame_cached`
+builds the list from exactly the layers the loop below it will resolve.
+
+**The list is not a guess, and being wrong about it costs nothing.** A cel `prewarm` could not
+work out, or failed to decode, is simply absent, and `resolve_layer` decodes it serially a moment
+later and raises the diagnostic against the right layer the way it always has. That is why
+P-03(b)'s requirement to collect a `FrameLog` per layer and merge it in composition order is not
+implemented: **no diagnostic is ever raised on a worker thread**, so there is no order to restore.
+The requirement was written against a design that decoded inside the layer loop in parallel; this
+one decodes before it, and the requirement dissolves rather than being skipped.
+
+**It does nothing without a budget.** `CelCache::none` is what export and every non-preview caller
+hold, and a cache that may not keep what it decodes has nothing to decode ahead for. ADR-015 bound
+3 — "export neither reads the cache nor writes it" — is untouched by this item, and deliberately:
+letting the fan-out run on the no-budget path would speed up export too, and that is a change to
+an accepted decision rather than a step in making a number look better.
+
+## Why this item has its own artifact
+
+`verification/P-01_frame_trace.md` **cannot measure this change**, and reads 0.000 ms for it in
+all twelve of its rows. That is correct rather than disappointing: P-01's two cold rows hold
+`CelCache::none`, which this item skips, and its warm row already holds every cel, so there is
+nothing left to decode. The state P-01 has no row for is the one a person actually sits through —
+a real budget, and every layer of every frame a miss, which is what opening a project and pressing
+play is.
+
+So item (b) adds a row rather than borrowing one: `verification/P-03b_first_playthrough.md`, from
+`tests/p01_frame_trace.rs`'s `p03b_first_playthrough`, which reuses P-01's harness, machine,
+frames and stage timers and writes its own file. P-01's artifact is not touched, because it is the
+dated baseline the other five items are measured against and a baseline that grows a column is not
+one. The budget is D-40's 1 GiB, the viewer's own, and not P-01's 6 GiB: this row is what the
+window does, so it is measured with what the window is configured with, evictions and all.
+
+## A first playthrough, before and after
+
+| Workload | Quality | Frame before (p50 ms) | Frame after (p50 ms) | Change | Against 24 fps |
+|---|---|---|---|---|---|
+| the reference shot | Draft | 43.242 | **26.262** | **-39.3%** | 1.04x to **0.63x** |
+| the reference shot | Full | 107.101 | 83.750 | **-21.8%** | 2.57x to 2.01x |
+| the declared ten-layer fixture | Draft | 287.434 | 188.541 | **-34.4%** | 6.90x to 4.52x |
+| the declared ten-layer fixture | Full | 349.002 | 257.287 | **-26.3%** | 8.38x to 6.17x |
+
+And the decode itself, which is the three stages this item moved onto several threads. "Before" is
+their sum on the calling thread; "after" is the wall-clock of the fan-out that replaced them.
+
+| Workload | Quality | Cels a frame | Serial decode (p50 ms) | Parallel decode (p50 ms) | Change |
+|---|---|---|---|---|---|
+| the reference shot | Draft | 4 | 35.897 | 19.419 | **-45.9%** |
+| the reference shot | Full | 4 | 36.357 | 19.638 | **-46.0%** |
+| the declared ten-layer fixture | Draft | 10 | 116.416 | 30.728 | **-73.6%** |
+| the declared ten-layer fixture | Full | 10 | 116.689 | 30.071 | **-74.4%** |
+
+Four cels across twenty-four threads is a speed-up of 1.85x and ten cels is 3.79x, not 4x and not
+10x. Neither number is a disappointment and the artifact does not present them as one: a frame has
+as many cels as it has layers, the files are read from one disk, and the widest thread is what the
+frame waits for. **This item is bounded by the layer count, and it says so here rather than being
+quoted as a thread count.**
+
+## The counts that did not move
+
+| | Before | After |
+|---|---|---|
+| the reference shot, either quality | 31 hits, 47 misses, 15 evictions | 31 hits, 47 misses, 15 evictions |
+| the declared fixture, either quality | 86 hits, 148 misses, 116 evictions | 86 hits, 148 misses, 116 evictions |
+
+This is the check that matters more than the timings. A cel decoded ahead is still counted as the
+miss it is, and is still admitted in the order the layer loop asks for it, so the budget, the
+eviction order and the numbers `verification/B-08b_cache_table.md` reports are what they were when
+every decode was serial. That table is regenerated by `tests/b08b_cache.rs` on every run of the
+suite and **did not change by one digit**, which is the same statement made by a test the owner
+already has.
+
+## The stage table stayed disjoint, which took work
+
+`src/perf.rs` opens with a promise: the stages are disjoint, so the table can be summed and
+subtracted from a frame time to leave a residual, and "a nested pair would double-count and the
+residual would go negative, which is a bug that reads as a result". Three stages now run on
+however many threads rayon hands them, while the frame pays only the wall-clock of the widest.
+Left alone, they would have added their *core* time to counters compared against wall-clock, the
+table would have summed to more than the frame, and `tests/p01_frame_trace.rs`'s own assertion
+would have failed.
+
+So the fan-out reports as one new stage, "decode this frame's cels in parallel", wall-clock from
+fan-out to join, exactly as `TileLoop` already did; and `perf::untimed` suppresses the three
+per-cel timers on whichever worker thread is inside it. A cel decoded anywhere else — an export, a
+caller with no cache, a request the fan-out could not see coming — reports in the three stages as
+before. The p95 columns in the after run show that happening: the reference shot's read stage has
+a p50 of 0.000 ms and a p95 of 2.862 ms, which is the frames where a cel was not decoded ahead.
+
+## The proof that no pixel moved
+
+Two things, because this item needed a second one.
+
+**The manifest**, as items (c) and (a) ran it: 960 frames, both fixtures, both qualities, one line
+a frame, compared against the run from before this change. **960 of 960 lines identical**, over
+4,230,144,000 bytes, and identical to the run item (a) left, so the three items so far share one
+unbroken chain of manifests.
+
+**A budgeted render against an unbudgeted one, every frame.** The manifest renders through
+`CelCache::none`, which this item skips, so it could not on its own see anything this item did.
+`tests/p03_byte_equality.rs` now renders each frame a second time through one cache with the
+viewer's D-40 budget and compares the two encodes byte for byte. That is `tests/b08b_cache.rs`'s
+rule — which already covers the reference shot at several budgets, and whose table did not move —
+extended to the declared ten-layer fixture, and P-03(b) is the reason it is needed: with a budget
+and without one are no longer the same schedule of the same work. **Every frame of both fixtures
+at both qualities passed**, 960 pairs, in the same run that produced the manifest above.
+
 ## What is left of P-03
 
 | Item | What it is | State |
 |---|---|---|
 | (c) | the sRGB decode table | **DONE**, item (c) above |
 | (a) | shared cache buffers | **DONE**, item (a) above |
-| (b) | parallel decode | not started |
+| (b) | parallel decode | **DONE**, item (b) above |
 | (d) | tiles written into the frame | not started |
 | (e) | hoisted per-pixel branches | not started |
 | (f) | draft tile size | not started |
