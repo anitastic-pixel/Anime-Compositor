@@ -190,10 +190,13 @@ pub fn gaussian_weights(sigma_px: f64) -> Vec<f32> {
 pub fn apply_stack(
     source: &mut WorkingBuffer,
     stack: &[EffectInstance],
-    mut report: impl FnMut(&EffectInstance, Bypassed),
+    mut report: impl FnMut(usize, &EffectInstance, Bypassed),
 ) -> (usize, usize) {
     let (mut ox, mut oy) = (0usize, 0usize);
-    for instance in stack {
+    // The position is reported alongside the instance because P-11's effect cache replays a
+    // bypass on a hit, and a position is the one thing about an instance that survives being
+    // written down and read back next frame.
+    for (at, instance) in stack.iter().enumerate() {
         if !instance.enabled {
             // Deliberately silent. A bypassed effect is a setting a person chose, not a fault,
             // and document 28's incomplete-fidelity mark is for what this build could not do.
@@ -201,17 +204,30 @@ pub fn apply_stack(
         }
         match &instance.effect {
             Effect::Unsupported { .. } => {
-                report(instance, Bypassed::NotImplemented);
+                report(at, instance, Bypassed::NotImplemented);
                 continue;
             }
             e if !e.is_valid() => {
-                report(instance, Bypassed::InvalidParameter);
+                report(at, instance, Bypassed::InvalidParameter);
                 continue;
             }
-            Effect::Exposure { stops } => exposure(source, *stops),
-            Effect::Tint { color, amount } => tint(source, *color, *amount),
+            // One stage per kind of effect rather than one for the stack (P-11). The three are
+            // disjoint and none of them nests, so `src/perf.rs`'s promise that the table can be
+            // summed still holds; what they buy is the ranking P-11's entry says it needs before
+            // it decides which effect is worth caching.
+            Effect::Exposure { stops } => {
+                crate::perf::time(crate::perf::Stage::EffectExposure, || {
+                    exposure(source, *stops)
+                })
+            }
+            Effect::Tint { color, amount } => {
+                crate::perf::time(crate::perf::Stage::EffectTint, || {
+                    tint(source, *color, *amount)
+                })
+            }
             Effect::GaussianBlur { sigma_px } => {
-                let r = blur(source, *sigma_px);
+                let r =
+                    crate::perf::time(crate::perf::Stage::EffectBlur, || blur(source, *sigma_px));
                 ox += r;
                 oy += r;
             }

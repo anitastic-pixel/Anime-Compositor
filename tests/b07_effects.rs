@@ -140,7 +140,7 @@ fn solid(width: usize, height: usize, p: [f32; 4]) -> WorkingBuffer {
 /// Run a stack and collect what it bypassed, so a row can name both the pixels and the reasons.
 fn run(source: &mut WorkingBuffer, stack: &[EffectInstance]) -> ((usize, usize), Vec<String>) {
     let mut bypassed = Vec::new();
-    let offset = apply_stack(source, stack, |instance, why| {
+    let offset = apply_stack(source, stack, |_at, instance, why| {
         bypassed.push(format!(
             "{} {}",
             instance.type_id(),

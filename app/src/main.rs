@@ -42,7 +42,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
+use anime_compositor::cache::CelCache;
 use anime_compositor::command::{Command, Document};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
@@ -435,7 +435,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         // misjudges, and every photograph of this window so far was taken with the grid there.
         checkerboard: true,
         relink: None,
-        cache: CelCache::with_budget(DEFAULT_BUDGET_BYTES),
+        cache: CelCache::viewer(),
     })
 }
 

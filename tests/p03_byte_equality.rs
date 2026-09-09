@@ -121,7 +121,7 @@ fn p03_byte_equality() {
             // One cache for the whole pass, so that the frames a fan-out decodes ahead, the ones
             // it finds already held and the ones it evicts all happen the way they do in a
             // viewer, rather than being reset between frames.
-            let mut budgeted = CelCache::with_budget(anime_compositor::cache::DEFAULT_BUDGET_BYTES);
+            let mut budgeted = CelCache::viewer();
             for frame in 0..FRAMES {
                 let mut log = FrameLog::new(3);
                 let buffer = preview::preview_frame_cached(
