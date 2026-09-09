@@ -338,7 +338,9 @@ fn resolve_layer(
                 .with_remediation("Redraw the mask so its outline does not cross itself."),
             );
         }
-        crate::mask::apply(&mut source, mask);
+        crate::perf::time(crate::perf::Stage::Mask, || {
+            crate::mask::apply(&mut source, mask)
+        });
     }
 
     // Document 21 step 3: the ordered effect stack, in layer space, after the mask and before
@@ -349,41 +351,43 @@ fn resolve_layer(
     // back: cropping is exactly the fault document 21's "bounds expand by the kernel radius"
     // exists to prevent, and it would cut a straight edge through the glow of anything blurred
     // near the edge of its cel.
-    let offset = crate::effects::apply_stack(&mut source, &layer.effects, |instance, why| {
-        let (id, what, detail) = match why {
-            crate::effects::Bypassed::NotImplemented => (
-                DiagnosticId::EffectUnsupported,
-                format!(
-                    "Layer {} uses the effect \"{}\", which this build does not have.",
-                    layer.name,
-                    instance.type_id()
-                ),
-                format!(
-                    "Frame {frame} is drawn without it. The effect is kept in the project \
+    let offset = crate::perf::time(crate::perf::Stage::Effects, || {
+        crate::effects::apply_stack(&mut source, &layer.effects, |instance, why| {
+            let (id, what, detail) = match why {
+                crate::effects::Bypassed::NotImplemented => (
+                    DiagnosticId::EffectUnsupported,
+                    format!(
+                        "Layer {} uses the effect \"{}\", which this build does not have.",
+                        layer.name,
+                        instance.type_id()
+                    ),
+                    format!(
+                        "Frame {frame} is drawn without it. The effect is kept in the project \
                      exactly as it was."
+                    ),
                 ),
-            ),
-            crate::effects::Bypassed::InvalidParameter => (
-                DiagnosticId::EffectParameterInvalid,
-                format!(
-                    "Layer {}'s {} has a setting this build cannot use, so it is not drawn.",
-                    layer.name,
-                    instance.type_id()
+                crate::effects::Bypassed::InvalidParameter => (
+                    DiagnosticId::EffectParameterInvalid,
+                    format!(
+                        "Layer {}'s {} has a setting this build cannot use, so it is not drawn.",
+                        layer.name,
+                        instance.type_id()
+                    ),
+                    format!(
+                        "{} Frame {frame} is drawn without the effect, which is kept as it was.",
+                        instance.effect.why_invalid()
+                    ),
                 ),
-                format!(
-                    "{} Frame {frame} is drawn without the effect, which is kept as it was.",
-                    instance.effect.why_invalid()
-                ),
-            ),
-        };
-        log.record(
-            frame,
-            layer.name.clone(),
-            Diagnostic::new(id, Severity::Warning, what, detail).with_remediation(
-                "The frame is missing what the effect would have done. Remove the effect, or \
+            };
+            log.record(
+                frame,
+                layer.name.clone(),
+                Diagnostic::new(id, Severity::Warning, what, detail).with_remediation(
+                    "The frame is missing what the effect would have done. Remove the effect, or \
                  correct it, to have the picture match the project.",
-            ),
-        );
+                ),
+            );
+        })
     });
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of

@@ -270,21 +270,25 @@ pub fn tiles(width: usize, height: usize, size: usize) -> Vec<Tile> {
 /// plan, and the assembly step writes each tile to a position fixed before any thread started.
 pub fn render(plan: &FramePlan, tile_size: usize) -> WorkingBuffer {
     let tiles = tiles(plan.width, plan.height, tile_size);
-    let rendered: Vec<(Tile, Vec<f32>)> = tiles
-        .par_iter()
-        .map(|&tile| (tile, render_tile(plan, tile)))
-        .collect();
+    let rendered: Vec<(Tile, Vec<f32>)> = crate::perf::time(crate::perf::Stage::TileLoop, || {
+        tiles
+            .par_iter()
+            .map(|&tile| (tile, render_tile(plan, tile)))
+            .collect()
+    });
 
-    let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
-    let data = frame.data_mut();
-    for (tile, pixels) in rendered {
-        for row in 0..tile.height {
-            let dst = ((tile.y + row) * plan.width + tile.x) * 4;
-            let src = row * tile.width * 4;
-            data[dst..dst + tile.width * 4].copy_from_slice(&pixels[src..src + tile.width * 4]);
+    crate::perf::time(crate::perf::Stage::FrameAssembly, || {
+        let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
+        let data = frame.data_mut();
+        for (tile, pixels) in rendered {
+            for row in 0..tile.height {
+                let dst = ((tile.y + row) * plan.width + tile.x) * 4;
+                let src = row * tile.width * 4;
+                data[dst..dst + tile.width * 4].copy_from_slice(&pixels[src..src + tile.width * 4]);
+            }
         }
-    }
-    frame
+        frame
+    })
 }
 
 /// One tile of the frame: the whole layer stack, bottom to top, over one small accumulator.
