@@ -7,6 +7,8 @@
 //! except by converting a tagged buffer into the document 21 working space. Compositing two
 //! images in the wrong space is therefore not a checked error, it is unrepresentable.
 
+use rayon::prelude::*;
+
 pub mod cache;
 pub mod color;
 pub mod command;
@@ -272,21 +274,37 @@ impl WorkingBuffer {
             OutputDepth::Eight => 1,
             OutputDepth::Sixteen => 2,
         };
-        let mut out = Vec::with_capacity(self.0.data.len() * bytes);
-        let mut push = |c: f32| match depth {
-            OutputDepth::Eight => out.push(color::quantise_u8(c)),
-            OutputDepth::Sixteen => out.extend_from_slice(&color::quantise_u16(c).to_be_bytes()),
-        };
-        for px in self.0.data.chunks_exact(4) {
-            let px = match alpha {
-                OutputAlpha::Straight => composite::unpremultiply([px[0], px[1], px[2], px[3]]),
-                OutputAlpha::Premultiplied => [px[0], px[1], px[2], px[3]],
-            };
-            for &c in &px[..3] {
-                push(color::linear_to_srgb(c));
-            }
-            push(px[3]);
-        }
+        // One pixel in, four samples out, and nothing a pixel does depends on any other pixel:
+        // the whole encode is a map, so it is one across the thread pool (P-10). The arithmetic
+        // per pixel is exactly what it was when this was a `for` loop - the same unpremultiply,
+        // the same `linear_to_srgb` on the same three channels, the same quantiser - because the
+        // question this stage answers is what colour a pixel is, and that may not depend on which
+        // thread asked. The destination is allocated once and split into one disjoint piece per
+        // pixel, so no two threads are ever handed the same byte.
+        let mut out = vec![0u8; self.0.data.len() * bytes];
+        out.par_chunks_mut(4 * bytes)
+            .zip(self.0.data.par_chunks_exact(4))
+            .for_each(|(dst, px)| {
+                let px = match alpha {
+                    OutputAlpha::Straight => composite::unpremultiply([px[0], px[1], px[2], px[3]]),
+                    OutputAlpha::Premultiplied => [px[0], px[1], px[2], px[3]],
+                };
+                let sample = [
+                    color::linear_to_srgb(px[0]),
+                    color::linear_to_srgb(px[1]),
+                    color::linear_to_srgb(px[2]),
+                    px[3],
+                ];
+                for (index, &c) in sample.iter().enumerate() {
+                    match depth {
+                        OutputDepth::Eight => dst[index] = color::quantise_u8(c),
+                        OutputDepth::Sixteen => {
+                            dst[index * 2..index * 2 + 2]
+                                .copy_from_slice(&color::quantise_u16(c).to_be_bytes());
+                        }
+                    }
+                }
+            });
         out
     }
 }
