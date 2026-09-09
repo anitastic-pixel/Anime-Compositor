@@ -3,8 +3,8 @@
 The eight tables under `B-12a_*_table.md` say that every command the editing panels invoke does
 what it claims. None of them can say that the panels are on the screen, laid out, and operable.
 That is what these five photographs are for, and Q-03 — display scaling and keyboard
-reachability — is the requirement they answer for this window. Three defects were found here and
-all three are fixed.
+reachability — is the requirement they answer for this window. Four defects were found here and
+all four are fixed.
 
 **Retaken twice on 2026-09-08, first under B-12c and then under B-12d.** A photograph is the one
 artifact in this repository that no test regenerates, so a photograph of a window that no longer
@@ -44,21 +44,26 @@ empty box is never mistaken for a value of zero.
 
 ![layer4 chosen by keyboard](B-12a_keyboard.png)
 
-Thirteen presses of Tab and then a space, no mouse at any point. The thirteenth stop is layer4
-in the layer list, the space chooses it, and the LAYER panel fills in on the right: Name,
-Identifier, Drawing, Frames, Anchor, Position, Scale, Rotation, Opacity, Blend, Mask, Matte. The
-transform inspector being populated is the evidence — it is only ever populated for a selected
-layer.
+Twenty presses of Tab and then a space, no mouse at any point. The twentieth stop is layer4 in the
+timeline, the space chooses it, and the LAYER panel fills in on the right: Name, Identifier,
+Drawing, Frames, Anchor, Position, Scale, Rotation, Opacity, Blend, Mask, Matte. The transform
+inspector being populated is the evidence — it is only ever populated for a selected layer.
 
 ```
-powershell -ExecutionPolicy Bypass -Command "& ./tools/capture_window.ps1 -Name B-12a_keyboard -Keys (([char]9).ToString()*13 + ' ')"
+powershell -ExecutionPolicy Bypass -Command "& ./tools/capture_window.ps1 -Name B-12a_keyboard -Keys (([char]9).ToString()*20 + ' ')"
 ```
 
-Thirteen rather than the twelve this said before B-12d, because **New composition…** is a stop
-ahead of everything else. The count went from thirteen to twelve once already, when it turned out
-a disabled button is not a stop on the Tab order and Relink drawings…, Add an exposure and Add
+Twenty rather than the thirteen this said before the restyle of 2026-09-08, and the extra seven
+are all list rows and panel order rather than new controls: Open…, Save, Save As…, Recent…,
+Export…, the *Write frames whose drawing is missing* checkbox, the one composition row, the four
+drawing rows, New composition…, Import drawings…, Play, ←, →, Full resolution, Alpha only, Hide
+grid, and then layer4 at the top of the timeline, which now sits below the three panels instead of
+beside them. The count went from thirteen to twelve once before that, when it turned out a
+disabled button is not a stop on the Tab order and Relink drawings…, Add an exposure and Add
 effect… are all disabled while nothing is selected. The count is a property of the window in this
-state, not a promise, and it is read off the picture each time rather than reasoned about.
+state, not a promise, and it is read off the picture each time rather than reasoned about — see
+B-11 on why that matters: the capture tool drops a keystroke often enough that a count taken on
+trust is wrong sooner or later.
 
 **The defect this found, and the fix.** The rows in the layer list and the media bin were
 reachable by Tab and showed a focus ring, so they looked keyboard-operable. They were not: a row
@@ -84,14 +89,34 @@ twelve presses against the build with that line in it.
 | Photograph | Scale | What holds |
 | --- | --- | --- |
 | ![100%](B-12a_scale_100.png) | 100% | the five panels side by side, the document bar on one row |
-| ![200%](B-12a_scale_200.png) | 200% | the same five panels; the inspector column and the lower bar scroll, and the picture shrinks rather than being cut |
+| ![200%](B-12a_scale_200.png) | 200% | the same five panels; the rows of controls wrap, the inspector column scrolls, and the picture shrinks rather than being cut |
 
 Same shot, same frame, in both. What to check going from one to the other: every panel is still
-there, nothing overlaps anything, and the composited picture is whole. At 200% the right-hand
-column is taller than the room it has and grows a scroll bar — EFFECTS is half visible at the
-bottom edge of it — and the document bar wraps to two rows. That is the intended behaviour and
-not a defect: the fix made for B-11 was that the bars keep at most half the window and scroll
-the rest, so the thing being composited is never what gets pushed off.
+there, nothing overlaps anything, and the composited picture is whole. At 200% the document bar
+wraps to two rows, the viewer's own controls wrap to three, the right-hand column is taller than
+the room it has and grows a scroll bar — EFFECTS is below the bottom edge of it — and the
+composition's name in the centre tab is shortened to *reference shot — 1920…* with an ellipsis.
+All of that is the intended behaviour and not a defect: the fix made for B-11 was that the bars
+keep at most half the window and scroll or wrap the rest, so the thing being composited is never
+what gets pushed off. The picture at 200% is a third the size it is at 100%, which is the same
+rule seen from the other side.
+
+**The fourth defect, found by retaking this photograph.** At 200% the centre panel painted
+straight over the inspector beside it, and *COMPOSITION reference shot — 1920×10*, *Draft — 48*
+and *Hide g* were all cut off with nothing to scroll to reach them. Two things were wrong. The
+three columns of `#work` were fixed at 220px and 280px on the outside, which at 200% left the
+middle one no room at all; they may now all give ground. And each panel is a grid whose column
+was left implicit, which makes it an `auto` track — and an auto track sizes itself to its widest
+item before it sizes itself to its container, so the panel grew as wide as its row of buttons
+wanted and the buttons were clipped instead of wrapping. That is the same trap the rows of this
+same grid already carried a comment about, one axis over. Both are in `app/ui/index.html` with
+the reason written beside them.
+
+This one is worth naming for how it was missed rather than for what it was. `tools/capture_window.ps1`
+photographs the built executable and does not build it, and Tauri compiles `app/ui/` into that
+executable, so the first two attempts at this fix were photographed against a binary that did not
+contain them and both looked like failures. A photograph of this window says nothing about a page
+that has not been rebuilt into it.
 
 ```
 powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-12a_scale_100 -Scale 1.0
@@ -112,8 +137,8 @@ one of them was taken with the reference shot, where layer4 has eighty exposure 
 EFFECTS is a long way below the bottom of the column. This is a small project made for the
 photograph and kept beside it: `B-12c_effects_shot.json`, one layer pointing at the reference
 shot's own layer3 drawings in `Fixtures/`, six frames on twos, with a blur and a tint on it,
-captured at 100% so the whole column fits in one picture. Nine presses of Tab reach the layer row
-and the space chooses it.
+captured at 100% so the whole column fits in one picture. Seventeen presses of Tab reach the layer
+row and the space chooses it.
 
 What it shows, top to bottom: LAYER with the transform fields and the matte chooser; EXPOSURES as
 the layer's three spans, each wrapped over two lines — *frames 0 to 2* / *show drawing 0*, then
@@ -132,7 +157,7 @@ without scrolling the panel sideways, which is the one thing an exposure sheet i
 now wraps onto a second line, which is why each one reads across two lines above.
 
 ```
-powershell -ExecutionPolicy Bypass -Command "& ./tools/capture_window.ps1 -Name B-12c_effects_panel -Open 'verification/B-12c_effects_shot.json' -Scale 1.0 -Keys (([char]9).ToString()*10 + ' ')"
+powershell -ExecutionPolicy Bypass -Command "& ./tools/capture_window.ps1 -Name B-12c_effects_panel -Open 'verification/B-12c_effects_shot.json' -Scale 1.0 -Keys (([char]9).ToString()*17 + ' ')"
 ```
 
 ## What these five do not cover

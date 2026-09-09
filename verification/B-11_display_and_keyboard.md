@@ -3,20 +3,24 @@
 Q-03 asks that the interface stay usable when Windows is set to enlarge text, that every control
 be reachable from the keyboard, and that text which is not English display correctly. None of
 those three is a value a test can compare, so this is five photographs and an account of what
-they show — including two layout defects and one keyboard defect that these checks found and
+they show — including three layout defects and one keyboard defect that these checks found and
 that are now fixed.
 
 ## 1. Display scaling
 
-| Photograph | Scale | What the bar does |
+| Photograph | Scale | What the strips do |
 | --- | --- | --- |
-| ![100%](B-11_scale_100.png) | 100% | every control on one row, the hint and the status beside them |
-| ![150%](B-11_scale_150.png) | 150% | wraps to two rows, warnings below |
-| ![200%](B-11_scale_200.png) | 200% | wraps to two rows at twice the size; the picture is smaller and still whole |
+| ![100%](B-11_scale_100.png) | 100% | every row of controls on one line, the three panels side by side, the timeline and the two warnings below |
+| ![150%](B-11_scale_150.png) | 150% | the same, still one line per row; the panels are narrower and the picture is smaller |
+| ![200%](B-11_scale_200.png) | 200% | the document bar wraps to two rows and the viewer's controls to three; the inspector column and the strips below scroll; the picture is smaller and still whole |
 
 All three are the same project at frame 0, and the two warning lines are the same two sentences
 in each. Read down the column and the thing to check is that nothing is cut off, nothing is
-overlapped, and the checkerboard — the frame itself — is on screen in all three.
+overlapped, and the checkerboard — the frame itself — is on screen in all three. At 200% the
+composition's name in the centre tab is shortened to *Main — 1920×1080 at …*, the right-hand
+column has a scroll bar with EFFECTS at the bottom edge of it, and the timeline and the warning
+strip each have one of their own: that is the intended behaviour, not a defect. What is not
+allowed to move is the frame.
 
 **This machine's own display is already at 150%.** Every other photograph under `verification/`
 was taken at that setting, so the 150% row is not a simulation of anything; it is the ordinary
@@ -36,7 +40,7 @@ would give, not more. It is a harsher test than the real setting and it covers e
 the window, which is all of this application. What it cannot speak for is the title bar, and
 nothing in this repository draws that.
 
-**Two defects, found here and fixed.** The 200% picture did not look like this the first time.
+**Three defects, found here and fixed.** The 200% picture did not look like this the first time.
 
 - The bar grew until it filled the window and the frame disappeared off the top. A bar allowed
   to grow without limit will always do this at some text size. It now keeps at most half the
@@ -46,29 +50,53 @@ nothing in this repository draws that.
   itself to its contents before it sizes itself to its container, so the row holding the canvas
   was taller than the stage and the overflow was simply clipped. The tracks are now written so
   the row may shrink below its contents, and the picture scales down instead.
+- **Found on 2026-09-08, when these three were retaken against the restyled window.** Each of the
+  three strips now has a cap of its own — a fifth of the window for the menus, a third each for
+  the timeline and the warnings — and at 200% those caps add up to more than a window. The panels
+  in the middle were left about a third of the height, the viewer's own controls wrapped onto
+  three rows inside that, and the checkerboard vanished altogether: the first defect above, back
+  again by a different route, because three bars each keeping to their own limit can still take
+  everything between them. The middle now has a floor of half the window that the strips give way
+  to, and the menu strip is the one that does not shrink, because it is two lines of commands and
+  squeezing it cut a checkbox in half to buy almost nothing. The timeline and the warnings scroll
+  instead, which is what the first fix said they should do.
 
-Both are in `app/ui/index.html` with the reason written beside them. This is what T-15 is for: a
+All three are in `app/ui/index.html` with the reason written beside them. This is what T-15 is for: a
 check that finds nothing on a machine set to one scaling factor has not been run.
 
 ## 2. The keyboard
 
 ![the Open button holding the keyboard](B-11_keyboard_focus.png)
 
-Seven presses of Tab from a freshly opened window, and the seventh lands on **Full resolution**,
-which is outlined in blue. That is the whole of the claim: the controls are ordinary buttons and a
-`select` in the order they appear, Tab walks them, and the one holding the keyboard says so
-visibly. The ring is its own colour because the other two colours in this window already mean
-things — orange is a warning, green is a save that happened.
+Fourteen presses of Tab from a freshly opened window, and the fourteenth lands on **Full
+resolution**, which is outlined in blue. That is the whole of the claim: the controls are ordinary
+buttons, a `select` and the rows of the two lists, in the order they appear, Tab walks them, and
+the one holding the keyboard says so visibly. The ring is its own colour because the other two
+colours in this window already mean things — orange is a warning, green is a save that happened.
+
+The fourteen, in order, so the number can be checked against the picture rather than believed:
+Open…, Save, Save As…, Recent…, Export…, the *Write frames whose drawing is missing* checkbox, the
+one composition row (Main), the one drawing row (Cel), New composition…, Import drawings…, Play,
+←, →, Full resolution. Undo, Redo and Relink… are skipped because a disabled button is not a Tab
+stop, and this project is freshly opened with nothing selected.
 
 ```
-powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-11_keyboard_focus -Open "target\shot\my_shot.json" -Keys "`t`t`t`t`t`t`t"
+powershell -ExecutionPolicy Bypass -Command "& ./tools/capture_window.ps1 -Name B-11_keyboard_focus -Open \"target\shot\my_shot.json\" -Keys (([char]9).ToString()*14)"
 ```
+
+**The capture tool drops a keystroke now and then, so this picture was checked and not trusted.**
+Running the command above twice on 2026-09-08 landed once on → and once on **Full resolution**;
+the second is right, the first was thirteen tabs arriving out of fourteen sent. `SendKeys` is what
+`tools/capture_window.ps1` has to work with. It costs nothing here because a photograph is looked
+at before it is kept, but nobody should read a keystroke count off this tool without opening the
+picture.
 
 **Retaken on 2026-09-08, under B-12d.** Every photograph on this page was, because a
 photograph is the one artifact in this repository that no test regenerates and this window has
 gained controls since B-11: the whole editing interface under B-12a, and then a COMPOSITION
-section with a **New composition…** button under B-12d, which is a Tab stop ahead of
-everything else. The count above went from six to seven for that reason, and where the seventh
+section with a **New composition…** button under B-12d. The count above went from six to seven
+and then, on 2026-09-08, to fourteen: the restyle put the whole project panel and both of its
+lists ahead of the viewer's controls, and every row of a list is a stop. Where the fourteenth
 press lands was read off the new picture rather than worked out on paper. It is a different
 control from the one this said before, which does not weaken the claim: the claim is that Tab
 walks the controls in the order they appear and the one holding the keyboard says so visibly.

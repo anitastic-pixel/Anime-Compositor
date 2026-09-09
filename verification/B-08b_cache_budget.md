@@ -18,10 +18,10 @@ Debug assertions in this build: false. A run with `true` there is a debug build,
 
 | Budget | Bytes | Total ms | Median ms per frame | Slowest ms | Frames per second at the median | Decodes | Answered from memory | Evictions | Held at the end |
 |---|---|---|---|---|---|---|---|---|---|
-| none (the path export takes) | 0 | 4793.4 | 99.93 | 107.47 | 10.0 | 188 | 0 | 0 | 0 |
-| one cel | 33177600 | 4836.4 | 100.81 | 114.96 | 9.9 | 188 | 0 | 187 | 33177600 |
-| 128 MB (the viewer's default) | 134217728 | 2021.8 | 42.54 | 102.12 | 23.5 | 87 | 101 | 83 | 132710400 |
-| 512 MB | 536870912 | 1966.5 | 41.45 | 101.37 | 24.1 | 87 | 101 | 71 | 530841600 |
+| none (the path export takes) | 0 | 4900.8 | 99.78 | 121.80 | 10.0 | 188 | 0 | 0 | 0 |
+| one cel | 33177600 | 5440.5 | 114.41 | 125.28 | 8.7 | 188 | 0 | 187 | 33177600 |
+| 128 MB (what the default was until 2026-09-08) | 134217728 | 2131.7 | 44.02 | 110.94 | 22.7 | 87 | 101 | 83 | 132710400 |
+| 1 GiB (the viewer's default) | 1073741824 | 2232.0 | 45.59 | 116.08 | 21.9 | 87 | 101 | 55 | 1061683200 |
 
 ## How to read this
 

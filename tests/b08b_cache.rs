@@ -58,7 +58,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
+use anime_compositor::cache::{budget_label, CelCache, DEFAULT_BUDGET_BYTES};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog};
 use anime_compositor::model::{Id, Interpretation, Project};
@@ -702,13 +702,16 @@ fn write_report(report: &Report, looping: &CelCache) {
          it matters because a budget written against the smaller figure would have held four times \
          the memory it promised.\n\n\
          The viewer's default budget is {DEFAULT_BUDGET_BYTES} bytes, which is {} cels of this \
-         size, and it was chosen by the measurement in `verification/B-08b_cache_budget.md` rather \
-         than by a guess ahead of it. The checks above deliberately do not use that number: they \
+         size. The table below is where it was measured, and the row it was chosen by is not this \
+         shot's: 128 MB and 512 MB are a fraction of a millisecond apart on four layers, and what \
+         raised it to {} was the ten-layer fixture in `verification/T-06_declared_fixture.md`, \
+         where one frame is ten cels and 128 MB could not hold one. The checks above deliberately do not use that number: they \
          use a budget with room for every drawing the six frames touch, because a check about \
          whether remembering changes the answer should not also depend on how much is remembered. \
          Ten loops of six frames ended holding {} bytes in {} cels, which is every distinct drawing \
          those frames use and no copy of any of them.",
         DEFAULT_BUDGET_BYTES / ONE_CEL,
+        budget_label(DEFAULT_BUDGET_BYTES),
         looping.held_bytes(),
         looping.len(),
     );
@@ -742,11 +745,18 @@ fn b08b_cache_budget() {
     // twenty-four of its drawings and start repeating them.
     let frames: Vec<i32> = (0..48).collect();
 
+    let now = format!(
+        "{} (the viewer's default)",
+        budget_label(DEFAULT_BUDGET_BYTES)
+    );
     let budgets: [(&str, usize); 4] = [
         ("none (the path export takes)", 0),
         ("one cel", ONE_CEL),
-        ("128 MB (the viewer's default)", DEFAULT_BUDGET_BYTES),
-        ("512 MB", 512 * 1024 * 1024),
+        (
+            "128 MB (what the default was until 2026-09-08)",
+            128 * 1024 * 1024,
+        ),
+        (&now, DEFAULT_BUDGET_BYTES),
     ];
 
     let mut rows = Vec::new();

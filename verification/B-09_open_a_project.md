@@ -90,7 +90,7 @@ powershell -ExecutionPolicy Bypass -File tools/capture_window.ps1 -Name B-09_ope
 ```
 
 Same rules as `B-08_window_shell.md`: these are not written by `cargo test`, they will not
-reproduce byte for byte, and they are evidence that the viewer ran on 2026-09-05.
+reproduce byte for byte, and they are evidence that the viewer ran on 2026-09-08.
 
 ## What these pictures do not show
 
@@ -110,9 +110,9 @@ because a save writes and the fixtures do not get written to.
 
 ![the window with a project open, before saving](B-09_save_before.png)
 
-The bar now carries **Open…**, **Save**, **Save As…** and a **Recent…** list beside the project
-name, and the hint underneath names the three accelerators. The green line at the right is the
-status line, and it says `Opened I:\…\my_shot.json`.
+The strip along the top carries **Open…**, **Save**, **Save As…** and a **Recent…** list beside
+the project name, and the hint along the very bottom names the accelerators. The green line under
+the timeline is the status line, and it says `Opened I:\…\my_shot.json`.
 
 ![the same window after Ctrl+S](B-09_save_after.png)
 

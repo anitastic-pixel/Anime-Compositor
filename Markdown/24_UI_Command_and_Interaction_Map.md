@@ -15,6 +15,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | project.save | Save current project | Ctrl+S | no history item |
 | project.save_as | Save project to new path | Ctrl+Shift+S | no history item |
 | composition.create | Create a composition in the open project | Ctrl+Shift+N | yes |
+| composition.open | Put one of the project's compositions in the viewer | none | no |
 | edit.undo | Undo latest command | Ctrl+Z | control |
 | edit.redo | Redo latest undone command | Ctrl+Shift+Z | control |
 | media.import | Import still/sequence | Ctrl+I | yes |
@@ -54,6 +55,8 @@ Shortcuts are proposed defaults and must be tested for OS/framework conflicts. U
 `property.set_base` was added on 2026-09-07 by B-12a. W-01 requires the artist to adjust anchors and transforms, `SetPropertyBase` has existed in the command layer since B-05, and this table named no ID for reaching it, so an inspector had nothing stable to invoke. This is a correction of an omission, not a new capability; if the owner would rather it were named something else, the string is changed in one place.
 
 `composition.create` was added on 2026-09-08 by B-12d, and it is not a correction of an omission like the two above: no command existed in the core either, so this is a new capability and the owner may cut it. The reason it is here is that W-01 lists "creates a composition" third of its thirteen steps and nothing in this build could take that step — `project.new` above makes an empty project, and an empty project has nothing to make an empty project *into*. `verification/B-12_acceptance_run.md` recorded step 3 as **not built** for that reason. One ID covers name, size, frame rate and length because document 19 line 15 makes all four properties of the composition record, and a composition that existed before its size did would be a state no file can hold.
+
+`composition.open` was added on 2026-09-08, the same day, and for a reason the owner found rather than a reason a document named: `composition.create` moves the window into what it made, this table had no ID for moving it anywhere else, and nothing in the window listed the compositions a project holds. Making a composition was therefore a one-way door out of the shot somebody was working on. It is not undoable and it is not an edit — nothing about the project changes, the window looks somewhere else — which puts it with `viewer.toggle_alpha` and `viewer.toggle_checkerboard` rather than with the commands above it. No shortcut: the compositions are a list in the project panel, reachable by Tab like the drawings beside them, and this table promises Ctrl+N and Ctrl+Shift+N to two other things already. Like `composition.create`, it is a new capability and the owner may cut it; cutting it means cutting that one as well, or restoring the one-way door.
 
 Ctrl+Shift+N rather than Ctrl+N, because Ctrl+N belongs to `project.new` in the row above and this is not that command. This build binds Ctrl+Shift+N and leaves Ctrl+N unbound, so the day `project.new` is built it takes the shortcut this table already promised it.
 

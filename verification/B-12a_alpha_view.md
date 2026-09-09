@@ -15,7 +15,7 @@ words:
 > Alpha-only inspection is on. The picture is the alpha channel, white where the frame is opaque
 > and black where it is empty; what is exported is unchanged.
 
-Two buttons are new beside the resolution toggle. **Colour again** turns the alpha view off, and
+Two buttons are new on the row under the resolution toggle. **Colour again** turns the alpha view off, and
 **Hide grid** turns off the transparency grid; each says what pressing it will do rather than what
 is currently on, and each has a single-letter key — **A** and **G**, listed in the hint line with
 the D that switches resolution. They are single letters and not accelerators because neither

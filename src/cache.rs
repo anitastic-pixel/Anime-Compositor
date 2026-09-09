@@ -46,13 +46,43 @@ use crate::WorkingBuffer;
 /// measured, and `verification/B-08b_cache_budget.md` is that measurement: forty-eight consecutive
 /// frames of the reference shot at four budgets, on the reference machine, in a release build.
 ///
-/// The number came out of that table rather than out of a guess about it. 128 MB took a draft
-/// preview frame from 100.29 ms to 42.55 ms; 512 MB, four times the memory, took it to 42.16 ms.
-/// The gap is smaller than the run-to-run noise, and the reason is that playback is sequential: a
-/// cel is asked for again within a few frames of first use or not for a long time, so what has to
-/// fit is the reuse distance and not the shot. Holding the whole shot would cost about 1.9 GB and
-/// this table says it would buy nothing.
-pub const DEFAULT_BUDGET_BYTES: usize = 128 * 1024 * 1024;
+/// The first number came out of that table rather than out of a guess about it: 128 MB took a
+/// draft preview frame of the reference shot from 100.29 ms to 42.55 ms, and 512 MB, four times
+/// the memory, took it to 42.16 ms. On a four-layer shot the gap is smaller than the run-to-run
+/// noise, because playback is sequential - a cel is asked for again within a few frames of first
+/// use or not for a long time, so what has to fit is the reuse distance and not the shot.
+///
+/// **That table measured the wrong shot, and `verification/T-06_declared_fixture.md` measured the
+/// right one.** Document 08 line 41 declares a ten-layer fixture. One cel of it costs 33,177,600
+/// bytes to hold and one frame needs ten of them, which is 316.4 MiB, so at 128 MB the cache
+/// could not hold a single frame of the shot the project's own performance target is written
+/// against: showing a frame evicted the cels that made it, every loop decoded 2,340 cels against
+/// 480 from memory, and asking for the frame just shown cost 375.13 ms at the median. At a budget
+/// with room for one frame the same request cost 195.20 ms. That is the whole of what this number
+/// decides, and it is worth about half the cost of a repeated frame on the declared fixture.
+///
+/// One gibibyte is 32 cels of that size: a frame of the heaviest fixture this project declares,
+/// plus two more frames' worth of neighbourhood to scrub inside. It is a ceiling and not an
+/// allocation - the cache holds what it has been given, so a four-layer shot still holds four
+/// layers' worth and this costs it nothing. Reaching the ceiling on the reference machine's 32 GB
+/// is about 1.3 GB of working set.
+///
+/// **What it does not buy is the target.** 195.20 ms is not document 08 line 41's 100 ms, and no
+/// budget reaches it: with all ten cels in memory the remaining cost is compositing, not decoding.
+/// Raising this closes half of D-40 and leaves the other half open for the owner.
+pub const DEFAULT_BUDGET_BYTES: usize = 1024 * 1024 * 1024;
+
+/// The way a budget is written in the pages that quote one, so a page and the constant it is
+/// quoting cannot drift apart. Every artifact that names the default calls this rather than
+/// spelling the number, which is how "128 MB" ended up in four committed pages.
+pub fn budget_label(bytes: usize) -> String {
+    let mib = bytes / (1024 * 1024);
+    if mib >= 1024 && mib.is_multiple_of(1024) {
+        format!("{} GiB", mib / 1024)
+    } else {
+        format!("{mib} MiB")
+    }
+}
 
 /// What makes two requests for a decoded cel the same request.
 #[derive(PartialEq, Eq, Debug)]

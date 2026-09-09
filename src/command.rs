@@ -683,10 +683,24 @@ fn check_a_new_composition(project: &Project, composition: &Composition) -> Resu
         || composition.height > LARGEST_SIDE
         || composition.width as u64 * composition.height as u64 > LARGEST_PIXELS
     {
+        // Two limits, and the one that refuses a request is rarely the one the person was
+        // watching. 16384x16384 is inside "no side past 16384" and four times over the pixel
+        // ceiling, and the owner read the first half of this sentence and asked for it anyway.
+        // So when the width is legal the message finishes the arithmetic: it says what height
+        // that width allows, which is the number they would otherwise have to work out.
+        let at_that_width = if composition.width <= LARGEST_SIDE && composition.width > 0 {
+            format!(
+                " At {} wide the tallest this build will make is {}.",
+                composition.width,
+                (LARGEST_PIXELS / composition.width as u64).min(LARGEST_SIDE as u64)
+            )
+        } else {
+            String::new()
+        };
         return Err(reject(
             &format!(
                 "{}x{} is larger than this build will make: no side past {LARGEST_SIDE} and no \
-                 more than {LARGEST_PIXELS} pixels in all.",
+                 more than {LARGEST_PIXELS} pixels in all.{at_that_width}",
                 composition.width, composition.height
             ),
             "Document 19 line 52: bounded by implementation safety limits.",

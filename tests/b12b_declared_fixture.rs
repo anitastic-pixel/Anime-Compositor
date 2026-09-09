@@ -18,8 +18,13 @@
 //! cache budget at 128 MB, and gave a reason with a condition attached: the target line 41 asks
 //! about is met at that budget *on a four-layer shot*, and *"if B-06 and B-07 make the reference
 //! shot heavy enough that the measured p95 crosses 100 ms, that is a new measurement and reopens
-//! this entry."* This file is the measurement that decides that. It states the verdict and does
-//! not act on it: reopening a decision is a note in the register, and the register is the owner's.
+//! this entry."* This file is the measurement that decided that. It fired: 390.40 ms against a
+//! 100 ms target, because 128 MB cannot hold the 316.4 MiB one frame of this fixture needs. On
+//! 2026-09-08 the owner raised the default, and `cache::DEFAULT_BUDGET_BYTES` is where the reason
+//! is written down. The seek table below now measures the new default against the old one.
+//!
+//! This file still only states verdicts. Reopening or closing a decision is a note in the
+//! register, and the register is the owner's.
 //!
 //! # What was built, and the one way it is not the real thing
 //!
@@ -58,11 +63,14 @@
 //! draft walk here and document 08 line 41 does not ask for it; `verification/B-10_export.md` is
 //! where an export is timed.
 //!
-//! **A cache with room for the whole shot.** T-06 has that row at 2 GB. This fixture has 166
-//! distinct drawings, which is about 5.5 GB held, and this file will not allocate that to make a
-//! table row. The seek table below tops out at a budget that holds one frame of this fixture,
-//! which is the more useful comparison anyway: it is what the viewer would need to make a scrub
-//! stop re-decoding.
+//! **Anything about the shot's pictures.** What a frame looks like is B-06's and B-07's to check
+//! and `verification/` has the pages that do it. Every number here is a cost.
+//!
+//! The seek table does now reach a cache with room for the whole shot: the owner asked on
+//! 2026-09-08 whether raising the default again would buy anything, and two probe budgets - 4 GiB,
+//! and 6 GiB, which is past the 5.5 GB all 166 distinct drawings cost - answer it with a measured
+//! row each. They are probes and neither is a default; `cache::DEFAULT_BUDGET_BYTES` is unmoved by
+//! this file.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -72,7 +80,7 @@ use std::time::Instant;
 
 use serde_json::{json, Value as J};
 
-use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
+use anime_compositor::cache::{budget_label, CelCache, DEFAULT_BUDGET_BYTES};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::model::{Id, Project};
@@ -94,6 +102,21 @@ const LOOPS: usize = 10;
 /// Ten cels, which is one frame of this fixture: every layer contributes one. This is the smallest
 /// budget at which asking for the frame just shown is a hit rather than ten decodes.
 const ONE_FRAME_BYTES: usize = 10 * ONE_CEL;
+/// What the viewer's default budget was until this file's first run reopened D-40: 128 MB, which
+/// is less than the 316.4 MiB one frame of this fixture needs. The seek table measures the current
+/// default against it, so the page says what raising it bought rather than only where it landed.
+const WAS_DEFAULT_BYTES: usize = 128 * 1024 * 1024;
+/// Budgets that are nobody's default, measured only to answer whether raising the default again
+/// would buy anything. 4 GiB is a large budget that still does not hold this shot; 6 GiB is the
+/// first round number past the 5.5 GB all 166 distinct drawings of it cost, so it is the smallest
+/// budget at which a scrub of this shot can be warm. The owner asked for both on 2026-09-08.
+const PROBE_BUDGETS: [usize; 2] = [4 * 1024 * 1024 * 1024, 6 * 1024 * 1024 * 1024];
+/// How much of this fixture a budget holds, written for a person: cels, and frames of this shot.
+fn held_cels(budget: usize) -> String {
+    let cels = budget / ONE_CEL;
+    format!("{cels} cels, {:.1} frames of this shot", cels as f64 / 10.0)
+}
+
 /// Coprime with the 240 frames of the work area, so stepping by it visits every frame exactly once
 /// in an order that is nowhere near sequential, and the same order every run.
 const SCATTER: i32 = 97;
@@ -446,9 +469,21 @@ fn t06_against_the_fixture_document_08_declares() {
     // --- Seeking. -----------------------------------------------------------------------------
     let reseek_default = reseek(&project, &root, DEFAULT_BUDGET_BYTES);
     let (scatter_default, _, _) = seek_walk(&project, &root, DEFAULT_BUDGET_BYTES, false);
-    let (scatter_frame, filled_bytes, filled_cels) =
-        seek_walk(&project, &root, ONE_FRAME_BYTES, true);
-    let reseek_frame = reseek(&project, &root, ONE_FRAME_BYTES);
+    let (scatter_was, _, _) = seek_walk(&project, &root, WAS_DEFAULT_BYTES, false);
+    let reseek_was = reseek(&project, &root, WAS_DEFAULT_BYTES);
+    // Measured after the peak above is read, so a budget nobody ships cannot be reported as the
+    // program's appetite.
+    let probes: Vec<(usize, Vec<f64>, Vec<f64>)> = PROBE_BUDGETS
+        .iter()
+        .map(|&b| {
+            let r = reseek(&project, &root, b);
+            let (w, _, _) = seek_walk(&project, &root, b, false);
+            (b, r, w)
+        })
+        .collect();
+    // The cache the byte-accounting check below reads is filled at exactly one frame of headroom,
+    // so the two figures it compares are a cel count and a cel size and nothing else.
+    let (_, filled_bytes, filled_cels) = seek_walk(&project, &root, ONE_FRAME_BYTES, true);
 
     // The budget assertion above believes whatever the cache says it holds. This is the same
     // figure derived a second way, from a count of cels.
@@ -464,8 +499,9 @@ fn t06_against_the_fixture_document_08_declares() {
         &Seeks {
             reseek_default,
             scatter_default,
-            scatter_frame,
-            reseek_frame,
+            scatter_was,
+            reseek_was,
+            probes,
             filled_bytes,
             filled_cels,
             evictions_below_one_cel,
@@ -489,8 +525,9 @@ fn t06_against_the_fixture_document_08_declares() {
 struct Seeks {
     reseek_default: Vec<f64>,
     scatter_default: Vec<f64>,
-    scatter_frame: Vec<f64>,
-    reseek_frame: Vec<f64>,
+    scatter_was: Vec<f64>,
+    reseek_was: Vec<f64>,
+    probes: Vec<(usize, Vec<f64>, Vec<f64>)>,
     filled_bytes: usize,
     filled_cels: usize,
     evictions_below_one_cel: u64,
@@ -650,65 +687,148 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize, project_bytes: usi
          | Seek | Budget | Median ms | p95 ms | Slowest ms | Within 100 ms at p95 |\n\
          |---|---|---|---|---|---|\n",
     );
+    let now = format!(
+        "{} (the viewer's default)",
+        budget_label(DEFAULT_BUDGET_BYTES)
+    );
+    let was = format!("{} (what it was before)", budget_label(WAS_DEFAULT_BYTES));
     let rows: [(&str, &str, &Vec<f64>); 4] = [
-        (
-            "The frame just shown, again",
-            "128 MB (the viewer's default)",
-            &seeks.reseek_default,
-        ),
+        ("The frame just shown, again", &now, &seeks.reseek_default),
         (
             "A scattered walk of the whole shot",
-            "128 MB (the viewer's default)",
+            &now,
             &seeks.scatter_default,
         ),
+        ("The frame just shown, again", &was, &seeks.reseek_was),
         (
-            "The frame just shown, again",
-            "332 MB (room for one frame)",
-            &seeks.reseek_frame,
-        ),
-        (
-            "The same walk, second pass",
-            "332 MB (room for one frame)",
-            &seeks.scatter_frame,
+            "A scattered walk of the whole shot",
+            &was,
+            &seeks.scatter_was,
         ),
     ];
-    for (label, budget, ms) in rows {
-        let p95 = percentile(ms, 0.95);
-        let _ = writeln!(
-            s,
-            "| {label} | {budget} | {:.2} | {p95:.2} | {:.2} | {} |",
-            median(ms),
-            ms[ms.len() - 1],
-            if p95 <= 100.0 { "yes" } else { "**no**" },
-        );
+    {
+        let mut row = |label: &str, budget: &str, ms: &[f64]| {
+            let p95 = percentile(ms, 0.95);
+            let _ = writeln!(
+                s,
+                "| {label} | {budget} | {:.2} | {p95:.2} | {:.2} | {} |",
+                median(ms),
+                ms[ms.len() - 1],
+                if p95 <= 100.0 { "yes" } else { "**no**" },
+            );
+        };
+        for (label, budget, ms) in rows {
+            row(label, budget, ms);
+        }
+        for (budget, reseek, scatter) in &seeks.probes {
+            let name = format!("{} (a probe, nobody's default)", budget_label(*budget));
+            row("The frame just shown, again", &name, reseek);
+            row("A scattered walk of the whole shot", &name, scatter);
+        }
     }
 
     let p95_default = percentile(&seeks.scatter_default, 0.95);
     let _ = writeln!(
         s,
         "\n### How to read the seek table\n\n\
-         **At ten layers the viewer's default budget cannot hold a single frame, and that is \
-         arithmetic rather than a defect.** One cel of this composition costs 33,177,600 bytes to \
-         hold and every frame of this fixture needs ten of them, which is 316.4 MiB. The default \
-         budget is 128 MB. So the first row - asking for the frame that was just shown - is not a \
-         warm seek at this fixture at all: showing the frame evicts the cels that made it. The \
-         third row is the same request at a budget with room for one frame, and the difference \
-         between the two rows is the whole of what the budget decides.\n\n\
-         The fourth row is the scattered walk with that same one-frame budget, walked twice, the \
-         second pass measured. It still re-decodes on every jump - one frame of headroom cannot \
-         hold a neighbourhood - so it is a lower bound on the cost of scrubbing this shot and not \
-         a picture of a warm cache. Holding every distinct drawing of this fixture is 166 cels, \
-         about 5.5 GB, and this file will not allocate that to fill in a table row. The cache in \
-         the measured row held {:.1} MiB in {} cels.\n\n\
+         **The bottom two rows are the shot this project's performance target is written against, \
+         on a cache that could not hold one frame of it.** One cel of this composition costs \
+         33,177,600 bytes to hold and every frame of this fixture needs ten of them, which is \
+         316.4 MiB, against the {} the default used to be. Asking for the frame just shown was \
+         not a warm seek at all: showing the frame evicted the cels that made it. That is what \
+         reopened D-40, and the top two rows are the same two requests at the {} default that \
+         replaced it.\n\n\
+         **What raising it bought, measured rather than argued.** Asking for the frame just \
+         shown went from {:.2} ms to {:.2} ms at the median, and the scattered walk from {:.2} ms \
+         to {:.2} ms. Playback moved too, in the loop table above: the tenth loop decoded {} cels \
+         and answered {} from memory, where the same loop at 128 MB decoded 2,340 and answered \
+         480. The reason a scrub improved at all is that {} is more than one frame, and a shot \
+         re-uses drawings across frames.\n\n\
+         What it did not buy is a warm scrub. Holding every distinct drawing of this fixture is \
+         166 cels, about 5.5 GB, so at the default a jump far enough away still re-decodes most \
+         of what it needs, and the scattered walk stays nearer a lower bound on the cost of \
+         scrubbing than a picture of a warm cache. The two probe rows are what a budget that does \
+         hold the whole shot costs and buys, and the paragraph under this table reads them.\n\n\
+         **And no budget reaches the target.** With every cel of a frame in memory, what is left \
+         is the cost of compositing ten layers, two mattes and three effects, and that is not a \
+         cache's to save. It is the same finding as the playback paragraph below in different \
+         clothes. The cache in the byte-accounting check held {:.1} MiB in {} cels.\n\n\
          **Every figure here is seek-to-buffer, not seek-to-display.** It stops at a finished \
          picture in memory; the transport into the window is the window's, and \
          `verification/B-08_window_shell.md` is where a real one is watched.\n",
+        budget_label(WAS_DEFAULT_BYTES),
+        budget_label(DEFAULT_BUDGET_BYTES),
+        median(&seeks.reseek_was),
+        median(&seeks.reseek_default),
+        median(&seeks.scatter_was),
+        median(&seeks.scatter_default),
+        loops[LOOPS - 1].decodes,
+        loops[LOOPS - 1].hits,
+        held_cels(DEFAULT_BUDGET_BYTES),
         mib(seeks.filled_bytes),
         seeks.filled_cels,
     );
 
+    // The two probe budgets, read against the default, so the question "would raising it again
+    // help?" is answered by a number in this file rather than by an opinion in a conversation.
+    if let (Some(first), Some(last)) = (seeks.probes.first(), seeks.probes.last()) {
+        let _ = writeln!(
+            s,
+            "\n**Would raising it further help?** The two probe rows are here to answer that and \
+             are nobody's default. Against the {} default's {:.2} ms scattered p95: {} gives \
+             {:.2} ms, and {} - the first round number past the 5.5 GB every distinct drawing of \
+             this shot costs, so the only budget here at which a scrub can be warm - gives \
+             {:.2} ms. Repeating a frame, which the default already holds, goes from {:.2} ms at \
+             the default to {:.2} ms at 6 GiB - that one was never the cache's to improve \
+             further. A budget that holds the whole shot is the only one that can make scrubbing \
+             cheap, and it is 6 GiB of a person's memory to do it; whether that is a trade this \
+             project offers is the third of D-40's three answers and the owner's to make.\n",
+            budget_label(DEFAULT_BUDGET_BYTES),
+            percentile(&seeks.scatter_default, 0.95),
+            budget_label(first.0),
+            percentile(&first.2, 0.95),
+            budget_label(last.0),
+            percentile(&last.2, 0.95),
+            median(&seeks.reseek_default),
+            median(&last.1),
+        );
+    }
+
     // --- The verdict. -------------------------------------------------------------------------
     let met = p95_default <= 100.0;
+    // The scrub at the largest budget measured, which is the one that holds the whole shot. The
+    // verdict quotes it so that "a bigger cache is not the answer" is a number and not a claim.
+    let widest = seeks
+        .probes
+        .last()
+        .map(|(b, _, scatter)| (budget_label(*b), percentile(scatter, 0.95)));
+    let verdict = if met {
+        "So the target is met at the raised budget, on the fixture document 08 declares rather \
+         than on a four-layer floor. D-40 can close on this row."
+            .to_string()
+    } else {
+        let bigger = match &widest {
+            Some((label, p95)) => format!(
+                "Scrubbing improved less, and the probe rows in the seek table say how much is \
+                 left in a bigger cache: at {label}, which is past the 5.5 GB every distinct \
+                 drawing of this shot costs and so holds all of it, the scattered p95 is \
+                 {p95:.2} ms."
+            ),
+            None => "Scrubbing did not, because 166 distinct drawings do not fit in any budget \
+                     this project will set."
+                .to_string(),
+        };
+        format!(
+            "**The raised budget did not reach the target either**, and this is the honest shape \
+             of what raising it bought: the bottom two rows of the seek table above against the \
+             top two. Repeating a frame got much cheaper, because its ten cels now stay in \
+             memory. {bigger} And none of them reaches 100 ms, because with the cels in hand what \
+             is left is compositing. D-40 stays open on the part a cache cannot answer, and what \
+             is left in it is the third of its three answers - whether the budget becomes a \
+             setting with a stated cost - plus a question that is not D-40's: whether a 100 ms \
+             scrub on a ten-layer shot is a target this project keeps."
+        )
+    };
     let _ = writeln!(
         s,
         "\n## What this settles, and what it hands back to the owner\n\n\
@@ -718,11 +838,13 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize, project_bytes: usi
          should be written into the closing note is the sentence above about the art: ten \
          sequences of drawings, four sequences of pictures. Every figure in this file is a real \
          ten-layer cost and no figure in it is a picture of a ten-layer shot.\n\n\
-         **D-40 - the 128 MB preview cache budget.** The owner decided on 2026-09-06 to leave it \
-         where it is, and attached a condition: *\"if B-06 and B-07 make the reference shot heavy \
+         **D-40 - the preview cache budget, now {}.** The owner decided on 2026-09-06 to leave \
+         it at 128 MB, and attached a condition: *\"if B-06 and B-07 make the reference shot heavy \
          enough that the measured p95 crosses 100 ms, that is a new measurement and reopens this \
-         entry rather than contradicting it.\"* Here is that measurement, on the declared fixture, \
-         at the default budget, scrubbing:\n\n\
+         entry rather than contradicting it.\"* That measurement fired on this fixture, and on \
+         2026-09-08 the owner raised the default to hold a working neighbourhood - the second of \
+         the three answers the entry lists. Here is the same measurement at the budget that \
+         replaced it, scrubbing:\n\n\
          | | |\n|---|---|\n\
          | p95 of a scattered seek, default budget | **{:.2} ms** |\n\
          | Document 08 line 41's target | 100 ms |\n\
@@ -739,12 +861,15 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize, project_bytes: usi
          reference shot sitting *on* the 24 fps deadline and flipping either side of it between \
          runs, this says something specific and worth saying plainly: **nothing here is a \
          regression, and the shot document 08 declares is simply more work than this build does \
-         in real time.** Two and a half times the layers costs about nine times the frame, which \
-         is more than the layer count alone accounts for and is not explained by anything \
-         measured here. `verification/D-37_decode_cost.md` is where the obvious suspect is - \
+         in real time.** Two and a half times the layers costs about {:.1} times the frame, which \
+         is roughly what the layer count alone accounts for: this is a shot that is more work, \
+         not a build that got worse at it. `verification/D-37_decode_cost.md` is where the cost \
+         of a layer mostly lives - \
          decoding was 75.15 ms of an 81.69 ms four-cel draft frame - and the loop table above is \
-         consistent with it: every loop decodes {} cels and only {} come from memory, because ten \
-         cels of frame do not fit a 128 MB cache and never will.\n\n\
+         consistent with it: every loop still decodes {} cels, against {} answered from memory. \
+         The budget took a bite out of that and cannot take the rest: a sequential walk of 166 \
+         distinct drawings comes back round to a drawing long after any cache short of the whole \
+         5.5 GB has dropped it.\n\n\
          What that costs the person using it is already decided and needs no new decision: D-32 \
          says the viewer holds real time and drops the frames it cannot make, so this shot plays \
          at the right speed and shows fewer frames rather than playing slowly. What is not \
@@ -753,26 +878,17 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize, project_bytes: usi
          has to open, and opening it is the owner's.\n\n\
          This file does not act on any of it. Reopening or opening a decision is a note in \
          `Markdown/14_Decisions_Risks.md`, and the register is the owner's.\n",
+        budget_label(DEFAULT_BUDGET_BYTES),
         p95_default,
         if met { "no" } else { "yes" },
-        if met {
-            "So the condition D-40 attached has not fired. The target is still met at the default \
-             budget, now on the fixture document 08 declares rather than on a four-layer floor, \
-             and the decision stands as taken."
-        } else {
-            "So the condition D-40 attached **has fired**, and D-40 reopens. What reopens it is a \
-             measurement and not a disagreement: the owner's reason was that the target was met at \
-             this budget, and on the declared fixture it is not. The three answers the entry lists \
-             are unchanged - leave the default and let scrubbing pay for itself, raise it to hold a \
-             working neighbourhood, or make it a setting with a stated cost - and the third row of \
-             the seek table above is what raising it buys."
-        },
+        verdict,
         median(&last),
         FRAME_BUDGET_MS,
         under,
         dropped,
         loops[LOOPS - 1].ms.len(),
         median(&last) / FRAME_BUDGET_MS,
+        median(&last) / 81.69,
         loops[LOOPS - 1].decodes,
         loops[LOOPS - 1].hits,
     );

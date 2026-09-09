@@ -21,9 +21,10 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the identifiers the page sends are the ones written down here | composition.create, edit.redo, edit.undo, effect.add, effect.delete, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.toggle_lock, layer.toggle_visibility, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | composition.create, edit.redo, edit.undo, effect.add, effect.delete, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.toggle_lock, layer.toggle_visibility, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
+| the identifiers the page sends are the ones written down here | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.toggle_lock, layer.toggle_visibility, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.toggle_lock, layer.toggle_visibility, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
 | the routes the page asks for that are not commands are the ones written down here | at, cancel-export, export, frame, open, recent, recover, save, save-as, state | at, cancel-export, export, frame, open, recent, recover, save, save-as, state | pass |
 | the window answers `composition.create` | a sentence | a sentence | pass |
+| the window answers `composition.open` | a sentence | a sentence | pass |
 | the window answers `edit.redo` | a sentence | a sentence | pass |
 | the window answers `edit.undo` | a sentence | a sentence | pass |
 | the window answers `effect.add` | a sentence | a sentence | pass |
@@ -71,4 +72,4 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the Leave it as it is control sends `media.relink` | true | true | pass |
 | every control the script reaches for is one the markup defines | none missing | none missing | pass |
 
-**49 of 49 checks pass.**
+**50 of 50 checks pass.**

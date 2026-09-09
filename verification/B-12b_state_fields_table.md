@@ -25,12 +25,14 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `doc.project` is in the answer | present | present | pass |
 | `doc.redo` is in the answer | present | present | pass |
 | `doc.undo` is in the answer | present | present | pass |
-| the panels read 6 fields out of the composition on screen | true | true | pass |
+| the panels read 8 fields out of the composition on screen | true | true | pass |
 | `comp.duration_frames` is in the answer | present | present | pass |
 | `comp.frame_rate` is in the answer | present | present | pass |
 | `comp.height` is in the answer | present | present | pass |
+| `comp.id` is in the answer | present | present | pass |
 | `comp.layers` is in the answer | present | present | pass |
 | `comp.name` is in the answer | present | present | pass |
+| `comp.start_frame` is in the answer | present | present | pass |
 | `comp.width` is in the answer | present | present | pass |
 | the panels read 13 fields out of one of its layers | true | true | pass |
 | `layer.asset_id` is in the answer | present | present | pass |
@@ -75,4 +77,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.tint` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, amount - are the ones the command reads | accepted | accepted | pass |
 
-**54 of 54 checks pass.**
+**56 of 56 checks pass.**

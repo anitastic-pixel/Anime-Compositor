@@ -1184,6 +1184,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
 /// `verification/B-12b_command_map_table.md` checks that nothing outside it is answered.
 const ANSWERS: &[&str] = &[
     "composition.create",
+    "composition.open",
     "edit.redo",
     "edit.undo",
     "effect.add",
@@ -1382,6 +1383,34 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 ));
             }
             return Some(said);
+        }
+        // Which composition the window is looking at. Not an edit, for the same reason the two
+        // inspection toggles above are not: nothing about the project changes, the window looks
+        // somewhere else. It is also the way back out of a composition that has just been made,
+        // and without it `composition.create` is a one-way door - the owner found that the first
+        // time they used it, with no way to return to the shot they had been working on.
+        "composition.open" => {
+            let Some(asked) = parameter(query, "composition") else {
+                return Some(
+                    "Which composition should be opened? Choose one in the project panel."
+                        .to_string(),
+                );
+            };
+            let id = Id::new(&asked);
+            let named = viewer
+                .lock()
+                .expect("the viewer lock was poisoned")
+                .document
+                .project()
+                .composition(&id)
+                .map(|comp| comp.name.clone());
+            return Some(match named {
+                None => format!("There is no composition {asked} in this project."),
+                Some(name) => {
+                    show(viewer, &id);
+                    format!("{name} is on screen.")
+                }
+            });
         }
         "media.import" => {
             let files: Vec<PathBuf> = parameters(query, "file")
@@ -4885,7 +4914,8 @@ mod editing {
         report.check(
             "a composition inside both side limits but past the pixel budget is still refused",
             "16384x16384 is larger than this build will make: no side past 16384 and no more \
-             than 67108864 pixels in all.",
+             than 67108864 pixels in all. At 16384 wide the tallest this build will make is \
+             4096.",
             run(&viewer, "composition.create?width=16384&height=16384"),
         );
         report.check(
@@ -5021,6 +5051,45 @@ mod editing {
             ),
         );
 
+        // ---- getting back out of one ---------------------------------------------------------
+        // The owner found this the first time they made a composition: making one moves the
+        // window into it, and until `composition.open` existed there was no way back to the shot
+        // they had been working on. Nothing in the window even named the other compositions.
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "the window can be put back on a composition it left",
+            "comp-main Main 1920x1080 at 24 fps, 24 frames",
+            {
+                run(&viewer, "composition.open?composition=comp-main");
+                on_screen(&viewer)
+            },
+        );
+        report.check(
+            "and the transport is that composition's length, not the one it came from",
+            24,
+            held(&viewer).playback.length(),
+        );
+        report.check(
+            "and looking somewhere else is not an edit, so there is nothing new to undo",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "a composition that is not in the project is refused",
+            "There is no composition comp-9 in this project.",
+            run(&viewer, "composition.open?composition=comp-9"),
+        );
+        report.check(
+            "and the window is still looking at the one it was",
+            "comp-main Main 1920x1080 at 24 fps, 24 frames",
+            on_screen(&viewer),
+        );
+        report.check(
+            "asking with no composition named says what to do rather than moving the window",
+            "Which composition should be opened? Choose one in the project panel.",
+            run(&viewer, "composition.open"),
+        );
+
         write_artifact(
             &report,
             "verification/B-12d_new_composition_table.md",
@@ -5053,8 +5122,15 @@ mod editing {
          specification's.** Document 19 line 52 says a composition is \"bounded by \
          implementation safety limits\" and never says what they are. This build chose no side \
          past 16384, no more than 67108864 pixels in all, and no more than 10000 frames, and \
-         the three rows that check them are the only place those numbers are visible. They are \
-         provisional and are the owner's to change.\n- **A refusal is a sentence and changes \
+         the rows that check them are the only place those numbers are visible. They are \
+         provisional and are the owner's to change.\n- **The two size limits are not one \
+         limit, and the refusal says so.** 16384 a side and 67108864 pixels in all is 8192 by \
+         8192, or 16384 by 4096, and not 16384 square, which is four times the pixel ceiling. \
+         The owner read the first half of that sentence and asked for 16384 square on \
+         2026-09-08, so the refusal now finishes the arithmetic and names the tallest height \
+         the requested width allows, and the Biggest row above makes exactly that shape. \
+         The ceiling is memory: document 21 works in float32 RGBA, sixteen bytes a pixel, so \
+         67108864 pixels is a gibibyte for one layer buffer and several for a frame.\n- **A refusal is a sentence and changes \
          nothing.** Seven commands here are turned down, and the two rows after them check that \
          the project holds exactly what it held before and that the window is still looking at \
          the same composition. A control that springs back with nothing said is the failure \
@@ -6768,6 +6844,7 @@ mod contract {
     /// what the window can do, and it should have to be written down here as well as there.
     const SENT: &[&str] = &[
         "composition.create",
+        "composition.open",
         "edit.redo",
         "edit.undo",
         "effect.add",
@@ -7041,6 +7118,7 @@ mod contract {
         ("project.save", "a route the shell answers"),
         ("project.save_as", "a route the shell answers"),
         ("composition.create", "a command the window answers"),
+        ("composition.open", "a command the window answers"),
         ("edit.undo", "a command the window answers"),
         ("edit.redo", "a command the window answers"),
         ("media.import", "a command the window answers"),

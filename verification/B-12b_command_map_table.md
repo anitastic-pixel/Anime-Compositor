@@ -31,13 +31,14 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 24 names the identifiers this table walks | 36 | 36 | pass |
-| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, composition.create, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, composition.create, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
+| document 24 names the identifiers this table walks | 37 | 37 | pass |
+| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
 | `project.new` is reached by | nothing yet | nothing yet | pass |
 | `project.open` is reached by | a route the shell answers | a route the shell answers | pass |
 | `project.save` is reached by | a route the shell answers | a route the shell answers | pass |
 | `project.save_as` is reached by | a route the shell answers | a route the shell answers | pass |
 | `composition.create` is reached by | a command the window answers | a command the window answers | pass |
+| `composition.open` is reached by | a command the window answers | a command the window answers | pass |
 | `edit.undo` is reached by | a command the window answers | a command the window answers | pass |
 | `edit.redo` is reached by | a command the window answers | a command the window answers | pass |
 | `media.import` is reached by | a command the window answers | a command the window answers | pass |
@@ -125,4 +126,4 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and A presses | $('alpha') | $('alpha') | pass |
 | and G presses | $('checker') | $('checker') | pass |
 
-**93 of 93 checks pass.**
+**94 of 94 checks pass.**
