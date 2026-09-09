@@ -39,6 +39,13 @@ pub enum Stage {
     /// The wait for the viewer mutex in the window's `serve`, before any work begins. Zero in a
     /// headless harness, which has no second thread to wait for; P-04 is where it is measured.
     LockWait,
+    /// The parallel decode of every cel this frame is about to ask for, wall-clock from
+    /// fan-out to join (P-03(b)). The three stages below are what it does; while a cel is being
+    /// decoded inside this fan-out they record nothing, so that this stage and they stay
+    /// disjoint and the table can still be summed. A cel decoded outside it — by an export, by
+    /// a caller with no cache, or by a request this could not see coming — reports in them as
+    /// before and nothing in this one.
+    Prewarm,
     /// Opening a cel's file and reading the compressed bytes back out as 8-bit RGBA.
     FileRead,
     /// Those bytes divided by 255 into f32, which is `ImageBuffer::from_srgb8_straight`.
@@ -62,8 +69,9 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 11] = [
+    pub const ALL: [Stage; 12] = [
         Stage::LockWait,
+        Stage::Prewarm,
         Stage::FileRead,
         Stage::Dequantise,
         Stage::ToLinear,
@@ -80,6 +88,7 @@ impl Stage {
     pub fn label(self) -> &'static str {
         match self {
             Stage::LockWait => "wait for the viewer lock",
+            Stage::Prewarm => "decode this frame's cels in parallel",
             Stage::FileRead => "open and read the cel file",
             Stage::Dequantise => "bytes to float",
             Stage::ToLinear => "transfer function and premultiply",
@@ -96,16 +105,17 @@ impl Stage {
     fn index(self) -> usize {
         match self {
             Stage::LockWait => 0,
-            Stage::FileRead => 1,
-            Stage::Dequantise => 2,
-            Stage::ToLinear => 3,
-            Stage::CacheHit => 4,
-            Stage::CacheStore => 5,
-            Stage::Mask => 6,
-            Stage::Effects => 7,
-            Stage::TileLoop => 8,
-            Stage::FrameAssembly => 9,
-            Stage::Encode => 10,
+            Stage::Prewarm => 1,
+            Stage::FileRead => 2,
+            Stage::Dequantise => 3,
+            Stage::ToLinear => 4,
+            Stage::CacheHit => 5,
+            Stage::CacheStore => 6,
+            Stage::Mask => 7,
+            Stage::Effects => 8,
+            Stage::TileLoop => 9,
+            Stage::FrameAssembly => 10,
+            Stage::Encode => 11,
         }
     }
 }
@@ -117,6 +127,12 @@ static ON: AtomicBool = AtomicBool::new(false);
 const ZERO: AtomicU64 = AtomicU64::new(0);
 static NANOS: [AtomicU64; N] = [ZERO; N];
 static CALLS: [AtomicU64; N] = [ZERO; N];
+
+thread_local! {
+    /// Set only by [`untimed`]. `Cell<bool>` rather than an atomic because it is per thread by
+    /// definition: one worker suppressing its own timers must not suppress another's.
+    static SUPPRESSED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 /// Start recording. Nothing in `src/` or `app/` calls this; the P-01 harness does.
 pub fn enable() {
@@ -146,7 +162,7 @@ pub fn reset() {
 /// microseconds or milliseconds, so the timer is inside the noise of the thing it times. When
 /// recording is off it is not taken at all.
 pub fn time<T>(stage: Stage, f: impl FnOnce() -> T) -> T {
-    if !is_enabled() {
+    if !is_enabled() || SUPPRESSED.with(|s| s.get()) {
         return f();
     }
     let at = Instant::now();
@@ -155,10 +171,31 @@ pub fn time<T>(stage: Stage, f: impl FnOnce() -> T) -> T {
     out
 }
 
+/// Run `f` with every [`time`] call on this thread recording nothing (P-03(b)).
+///
+/// There is exactly one caller: the parallel decode in [`crate::cache::CelCache::prewarm`], which
+/// wraps each cel it decodes. Without this, the read, the byte-to-float pass and the transfer
+/// function would each add their *core* time to a stage while the frame paid only the wall-clock
+/// of the widest thread, the stages would stop being disjoint, and the residual this module
+/// promises would go negative — "a bug that reads as a result", in the words at the top of this
+/// file. [`Stage::Prewarm`] is what those cels report as instead, once, around the whole fan-out.
+///
+/// It is a thread-local and set inside the fan-out rather than around it, because a rayon closure
+/// runs on whichever worker steals it and the calling thread steals work too.
+pub fn untimed<T>(f: impl FnOnce() -> T) -> T {
+    if !is_enabled() {
+        return f();
+    }
+    SUPPRESSED.with(|s| s.set(true));
+    let out = f();
+    SUPPRESSED.with(|s| s.set(false));
+    out
+}
+
 /// Add an already-measured duration to a stage, for a caller that cannot wrap a closure around
 /// it — a lock acquisition whose guard has to outlive the timing.
 pub fn record(stage: Stage, nanos: u64) {
-    if !is_enabled() {
+    if !is_enabled() || SUPPRESSED.with(|s| s.get()) {
         return;
     }
     NANOS[stage.index()].fetch_add(nanos, Ordering::Relaxed);

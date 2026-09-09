@@ -36,6 +36,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use rayon::prelude::*;
+
 use crate::compose::retag;
 use crate::diagnostics::Diagnostic;
 use crate::media;
@@ -120,6 +122,12 @@ pub struct CelCache {
     /// a frame asks it four questions; a map plus an intrusive list if a real project ever makes
     /// the scan measurable.
     entries: Vec<(Key, Arc<WorkingBuffer>)>,
+    /// Cels [`prewarm`](Self::prewarm) decoded ahead of the layer loop and that no request has
+    /// collected yet (P-03(b)). Not part of `held`: a pending cel has not been admitted, and
+    /// [`decoded`](Self::decoded) admits it through [`store`](Self::store) like any other miss,
+    /// in the order the layer loop asks for it, so the budget, the eviction order and the hit
+    /// and miss counts are exactly what they were when every decode was serial.
+    pending: Vec<(Key, Arc<WorkingBuffer>)>,
     hits: u64,
     misses: u64,
     evicted: u64,
@@ -132,6 +140,7 @@ impl CelCache {
             budget,
             held: 0,
             entries: Vec::new(),
+            pending: Vec::new(),
             hits: 0,
             misses: 0,
             evicted: 0,
@@ -182,13 +191,93 @@ impl CelCache {
         }
 
         self.misses += 1;
-        let buffer = Arc::new(retag(media::decode_png(path)?, interpretation).into_working());
+        // A cel `prewarm` decoded for this frame is still a miss: it was decoded, just earlier
+        // and on another thread. Counting it as a hit would report a cache that answered a
+        // request it never held, and `verification/B-08b_cache_table.md` is a table of exactly
+        // those counts.
+        let ready = key
+            .as_ref()
+            .and_then(|key| self.pending.iter().position(|(k, _)| k == key))
+            .map(|at| self.pending.remove(at).1);
+        let buffer = match ready {
+            Some(buffer) => buffer,
+            None => Arc::new(retag(media::decode_png(path)?, interpretation).into_working()),
+        };
         if let Some(key) = key {
             crate::perf::time(crate::perf::Stage::CacheStore, || {
                 self.store(key, Arc::clone(&buffer))
             });
         }
         Ok(buffer)
+    }
+
+    /// Decode the cels this frame is about to ask for, all at once, across the thread pool
+    /// (P-03(b)).
+    ///
+    /// `verification/P-01_frame_trace.md` measured the read, the byte-to-float pass and the
+    /// transfer function at three quarters of a cold draft frame, and a frame's cels are
+    /// independent files: nothing about decoding one depends on another. What forbade doing them
+    /// together was this `&mut CelCache`, threaded through `plan_frame_cached`'s layer loop, which
+    /// makes the loop the only place a decode can happen. This moves the decode ahead of the loop
+    /// and leaves the loop's shape alone.
+    ///
+    /// Three things it deliberately does not do.
+    ///
+    /// **It does not decide anything.** Every cel it decodes is one the loop was going to ask
+    /// for; a key it fails on, or never had metadata for, is simply absent from `pending` and
+    /// decodes serially in [`decoded`](Self::decoded) a moment later, where the diagnostic is
+    /// raised and logged against the right layer exactly as before. That is why P-03(b)'s
+    /// requirement to collect a `FrameLog` per layer and merge it in composition order does not
+    /// appear here: no diagnostic is raised on a worker thread, so there is no order to restore.
+    ///
+    /// **It does not admit anything.** Nothing here touches `held`, the eviction order, or the
+    /// hit and miss counts.
+    ///
+    /// **It does nothing at all without a budget.** [`none`](Self::none) is what export and every
+    /// non-preview caller hold, and ADR-015 keeps the cache off that path; decoding in advance
+    /// for a cache that cannot store would be work thrown away twice over.
+    ///
+    /// ponytail: the whole `wanted` set is decoded in one fan-out, so the transient peak is one
+    /// frame's cels held at once. That is the frame's own working set, which is what the budget
+    /// is chosen to hold; chunk it if a composition ever has more layers than the budget has
+    /// room for.
+    pub fn prewarm(&mut self, wanted: &[(PathBuf, Interpretation)]) {
+        if self.budget == 0 || wanted.is_empty() {
+            return;
+        }
+        let todo: Vec<Key> = wanted
+            .iter()
+            .filter_map(|(path, interpretation)| Key::of(path, *interpretation))
+            .filter(|key| !self.entries.iter().any(|(k, _)| k == key))
+            .fold(Vec::new(), |mut todo, key| {
+                // A matte and the layer that uses it name the same file: decode it once.
+                if !todo.contains(&key) {
+                    todo.push(key);
+                }
+                todo
+            });
+        if todo.len() < 2 {
+            // One cel is not a fan-out, and the serial path already times its three stages
+            // properly. Nothing is lost by leaving it to the loop.
+            return;
+        }
+        let decoded: Vec<(Key, Arc<WorkingBuffer>)> =
+            crate::perf::time(crate::perf::Stage::Prewarm, || {
+                todo.into_par_iter()
+                    .filter_map(|key| {
+                        // `untimed` because these three stages are running on however many
+                        // threads rayon gave them, and adding their core time to the same
+                        // counters the frame's wall-clock is measured against would make the
+                        // stage table sum to more than the frame.
+                        let buffer = crate::perf::untimed(|| {
+                            let decoded = media::decode_png(&key.path).ok()?;
+                            Some(retag(decoded, key.interpretation).into_working())
+                        })?;
+                        Some((key, Arc::new(buffer)))
+                    })
+                    .collect()
+            });
+        self.pending = decoded;
     }
 
     fn store(&mut self, key: Key, buffer: Arc<WorkingBuffer>) {

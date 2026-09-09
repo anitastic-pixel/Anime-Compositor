@@ -134,6 +134,26 @@ pub fn plan_frame_cached(
         .map(|m| &m.layer_id)
         .collect();
 
+    // P-03(b): decode this frame's cels together, before the loop that wants them one at a
+    // time. The list is exactly what the loop below will ask for and in the same order -- each
+    // drawn layer's cel, and the cel of any layer it uses as a matte, whether or not that one is
+    // itself drawn -- so this changes when the decoding happens and nothing about which decoding
+    // happens. `CelCache::prewarm` skips what it already holds, decodes one file once however
+    // many layers name it, and quietly leaves anything unusual to the loop, which diagnoses it.
+    let mut wanted = Vec::new();
+    for layer in comp.layers_in_order() {
+        if !layer.enabled || matte_only.contains(&&layer.id) {
+            continue;
+        }
+        wanted.extend(exposed_cel(project, layer, frame, root));
+        if let Some(matte) = &layer.matte {
+            if let Some(matte_layer) = comp.layer(&matte.layer_id) {
+                wanted.extend(exposed_cel(project, matte_layer, frame, root));
+            }
+        }
+    }
+    cache.prewarm(&wanted);
+
     let mut layers = Vec::new();
     // Step 3: composition order, bottom of the stack first, which is `FramePlan.layers`' order.
     for layer in comp.layers_in_order() {
@@ -235,6 +255,27 @@ struct ResolvedLayer {
 /// The caller decides what to do with `opacity`: a drawn layer applies it at step 6, and a matte
 /// ignores it, because step 5 asks for the matte layer's post-transform *alpha* and opacity is a
 /// later step about how a layer joins the stack.
+/// Which file a layer shows at `frame`, and how to interpret it, or nothing.
+///
+/// Best effort on purpose (P-03(b)). This exists to tell [`CelCache::prewarm`] what to decode,
+/// and every case it declines to answer -- an asset the project does not contain, an exposure
+/// that resolves to no drawing, a file that is not where the project says it is -- is handled,
+/// diagnosed and logged against the right layer by [`resolve_layer`] a moment later. The only
+/// consequence of it returning nothing where `resolve_layer` would have found something is that
+/// that one cel decodes serially, the way every cel did before P-03(b). It must therefore never
+/// raise a diagnostic of its own: two diagnostics for one problem is worse than one.
+fn exposed_cel(
+    project: &Project,
+    layer: &crate::model::Layer,
+    frame: i32,
+    root: &Path,
+) -> Option<(PathBuf, crate::model::Interpretation)> {
+    let asset = project.assets.iter().find(|a| a.id == layer.asset_id)?;
+    let relative =
+        source_at(layer.exposure_spans.clone(), &layer.timing(), asset, frame).ok()??;
+    Some((root.join(relative), asset.interpretation))
+}
+
 fn resolve_layer(
     project: &Project,
     layer: &crate::model::Layer,

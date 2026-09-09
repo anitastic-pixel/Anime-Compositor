@@ -33,9 +33,18 @@
 //! Both qualities are covered because Draft and Full take different paths through the sampler,
 //! and an item like P-03(f) touches only one of them.
 //!
-//! The cache is `CelCache::none()` throughout: a cel cache changes what is recomputed, never what
-//! is computed, and `tests/b08b_cache.rs` is where that claim is tested. Leaving it out keeps this
-//! file's answer independent of the budget.
+//! The manifest is `CelCache::none()` throughout: a cel cache changes what is recomputed, never
+//! what is computed, and `tests/b08b_cache.rs` is where that claim is tested. Leaving it out keeps
+//! the manifest's answer independent of the budget.
+//!
+//! Every frame is then rendered a **second** time, through one cache with the viewer's own D-40
+//! budget, and the two encodes are compared byte for byte (P-03(b)). That is `b08b`'s rule, which
+//! covers the reference shot at several budgets, extended to the declared ten-layer fixture, and
+//! P-03(b) is why it is needed here: it made a budgeted render decode its cels on several threads
+//! ahead of the layer loop instead of one at a time inside it, so "with a budget" and "without
+//! one" are no longer the same schedule of the same work. The comparison is inside one run and
+//! therefore cannot answer a question about a code change — that is what the manifest is for —
+//! but the question it does answer is the whole of ADR-015's worry.
 //!
 //! # What is asserted
 //!
@@ -109,6 +118,10 @@ fn p03_byte_equality() {
     for workload in &workloads() {
         for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
             let mut cache = CelCache::none();
+            // One cache for the whole pass, so that the frames a fan-out decodes ahead, the ones
+            // it finds already held and the ones it evicts all happen the way they do in a
+            // viewer, rather than being reset between frames.
+            let mut budgeted = CelCache::with_budget(anime_compositor::cache::DEFAULT_BUDGET_BYTES);
             for frame in 0..FRAMES {
                 let mut log = FrameLog::new(3);
                 let buffer = preview::preview_frame_cached(
@@ -129,6 +142,37 @@ fn p03_byte_equality() {
                     "{} frame {frame}: the encode produced a buffer of the wrong shape",
                     workload.name
                 );
+                let mut budgeted_log = FrameLog::new(3);
+                let with_budget = preview::preview_frame_cached(
+                    &workload.project,
+                    &comp,
+                    frame,
+                    &workload.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut budgeted_log,
+                    &mut budgeted,
+                )
+                .unwrap_or_else(|d| {
+                    panic!(
+                        "{} frame {frame}, with a budget: {}",
+                        workload.name, d.message
+                    )
+                })
+                .to_srgb8_straight();
+                assert!(
+                    with_budget == pixels,
+                    "{} {} frame {frame}: rendering with a {} cache produced different bytes \
+                     from rendering with none. Document 27 requires the two to be equivalent and \
+                     ADR-015 keeps the cache off the export path precisely so that this can \
+                     never reach a picture; it has still gone wrong.",
+                    workload.name,
+                    quality.label(),
+                    anime_compositor::cache::budget_label(
+                        anime_compositor::cache::DEFAULT_BUDGET_BYTES
+                    ),
+                );
+
                 manifest.push_str(&format!(
                     "{} {} {:04} {} {}x{} {:016x}\n",
                     workload.name,
