@@ -94,7 +94,7 @@ fn plan(width: usize, height: usize, layers: Vec<LayerDraw>) -> FramePlan {
 fn one_layer(source: WorkingBuffer, transform: Affine) -> Vec<LayerDraw> {
     vec![LayerDraw {
         id: Id::new("fixture"),
-        source,
+        source: std::sync::Arc::new(source),
         transform,
         opacity: 1.0,
         matte: None,
@@ -468,7 +468,7 @@ fn b05a_transform_fixtures() {
             5,
             vec![LayerDraw {
                 id: Id::new("fixture"),
-                source: impulse_source(5, (2, 2)),
+                source: std::sync::Arc::new(impulse_source(5, (2, 2))),
                 transform: Affine::IDENTITY,
                 opacity: 0.5,
                 matte: None,
@@ -492,7 +492,7 @@ fn b05a_transform_fixtures() {
                 5,
                 vec![LayerDraw {
                     id: Id::new("fixture"),
-                    source: impulse_source(5, (2, 2)),
+                    source: std::sync::Arc::new(impulse_source(5, (2, 2))),
                     transform: Affine::IDENTITY,
                     opacity: 0.0,
                     matte: None,
@@ -621,7 +621,7 @@ fn reference_plan(width: usize, height: usize) -> FramePlan {
         // scale with it and the layer's own scale is unchanged.
         layers.push(LayerDraw {
             id: Id::new(&name),
-            source,
+            source: std::sync::Arc::new(source),
             transform: Affine::from_transform(
                 (anchor.0 * scale, anchor.1 * scale),
                 (position.0 * scale, position.1 * scale),

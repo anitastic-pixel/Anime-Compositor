@@ -189,7 +189,7 @@ pub struct LayerDraw {
     /// The model layer this draw came from. Carried so ADR-012's trace mode can tag an
     /// intermediate image with the layer it belongs to; the renderer itself never reads it.
     pub id: crate::model::Id,
-    pub source: WorkingBuffer,
+    pub source: std::sync::Arc<WorkingBuffer>,
     pub transform: Affine,
     pub opacity: f32,
     /// Document 21's step 5, the alpha matte, or `None` for a layer that has no matte.
@@ -217,7 +217,7 @@ pub struct LayerDraw {
 /// and a matte-only layer is not drawn into the stack at all.
 #[derive(Clone, Debug)]
 pub struct MatteDraw {
-    pub source: WorkingBuffer,
+    pub source: std::sync::Arc<WorkingBuffer>,
     pub transform: Affine,
 }
 

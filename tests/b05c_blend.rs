@@ -103,7 +103,7 @@ fn solid(width: usize, height: usize, p: [f32; 4]) -> WorkingBuffer {
 fn draw(source: WorkingBuffer, opacity: f32, blend: BlendMode) -> LayerDraw {
     LayerDraw {
         id: Id::new("layer"),
-        source,
+        source: std::sync::Arc::new(source),
         transform: Affine::IDENTITY,
         opacity,
         matte: None,

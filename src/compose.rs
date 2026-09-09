@@ -213,7 +213,7 @@ pub fn plan_frame_cached(
 
 /// One layer resolved to pixels: document 21's steps 1, 2, 4 and 6 for a single layer.
 struct ResolvedLayer {
-    source: WorkingBuffer,
+    source: std::sync::Arc<WorkingBuffer>,
     transform: Affine,
     opacity: f32,
 }
@@ -304,11 +304,16 @@ fn resolve_layer(
 
     // Document 21 step 2: the polygon mask, in layer/source space, before the transform.
     //
-    // `CelCache::decoded` hands back an owned clone of what it holds, so this writes on this
-    // layer's copy and cannot reach the cached cel that another layer using the same drawing
-    // will be given. That is the single most damaging thing this line could get wrong — one
-    // masked layer would cut every other layer sharing its artwork, and only on a cache hit —
-    // so `tests/b06_mask.rs` asserts it against the cache rather than trusting this comment.
+    // `CelCache::decoded` hands back a *shared* buffer since P-03(a), so writing on it directly
+    // would cut every other layer using the same drawing, and only on a cache hit. `make_mut` is
+    // what prevents that: it copies when anyone else holds the buffer — which the cache always
+    // does when the cel came from a hit or was admitted on a miss — and writes in place when
+    // nobody does. That is the single most damaging thing these lines could get wrong, so
+    // `tests/b06_mask.rs` asserts it against the cache rather than trusting this comment.
+    //
+    // The two `make_mut` calls below are the only writes to a cel in the whole render, which is
+    // why the copy P-01 measured at up to 55.6% of a warm frame could be removed at all: a layer
+    // with neither a mask nor an effect never writes, and now never copies.
     if let Some(mask) = &layer.mask {
         // A mask that is switched on but cannot be drawn -- fewer than three corners, or an
         // outline that crosses itself -- is a feature bypassed, not a shape to guess at.
@@ -338,9 +343,14 @@ fn resolve_layer(
                 .with_remediation("Redraw the mask so its outline does not cross itself."),
             );
         }
-        crate::perf::time(crate::perf::Stage::Mask, || {
-            crate::mask::apply(&mut source, mask)
-        });
+        // The guard is `mask::apply`'s own first line, called here rather than restated: a mask
+        // that cannot be drawn writes nothing, and a copy taken to write nothing is the whole
+        // cost P-03(a) removed.
+        if mask.is_renderable() {
+            crate::perf::time(crate::perf::Stage::Mask, || {
+                crate::mask::apply(std::sync::Arc::make_mut(&mut source), mask)
+            });
+        }
     }
 
     // Document 21 step 3: the ordered effect stack, in layer space, after the mask and before
@@ -351,35 +361,47 @@ fn resolve_layer(
     // back: cropping is exactly the fault document 21's "bounds expand by the kernel radius"
     // exists to prevent, and it would cut a straight edge through the glow of anything blurred
     // near the edge of its cel.
-    let offset = crate::perf::time(crate::perf::Stage::Effects, || {
-        crate::effects::apply_stack(&mut source, &layer.effects, |instance, why| {
-            let (id, what, detail) = match why {
-                crate::effects::Bypassed::NotImplemented => (
-                    DiagnosticId::EffectUnsupported,
-                    format!(
-                        "Layer {} uses the effect \"{}\", which this build does not have.",
-                        layer.name,
-                        instance.type_id()
-                    ),
-                    format!(
-                        "Frame {frame} is drawn without it. The effect is kept in the project \
+    //
+    // An empty stack is skipped rather than called with nothing in it, because reaching
+    // `apply_stack` at all means taking the copy `Arc::make_mut` exists to avoid — and the first
+    // measurement of P-03(a) showed exactly that: the reference shot, which has no effects on any
+    // layer, spent 15.541 ms a warm frame copying cels for a loop with no iterations. An empty
+    // slice also reports nothing, so nothing is lost by not entering it.
+    let offset = if layer.effects.is_empty() {
+        (0, 0)
+    } else {
+        crate::perf::time(crate::perf::Stage::Effects, || {
+            crate::effects::apply_stack(
+                std::sync::Arc::make_mut(&mut source),
+                &layer.effects,
+                |instance, why| {
+                    let (id, what, detail) = match why {
+                        crate::effects::Bypassed::NotImplemented => (
+                            DiagnosticId::EffectUnsupported,
+                            format!(
+                                "Layer {} uses the effect \"{}\", which this build does not have.",
+                                layer.name,
+                                instance.type_id()
+                            ),
+                            format!(
+                            "Frame {frame} is drawn without it. The effect is kept in the project \
                      exactly as it was."
-                    ),
-                ),
-                crate::effects::Bypassed::InvalidParameter => (
-                    DiagnosticId::EffectParameterInvalid,
-                    format!(
+                        ),
+                        ),
+                        crate::effects::Bypassed::InvalidParameter => (
+                            DiagnosticId::EffectParameterInvalid,
+                            format!(
                         "Layer {}'s {} has a setting this build cannot use, so it is not drawn.",
                         layer.name,
                         instance.type_id()
                     ),
-                    format!(
+                            format!(
                         "{} Frame {frame} is drawn without the effect, which is kept as it was.",
                         instance.effect.why_invalid()
                     ),
-                ),
-            };
-            log.record(
+                        ),
+                    };
+                    log.record(
                 frame,
                 layer.name.clone(),
                 Diagnostic::new(id, Severity::Warning, what, detail).with_remediation(
@@ -387,8 +409,10 @@ fn resolve_layer(
                  correct it, to have the picture match the project.",
                 ),
             );
+                },
+            )
         })
-    });
+    };
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of
     // value cannot come from a loaded project — persistence refuses it — so this reports
