@@ -20,8 +20,9 @@
 //! worse than no entry.
 //!
 //! **How it is bounded.** In bytes actually held, not in entries. A cel is 1920x1080 f32 RGBA,
-//! about 33 MB, which is four times the figure `verification/D-37_decode_cost.md` quotes for a cel
-//! on disk. Eviction is least-recently-used and changes performance only, which is document 27's
+//! about 33 MB, which is four times what the PNG decoder writes for the same cel and is the
+//! figure `verification/D-37_decode_cost.md` now quotes, having originally priced a held cel at
+//! the decoder's 8-bit output. Eviction is least-recently-used and changes performance only, which is document 27's
 //! requirement and is checked as a byte comparison rather than asserted.
 //!
 //! **Where it is not.** Export never sees one. [`crate::compose::plan_frame`] and

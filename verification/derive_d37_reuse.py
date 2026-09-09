@@ -70,16 +70,31 @@ for capacity in [1, 4, 8, 16, 24, 32, 48, 56, 57, 64, 0]:
     print("  | %s | %d | %.1f%% |" % (label, m, 100.0 * (1 - float(m) / len(requests))))
 print()
 
-# A decoded cel is width x height x 4 bytes whatever its file compresses to, so the memory a
-# cache costs is the count times one frame's worth of samples.
-cel = sheet["width"] * sheet["height"] * 4
+# Two different byte counts, and D-37 originally quoted the wrong one for the wrong thing.
+#
+# What the PNG decoder writes is width x height x 4 bytes of 8-bit RGBA, whatever the file
+# compressed to, and that is what the decode's cost is proportional to.
+#
+# What a cache *holds* is not that. src/cache.rs holds a WorkingBuffer, which is linear
+# premultiplied f32 RGBA -- four bytes a channel, sixteen a pixel -- and bounds itself on
+# std::mem::size_of_val of exactly those samples. So the memory a cel cache costs is four times
+# the decoder's output, and both figures are printed here so that neither can be quoted for the
+# other again.
+decoded = sheet["width"] * sheet["height"] * 4
+held = sheet["width"] * sheet["height"] * 4 * 4
+distinct = len(set(requests))
 print(
-    "One decoded cel at %dx%d RGBA is %d bytes, so holding all %d costs %.0f MB."
+    "The decoder writes %dx%d 8-bit RGBA: %d bytes a cel.\n"
+    "A cache holds it as f32 RGBA, which is what src/cache.rs bounds: %d bytes a cel.\n"
+    "So holding all %d distinct drawings costs %.0f MB of decoder output, but %.2f GB in the\n"
+    "cache that actually holds them, against the 1 GiB DEFAULT_BUDGET_BYTES D-40 set."
     % (
         sheet["width"],
         sheet["height"],
-        cel,
-        len(set(requests)),
-        len(set(requests)) * cel / 1e6,
+        decoded,
+        held,
+        distinct,
+        distinct * decoded / 1e6,
+        distinct * held / 1e9,
     )
 )
