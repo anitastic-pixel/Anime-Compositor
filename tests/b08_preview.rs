@@ -688,7 +688,7 @@ fn write_latency_artifact(rows: &[(PreviewQuality, Vec<f64>, Vec<f64>)]) {
          at 24 frames spread across the whole 240-frame shot\n\
          - Each resolution is preceded by one untimed frame, so no measured frame pays for the \
          first touch of freshly allocated pages\n\
-         - Tile size: `compose::DEFAULT_TILE_SIZE`\n\n",
+         - Tile size: `compose::DEFAULT_TILE_SIZE` at full resolution and \n         `compose::DRAFT_TILE_SIZE` at draft, which is what a draft preview is cut into (P-03(f))\n\n",
     );
     let _ = writeln!(
         s,

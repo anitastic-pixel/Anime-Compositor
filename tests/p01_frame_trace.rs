@@ -478,7 +478,7 @@ fn write_artifact(sections: &[(String, PreviewQuality, Vec<Row>)]) {
         "- CPU: AMD Ryzen 9 9900X, 12 cores, 24 hardware threads\n\
          - OS: Microsoft Windows 11 Education, 10.0.26200\n\
          - Toolchain: cargo release profile, `opt-level = 3`\n\
-         - Tile size: `compose::DEFAULT_TILE_SIZE`\n\
+         - Tile size: `compose::DEFAULT_TILE_SIZE` at full resolution and \n         `compose::DRAFT_TILE_SIZE` at draft, which is what a draft preview is cut into (P-03(f))\n\
          - Threads rayon was given: {}\n\
          - Sample: {SAMPLES} frames a row, stepping by {SCATTER} through the 240-frame work area, \
          so the sample is spread across the shot rather than taken from one run of drawings\n\
