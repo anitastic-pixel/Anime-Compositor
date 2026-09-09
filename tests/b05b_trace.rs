@@ -98,7 +98,7 @@ fn fixture_plan() -> FramePlan {
         layers: vec![
             LayerDraw {
                 id: Id::new("bg"),
-                source: working(4, 4, BG),
+                source: std::sync::Arc::new(working(4, 4, BG)),
                 transform: Affine::IDENTITY,
                 opacity: 1.0,
                 matte: None,
@@ -106,7 +106,7 @@ fn fixture_plan() -> FramePlan {
             },
             LayerDraw {
                 id: Id::new("fg"),
-                source: working(2, 2, FG),
+                source: std::sync::Arc::new(working(2, 2, FG)),
                 transform: Affine::translation(1.0, 1.0),
                 opacity: 0.5,
                 matte: None,
@@ -495,7 +495,7 @@ fn b05b_trace_fixtures() {
         layers: vec![
             LayerDraw {
                 id: Id::new("桜 / レイヤー 2"),
-                source: working(2, 2, BG),
+                source: std::sync::Arc::new(working(2, 2, BG)),
                 transform: Affine::IDENTITY,
                 opacity: 1.0,
                 matte: None,
@@ -503,7 +503,7 @@ fn b05b_trace_fixtures() {
             },
             LayerDraw {
                 id: Id::new(&long_id),
-                source: working(2, 2, BG),
+                source: std::sync::Arc::new(working(2, 2, BG)),
                 transform: Affine::IDENTITY,
                 opacity: 1.0,
                 matte: None,
@@ -586,7 +586,7 @@ fn b05b_a_unicode_layer_id_survives_the_round_trip() {
         height: 2,
         layers: vec![LayerDraw {
             id: id.clone(),
-            source: working(2, 2, BG),
+            source: std::sync::Arc::new(working(2, 2, BG)),
             transform: Affine::IDENTITY,
             opacity: 1.0,
             matte: None,
@@ -678,7 +678,7 @@ fn reference_plan() -> Option<FramePlan> {
         let source = decode_layer(&name, 0)?;
         layers.push(LayerDraw {
             id: Id::new(&name),
-            source,
+            source: std::sync::Arc::new(source),
             transform: Affine::from_transform(*anchor, *position, *scale, *rotation),
             opacity: 1.0,
             matte: None,
