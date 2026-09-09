@@ -827,7 +827,7 @@ fn write_budget_artifact(
          - Toolchain: rustc 1.89.0, cargo release profile, `opt-level = 3`\n\
          - Workload: `verification/B-08a_project.json`, the four-layer reference shot, previewed \
          at draft resolution\n\
-         - Tile size: `compose::DEFAULT_TILE_SIZE`\n\n",
+         - Tile size: `compose::DRAFT_TILE_SIZE`, which is what a draft preview is cut \n         into (P-03(f))\n\n",
     );
     let _ = writeln!(
         s,

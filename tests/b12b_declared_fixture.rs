@@ -418,7 +418,7 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize, project_bytes: usi
          - OS: Microsoft Windows 11 Education, 10.0.26200\n\
          - Toolchain: rustc 1.89.0, cargo release profile, `opt-level = 3`\n\
          - Workload: `verification/T-06_declared_fixture.json`, at draft resolution\n\
-         - Tile size: `compose::DEFAULT_TILE_SIZE`\n",
+         - Tile size: `compose::DRAFT_TILE_SIZE`, which is what a draft preview is cut \n         into (P-03(f))\n",
     );
     let _ = writeln!(
         s,

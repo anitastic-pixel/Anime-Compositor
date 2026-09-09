@@ -2,8 +2,8 @@
 
 Document 15's P-03 is a list of six small changes, each of which must show a before and after from
 P-01's timer and prove that no pixel moved. This file is the table, and it gains a section per
-item as each one lands. **Items (c), (a), (b) and (d) are done. (e) was built, measured and reverted. (f) is not
-started.**
+item as each one lands. **Items (c), (a), (b), (d) and (f) are done. (e) was built, measured and reverted. P-03 is
+finished.**
 
 The order is `verification/P-01_frame_trace.md`'s measured order and not either research
 document's estimate: (c), (a), (b), then (d), (e), (f).
@@ -596,6 +596,113 @@ and the numbers above are why.** If a later P-01 run shows the tile loop grown i
 fraction of the frame — the same condition document 15 already sets for reopening SIMD — this can
 be re-measured against that build, and the second version is the one to rebuild.
 
+---
+
+# Item (f): the draft frame cut into more pieces than the machine has threads
+
+Document 15's P-03, item (f). `compose::DEFAULT_TILE_SIZE` is 128 pixels and it was measured —
+`verification/B-05a_scaling_table.md` renders one frame at four tile sizes and six thread counts
+and 128 wins. It was measured on a **1920x1080** frame. A draft preview is a quarter of that in
+each direction, and 128 pixels cuts 480x270 into four columns of three: **twelve pieces of work
+for twenty-four hardware threads**, so half the machine has nothing to do however fast each piece
+is.
+
+**`compose::DRAFT_TILE_SIZE` is 48 pixels, sixty tiles, and it is used only when the preview
+quality is `Draft`. `DEFAULT_TILE_SIZE` is untouched, so an export still renders in 128px tiles.
+The draft tile loop falls 6.3% to 16.2%, no frame time moves further than this machine's noise,
+and the 960-line manifest is identical to the one item (d) left.**
+
+## The measurement this constant is
+
+Document 21: "Tile size is a tunable measured on the reference machine, not a constant chosen in
+advance." So 48 is not chosen; it is the row `verification/P-03f_draft_tile_size.md` picks.
+`tests/p03f_draft_tile_size.rs` builds the draft plans for twenty frames of each fixture once,
+then times **`render::render` alone** — the decode, the transfer function and the encode are
+outside the span on purpose, because this item moves none of them and at a first playthrough they
+are large enough to hide it entirely — at seven sizes, sweeping the whole list twice so that no
+size is measured twice in a row.
+
+| Tile | Tiles of a 480x270 frame | Reference shot, two sweeps | Declared fixture, two sweeps |
+|---|---|---|---|
+| 128px | 12 | — | — |
+| 96px | 15 | -10.7%, -5.5% | -11.3%, -16.6% |
+| 64px | 40 | -11.2%, -2.3% | -10.1%, -17.6% |
+| **48px** | **60** | **-16.8%, -6.1%** | **-13.9%, -24.4%** |
+| 32px | 135 | -17.3%, +7.4% | -12.2%, -19.5% |
+| 24px | 240 | -16.0%, +3.8% | -13.2%, -22.8% |
+| 16px | 510 | -7.7%, +4.1% | -18.9%, -18.0% |
+
+**128px is the worst size in all four columns.** Below 48 the table stops improving and starts
+disagreeing with itself — the reference shot's second sweep is *slower* at 32, 24 and 16 than at
+128 — which is per-tile overhead beginning to cost more than the extra parallelism buys. 48 is
+best or within a sweep's noise of best in every column, so it is the row the constant is set to,
+and the sizes below it are in the table to show why it is not one of them.
+
+That is 560 renders — seven sizes, twenty frames, two sweeps, two fixtures — and **every one of
+them is compared against the 128px render of the same frame byte for byte**. A tile size is a
+schedule, never a picture; that is ADR-011, and the artifact re-checks it rather than citing it.
+
+## What it did to a frame
+
+All twelve of P-01's rows, same machine, build and twenty frames, measured against the build item
+(d) left. Item (e) changed nothing under `src/`, so that is also the build before this one.
+
+| Workload | Quality | Cache state | Tile loop before | Tile loop after | Change |
+|---|---|---|---|---|---|
+| the reference shot | Draft | cold, first read | 2.016 | 2.015 | -0.0% |
+| the reference shot | Draft | cold, OS cache warm | 1.958 | 1.830 | **-6.5%** |
+| the reference shot | Draft | everything warm | 1.732 | 1.585 | **-8.5%** |
+| the declared fixture | Draft | cold, first read | 4.748 | 4.274 | **-10.0%** |
+| the declared fixture | Draft | cold, OS cache warm | 4.844 | 4.325 | **-10.7%** |
+| the declared fixture | Draft | everything warm | 4.639 | 3.886 | **-16.2%** |
+
+And item (b)'s first-playthrough harness, which is the row a person actually sits through:
+
+| Workload | Quality | Tile loop before | Tile loop after | Change |
+|---|---|---|---|---|
+| the reference shot | Draft | 1.881 | 1.763 | **-6.3%** |
+| the declared fixture | Draft | 4.541 | 3.982 | **-12.3%** |
+
+**The six full-resolution rows are the control.** A full-resolution preview still renders in
+`DEFAULT_TILE_SIZE` tiles, so nothing about it changed, and its tile loop reads -3.1%, -2.1%,
+-0.6%, -0.4%, +0.0% and -5.2% across the two harnesses — which is what this machine's noise looks
+like on that stage, measured on a build where the code could not have moved. Every draft row is
+outside that band and every one is in the same direction.
+
+## What it did not do
+
+**It did not move a frame time out of noise, and this section says so rather than quoting one.**
+The tile loop is 1.6 to 4.8 ms of a draft frame that is 5.6 ms warm and 372 ms cold, so a sixth of
+it is between 0.1 and 0.8 ms. The frame column across the twelve P-01 rows reads between -4.6% and
++3.3% with no relation to whether the row is draft or full, and the declared fixture's warm draft
+frame — the row whose tile loop fell the furthest, 16.2% — reads **+2.6%**. That is the same
+lesson item (e) was decided on: where the change is smaller than the run-to-run spread, the stage
+is the measurement and the frame is not.
+
+So the honest statement of this item is: it is a bit-exact change that makes the draft tile loop
+about a tenth cheaper, costs nothing, and is not visible in a frame time. Document 15 said of (d),
+(e) and (f) that they are "kept because they are bit-exact and small, not because P-01 argues for
+them", and of the three, (d) found a real saving, (e) was a loss, and (f) is exactly the size the
+entry predicted.
+
+## The proof that no pixel moved
+
+`tests/p03_byte_equality.rs`: 960 frames across both fixtures at both qualities, each rendered
+with no cache and again with the viewer's own budget, every pair equal, and the manifest of all
+960 lines **identical to the one item (d) left**, over 4,230,144,000 bytes. This is the strongest
+run of that test so far, because half of those frames — every draft frame — were rendered in
+48-pixel tiles and compared against a manifest produced in 128-pixel tiles. The whole test suite
+passed with `git diff --exit-code -- verification/` clean.
+
+One consequence worth stating plainly, because it looks like an inconsistency. Five artifacts
+record "Tile size: `compose::DEFAULT_TILE_SIZE`" and were measured before this change:
+`verification/P-01_frame_trace.md`, `verification/B-08b_cache_budget.md`,
+`verification/B-08_preview_latency.md`, `verification/T-06_declared_fixture.md` and
+`verification/T-06_performance_envelope.md`. They are **not** regenerated here — they are dated records of runs that really did use 128-pixel tiles
+throughout, and a dated artifact that is rewritten to match today's build is not a record. Each of
+their test sources now names the constant that row actually renders in, so the next deliberate run
+of any of them will say what that run did.
+
 ## What is left of P-03
 
 | Item | What it is | State |
@@ -605,9 +712,14 @@ be re-measured against that build, and the second version is the one to rebuild.
 | (b) | parallel decode | **DONE**, item (b) above |
 | (d) | tiles written into the frame | **DONE**, item (d) above |
 | (e) | hoisted per-pixel branches | **CUT**, item (e) above: measured slower, twice |
-| (f) | draft tile size | not started |
+| (f) | draft tile size | **DONE**, item (f) above |
 
-Each will add a section here with its own two tables and its own manifest diff. Each is
-measured against the build the one before it left, so the "before" column of the next section
-is the "after" column of this one, and `verification/P-01_frame_trace.md` stays the dated
-baseline none of them overwrite.
+Each section above has its own tables and its own manifest comparison, and each was measured
+against the build the one before it left, so the "before" column of a section is the "after"
+column of the one above it. `verification/P-01_frame_trace.md` is the dated baseline none of them
+overwrote.
+
+**Nothing in P-03 is outstanding.** Five items landed, one was cut with its numbers, and the
+manifest that opened with item (c) closes with item (f) at the same 960 identical lines it started
+with: 4,230,144,000 bytes of picture that six changes to how the picture is computed did not
+move.

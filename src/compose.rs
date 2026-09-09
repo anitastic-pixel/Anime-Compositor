@@ -43,6 +43,21 @@ use crate::{ImageBuffer, WorkingBuffer};
 /// constant is that measurement, not a guess, and moving it changes speed only.
 pub const DEFAULT_TILE_SIZE: usize = 128;
 
+/// The tile size a draft preview is cut into (P-03(f)).
+///
+/// [`DEFAULT_TILE_SIZE`] was measured on a 1920x1080 frame. A draft preview is a quarter of that
+/// in each direction, and 128 pixels cuts 480x270 into four columns of three: twelve pieces of
+/// work for twenty-four hardware threads, so half the machine waits however fast each piece is.
+///
+/// 48 pixels is that measurement redone at the draft extent by
+/// `verification/P-03f_draft_tile_size.md`, which sweeps seven sizes twice on both fixtures and
+/// compares every render against the 128px one byte for byte. It is the size that is best or
+/// within noise of best in all four columns, at sixty tiles; the sizes below it buy nothing more.
+/// Export is not affected - `DEFAULT_TILE_SIZE` is what an export still renders in, measured on
+/// the extent an export renders at - and no tile size may change a picture, which is ADR-011 and
+/// what the byte comparison in that artifact re-checks.
+pub const DRAFT_TILE_SIZE: usize = 48;
+
 /// Document 20's evaluation order at one frame: a project and a frame number in, a frame plan out.
 ///
 /// `root` is the directory the project's relative media paths are resolved against — the project
