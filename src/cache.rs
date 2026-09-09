@@ -33,6 +33,7 @@
 //! implementation choice.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use crate::compose::retag;
@@ -118,7 +119,7 @@ pub struct CelCache {
     /// Least recently used first. ponytail: a linear scan, because this holds tens of entries and
     /// a frame asks it four questions; a map plus an intrusive list if a real project ever makes
     /// the scan measurable.
-    entries: Vec<(Key, WorkingBuffer)>,
+    entries: Vec<(Key, Arc<WorkingBuffer>)>,
     hits: u64,
     misses: u64,
     evicted: u64,
@@ -149,20 +150,28 @@ impl CelCache {
     /// The cel at `path`, tagged as `interpretation` says and converted into the working space.
     ///
     /// Decoded on a miss, remembered if it fits, returned from memory on a hit. The result is the
-    /// same buffer either way: this function has one path that produces pixels and one that copies
-    /// pixels it already produced.
+    /// same buffer either way: this function has one path that produces pixels and one that hands
+    /// back pixels it already produced.
+    ///
+    /// **It is shared, not copied** (P-03(a)). A held cel is 33,177,600 bytes and
+    /// `verification/P-01_frame_trace.md` measured copying it at up to 55.6% of a warm frame, for
+    /// a copy almost no caller needed: a layer with no mask and no effects only ever reads its
+    /// source. A caller that does need to write on it says so with [`Arc::make_mut`], which copies
+    /// exactly then and never otherwise — `src/compose.rs` is the one caller that does, and
+    /// `tests/b06_mask.rs`'s cache isolation check is what proves the copy really happens rather
+    /// than trusting this paragraph.
     pub fn decoded(
         &mut self,
         path: &Path,
         interpretation: Interpretation,
-    ) -> Result<WorkingBuffer, Diagnostic> {
+    ) -> Result<Arc<WorkingBuffer>, Diagnostic> {
         let key = Key::of(path, interpretation);
 
         if let Some(key) = &key {
             let hit = crate::perf::time(crate::perf::Stage::CacheHit, || {
                 let at = self.entries.iter().position(|(k, _)| k == key)?;
                 let entry = self.entries.remove(at);
-                let buffer = entry.1.clone();
+                let buffer = Arc::clone(&entry.1);
                 self.entries.push(entry);
                 Some(buffer)
             });
@@ -173,16 +182,16 @@ impl CelCache {
         }
 
         self.misses += 1;
-        let buffer = retag(media::decode_png(path)?, interpretation).into_working();
+        let buffer = Arc::new(retag(media::decode_png(path)?, interpretation).into_working());
         if let Some(key) = key {
             crate::perf::time(crate::perf::Stage::CacheStore, || {
-                self.store(key, buffer.clone())
+                self.store(key, Arc::clone(&buffer))
             });
         }
         Ok(buffer)
     }
 
-    fn store(&mut self, key: Key, buffer: WorkingBuffer) {
+    fn store(&mut self, key: Key, buffer: Arc<WorkingBuffer>) {
         let bytes = bytes_of(&buffer);
         // A cel larger than the whole budget is not stored at all. Evicting everything to hold
         // one thing that will be evicted by the next request is worse than not holding it.

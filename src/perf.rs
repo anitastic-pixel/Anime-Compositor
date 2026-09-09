@@ -204,7 +204,16 @@ mod tests {
         assert_eq!(read(Stage::Mask), (0, 0), "recorded while switched off");
 
         enable();
-        time(Stage::Mask, || std::hint::black_box(1));
+        // Long enough to be longer than the clock's own step. `black_box(1)` was not: Windows
+        // ticks its performance counter in the hundreds of nanoseconds and an integer that is
+        // handed straight back takes a few, so the assertion below failed on about one run in a
+        // dozen -- a false alarm about the timer rather than a fault in it.
+        time(Stage::Mask, || {
+            let at = std::time::Instant::now();
+            while at.elapsed().as_nanos() == 0 {
+                std::hint::spin_loop();
+            }
+        });
         disable();
         let (nanos, calls) = read(Stage::Mask);
         assert_eq!(calls, 1, "one timed call counted {calls} times");

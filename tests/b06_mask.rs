@@ -425,11 +425,11 @@ fn matte(report: &mut Report) {
         height: 4,
         layers: vec![LayerDraw {
             id: Id::new("drawn"),
-            source: layer.clone(),
+            source: std::sync::Arc::new(layer.clone()),
             transform: Affine::IDENTITY,
             opacity: 1.0,
             matte: Some(Box::new(MatteDraw {
-                source: matte_source.clone(),
+                source: std::sync::Arc::new(matte_source.clone()),
                 transform: Affine::IDENTITY,
             })),
             blend: BlendMode::Normal,
@@ -451,11 +451,11 @@ fn matte(report: &mut Report) {
         height: 4,
         layers: vec![LayerDraw {
             id: Id::new("drawn"),
-            source: layer.clone(),
+            source: std::sync::Arc::new(layer.clone()),
             transform: Affine::IDENTITY,
             opacity: 1.0,
             matte: Some(Box::new(MatteDraw {
-                source: bright_matte,
+                source: std::sync::Arc::new(bright_matte),
                 transform: Affine::IDENTITY,
             })),
             blend: BlendMode::Normal,
@@ -486,11 +486,11 @@ fn matte(report: &mut Report) {
             height: 4,
             layers: vec![LayerDraw {
                 id: Id::new("drawn"),
-                source: layer.clone(),
+                source: std::sync::Arc::new(layer.clone()),
                 transform: Affine::IDENTITY,
                 opacity: 1.0,
                 matte: Some(Box::new(MatteDraw {
-                    source: solid(4, 4, [0.0, 0.0, 0.0, alpha]),
+                    source: std::sync::Arc::new(solid(4, 4, [0.0, 0.0, 0.0, alpha])),
                     transform: Affine::IDENTITY,
                 })),
                 blend: BlendMode::Normal,
@@ -517,11 +517,11 @@ fn matte(report: &mut Report) {
         height: 4,
         layers: vec![LayerDraw {
             id: Id::new("drawn"),
-            source: layer.clone(),
+            source: std::sync::Arc::new(layer.clone()),
             transform: Affine::IDENTITY,
             opacity: 1.0,
             matte: Some(Box::new(MatteDraw {
-                source: half_matte,
+                source: std::sync::Arc::new(half_matte),
                 transform: Affine::translation(2.0, 0.0),
             })),
             blend: BlendMode::Normal,
@@ -544,10 +544,13 @@ fn matte(report: &mut Report) {
 }
 
 fn cache_isolation(report: &mut Report) {
-    // The hazard: `compose` masks the buffer the cel cache hands back. If that buffer were
-    // shared with the cache, one masked layer would cut every other layer using the same
-    // drawing, and only on a cache hit -- a fault that would not show in any single-layer test
-    // and would come and go with the memory budget. This is the check that rules it out.
+    // The hazard: `compose` masks the buffer the cel cache hands back. That buffer *is* shared
+    // with the cache since P-03(a) -- `decoded` returns an `Arc` rather than a 33 MB copy -- so
+    // one masked layer would cut every other layer using the same drawing, and only on a cache
+    // hit, a fault that would not show in any single-layer test and would come and go with the
+    // memory budget. What rules it out is `Arc::make_mut`, which copies while the cache still
+    // holds a reference; this is the check that the copy really happens, and it is a stronger
+    // check after P-03(a) than before it, because before it the copy was unconditional.
     let mut cache = anime_compositor::cache::CelCache::with_budget(64 * 1024 * 1024);
     let path = mask_fixture_png();
     let interp = anime_compositor::model::Interpretation::default();
@@ -556,17 +559,20 @@ fn cache_isolation(report: &mut Report) {
         .decoded(&path, interp)
         .unwrap_or_else(|d| panic!("decode the fixture cel: {}", d.message));
     let before = pixel(&first, 0, 0);
+    // Exactly what `src/compose.rs` does before it writes on a cel, and the only way to write on
+    // one at all: the cache holds a reference, so this copies.
+    let first = std::sync::Arc::make_mut(&mut first);
 
     // A mask that keeps only the far corner, so pixel (0, 0) is definitely cut. A mask that
     // happened to cover nothing would make every row below pass without proving anything.
     mask::apply(
-        &mut first,
+        first,
         &PolygonMask::new(vec![(3.0, 3.0), (4.0, 3.0), (4.0, 4.0), (3.0, 4.0)]),
     );
     report.check(
         "the copy that was masked really was cut, so the check below is not vacuous",
         q([0.0, 0.0, 0.0, 0.0]),
-        q(pixel(&first, 0, 0)),
+        q(pixel(first, 0, 0)),
     );
 
     let second = cache
