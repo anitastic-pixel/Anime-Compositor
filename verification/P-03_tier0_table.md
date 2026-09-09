@@ -2,7 +2,7 @@
 
 Document 15's P-03 is a list of six small changes, each of which must show a before and after from
 P-01's timer and prove that no pixel moved. This file is the table, and it gains a section per
-item as each one lands. **Items (c), (a) and (b) are done. (d), (e) and (f) are not started.**
+item as each one lands. **Items (c), (a), (b) and (d) are done. (e) and (f) are not started.**
 
 The order is `verification/P-01_frame_trace.md`'s measured order and not either research
 document's estimate: (c), (a), (b), then (d), (e), (f).
@@ -412,6 +412,113 @@ extended to the declared ten-layer fixture, and P-03(b) is the reason it is need
 and without one are no longer the same schedule of the same work. **Every frame of both fixtures
 at both qualities passed**, 960 pairs, in the same run that produced the manifest above.
 
+---
+
+# Item (d): the tile that stopped being copied into the frame
+
+Document 15's P-03, item (d). A tile allocated a buffer of its own, accumulated the whole layer
+stack into it, and that buffer was then copied — row by row, on one thread — into a separately
+allocated, separately zeroed 33 MB frame. Three passes over 33 MB a frame, for a result the tiles
+had already finished computing.
+
+Document 15 predicted this item would not show a factor: P-01 measured the tile loop at 1.3% to
+7.8% and the assembly at 0.6% to 11.7%, and the entry says the last three items are "kept because
+they are bit-exact and small, not because P-01 argues for them". **The assembly half of that
+prediction was low. Every one of P-01's twelve rows improved and the best improved 11.6%**, which
+is what happens when a stage measured at 15.1% of a warm full-resolution frame becomes 0.2% of it.
+
+## What changed
+
+The frame is allocated once, at zero, and then carved into one disjoint set of row slices per
+tile — **before any thread starts**. That is exactly the property `tests/b05a_transform.rs` proves
+for ADR-011 and the reason the old code was safe; it is now enforced by the borrow checker rather
+than by an index computed after the fact, because two tiles cannot be handed the same `&mut`.
+
+Each tile then accumulates into the frame's own pixels. It used to accumulate into a private
+buffer initialised to zero; the frame arrives at the same zero, so every pixel sees the same
+layers in the same order doing the same arithmetic. What stops happening is one 33 MB allocation,
+one 33 MB zero-fill and one 33 MB copy a frame.
+
+The tile decomposition is untouched. `tiles()` is not modified, `DEFAULT_TILE_SIZE` is not
+modified, and `verification/B-07_effects_table.md` still renders one frame at six tile sizes and
+still gets six identical results.
+
+`Stage::FrameAssembly` was not removed, because the carve-up is what is left of assembly and it is
+honest to keep measuring it. It is serial on purpose: it hands out borrows and touches no pixel.
+
+## Where the copy went, since some of it did not disappear
+
+| Workload | Quality | Cache state | Assembly before | Assembly after |
+|---|---|---|---|---|
+| the reference shot | Full | cold, first read | 11.595 | **0.113** |
+| the reference shot | Full | cold, OS cache warm | 11.792 | **0.107** |
+| the reference shot | Full | everything warm | 11.684 | **0.122** |
+| the reference shot | Draft | everything warm | 0.699 | **0.010** |
+| the declared fixture | Full | cold, first read | 9.119 | **0.120** |
+| the declared fixture | Full | cold, OS cache warm | 8.642 | **0.075** |
+| the declared fixture | Full | everything warm | 9.318 | **0.079** |
+| the declared fixture | Draft | everything warm | 0.575 | **0.007** |
+
+But the tile loop **rose**, and this artifact reports that rather than netting it away:
+
+| Workload | Quality | Cache state | Tile loop before | Tile loop after |
+|---|---|---|---|---|
+| the reference shot | Full | everything warm | 6.437 | 7.352 |
+| the reference shot | Full | cold, OS cache warm | 6.474 | 7.696 |
+| the declared fixture | Full | everything warm | 16.756 | 18.599 |
+| the declared fixture | Full | cold, OS cache warm | 17.553 | 19.624 |
+| the reference shot | Draft | everything warm | 1.745 | 1.732 |
+| the declared fixture | Draft | everything warm | 4.625 | 4.639 |
+
+A tile writing into a small private buffer writes into memory that fits in a core's cache. A tile
+writing into its rows of a 33 MB frame writes into memory that does not, and pays for it, at full
+resolution, about 1 to 2 ms a frame. **Some of the copy therefore moved into the tile loop rather
+than disappearing.** The draft rows, where a tile's rows are small either way, do not show it.
+
+The trade is still strongly worth making — 11.7 ms of serial copy against 1.9 ms spread over
+twenty-four threads — but the honest statement is that this item removed most of a stage, not all
+of it, and made a second stage slightly more expensive.
+
+## The frame, before and after
+
+All twelve of P-01's rows, same machine, build and twenty frames.
+
+| Workload | Quality | Cache state | Before (p50 ms) | After (p50 ms) | Change |
+|---|---|---|---|---|---|
+| the reference shot | Draft | cold, first read | 87.915 | 86.530 | -1.6% |
+| the reference shot | Draft | cold, OS cache warm | 88.099 | 87.642 | -0.5% |
+| the reference shot | Draft | everything warm | 6.580 | **5.822** | **-11.5%** |
+| the reference shot | Full | cold, first read | 161.386 | 151.234 | -6.3% |
+| the reference shot | Full | cold, OS cache warm | 161.522 | 151.536 | -6.2% |
+| the reference shot | Full | everything warm | 74.535 | **65.890** | **-11.6%** |
+| the declared fixture | Draft | cold, first read | 374.902 | 372.493 | -0.6% |
+| the declared fixture | Draft | cold, OS cache warm | 370.175 | 364.841 | -1.4% |
+| the declared fixture | Draft | everything warm | 145.753 | 140.620 | -3.5% |
+| the declared fixture | Full | cold, first read | 440.878 | 434.517 | -1.4% |
+| the declared fixture | Full | cold, OS cache warm | 442.634 | 438.049 | -1.0% |
+| the declared fixture | Full | everything warm | 216.688 | 213.914 | -1.3% |
+
+And item (b)'s first-playthrough row, which is the one a person sits through:
+
+| Workload | Quality | Before (p50 ms) | After (p50 ms) | Change | Against 24 fps |
+|---|---|---|---|---|---|
+| the reference shot | Draft | 26.262 | **25.426** | -3.2% | **0.61x** |
+| the reference shot | Full | 83.750 | **74.120** | **-11.5%** | 1.78x |
+| the declared fixture | Draft | 188.541 | 181.441 | -3.8% | 4.35x |
+| the declared fixture | Full | 257.287 | 244.059 | -5.1% | 5.86x |
+
+**Sixteen rows measured, sixteen improved.** The reference shot's warm draft frame stays the one
+row inside the budget, now at 0.61x.
+
+## The proof that no pixel moved
+
+`tests/p03_byte_equality.rs`, unchanged from item (b): 960 frames across both fixtures at both
+qualities, each rendered with no cache and again with the viewer's own budget, every pair equal,
+and the manifest of all 960 lines **identical to the one item (b) left**, over 4,230,144,000
+bytes. `verification/B-07_effects_table.md`, the six-tile-size table this item's safety argument
+rests on, did not move, and neither did any other artifact under `verification/` — the whole suite
+of 31 test binaries passed with `git diff --exit-code -- verification/` clean.
+
 ## What is left of P-03
 
 | Item | What it is | State |
@@ -419,7 +526,7 @@ at both qualities passed**, 960 pairs, in the same run that produced the manifes
 | (c) | the sRGB decode table | **DONE**, item (c) above |
 | (a) | shared cache buffers | **DONE**, item (a) above |
 | (b) | parallel decode | **DONE**, item (b) above |
-| (d) | tiles written into the frame | not started |
+| (d) | tiles written into the frame | **DONE**, item (d) above |
 | (e) | hoisted per-pixel branches | not started |
 | (f) | draft tile size | not started |
 

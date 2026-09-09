@@ -266,34 +266,61 @@ pub fn tiles(width: usize, height: usize, size: usize) -> Vec<Tile> {
 /// Render one frame, tiled, across the current rayon thread pool.
 ///
 /// Wrap the call in `pool.install(...)` to fix the worker count; the result does not depend on
-/// it. Each tile allocates its own accumulator, so the only shared state is the immutable
-/// plan, and the assembly step writes each tile to a position fixed before any thread started.
+/// it. The only shared state is the immutable plan and the frame, and no two tiles are ever
+/// handed the same pixel of it: the frame is carved into one disjoint set of row slices per tile
+/// **before any thread starts**, which is the property `tests/b05a_transform.rs` proves for
+/// ADR-011, kept exactly as it was when each tile owned a buffer of its own (P-03(d)).
+///
+/// A tile used to accumulate into a buffer it allocated and that buffer was then copied into a
+/// separately zeroed frame. It now accumulates into the frame, which starts at the same zero the
+/// buffer did, so the arithmetic per pixel is unchanged and one 33 MB allocation, one 33 MB
+/// zero-fill and one 33 MB copy a frame are not done at all.
 pub fn render(plan: &FramePlan, tile_size: usize) -> WorkingBuffer {
     let tiles = tiles(plan.width, plan.height, tile_size);
-    let rendered: Vec<(Tile, Vec<f32>)> = crate::perf::time(crate::perf::Stage::TileLoop, || {
-        tiles
-            .par_iter()
-            .map(|&tile| (tile, render_tile(plan, tile)))
-            .collect()
+    let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
+
+    // The carve-up is what is left of the assembly step, and it is where every destination is
+    // decided. It is serial on purpose: it hands out borrows, it does not touch a pixel.
+    let mut rows_for: Vec<Vec<&mut [f32]>> =
+        crate::perf::time(crate::perf::Stage::FrameAssembly, || {
+            let stride = plan.width * 4;
+            let mut rows_for: Vec<Vec<&mut [f32]>> =
+                tiles.iter().map(|t| Vec::with_capacity(t.height)).collect();
+            let mut rest: &mut [f32] = frame.data_mut();
+            for y in 0..plan.height {
+                let (row, tail) = rest.split_at_mut(stride);
+                rest = tail;
+                let mut row_rest = row;
+                for (index, tile) in tiles.iter().enumerate() {
+                    if y < tile.y || y >= tile.y + tile.height {
+                        continue;
+                    }
+                    let (piece, tail) = row_rest.split_at_mut(tile.width * 4);
+                    row_rest = tail;
+                    rows_for[index].push(piece);
+                }
+                debug_assert!(row_rest.is_empty(), "the tiles do not cover row {y}");
+            }
+            rows_for
+        });
+
+    crate::perf::time(crate::perf::Stage::TileLoop, || {
+        rows_for
+            .par_drain(..)
+            .zip(tiles.par_iter())
+            .for_each(|(rows, &tile)| render_tile(plan, tile, rows));
     });
 
-    crate::perf::time(crate::perf::Stage::FrameAssembly, || {
-        let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
-        let data = frame.data_mut();
-        for (tile, pixels) in rendered {
-            for row in 0..tile.height {
-                let dst = ((tile.y + row) * plan.width + tile.x) * 4;
-                let src = row * tile.width * 4;
-                data[dst..dst + tile.width * 4].copy_from_slice(&pixels[src..src + tile.width * 4]);
-            }
-        }
-        frame
-    })
+    frame
 }
 
-/// One tile of the frame: the whole layer stack, bottom to top, over one small accumulator.
-fn render_tile(plan: &FramePlan, tile: Tile) -> Vec<f32> {
-    let mut acc = vec![0.0f32; tile.width * tile.height * 4];
+/// One tile of the frame: the whole layer stack, bottom to top, over the frame's own pixels.
+///
+/// `rows` is the tile's own rows of the frame, top to bottom, and nothing else borrows them
+/// (P-03(d)). They arrive at zero, which is what the tile's private accumulator used to be
+/// initialised to, and every layer blends onto what the layers below it left, in the same order
+/// and with the same arithmetic as when the tile owned that memory.
+fn render_tile(plan: &FramePlan, tile: Tile, mut rows: Vec<&mut [f32]>) {
     for layer in &plan.layers {
         let Some(inverse) = layer.transform.invert() else {
             continue;
@@ -309,7 +336,7 @@ fn render_tile(plan: &FramePlan, tile: Tile) -> Vec<f32> {
                 None => continue,
             },
         };
-        for row in 0..tile.height {
+        for (row, out) in rows.iter_mut().enumerate() {
             for col in 0..tile.width {
                 // Document 21: geometry is continuous and pixel (i,j) is centred at
                 // (i+0.5, j+0.5), so the sample point is the centre, not the corner.
@@ -333,9 +360,9 @@ fn render_tile(plan: &FramePlan, tile: Tile) -> Vec<f32> {
                         }
                     }
                 }
-                let i = (row * tile.width + col) * 4;
-                let dst = [acc[i], acc[i + 1], acc[i + 2], acc[i + 3]];
-                acc[i..i + 4].copy_from_slice(&crate::composite::blend_pixel(
+                let i = col * 4;
+                let dst = [out[i], out[i + 1], out[i + 2], out[i + 3]];
+                out[i..i + 4].copy_from_slice(&crate::composite::blend_pixel(
                     layer.blend,
                     src,
                     dst,
@@ -343,5 +370,4 @@ fn render_tile(plan: &FramePlan, tile: Tile) -> Vec<f32> {
             }
         }
     }
-    acc
 }
