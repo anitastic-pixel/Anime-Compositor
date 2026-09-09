@@ -86,7 +86,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use anime_compositor::cache::{CelCache, DEFAULT_BUDGET_BYTES};
+use anime_compositor::cache::{budget_label, CelCache, DEFAULT_BUDGET_BYTES};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::model::{Id, Project};
@@ -581,15 +581,15 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize) {
          | Seek | Budget | Median ms | p95 ms | Slowest ms | Within 100 ms at p95 |\n\
          |---|---|---|---|---|---|\n",
     );
+    let now = format!(
+        "{} (the viewer's default)",
+        budget_label(DEFAULT_BUDGET_BYTES)
+    );
     let rows: [(&str, &str, &Vec<f64>); 4] = [
-        (
-            "The frame just shown, again",
-            "128 MB (the viewer's default)",
-            &seeks.reseek,
-        ),
+        ("The frame just shown, again", &now, &seeks.reseek),
         (
             "A scattered walk of the whole shot",
-            "128 MB (the viewer's default)",
+            &now,
             &seeks.scatter_default,
         ),
         (
@@ -617,20 +617,20 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize) {
     let _ = writeln!(
         s,
         "\n### How to read the seek table\n\n\
-         **The viewer's default budget cannot answer document 08's question, and the reason is \
-         arithmetic rather than a defect.** The budget is 128 MB, one cel of this composition costs \
-         33,177,600 bytes to hold, and every frame of this shot needs four of them. So the budget \
-         holds the frame being shown and nothing else. Asking for that same frame again is a full \
-         hit, which is the first row. Jumping anywhere else evicts all four and decodes four more, \
-         which is the second row, and a cold decode is what \
-         `verification/B-08_preview_latency.md` already measured.\n\n\
-         That is not an argument for raising the default. \
+         **A scrub is the workload the budget decides, and this shot is the small one.** One cel \
+         of this composition costs 33,177,600 bytes to hold and every frame of this shot needs \
+         four of them, so the {} default holds several frames of it and repeating a frame is a \
+         full hit. Jumping far enough away still evicts and decodes, which is the second row, and \
+         a cold decode is what `verification/B-08_preview_latency.md` already measured. The third \
+         row is the whole shot in memory: the cache filled to {:.1} MiB in {} cels, and a second \
+         walk over the same 240 frames decoded {} further drawings.\n\n\
+         The default is what it is because of a heavier shot than this one. \
          `verification/B-08b_cache_budget.md` measured 512 MB against 128 MB on sequential \
-         playback and found a fraction of a millisecond between them, because playback asks for a \
-         cel again within a few frames or not for a long time. Scrubbing is the workload where the \
-         reuse distance is the whole shot, and the third row is what it costs to hold that: the \
-         cache filled to {:.1} MiB in {} cels, and a second walk over the same 240 frames decoded \
-         {} further drawings.\n\n\
+         playback of *this* shot and found a fraction of a millisecond between them, which is why \
+         the default sat at 128 MB until 2026-09-08. What moved it was \
+         `verification/T-06_declared_fixture.md`: on the ten-layer fixture document 08 line 41 \
+         actually declares, one frame is 316.4 MiB and 128 MB could not hold it. Four layers were \
+         never the shot the number had to be right for.\n\n\
          **Document 08's \"p95 cached seek-to-display at or below 100 ms\" is met in every row \
          of the table above, the default budget included**, at {:.2} ms for the scattered walk \
          that re-decodes on almost every jump; the slowest single seek of those 240 was {:.2} ms. \
@@ -647,6 +647,7 @@ fn write_artifact(loops: &[Loop], seeks: &Seeks, peak: usize) {
          Document 08's phrase is \"seek-to-display\"; this measures the part of it that a headless \
          test can reach, and the difference is not small — `verification/B-08_preview_latency.md` \
          records that the transport was never measured on this build at all.\n",
+        budget_label(DEFAULT_BUDGET_BYTES),
         mib(seeks.filled_bytes),
         seeks.filled_cels,
         seeks.decodes_on_a_second_walk,

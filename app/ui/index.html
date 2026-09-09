@@ -4,12 +4,40 @@
 <meta charset="utf-8">
 <title>Anime Compositor</title>
 <style>
+  /* TEMPORARY, and only the arrangement. Asked for at B-12 so the acceptance run happens in a
+     window shaped like the one the owner already knows: a command strip along the top, the
+     project on the left, the composition in the middle with its own controls under the picture,
+     effect controls on the right, the timeline across the bottom and the status strip under
+     that. Nothing about what the window can do changed with it — every control, every command
+     and every keystroke is the one it was; they are in different places. The palette is the
+     grey After Effects uses so that the shapes read as panels.
+
+     Document 24 line 74 asks for "media bin left, composition viewer center, inspector/effects
+     right, timeline bottom, status/diagnostics strip", and that is still what this is. Two
+     things moved out of where they were and are the owner's to keep or undo: the exposure sheet
+     is now in the timeline rather than in the right-hand column, and the file and edit commands
+     are in a strip above the panels rather than in the one along the bottom. */
   :root { color-scheme: dark; }
   body {
     margin: 0; height: 100vh; display: flex; flex-direction: column;
-    background: #141416; color: #d8d8dc;
+    background: #101010; color: #d0d0d4;
     font: 13px/1.5 "Segoe UI", system-ui, sans-serif;
     user-select: none;
+  }
+  /* The command strip. What a menu bar holds: the project it is working on, and the commands
+     that act on the whole of it rather than on one layer. */
+  #menubar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 5px 8px; background: #2b2b2b; border-bottom: 1px solid #101010;
+    max-height: 20vh; overflow-y: auto;
+    /* It keeps whatever those twenty per cent give it. It is the smallest of the three strips
+       and the only one whose rows are all commands, so squeezing it below its own two lines to
+       find room for the panels cut a checkbox in half and bought almost nothing; the timeline
+       and the diagnostics strip below give way instead, and both scroll. */
+    flex-shrink: 0;
+  }
+  #menubar .sep {
+    width: 1px; align-self: stretch; background: #4a4a4a; margin: 0 4px;
   }
   /* Document 24's G1 default layout: "media bin left, composition viewer center,
      inspector/effects right, timeline bottom, status/diagnostics strip". The three columns are
@@ -19,23 +47,66 @@
      the canvas would make its row taller than the window and be cut off rather than shrinking
      to fit. That is Q-03's second defect and it comes straight back if these are simplified. */
   #work {
-    flex: 1; min-height: 0;
+    /* Half the window, at least, and the strips above and below give way for it. The
+       caps on those strips are each generous enough on their own and add up to more than a
+       window at a large text size: at 200% with two warnings on screen the panels were left a
+       third of the height, the viewer's own controls wrapped onto three rows inside that, and
+       the picture had nowhere left to be. This is the floor that stops it, and the strips
+       scroll instead, which is what B-11 decided they should do. */
+    flex: 1; min-height: 50vh;
     display: grid;
-    grid-template-columns: 200px minmax(0, 1fr) 260px;
+    /* The two side columns were 220px and 280px flat. At 200% the room this row has is about 507
+       of its own pixels, the two fixed columns took 500 of them, the middle column collapsed to
+       nothing and the viewer painted straight over the inspector beside it — which is what the
+       200% photograph under B-12a caught. Every column may now give ground, and the row scrolls
+       sideways rather than letting anything collapse, because B-11's rule is that the thing being
+       composited shrinks rather than being cut and a panel drawn over another panel is worse than
+       cut. A media query cannot do this job: -Scale zooms, so the viewport still measures its
+       unzoomed width and the query never fires at the size that needs it. */
+    grid-template-columns: minmax(120px, 220px) minmax(180px, 1fr) minmax(150px, 280px);
     grid-template-rows: minmax(0, 1fr);
+    gap: 2px; background: #101010; overflow-x: auto;
   }
+  /* A panel: a tab across the top saying what it is, a body that scrolls, and for two of them a
+     row of controls along the bottom that act on what the panel holds. */
   .panel {
-    min-width: 0; min-height: 0; overflow: auto;
-    border-right: 1px solid #26262b; padding: 8px;
+    min-width: 0; min-height: 0; overflow: hidden;
+    display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+    /* The column is spelled out for the same reason the rows are. Left implicit it is an `auto`
+       track, an auto track sizes itself to its widest item before it sizes itself to its
+       container, and the row of buttons along the bottom is that widest item: the panel grew
+       wider than the column it sits in and the overflow above cut the buttons off instead of
+       letting them wrap. */
+    grid-template-columns: minmax(0, 1fr);
+    background: #1e1e1e;
+  }
+  .tab {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #c8c8cc;
+    background: #2b2b2b; border-bottom: 1px solid #101010; padding: 4px 8px;
+  }
+  .tab .tools { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+  /* Which composition is on screen is named in the tab of the panel showing it, the way the
+     program this is shaped after names it, and not in the project panel — the project panel
+     says what the project holds. The tab's own label is a label and stays shouted; the
+     composition's name is a name and is not. */
+  .tab #comp {
+    text-transform: none; letter-spacing: 0; font-size: 13px; color: #d0d0d4;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .panel .body { min-width: 0; min-height: 0; overflow: auto; padding: 8px; }
+  .panel .foot {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 5px 8px; background: #232323; border-top: 1px solid #101010;
   }
   .panel h2 {
     font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-    color: #8b8b94; margin: 0 0 6px; font-weight: 600;
+    color: #8f8f96; margin: 0 0 6px; font-weight: 600;
   }
-  #inspector { border-right: none; border-left: 1px solid #26262b; }
   #stage {
     display: grid; place-items: center; min-height: 0; min-width: 0; padding: 12px;
     grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
+    background: #141414;
   }
   /* Checkerboard, so a transparent frame reads as transparent rather than as black. Document
      05 line 31 makes it a view that can be turned off, and document 21 line 97 makes it
@@ -56,17 +127,75 @@
      and a strip allowed to grow without limit takes the whole window and the picture
      disappears. Each keeps at most a third and scrolls the rest, so the thing being composited
      is always on screen. */
-  #timeline, #bar {
+  #timeline, #bar { max-height: 33vh; overflow-y: auto; }
+  #timeline { margin-top: 2px; }
+  /* The timeline: the layers down the left, time running left to right across the whole of the
+     composition, and a playhead where the picture on screen is. It reads and never writes — an
+     exposure is still set by typing the frame numbers under it — so nothing in here can change
+     the project by being dragged and nothing in here needs undoing. Trimming by dragging a bar
+     is a separate thing to build, and a gesture the acceptance run has not measured yet.
+
+     Everything drawn here is positioned as a fraction of the composition's length by one
+     function, so the ruler, the bars and the playhead cannot come to disagree about where a
+     frame is. */
+  #sheet { --gutter: 190px; position: relative; overflow: auto; padding: 6px 8px 8px; min-height: 0; }
+  #ruler {
+    position: relative; height: 16px; margin-left: var(--gutter);
+    border-bottom: 1px solid #3a3a3a;
+  }
+  #ruler .tick {
+    position: absolute; top: 0; bottom: 0; border-left: 1px solid #3a3a3a;
+    padding-left: 3px; font-size: 10px; line-height: 16px; color: #909096;
+    font-variant-numeric: tabular-nums;
+  }
+  #tracks { position: relative; }
+  #layers li {
+    display: grid; grid-template-columns: var(--gutter) minmax(0, 1fr);
+    gap: 6px; align-items: center;
+  }
+  .rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .track { position: relative; height: 18px; background: #171717; border-radius: 2px; }
+  /* The layer's own life, document 20's half-open [in_frame, out_frame), and the exposures
+     inside it. A layer with no exposures gets a hollow bar rather than nothing, because having
+     none is not the same as being empty: every frame then shows the drawing of its own number. */
+  .track .life {
+    position: absolute; top: 0; bottom: 0;
+    background: #2f3d55; border: 1px solid #46587a; border-radius: 2px;
+  }
+  /* One block per exposure, edge to edge, with a hairline between them: on a shot held on twos
+     the blocks are two frames wide and without the line a run of them reads as one long block,
+     which is the opposite of what the row is for. */
+  .track .span {
+    position: absolute; top: 2px; bottom: 2px; background: #4a6fa5;
+    border-right: 1px solid #1a1a1d; box-sizing: border-box;
+    font-size: 10px; line-height: 14px; text-align: center; overflow: hidden; color: #eaeaf0;
+  }
+  /* A drawing the sequence does not have is orange here and says so in words in the fields
+     below, the same warning colour every other missing thing in this window uses. */
+  .track .span.gone { background: #7a5a2a; }
+  .track .free {
+    position: absolute; top: 4px; bottom: 4px;
+    border: 1px dashed #46587a; border-radius: 2px;
+  }
+  #playhead {
+    position: absolute; top: 6px; bottom: 8px; width: 1px; background: #e8866a;
+    pointer-events: none;
+    left: calc(var(--gutter) + 8px + (100% - var(--gutter) - 16px) * var(--at, 0));
+  }
+  #playhead::before {
+    content: ''; position: absolute; top: 0; left: -3px;
+    border: 3px solid transparent; border-top: 5px solid #e8866a;
+  }
+  #bar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    padding: 8px 12px; border-top: 1px solid #26262b; background: #1a1a1d;
-    max-height: 33vh; overflow-y: auto;
+    padding: 6px 10px; border-top: 1px solid #101010; background: #232323;
   }
   button {
-    font: inherit; color: inherit; background: #26262b;
-    border: 1px solid #35353c; border-radius: 4px; padding: 3px 10px; cursor: pointer;
+    font: inherit; color: inherit; background: #383838;
+    border: 1px solid #4a4a4a; border-radius: 3px; padding: 2px 9px; cursor: pointer;
   }
-  button:hover { background: #303038; }
-  button:disabled { color: #5a5a62; cursor: default; background: #202024; }
+  button:hover { background: #454545; }
+  button:disabled { color: #6a6a6a; cursor: default; background: #2a2a2a; }
   /* Q-03: every control must be reachable by keyboard and it must be obvious which one has the
      keyboard. The ring is its own colour — orange already means a warning here and green already
      means a save happened, so a third meaning would have to borrow one of those. */
@@ -78,9 +207,13 @@
      absent. It is coloured only when it differs; a full-resolution preview is the quiet case. */
   #quality.differs { color: #e8866a; }
   #frame { font-variant-numeric: tabular-nums; }
-  #report { color: #8b8b94; flex: 1; min-width: 100%; }
+  #report { color: #909096; flex: 1; min-width: 100%; }
   #report.dropped { color: #e8b06a; }
-  .hint { color: #6a6a72; }
+  .hint { color: #75757c; }
+  /* The keystroke list is a reference, not an instruction: it is the smallest thing in the
+     window and it is last, so the sentences the window says about what just happened are read
+     first. */
+  #keys { font-size: 11px; min-width: 100%; }
   #project { font-weight: 600; }
   /* Document 26: unsaved work is visible, always, and never inferred by the page — the core
      answers whether the document is dirty and this only draws the answer. */
@@ -90,18 +223,18 @@
   #status:empty { display: none; }
   /* An autosave is not something the person asked for, so it is said quietly and beside the
      status line rather than in it. */
-  #autosaved { color: #6a6a72; }
+  #autosaved { color: #75757c; }
   #autosaved:empty { display: none; }
   /* An export runs for minutes and writes to disk, so what it is doing is its own line and stays
      on screen after it has finished — including when it refused to write anything. */
-  #exported { min-width: 100%; color: #8b8b94; white-space: pre-wrap; }
+  #exported { min-width: 100%; color: #909096; white-space: pre-wrap; }
   #exported:empty { display: none; }
   #exported.running { color: #7fb37f; }
   label { display: inline-flex; align-items: center; gap: 5px; }
   input[type=checkbox]:focus-visible { outline: 2px solid #7aa7ff; outline-offset: 2px; }
   select, input[type=text] {
-    font: inherit; color: inherit; background: #26262b;
-    border: 1px solid #35353c; border-radius: 4px; padding: 3px 6px; max-width: 260px;
+    font: inherit; color: inherit; background: #383838;
+    border: 1px solid #4a4a4a; border-radius: 3px; padding: 2px 6px; max-width: 260px;
   }
   /* Document 28's warnings, one line each, in the words the core used. They are never folded
      away behind a count: a project that opened with something wrong with it says so for as
@@ -119,27 +252,28 @@
     display: flex; align-items: center; gap: 6px;
     padding: 2px 4px; border-radius: 3px; cursor: default;
   }
-  ul.rows li:hover { background: #202026; }
+  ul.rows li:hover { background: #2a2a2a; }
   ul.rows li[aria-selected=true] { background: #2c3a52; }
   ul.rows .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   /* A layer that is switched off or locked says so in text as well as in colour, because
      document 24's accessibility baseline forbids colour as the only carrier of a state. */
-  ul.rows .off { color: #6a6a72; }
-  ul.rows .mark { color: #8b8b94; font-size: 11px; }
+  ul.rows .off { color: #75757c; }
+  ul.rows .mark { color: #909096; font-size: 11px; }
   ul.rows button {
     padding: 0 4px; border-color: transparent; background: transparent; line-height: 1;
   }
-  #layers { min-width: 260px; flex: 1; }
-  #bin .kind { color: #6a6a72; font-size: 11px; }
+  #bin .kind { color: #75757c; font-size: 11px; }
   #inspector dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; }
-  #inspector dt { color: #8b8b94; }
+  #inspector dt { color: #909096; }
   #inspector dd { margin: 0; overflow-wrap: anywhere; }
-  #inspector .empty { color: #6a6a72; }
-  #inspector input[type=number] { width: 5.5em; background: #17171b; color: #e8e8ea;
-    border: 1px solid #34343c; border-radius: 3px; padding: 1px 3px; font: inherit; }
+  .empty { color: #75757c; }
+  #inspector input[type=number] {
+    width: 5.5em; background: #141414; color: #e8e8ea;
+    border: 1px solid #4a4a4a; border-radius: 3px; padding: 1px 3px; font: inherit;
+  }
   /* The handle a value is scrubbed by. It is a separate target from the field so that typing a
      number and dragging one are different gestures and neither can start the other. */
-  .scrub { cursor: ew-resize; user-select: none; border-bottom: 1px dotted #57575f; }
+  .scrub { cursor: ew-resize; user-select: none; border-bottom: 1px dotted #6a6a72; }
   .scrub:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   .group { margin-bottom: 14px; }
   /* The effects panel of document 24's wireframe, under the layer's own fields in the same
@@ -147,115 +281,153 @@
   #inspector h2 ~ h2 { margin-top: 14px; }
   #inspector #addeffect, #inspector #addexposure { margin-top: 8px; }
   /* One row per exposure span, in frame order: which frames it covers and which drawing they
-     show. This is the exposure sheet W-01 asks the artist to assign, in the panel. */
-  /* Wrapping, because the column is narrow and a row that cannot wrap makes the whole
-     inspector scroll sideways instead: the photograph of the effects panel found
-     "show drawing" cut off at the column's edge. */
+     show. This is the exposure sheet W-01 asks the artist to assign, and it is now beside the
+     layers in the timeline rather than in the right-hand column, because the question it
+     answers is a question about time. */
+  /* Wrapping, because the column can be narrow and a row that cannot wrap makes the panel
+     scroll sideways instead: the photograph of the effects panel found "show drawing" cut off
+     at the column's edge. */
   .exposure { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin-bottom: 4px; }
-  .exposure span { color: #8b8b94; }
+  .exposure span { color: #909096; }
   .exposure input[type=number] { width: 4.5em; }
   .exposure .gone { color: #e8b06a; }
-  .effect { border: 1px solid #26262b; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; }
+  .effect { border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; }
   .effect .head { display: flex; align-items: center; gap: 6px; }
   .effect .head .name { flex: 1; font-weight: 600; }
-  .effect .head .name.off { color: #6a6a72; font-weight: 400; }
+  .effect .head .name.off { color: #75757c; font-weight: 400; }
   .effect .head .mark { color: #e8b06a; font-size: 11px; }
   .effect .head button { padding: 0 4px; border-color: transparent; background: transparent; }
   .effect dl { margin-top: 4px; }
   .effect input[type=text] { width: 8em; }
   #relinking { border: 1px solid #e8b06a; border-radius: 4px; padding: 6px; margin-top: 6px; }
   #newcomposition { border: 1px solid #7a8ba0; border-radius: 4px; padding: 6px; margin-top: 6px; }
-  #newcomposition p { margin: 0 0 6px; }
-  #newcomposition label { display: block; margin-top: 4px; }
+  /* Five fields and two buttons in a column 220 pixels wide. Label beside field rather than
+     above it, because stacked they were taller than the panel and the button that makes the
+     composition was below the fold, which is a control the person cannot see. */
+  #newcomposition {
+    display: grid; grid-template-columns: minmax(0, 1fr) 7em; gap: 4px 6px;
+    align-items: center;
+  }
+  #newcomposition p, #newcomposition button { grid-column: 1 / -1; margin: 0; }
+  /* display: grid above beats the browser rule for [hidden], so say it again here. */
+  #newcomposition[hidden] { display: none; }
+  #newcomposition label { display: block; }
   #newcomposition input { width: 100%; box-sizing: border-box; }
-  #newcomposition button { margin-top: 6px; }
   #relinking p { margin: 0 0 6px; }
 </style>
 </head>
 <body>
-<div id="work">
-  <div class="panel" id="bin">
-    <h2>Composition</h2>
-    <p id="comp">&mdash;</p>
-    <button id="newcomp">New composition&hellip;</button>
-    <div id="newcomposition" hidden>
-      <p>A new composition is empty. It is the frame the drawings are laid into, so its size,
-        its rate and its length are what the finished shot will be.</p>
-      <label for="compname">Name</label>
-      <input id="compname" type="text" value="New composition">
-      <label for="compwidth">Width in pixels</label>
-      <input id="compwidth" type="number" min="1" value="1920">
-      <label for="compheight">Height in pixels</label>
-      <input id="compheight" type="number" min="1" value="1080">
-      <label for="compfps">Frames per second</label>
-      <input id="compfps" type="number" min="1" value="24">
-      <label for="compframes">Length in frames</label>
-      <input id="compframes" type="number" min="1" value="240">
-      <button id="makecomp">Create it</button>
-      <button id="cancelcomp">Leave it</button>
-    </div>
-    <h2>Drawings</h2>
-    <ul class="rows" id="assets"></ul>
-    <p class="empty" id="noassets" hidden>This project has no drawings in it.</p>
-    <button id="import">Import drawings&hellip;</button>
-    <button id="relink">Relink drawings&hellip;</button>
-    <div id="relinking" hidden>
-      <p id="proposal"></p>
-      <button id="applyrelink">Apply the relink</button>
-      <button id="cancelrelink">Leave it as it is</button>
-    </div>
-  </div>
-  <div id="stage"><canvas id="view" width="480" height="270"></canvas></div>
-  <div class="panel" id="inspector">
-    <h2>Layer</h2>
-    <div id="detail"><p class="empty">No layer is selected.</p></div>
-    <h2>Exposures</h2>
-    <div id="exposures"><p class="empty">No layer is selected.</p></div>
-    <button id="addexposure">Add an exposure</button>
-    <h2>Effects</h2>
-    <div id="effects"><p class="empty">No layer is selected.</p></div>
-    <select id="addeffect" aria-label="Add an effect to the selected layer">
-      <option value="">Add effect&hellip;</option>
-      <option value="core.gaussian_blur">Blur</option>
-      <option value="core.exposure">Exposure</option>
-      <option value="core.tint">Tint</option>
-    </select>
-  </div>
-</div>
-<div id="timeline">
-  <button id="play">Play</button>
-  <button id="back">&#8592;</button>
-  <button id="fwd">&#8594;</button>
-  <span id="frame">frame &mdash;</span>
-  <span id="quality">&mdash;</span>
-  <button id="toggle">Full resolution</button>
-  <button id="alpha">Alpha only</button>
-  <button id="checker">Hide grid</button>
-  <ul class="rows" id="layers"></ul>
-  <span class="hint" id="nolayers" hidden>This composition has no layers.</span>
-</div>
-<div id="bar">
-  <button id="addlayer">Add layer</button>
-  <button id="dellayer">Delete layer</button>
-  <button id="up">Forward</button>
-  <button id="down">Back</button>
-  <button id="undo">Undo</button>
-  <button id="redo">Redo</button>
+<div id="menubar">
   <span id="project">&mdash;</span><span id="dirty"></span>
+  <span class="sep"></span>
   <button id="open">Open&hellip;</button>
   <button id="save">Save</button>
   <button id="saveas">Save As&hellip;</button>
   <select id="recent"><option value="">Recent&hellip;</option></select>
   <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
+  <span class="sep"></span>
+  <button id="undo">Undo</button>
+  <button id="redo">Redo</button>
+  <span class="sep"></span>
   <button id="export">Export&hellip;</button>
   <button id="cancelexport" hidden>Cancel export</button>
   <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
-  <span class="hint">space, arrows, D, A, G &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
+</div>
+<div id="work">
+  <section class="panel" id="bin">
+    <div class="tab">Project</div>
+    <div class="body">
+      <h2>Compositions</h2>
+      <ul class="rows" id="comps"></ul>
+      <div id="newcomposition" hidden>
+        <p>A new composition is empty. It is the frame the drawings are laid into, so its size,
+          its rate and its length are what the finished shot will be.</p>
+        <label for="compname">Name</label>
+        <input id="compname" type="text" value="New composition">
+        <label for="compwidth">Width in pixels</label>
+        <input id="compwidth" type="number" min="1" value="1920">
+        <label for="compheight">Height in pixels</label>
+        <input id="compheight" type="number" min="1" value="1080">
+        <label for="compfps">Frames per second</label>
+        <input id="compfps" type="number" min="1" value="24">
+        <label for="compframes">Length in frames</label>
+        <input id="compframes" type="number" min="1" value="240">
+        <button id="makecomp">Create it</button>
+        <button id="cancelcomp">Leave it</button>
+      </div>
+      <h2>Drawings</h2>
+      <ul class="rows" id="assets"></ul>
+      <p class="empty" id="noassets" hidden>This project has no drawings in it.</p>
+      <div id="relinking" hidden>
+        <p id="proposal"></p>
+        <button id="applyrelink">Apply the relink</button>
+        <button id="cancelrelink">Leave it as it is</button>
+      </div>
+    </div>
+    <div class="foot">
+      <button id="newcomp">New composition&hellip;</button>
+      <button id="import">Import drawings&hellip;</button>
+      <button id="relink">Relink&hellip;</button>
+    </div>
+  </section>
+  <section class="panel" id="viewer">
+    <div class="tab">Composition<span id="comp">&mdash;</span></div>
+    <div id="stage"><canvas id="view" width="480" height="270"></canvas></div>
+    <div class="foot">
+      <button id="play">Play</button>
+      <button id="back">&#8592;</button>
+      <button id="fwd">&#8594;</button>
+      <span id="frame">frame &mdash;</span>
+      <span id="quality">&mdash;</span>
+      <button id="toggle">Full resolution</button>
+      <button id="alpha">Alpha only</button>
+      <button id="checker">Hide grid</button>
+    </div>
+  </section>
+  <section class="panel" id="inspector">
+    <div class="tab">Effect controls</div>
+    <div class="body">
+      <h2>Layer</h2>
+      <div id="detail"><p class="empty">No layer is selected.</p></div>
+      <h2>Exposures</h2>
+      <div id="exposures"><p class="empty">No layer is selected.</p></div>
+      <button id="addexposure">Add an exposure</button>
+      <h2>Effects</h2>
+      <div id="effects"><p class="empty">No layer is selected.</p></div>
+      <select id="addeffect" aria-label="Add an effect to the selected layer">
+        <option value="">Add effect&hellip;</option>
+        <option value="core.gaussian_blur">Blur</option>
+        <option value="core.exposure">Exposure</option>
+        <option value="core.tint">Tint</option>
+      </select>
+    </div>
+  </section>
+</div>
+<section class="panel" id="timeline">
+  <div class="tab">Timeline<span class="hint">front layer first</span>
+    <span class="tools">
+      <button id="addlayer">Add layer</button>
+      <button id="dellayer">Delete layer</button>
+      <button id="up">Forward</button>
+      <button id="down">Back</button>
+    </span>
+  </div>
+  <div id="sheet">
+    <div id="ruler"></div>
+    <div id="tracks">
+      <ul class="rows" id="layers"></ul>
+    </div>
+    <div id="playhead" hidden></div>
+    <span class="hint" id="nolayers" hidden>This composition has no layers.</span>
+  </div>
+</section>
+<div id="bar">
   <span id="status"></span>
   <span id="autosaved"></span>
   <span id="report"></span>
   <span id="exported"></span>
   <ul id="notes"></ul>
+  <span class="hint" id="keys">space, arrows, D, A, G &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -322,6 +494,7 @@ async function show(url) {
 
     frame = +h.get('x-frame');
     $('frame').textContent = 'frame ' + frame;
+    movePlayhead();
 
     // The indicator describes the render that just arrived, because it came back with it.
     const differs = h.get('x-differs') === 'true';
@@ -463,6 +636,22 @@ function iconButton(text, title, onClick) {
   return b;
 }
 
+// Every composition the project holds, with the one on screen marked. Making a composition moves
+// the window into it, and until this list existed that was a one-way door: nothing named the
+// others and nothing could go back to one.
+function drawComps() {
+  const all = doc ? (doc.project.compositions || []) : [];
+  $('comps').replaceChildren(...all.map((comp) => {
+    const size = document.createElement('span');
+    size.className = 'kind';
+    size.textContent = comp.width + '×' + comp.height;
+    const li = row(doc.composition, comp.id, comp.name, []);
+    li.append(size);
+    li.onclick = () => command('/composition.open?composition=' + encodeURIComponent(comp.id));
+    return li;
+  }));
+}
+
 function drawAssets() {
   const assets = doc ? (doc.project.assets || []) : [];
   const list = $('assets');
@@ -483,9 +672,88 @@ function drawAssets() {
   }));
 }
 
+// Where a composition frame falls across the width of the timeline: 0 at the composition's first
+// frame, 1 at the one after its last. The ruler, the bars and the playhead are all placed with
+// this and with nothing else, so they cannot come to disagree about where a frame is.
+function atFrame(comp, at) {
+  const len = Math.max(1, comp.duration_frames);
+  return Math.min(1, Math.max(0, (at - comp.start_frame) / len));
+}
+
+const percent = (x) => (x * 100) + '%';
+
+// The frame numbers along the top. A label every whole number of frames, chosen so that about
+// eight of them fit: one tick per frame is unreadable at 240 frames and one per hundred says
+// nothing at 24.
+function drawRuler() {
+  const comp = composition();
+  const ruler = $('ruler');
+  if (!comp) { ruler.replaceChildren(); return; }
+  const len = Math.max(1, comp.duration_frames);
+  const steps = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
+  const step = steps.find((s) => len / s <= 10) || len;
+  const ticks = [];
+  for (let at = comp.start_frame; at < comp.start_frame + len; at += step) {
+    const tick = document.createElement('span');
+    tick.className = 'tick';
+    tick.style.left = percent(atFrame(comp, at));
+    tick.textContent = at;
+    ticks.push(tick);
+  }
+  ruler.replaceChildren(...ticks);
+}
+
+// One layer's row of time: the frames it is in the composition for, and the exposures inside
+// them. Every bar carries the same sentence as a tooltip that the fields below say in numbers,
+// because a bar is a picture of a fact and a person has to be able to read the fact.
+function track(comp, layer, drawings) {
+  const box = document.createElement('div');
+  box.className = 'track';
+  const bar = (kind, from, to) => {
+    const piece = document.createElement('div');
+    piece.className = kind;
+    piece.style.left = percent(atFrame(comp, from));
+    piece.style.width = percent(atFrame(comp, to) - atFrame(comp, from));
+    box.append(piece);
+    return piece;
+  };
+  bar('life', layer.in_frame, layer.out_frame).title = layer.name
+    + ' is in the composition from frame ' + layer.in_frame
+    + ' up to frame ' + layer.out_frame;
+  const spans = layer.exposure_spans || [];
+  if (!spans.length) {
+    bar('free', layer.in_frame, layer.out_frame).title =
+      'No exposures. Each frame shows the drawing of the same number.';
+    return box;
+  }
+  for (const span of spans) {
+    const missing = !drawings.has(span.drawing_number);
+    const piece = bar(missing ? 'span gone' : 'span', span.start_frame, span.end_frame_exclusive);
+    // The drawing's number, but only where there is room for it to be read. On a shot held on
+    // twos every span is two frames wide, and a number in each of them is a wall of digits
+    // rather than a label; the tooltip and the fields in the properties column still say it.
+    const wide = atFrame(comp, span.end_frame_exclusive) - atFrame(comp, span.start_frame) > 0.03;
+    if (wide) piece.textContent = span.drawing_number;
+    piece.title = 'frames ' + span.start_frame + ' to ' + (span.end_frame_exclusive - 1)
+      + ' show drawing ' + span.drawing_number
+      + (missing ? ', which is not in the sequence' : '');
+  }
+  return box;
+}
+
+// The playhead moves on its own rather than by redrawing the panels, because a frame arrives
+// sixty times a second while the shot is playing and rebuilding the timeline that often would
+// fight every click made in it.
+function movePlayhead() {
+  const comp = composition();
+  $('playhead').hidden = !comp;
+  if (comp) $('playhead').style.setProperty('--at', atFrame(comp, frame));
+}
+
 function drawLayers() {
   const all = layers();
   $('nolayers').hidden = all.length > 0;
+  const comp = composition();
   // Reversed: the last layer in composition order is drawn last and so is in front.
   const list = $('layers');
   list.replaceChildren(...all.slice().reverse().map((layer) => {
@@ -505,6 +773,14 @@ function drawLayers() {
       li.append(mark);
       if (!layer.enabled) li.querySelector('.name').className = 'name off';
     }
+    // The name and its switches on the left, the layer's time on the right. They are wrapped
+    // rather than built that way so that the drawings list, which shares `row`, stays a plain
+    // row: only a layer has a life in time to draw.
+    const head = document.createElement('div');
+    head.className = 'rowhead';
+    head.append(...li.childNodes);
+    li.append(head);
+    if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     li.onclick = () => { selectedLayer = layer.id; drawPanels(); };
     li.ondblclick = () => beginRename();
     return li;
@@ -843,8 +1119,11 @@ function drawPanels() {
   // A layer that has gone — deleted, or undone into existence and back out — must not stay
   // selected, or the next Delete would name something that is not there.
   if (selectedLayer && !selected()) selectedLayer = null;
+  drawComps();
   drawAssets();
+  drawRuler();
   drawLayers();
+  movePlayhead();
   drawInspector();
   drawExposures();
   drawEffects();

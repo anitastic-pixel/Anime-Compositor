@@ -19,12 +19,12 @@ Every cel of this shot decodes to the same 1920x1080 buffer. The files differ en
 
 | Layer | Cels on disk | Mean file size | Median decode ms | Slowest decode ms |
 |---|---|---|---|---|
-| layer1 | 1 | 2112 KB | 15.22 | 15.22 |
-| layer2 | 24 | 47 KB | 6.89 | 7.61 |
-| layer3 | 11 | 9 KB | 6.69 | 7.09 |
-| layer4 | 20 | 9 KB | 6.19 | 6.77 |
+| layer1 | 1 | 2112 KB | 15.33 | 15.33 |
+| layer2 | 24 | 47 KB | 9.14 | 14.85 |
+| layer3 | 11 | 9 KB | 8.27 | 11.47 |
+| layer4 | 20 | 9 KB | 8.25 | 11.21 |
 
-One cel from each layer is 34.98 ms, which is what a frame of this shot costs to decode when nothing is remembered between frames. The latency table's decoding column is higher than that, and the difference is honest rather than explained away: this test decodes each cel with the file already fetched once, while a preview frame pays to find and read the file as well.
+One cel from each layer is 40.99 ms, which is what a frame of this shot costs to decode when nothing is remembered between frames. The latency table's decoding column is higher than that, and the difference is honest rather than explained away: this test decodes each cel with the file already fetched once, while a preview frame pays to find and read the file as well.
 
 ## How often the shot repeats itself
 

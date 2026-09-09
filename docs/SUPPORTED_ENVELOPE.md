@@ -21,6 +21,16 @@ written to be read before use, not after something goes wrong.
 **Projects.** Opens and saves them — the toolbar, `Ctrl+O`, `Ctrl+S`, `Ctrl+Shift+S`, the recent
 list, or dropping a project file onto the window.
 
+**Compositions.** Makes one — **New composition…** or `Ctrl+Shift+N` — with a name, a size, a
+frame rate and a length, and puts the window into it. The project panel lists the compositions a
+project holds and clicking one puts the window there, so a project can hold several shots and you
+can move between them. Making a composition is undoable; moving between them is not, because
+looking somewhere else does not change the project. The sizes this build will make stop at 16384
+on a side and at 67,108,864 pixels in all, which is 8192 by 8192, or 16384 by 4096, and not 16384
+square; a composition stops at 10,000 frames. A request past any of those is refused in a sentence
+that says which limit it crossed and, where the width is legal, the tallest height that width
+allows.
+
 **Drawings.** Imports a folder of numbered PNGs as one sequence — **Import drawings…** or
 `Ctrl+I` — and tells you how many drawings it found, which numbers they run between, and which
 numbers are missing from the run. **Relink drawings…** points a sequence at a folder that has
@@ -61,10 +71,9 @@ when it arrived, including the parts this version cannot read.
 
 ## What it does not do yet
 
-- **It cannot make a composition.** The composition you work in is the one your project file
-  already holds — its size, its frame rate and its length come from the file and nothing in the
-  window changes them. Starting a shot from nothing means starting from a project file somebody
-  else wrote.
+- **A composition's size, rate and length are fixed once it is made.** There is a control that
+  makes one and no control that changes one afterwards, so a shot that needs a different size is
+  a new composition rather than an edited one.
 - **It cannot draw a mask or make a keyframe.** Both exist in the file format, both are drawn
   correctly when a project arrives with them, and both survive a save. There is simply no
   control in this window that creates one, so everything you set here holds for the whole shot.
@@ -84,6 +93,12 @@ when it arrived, including the parts this version cannot read.
   file. Save deliberately.
 - **No GPU rendering, no video files.** Frames are composited on the processor and written as
   images.
+- **The preview keeps up to 1 GiB of decoded drawings in memory.** It is a ceiling and not a
+  reservation: a light shot holds far less, and nothing is held while exporting. On the heaviest
+  shot this project measures — ten layers at 1920 by 1080 — one frame's drawings are 316 MiB, so
+  the ceiling holds a frame and a little either side of it. Scrubbing a shot larger than that
+  still re-reads drawings from disk, and `verification/T-06_declared_fixture.md` is what that
+  costs.
 - **No screen-reader support has been checked.** Display scaling, the keyboard and non-English
   text have been; `verification/B-11_display_and_keyboard.md` and
   `verification/B-12a_window_and_keyboard.md` show how far that goes.

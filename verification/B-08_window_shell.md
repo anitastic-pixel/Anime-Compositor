@@ -25,19 +25,31 @@ The space bar started playback and this was taken about three seconds later, par
 shot. The sentence along the bottom is `Playback::report`, unchanged, in the words document 28
 asks for:
 
-> Played 59 frames in real time and dropped 15 to keep the timing true. Step through the frames
+> Played 42 frames in real time and dropped 31 to keep the timing true. Step through the frames
 > to see every drawing, or switch the preview to draft resolution.
 
-**That is D-32 working, not failing.** 59 shown and 15 dropped across 74 frames of clock is about
-52 ms of wall clock per frame delivered, against the 41.7 ms a 24 fps shot allows: four frames in
-five arrive on time and the fifth is skipped rather than shown late. A viewer that played all 74
-late would have been a silent fidelity fallback, which document 28 forbids.
+**That is D-32 working, not failing.** 42 shown and 31 dropped across 73 frames of clock is about
+71 ms of wall clock per frame delivered, against the 41.7 ms a 24 fps shot allows: three frames
+in five arrive on time and the other two are skipped rather than shown late. A viewer that played
+all 73 late would have been a silent fidelity fallback, which document 28 forbids.
 
 **This picture is the cel cache, B-08b, seen from outside.** The same photograph before the cache
 existed read *"Played 66 frames in real time and dropped 79"* — 45 of every hundred frames
 delivered, at about 92 ms each, which matched `B-08_preview_latency.md`'s 81.69 ms median draft
 frame with three quarters of it spent decoding cels that had just been decoded. The cache is what
-moved that to 80 of every hundred. Nothing else about this window changed.
+moved that to 58 of every hundred. Nothing else about this window changed.
+
+**Retaken on 2026-09-08, and the count is lower than the one this said before.** The 2026-09-05
+capture read *"Played 59 frames and dropped 15"* — 80 of every hundred. Two captures taken in a
+row today both read 42 delivered. The build's own timing test, re-run on this machine within the
+hour and not committed, reports a 100.61 ms median draft frame against the 81.69 ms
+`B-08_preview_latency.md` records for 2026-09-06, with the whole of the difference in the
+decoding column. So the frames went missing where the cels are read, on a machine that is
+slower today than it was on the day that table was written, and not in anything this window
+does. Nothing here is evidence about which of the two machine-days is the ordinary one, and a
+photograph is the wrong instrument for settling it: `B-08_preview_latency.md` and
+`T-06_declared_fixture.md` are the ones with a stated machine, build and configuration beside
+their numbers.
 
 The count is honest in both directions: it is produced by the same `Playback` the fixture table
 in `B-08_preview_table.md` checks, and the page cannot reach it. Nothing in the window decides
@@ -82,8 +94,7 @@ starts the web view with its GPU path and its occlusion detection off. All three
 shutter and none of them are about the application: a GPU-composited web view draws into a
 surface the screen copy cannot see, and one that believes nobody is looking stops painting and
 then hands back the last thing it drew. Both failures photograph as a working window that ignored
-the keyboard, which is a finding that is not true. Pictures 1 and 3 above were taken before this
-change, by copying the screen; picture 2 was retaken after it.
+the keyboard, which is a finding that is not true. All three above were taken after that change.
 
 **Release, deliberately.** The same three pictures taken from a debug build report 6 frames
 played and 97 dropped, which is a fact about `opt-level = 0` and not about this renderer;
@@ -93,7 +104,7 @@ These files are not compared byte for byte by anything, and they will not reprod
 window placement, display scaling, the theme of the title bar and the frame playback happens to
 reach are all properties of the machine and the moment. Captured at 1522×1016 physical pixels —
 the window asks for 1000×640 on a display running at 150%. They are evidence that the viewer ran
-on 2026-09-05, not fixtures. `B-09_open_a_project.md` has the three that show a project being
+on 2026-09-08, not fixtures. `B-09_open_a_project.md` has the three that show a project being
 opened, taken the same way.
 
 ## What is checked automatically, and what is not

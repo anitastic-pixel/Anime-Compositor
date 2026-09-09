@@ -31,6 +31,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | the keys the window answers with nothing focused are the ones written down here | A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, N, O, S, Space, Z, [, ] | A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, N, O, S, Space, Z, [, ] | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
+| `composition.open` can be asked for without a mouse | yes | yes | pass |
 | `edit.redo` can be asked for without a mouse | yes | yes | pass |
 | `edit.undo` can be asked for without a mouse | yes | yes | pass |
 | `effect.add` can be asked for without a mouse | yes | yes | pass |
@@ -64,4 +65,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | double clicking a layer is not the only way to rename it | true | true | pass |
 | dragging a transform value is not the only way to change it | true | true | pass |
 
-**41 of 41 checks pass.**
+**42 of 42 checks pass.**
