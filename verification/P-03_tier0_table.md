@@ -2,7 +2,8 @@
 
 Document 15's P-03 is a list of six small changes, each of which must show a before and after from
 P-01's timer and prove that no pixel moved. This file is the table, and it gains a section per
-item as each one lands. **Items (c), (a), (b) and (d) are done. (e) and (f) are not started.**
+item as each one lands. **Items (c), (a), (b) and (d) are done. (e) was built, measured and reverted. (f) is not
+started.**
 
 The order is `verification/P-01_frame_trace.md`'s measured order and not either research
 document's estimate: (c), (a), (b), then (d), (e), (f).
@@ -519,6 +520,82 @@ bytes. `verification/B-07_effects_table.md`, the six-tile-size table this item's
 rests on, did not move, and neither did any other artifact under `verification/` — the whole suite
 of 31 test binaries passed with `git diff --exit-code -- verification/` clean.
 
+---
+
+# Item (e): the hoisted branches, built twice, measured, and reverted
+
+Document 15's P-03, item (e). Three things are fixed for a whole layer — its blend mode, whether
+its opacity is worth multiplying by, and whether it has a matte — and `render_tile` tested all
+three at every pixel of every tile. The entry proposed hoisting them out of the pixel loop.
+
+**It was built, measured, and it made the tile loop slower. It is reverted, and this section is
+what it produced instead.** No file under `src/` differs from what item (d) left.
+
+## Why it looked worth doing
+
+For the three separable blend modes, the `match` on the mode ran not once per pixel but **once per
+colour channel inside a loop of three**, so a multiply-blended full-resolution layer paid it
+6,220,800 times a frame. The opacity and matte tests are only once a pixel, but they are tests of
+values that cannot change for the duration of the loop. Nothing about the proposal was unsound.
+
+## What was built
+
+Two versions, because the first one's result had an obvious suspect.
+
+**First: a function pointer.** `composite::blender(mode)` returned the mode's own function, chosen
+once per layer, and `render::draw::<OPACITY, MATTE>` compiled the other two tests away as const
+generics. This was **worse in eleven of P-01's twelve rows** — the tile loop rose 6% to 15%, and
+the declared fixture's warm full frame rose 12.4%. The suspect was the pointer: an indirect call
+at every pixel is a call the optimiser cannot see into, where the `match` it replaced was inlined.
+
+**Second: full monomorphisation.** `composite::blend_fixed::<MODE>` with the mode as a const
+generic and the renderer instantiating `draw::<BLEND, OPACITY, MATTE>` — sixteen compiled copies
+of the pixel loop, every blend call direct and inlinable, no pointer anywhere. This recovered the
+reference shot. It did not recover the declared fixture.
+
+## What it measured
+
+The frame times were too noisy to decide on, so the decision was made on the stage the item
+targets. Two paired runs of item (b)'s first-playthrough harness per build, same machine, same
+twenty frames, alternating so that neither build got the quiet half of the run.
+
+| Workload | Quality | Tile loop, item (d) | Tile loop, item (e) | Change |
+|---|---|---|---|---|
+| the reference shot | Draft | 1.881, 2.046 | 1.918, 1.968 | -1% (a wash) |
+| the reference shot | Full | 7.766, 7.724 | 7.862, 7.839 | **+1.3%** |
+| the declared ten-layer fixture | Draft | 4.541, 4.504 | 4.779, 4.844 | **+6.4%** |
+| the declared ten-layer fixture | Full | 18.428, 17.656 | 19.276, 19.021 | **+6.1%** |
+
+**Seven of the eight paired measurements are slower with the hoist, and none is faster.** The
+frame-time columns overlap between builds and are not quoted as a result here, which is the point
+of measuring the stage instead: on the declared fixture the two runs of one build differ by more
+than the two builds differ, so a frame-time table would have supported whichever answer was
+wanted.
+
+## Why it lost
+
+The branches were never the cost. A test on a value that does not change across a loop is
+predicted correctly by the hardware every time after the first, which makes it approximately free,
+and the compiler was already specialising what it could. What the hoist added was real: sixteen
+copies of the pixel loop, and the declared fixture — ten layers, several modes, several with
+mattes — walks through more of those copies per frame than the reference shot's four layers do.
+The instruction cache pays for that, and the two fixtures' results differ in exactly the direction
+that explanation predicts.
+
+## What this is worth
+
+Document 15 said of (d), (e) and (f) that they are "kept because they are bit-exact and small, not
+because P-01 argues for them", and P-01's ranking put the tile loop at 1.3% to 7.8% of a frame.
+(d) then found a real saving in the stage next to it. (e) is the entry where the caution was
+right.
+
+It cost two builds and four measurement runs, and it closes a question rather than leaving it as a
+plausible idea for someone to have again. The rejection is the deliverable: **the per-pixel
+branches in `render_tile` are not worth hoisting, they have been hoisted twice to find that out,
+and the numbers above are why.** If a later P-01 run shows the tile loop grown into a large
+fraction of the frame — the same condition document 15 already sets for reopening SIMD — this can
+be re-measured against that build, and the second version is the one to rebuild.
+
 ## What is left of P-03
 
 | Item | What it is | State |
@@ -527,7 +604,7 @@ of 31 test binaries passed with `git diff --exit-code -- verification/` clean.
 | (a) | shared cache buffers | **DONE**, item (a) above |
 | (b) | parallel decode | **DONE**, item (b) above |
 | (d) | tiles written into the frame | **DONE**, item (d) above |
-| (e) | hoisted per-pixel branches | not started |
+| (e) | hoisted per-pixel branches | **CUT**, item (e) above: measured slower, twice |
 | (f) | draft tile size | not started |
 
 Each will add a section here with its own two tables and its own manifest diff. Each is
