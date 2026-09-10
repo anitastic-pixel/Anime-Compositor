@@ -52,7 +52,7 @@ use std::fmt::Write as _;
 use std::fs::{self, File};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use serde_json::{Map, Value as J};
 
@@ -1656,6 +1656,10 @@ pub struct RecoveryCandidate {
 }
 
 /// Every autosave beside `project_path`, newest first.
+///
+/// "Newest" is the file system's modification time, which is only an ordering because
+/// `autosave` makes it one: see `stamp_newest`. The slot is the tie-break of last resort, for
+/// snapshots this build did not write.
 pub fn recovery_candidates(project_path: &Path) -> Vec<RecoveryCandidate> {
     let mut found: Vec<RecoveryCandidate> = (0..AUTOSAVE_SLOTS)
         .filter_map(|slot| {
@@ -1742,12 +1746,42 @@ pub fn autosave(
         fs::rename(&temp, &path)
     })();
     match outcome {
-        Ok(()) => Ok(path),
+        Ok(()) => {
+            // Document 07 promises recovery opens the newest snapshot, and both the rotation
+            // above and `recovery_candidates` read "newest" off the file system's modification
+            // time. Windows records that time coarsely enough that two snapshots written in the
+            // same millisecond tie, and a tie is exactly where the promise breaks: the eighth
+            // snapshot of `verification/B-09_recovery_table.md` tied with the seventh in one run
+            // of five and the older of the two was offered. So the writer states the order
+            // rather than hoping the clock ticked between two writes.
+            let _ = stamp_newest(project_path, &path);
+            Ok(path)
+        }
         Err(e) => {
             let _ = fs::remove_file(&temp);
             Err(save_failed(&path, e.to_string()))
         }
     }
+}
+
+/// Give the snapshot just written a modification time strictly later than every other snapshot
+/// beside it, so that "newest" is an ordering and not a coincidence of clock granularity.
+///
+/// Best effort on purpose. A file system that refuses the change leaves the ordering exactly as
+/// coarse as it was and no worse, which is why the caller discards the result: a snapshot that
+/// was written is worth more than a timestamp that was not adjusted.
+fn stamp_newest(project_path: &Path, path: &Path) -> io::Result<()> {
+    let others = (0..AUTOSAVE_SLOTS)
+        .map(|slot| autosave_path(project_path, slot))
+        .filter(|p| p != path)
+        .filter_map(|p| fs::metadata(p).and_then(|m| m.modified()).ok())
+        .max();
+    let now = SystemTime::now();
+    let when = match others {
+        Some(other) if other >= now => other + Duration::from_millis(1),
+        _ => now,
+    };
+    File::options().write(true).open(path)?.set_modified(when)
 }
 
 // ---------------------------------------------------------------------------------------
