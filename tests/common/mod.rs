@@ -24,7 +24,17 @@ use anime_compositor::persist;
 
 /// A path inside this repository, whatever directory cargo ran the test from.
 pub fn repo(rel: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel)
+    let here = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    // P-04 made the window's own tests a fourth caller, and the shell is a crate of its own, so
+    // this is compiled with `app` as the manifest directory as well as with the root.
+    let root = match here.ends_with("app") {
+        true => here
+            .parent()
+            .expect("the app crate has a parent")
+            .to_path_buf(),
+        false => here,
+    };
+    root.join(rel)
 }
 
 /// Working set and peak working set of this process, in bytes.

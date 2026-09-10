@@ -123,7 +123,11 @@ struct Viewer {
     /// B-08b: the decoded cels this preview has already paid for. Belongs to the viewer rather
     /// than to a frame because its whole purpose is to outlive one, and it is replaced along with
     /// everything else when a different project is opened, so nothing from the old one survives.
-    cache: CelCache,
+    /// Behind a lock of its own since P-04, and held by the viewer only so that opening a
+    /// different project still replaces it along with everything else. A frame is rendered
+    /// outside the viewer lock, so the one thing a render holds for its whole length has to
+    /// be something a command never needs, and no command touches this.
+    cache: Arc<Mutex<CelCache>>,
 }
 
 /// What the page is asking for.
@@ -212,80 +216,40 @@ fn as_alpha_only(pixels: &mut [u8]) {
     }
 }
 
-/// Render what was asked for and hand it back as raw display-ready pixels.
+/// One frame's worth of viewer, copied out under the lock so that the render can run without it.
 ///
-/// The body is `WorkingBuffer::to_srgb8_straight` — the same bytes an 8-bit export writes, minus
-/// the PNG container. Encoding a PNG here would cost ten to thirty milliseconds against a frame
-/// budget the latency measurement put at eighty-two, to be immediately undone by the browser.
-/// The page draws these straight into an `ImageData`.
-///
-/// Everything the page needs to *say* about the frame travels in headers beside it, so the
-/// number on screen and the pixels on screen always came from the same render.
-fn serve(
-    viewer: &Mutex<Viewer>,
-    export: &Mutex<Export>,
+/// P-04. Everything here is either cheap to copy - a project is layer and asset records, not
+/// pixels - or already shared, and the whole point of it is that none of it is borrowed from the
+/// viewer: the lock is released the instant this exists.
+struct Snapshot {
+    project: Project,
+    composition: Id,
+    root: PathBuf,
+    quality: PreviewQuality,
+    alpha_only: bool,
+    /// The decoded cels, which a render holds for its whole length and no command touches.
+    cache: Arc<Mutex<CelCache>>,
+    frame: i32,
+    /// Everything the window has to say about this frame, already written into the response.
+    /// Built under the lock rather than after the render, so that it describes the document the
+    /// pixels were made from even if an edit lands while they are being made.
+    reply: tauri::http::response::Builder,
+}
+
+/// Everything the window says about a frame, as headers, read under the lock that took the
+/// snapshot beside it.
+fn said_about(
+    viewer: &Viewer,
     ask: Ask,
-    quality: Option<PreviewQuality>,
-) -> Response<Vec<u8>> {
-    let (exporting, exported) = {
-        let export = export.lock().expect("the export lock was poisoned");
-        (export.cancel.is_some(), export.said.clone())
-    };
-    // P-01: how long the page waited for the frame already in flight. The guard outlives this
-    // statement, so the duration is recorded rather than wrapped around a closure.
-    let waited = std::time::Instant::now();
-    let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
-    anime_compositor::perf::record(
-        anime_compositor::perf::Stage::LockWait,
-        waited.elapsed().as_nanos() as u64,
-    );
-    if let Some(quality) = quality {
-        viewer.quality = quality;
-    }
-    let (frame, skipped) = match ask {
-        Ask::At(ms) => {
-            let shown = viewer.playback.at(Duration::from_millis(ms));
-            (shown.frame, shown.skipped)
-        }
-        // Stepping stops at the ends of the work area rather than running off them: a frame
-        // outside the composition is not a frame, and the viewer has nowhere to go from there.
-        Ask::Frame(n) => {
-            let first = viewer.playback.at_rest();
-            let last = first + viewer.playback.length() as i32 - 1;
-            (n.clamp(first, last), 0)
-        }
-    };
-
-    let mut log = FrameLog::new(3);
-    let buffer = match preview::preview_frame_cached(
-        viewer.document.project(),
-        &viewer.composition,
-        frame,
-        &viewer.root,
-        viewer.quality,
-        DEFAULT_TILE_SIZE,
-        &mut log,
-        &mut viewer.cache,
-    ) {
-        Ok(buffer) => buffer,
-        // Document 28: a frame that cannot be made is reported, never replaced by something
-        // that looks like a frame. The page shows this sentence instead of a picture.
-        Err(diagnostic) => {
-            return allow_the_page_to_read_this(Response::builder().status(500))
-                .header("content-type", "text/plain; charset=utf-8")
-                .body(diagnostic.message.into_bytes())
-                .expect("build the diagnostic response")
-        }
-    };
-
-    let image = buffer.as_image();
-    let (width, height) = (image.width(), image.height());
+    frame: i32,
+    skipped: u32,
+    exporting: bool,
+    exported: &str,
+) -> tauri::http::response::Builder {
     allow_the_page_to_read_this(Response::builder())
         .header("content-type", "application/octet-stream")
         .header("x-frame", frame.to_string())
         .header("x-skipped", skipped.to_string())
-        .header("x-width", width.to_string())
-        .header("x-height", height.to_string())
         .header("x-quality", viewer.quality.label())
         // What the person is looking through. The page needs both: one to draw the grid behind
         // the canvas, and one so the buttons show which view is on.
@@ -320,7 +284,7 @@ fn serve(
         // The export, which belongs to the window rather than to the project on screen: it is
         // still running, and still cancellable, after another project has been opened.
         .header("x-exporting", exporting.to_string())
-        .header("x-export", for_a_header(&exported))
+        .header("x-export", for_a_header(exported))
         .header(
             "x-recovery",
             for_a_header(
@@ -354,9 +318,103 @@ fn serve(
                 Ask::Frame(_) => String::new(),
             },
         )
+}
+
+/// Render what was asked for and hand it back as raw display-ready pixels.
+///
+/// The body is `WorkingBuffer::to_srgb8_straight` — the same bytes an 8-bit export writes, minus
+/// the PNG container. Encoding a PNG here would cost ten to thirty milliseconds against a frame
+/// budget the latency measurement put at eighty-two, to be immediately undone by the browser.
+/// The page draws these straight into an `ImageData`.
+///
+/// Everything the page needs to *say* about the frame travels in headers beside it, so the
+/// number on screen and the pixels on screen always came from the same render.
+fn serve(
+    viewer: &Mutex<Viewer>,
+    export: &Mutex<Export>,
+    ask: Ask,
+    quality: Option<PreviewQuality>,
+) -> Response<Vec<u8>> {
+    let (exporting, exported) = {
+        let export = export.lock().expect("the export lock was poisoned");
+        (export.cancel.is_some(), export.said.clone())
+    };
+    // P-01: how long the page waited for the frame already in flight. The guard outlives this
+    // statement, so the duration is recorded rather than wrapped around a closure.
+    let waited = std::time::Instant::now();
+    // P-04, and document 06's snapshot contract applied to the viewer: everything this frame
+    // needs is copied out under the lock, and the lock is given back before any of the work
+    // begins. What the window has to say about the frame is written here as well, into the
+    // response itself, so the sentence on screen and the pixels on screen still came from one
+    // instant of one document - which is what holding the lock across the render used to buy,
+    // and is the only thing it bought.
+    let taken = {
+        let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        anime_compositor::perf::record(
+            anime_compositor::perf::Stage::LockWait,
+            waited.elapsed().as_nanos() as u64,
+        );
+        if let Some(quality) = quality {
+            viewer.quality = quality;
+        }
+        let (frame, skipped) = match ask {
+            Ask::At(ms) => {
+                let shown = viewer.playback.at(Duration::from_millis(ms));
+                (shown.frame, shown.skipped)
+            }
+            // Stepping stops at the ends of the work area rather than running off them: a frame
+            // outside the composition is not a frame, and the viewer has nowhere to go from
+            // there.
+            Ask::Frame(n) => {
+                let first = viewer.playback.at_rest();
+                let last = first + viewer.playback.length() as i32 - 1;
+                (n.clamp(first, last), 0)
+            }
+        };
+        Snapshot {
+            project: viewer.document.project().clone(),
+            composition: viewer.composition.clone(),
+            root: viewer.root.clone(),
+            quality: viewer.quality,
+            alpha_only: viewer.alpha_only,
+            cache: Arc::clone(&viewer.cache),
+            frame,
+            reply: said_about(viewer, ask, frame, skipped, exporting, &exported),
+        }
+    };
+
+    let mut log = FrameLog::new(3);
+    let buffer = match preview::preview_frame_cached(
+        &taken.project,
+        &taken.composition,
+        taken.frame,
+        &taken.root,
+        taken.quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut taken.cache.lock().expect("the cel cache lock was poisoned"),
+    ) {
+        Ok(buffer) => buffer,
+        // Document 28: a frame that cannot be made is reported, never replaced by something
+        // that looks like a frame. The page shows this sentence instead of a picture.
+        Err(diagnostic) => {
+            return allow_the_page_to_read_this(Response::builder().status(500))
+                .header("content-type", "text/plain; charset=utf-8")
+                .body(diagnostic.message.into_bytes())
+                .expect("build the diagnostic response")
+        }
+    };
+
+    let image = buffer.as_image();
+    let (width, height) = (image.width(), image.height());
+    taken
+        .reply
+        // The only two things about a frame the window cannot say until it has been made.
+        .header("x-width", width.to_string())
+        .header("x-height", height.to_string())
         .body({
             let mut pixels = buffer.to_srgb8_straight();
-            if viewer.alpha_only {
+            if taken.alpha_only {
                 as_alpha_only(&mut pixels);
             }
             pixels
@@ -435,7 +493,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         // misjudges, and every photograph of this window so far was taken with the grid there.
         checkerboard: true,
         relink: None,
-        cache: CelCache::viewer(),
+        cache: Arc::new(Mutex::new(CelCache::viewer())),
     })
 }
 
@@ -9664,5 +9722,255 @@ mod acceptance {
 
     fn cell(text: &str) -> String {
         text.replace('|', r"\|")
+    }
+}
+
+/// The fixture document 08 line 41 declares, built the way every other timing test builds it.
+/// Included rather than copied: `tests/common/mod.rs` is where this project keeps the fixture
+/// builder, and P-04 is the fourth measurement to want it.
+#[cfg(test)]
+#[path = "../../tests/common/mod.rs"]
+mod common;
+
+/// P-04: whether the editor answers while the renderer works.
+///
+/// The question is not how fast a frame is. It is whether a person pressing a key during one
+/// gets an answer, and until P-04 they did not: `serve` took the viewer lock and held it through
+/// planning, rendering and the encode, so every command queued behind the frame.
+///
+/// Both tests here put a render thread and a command thread on the same viewer. The first runs
+/// on every build and proves the property without a stopwatch: a command answered *strictly
+/// inside* one frame's own interval cannot have waited for that frame. The second is the
+/// measurement the entry asks for and is `#[ignore]`d, because a number is only worth reading
+/// from a release build on the recorded machine.
+#[cfg(test)]
+mod responsiveness {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    /// A span of wall clock: when something started and when it was answered.
+    type Span = (Instant, Instant);
+
+    fn repo(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the app crate has a parent directory")
+            .join(rel)
+    }
+
+    /// The declared ten-layer fixture as a project this window can open, written beside its own
+    /// drawings under `target/` so that opening it resolves media the way any project does.
+    fn declared_fixture() -> Viewer {
+        let (_project, root, text) = common::build_fixture("p04");
+        let path = root.join("p04_project.json");
+        std::fs::write(&path, &text).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
+        open(&path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message))
+    }
+
+    /// Render frames on a thread of its own until it is told to stop, recording what each frame
+    /// cost. Returns the spans, so the commands measured against them can be placed inside them.
+    fn while_rendering(
+        viewer: Arc<Mutex<Viewer>>,
+        quality: PreviewQuality,
+        frames: usize,
+        command: impl Fn(&Mutex<Viewer>) -> Span,
+    ) -> (Vec<Span>, Vec<Span>) {
+        let export = Arc::new(Mutex::new(Export::default()));
+        let stop = Arc::new(AtomicBool::new(false));
+        let rendering = {
+            let (viewer, export, stop) = (viewer.clone(), export.clone(), stop.clone());
+            std::thread::spawn(move || {
+                let mut spans = Vec::new();
+                // A scatter across the work area rather than one frame over and over, so the
+                // cache is not answering every render out of the same entry.
+                for i in 0..frames {
+                    let at = Instant::now();
+                    let response = serve(
+                        &viewer,
+                        &export,
+                        Ask::Frame((i as i32 * 97) % 240),
+                        Some(quality),
+                    );
+                    assert_eq!(response.status(), 200, "a frame the window could not make");
+                    spans.push((at, Instant::now()));
+                }
+                stop.store(true, Ordering::Release);
+                spans
+            })
+        };
+        let mut answered = Vec::new();
+        while !stop.load(Ordering::Acquire) {
+            answered.push(command(&viewer));
+            // A person presses a key about this often at their fastest. A hot loop would
+            // measure the lock's throughput under one thread's whole attention, which is not a
+            // question anybody asked.
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let frames = rendering.join().expect("the render thread panicked");
+        (frames, answered)
+    }
+
+    /// One command, timed: how long the window took to answer it.
+    fn toggle(viewer: &Mutex<Viewer>) -> Span {
+        let at = Instant::now();
+        let said = edit_command(viewer, "viewer.toggle_checkerboard", None);
+        let answered = Instant::now();
+        assert!(
+            said.is_some(),
+            "the window did not answer a command document 24 lists"
+        );
+        (at, answered)
+    }
+
+    /// Milliseconds, nearest-rank p50 and p95, of a list of spans.
+    fn spread(spans: &[Span]) -> (f64, f64, f64) {
+        let mut ms: Vec<f64> = spans
+            .iter()
+            .map(|(at, to)| to.duration_since(*at).as_secs_f64() * 1000.0)
+            .collect();
+        ms.sort_by(|a, b| a.partial_cmp(b).expect("a duration is never NaN"));
+        let rank = |p: f64| ms[(((ms.len() as f64) * p).ceil() as usize).clamp(1, ms.len()) - 1];
+        (
+            rank(0.5),
+            rank(0.95),
+            *ms.last().expect("at least one command"),
+        )
+    }
+
+    /// How many of the answered commands began and ended inside one frame that was still being
+    /// rendered. On the build before P-04 this is zero by construction: the render held the lock
+    /// the command needed, so no command could be answered until the frame it waited on was
+    /// finished.
+    fn inside_a_frame(frames: &[Span], answered: &[Span]) -> usize {
+        answered
+            .iter()
+            .filter(|(at, to)| frames.iter().any(|(from, until)| at > from && to < until))
+            .count()
+    }
+
+    /// The property, on every build, without a stopwatch: a command is answered while a frame is
+    /// being made, not after it.
+    ///
+    /// The reference shot rather than the declared fixture, because this one runs in the normal
+    /// suite and the point it makes does not need a quarter-second frame to make it.
+    ///
+    /// Writes `verification/P-04_responsiveness_table.md`.
+    #[test]
+    fn a_command_is_answered_while_a_frame_is_being_made() {
+        let viewer = Arc::new(Mutex::new(demo()));
+        // Draft, and four frames: this one runs in the normal suite, on a debug build, and the
+        // point it makes does not need a slow frame to make it.
+        let (frames, answered) = while_rendering(viewer, PreviewQuality::Draft, 4, toggle);
+        let inside = inside_a_frame(&frames, &answered);
+        let (_, _, worst) = spread(&answered);
+        let (fp50, _, _) = spread(&frames);
+
+        let mut table = String::new();
+        table.push_str(
+            "# P-04: is the editor answering while the renderer works?\n\n\
+             Written by `a_command_is_answered_while_a_frame_is_being_made` in \
+             `app/src/main.rs`, on every build. One thread asks the window for frames of the \
+             reference shot as fast as it can answer; another presses a key over and over and \
+             times how long each press waits. A press that begins *and* ends between the start \
+             and the end of one frame cannot have waited for that frame.\n\n\
+             Nothing on this page is a duration. How many presses fit inside a frame, and how \
+             long each one took, depend on the build and the machine the suite happened to run \
+             on, and a page rewritten with different numbers on every run is a page nobody can \
+             tell a change from. The durations are the measurement, and they are dated: \
+             `verification/P-04_responsiveness.md`.\n\n",
+        );
+        table.push_str("| Question | Expected | Found | Verdict |\n|---|---|---|---|\n");
+        let verdict = |ok: bool| if ok { "pass" } else { "FAIL" };
+        let said = |ok: bool, yes: &'static str, no: &'static str| if ok { yes } else { no };
+        let made = !frames.is_empty() && !answered.is_empty();
+        table.push_str(&format!(
+            "| were frames being made while the keys were pressed | {} frames, and at least one \
+             press | {} | {} |\n",
+            frames.len(),
+            said(made, "yes", "no"),
+            verdict(made),
+        ));
+        table.push_str(&format!(
+            "| presses answered inside a frame that was still being rendered | more than none | \
+             {} | {} |\n",
+            said(inside > 0, "more than none", "none"),
+            verdict(inside > 0),
+        ));
+        table.push_str(&format!(
+            "| the slowest press against the time one frame takes | shorter | {} | {} |\n",
+            said(worst < fp50, "shorter", "not shorter"),
+            verdict(worst < fp50),
+        ));
+        let out = repo("verification/P-04_responsiveness_table.md");
+        std::fs::write(&out, table).unwrap_or_else(|e| panic!("write {}: {e}", out.display()));
+
+        assert!(
+            inside > 0,
+            "no command was answered inside a frame: {} presses against {} frames, so the \
+             render is still holding the lock a command needs",
+            answered.len(),
+            frames.len()
+        );
+        assert!(
+            worst < fp50,
+            "the slowest press took {worst:.3} ms against a frame of {fp50:.3} ms, which is the \
+             shape of a press that waited for a frame"
+        );
+    }
+
+    /// The measurement the entry asks for: what a keystroke waits for while a frame of the
+    /// declared ten-layer fixture is being made, at both qualities.
+    ///
+    /// `#[ignore]`d and release-only, like every other timing test here. Writes
+    /// `verification/P-04_responsiveness.md`.
+    #[test]
+    #[ignore = "a measurement; run it deliberately, in release, on the recorded machine"]
+    fn p04_responsiveness() {
+        // What the short lock copies out. A frame that used to borrow the project now clones
+        // it, and a page reporting a saving has to say what it spent to get it.
+        let copied = {
+            let viewer = declared_fixture();
+            let mut each = Vec::new();
+            for _ in 0..200 {
+                let at = Instant::now();
+                let copy = viewer.document.project().clone();
+                each.push((at, Instant::now()));
+                drop(copy);
+            }
+            spread(&each)
+        };
+        let mut rows = String::new();
+        for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
+            let viewer = Arc::new(Mutex::new(declared_fixture()));
+            let (frames, answered) = while_rendering(viewer, quality, 12, toggle);
+            let (p50, p95, worst) = spread(&answered);
+            let (fp50, fp95, _) = spread(&frames);
+            let inside = inside_a_frame(&frames, &answered);
+            rows.push_str(&format!(
+                "| {} | {:.3} | {:.3} | **{p50:.3}** | **{p95:.3}** | {worst:.3} | {inside} of \
+                 {} |\n",
+                quality.label(),
+                fp50,
+                fp95,
+                answered.len(),
+            ));
+        }
+        let out = repo("verification/P-04_measured.md");
+        let mut text = String::new();
+        text.push_str(
+            "Written by `p04_responsiveness` in `app/src/main.rs`. One thread asks for frames \
+             of the declared ten-layer fixture; another presses a key over and over and times \
+             the answer.\n\n\
+             | Quality | Frame p50 (ms) | Frame p95 (ms) | Press p50 (ms) | Press p95 (ms) | \
+             Worst press (ms) | Answered inside a frame |\n|---|---|---|---|---|---|---|\n",
+        );
+        text.push_str(&rows);
+        text.push_str(&format!(
+            "\nCopying the project out under the short lock, which is what a frame now does \
+             instead of borrowing it: p50 {:.4} ms, p95 {:.4} ms, worst {:.4} ms over 200.\n",
+            copied.0, copied.1, copied.2
+        ));
+        std::fs::write(&out, text).unwrap_or_else(|e| panic!("write {}: {e}", out.display()));
     }
 }

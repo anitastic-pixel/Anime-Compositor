@@ -455,6 +455,8 @@ let started = 0;      // performance.now() at the instant playback began
 let quality = 'draft';
 let frame = 0;
 let inFlight = false;
+let pending = null;   // the latest request that arrived while one was out (P-04)
+let generation = 0;   // which request the pixels on screen came from
 let watching = 0;     // the timer that asks again while an export is running
 
 // The open project as the core last described it, and which layer and drawing are being worked
@@ -468,15 +470,35 @@ let renaming = false; // an inline edit is open; accelerators keep off the keybo
 let dragging = false; // a scrub is in progress; the inspector must not be rebuilt under it
 let relinking = null; // the asset a proposed relink is waiting on, as the last frame reported it
 
-// A request already on its way is never joined by a second one. That is the whole of this
-// page's part in D-32: the clock keeps running while a frame is being made, so the next answer
-// is a later frame and the ones in between are counted as skipped by Playback::at in Rust.
-// Nothing here decides which frame to show, and nothing here counts a skip.
-async function show(url) {
-  if (inFlight) return;
+// One request at a time, and the newest one is the one that is kept.
+//
+// P-04. This used to drop any request that arrived while one was out, which is neither a
+// mailbox nor a cancellation: a click during a slow frame simply did not happen, and the person
+// pressed it again. Now the latest request waits and goes out the moment the frame in flight
+// comes back, so a command's own refresh - every command ends with one - can never be the one
+// that is thrown away, and what is on screen when the dust settles is always the frame that was
+// asked for last.
+//
+// Playback passes `keep` as false and keeps the old behaviour, which is deliberate and is
+// D-32: the clock keeps running while a frame is being made, so the next answer is a later
+// frame and the ones in between are counted as skipped by Playback::at in Rust. Queueing a
+// playback request would put a frame from the past at the front of a queue that already has the
+// present in it. Nothing here decides which frame to show, and nothing here counts a skip.
+//
+// Every request carries a generation, and a result whose generation is no longer the newest is
+// discarded rather than drawn. Nothing overlaps while there is one request at a time, but the
+// export poll and the autosave refresh are timers, and a timer that fires into a queue is
+// exactly how an older frame arrives after a newer one.
+async function show(url, keep = true) {
+  if (inFlight) {
+    if (keep) pending = url;
+    return;
+  }
   inFlight = true;
+  const mine = ++generation;
   try {
     const response = await fetch(url);
+    if (mine !== generation) return;
     if (!response.ok) {
       $('report').textContent = await response.text();
       $('report').className = 'dropped';
@@ -570,11 +592,14 @@ async function show(url) {
     $('play').textContent = 'Play';
   } finally {
     inFlight = false;
+    const next = pending;
+    pending = null;
+    if (next) show(next);
   }
 }
 
 function tick() {
-  if (playing) show(FRAMES + '/at/' + Math.round(performance.now() - started) + '?q=' + quality);
+  if (playing) show(FRAMES + '/at/' + Math.round(performance.now() - started) + '?q=' + quality, false);
   requestAnimationFrame(tick);
 }
 
