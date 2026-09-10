@@ -8,7 +8,14 @@ It reads `app/ui/index.html`. The question it asks is not "is there a keyboard s
 
 ## What to look at
 
-The three rows that say **no**. `property.drag_update`, `property.drag_end` and `property.drag_cancel` are a drag: they are the running transaction a pointer opens when it takes hold of a number and the coalescing document 26 asks for. A keyboard cannot make that gesture and nothing here pretends otherwise. What it can do is change the number, and the last three rows are the three mouse gestures in this window each paired with the thing that does the same job without one: the arrow keys on a focused handle send `property.set_base`, which is one undo step per press rather than one per drag.
+The three rows that say **no**. `property.drag_update`, `property.drag_end` and `property.drag_cancel` are a drag: they are the running transaction a pointer opens when it takes hold of a number and the coalescing document 26 asks for. A keyboard cannot make that gesture and nothing here pretends otherwise. What it can do is change the number, and the last six rows are the mouse gestures in this 
+         window each paired with the thing that does the same job without one: the arrow keys on a 
+         focused handle send `property.set_base`, which is one undo step per press rather than one per 
+         drag. The picture itself works the same way: a layer is dragged, and it is nudged by the 
+         arrow keys while the canvas holds the focus; a corner handle scales and the rotation arm 
+         turns, and both numbers are typed or stepped in the inspector; the playhead is dragged along 
+         the exposure sheet, and it is stepped by the arrow keys everywhere the canvas does not hold 
+         the focus.
 
 The two lists are the part that had to be built rather than inherited. Every button here is a `button` and every chooser a `select`, so the Tab order is the browser's and nothing had to be arranged; the rows of the media bin and the layer list are `li` elements, which nothing focuses, and they carry a tab stop and an Enter/Space handler put there by hand. The row that checks the list of controls is a list rather than a count for the same reason as the one in `verification/B-12b_page_table.md`: a control added tomorrow fails this table until somebody writes it down beside the others, and the row underneath then asks what kind of element it is.
 
@@ -29,6 +36,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
 | the keys the window answers with nothing focused are the ones written down here | A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, N, O, S, Space, Z, [, ] | A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, N, O, S, Space, Z, [, ] | pass |
+| `boxes` can be asked for without a mouse | yes | yes | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
 | `composition.open` can be asked for without a mouse | yes | yes | pass |
@@ -36,6 +44,8 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `edit.undo` can be asked for without a mouse | yes | yes | pass |
 | `effect.add` can be asked for without a mouse | yes | yes | pass |
 | `effect.delete` can be asked for without a mouse | yes | yes | pass |
+| `effect.move_down` can be asked for without a mouse | yes | yes | pass |
+| `effect.move_up` can be asked for without a mouse | yes | yes | pass |
 | `effect.set_parameters` can be asked for without a mouse | yes | yes | pass |
 | `effect.toggle_bypass` can be asked for without a mouse | yes | yes | pass |
 | `export` can be asked for without a mouse | yes | yes | pass |
@@ -64,5 +74,8 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | double clicking a drawing sequence in the media bin is not the only way to make a layer out of it | true | true | pass |
 | double clicking a layer is not the only way to rename it | true | true | pass |
 | dragging a transform value is not the only way to change it | true | true | pass |
+| dragging a layer on the picture is not the only way to move it | true | true | pass |
+| pulling a corner or the rotation arm on the picture is not the only way to scale or turn the layer | true | true | pass |
+| dragging the playhead along the exposure sheet is not the only way to go to a frame | true | true | pass |
 
-**42 of 42 checks pass.**
+**48 of 48 checks pass.**

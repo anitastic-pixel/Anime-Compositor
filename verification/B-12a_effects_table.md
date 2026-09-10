@@ -49,16 +49,22 @@ A parameter over time. The settings here are constants, which is what document 1
 | deleting an effect from the middle of the stack names the one that went | Remove effect fx-2 | Remove effect fx-2 | pass |
 | and the rest of the stack is untouched, in the order it was in | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on | pass |
 | the gap a deleted effect left is not filled by the next one | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | pass |
+| moving an effect earlier says where it went | Move effect fx-3 to position 1 | Move effect fx-3 to position 1 | pass |
+| and the stack is in the new order, with nothing else disturbed | fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-1 core.gaussian_blur on, fx-4 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-1 core.gaussian_blur on, fx-4 core.gaussian_blur on | pass |
+| moving it back later puts the stack where it was | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | pass |
+| an effect this build does not have moves like any other | fx-1 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | fx-1 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | pass |
 | an effect that is not on this layer is said, not silently ignored | fx-99 is not an effect on this layer. | fx-99 is not an effect on this layer. | pass |
 | no effect named at all is asked for | Which effect? Choose one in the effects list. | Which effect? Choose one in the effects list. | pass |
 | an effect type this build does not have is refused, and the three are named | This build has no effect called core.warp. It has core.gaussian_blur, core.exposure and core.tint. | This build has no effect called core.warp. It has core.gaussian_blur, core.exposure and core.tint. | pass |
 | adding without saying which effect asks | Which effect? Say core.gaussian_blur, core.exposure or core.tint. | Which effect? Say core.gaussian_blur, core.exposure or core.tint. | pass |
 | and a layer that is not in this composition is named | layer-gone is not a layer in this composition. | layer-gone is not a layer in this composition. | pass |
-| none of those five refusals put anything in the history | 13 | 13 | pass |
+| the first effect in the stack refuses to go earlier, in words | fx-unknown-1 is already first. | fx-unknown-1 is already first. | pass |
+| and the last one refuses to go later | fx-1 is already last. | fx-1 is already last. | pass |
+| none of those seven refusals put anything in the history | 17 | 17 | pass |
 | a locked layer refuses an effect, and says which rule stopped it | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | pass |
 | and refuses a settings change too | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | pass |
-| and neither did the two the lock stopped | 14 | 14 | pass |
+| and neither did the two the lock stopped | 18 | 18 | pass |
 | and the stack is the one that was built | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | pass |
 | undoing every effect edit gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**36 of 36 checks pass.**
+**42 of 42 checks pass.**

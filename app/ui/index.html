@@ -113,6 +113,21 @@
      presentation: it is behind a canvas that already carries alpha, so the frame's own pixels
      are never touched by it and cannot be. Squares are a fixed size on screen rather than in
      the picture, which is why this is not painted into the frame. */
+  /* The canvas and the outline occupy one grid cell and are centred in it, so they scale by
+     the same rule and the box cannot drift off the drawing it belongs to. Neither is given a
+     size here beyond the constraint they share. */
+  #stage > canvas, #stage > svg { grid-area: 1 / 1; place-self: center; }
+  #boxes { max-width: 100%; max-height: 100%; pointer-events: none; overflow: visible; }
+  /* Vector-effect keeps the outline one pixel wide however far the canvas has been scaled up:
+     a draft frame is a quarter the size of the composition and is drawn four times larger than
+     its pixels, and a box scaled with it would be a four-pixel slab. */
+  #boxes polygon {
+    fill: none; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke;
+  }
+  #boxes polygon.second { stroke: #7a8fb0; stroke-dasharray: 4 3; }
+  #boxes rect.handle { fill: #e8b06a; stroke: none; }
+  #boxes line.arm { stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  #boxes circle.spin { fill: #141414; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
   canvas {
     max-width: 100%; max-height: 100%; image-rendering: pixelated;
     background-color: #2a2a2e;
@@ -132,13 +147,16 @@
   /* The timeline: the layers down the left, time running left to right across the whole of the
      composition, and a playhead where the picture on screen is. It reads and never writes — an
      exposure is still set by typing the frame numbers under it — so nothing in here can change
-     the project by being dragged and nothing in here needs undoing. Trimming by dragging a bar
+     the project by being dragged and nothing in here needs undoing. Dragging the playhead is the
+     one gesture it does answer, and moving the playhead is not an edit: it changes which frame is
+     asked for and not one thing about the file. Trimming by dragging a bar
      is a separate thing to build, and a gesture the acceptance run has not measured yet.
 
      Everything drawn here is positioned as a fraction of the composition's length by one
      function, so the ruler, the bars and the playhead cannot come to disagree about where a
      frame is. */
   #sheet { --gutter: 190px; position: relative; overflow: auto; padding: 6px 8px 8px; min-height: 0; }
+  #ruler, .track { cursor: ew-resize; }
   #ruler {
     position: relative; height: 16px; margin-left: var(--gutter);
     border-bottom: 1px solid #3a3a3a;
@@ -272,14 +290,25 @@
     border: 1px solid #4a4a4a; border-radius: 3px; padding: 1px 3px; font: inherit;
   }
   /* The handle a value is scrubbed by. It is a separate target from the field so that typing a
-     number and dragging one are different gestures and neither can start the other. */
-  .scrub { cursor: ew-resize; user-select: none; border-bottom: 1px dotted #6a6a72; }
+     number and dragging one are different gestures and neither can start the other.
+
+     It is drawn as a key rather than as an underlined letter: on 2026-09-10 it was a letter with
+     a dotted line beneath it, and the first person to use this window did not find it and asked
+     for the drag that was already there. An affordance nobody sees is not one. */
+  .scrub {
+    cursor: ew-resize; user-select: none; display: inline-block; min-width: 1.3em;
+    text-align: center; background: #26262e; border: 1px solid #4a4a4a; border-radius: 3px;
+    padding: 0 3px; color: #b8b8c0;
+  }
+  .scrub:hover { background: #34343e; color: #e8e8ea; }
   .scrub:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   .group { margin-bottom: 14px; }
   /* The effects panel of document 24's wireframe, under the layer's own fields in the same
      column. One block per effect, in the order document 21 evaluates them. */
   #inspector h2 ~ h2 { margin-top: 14px; }
   #inspector #addeffect, #inspector #addexposure { margin-top: 8px; }
+  #inspector details { margin: 14px 0; }
+  #inspector summary { cursor: pointer; color: #b8b8c0; }
   /* One row per exposure span, in frame order: which frames it covers and which drawing they
      show. This is the exposure sheet W-01 asks the artist to assign, and it is now beside the
      layers in the timeline rather than in the right-hand column, because the question it
@@ -297,6 +326,7 @@
   .effect .head .name.off { color: #75757c; font-weight: 400; }
   .effect .head .mark { color: #e8b06a; font-size: 11px; }
   .effect .head button { padding: 0 4px; border-color: transparent; background: transparent; }
+  .effect .head .blank { display: inline-block; width: 1.4em; }
   .effect dl { margin-top: 4px; }
   .effect input[type=text] { width: 8em; }
   #relinking { border: 1px solid #e8b06a; border-radius: 4px; padding: 6px; margin-top: 6px; }
@@ -372,7 +402,15 @@
   </section>
   <section class="panel" id="viewer">
     <div class="tab">Composition<span id="comp">&mdash;</span></div>
-    <div id="stage"><canvas id="view" width="480" height="270"></canvas></div>
+    <!-- The picture, and the selection drawn over it. The outline is a separate element
+         rather than strokes painted into the canvas, because the canvas holds the frame the
+         renderer made and nothing else: a box painted into it would be in the pixels the
+         alpha view reads and the screenshots in `verification/` compare. -->
+    <div id="stage">
+      <canvas id="view" width="480" height="270" tabindex="0"
+        aria-label="The composition. Click a layer to select it; drag to move it."></canvas>
+      <svg id="boxes" width="480" height="270" viewBox="0 0 480 270" aria-hidden="true"></svg>
+    </div>
     <div class="foot">
       <button id="play">Play</button>
       <button id="back">&#8592;</button>
@@ -389,9 +427,15 @@
     <div class="body">
       <h2>Layer</h2>
       <div id="detail"><p class="empty">No layer is selected.</p></div>
-      <h2>Exposures</h2>
-      <div id="exposures"><p class="empty">No layer is selected.</p></div>
-      <button id="addexposure">Add an exposure</button>
+      <!-- Folded shut, because the exposure sheet across the middle of the window is the one
+           a person reads and this is the same spans written out. It is kept rather than removed:
+           the timeline draws a span as a bar and this says which frames and which drawing, which
+           is what somebody checking a mistake needs. -->
+      <details id="sheetlist">
+        <summary>Exposures, as a list</summary>
+        <div id="exposures"><p class="empty">No layer is selected.</p></div>
+        <button id="addexposure">Add an exposure</button>
+      </details>
       <h2>Effects</h2>
       <div id="effects"><p class="empty">No layer is selected.</p></div>
       <select id="addeffect" aria-label="Add an effect to the selected layer">
@@ -453,7 +497,13 @@ const paint = view.getContext('2d');
 let playing = false;
 let started = 0;      // performance.now() at the instant playback began
 let quality = 'draft';
-let frame = 0;
+let frame = 0;        // the frame on screen, as the answer that drew it described it
+// The frame that has been *asked* for, which is not always the one on screen. A held arrow key
+// repeats faster than a frame renders, and stepping from `frame` would throw away every press
+// that landed while a render was out: ten presses would advance one frame per completed render
+// and the window would look like it had stopped listening. `wanted` moves on the keypress and
+// the renderer catches up to it, which is the same bargain D-32 makes for playback.
+let wanted = 0;
 let inFlight = false;
 let pending = null;   // the latest request that arrived while one was out (P-04)
 let generation = 0;   // which request the pixels on screen came from
@@ -465,9 +515,14 @@ let watching = 0;     // the timer that asks again while an export is running
 // not sent to Rust and it is not saved.
 let doc = null;
 let selectedLayer = null;
+// Every selected layer, most recently clicked first, and `selectedLayer` is its head. One
+// selection and a list of them rather than a list alone, because the properties column shows one
+// layer's five numbers and cannot show three layers' fifteen.
+let selection = [];
 let selectedAsset = null;
 let renaming = false; // an inline edit is open; accelerators keep off the keyboard while it is
 let dragging = false; // a scrub is in progress; the inspector must not be rebuilt under it
+let scrubbing = false; // the playhead is being dragged along the timeline
 let relinking = null; // the asset a proposed relink is waiting on, as the last frame reported it
 
 // One request at a time, and the newest one is the one that is kept.
@@ -515,8 +570,17 @@ async function show(url, keep = true) {
     paint.putImageData(new ImageData(pixels, width, height), 0, 0);
 
     frame = +h.get('x-frame');
+    // Nothing is queued behind this answer, so the frame asked for and the frame on screen are
+    // the same one again. This is also what puts `wanted` back inside the composition after the
+    // core has clamped a step that ran off the end, and what makes an arrow press after playback
+    // continue from where playback stopped.
+    if (!pending) wanted = frame;
     $('frame').textContent = 'frame ' + frame;
     movePlayhead();
+    // Where the selected layers are on this frame, asked for beside the frame rather than with
+    // it: a shot playing at twenty-four frames a second wants no outline and should pay for
+    // none, and `askForBoxes` is what decides that.
+    askForBoxes();
 
     // The indicator describes the render that just arrived, because it came back with it.
     const differs = h.get('x-differs') === 'true';
@@ -603,10 +667,18 @@ function tick() {
   requestAnimationFrame(tick);
 }
 
-function step(by) {
+// Put the playhead on one frame and stop playing. Everything that moves the playhead by hand —
+// the arrow keys, a click on the ruler, a scrub across the rows — goes through here, so there is
+// one place that decides what "go to a frame" means.
+function seek(at) {
   playing = false;
   $('play').textContent = 'Play';
-  show(FRAMES + '/frame/' + (frame + by) + '?q=' + quality);
+  wanted = at;
+  show(FRAMES + '/frame/' + at + '?q=' + quality);
+}
+
+function step(by) {
+  seek(wanted + by);
 }
 
 // -------------------------------------------------------------------------------------------
@@ -652,6 +724,15 @@ function row(selectedId, id, label, extra) {
 }
 
 // An icon-only control needs an accessible name, per document 24's accessibility baseline.
+// The space an arrow would take at the end of a stack, so the row above and the row below put
+// their names in the same place.
+function blank() {
+  const b = document.createElement('span');
+  b.className = 'blank';
+  b.setAttribute('aria-hidden', 'true');
+  return b;
+}
+
 function iconButton(text, title, onClick) {
   const b = document.createElement('button');
   b.textContent = text;
@@ -775,6 +856,53 @@ function movePlayhead() {
   if (comp) $('playhead').style.setProperty('--at', atFrame(comp, frame));
 }
 
+// The other direction: a point on screen back to the frame under it. The playhead's own `left`
+// in the stylesheet is `gutter + 8px` across, over a width of `100% - gutter - 16px`, and this
+// undoes exactly that arithmetic — the two have to be read together or the playhead will not
+// land where the pointer went down.
+function frameUnder(clientX) {
+  const comp = composition();
+  if (!comp) return null;
+  const sheet = $('sheet');
+  const box = sheet.getBoundingClientRect();
+  const gutter = parseFloat(getComputedStyle(sheet).getPropertyValue('--gutter'));
+  const width = box.width - gutter - 16;
+  if (width <= 0) return null;
+  const across = (clientX - box.left - gutter - 8) / width;
+  const len = Math.max(1, comp.duration_frames);
+  const at = comp.start_frame + Math.floor(across * len);
+  return Math.min(comp.start_frame + len - 1, Math.max(comp.start_frame, at));
+}
+
+// Scrubbing: press anywhere in the time half of the sheet and the playhead comes to the pointer,
+// then follows it until the button is released. The ruler and the layer rows both scrub, which
+// is how Premiere and Resolve behave; a press on a row still selects that layer, because the
+// row's own click handler is untouched and both fire. The name half is left alone — a press
+// there is aimed at a name, an eye or a lock.
+$('sheet').addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const sheet = $('sheet');
+  const gutter = parseFloat(getComputedStyle(sheet).getPropertyValue('--gutter'));
+  if (e.clientX - sheet.getBoundingClientRect().left < gutter + 8) return;
+  const at = frameUnder(e.clientX);
+  if (at === null) return;
+  sheet.setPointerCapture(e.pointerId);
+  scrubbing = true;
+  seek(at);
+});
+
+$('sheet').addEventListener('pointermove', (e) => {
+  if (!scrubbing) return;
+  const at = frameUnder(e.clientX);
+  // Only ask for a frame that is not the one already asked for. A pointer reports every pixel it
+  // crosses and a composition has far fewer frames than the row has pixels, so without this a
+  // slow drag would queue the same frame over and over.
+  if (at !== null && at !== wanted) seek(at);
+});
+
+$('sheet').addEventListener('pointerup', () => { scrubbing = false; });
+$('sheet').addEventListener('pointercancel', () => { scrubbing = false; });
+
 function drawLayers() {
   const all = layers();
   $('nolayers').hidden = all.length > 0;
@@ -806,11 +934,322 @@ function drawLayers() {
     head.append(...li.childNodes);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
-    li.onclick = () => { selectedLayer = layer.id; drawPanels(); };
+    li.onclick = (e) => select(layer.id, e.shiftKey);
     li.ondblclick = () => beginRename();
     return li;
   }));
 }
+
+
+// -------------------------------------------------------------------------------------------
+// The selection on the picture
+// -------------------------------------------------------------------------------------------
+
+// Where each layer's drawing lands on the frame that is on screen, as the window last said.
+// The page cannot work this out for itself: document 07's project format records no pixel size
+// for a drawing, so how big a cel is at all is something only the renderer knows.
+let boxes = [];
+
+// An SVG element has to be made in the SVG namespace or it draws nothing, and the namespace is
+// taken from the overlay already in the markup rather than written out. That is not shorthand.
+// The name of that namespace is spelled like a web address, and the offline record in
+// `verification/B-11_offline_table.md` reads this page looking for addresses off this machine.
+// A namespace is not one, but a table that has to be told the difference is a table nobody can
+// read at a glance.
+const svgEl = (kind) => document.createElementNS($('boxes').namespaceURI, kind);
+
+// Which layers are selected, most recently clicked first. `selectedLayer` is the first of them
+// and stays the one the panels on the right describe: a properties column showing five numbers
+// cannot show five numbers for three layers, and picking one of them silently would be worse
+// than saying which one it is.
+function select(id, add) {
+  if (!add || !id) selection = id ? [id] : [];
+  else if (selection.includes(id)) selection = selection.filter((held) => held !== id);
+  else selection = [id, ...selection];
+  selectedLayer = selection[0] || null;
+  drawPanels();
+  askForBoxes();
+}
+
+// Ask the window where the selected layers are on this frame.
+//
+// Only when something is selected, because an outline nobody is looking at is a frame plan
+// nobody needed: the request costs a plan, and while a shot is playing it would cost one sixty
+// times a second beside the frames themselves.
+async function askForBoxes() {
+  if (!doc || playing || !selection.length) { boxes = []; drawBoxes(); return; }
+  const asked = frame;
+  try {
+    const answer = await fetch(FRAMES + '/boxes/' + asked + '?q=' + quality);
+    if (!answer.ok) { boxes = []; drawBoxes(); return; }
+    const said = await answer.json();
+    // A later frame has already been asked for, so these corners describe a picture that is no
+    // longer on screen. Dropping them is right: the answer for the frame now showing is on its
+    // way behind this one.
+    if (said.frame !== frame) return;
+    boxes = said.layers;
+  } catch (e) {
+    boxes = [];
+  }
+  drawBoxes();
+}
+
+const boxOf = (id) => boxes.find((box) => box.layer === id) || null;
+
+// How many frame pixels one pixel of screen is worth. A draft frame is a quarter of the
+// composition and is drawn four times larger than its own pixels, so a handle sized in frame
+// pixels would be four times too big; everything drawn at a fixed size on screen is sized
+// through this.
+function perScreenPixel() {
+  const shown = view.getBoundingClientRect();
+  return shown.width ? view.width / shown.width : 1;
+}
+
+function drawBoxes() {
+  const svg = $('boxes');
+  svg.setAttribute('width', view.width);
+  svg.setAttribute('height', view.height);
+  svg.setAttribute('viewBox', '0 0 ' + view.width + ' ' + view.height);
+  const drawn = [];
+  const unit = perScreenPixel();
+  for (const id of selection) {
+    const box = boxOf(id);
+    if (!box) continue;
+    const outline = svgEl('polygon');
+    outline.setAttribute('points', box.corners.join(' '));
+    // Every selected layer gets an outline; the one the properties column is describing gets
+    // the solid one, so that a person can tell which of three boxes their numbers belong to.
+    if (id !== selectedLayer) outline.setAttribute('class', 'second');
+    drawn.push(outline);
+  }
+  // Handles on the primary layer only, for the same reason: they change one layer's numbers.
+  const one = boxOf(selectedLayer);
+  if (one) {
+    const c = one.corners;
+    for (let i = 0; i < 4; i++) {
+      const handle = svgEl('rect');
+      handle.setAttribute('class', 'handle');
+      handle.setAttribute('x', c[i * 2] - 3 * unit);
+      handle.setAttribute('y', c[i * 2 + 1] - 3 * unit);
+      handle.setAttribute('width', 6 * unit);
+      handle.setAttribute('height', 6 * unit);
+      drawn.push(handle);
+    }
+    const spin = rotateHandle(one, unit);
+    if (spin) {
+      const arm = svgEl('line');
+      arm.setAttribute('class', 'arm');
+      arm.setAttribute('x1', (c[0] + c[2]) / 2);
+      arm.setAttribute('y1', (c[1] + c[3]) / 2);
+      arm.setAttribute('x2', spin[0]);
+      arm.setAttribute('y2', spin[1]);
+      const knob = svgEl('circle');
+      knob.setAttribute('class', 'spin');
+      knob.setAttribute('cx', spin[0]);
+      knob.setAttribute('cy', spin[1]);
+      knob.setAttribute('r', 4 * unit);
+      drawn.push(arm, knob);
+    }
+  }
+  svg.replaceChildren(...drawn);
+}
+
+// The knob that turns a layer, on a short arm out from the middle of its top edge. Out along the
+// edge's own normal rather than straight up the screen, so that the arm stays on the top of the
+// drawing once the drawing itself has been turned.
+function rotateHandle(box, unit) {
+  const c = box.corners;
+  const [ax, ay] = [(c[0] + c[2]) / 2, (c[1] + c[3]) / 2];
+  const [bx, by] = [(c[4] + c[6]) / 2, (c[5] + c[7]) / 2];
+  const [dx, dy] = [ax - bx, ay - by];
+  const length = Math.hypot(dx, dy);
+  if (!length) return null;
+  return [ax + (dx / length) * 22 * unit, ay + (dy / length) * 22 * unit];
+}
+
+// A point of the window, in the frame's own pixels. The canvas is scaled to fit the panel, so
+// its box on screen and its pixel count are two different numbers and both are needed.
+function atCanvas(e) {
+  const shown = view.getBoundingClientRect();
+  return [
+    (e.clientX - shown.left) * view.width / shown.width,
+    (e.clientY - shown.top) * view.height / shown.height,
+  ];
+}
+
+// Whether a point is inside a layer's box. The box is the image of a rectangle under an affine
+// map, so it is a parallelogram and convex however the layer has been turned or mirrored: the
+// point is inside when it is on the same side of all four edges.
+function inside(box, x, y) {
+  const c = box.corners;
+  let side = 0;
+  for (let i = 0; i < 4; i++) {
+    const [ax, ay] = [c[i * 2], c[i * 2 + 1]];
+    const [bx, by] = [c[(i * 2 + 2) % 8], c[(i * 2 + 3) % 8]];
+    const across = (bx - ax) * (y - ay) - (by - ay) * (x - ax);
+    if (across === 0) continue;
+    const now = Math.sign(across);
+    if (side && now !== side) return false;
+    side = now;
+  }
+  return true;
+}
+
+// The layer under a point, or null. Back to front: `boxes` arrives in the renderer's own order,
+// which draws the first entry at the back, so the last match is the one on top.
+function layerUnder(x, y) {
+  for (let i = boxes.length - 1; i >= 0; i--) {
+    if (inside(boxes[i], x, y)) return boxes[i].layer;
+  }
+  return null;
+}
+
+// How many composition pixels one frame pixel is worth: one at full resolution, four at draft.
+// Position is in composition pixels, and a drag that moved a layer by the number of *draft*
+// pixels the pointer crossed would move it a quarter as far as the pointer went.
+function perFramePixel() {
+  const comp = composition();
+  return comp && view.width ? comp.width / view.width : 1;
+}
+
+const held = (layer, prop) => transformValue(layer, prop);
+
+// Moving: the layer follows the pointer, one composition pixel per frame pixel crossed.
+const moveLayer = (start, from, at, m, during) => {
+  const per = perFramePixel();
+  during('position', [
+    start.position[0] + (at[0] - from[0]) * per,
+    start.position[1] + (at[1] - from[1]) * per,
+  ]);
+};
+
+// Scaling from a corner: the anchor stays where it is and the corner follows the pointer, so
+// the factor is how much further from the anchor the pointer is now than when it went down.
+// The anchor's place on screen is the layer's position, because that is what a transform is —
+// document 21 moves the anchor to the position and turns and scales about it.
+function scaleFrom(anchorAt) {
+  return (start, from, at, m, during) => {
+    const was = Math.hypot(from[0] - anchorAt[0], from[1] - anchorAt[1]);
+    if (was < 1e-6) return;
+    const now = Math.hypot(at[0] - anchorAt[0], at[1] - anchorAt[1]);
+    const factor = now / was;
+    during('scale', [start.scale[0] * factor, start.scale[1] * factor]);
+  };
+}
+
+// Turning: the angle the pointer has swept about the anchor, added to the rotation the layer
+// had. Degrees, which is what document 19's rotation is and what the file holds.
+function rotateAbout(anchorAt) {
+  const angle = (p) => Math.atan2(p[1] - anchorAt[1], p[0] - anchorAt[0]) * 180 / Math.PI;
+  return (start, from, at, m, during) => {
+    let by = angle(at) - angle(from);
+    // Shift snaps to fifteen degrees, the same convention as everywhere else that turns things.
+    const next = m.shiftKey ? Math.round((start.rotation[0] + by) / 15) * 15
+      : start.rotation[0] + by;
+    during('rotation', [next]);
+  };
+}
+
+// A press on the picture. In order: a handle of the layer already selected, then the layer under
+// the pointer, then nothing — which clears the selection, because clicking the empty part of a
+// shot and having the box stay is the thing that makes a selection feel stuck.
+view.onpointerdown = (e) => {
+  // The gesture itself lives inside the press that starts it, and not beside it. That is what
+  // `verification/B-12c_keyboard_table.md` requires of a drag: it cuts every pointer handler out
+  // of this page and asks what commands are left, and `property.drag_update` must not be one of
+  // them. A drag written as a function called from here would survive that cut and the claim
+  // that every command is reachable without a mouse would quietly stop being true.
+  //
+  // It is the same bargain the number fields make in `propRow` and it sends the same three
+  // commands, because it is the same thing: document 26 has a drag be one history record from
+  // the value before it to the value at release, whichever control the pointer was on.
+  const beginStageDrag = (down, layer, apply) => {
+    const from = atCanvas(down);
+    const start = {
+      position: held(layer, 'position'),
+      scale: held(layer, 'scale'),
+      rotation: held(layer, 'rotation'),
+    };
+    dragging = true;
+    view.setPointerCapture(down.pointerId);
+    const during = (prop, values) => command('/property.drag_update?layer='
+      + encodeURIComponent(layer.id) + '&prop=' + prop
+      + '&value=' + encodeURIComponent(values.map(number).join(',')));
+    const escape = (k) => { if (k.key === 'Escape') stop(true); };
+    const stop = (cancelled) => {
+      dragging = false;
+      view.onpointermove = null;
+      view.onpointerup = null;
+      window.removeEventListener('keydown', escape, true);
+      command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+    };
+    view.onpointermove = (m) => apply(start, from, atCanvas(m), m, during);
+    view.onpointerup = () => stop(false);
+    window.addEventListener('keydown', escape, true);
+  };
+  if (e.button !== 0 || !doc) return;
+  view.focus();
+  const [x, y] = atCanvas(e);
+  const unit = perScreenPixel();
+  const one = boxOf(selectedLayer);
+  const layer = selected();
+  if (one && layer && !layer.locked) {
+    const anchorAt = anchorOnScreen(layer);
+    const spin = rotateHandle(one, unit);
+    if (spin && Math.hypot(x - spin[0], y - spin[1]) <= 6 * unit) {
+      e.preventDefault();
+      beginStageDrag(e, layer, rotateAbout(anchorAt));
+      return;
+    }
+    for (let i = 0; i < 4; i++) {
+      const c = one.corners;
+      if (Math.abs(x - c[i * 2]) <= 5 * unit && Math.abs(y - c[i * 2 + 1]) <= 5 * unit) {
+        e.preventDefault();
+        beginStageDrag(e, layer, scaleFrom(anchorAt));
+        return;
+      }
+    }
+  }
+  const hit = layerUnder(x, y);
+  if (hit !== selectedLayer || e.shiftKey) select(hit, e.shiftKey);
+  const now = selected();
+  // A locked layer selects and shows its box and does not move: document 19's lock is the whole
+  // point of it, and the core would refuse the command anyway. Refusing here as well means the
+  // person is not left watching a box that will not follow the pointer.
+  if (now && !now.locked && boxOf(now.id)) {
+    e.preventDefault();
+    beginStageDrag(e, now, moveLayer);
+  }
+};
+
+// The anchor's place on the frame, which is where a turn and a scale happen about. It is the
+// layer's own position in composition pixels, brought into the frame's pixels.
+function anchorOnScreen(layer) {
+  const per = perFramePixel();
+  const position = held(layer, 'position');
+  return [position[0] / per, position[1] / per];
+}
+
+// Nudging, and only while the picture itself has the keyboard. The arrow keys step the playhead
+// everywhere else in this window and taking that away would cost more than it bought; a canvas
+// that has been clicked or tabbed to is the one place where an arrow can mean the layer instead,
+// and the focus ring says which of the two is about to happen.
+view.onkeydown = (e) => {
+  const by = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  const layer = selected();
+  if (!by || !layer || layer.locked) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const step = e.shiftKey ? 10 : 1;
+  const position = held(layer, 'position');
+  command('/property.set_base?layer=' + encodeURIComponent(layer.id) + '&prop=position&value='
+    + encodeURIComponent([position[0] + by[0] * step, position[1] + by[1] * step]
+      .map(number).join(',')));
+};
+
+// The canvas is scaled to fit its panel, so a window that changes size changes how many frame
+// pixels a handle is worth. The outline is redrawn rather than recomputed from the window.
+window.addEventListener('resize', drawBoxes);
 
 function field(into, term, value) {
   const dt = document.createElement('dt');
@@ -820,10 +1259,9 @@ function field(into, term, value) {
   into.append(dt, dd);
 }
 
-// How far one pixel of drag moves each property. Position and anchor are in composition pixels
-// and scale is in percent, so one for one is the honest step; opacity runs 0 to 1 in the file
-// and needs a hundredth, or a short drag would cross the whole range.
-const STEP = { anchor: 1, position: 1, scale: 1, rotation: 1, opacity: 0.01 };
+// How far one pixel of drag moves each property, in the units this panel shows. Every one of
+// them is one for one: pixels, percent and degrees are all things a person counts in ones.
+const STEP = { anchor: 1, position: 1, scale: 1, rotation: 1, opacity: 1 };
 
 // A number as the file holds it, without exponent notation or a trailing string of zeros from
 // the arithmetic a drag does.
@@ -838,19 +1276,20 @@ function transformValue(layer, prop) {
 //
 // Both gestures send the same command ID. Typing commits on its own; scrubbing sends
 // `property.drag_update` until the pointer is released and one history entry covers the lot.
-function propRow(into, layer, prop, parts) {
+function propRow(into, layer, prop, parts, per = 1) {
   const dt = document.createElement('dt');
   dt.textContent = prop[0].toUpperCase() + prop.slice(1);
   const dd = document.createElement('dd');
-  const held = transformValue(layer, prop);
+  const held = transformValue(layer, prop).map((v) => v * per);
   const send = (id, values) => command('/' + id + '?layer=' + encodeURIComponent(layer.id)
-    + '&prop=' + prop + '&value=' + encodeURIComponent(values.map(number).join(',')));
+    + '&prop=' + prop + '&value='
+    + encodeURIComponent(values.map((v) => number(v / per)).join(',')));
   parts.forEach((part, i) => {
     const handle = document.createElement('span');
     handle.className = 'scrub';
     handle.tabIndex = 0;
     handle.textContent = part;
-    handle.title = 'Drag to change ' + prop;
+    handle.title = 'Drag left or right to change ' + prop + ', or use the arrow keys';
     const input = document.createElement('input');
     input.type = 'number';
     input.step = 'any';
@@ -958,14 +1397,16 @@ function drawInspector() {
   field(dl, 'Identifier', layer.id);
   field(dl, 'Drawing', layer.asset_id);
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive');
-  // Document 19's five transform properties, in its order. The numbers are the file's own — no
-  // unit is converted on the way in or out, so scale is the percent the file holds and opacity
-  // is the nought-to-one the file holds, and there is nowhere for a conversion to go wrong.
+  // Document 19's five transform properties, in its order. Four are shown in the units the file
+  // holds — pixels, percent, degrees — and opacity is the one that is not: the file holds nought
+  // to one and nobody says a layer is 0.65 opaque. The conversion is the last argument, and it
+  // is the only one in this panel, applied on the way in and undone on the way out, so what
+  // reaches `property.set_base` is still the number the file wants.
   propRow(dl, layer, 'anchor', ['x', 'y']);
   propRow(dl, layer, 'position', ['x', 'y']);
   propRow(dl, layer, 'scale', ['x', 'y']);
   propRow(dl, layer, 'rotation', ['°']);
-  propRow(dl, layer, 'opacity', ['×']);
+  propRow(dl, layer, 'opacity', ['%'], 100);
   // Read-only, and said rather than hidden: there is no command in the core for changing a
   // blend mode, W-01 does not ask to change one, and inventing one to fill a gap in a panel
   // would be a decision about the model made from the window.
@@ -1069,10 +1510,15 @@ function drawExposures() {
   into.replaceChildren(...spans.map((span) => exposureRow(layer, span, drawings)));
 }
 
-// One effect in the stack: whether it is bypassed, what it is, a way to remove it, and its
-// settings. Every parameter of the effect travels on every change, because a request that named
-// one would leave the core to guess the others and guessing would reset them.
-function effectRow(layer, fx) {
+// One effect in the stack: whether it is bypassed, what it is, where in the order it sits, a
+// way to remove it, and its settings. Every parameter of the effect travels on every change,
+// because a request that named one would leave the core to guess the others and guessing would
+// reset them.
+//
+// `at` and `of` are the position in the stack and how tall the stack is, and they are here for
+// the two arrows: ADR-017 evaluates the stack in order and the order is the picture, so a stack
+// built in the wrong order had, until now, to be deleted and typed again.
+function effectRow(layer, fx, at, of) {
   const box = document.createElement('div');
   box.className = 'effect';
   const known = EFFECT_PARAMS[fx.type_id];
@@ -1090,6 +1536,15 @@ function effectRow(layer, fx) {
     // Colour is not the only carrier: a bypassed effect says so in a word as well as a symbol.
     Object.assign(document.createElement('span'),
       { className: 'mark', textContent: fx.enabled ? '' : 'bypassed' }),
+    // Up is earlier, because this list is drawn in the order the stack is evaluated and the
+    // first thing evaluated is at the top. The end of the stack has no arrow rather than a dead
+    // one: a button that cannot do anything is a button somebody presses twice.
+    at > 0
+      ? iconButton('▲', 'Move ' + label + ' earlier', () => command('/effect.move_up' + where))
+      : blank(),
+    at + 1 < of
+      ? iconButton('▼', 'Move ' + label + ' later', () => command('/effect.move_down' + where))
+      : blank(),
     iconButton('✕', 'Delete ' + label, () => command('/effect.delete' + where)));
   box.append(head);
   if (!known) {
@@ -1137,13 +1592,14 @@ function drawEffects() {
   if (!layer) { into.replaceChildren(empty('No layer is selected.')); return; }
   const stack = layer.effects || [];
   if (!stack.length) { into.replaceChildren(empty('This layer has no effects.')); return; }
-  into.replaceChildren(...stack.map((fx) => effectRow(layer, fx)));
+  into.replaceChildren(...stack.map((fx, at) => effectRow(layer, fx, at, stack.length)));
 }
 
 function drawPanels() {
   // A layer that has gone — deleted, or undone into existence and back out — must not stay
   // selected, or the next Delete would name something that is not there.
-  if (selectedLayer && !selected()) selectedLayer = null;
+  selection = selection.filter((id) => layers().some((l) => l.id === id));
+  if (selectedLayer && !selected()) selectedLayer = selection[0] || null;
   drawComps();
   drawAssets();
   drawRuler();
