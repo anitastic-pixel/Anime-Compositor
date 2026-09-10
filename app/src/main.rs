@@ -7809,6 +7809,56 @@ mod contract {
             format!("undo list {}", held(&viewer).document.undo_depth()),
         );
 
+        // Two layers selected on the picture and dragged together. Still one press, still one
+        // release, so still one entry - and both layers have to be in it, or undoing would put
+        // one of them back and leave the other where the pointer left it.
+        let before = held(&viewer).document.undo_depth();
+        for x in [200.0_f64, 240.0, 300.0] {
+            for layer in ["layer-1", "layer-2"] {
+                run(
+                    &viewer,
+                    &format!("property.drag_update?layer={layer}&prop=position&value={x}, 0"),
+                );
+            }
+        }
+        run(&viewer, "property.drag_end");
+        // Each of these takes the lock and gives it straight back. Two `held(&viewer)` calls
+        // inside one `format!` would both still be alive when the second one asked for it, and
+        // the second would wait for the first for ever.
+        let depth = held(&viewer).document.undo_depth();
+        let entry = held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .unwrap_or(&"(nothing)")
+            .to_string();
+        report.check(
+            "a drag holding two layers is one entry that says it moved more than one",
+            format!(
+                "undo list {}, Set position to (300, 0) and 1 more",
+                before + 1
+            ),
+            format!("undo list {depth}, {entry}"),
+        );
+        report.check(
+            "and undoing that one entry puts both layers back, not just the first",
+            "layer-1 (0, 0), layer-2 (180, 0)",
+            {
+                run(&viewer, "edit.undo");
+                ["layer-1", "layer-2"]
+                    .iter()
+                    .map(|id| {
+                        format!(
+                            "{id} {}",
+                            layer(&viewer, id, |l| l.transform.position.base().to_string())
+                                .unwrap_or_else(|| "(no such layer)".to_string())
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            },
+        );
+
         write_artifact(
             &report,
             "verification/B-12b_text_coalescing_table.md",
@@ -7867,11 +7917,14 @@ mod contract {
          does with that event is the browser's, and is documented behaviour rather than \
          something measured here. The rows about the window send the command a committed field \
          would send and count what lands in the undo list, which is the half that is this \
-         project's own.\n\nThe last row is not about text at all. It drags a position through \
-         three values and ends the drag, and is here because it is the same sentence of document \
-         26 read the other way: many requests, one entry. Without it a reader has no way to see \
-         that three entries for three committed settings is the intended answer rather than the \
-         same defect in the other direction.",
+         project's own.\n\nThe last three rows are not about text at all. They drag a position \
+         through several values and end the drag, and are here because they are the same \
+         sentence of document 26 read the other way: many requests, one entry. Without them a \
+         reader has no way to see that three entries for three committed settings is the \
+         intended answer rather than the same defect in the other direction. The last two of \
+         them have two layers under the pointer at once, which is that promise again with more \
+         than one thing being moved: one entry, both layers named in it, and undoing brings both \
+         of them back rather than the first.",
     ];
 
     // ---- what the panels draw ------------------------------------------------------------------
@@ -8616,11 +8669,13 @@ mod contract {
     ];
 
     /// The identifiers that are a drag and cannot be anything else.
-    const MOUSE_ONLY: [&str; 3] = [
-        "property.drag_cancel",
-        "property.drag_end",
-        "property.drag_update",
-    ];
+    ///
+    /// It was all three of them until W-04. A nudge with the arrow keys now moves every selected
+    /// layer, and one press moving three layers has to be one thing to undo, so the nudge opens
+    /// and commits the same transaction a drag does: `property.drag_update` once per layer and
+    /// then `property.drag_end`. Only the cancel is left, because the only thing that cancels a
+    /// drag is Escape during one, and there is no drag to be in without a pointer.
+    const MOUSE_ONLY: [&str; 1] = ["property.drag_cancel"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
     const MOUSE_GESTURES: [(&str, &str, &str); 6] = [
@@ -8670,11 +8725,15 @@ mod contract {
     ];
 
     const KEYBOARD_NOTES: &[&str] = &[
-        "## What to look at\n\nThe three rows that say **no**. `property.drag_update`, \
-         `property.drag_end` and `property.drag_cancel` are a drag: they are the running \
-         transaction a pointer opens when it takes hold of a number and the coalescing document \
-         26 asks for. A keyboard cannot make that gesture and nothing here pretends otherwise. \
-         What it can do is change the number, and the last six rows are the mouse gestures in this \r
+        "## What to look at\n\nThe one row that says **no**. `property.drag_cancel` is Escape \
+         during a drag, and there is no drag to be in the middle of without a pointer. It used \
+         to be three: `property.drag_update` and `property.drag_end` are the running transaction \
+         and the coalescing document 26 asks for, and until W-04 only a pointer opened one. \
+         Nudging the picture with the arrow keys now moves every selected layer, and one press \
+         moving three layers has to be one thing to undo, so it opens and commits that same \
+         transaction. \
+         The rest of the keyboard changes numbers rather than dragging them, and the last six rows \
+         are the mouse gestures in this \r
          window each paired with the thing that does the same job without one: the arrow keys on a \r
          focused handle send `property.set_base`, which is one undo step per press rather than one per \r
          drag. The picture itself works the same way: a layer is dragged, and it is nudged by the \r

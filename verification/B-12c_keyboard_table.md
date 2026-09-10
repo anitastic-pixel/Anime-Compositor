@@ -8,7 +8,7 @@ It reads `app/ui/index.html`. The question it asks is not "is there a keyboard s
 
 ## What to look at
 
-The three rows that say **no**. `property.drag_update`, `property.drag_end` and `property.drag_cancel` are a drag: they are the running transaction a pointer opens when it takes hold of a number and the coalescing document 26 asks for. A keyboard cannot make that gesture and nothing here pretends otherwise. What it can do is change the number, and the last six rows are the mouse gestures in this 
+The one row that says **no**. `property.drag_cancel` is Escape during a drag, and there is no drag to be in the middle of without a pointer. It used to be three: `property.drag_update` and `property.drag_end` are the running transaction and the coalescing document 26 asks for, and until W-04 only a pointer opened one. Nudging the picture with the arrow keys now moves every selected layer, and one press moving three layers has to be one thing to undo, so it opens and commits that same transaction. The rest of the keyboard changes numbers rather than dragging them, and the last six rows are the mouse gestures in this 
          window each paired with the thing that does the same job without one: the arrow keys on a 
          focused handle send `property.set_base`, which is one undo step per press rather than one per 
          drag. The picture itself works the same way: a layer is dragged, and it is nudged by the 
@@ -62,8 +62,8 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `media.relink` can be asked for without a mouse | yes | yes | pass |
 | `open` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_cancel` can be asked for without a mouse | no - it is a drag, and a drag is a mouse | no - it is a drag, and a drag is a mouse | pass |
-| `property.drag_end` can be asked for without a mouse | no - it is a drag, and a drag is a mouse | no - it is a drag, and a drag is a mouse | pass |
-| `property.drag_update` can be asked for without a mouse | no - it is a drag, and a drag is a mouse | no - it is a drag, and a drag is a mouse | pass |
+| `property.drag_end` can be asked for without a mouse | yes | yes | pass |
+| `property.drag_update` can be asked for without a mouse | yes | yes | pass |
 | `property.set_base` can be asked for without a mouse | yes | yes | pass |
 | `recent` can be asked for without a mouse | yes | yes | pass |
 | `recover` can be asked for without a mouse | yes | yes | pass |

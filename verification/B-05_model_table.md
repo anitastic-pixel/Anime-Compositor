@@ -1,6 +1,6 @@
 # B-05 model, commands and undo
 
-Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **66 of 66 checks pass.**
+Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **70 of 70 checks pass.**
 
 ## What to check by eye
 
@@ -66,9 +66,13 @@ The before file is 305 lines and the after file is 392 lines.
 | drag undone: the value from before the drag returns in one step | `(0, 0)` | `(0, 0)` | PASS |
 | drag redone: the final value returns | `(100, 0)` | `(100, 0)` | PASS |
 | drag cancelled: no history record and the value is restored | `13, (100, 0)` | `13, (100, 0)` | PASS |
+| drag of two layers: one history record, and both layers arrived | `14, (20, 0), (1020, 0)` | `14, (20, 0), (1020, 0)` | PASS |
+| drag of two layers: the record counts them and names them both | `Set position to (20, 0) and 1 more, moved layer-4 and layer-3` | `Set position to (20, 0) and 1 more, moved layer-4 and layer-3` | PASS |
+| drag of two layers undone: both go back in one step | `(100, 0), (0, 0)` | `(100, 0), (0, 0)` | PASS |
+| drag of two layers redone: both come forward in one step | `(20, 0), (1020, 0)` | `(20, 0), (1020, 0)` | PASS |
 | transaction: an invalid second command rejects the whole batch | `COMMAND_INVALID_VALUE` | `COMMAND_INVALID_VALUE` | PASS |
 | transaction rejected: the asset from the first command was not added either | `4` | `4` | PASS |
-| transaction rejected: revision unchanged | `23` | `23` | PASS |
+| transaction rejected: revision unchanged | `27` | `27` | PASS |
 | transaction: import plus create layer is one history record | `14` | `14` | PASS |
 | transaction: both parts landed | `5 assets, 5 layers` | `5 assets, 5 layers` | PASS |
 | transaction undone: both parts are gone in one step | `4 assets, 4 layers` | `4 assets, 4 layers` | PASS |

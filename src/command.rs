@@ -344,6 +344,25 @@ impl Command {
         ids
     }
 
+    /// Whether this command is a later reading of the same thing `other` moved, so that during
+    /// a drag it replaces `other` rather than joining it. Two moves of one layer's position are
+    /// one control moved twice; that layer's position and its neighbour's are two controls.
+    ///
+    /// The property is part of what makes a control and not the layer alone: a corner drag that
+    /// sent a scale and a position for one layer sends two things that must both survive.
+    fn refines(&self, other: &Command) -> bool {
+        if let (
+            Command::SetPropertyBase { prop: mine, .. },
+            Command::SetPropertyBase { prop: theirs, .. },
+        ) = (self, other)
+        {
+            if mine != theirs {
+                return false;
+            }
+        }
+        self.command_id() == other.command_id() && self.affected() == other.affected()
+    }
+
     /// True for commands a locked layer must refuse.
     ///
     /// Unlocking is not one of them: a lock the user cannot undo would be a trap.
@@ -570,8 +589,16 @@ impl Document {
         apply_to(&mut working, &command)?;
         self.project = working;
         drag.updates += 1;
-        drag.commands.clear();
-        drag.commands.push(command);
+        // The last value of each control the drag has hold of, rather than the last value it
+        // sent. A drag on three selected layers sends three commands per pointer move, and a
+        // list cleared each time would keep whichever arrived last: the other two would follow
+        // the pointer on screen and then jump back the moment the record was replayed. Document
+        // 26 asks for one record from the value before the drag to the value at release, and
+        // for a drag that moved three layers that is one command each.
+        match drag.commands.iter_mut().find(|held| command.refines(held)) {
+            Some(held) => *held = command,
+            None => drag.commands.push(command),
+        }
         Ok(())
     }
 
@@ -588,10 +615,21 @@ impl Document {
         self.revision += 1;
         self.redo.clear();
         let first = drag.commands[0].clone();
+        // Every layer the drag moved, each named once. Document 26 has a record name the stable
+        // IDs it affected, and for a drag on a multiple selection that is all of them.
+        let mut affected: Vec<Id> = Vec::new();
+        for held in drag.commands.iter().flat_map(Command::affected) {
+            if !affected.contains(&held) {
+                affected.push(held);
+            }
+        }
         self.undo.push(Record {
             command_id: first.command_id(),
-            label: first.label(),
-            affected: first.affected(),
+            label: match drag.commands.len() {
+                1 => first.label(),
+                n => format!("{} and {} more", first.label(), n - 1),
+            },
+            affected,
             source_revision: self.revision - 1,
             commands: drag.commands,
             before: drag.before,
