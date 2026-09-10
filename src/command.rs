@@ -160,6 +160,19 @@ pub enum Command {
         instance_id: Id,
         enabled: bool,
     },
+    /// Document 24's `effect.move`. W-03.
+    ///
+    /// The stack is evaluated in order and ADR-017 makes that order the picture: a blur then a
+    /// tint is not a tint then a blur, which is the same sentence `AddEffect` is written with
+    /// and the reason it takes an index. Until this command there was nowhere to send a stack
+    /// that had been built in the wrong order except delete and add again, which loses the
+    /// parameters with it.
+    ReorderEffect {
+        composition: Id,
+        layer_id: Id,
+        instance_id: Id,
+        to_index: usize,
+    },
     /// Change one effect's parameters. B-07.
     ///
     /// The whole parameter set is the unit of change, for the reason `SetMask` gives: a tint has
@@ -197,6 +210,7 @@ impl Command {
             Command::SetMask { .. } => "SET_MASK",
             Command::AddEffect { .. } => "ADD_EFFECT",
             Command::RemoveEffect { .. } => "REMOVE_EFFECT",
+            Command::ReorderEffect { .. } => "REORDER_EFFECT",
             Command::SetEffectEnabled { .. } => "SET_EFFECT_ENABLED",
             Command::SetEffectParameters { .. } => "SET_EFFECT_PARAMETERS",
         }
@@ -245,6 +259,11 @@ impl Command {
             },
             Command::AddEffect { effect, .. } => format!("Add {}", effect.type_id()),
             Command::RemoveEffect { instance_id, .. } => format!("Remove effect {instance_id}"),
+            Command::ReorderEffect {
+                instance_id,
+                to_index,
+                ..
+            } => format!("Move effect {instance_id} to position {to_index}"),
             Command::SetEffectEnabled {
                 instance_id,
                 enabled,
@@ -281,6 +300,7 @@ impl Command {
             | Command::SetMask { composition, .. }
             | Command::AddEffect { composition, .. }
             | Command::RemoveEffect { composition, .. }
+            | Command::ReorderEffect { composition, .. }
             | Command::SetEffectEnabled { composition, .. }
             | Command::SetEffectParameters { composition, .. } => Some(composition),
         }
@@ -305,6 +325,7 @@ impl Command {
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
+            | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
             | Command::SetEffectParameters { layer_id, .. } => ids.push(layer_id.clone()),
             Command::AddEffect {
@@ -352,6 +373,7 @@ impl Command {
             | Command::SetMask { layer_id, .. }
             | Command::AddEffect { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
+            | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
             | Command::SetEffectParameters { layer_id, .. } => Some(layer_id),
             _ => None,
@@ -1068,6 +1090,32 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 return Err(missing_effect(layer_id, instance_id));
             };
             layer.effects.remove(at);
+        }
+        Command::ReorderEffect {
+            layer_id,
+            instance_id,
+            to_index,
+            ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let Some(at) = layer
+                .effects
+                .iter()
+                .position(|e| &e.instance_id == instance_id)
+            else {
+                return Err(missing_effect(layer_id, instance_id));
+            };
+            if *to_index >= layer.effects.len() {
+                return Err(reject(
+                    &format!(
+                        "Position {to_index} is past the end of a stack of {} effects.",
+                        layer.effects.len()
+                    ),
+                    "Effect order index out of range.",
+                ));
+            }
+            let moved = layer.effects.remove(at);
+            layer.effects.insert(*to_index, moved);
         }
         Command::SetEffectEnabled {
             layer_id,

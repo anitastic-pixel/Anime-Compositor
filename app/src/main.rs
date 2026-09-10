@@ -155,14 +155,101 @@ fn parse(path: &str, query: Option<&str>) -> Option<(Ask, Option<PreviewQuality>
         ("frame", n, None) => Ask::Frame(n.parse().ok()?),
         _ => return None,
     };
-    let quality = query
+    Some((ask, quality_asked(query)))
+}
+
+/// The `?q=draft|full` half of a frame request, shared by `/frame`, `/at` and `/boxes`.
+///
+/// `None` means "leave it as it is": a typo in a query string should not silently switch the
+/// preview to a resolution nobody asked for, and a selection outline asking for the wrong one
+/// would draw its boxes at four times the size of the picture under them.
+fn quality_asked(query: Option<&str>) -> Option<PreviewQuality> {
+    query
         .and_then(|q| q.split('&').find_map(|pair| pair.strip_prefix("q=")))
         .and_then(|value| match value {
             "draft" => Some(PreviewQuality::Draft),
             "full" => Some(PreviewQuality::Full),
             _ => None,
-        });
-    Some((ask, quality))
+        })
+}
+
+/// Where each layer's drawing lands on the frame that is on screen, as four corners.
+///
+/// The window is the only thing that can answer this. A layer's box is its source rectangle
+/// carried through its transform, and the page has neither: document 07's project format records
+/// no pixel size for a drawing, so the page cannot know how big a cel is, and the transform it
+/// does hold is a set of numbers rather than a matrix. Asking the renderer is not a shortcut
+/// around that — it is the only place the answer exists.
+///
+/// The corners are in the frame's own pixels, which is what the canvas is drawn in, so a draft
+/// preview's boxes are a quarter the size of a full one's and land on the same drawing either
+/// way. That is why the plan goes through [`preview::scale_plan`] here exactly as it does when
+/// the frame is rendered.
+///
+/// A layer with no corners is a layer the plan does not contain — hidden, out of its own
+/// `[in_frame, out_frame)`, or missing its drawing at this frame — and having no box is the
+/// truthful answer for it rather than an empty one.
+///
+/// This is the preview path and holds the preview's cache, so it costs a plan the frame beside
+/// it has usually already paid for. ADR-015 is untouched: nothing here is reachable from export.
+fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) -> Response<Vec<u8>> {
+    let taken = {
+        let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        if let Some(quality) = quality {
+            viewer.quality = quality;
+        }
+        Snapshot {
+            project: viewer.document.project().clone(),
+            composition: viewer.composition.clone(),
+            root: viewer.root.clone(),
+            quality: viewer.quality,
+            alpha_only: viewer.alpha_only,
+            cache: Arc::clone(&viewer.cache),
+            frame,
+            reply: Response::builder(),
+        }
+    };
+    let mut log = FrameLog::new(0);
+    let plan = match anime_compositor::compose::plan_frame_cached(
+        &taken.project,
+        &taken.composition,
+        taken.frame,
+        &taken.root,
+        &mut log,
+        &mut taken.cache.lock().expect("the cel cache lock was poisoned"),
+    ) {
+        Ok(plan) => preview::scale_plan(plan, taken.quality),
+        // The frame's own request will have said why in words. A selection outline is not the
+        // place to say it a second time, so this answers with no boxes rather than an error.
+        Err(_) => anime_compositor::render::FramePlan {
+            width: 0,
+            height: 0,
+            layers: Vec::new(),
+        },
+    };
+    let found: Vec<serde_json::Value> = plan
+        .layers
+        .iter()
+        .map(|layer| {
+            let (w, h) = (layer.source.width() as f64, layer.source.height() as f64);
+            let corners: Vec<f64> = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
+                .iter()
+                .flat_map(|&(x, y)| {
+                    let (x, y) = layer.transform.apply(x, y);
+                    [x, y]
+                })
+                .collect();
+            serde_json::json!({ "layer": layer.id.as_str(), "corners": corners })
+        })
+        .collect();
+    allow_the_page_to_read_this(taken.reply)
+        .header("content-type", "application/json; charset=utf-8")
+        .body(
+            serde_json::json!({ "frame": frame, "layers": found })
+                .to_string()
+                .into_bytes(),
+        )
+        .expect("build the boxes response")
 }
 
 /// Percent-encode a string so it can travel in an HTTP header and arrive unharmed.
@@ -1254,6 +1341,8 @@ const ANSWERS: &[&str] = &[
     "edit.undo",
     "effect.add",
     "effect.delete",
+    "effect.move_down",
+    "effect.move_up",
     "effect.set_parameters",
     "effect.toggle_bypass",
     "exposure.set_span",
@@ -1738,9 +1827,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         index: None,
                     }
                 }
-                // The other three all name an instance that is already on the layer, so the
+                // The other five all name an instance that is already on the layer, so the
                 // lookup and its refusal are written once.
-                "effect.delete" | "effect.toggle_bypass" | "effect.set_parameters" => {
+                "effect.delete"
+                | "effect.toggle_bypass"
+                | "effect.set_parameters"
+                | "effect.move_up"
+                | "effect.move_down" => {
                     let Some(instance_id) = parameter(query, "effect").map(Id::new) else {
                         return Some("Which effect? Choose one in the effects list.".to_string());
                     };
@@ -1749,11 +1842,38 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     else {
                         return Some(format!("{instance_id} is not an effect on this layer."));
                     };
+                    // Where in the stack it is now. The list in the window is drawn in
+                    // evaluation order, first at the top, so up is one step earlier.
+                    let at = layer
+                        .effects
+                        .iter()
+                        .position(|e| e.instance_id == instance_id)
+                        .unwrap_or(0);
                     match id {
                         "effect.delete" => Command::RemoveEffect {
                             composition,
                             layer_id,
                             instance_id,
+                        },
+                        // Refused in words at either end rather than clamped: an arrow that
+                        // silently did nothing would read as a window that had stopped
+                        // listening, which is the thing the first sitting with this build
+                        // complained of.
+                        "effect.move_up" if at == 0 => {
+                            return Some(format!("{instance_id} is already first."));
+                        }
+                        "effect.move_down" if at + 1 >= layer.effects.len() => {
+                            return Some(format!("{instance_id} is already last."));
+                        }
+                        "effect.move_up" | "effect.move_down" => Command::ReorderEffect {
+                            composition,
+                            layer_id,
+                            instance_id,
+                            to_index: if id == "effect.move_up" {
+                                at - 1
+                            } else {
+                                at + 1
+                            },
                         },
                         "effect.toggle_bypass" => Command::SetEffectEnabled {
                             composition,
@@ -2493,6 +2613,18 @@ fn main() {
         .register_uri_scheme_protocol("frame", |ctx, request: Request<Vec<u8>>| {
             let viewer = ctx.app_handle().state::<Mutex<Viewer>>();
             let export = ctx.app_handle().state::<Mutex<Export>>();
+            // `/boxes/<n>` rides on the frame scheme rather than the command one because it is
+            // the same kind of thing a frame is: a question about what is on screen, whose
+            // answer changes nothing and needs no undo record.
+            if let Some(n) = request
+                .uri()
+                .path()
+                .trim_matches('/')
+                .strip_prefix("boxes/")
+                .and_then(|n| n.parse::<i32>().ok())
+            {
+                return boxes(&viewer, n, quality_asked(request.uri().query()));
+            }
             match parse(request.uri().path(), request.uri().query()) {
                 Some((ask, quality)) => serve(&viewer, &export, ask, quality),
                 None => allow_the_page_to_read_this(Response::builder().status(404))
@@ -3793,6 +3925,46 @@ mod editing {
                 stack(&viewer, l)
             },
         );
+        // ---- the order, which is the picture ---------------------------------------------
+        // ADR-017 evaluates the stack in order, so a blur then an exposure is not an exposure
+        // then a blur. Until W-03 the only way to change that order was to delete an effect and
+        // add it again, which loses its settings on the way.
+        report.check(
+            "moving an effect earlier says where it went",
+            "Move effect fx-3 to position 1",
+            run(&viewer, "effect.move_up?layer=layer-cel&effect=fx-3"),
+        );
+        report.check(
+            "and the stack is in the new order, with nothing else disturbed",
+            "fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, \
+             fx-1 core.gaussian_blur on, fx-4 core.gaussian_blur on",
+            stack(&viewer, l),
+        );
+        report.check(
+            "moving it back later puts the stack where it was",
+            "fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, \
+             fx-3 core.exposure on, fx-4 core.gaussian_blur on",
+            {
+                run(&viewer, "effect.move_down?layer=layer-cel&effect=fx-3");
+                stack(&viewer, l)
+            },
+        );
+        report.check(
+            "an effect this build does not have moves like any other",
+            "fx-1 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, \
+             fx-3 core.exposure on, fx-4 core.gaussian_blur on",
+            {
+                run(
+                    &viewer,
+                    "effect.move_down?layer=layer-cel&effect=fx-unknown-1",
+                );
+                stack(&viewer, l)
+            },
+        );
+        run(
+            &viewer,
+            "effect.move_up?layer=layer-cel&effect=fx-unknown-1",
+        );
         run(&viewer, "effect.delete?layer=layer-cel&effect=fx-4");
         run(&viewer, "effect.delete?layer=layer-cel&effect=fx-3");
 
@@ -3825,7 +3997,20 @@ mod editing {
             run(&viewer, "effect.add?layer=layer-gone&type=core.exposure"),
         );
         report.check(
-            "none of those five refusals put anything in the history",
+            "the first effect in the stack refuses to go earlier, in words",
+            "fx-unknown-1 is already first.",
+            run(
+                &viewer,
+                "effect.move_up?layer=layer-cel&effect=fx-unknown-1",
+            ),
+        );
+        report.check(
+            "and the last one refuses to go later",
+            "fx-1 is already last.",
+            run(&viewer, "effect.move_down?layer=layer-cel&effect=fx-1"),
+        );
+        report.check(
+            "none of those seven refusals put anything in the history",
             depth,
             held(&viewer).document.undo_depth(),
         );
@@ -6914,6 +7099,8 @@ mod contract {
         "edit.undo",
         "effect.add",
         "effect.delete",
+        "effect.move_down",
+        "effect.move_up",
         "effect.set_parameters",
         "effect.toggle_bypass",
         "exposure.set_span",
@@ -6937,10 +7124,13 @@ mod contract {
 
     /// The routes that are not commands: the shell's own, and the two the transport uses.
     const ROUTES: &[&str] = &[
-        // The frame scheme's two, which are not commands and are not answered by the shell:
-        // `frame` is a numbered frame and `at` is the frame playback has reached by a given
-        // number of milliseconds. Both are checked in `verification/B-08_preview_table.md`.
+        // The frame scheme's three, which are not commands and are not answered by the shell:
+        // `frame` is a numbered frame, `at` is the frame playback has reached by a given number
+        // of milliseconds, and `boxes` is where the selected layers landed on that frame, which
+        // only the renderer knows because an asset records no pixel size. The first two are
+        // checked in `verification/B-08_preview_table.md`.
         "at",
+        "boxes",
         "cancel-export",
         "export",
         "frame",
@@ -7073,9 +7263,9 @@ mod contract {
         // checked is that the shell has an arm of that name. `frame` and `state` are not in
         // that match: one is the other scheme, one is answered before it.
         for route in &routes {
-            // `frame` and `at` belong to the other scheme and are served by `fn frame`, not by
-            // the command shell, so there is no arm of that name to look for.
-            if route == "frame" || route == "at" {
+            // `frame`, `at` and `boxes` belong to the other scheme and are served beside
+            // `fn frame`, not by the command shell, so there is no arm of that name to look for.
+            if route == "frame" || route == "at" || route == "boxes" {
                 continue;
             }
             let arm = format!("\"{route}\"");
@@ -7208,6 +7398,8 @@ mod contract {
         ("effect.delete", "a command the window answers"),
         ("effect.toggle_bypass", "a command the window answers"),
         ("effect.set_parameters", "a command the window answers"),
+        ("effect.move_up", "a command the window answers"),
+        ("effect.move_down", "a command the window answers"),
         ("viewer.fit", "nothing yet"),
         ("viewer.zoom_100", "nothing yet"),
         ("viewer.toggle_checkerboard", "a command the window answers"),
@@ -8037,7 +8229,7 @@ mod contract {
         };
         let shell: Vec<String> = ROUTES
             .iter()
-            .filter(|route| **route != "frame" && **route != "at")
+            .filter(|route| !matches!(**route, "frame" | "at" | "boxes"))
             .map(|route| route.to_string())
             .collect();
         report.check(
@@ -8341,7 +8533,7 @@ mod contract {
             );
         }
 
-        // The three gestures that are mouse-only, each with the thing that does the same job.
+        // Every gesture that needs a mouse, each with the thing that does the same job without one.
         for (gesture, does, instead) in MOUSE_GESTURES {
             report.check(
                 &format!("{gesture} is not the only way to {does}"),
@@ -8431,7 +8623,7 @@ mod contract {
     ];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 3] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 6] = [
         (
             "double clicking a drawing sequence in the media bin",
             "make a layer out of it",
@@ -8446,6 +8638,21 @@ mod contract {
             "dragging a transform value",
             "change it",
             "next[i] = held[i] + by * STEP[prop] * (e.shiftKey ? 10 : 1);",
+        ),
+        (
+            "dragging a layer on the picture",
+            "move it",
+            "const by = { ArrowLeft: [-1, 0], ArrowRight: [1, 0],",
+        ),
+        (
+            "pulling a corner or the rotation arm on the picture",
+            "scale or turn the layer",
+            "next[i] = held[i] + by * STEP[prop] * (e.shiftKey ? 10 : 1);",
+        ),
+        (
+            "dragging the playhead along the exposure sheet",
+            "go to a frame",
+            "else if (e.key === 'ArrowRight') step(1);",
         ),
     ];
 
@@ -8467,10 +8674,14 @@ mod contract {
          `property.drag_end` and `property.drag_cancel` are a drag: they are the running \
          transaction a pointer opens when it takes hold of a number and the coalescing document \
          26 asks for. A keyboard cannot make that gesture and nothing here pretends otherwise. \
-         What it can do is change the number, and the last three rows are the three mouse \
-         gestures in this window each paired with the thing that does the same job without one: \
-         the arrow keys on a focused handle send `property.set_base`, which is one undo step per \
-         press rather than one per drag.",
+         What it can do is change the number, and the last six rows are the mouse gestures in this \r
+         window each paired with the thing that does the same job without one: the arrow keys on a \r
+         focused handle send `property.set_base`, which is one undo step per press rather than one per \r
+         drag. The picture itself works the same way: a layer is dragged, and it is nudged by the \r
+         arrow keys while the canvas holds the focus; a corner handle scales and the rotation arm \r
+         turns, and both numbers are typed or stepped in the inspector; the playhead is dragged along \r
+         the exposure sheet, and it is stepped by the arrow keys everywhere the canvas does not hold \r
+         the focus.",
         "The two lists are the part that had to be built rather than inherited. Every button \
          here is a `button` and every chooser a `select`, so the Tab order is the browser's and \
          nothing had to be arranged; the rows of the media bin and the layer list are `li` \
