@@ -238,6 +238,52 @@ pub struct Tile {
     pub height: usize,
 }
 
+/// Whether any pixel of `tile` can sample anything but zero out of this layer.
+///
+/// The source rectangle grown by one pixel on every side - the bilinear footprint, since a
+/// sample at `w + 1` or beyond has no source pixel with a nonzero weight - mapped through the
+/// layer's own transform, and its bounding box tested against the tile. The map is affine, so
+/// the image of the grown rectangle is a parallelogram and every destination whose source lands
+/// inside the rectangle is inside it, which is what makes the bounding-box test safe rather than
+/// merely likely.
+///
+/// An effect's `bounds_expansion` needs no term here: document 21 has the stack run whole-layer
+/// before the frame plan (ADR-017), so a blur's growth is already pixels of `layer.source` by
+/// the time the renderer sees it.
+/// A layer's box in frame pixels: `(left, top, right, bottom)`.
+///
+/// Computed once per layer per frame, never per tile: the corners do not change between the
+/// tiles of one frame, and on the fixtures the box excludes nothing, so every recomputation
+/// would have been spent on a skip that never fires.
+pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
+    let (w, h) = (layer.source.width() as f64, layer.source.height() as f64);
+    let corners = [
+        layer.transform.apply(-1.0, -1.0),
+        layer.transform.apply(w + 1.0, -1.0),
+        layer.transform.apply(-1.0, h + 1.0),
+        layer.transform.apply(w + 1.0, h + 1.0),
+    ];
+    (
+        corners.iter().fold(f64::INFINITY, |m, c| m.min(c.0)),
+        corners.iter().fold(f64::INFINITY, |m, c| m.min(c.1)),
+        corners.iter().fold(f64::NEG_INFINITY, |m, c| m.max(c.0)),
+        corners.iter().fold(f64::NEG_INFINITY, |m, c| m.max(c.1)),
+    )
+}
+
+/// Whether a layer's box meets a tile. Public so that `tests/p05_culling.rs` can count how many
+/// layer-and-tile pairs the box actually excludes: a table saying the frame is unchanged reads
+/// the same whether the skip works or never fires, and the count is what tells those two apart.
+pub fn reaches(bounds: (f64, f64, f64, f64), tile: Tile) -> bool {
+    let (left, top, right, bottom) = bounds;
+    // A NaN corner - a transform built from one - compares false everywhere, and a layer whose
+    // box cannot be computed is drawn rather than skipped.
+    !(right <= tile.x as f64
+        || left >= (tile.x + tile.width) as f64
+        || bottom <= tile.y as f64
+        || top >= (tile.y + tile.height) as f64)
+}
+
 /// Cut an extent into tiles of at most `size` on a side. Edge tiles are short, not padded.
 ///
 /// Document 21: "Tile size is a tunable measured on the reference machine, not a constant
@@ -276,7 +322,23 @@ pub fn tiles(width: usize, height: usize, size: usize) -> Vec<Tile> {
 /// buffer did, so the arithmetic per pixel is unchanged and one 33 MB allocation, one 33 MB
 /// zero-fill and one 33 MB copy a frame are not done at all.
 pub fn render(plan: &FramePlan, tile_size: usize) -> WorkingBuffer {
+    render_maybe_culled(plan, tile_size, true)
+}
+
+/// The same frame with P-05's culling test turned off, which is what
+/// `verification/P-05_culling_table.md` compares against.
+///
+/// It exists for that comparison and for nothing else. A skipped layer is only correct if the
+/// frame is the same frame without the skip, and the only way to say that in bytes is to render
+/// it both ways.
+pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuffer {
+    render_maybe_culled(plan, tile_size, false)
+}
+
+fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> WorkingBuffer {
     let tiles = tiles(plan.width, plan.height, tile_size);
+    let boxes: Option<Vec<(f64, f64, f64, f64)>> =
+        cull.then(|| plan.layers.iter().map(bounds).collect());
     let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
 
     // The carve-up is what is left of the assembly step, and it is where every destination is
@@ -308,7 +370,7 @@ pub fn render(plan: &FramePlan, tile_size: usize) -> WorkingBuffer {
         rows_for
             .par_drain(..)
             .zip(tiles.par_iter())
-            .for_each(|(rows, &tile)| render_tile(plan, tile, rows));
+            .for_each(|(rows, &tile)| render_tile(plan, tile, rows, boxes.as_deref()));
     });
 
     frame
@@ -320,11 +382,26 @@ pub fn render(plan: &FramePlan, tile_size: usize) -> WorkingBuffer {
 /// (P-03(d)). They arrive at zero, which is what the tile's private accumulator used to be
 /// initialised to, and every layer blends onto what the layers below it left, in the same order
 /// and with the same arithmetic as when the tile owned that memory.
-fn render_tile(plan: &FramePlan, tile: Tile, mut rows: Vec<&mut [f32]>) {
-    for layer in &plan.layers {
+fn render_tile(
+    plan: &FramePlan,
+    tile: Tile,
+    mut rows: Vec<&mut [f32]>,
+    boxes: Option<&[(f64, f64, f64, f64)]>,
+) {
+    for (index, layer) in plan.layers.iter().enumerate() {
         let Some(inverse) = layer.transform.invert() else {
             continue;
         };
+        // P-05: a tile the layer cannot reach is a tile the layer cannot change. Every pixel of
+        // it would sample more than a pixel outside the source, which is exactly `[0, 0, 0, 0]`,
+        // and `blend_pixel` is the identity for that source in all four of document 21's modes.
+        // The skip is a saving and not a decision: `verification/P-05_culling_table.md` renders
+        // both fixtures both ways and compares all 2,073,600 pixels byte for byte.
+        if let Some(boxes) = boxes {
+            if !reaches(boxes[index], tile) {
+                continue;
+            }
+        }
         // A matte whose own transform cannot be inverted has collapsed to nothing, and nothing
         // has no alpha anywhere. Skipping the layer is the honest reading: the matte covers no
         // pixel, so the layer it mattes shows at no pixel either. Drawing it unmatted would show
