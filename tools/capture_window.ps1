@@ -13,7 +13,9 @@
 # debug photographs the debug build instead.
 #
 # It writes verification/B-08_window_shell.png and prints the size it captured. -Name writes a
-# different file; -Keys presses keys in the window first and -Settle waits that many milliseconds
+# different file; -Keys presses keys in the window first, one character at a time, with a key that
+# has no character written as its name in braces - {RIGHT}, {LEFT}, {SPACE}, {TAB} - and -Settle
+# waits that many milliseconds
 # afterwards, which is how the playback screenshot is taken; -Ctrl holds Control down while those
 # keys are pressed, which is how a Ctrl+S is photographed actually saving; -Shift does the same
 # with Shift, which is how Ctrl+Shift+N is photographed opening the new-composition fields; -Open
@@ -146,12 +148,27 @@ try {
     # a person's hand does and what a webview's keydown reports.
     if ($Ctrl) { [Win]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero) }
     if ($Shift) { [Win]::keybd_event(0x10, 0, 0, [UIntPtr]::Zero) }
-    foreach ($c in $Keys.ToCharArray()) {
-      # Tab has no printable character for VkKeyScan to look up, and Tab is the whole of the
-      # keyboard-reachability question, so it is named directly. Write it as "`t" in -Keys.
-      $vk = if ($c -eq "`t") { [byte]0x09 } else { [byte]([Win]::VkKeyScan($c) -band 0xFF) }
-      [Win]::keybd_event($vk, 0, 0, [UIntPtr]::Zero)
-      [Win]::keybd_event($vk, 0, 2, [UIntPtr]::Zero)
+    # A key with no printable character has no code for VkKeyScan to look up, so it is written by
+    # name instead: -Keys "{RIGHT}{RIGHT}" steps two frames. Before this existed those braces went
+    # through as the seven characters they are spelled with, and the picture showed a window that
+    # had ignored the arrow keys - which looked like a finding and was a broken shutter.
+    $named = @{ 'TAB' = 0x09; 'SPACE' = 0x20; 'LEFT' = 0x25; 'UP' = 0x26; 'RIGHT' = 0x27; 'DOWN' = 0x28;
+                'HOME' = 0x24; 'END' = 0x23; 'ENTER' = 0x0D; 'ESC' = 0x1B; 'DELETE' = 0x2E }
+    # The arrows and the editing keys are "extended", and a keydown sent without that bit set is
+    # the numeric keypad's key of the same name rather than the one on the arrow cluster.
+    $extended = 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x2D, 0x2E
+    foreach ($press in [regex]::Matches($Keys, '\{[A-Za-z]+\}|[\s\S]')) {
+      $key = $press.Value
+      $vk = if ($key.Length -gt 1) {
+        # $which, and not $name: PowerShell variable names are case-insensitive, so a $name here
+        # is the -Name parameter, which is the file the picture gets written to.
+        $which = $key.Trim('{', '}').ToUpperInvariant()
+        if (-not $named.ContainsKey($which)) { throw "no key is named $key" }
+        [byte]$named[$which]
+      } elseif ($key -eq "`t") { [byte]0x09 } else { [byte]([Win]::VkKeyScan($key) -band 0xFF) }
+      $flags = if ($extended -contains [int]$vk) { 1 } else { 0 }
+      [Win]::keybd_event($vk, 0, $flags, [UIntPtr]::Zero)
+      [Win]::keybd_event($vk, 0, $flags -bor 2, [UIntPtr]::Zero)
       Start-Sleep -Milliseconds 80
     }
     if ($Shift) { [Win]::keybd_event(0x10, 0, 2, [UIntPtr]::Zero) }
