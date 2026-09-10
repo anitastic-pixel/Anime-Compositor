@@ -419,55 +419,95 @@ fn resolve_layer(
     // near the edge of its cel.
     //
     // An empty stack is skipped rather than called with nothing in it, because reaching
-    // `apply_stack` at all means taking the copy `Arc::make_mut` exists to avoid — and the first
+    // `apply_stack` at all means taking the copy `Arc::make_mut` exists to avoid - and the first
     // measurement of P-03(a) showed exactly that: the reference shot, which has no effects on any
     // layer, spent 15.541 ms a warm frame copying cels for a loop with no iterations. An empty
     // slice also reports nothing, so nothing is lost by not entering it.
+    //
+    // What raising a bypassed effect looks like, hoisted out of the call below because a frame
+    // served from the effect cache has to raise exactly the same warnings as the frame that
+    // filled it (P-11). Document 27: a cache "must never define correctness", and a diagnostic
+    // that appeared only on a cache miss would be a cache defining one.
+    let mut report = |instance: &crate::effects::EffectInstance, why: crate::effects::Bypassed| {
+        let (id, what, detail) = match why {
+            crate::effects::Bypassed::NotImplemented => (
+                DiagnosticId::EffectUnsupported,
+                format!(
+                    "Layer {} uses the effect \"{}\", which this build does not have.",
+                    layer.name,
+                    instance.type_id()
+                ),
+                format!(
+                    "Frame {frame} is drawn without it. The effect is kept in the project \
+                     exactly as it was."
+                ),
+            ),
+            crate::effects::Bypassed::InvalidParameter => (
+                DiagnosticId::EffectParameterInvalid,
+                format!(
+                    "Layer {}'s {} has a setting this build cannot use, so it is not drawn.",
+                    layer.name,
+                    instance.type_id()
+                ),
+                format!(
+                    "{} Frame {frame} is drawn without the effect, which is kept as it was.",
+                    instance.effect.why_invalid()
+                ),
+            ),
+        };
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(id, Severity::Warning, what, detail).with_remediation(
+                "The frame is missing what the effect would have done. Remove the effect, or \
+                 correct it, to have the picture match the project.",
+            ),
+        );
+    };
+
+    // The mask that was drawn into the cel above, and therefore part of what the stack ran on.
+    // `None` covers both the layer with no mask and the mask that could not be drawn, which are
+    // the two cases where nothing was written.
+    let drawn_mask = layer.mask.as_ref().filter(|m| m.is_renderable());
+
     let offset = if layer.effects.is_empty() {
         (0, 0)
+    } else if let Some(hit) =
+        cache.effect_result(&path, asset.interpretation, drawn_mask, &layer.effects)
+    {
+        // P-11. ADR-017 fixes an evaluation's whole input to the cel, the mask and the stack, all
+        // three of which are in the key, so this buffer is the one `apply_stack` would have
+        // produced. It is handed back shared: the cache holds it too, so the transform below,
+        // which only reads, never copies it, and anything that did write would copy through
+        // `Arc::make_mut` exactly as it does for a cel.
+        for (index, why) in &hit.bypassed {
+            report(&layer.effects[*index], *why);
+        }
+        source = hit.buffer;
+        hit.offset
     } else {
-        crate::perf::time(crate::perf::Stage::Effects, || {
-            crate::effects::apply_stack(
-                std::sync::Arc::make_mut(&mut source),
-                &layer.effects,
-                |instance, why| {
-                    let (id, what, detail) = match why {
-                        crate::effects::Bypassed::NotImplemented => (
-                            DiagnosticId::EffectUnsupported,
-                            format!(
-                                "Layer {} uses the effect \"{}\", which this build does not have.",
-                                layer.name,
-                                instance.type_id()
-                            ),
-                            format!(
-                            "Frame {frame} is drawn without it. The effect is kept in the project \
-                     exactly as it was."
-                        ),
-                        ),
-                        crate::effects::Bypassed::InvalidParameter => (
-                            DiagnosticId::EffectParameterInvalid,
-                            format!(
-                        "Layer {}'s {} has a setting this build cannot use, so it is not drawn.",
-                        layer.name,
-                        instance.type_id()
-                    ),
-                            format!(
-                        "{} Frame {frame} is drawn without the effect, which is kept as it was.",
-                        instance.effect.why_invalid()
-                    ),
-                        ),
-                    };
-                    log.record(
-                frame,
-                layer.name.clone(),
-                Diagnostic::new(id, Severity::Warning, what, detail).with_remediation(
-                    "The frame is missing what the effect would have done. Remove the effect, or \
-                 correct it, to have the picture match the project.",
-                ),
-            );
-                },
-            )
-        })
+        // The copy is timed on its own and the effects are timed one kind at a time inside
+        // `apply_stack` (P-11), so nothing here wraps anything that is timed below it.
+        let pixels = crate::perf::time(crate::perf::Stage::EffectCopy, || {
+            std::sync::Arc::make_mut(&mut source)
+        });
+        let mut bypassed: Vec<(usize, crate::effects::Bypassed)> = Vec::new();
+        let offset = crate::effects::apply_stack(pixels, &layer.effects, |at, instance, why| {
+            bypassed.push((at, why));
+            report(instance, why);
+        });
+        cache.store_effect(
+            &path,
+            asset.interpretation,
+            drawn_mask,
+            &layer.effects,
+            crate::cache::EffectResult {
+                buffer: std::sync::Arc::clone(&source),
+                offset,
+                bypassed,
+            },
+        );
+        offset
     };
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of

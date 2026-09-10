@@ -40,6 +40,8 @@ use rayon::prelude::*;
 
 use crate::compose::retag;
 use crate::diagnostics::Diagnostic;
+use crate::effects::{Bypassed, EffectInstance};
+use crate::mask::PolygonMask;
 use crate::media;
 use crate::model::Interpretation;
 use crate::WorkingBuffer;
@@ -76,6 +78,20 @@ use crate::WorkingBuffer;
 /// Raising this closes half of D-40 and leaves the other half open for the owner.
 pub const DEFAULT_BUDGET_BYTES: usize = 1024 * 1024 * 1024;
 
+/// The share of [`DEFAULT_BUDGET_BYTES`] the evaluated-effect cache is given (P-11).
+///
+/// `verification/P-09_effect_reuse.md` counted the declared fixture's blur at twelve distinct
+/// results and priced them at 0.37 GiB, and P-11's own split of the effect stage in `src/perf.rs`
+/// measured that blur at 111 to 123 ms of every declared-fixture frame against 1.8 ms for the
+/// exposure and the tint together. A blurred result is larger than the cel it came from, because
+/// a blur grows the buffer by its kernel radius on every side, so this is those twelve results
+/// plus the room that growth takes.
+///
+/// **It is taken out of D-40's gibibyte and not added to it**, which is what document 15's P-11
+/// requires: the viewer builds one cache with this many bytes for effect results and the rest for
+/// cels, so the total the window holds is what D-40 already set.
+pub const DEFAULT_EFFECT_BUDGET_BYTES: usize = 448 * 1024 * 1024;
+
 /// The way a budget is written in the pages that quote one, so a page and the constant it is
 /// quoting cannot drift apart. Every artifact that names the default calls this rather than
 /// spelling the number, which is how "128 MB" ended up in four committed pages.
@@ -111,6 +127,41 @@ impl Key {
     }
 }
 
+/// What makes two evaluations of an effect stack the same evaluation (P-11).
+///
+/// ADR-017 runs the stack whole-layer, on the cel's own pixels, before the frame plan exists, so
+/// an evaluation's whole input is the decoded cel, the mask that was drawn into it first, and the
+/// stack itself. All three are held here **by value rather than as a hash**: document 27 line 29
+/// requires every input to be in the key, and a comparison of the inputs themselves cannot
+/// collide the way a digest of them can. A mask is a handful of vertices and a stack is a handful
+/// of parameters, so this costs nothing next to the 33 MB it protects.
+///
+/// The cel half is the same [`Key`] the decoded cel is held under - path, length, modification
+/// time and interpretation - so a cel file that changes on disk invalidates the effect result
+/// computed from it by the same rule that invalidates the cel.
+#[derive(PartialEq, Debug)]
+struct EffectKey {
+    cel: Key,
+    /// `None` when the layer has no mask or its mask cannot be drawn, which are the two cases
+    /// where nothing is written into the cel before the stack runs.
+    mask: Option<PolygonMask>,
+    effects: Vec<EffectInstance>,
+}
+
+/// What one evaluation of an effect stack produced, in full.
+///
+/// The buffer and the offset are what the renderer needs. `bypassed` is what document 28 needs:
+/// an effect this build cannot run raises a warning **per frame**, and a frame served from this
+/// cache has to raise the same warnings as the frame that filled it, or the cache would have
+/// changed the diagnostics - which document 27 forbids in the same sentence that allows caching
+/// at all. The entries are positions in the stack, so replaying one names the same instance.
+#[derive(Clone)]
+pub struct EffectResult {
+    pub buffer: Arc<WorkingBuffer>,
+    pub offset: (usize, usize),
+    pub bypassed: Vec<(usize, Bypassed)>,
+}
+
 /// A bounded, least-recently-used cache of decoded cels in the working space.
 ///
 /// Constructed either [`with_budget`](Self::with_budget) or as [`none`](Self::none), which is a
@@ -131,20 +182,63 @@ pub struct CelCache {
     hits: u64,
     misses: u64,
     evicted: u64,
+    /// The evaluated effect results (P-11), with a budget of their own rather than a share of the
+    /// cel list's. `verification/P-09_effect_reuse.md` is the reason they are not one list: the
+    /// request stream cycles, least-recently-used is at its worst against a cycle, and effect
+    /// results competing with cels in one list would be evicted exactly before they are wanted.
+    effect_budget: usize,
+    effect_held: usize,
+    effect_entries: Vec<(EffectKey, EffectResult)>,
+    effect_hits: u64,
+    effect_misses: u64,
+    effect_evicted: u64,
 }
 
 impl CelCache {
     /// A cache that may hold up to `budget` bytes of decoded cels.
     pub fn with_budget(budget: usize) -> CelCache {
+        CelCache::with_budgets(budget, 0)
+    }
+
+    /// A cache that may hold `cels` bytes of decoded cels and `effects` bytes of evaluated effect
+    /// results (P-11).
+    ///
+    /// Two budgets and not one, for the reason `verification/P-09_effect_reuse.md` measured: a
+    /// single least-recently-used list holding both would let the cel stream, which cycles
+    /// through far more distinct drawings than any budget holds, evict the effect results just
+    /// before they are asked for again. The viewer splits D-40's gibibyte between the two; every
+    /// other caller passes zero for the second and gets exactly the cache it had before P-11.
+    pub fn with_budgets(cels: usize, effects: usize) -> CelCache {
         CelCache {
-            budget,
+            budget: cels,
             held: 0,
             entries: Vec::new(),
             pending: Vec::new(),
             hits: 0,
             misses: 0,
             evicted: 0,
+            effect_budget: effects,
+            effect_held: 0,
+            effect_entries: Vec::new(),
+            effect_hits: 0,
+            effect_misses: 0,
+            effect_evicted: 0,
         }
+    }
+
+    /// The cache the viewer runs with: D-40's gibibyte, split between decoded cels and evaluated
+    /// effect results (P-11).
+    ///
+    /// **The total is unchanged.** [`DEFAULT_EFFECT_BUDGET_BYTES`] is taken out of
+    /// [`DEFAULT_BUDGET_BYTES`], not added to it, so the window holds what document 40 said it
+    /// holds and no more. This is one function rather than the split written out at each of the
+    /// three places that need it - the window, P-01's first-playthrough harness and P-03's
+    /// byte-equality proof - so that "what the viewer holds" has one definition to change.
+    pub fn viewer() -> CelCache {
+        CelCache::with_budgets(
+            DEFAULT_BUDGET_BYTES - DEFAULT_EFFECT_BUDGET_BYTES,
+            DEFAULT_EFFECT_BUDGET_BYTES,
+        )
     }
 
     /// A cache that holds nothing, ever. Export and every non-preview caller use this.
@@ -278,6 +372,110 @@ impl CelCache {
                     .collect()
             });
         self.pending = decoded;
+    }
+
+    /// The result of running `effects` over the cel at `path`, masked by `mask`, if this cache
+    /// already has it (P-11).
+    ///
+    /// `None` on a miss, and `None` whenever the cel's metadata cannot be read, which is the same
+    /// condition that makes the cel itself uncacheable: a key that cannot notice its input
+    /// changing is worse than no key.
+    pub fn effect_result(
+        &mut self,
+        path: &Path,
+        interpretation: Interpretation,
+        mask: Option<&PolygonMask>,
+        effects: &[EffectInstance],
+    ) -> Option<EffectResult> {
+        if self.effect_budget == 0 {
+            return None;
+        }
+        let key = self.effect_key(path, interpretation, mask, effects)?;
+        crate::perf::time(crate::perf::Stage::EffectCache, || {
+            match self.effect_entries.iter().position(|(k, _)| *k == key) {
+                Some(at) => {
+                    let entry = self.effect_entries.remove(at);
+                    let result = entry.1.clone();
+                    self.effect_entries.push(entry);
+                    self.effect_hits += 1;
+                    Some(result)
+                }
+                None => {
+                    self.effect_misses += 1;
+                    None
+                }
+            }
+        })
+    }
+
+    /// Remember what an effect stack evaluated to (P-11). A no-op without an effect budget, which
+    /// is every caller but the viewer, and a no-op for a cel whose metadata could not be read.
+    pub fn store_effect(
+        &mut self,
+        path: &Path,
+        interpretation: Interpretation,
+        mask: Option<&PolygonMask>,
+        effects: &[EffectInstance],
+        result: EffectResult,
+    ) {
+        if self.effect_budget == 0 {
+            return;
+        }
+        let Some(key) = self.effect_key(path, interpretation, mask, effects) else {
+            return;
+        };
+        crate::perf::time(crate::perf::Stage::EffectCache, || {
+            let bytes = bytes_of(&result.buffer);
+            if bytes > self.effect_budget {
+                return;
+            }
+            self.effect_entries.push((key, result));
+            self.effect_held += bytes;
+            while self.effect_held > self.effect_budget {
+                let (_, evicted) = self.effect_entries.remove(0);
+                self.effect_held -= bytes_of(&evicted.buffer);
+                self.effect_evicted += 1;
+            }
+        });
+    }
+
+    fn effect_key(
+        &self,
+        path: &Path,
+        interpretation: Interpretation,
+        mask: Option<&PolygonMask>,
+        effects: &[EffectInstance],
+    ) -> Option<EffectKey> {
+        Some(EffectKey {
+            cel: Key::of(path, interpretation)?,
+            mask: mask.cloned(),
+            effects: effects.to_vec(),
+        })
+    }
+
+    /// How many effect-stack evaluations were answered from memory (P-11).
+    pub fn effect_hits(&self) -> u64 {
+        self.effect_hits
+    }
+
+    /// How many effect-stack evaluations had to run.
+    pub fn effect_misses(&self) -> u64 {
+        self.effect_misses
+    }
+
+    /// How many held effect results were dropped to stay inside the effect budget.
+    pub fn effect_evictions(&self) -> u64 {
+        self.effect_evicted
+    }
+
+    /// How many bytes of evaluated effect results are held right now.
+    pub fn effect_held_bytes(&self) -> usize {
+        self.effect_held
+    }
+
+    /// The effect-result budget this cache was built with.
+    pub fn effect_budget(&self) -> usize {
+        self.effect_budget
     }
 
     fn store(&mut self, key: Key, buffer: Arc<WorkingBuffer>) {

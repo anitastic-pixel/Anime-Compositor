@@ -58,8 +58,20 @@ pub enum Stage {
     CacheStore,
     /// The polygon mask rasterised into the layer's own pixels.
     Mask,
-    /// The ordered effect stack, whole-layer, per ADR-017.
-    Effects,
+    /// The copy `Arc::make_mut` takes so the effect stack has a buffer of its own to write in.
+    /// Separate from the effects themselves because it is paid once a layer however long the
+    /// stack is, and P-11 is ranking the effects against each other.
+    EffectCopy,
+    /// The exposure effect, whole-layer, per ADR-017.
+    EffectExposure,
+    /// The tint effect, whole-layer, per ADR-017.
+    EffectTint,
+    /// The gaussian blur, whole-layer, per ADR-017. Split out from the other two by P-11, whose
+    /// entry says the first thing it does is find out whether the blur really is the expensive
+    /// one rather than assuming it from what the three effects do.
+    EffectBlur,
+    /// The lookup and admission of an evaluated effect result (P-11).
+    EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
     TileLoop,
     /// Copying the finished tiles into the frame buffer.
@@ -69,7 +81,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 12] = [
+    pub const ALL: [Stage; 16] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -78,7 +90,11 @@ impl Stage {
         Stage::CacheHit,
         Stage::CacheStore,
         Stage::Mask,
-        Stage::Effects,
+        Stage::EffectCopy,
+        Stage::EffectExposure,
+        Stage::EffectTint,
+        Stage::EffectBlur,
+        Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
         Stage::Encode,
@@ -95,7 +111,11 @@ impl Stage {
             Stage::CacheHit => "cache lookup and its copy",
             Stage::CacheStore => "cache admit and its copy",
             Stage::Mask => "layer mask",
-            Stage::Effects => "effect stack",
+            Stage::EffectCopy => "effect stack: the copy it writes into",
+            Stage::EffectExposure => "effect: exposure",
+            Stage::EffectTint => "effect: tint",
+            Stage::EffectBlur => "effect: gaussian blur",
+            Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
             Stage::Encode => "encode for the page",
@@ -112,10 +132,14 @@ impl Stage {
             Stage::CacheHit => 5,
             Stage::CacheStore => 6,
             Stage::Mask => 7,
-            Stage::Effects => 8,
-            Stage::TileLoop => 9,
-            Stage::FrameAssembly => 10,
-            Stage::Encode => 11,
+            Stage::EffectCopy => 8,
+            Stage::EffectExposure => 9,
+            Stage::EffectTint => 10,
+            Stage::EffectBlur => 11,
+            Stage::EffectCache => 12,
+            Stage::TileLoop => 13,
+            Stage::FrameAssembly => 14,
+            Stage::Encode => 15,
         }
     }
 }

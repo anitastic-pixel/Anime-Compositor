@@ -190,6 +190,10 @@ struct Row {
     evictions: u64,
     hits: u64,
     misses: u64,
+    /// The evaluated-effect cache over the same pass (P-11), or `None` for a row whose cache has
+    /// no effect budget - which is every row of P-01, because P-01's warm row holds six gibibytes
+    /// of cels to measure a warm frame and is not the viewer.
+    effect: Option<(u64, u64, u64)>,
 }
 
 impl Row {
@@ -312,6 +316,7 @@ fn three_states(workload: &Workload, quality: PreviewQuality) -> Vec<Row> {
             evictions: 0,
             hits: 0,
             misses: 0,
+            effect: None,
         },
         Row {
             cache_state: "application cache cold, operating system file cache warm",
@@ -319,6 +324,7 @@ fn three_states(workload: &Workload, quality: PreviewQuality) -> Vec<Row> {
             evictions: 0,
             hits: 0,
             misses: 0,
+            effect: None,
         },
         Row {
             cache_state: "everything warm",
@@ -326,6 +332,7 @@ fn three_states(workload: &Workload, quality: PreviewQuality) -> Vec<Row> {
             evictions: warm.evictions(),
             hits: warm.hits() - before_hits,
             misses: warm.misses(),
+            effect: None,
         },
     ]
 }
@@ -391,7 +398,7 @@ fn p03b_first_playthrough() {
     );
     for workload in &workloads {
         for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
-            let mut cache = CelCache::with_budget(anime_compositor::cache::DEFAULT_BUDGET_BYTES);
+            let mut cache = CelCache::viewer();
             let measured: Vec<Measured> = frames
                 .iter()
                 .map(|&f| measure(workload, f, quality, &mut cache))
@@ -403,6 +410,11 @@ fn p03b_first_playthrough() {
                 evictions: cache.evictions(),
                 hits: cache.hits(),
                 misses: cache.misses(),
+                effect: Some((
+                    cache.effect_hits(),
+                    cache.effect_misses(),
+                    cache.effect_evictions(),
+                )),
             };
             let residual = row.residual_ms();
             assert!(
@@ -434,6 +446,16 @@ fn p03b_first_playthrough() {
                 "Cache over the pass: {} hits, {} misses, {} evictions.\n",
                 row.hits, row.misses, row.evictions
             );
+            // The second cache the viewer holds (P-11). Reported beside the first rather than
+            // folded into it, because they are two budgets against two request streams and a
+            // combined hit rate would describe neither.
+            if let Some((hits, misses, evictions)) = row.effect {
+                let _ = writeln!(
+                    s,
+                    "Effect results over the pass: {hits} hits, {misses} evaluations, \
+                     {evictions} dropped to stay inside the budget.\n"
+                );
+            }
             s.push_str("| Stage | p50 ms | p95 ms | share of the frame |\n|---|---|---|---|\n");
             for (index, stage) in Stage::ALL.iter().enumerate() {
                 let ms = row.stage_ms(index);
