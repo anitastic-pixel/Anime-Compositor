@@ -75,6 +75,18 @@ fn fixture(name: &str) -> String {
 
 /// The slot rows below name a file, not a place. Reporting the whole path would put this
 /// machine's checkout directory into a committed artifact, and CI's is different.
+/// The slot on its own, which is what the P-12 rows report. `tools/audit_references.py` reads a
+/// bare `shot.autosave-2.json` in an artifact as a path that ought to exist, and these snapshots
+/// live in a scratch directory that is gone by the time anyone reads the page.
+fn slot_name(path: &Path) -> String {
+    let name = file_name(path);
+    format!(
+        "slot {}",
+        name.trim_start_matches("shot.autosave-")
+            .trim_end_matches(".json")
+    )
+}
+
 fn file_name(path: &Path) -> String {
     path.file_name()
         .expect("an autosave path ends in a file name")
@@ -708,10 +720,11 @@ fn b09_persistence() {
         .expect("rename");
     let mut slots = Vec::new();
     for _ in 0..AUTOSAVE_SLOTS {
-        // The rotation picks the oldest slot, and file timestamps on Windows are coarse
-        // enough that two writes in the same millisecond tie. Waiting is the honest way to
-        // make the ordering observable rather than assumed.
-        std::thread::sleep(std::time::Duration::from_millis(20));
+        // No wait between these. The rotation picks the oldest slot and recovery offers the
+        // newest, both off the file system's modification time, and Windows records that time
+        // coarsely enough that two writes in the same millisecond used to tie - so this loop
+        // slept 20 ms a turn to make the ordering observable. `persist::autosave` now stamps
+        // each snapshot later than the ones beside it, and the sleeps are gone with it.
         slots
             .push(persist::autosave(&path, &loaded.document, &loaded.preserved).expect("autosave"));
     }
@@ -740,7 +753,6 @@ fn b09_persistence() {
         true,
         loaded.document.is_dirty(),
     );
-    std::thread::sleep(std::time::Duration::from_millis(20));
     let sixth = persist::autosave(&path, &loaded.document, &loaded.preserved).expect("autosave");
     report.check(
         "the sixth autosave reuses the oldest of the five slots rather than making a sixth",
@@ -789,6 +801,74 @@ fn b09_persistence() {
         "with nothing to recover, nothing is offered",
         true,
         persist::recovery_diagnostic(&[]).is_none(),
+    );
+    // P-12. Every row above would pass on a build that ordered snapshots by luck: they write
+    // one snapshot at a time and read it back. These two write the rotation twice around with
+    // no wait at all, which is the case that used to tie, and ask which one recovery offers.
+    let dir = scratch("autosave_order");
+    let path = dir.join("shot.json");
+    let mut loaded = persist::load_str(&fixture("cel_holds_project")).expect("opens");
+    let mut written = Vec::new();
+    for n in 0..AUTOSAVE_SLOTS * 2 + 3 {
+        loaded
+            .document
+            .apply(Command::RenameLayer {
+                composition: Id::new("comp-main"),
+                layer_id: Id::new("layer-cel"),
+                name: format!("Snapshot {n}"),
+            })
+            .expect("rename");
+        written
+            .push(persist::autosave(&path, &loaded.document, &loaded.preserved).expect("autosave"));
+    }
+    let offered = persist::recovery_candidates(&path);
+    report.check(
+        "thirteen snapshots written back to back, with no wait: the last one written is the \
+         one recovery offers",
+        slot_name(written.last().expect("thirteen snapshots")),
+        match offered.first() {
+            Some(c) => slot_name(&c.path),
+            None => "no recovery snapshot was offered".to_string(),
+        },
+    );
+    report.check(
+        "and it holds the last edit, not an earlier one",
+        true,
+        offered
+            .first()
+            .and_then(|c| fs::read_to_string(&c.path).ok())
+            .is_some_and(|text| text.contains(&format!("Snapshot {}", AUTOSAVE_SLOTS * 2 + 2))),
+    );
+    // The row above passes on a build that orders snapshots by luck, because thirteen writes on
+    // this machine happen to land in thirteen different clock ticks. This one does not: it dates
+    // every existing snapshot an hour ahead first, which is what a tie looks like taken to its
+    // conclusion - a file system whose times do not order the writes. A build that reads
+    // "newest" straight off the file system offers an hour-old edit here.
+    for slot in 0..AUTOSAVE_SLOTS {
+        let file = fs::File::options()
+            .write(true)
+            .open(persist::autosave_path(&path, slot))
+            .expect("open a snapshot to date it");
+        file.set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(3600))
+            .expect("date a snapshot an hour ahead");
+    }
+    loaded
+        .document
+        .apply(Command::RenameLayer {
+            composition: Id::new("comp-main"),
+            layer_id: Id::new("layer-cel"),
+            name: "Written last, dated first".to_string(),
+        })
+        .expect("rename");
+    let last = persist::autosave(&path, &loaded.document, &loaded.preserved).expect("autosave");
+    report.check(
+        "and with every other snapshot dated an hour ahead, the one just written is still the \
+         one recovery offers",
+        slot_name(&last),
+        match persist::recovery_candidates(&path).first() {
+            Some(c) => slot_name(&c.path),
+            None => "no recovery snapshot was offered".to_string(),
+        },
     );
 
     // == 8. Reopening =======================================================================
