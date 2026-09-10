@@ -1,0 +1,16 @@
+[package]
+name = "p07_gpu"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "P-07 spike: one GPU tile, measured against the CPU renderer. Quarantined per document 06; nothing here ships."
+
+[dependencies]
+wgpu = "26"
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+anime_compositor = { path = "../.." }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
