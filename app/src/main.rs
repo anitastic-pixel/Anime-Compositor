@@ -8805,7 +8805,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 31] = [
+    const CONTROLS: [&str; 32] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -8821,6 +8821,7 @@ mod contract {
         "down",
         "export",
         "fit",
+        "fit100",
         "fwd",
         "import",
         "makecomp",

@@ -113,15 +113,14 @@
      presentation: it is behind a canvas that already carries alpha, so the frame's own pixels
      are never touched by it and cannot be. Squares are a fixed size on screen rather than in
      the picture, which is why this is not painted into the frame. */
-  /* The canvas and the outline occupy one grid cell and are centred in it, so they scale by
-     the same rule and the box cannot drift off the drawing it belongs to. Neither is given a
-     size here beyond the constraint they share. */
-  #stage > canvas, #stage > svg { grid-area: 1 / 1; place-self: center; }
-  /* Zoomed (W-06): the picture is given its size in pixels and the stage scrolls to the rest
-     of it. Auto margins rather than centring, because a centred thing bigger than its box
+  /* The canvas and the outline occupy one grid cell, so they scale by the same rule and the
+     box cannot drift off the drawing it belongs to. Since W-08 the page gives both their size
+     in pixels, fitted or zoomed: a fit is a zoom the page works out from the space it has,
+     rather than the draft canvas's own 480 by 270, which is what "fit" used to leave on a big
+     screen. Auto margins rather than centring, because a centred thing bigger than its box
      loses its left and top edges past where any scrollbar reaches, and auto margins do not. */
-  #stage.zoomed > canvas, #stage.zoomed > svg {
-    place-self: start; margin: auto; max-width: none; max-height: none;
+  #stage > canvas, #stage > svg {
+    grid-area: 1 / 1; place-self: start; margin: auto; max-width: none; max-height: none;
   }
   #boxes { max-width: 100%; max-height: 100%; pointer-events: none; overflow: visible; }
   /* Vector-effect keeps the outline one pixel wide however far the canvas has been scaled up:
@@ -442,7 +441,8 @@
       <button id="toggle">Full resolution</button>
       <button id="alpha">Alpha only</button>
       <button id="checker">Hide grid</button>
-      <button id="fit">Fit</button>
+      <button id="fit" title="Fill the area (Shift+/)">Fit</button>
+      <button id="fit100" title="Fill the area, but never past one pixel per pixel">Fit &le;100%</button>
       <input id="zoomer" type="range" min="-600" max="500" step="1" value="0" aria-label="Zoom">
       <span id="zoomlabel">&mdash;</span>
     </div>
@@ -550,7 +550,8 @@ let selection = [];
 let selectedAsset = null;
 let renaming = false; // an inline edit is open; accelerators keep off the keyboard while it is
 let dragging = false; // a scrub is in progress; the inspector must not be rebuilt under it
-let zoom = null; // screen pixels per composition pixel, or null for the fit the stylesheet makes
+let zoom = null; // screen pixels per composition pixel, or null for a fit to the stage
+let fitCap = Infinity; // the most a fit may enlarge: Infinity, or 1 for "Fit <=100%"
 let marquee = null; // the corners of the box being dragged across the picture, in frame pixels
 let scrubbing = false; // the playhead is being dragged along the timeline
 let swallowClick = false; // a bar was just dragged, and the click that follows is not a click
@@ -1538,18 +1539,27 @@ view.onkeydown = (e) => {
   });
 };
 
-// Zoom (W-06). Null is the fit the page has always had: the picture scaled by the stylesheet to
-// the space it has. A number is screen pixels per composition pixel; the picture is given that
-// size and the stage scrolls to the rest of it. Every screen-to-frame conversion on this page
-// reads the canvas's rectangle on screen, so nothing else has to know which of the two it is.
+// Zoom (W-06). A number is screen pixels per composition pixel; the picture is given that size
+// and the stage scrolls to the rest of it. Null is a fit: the same, with the number worked out
+// from the space the stage has, so that the picture fills it (W-08; before that a fit left the
+// draft canvas at its own 480 by 270, a quarter of a big screen). "Fit <=100%" is a fit that
+// stops at one screen pixel per composition pixel, for looking at the pixels themselves. Every
+// screen-to-frame conversion on this page reads the canvas's rectangle on screen, so nothing
+// else has to know which of the three it is.
+function fitScale(comp) {
+  const style = getComputedStyle(stage);
+  const w = stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const h = stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  return Math.max(1 / 64, Math.min(w / comp.width, h / comp.height, fitCap));
+}
 function applyZoom() {
   const comp = composition();
-  const fit = zoom === null || !comp;
+  const fit = zoom === null;
+  const scale = !comp ? 1 : fit ? fitScale(comp) : zoom;
   for (const el of [view, $('boxes')]) {
-    el.style.width = fit ? '' : comp.width * zoom + 'px';
-    el.style.height = fit ? '' : comp.height * zoom + 'px';
+    el.style.width = !comp ? '' : comp.width * scale + 'px';
+    el.style.height = !comp ? '' : comp.height * scale + 'px';
   }
-  stage.classList.toggle('zoomed', !fit);
   const shown = shownScale();
   $('zoomer').value = Math.round(Math.log2(shown) * 100);
   $('zoomlabel').textContent = !comp ? '\u2014'
@@ -1594,7 +1604,8 @@ stage.onwheel = (e) => {
   const [cx, cy] = e.ctrlKey ? [e.clientX, e.clientY] : stageCentre();
   zoomTo(shownScale() * factor, cx, cy);
 };
-$('fit').onclick = () => { zoom = null; applyZoom(); };
+$('fit').onclick = () => { zoom = null; fitCap = Infinity; applyZoom(); };
+$('fit100').onclick = () => { zoom = null; fitCap = 1; applyZoom(); };
 $('zoomer').oninput = () => zoomTo(2 ** ($('zoomer').value / 100), ...stageCentre());
 
 // A window that changes size changes how many frame pixels a handle is worth, and what the fit
