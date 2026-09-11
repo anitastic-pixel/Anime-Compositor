@@ -184,6 +184,23 @@
     gap: 6px; align-items: center;
   }
   .rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  /* W-12: the arrow beside a layer's name, and the property rows it opens under the layer, as
+     After Effects twirls a layer open. A property row is indented under its layer and its bar
+     carries nothing but that property's keys, so a key can be told from a key on the line
+     above; the value is the one the frame on screen is drawn with, as the inspector shows. */
+  .twirl {
+    font: inherit; width: 18px; padding: 0; background: none; border: 0; color: #909096;
+    cursor: pointer;
+  }
+  .twirl:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
+  #layers li.prop { color: #b0b0b6; }
+  #layers li.prop .rowhead { padding-left: 24px; }
+  #layers li.prop .value {
+    margin-left: auto; padding-right: 6px; color: #909096; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  #layers li.prop .track { height: 14px; background: none; }
+  #layers li.prop .track .key { top: 3px; }
   .track { position: relative; height: 26px; background: #171717; border-radius: 2px; }
   /* Every bar can be pulled, and the ends of the layer's own bar can be pulled apart. The
      class is set by the row as the pointer nears an end, because where an end is on screen is
@@ -1133,7 +1150,15 @@ function drawLayers() {
     const lock = iconButton(layer.locked ? '🔒' : '🔓',
       layer.locked ? 'Unlock ' + layer.name : 'Lock ' + layer.name,
       () => command('/layer.toggle_lock?layer=' + encodeURIComponent(layer.id)));
-    const li = row(selectedLayer, layer.id, layer.name, [eye, lock]);
+    // W-12: the arrow that opens the layer's properties under it, as After Effects does. All
+    // five or none; the letters A, P, S, R, T and U open them one at a time.
+    const open = shownOf(layer.id);
+    const twirl = iconButton(open.size ? '\u25be' : '\u25b8',
+      (open.size ? 'Hide the properties of ' : 'Show the properties of ') + layer.name,
+      () => { shown.set(layer.id, open.size ? new Set() : new Set(PROPS)); drawLayers(); });
+    twirl.className = 'twirl';
+    twirl.setAttribute('aria-expanded', String(open.size > 0));
+    const li = row(selectedLayer, layer.id, layer.name, [twirl, eye, lock]);
     // Colour is not the only carrier: a layer that is off or locked says so in words.
     if (!layer.enabled || layer.locked) {
       const mark = document.createElement('span');
@@ -1153,8 +1178,42 @@ function drawLayers() {
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     li.onclick = (e) => select(layer.id, e.shiftKey);
     li.ondblclick = () => beginRename();
-    return li;
+    return [li, ...PROPS.filter((prop) => open.has(prop)).map((prop) => propTrack(comp, layer, prop))];
   }));
+}
+
+// W-12: one property of a layer as a row of the timeline: its name, the diamond the inspector
+// has, its value on the frame on screen, and a bar with a mark at each of its keys and nothing
+// else. Moving a mark is W-11; a press on the row selects the layer.
+function propTrack(comp, layer, prop) {
+  const li = document.createElement('li');
+  li.className = 'prop';
+  li.dataset.id = layer.id;
+  const head = document.createElement('div');
+  head.className = 'rowhead';
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = prop[0].toUpperCase() + prop.slice(1);
+  const value = document.createElement('span');
+  value.className = 'value';
+  value.textContent = transformValue(layer, prop).map((v) => number(v * (prop === 'opacity' ? 100 : 1)))
+    .join(', ') + ({ rotation: '\u00b0', opacity: '%' }[prop] || '');
+  head.append(keyButton(layer, prop), name, value);
+  li.append(head);
+  const box = document.createElement('div');
+  box.className = 'track';
+  if (comp) {
+    for (const key of keysOf(layer, prop)) {
+      const mark = document.createElement('div');
+      mark.className = 'key';
+      mark.style.left = percent(atFrame(comp, key.frame + 0.5));
+      mark.title = prop + ' at frame ' + key.frame + ': ' + [].concat(key.value).join(', ');
+      box.append(mark);
+    }
+  }
+  li.append(box);
+  li.onclick = (e) => select(layer.id, e.shiftKey);
+  return li;
 }
 
 
@@ -1738,6 +1797,34 @@ function scrubHandle(text, title, step, read, live, done, typed) {
 
 const PROPS = ['anchor', 'position', 'scale', 'rotation', 'opacity'];
 const keysOf = (layer, prop) => ((layer.transform || {})[prop] || {}).keyframes || [];
+
+// W-12: which of a layer's properties are open under it on the timeline, by layer id. Page
+// state and not project state: a file says nothing about what is unfolded on screen, so this
+// is not sent anywhere and not saved. A layer that is gone leaves an entry nothing reads.
+const shown = new Map();
+const shownOf = (id) => shown.get(id) || new Set();
+
+// After Effects' property keys, on every selected layer. A, P, S, R and T open that property
+// alone, or close it if it was open alone already; with Shift the property is added to what is
+// open, or taken from it; U opens the animated properties, or closes them if they were what was
+// open. Nothing selected, nothing happens, as in After Effects.
+function showProps(props, add) {
+  if (!selection.length) return;
+  for (const id of selection) {
+    const layer = layers().find((l) => l.id === id);
+    const open = shownOf(id);
+    const want = props === 'animated'
+      ? new Set(PROPS.filter((prop) => keysOf(layer, prop).length)) : new Set(props);
+    const same = open.size === want.size && [...want].every((prop) => open.has(prop));
+    let next;
+    if (add) {
+      next = new Set(open);
+      for (const prop of props) { if (next.has(prop)) next.delete(prop); else next.add(prop); }
+    } else next = same ? new Set() : want;
+    shown.set(id, next);
+  }
+  drawLayers();
+}
 
 // A property's numbers on the frame on screen: the base where it has no keys, and otherwise
 // what the window said it is on this frame, which is the interpolated value. Until that
@@ -2468,9 +2555,19 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight') step(1);
   else if (e.key === 'd' || e.key === 'D') $('toggle').click();
   // The two inspection views. Single letters like D above, because they change nothing in the
-  // project and a person switches between them constantly while judging an edge.
-  else if (e.key === 'a' || e.key === 'A') $('alpha').click();
+  // project and a person switches between them constantly while judging an edge. Alpha-only
+  // was on A alone until W-12 gave A to the anchor, as After Effects has it; document 24 never
+  // promised alpha-only a key, so Alt+A is the window's own choice, like A was.
+  else if (e.altKey && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); $('alpha').click(); }
   else if (e.key === 'g' || e.key === 'G') $('checker').click();
+  // W-12: After Effects' property keys. Each opens one property under the selected layers on
+  // the timeline, Shift with it adds to what is open, U opens whatever is animated.
+  else if (e.key === 'a' || e.key === 'A') showProps(['anchor'], e.shiftKey);
+  else if (e.key === 'p' || e.key === 'P') showProps(['position'], e.shiftKey);
+  else if (e.key === 's' || e.key === 'S') showProps(['scale'], e.shiftKey);
+  else if (e.key === 'r' || e.key === 'R') showProps(['rotation'], e.shiftKey);
+  else if (e.key === 't' || e.key === 'T') showProps(['opacity'], e.shiftKey);
+  else if (e.key === 'u' || e.key === 'U') showProps('animated');
 });
 
 // D-35: at rest the viewer shows the work area's first frame.

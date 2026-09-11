@@ -132,7 +132,7 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and Delete presses | $('dellayer') | $('dellayer') | pass |
 | and Space presses | $('play') | $('play') | pass |
 | and D presses | $('toggle') | $('toggle') | pass |
-| and A presses | $('alpha') | $('alpha') | pass |
+| and Alt+A presses | $('alpha') | $('alpha') | pass |
 | and G presses | $('checker') | $('checker') | pass |
 | and Shift+/ presses | $('fit') | $('fit') | pass |
 

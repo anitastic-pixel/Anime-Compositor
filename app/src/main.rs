@@ -7823,7 +7823,7 @@ mod contract {
         ("Delete", "e.key === 'Delete'", "$('dellayer')"),
         ("Space", "e.key === ' ') {", "$('play')"),
         ("D", "e.key === 'd'", "$('toggle')"),
-        ("A", "e.key === 'a'", "$('alpha')"),
+        ("Alt+A", "e.key === 'a'", "$('alpha')"),
         ("G", "e.key === 'g'", "$('checker')"),
         ("Shift+/", "e.key === '?'", "$('fit')"),
     ];
@@ -9103,7 +9103,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 19] = [
+    const KEYS: [&str; 23] = [
         "1",
         "?",
         "A",
@@ -9118,8 +9118,12 @@ mod contract {
         "M",
         "N",
         "O",
+        "P",
+        "R",
         "S",
         "Space",
+        "T",
+        "U",
         "Z",
         "[",
         "]",
@@ -9257,7 +9261,10 @@ mod contract {
          names. Since W-07 every value box in the effects panel has the handle the transform rows \
          have, and its arrow keys step the value the same way; the tint's colour picker sets the \
          three numbers beside it, which are typed like any other; and an effect card is dragged \
-         up or down the stack, where the arrows on it move it a step at a time.",
+         up or down the stack, where the arrows on it move it a step at a time. Since W-12 the \
+         After Effects property keys A, P, S, R, T and U open a selected layer's properties under \
+         it on the timeline, Shift with a key adds one, and the arrow beside the layer's name is \
+         a button that opens all five; alpha-only inspection moved from A to Alt+A to make room.",
         "The two lists are the part that had to be built rather than inherited. Every button \
          here is a `button` and every chooser a `select`, so the Tab order is the browser's and \
          nothing had to be arranged; the rows of the media bin and the layer list are `li` \
