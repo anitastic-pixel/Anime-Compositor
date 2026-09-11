@@ -1341,6 +1341,7 @@ const ANSWERS: &[&str] = &[
     "edit.undo",
     "effect.add",
     "effect.delete",
+    "effect.move",
     "effect.move_down",
     "effect.move_up",
     "effect.set_parameters",
@@ -1852,11 +1853,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         index: None,
                     }
                 }
-                // The other five all name an instance that is already on the layer, so the
+                // The other six all name an instance that is already on the layer, so the
                 // lookup and its refusal are written once.
                 "effect.delete"
                 | "effect.toggle_bypass"
                 | "effect.set_parameters"
+                | "effect.move"
                 | "effect.move_up"
                 | "effect.move_down" => {
                     let Some(instance_id) = parameter(query, "effect").map(Id::new) else {
@@ -1900,6 +1902,32 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                 at + 1
                             },
                         },
+                        // W-07: a card dragged up or down the stack lands at one position,
+                        // sent once at the drop. Past the end is the core's refusal; the place
+                        // it already has is refused here, because the core would write it as
+                        // a change and it would be an undo step that undoes nothing.
+                        "effect.move" => {
+                            let Some(to_index) =
+                                parameter(query, "to").and_then(|to| to.parse::<usize>().ok())
+                            else {
+                                return Some(
+                                    "Where to? Send the position in the stack, counted from \
+                                     nought."
+                                        .to_string(),
+                                );
+                            };
+                            if to_index == at {
+                                return Some(format!(
+                                    "{instance_id} is already at position {to_index}."
+                                ));
+                            }
+                            Command::ReorderEffect {
+                                composition,
+                                layer_id,
+                                instance_id,
+                                to_index,
+                            }
+                        }
                         "effect.toggle_bypass" => Command::SetEffectEnabled {
                             composition,
                             layer_id,
@@ -3988,6 +4016,29 @@ mod editing {
                 stack(&viewer, l)
             },
         );
+        // W-07: a card dragged up or down the stack lands at one position, sent once.
+        report.check(
+            "moving an effect straight to a position says where it went",
+            "Move effect fx-4 to position 0",
+            run(&viewer, "effect.move?layer=layer-cel&effect=fx-4&to=0"),
+        );
+        report.check(
+            "and it is there, with the others closed up behind it",
+            "fx-4 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, \
+             fx-1 core.gaussian_blur on, fx-3 core.exposure on",
+            stack(&viewer, l),
+        );
+        report.check(
+            "a position past the end is refused in words",
+            "Position 9 is past the end of a stack of 4 effects.",
+            run(&viewer, "effect.move?layer=layer-cel&effect=fx-4&to=9"),
+        );
+        report.check(
+            "and so is the position it already has, rather than written as a change",
+            "fx-4 is already at position 0.",
+            run(&viewer, "effect.move?layer=layer-cel&effect=fx-4&to=0"),
+        );
+        run(&viewer, "effect.move?layer=layer-cel&effect=fx-4&to=3");
         report.check(
             "an effect this build does not have moves like any other",
             "fx-1 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, \
@@ -7139,6 +7190,7 @@ mod contract {
         "edit.undo",
         "effect.add",
         "effect.delete",
+        "effect.move",
         "effect.move_down",
         "effect.move_up",
         "effect.set_parameters",
@@ -7444,6 +7496,7 @@ mod contract {
         ("effect.set_parameters", "a command the window answers"),
         ("effect.move_up", "a command the window answers"),
         ("effect.move_down", "a command the window answers"),
+        ("effect.move", "a command the window answers"),
         ("viewer.fit", "the page, with no request"),
         ("viewer.zoom_100", "the page, with no request"),
         ("viewer.toggle_checkerboard", "a command the window answers"),
@@ -7748,24 +7801,30 @@ mod contract {
     /// The three places in the page where somebody types into a field and the window is sent a
     /// command: the control, the text that wires it, and what commits it.
     ///
-    /// All three use `onchange`, which is the browser's own answer to document 26's rule.
-    /// `change` fires when a field is committed **and** its value differs from the value it had
-    /// when it took focus - not on a keystroke, and not on a visit that changed nothing. Using
-    /// it rather than `input` is the whole of the coalescing here, and swapping one for the
-    /// other is a one-word edit, which is why it is pinned rather than trusted.
+    /// Two of the three use `onchange`, which is the browser's own answer to document 26's
+    /// rule. `change` fires when a field is committed **and** its value differs from the value
+    /// it had when it took focus - not on a keystroke, and not on a visit that changed nothing.
+    /// Using it rather than `input` is the whole of the coalescing there, and swapping one for
+    /// the other is a one-word edit, which is why it is pinned rather than trusted.
+    ///
+    /// The third is document 26's other sentence about text, since W-07: "text edits may
+    /// coalesce while one field has focus; committing/focus exit ends the transaction". An
+    /// effect's setting is sent on every keystroke inside the drag transaction the picture's
+    /// drags use, so the picture follows the typing, and losing focus is what ends the drag.
     const TYPED_FIELDS: &[(&str, &str, &str)] = &[
         (
-            "a layer's name",
+            "a layer's name is committed by losing focus",
             "layer.rename",
             "box.onblur = () => finish(true);",
         ),
         (
-            "an effect's settings",
+            "an effect's settings are sent as they are typed, inside one drag that losing focus \
+             closes",
             "effect.set_parameters",
-            "input.onchange = sendParameters;",
+            "input.onblur = () => close(false);",
         ),
         (
-            "an exposure's frames",
+            "an exposure's frames are committed by losing focus",
             "exposure.set_span",
             "input.onchange = sendSpan;",
         ),
@@ -7803,11 +7862,18 @@ mod contract {
         );
         for (control, id, wiring) in TYPED_FIELDS {
             report.check(
-                &format!("{control} is committed by losing focus, and sends `{id}`"),
+                &format!("{control}, and sends `{id}`"),
                 true,
                 page.contains(wiring),
             );
         }
+        report.check(
+            "what an effect's field sends per keystroke is inside a drag",
+            true,
+            page.contains(
+                "const live = () => { open = true; dragging = true; sendParameters('&drag=1'); };",
+            ),
+        );
         report.check(
             "and a name committed unchanged sends nothing at all",
             true,
@@ -7852,6 +7918,34 @@ mod contract {
         report.check(
             "so undoing once goes back one commit, not back to before the field was touched",
             "GaussianBlur { sigma_px: 6.0 }",
+            layer(&viewer, "layer-1", |l| {
+                l.effects
+                    .iter()
+                    .map(|e| format!("{:?}", e.effect))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_else(|| "(no such layer)".to_string()),
+        );
+
+        // W-07: the same field typed live. Three keystrokes travel inside one drag and losing
+        // the focus closes it, so the three are one entry and the entry holds the last of them.
+        let before = held(&viewer).document.undo_depth();
+        for sigma in ["3", "3.", "3.5"] {
+            run(
+                &viewer,
+                &format!("effect.set_parameters?layer=layer-1&effect=fx-1&sigma_px={sigma}&drag=1"),
+            );
+        }
+        run(&viewer, "property.drag_end");
+        report.check(
+            "a setting typed in three keystrokes, each sent as it lands, is one entry",
+            format!("undo list {}", before + 1),
+            format!("undo list {}", held(&viewer).document.undo_depth()),
+        );
+        report.check(
+            "and the entry holds the last keystroke, not the first",
+            "GaussianBlur { sigma_px: 3.5 }",
             layer(&viewer, "layer-1", |l| {
                 l.effects
                     .iter()
@@ -8635,10 +8729,7 @@ mod contract {
                 "a row in the media bin or the layer list",
                 "  li.tabIndex = 0;",
             ),
-            (
-                "the drag handle beside a transform value",
-                "    handle.tabIndex = 0;",
-            ),
+            ("the drag handle beside a value", "  handle.tabIndex = 0;"),
         ] {
             report.check(
                 &format!("{what} is put into the Tab order by hand"),
@@ -8774,15 +8865,21 @@ mod contract {
 
     /// The identifiers that are a drag and cannot be anything else.
     ///
-    /// It was all three of them until W-04. A nudge with the arrow keys now moves every selected
-    /// layer, and one press moving three layers has to be one thing to undo, so the nudge opens
-    /// and commits the same transaction a drag does: `property.drag_update` once per layer and
-    /// then `property.drag_end`. Only the cancel is left, because the only thing that cancels a
-    /// drag is Escape during one, and there is no drag to be in without a pointer.
-    const MOUSE_ONLY: [&str; 1] = ["property.drag_cancel"];
+    /// It was the three `property.drag_*` identifiers until W-04. A nudge with the arrow keys
+    /// now moves every selected layer, and one press moving three layers has to be one thing
+    /// to undo, so the nudge opens and commits the same transaction a drag does:
+    /// `property.drag_update` once per layer and then `property.drag_end`. The cancel was the
+    /// last of them, and W-07 took it too: an effect's setting is sent as it is typed inside
+    /// that same transaction, and Escape in the field abandons it.
+    ///
+    /// `effect.move` is what is left, since W-07. It is the drop at the end of a card dragged
+    /// up or down the stack, and the two arrows on the card send `effect.move_up` and
+    /// `effect.move_down` to the same end a step at a time, which is the pairing the rows
+    /// below are for.
+    const MOUSE_ONLY: [&str; 1] = ["effect.move"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 12] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 15] = [
         (
             "double clicking a drawing sequence in the media bin",
             "make a layer out of it",
@@ -8796,7 +8893,7 @@ mod contract {
         (
             "dragging a transform value",
             "change it",
-            "next[i] = held[i] + by * STEP[prop] * (e.shiftKey ? 10 : 1);",
+            "typed(read() + by * step * (e.shiftKey ? 10 : 1));",
         ),
         (
             "dragging a layer on the picture",
@@ -8806,7 +8903,7 @@ mod contract {
         (
             "pulling a corner or the rotation arm on the picture",
             "scale or turn the layer",
-            "next[i] = held[i] + by * STEP[prop] * (e.shiftKey ? 10 : 1);",
+            "typed(read() + by * step * (e.shiftKey ? 10 : 1));",
         ),
         (
             "dragging along the ruler",
@@ -8843,6 +8940,21 @@ mod contract {
             "zoom",
             "e.key === '1'",
         ),
+        (
+            "dragging the handle beside an effect's setting",
+            "change the setting",
+            "typed(read() + by * step * (e.shiftKey ? 10 : 1));",
+        ),
+        (
+            "moving over the tint's colour picker",
+            "choose the colour",
+            "fields[name].push(input);",
+        ),
+        (
+            "dragging an effect's name up or down the stack",
+            "reorder the effects",
+            "command('/effect.move_up' + where)",
+        ),
     ];
 
     const KEYBOARD_INTRO: &[&str] = &[
@@ -8859,14 +8971,16 @@ mod contract {
     ];
 
     const KEYBOARD_NOTES: &[&str] = &[
-        "## What to look at\n\nThe one row that says **no**. `property.drag_cancel` is Escape \
-         during a drag, and there is no drag to be in the middle of without a pointer. It used \
-         to be three: `property.drag_update` and `property.drag_end` are the running transaction \
+        "## What to look at\n\nThe one row that says **no**. `effect.move` is the drop of a \
+         card dragged up or down the effect stack, and the arrows on the card do the same job a \
+         step at a time. It used to be `property.drag_cancel`, Escape during a drag, and before \
+         W-04 three: `property.drag_update` and `property.drag_end` are the running transaction \
          and the coalescing document 26 asks for, and until W-04 only a pointer opened one. \
          Nudging the picture with the arrow keys now moves every selected layer, and one press \
          moving three layers has to be one thing to undo, so it opens and commits that same \
-         transaction. \
-         The rest of the keyboard changes numbers rather than dragging them, and the last twelve rows \
+         transaction; and since W-07 an effect's setting is sent as it is typed inside that same \
+         transaction, so Escape in the field abandons it, which is the cancel without a pointer. \
+         The rest of the keyboard changes numbers rather than dragging them, and the last fifteen rows \
          are the mouse gestures in this \r
          window each paired with the thing that does the same job without one: the arrow keys on a \r
          focused handle send `property.set_base`, which is one undo step per press rather than one per \r
@@ -8878,7 +8992,10 @@ mod contract {
          Shift with Space or Enter on a row in the layer list adds that row the way Shift with a \
          click does; the anchor mark is dragged, and its two numbers are in the inspector like \
          the rest; and the wheel zooms, where Ctrl+1 and Shift+/ set the two zooms document 24 \
-         names.",
+         names. Since W-07 every value box in the effects panel has the handle the transform rows \
+         have, and its arrow keys step the value the same way; the tint's colour picker sets the \
+         three numbers beside it, which are typed like any other; and an effect card is dragged \
+         up or down the stack, where the arrows on it move it a step at a time.",
         "The two lists are the part that had to be built rather than inherited. Every button \
          here is a `button` and every chooser a `select`, so the Tab order is the browser's and \
          nothing had to be arranged; the rows of the media bin and the layer list are `li` \

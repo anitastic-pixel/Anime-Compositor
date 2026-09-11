@@ -340,13 +340,17 @@
   .exposure .gone { color: #e8b06a; }
   .effect { border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; }
   .effect .head { display: flex; align-items: center; gap: 6px; }
-  .effect .head .name { flex: 1; font-weight: 600; }
+  .effect .head .name { flex: 1; font-weight: 600; cursor: grab; }
+  .effect.lifted { opacity: 0.6; }
   .effect .head .name.off { color: #75757c; font-weight: 400; }
   .effect .head .mark { color: #e8b06a; font-size: 11px; }
   .effect .head button { padding: 0 4px; border-color: transparent; background: transparent; }
   .effect .head .blank { display: inline-block; width: 1.4em; }
   .effect dl { margin-top: 4px; }
-  .effect input[type=text] { width: 8em; }
+  .effect input[type=color] {
+    width: 2.4em; height: 1.7em; padding: 0 1px; vertical-align: middle;
+    border: 1px solid #4a4a4a; border-radius: 3px; background: #141414;
+  }
   #relinking { border: 1px solid #e8b06a; border-radius: 4px; padding: 6px; margin-top: 6px; }
   #newcomposition { border: 1px solid #7a8ba0; border-radius: 4px; padding: 6px; margin-top: 6px; }
   /* Five fields and two buttons in a column 220 pixels wide. Label beside field rather than
@@ -1613,6 +1617,47 @@ const STEP = { anchor: 1, position: 1, scale: 1, rotation: 1, opacity: 1 };
 // the arithmetic a drag does.
 const number = (n) => String(Math.round(n * 1e6) / 1e6);
 
+// The handle a number is dragged by. It was the transform rows' own until W-07 asked for the
+// same drag on every value box, so it is one function with two callers: `read` is the number
+// as it stands, `live` is sent per pixel inside the drag, `done` closes the drag, and `typed` is
+// the arrow keys, which commit one step at a time and are how the drag is done without a mouse.
+function scrubHandle(text, title, step, read, live, done, typed) {
+  const handle = document.createElement('span');
+  handle.className = 'scrub';
+  handle.tabIndex = 0;
+  handle.textContent = text;
+  handle.title = title;
+  handle.onpointerdown = (e) => {
+    e.preventDefault();
+    dragging = true;
+    handle.setPointerCapture(e.pointerId);
+    const from = e.clientX;
+    const start = read();
+    // Document 24: "Escape restores the pre-drag value." The key listener is on the window
+    // because the pointer owns the events while it is captured.
+    const escape = (k) => { if (k.key === 'Escape') { stop(true); } };
+    const stop = (cancelled) => {
+      dragging = false;
+      handle.onpointermove = null;
+      handle.onpointerup = null;
+      window.removeEventListener('keydown', escape, true);
+      done(cancelled);
+    };
+    handle.onpointermove = (m) => live(start + (m.clientX - from) * step);
+    handle.onpointerup = () => stop(false);
+    window.addEventListener('keydown', escape, true);
+  };
+  // The keyboard equivalent, because document 05 asks for every control to be reachable
+  // without a mouse and a drag is not.
+  handle.onkeydown = (e) => {
+    const by = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }[e.key];
+    if (by === undefined) return;
+    e.preventDefault();
+    typed(read() + by * step * (e.shiftKey ? 10 : 1));
+  };
+  return handle;
+}
+
 function transformValue(layer, prop) {
   const held = ((layer.transform || {})[prop] || {}).base;
   return Array.isArray(held) ? held.slice() : [held];
@@ -1631,11 +1676,13 @@ function propRow(into, layer, prop, parts, per = 1) {
     + '&prop=' + prop + '&value='
     + encodeURIComponent(values.map((v) => number(v / per)).join(',')));
   parts.forEach((part, i) => {
-    const handle = document.createElement('span');
-    handle.className = 'scrub';
-    handle.tabIndex = 0;
-    handle.textContent = part;
-    handle.title = 'Drag left or right to change ' + prop + ', or use the arrow keys';
+    const with_ = (v) => { const next = held.slice(); next[i] = v; return next; };
+    const handle = scrubHandle(part,
+      'Drag left or right to change ' + prop + ', or use the arrow keys', STEP[prop],
+      () => held[i],
+      (v) => send('property.drag_update', with_(v)),
+      (cancelled) => command(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
+      (v) => send('property.set_base', with_(v)));
     const input = document.createElement('input');
     input.type = 'number';
     input.step = 'any';
@@ -1654,41 +1701,6 @@ function propRow(into, layer, prop, parts, per = 1) {
       if (e.key === 'Escape') { input.value = number(held[i]); input.blur(); }
     };
     input.onchange = commit;
-    handle.onpointerdown = (e) => {
-      e.preventDefault();
-      dragging = true;
-      handle.setPointerCapture(e.pointerId);
-      const from = e.clientX;
-      const start = held.slice();
-      // Document 24: "Escape restores the pre-drag value." The key listener is on the window
-      // because the pointer owns the events while it is captured.
-      const escape = (k) => { if (k.key === 'Escape') { stop(true); } };
-      const move = (m) => {
-        const next = start.slice();
-        next[i] = start[i] + (m.clientX - from) * STEP[prop];
-        send('property.drag_update', next);
-      };
-      const stop = (cancelled) => {
-        dragging = false;
-        handle.onpointermove = null;
-        handle.onpointerup = null;
-        window.removeEventListener('keydown', escape, true);
-        command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
-      };
-      handle.onpointermove = move;
-      handle.onpointerup = () => stop(false);
-      window.addEventListener('keydown', escape, true);
-    };
-    // The keyboard equivalent, because document 05 asks for every control to be reachable
-    // without a mouse and a drag is not.
-    handle.onkeydown = (e) => {
-      const by = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }[e.key];
-      if (by === undefined) return;
-      e.preventDefault();
-      const next = held.slice();
-      next[i] = held[i] + by * STEP[prop] * (e.shiftKey ? 10 : 1);
-      send('property.set_base', next);
-    };
     if (i) dd.append(' ');
     dd.append(handle, ' ', input);
   });
@@ -1775,14 +1787,27 @@ const EFFECT_NAMES = {
   'core.tint': 'Tint',
 };
 
-// Each effect's parameters, named as the file names them, with the words a person reads and
-// whether the field takes one number or three. Document 21 states the units, and they are the
-// file's own here as everywhere else in this panel.
+// Each effect's parameters, named as the file names them, with the words a person reads,
+// whether the field takes one number or three, and how far one pixel of drag moves it. Document
+// 21 states the units, and they are the file's own here as everywhere else in this panel.
 const EFFECT_PARAMS = {
-  'core.gaussian_blur': [['sigma_px', 'Radius σ, in source pixels', 1]],
-  'core.exposure': [['stops', 'Stops', 1]],
-  'core.tint': [['color', 'Colour, linear RGB', 3], ['amount', 'Amount, 0 to 1', 1]],
+  'core.gaussian_blur': [['sigma_px', 'Radius σ, in source pixels', 1, 0.1]],
+  'core.exposure': [['stops', 'Stops', 1, 0.02]],
+  'core.tint': [['color', 'Colour, linear RGB', 3, 0.01], ['amount', 'Amount, 0 to 1', 1, 0.01]],
 };
+
+// Document 21 keeps the tint colour in linear light, and a colour picker speaks in sRGB. These
+// are the two transfer functions of `src/color.rs`, so the swatch shows the colour the file
+// means, clamped to the nought-to-one a swatch can show; the numbers beside it are not clamped.
+const hexOf = (rgb) => '#' + rgb.map((c) => {
+  const l = Math.min(1, Math.max(0, c));
+  const s = l <= 0.0031308 ? 12.92 * l : 1.055 * l ** (1 / 2.4) - 0.055;
+  return Math.round(s * 255).toString(16).padStart(2, '0');
+}).join('');
+const linearOf = (hex) => [1, 3, 5].map((at) => {
+  const s = parseInt(hex.slice(at, at + 2), 16) / 255;
+  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+});
 
 // The drawings the layer's own sequence has, as a set, so a row can say when it names one the
 // folder does not contain. The core allows it — document 28 renders such a frame as nothing
@@ -1874,12 +1899,41 @@ function effectRow(layer, fx, at, of) {
     + '&effect=' + encodeURIComponent(fx.instance_id);
   const head = document.createElement('div');
   head.className = 'head';
+  // W-07: the name is a grip. The card follows the pointer up and down the stack, the others
+  // making room as it passes, and the drop sends the one position it landed at, so a drag is
+  // one entry to undo. The two arrows beside it do the same job a step at a time.
+  const name = Object.assign(document.createElement('span'), {
+    className: fx.enabled ? 'name' : 'name off',
+    textContent: label,
+    title: 'Drag up or down to reorder',
+  });
+  name.onpointerdown = (e) => {
+    e.preventDefault();
+    dragging = true;
+    name.setPointerCapture(e.pointerId);
+    box.classList.add('lifted');
+    name.onpointermove = (m) => {
+      const over = document.elementFromPoint(m.clientX, m.clientY);
+      const card = over && over.closest('.effect');
+      if (!card || card === box || card.parentElement !== box.parentElement) return;
+      const r = card.getBoundingClientRect();
+      card.parentElement.insertBefore(box,
+        m.clientY < r.top + r.height / 2 ? card : card.nextSibling);
+    };
+    name.onpointerup = () => {
+      dragging = false;
+      name.onpointermove = null;
+      name.onpointerup = null;
+      box.classList.remove('lifted');
+      const to = Array.from(box.parentElement.children).indexOf(box);
+      if (to !== at) command('/effect.move' + where + '&to=' + to);
+    };
+  };
   head.append(
     iconButton(fx.enabled ? '●' : '○',
       (fx.enabled ? 'Bypass ' : 'Switch on ') + label,
       () => command('/effect.toggle_bypass' + where)),
-    Object.assign(document.createElement('span'),
-      { className: fx.enabled ? 'name' : 'name off', textContent: label }),
+    name,
     // Colour is not the only carrier: a bypassed effect says so in a word as well as a symbol.
     Object.assign(document.createElement('span'),
       { className: 'mark', textContent: fx.enabled ? '' : 'bypassed' }),
@@ -1904,25 +1958,73 @@ function effectRow(layer, fx, at, of) {
   }
   const dl = document.createElement('dl');
   const fields = {};
-  const sendParameters = () => {
+  let pick = null;
+  const sendParameters = (extra = '') => {
     const parts = known.map(([name]) => '&' + name + '='
-      + encodeURIComponent(fields[name].value.trim()));
-    command('/effect.set_parameters' + where + parts.join(''));
+      + encodeURIComponent(fields[name].map((f) => f.value.trim()).join(',')));
+    if (pick) pick.value = hexOf(fields.color.map((f) => Number(f.value) || 0));
+    command('/effect.set_parameters' + where + parts.join('') + extra);
   };
-  for (const [name, words, count] of known) {
+  // W-07: the fields are live. A keystroke, a pixel of drag on a handle and a move over the
+  // colour picker each send inside one drag transaction, so the picture follows the hand, and
+  // leaving the field closes it, so one visit is one entry to undo -- document 26, "text edits
+  // may coalesce while one field has focus; committing/focus exit ends the transaction". Until
+  // now a setting was sent when its field lost focus and not before, which is finding 10 of the
+  // second sitting: the effect "did not show" until a click somewhere else took the focus.
+  let open = false;
+  const live = () => { open = true; dragging = true; sendParameters('&drag=1'); };
+  const close = (cancelled) => {
+    if (!open) return;
+    open = false;
+    dragging = false;
+    command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+  };
+  for (const [name, words, count, step] of known) {
     const dt = document.createElement('dt');
     dt.textContent = words;
     const dd = document.createElement('dd');
     const held = (fx.parameters || {})[name];
-    const input = document.createElement('input');
-    input.type = count === 1 ? 'number' : 'text';
-    if (count === 1) input.step = 'any';
-    input.value = Array.isArray(held) ? held.map(number).join(', ') : number(held || 0);
-    input.setAttribute('aria-label', label + ' ' + words);
-    input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } };
-    input.onchange = sendParameters;
-    fields[name] = input;
-    dd.append(input);
+    const values = Array.isArray(held) ? held : [Number(held) || 0];
+    fields[name] = [];
+    if (count === 3) {
+      pick = document.createElement('input');
+      pick.type = 'color';
+      pick.value = hexOf(values);
+      pick.title = 'Pick the colour';
+      pick.setAttribute('aria-label', label + ' colour picker');
+      pick.oninput = () => {
+        linearOf(pick.value).forEach((v, i) => { fields[name][i].value = number(v); });
+        live();
+      };
+      pick.onchange = () => close(false);
+      pick.onblur = () => close(false);
+      dd.append(pick, ' ');
+    }
+    values.forEach((value, i) => {
+      const part = count === 3 ? 'rgb'[i] : '±';
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = 'any';
+      input.value = number(value);
+      input.setAttribute('aria-label', label + ' ' + words + (count === 3 ? ' ' + part : ''));
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        // Back to the value the field had, so that the blur after it has nothing to commit.
+        if (e.key === 'Escape') { input.value = number(value); close(true); input.blur(); }
+      };
+      input.oninput = () => live();
+      input.onblur = () => close(false);
+      const set = (v) => { input.value = number(v); };
+      const handle = scrubHandle(part,
+        'Drag left or right to change ' + words + ', or use the arrow keys', step,
+        () => Number(input.value) || 0,
+        (v) => { set(v); live(); },
+        close,
+        (v) => { set(v); sendParameters(); });
+      if (i) dd.append(' ');
+      dd.append(handle, ' ', input);
+      fields[name].push(input);
+    });
     dl.append(dt, dd);
   }
   box.append(dl);
@@ -1931,6 +2033,9 @@ function effectRow(layer, fx, at, of) {
 
 // Document 21 evaluates the stack in order, so it is listed in order, top to bottom.
 function drawEffects() {
+  // The same rule as the inspector's: a field being typed into or a card being dragged is
+  // rebuilt after the hand lets go, not under it.
+  if (dragging) return;
   const layer = selected();
   const into = $('effects');
   $('addeffect').disabled = !layer;

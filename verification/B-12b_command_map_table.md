@@ -31,8 +31,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 24 names the identifiers this table walks | 41 | 41 | pass |
-| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
+| document 24 names the identifiers this table walks | 42 | 42 | pass |
+| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
 | `project.new` is reached by | nothing yet | nothing yet | pass |
 | `project.open` is reached by | a route the shell answers | a route the shell answers | pass |
 | `project.save` is reached by | a route the shell answers | a route the shell answers | pass |
@@ -67,6 +67,7 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `effect.set_parameters` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.move_up` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.move_down` is reached by | a command the window answers | a command the window answers | pass |
+| `effect.move` is reached by | a command the window answers | a command the window answers | pass |
 | `viewer.fit` is reached by | the page, with no request | the page, with no request | pass |
 | `viewer.zoom_100` is reached by | the page, with no request | the page, with no request | pass |
 | `viewer.toggle_checkerboard` is reached by | a command the window answers | a command the window answers | pass |
@@ -135,4 +136,4 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and G presses | $('checker') | $('checker') | pass |
 | and Shift+/ presses | $('fit') | $('fit') | pass |
 
-**103 of 103 checks pass.**
+**104 of 104 checks pass.**

@@ -21,7 +21,7 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the identifiers the page sends are the ones written down here | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
+| the identifiers the page sends are the ones written down here | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
 | the routes the page asks for that are not commands are the ones written down here | at, boxes, cancel-export, export, frame, open, recent, recover, save, save-as, state | at, boxes, cancel-export, export, frame, open, recent, recover, save, save-as, state | pass |
 | the window answers `composition.create` | a sentence | a sentence | pass |
 | the window answers `composition.open` | a sentence | a sentence | pass |
@@ -29,6 +29,7 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the window answers `edit.undo` | a sentence | a sentence | pass |
 | the window answers `effect.add` | a sentence | a sentence | pass |
 | the window answers `effect.delete` | a sentence | a sentence | pass |
+| the window answers `effect.move` | a sentence | a sentence | pass |
 | the window answers `effect.move_down` | a sentence | a sentence | pass |
 | the window answers `effect.move_up` | a sentence | a sentence | pass |
 | the window answers `effect.set_parameters` | a sentence | a sentence | pass |
@@ -76,4 +77,4 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the Leave it as it is control sends `media.relink` | true | true | pass |
 | every control the script reaches for is one the markup defines | none missing | none missing | pass |
 
-**54 of 54 checks pass.**
+**55 of 55 checks pass.**

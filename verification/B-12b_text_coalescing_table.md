@@ -16,17 +16,20 @@ The last three rows are not about text at all. They drag a position through seve
 |---|---|---|---|
 | no field in the page sends anything while a key is being pressed | no input event handler sends a command | no input event handler sends a command | pass |
 | a layer's name is committed by losing focus, and sends `layer.rename` | true | true | pass |
-| an effect's settings is committed by losing focus, and sends `effect.set_parameters` | true | true | pass |
-| an exposure's frames is committed by losing focus, and sends `exposure.set_span` | true | true | pass |
+| an effect's settings are sent as they are typed, inside one drag that losing focus closes, and sends `effect.set_parameters` | true | true | pass |
+| an exposure's frames are committed by losing focus, and sends `exposure.set_span` | true | true | pass |
+| what an effect's field sends per keystroke is inside a drag | true | true | pass |
 | and a name committed unchanged sends nothing at all | true | true | pass |
 | committing a new name is one entry in the undo list | undo list 1 | undo list 1 | pass |
 | and the entry says what it will undo | Rename layer to the background | Rename layer to the background | pass |
 | three settings committed one after another are three entries, not one and not thirty | undo list 5 | undo list 5 | pass |
 | so undoing once goes back one commit, not back to before the field was touched | GaussianBlur { sigma_px: 6.0 } | GaussianBlur { sigma_px: 6.0 } | pass |
-| and a drag of three steps is one entry, which is the same rule for a number | undo list 5 | undo list 5 | pass |
-| a drag holding two layers is one entry that says it moved more than one | undo list 6, Set position to (300, 0) and 1 more | undo list 6, Set position to (300, 0) and 1 more | pass |
+| a setting typed in three keystrokes, each sent as it lands, is one entry | undo list 5 | undo list 5 | pass |
+| and the entry holds the last keystroke, not the first | GaussianBlur { sigma_px: 3.5 } | GaussianBlur { sigma_px: 3.5 } | pass |
+| and a drag of three steps is one entry, which is the same rule for a number | undo list 6 | undo list 6 | pass |
+| a drag holding two layers is one entry that says it moved more than one | undo list 7, Set position to (300, 0) and 1 more | undo list 7, Set position to (300, 0) and 1 more | pass |
 | and undoing that one entry puts both layers back, not just the first | layer-1 (0, 0), layer-2 (180, 0) | layer-1 (0, 0), layer-2 (180, 0) | pass |
-| a layer's bar dragged three steps along the timeline is one entry | undo list 6, 12 to 252 | undo list 6, 12 to 252 | pass |
+| a layer's bar dragged three steps along the timeline is one entry | undo list 7, 12 to 252 | undo list 7, 12 to 252 | pass |
 | and undoing it puts the bar back where it was | 0 to 240 | 0 to 240 | pass |
 
-**14 of 14 checks pass.**
+**17 of 17 checks pass.**

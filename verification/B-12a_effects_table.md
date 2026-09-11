@@ -52,6 +52,10 @@ A parameter over time. The settings here are constants, which is what document 1
 | moving an effect earlier says where it went | Move effect fx-3 to position 1 | Move effect fx-3 to position 1 | pass |
 | and the stack is in the new order, with nothing else disturbed | fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-1 core.gaussian_blur on, fx-4 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-1 core.gaussian_blur on, fx-4 core.gaussian_blur on | pass |
 | moving it back later puts the stack where it was | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | pass |
+| moving an effect straight to a position says where it went | Move effect fx-4 to position 0 | Move effect fx-4 to position 0 | pass |
+| and it is there, with the others closed up behind it | fx-4 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on | fx-4 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on | pass |
+| a position past the end is refused in words | Position 9 is past the end of a stack of 4 effects. | Position 9 is past the end of a stack of 4 effects. | pass |
+| and so is the position it already has, rather than written as a change | fx-4 is already at position 0. | fx-4 is already at position 0. | pass |
 | an effect this build does not have moves like any other | fx-1 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | fx-1 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | pass |
 | an effect that is not on this layer is said, not silently ignored | fx-99 is not an effect on this layer. | fx-99 is not an effect on this layer. | pass |
 | no effect named at all is asked for | Which effect? Choose one in the effects list. | Which effect? Choose one in the effects list. | pass |
@@ -60,11 +64,11 @@ A parameter over time. The settings here are constants, which is what document 1
 | and a layer that is not in this composition is named | layer-gone is not a layer in this composition. | layer-gone is not a layer in this composition. | pass |
 | the first effect in the stack refuses to go earlier, in words | fx-unknown-1 is already first. | fx-unknown-1 is already first. | pass |
 | and the last one refuses to go later | fx-1 is already last. | fx-1 is already last. | pass |
-| none of those seven refusals put anything in the history | 17 | 17 | pass |
+| none of those seven refusals put anything in the history | 19 | 19 | pass |
 | a locked layer refuses an effect, and says which rule stopped it | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | pass |
 | and refuses a settings change too | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | pass |
-| and neither did the two the lock stopped | 18 | 18 | pass |
+| and neither did the two the lock stopped | 20 | 20 | pass |
 | and the stack is the one that was built | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | pass |
 | undoing every effect edit gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**42 of 42 checks pass.**
+**46 of 46 checks pass.**
