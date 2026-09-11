@@ -9145,7 +9145,12 @@ mod contract {
     const MOUSE_ONLY: [&str; 1] = ["effect.move"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 15] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 16] = [
+        (
+            "dragging the border between two panels",
+            "give one of them more of the window",
+            "split.onkeydown = (e) => {",
+        ),
         (
             "double clicking a drawing sequence in the media bin",
             "make a layer out of it",
@@ -9246,7 +9251,7 @@ mod contract {
          moving three layers has to be one thing to undo, so it opens and commits that same \
          transaction; and since W-07 an effect's setting is sent as it is typed inside that same \
          transaction, so Escape in the field abandons it, which is the cancel without a pointer. \
-         The rest of the keyboard changes numbers rather than dragging them, and the last fifteen rows \
+         The rest of the keyboard changes numbers rather than dragging them, and the last sixteen rows \
          are the mouse gestures in this \r
          window each paired with the thing that does the same job without one: the arrow keys on a \r
          focused handle send `property.set_base`, which is one undo step per press rather than one per \r
@@ -9264,7 +9269,7 @@ mod contract {
          up or down the stack, where the arrows on it move it a step at a time. Since W-12 the \
          After Effects property keys A, P, S, R, T and U open a selected layer's properties under \
          it on the timeline, Shift with a key adds one, and the arrow beside the layer's name is \
-         a button that opens all five; alpha-only inspection moved from A to Alt+A to make room.",
+         a button that opens all five; alpha-only inspection moved from A to Alt+A to make room.          Since W-13 the borders between the panels are dragged, and each border is a stop on the          Tab order that the arrow keys move and Home puts back.",
         "The two lists are the part that had to be built rather than inherited. Every button \
          here is a `button` and every chooser a `select`, so the Tab order is the browser's and \
          nothing had to be arranged; the rows of the media bin and the layer list are `li` \

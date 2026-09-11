@@ -63,10 +63,25 @@
        composited shrinks rather than being cut and a panel drawn over another panel is worse than
        cut. A media query cannot do this job: -Scale zooms, so the viewport still measures its
        unzoomed width and the query never fires at the size that needs it. */
-    grid-template-columns: minmax(120px, 220px) minmax(180px, 1fr) minmax(150px, 280px);
+    grid-template-columns:
+      minmax(120px, var(--bin, 220px)) 5px minmax(180px, 1fr) 5px minmax(150px, var(--inspector, 280px));
     grid-template-rows: minmax(0, 1fr);
-    gap: 2px; background: #101010; overflow-x: auto;
+    background: #101010; overflow-x: auto;
   }
+  /* W-13: the borders between the panels, which the fourth sitting asked to be able to pull, as
+     "most video/compositing applications" allow and document 24's workspace contract permits.
+     The two 5px columns above and the strip above the timeline are the borders; pulling one
+     sets the custom property its panel's column or row reads, and the sizes are kept in the
+     browser's storage between runs. A double press puts a border back where it started. */
+  .split { background: #101010; }
+  .split.col { cursor: col-resize; }
+  .split.row { height: 5px; flex: 0 0 auto; cursor: row-resize; }
+  .split:hover, .split.held { background: #6ea8fe; }
+  .split:focus-visible { outline: 2px solid #6ea8fe; outline-offset: -2px; }
+  /* Once the timeline's border has been pulled its height is the person's and the panels above
+     give way to it, down to a floor that keeps the viewer's own controls on screen. */
+  body.sized #timeline { height: var(--sheet); max-height: none; }
+  body.sized #work { min-height: 120px; }
   /* A panel: a tab across the top saying what it is, a body that scrolls, and for two of them a
      row of controls along the bottom that act on what the panel holds. */
   .panel {
@@ -155,7 +170,6 @@
      disappears. Each keeps at most a third and scrolls the rest, so the thing being composited
      is always on screen. */
   #timeline, #bar { max-height: 33vh; overflow-y: auto; }
-  #timeline { margin-top: 2px; }
   /* The timeline: the layers down the left, time running left to right across the whole of the
      composition, and a playhead where the picture on screen is. It reads and never writes — an
      exposure is still set by typing the frame numbers under it — so nothing in here can change
@@ -451,6 +465,8 @@
       <button id="relink">Relink&hellip;</button>
     </div>
   </section>
+  <div class="split col" id="splitbin" role="separator" aria-orientation="vertical" tabindex="0"
+    aria-label="The border between the media bin and the viewer. Drag it, or use the arrow keys."></div>
   <section class="panel" id="viewer">
     <div class="tab">Composition<span id="comp">&mdash;</span></div>
     <!-- The picture, and the selection drawn over it. The outline is a separate element
@@ -477,6 +493,8 @@
       <span id="zoomlabel">&mdash;</span>
     </div>
   </section>
+  <div class="split col" id="splitinspector" role="separator" aria-orientation="vertical" tabindex="0"
+    aria-label="The border between the viewer and the inspector. Drag it, or use the arrow keys."></div>
   <section class="panel" id="inspector">
     <div class="tab">Effect controls</div>
     <div class="body">
@@ -502,6 +520,8 @@
     </div>
   </section>
 </div>
+<div class="split row" id="splitsheet" role="separator" aria-orientation="horizontal" tabindex="0"
+  aria-label="The border above the timeline. Drag it, or use the arrow keys."></div>
 <section class="panel" id="timeline">
   <div class="tab">Timeline<span class="hint">front layer first</span>
     <span class="tools">
@@ -1737,6 +1757,66 @@ $('zoomer').oninput = () => zoomTo(2 ** ($('zoomer').value / 100), ...stageCentr
 // A window that changes size changes how many frame pixels a handle is worth, and what the fit
 // is. The outline is redrawn rather than recomputed from the window.
 window.addEventListener('resize', applyZoom);
+
+// W-13: the borders between the panels. Each border is named with the custom property it sets,
+// the panel whose size that property is, the least that panel may be, and which way pulling
+// the border makes the panel bigger. The sizes are the window's and not the project's: they
+// are kept in the browser's storage, not the file, and a file opened on another machine lays
+// the window out however that machine last had it.
+const BORDERS = {
+  splitbin: ['--bin', 'bin', 120, 1],
+  splitinspector: ['--inspector', 'inspector', 150, -1],
+  splitsheet: ['--sheet', 'timeline', 80, -1],
+};
+let layout = {};
+try { layout = JSON.parse(localStorage.getItem('layout') || '{}') || {}; } catch (e) { layout = {}; }
+function setSize(prop, px) {
+  if (px === null) { delete layout[prop]; document.body.style.removeProperty(prop); }
+  else { layout[prop] = px; document.body.style.setProperty(prop, px + 'px'); }
+  if (prop === '--sheet') document.body.classList.toggle('sized', px !== null);
+  applyZoom();
+}
+function saveLayout() {
+  try { localStorage.setItem('layout', JSON.stringify(layout)); } catch (e) { /* kept for this run only */ }
+}
+for (const [id, [prop, panel, min, sign]] of Object.entries(BORDERS)) {
+  const split = $(id);
+  const vertical = prop === '--sheet';
+  // The most a panel may take: the viewer keeps its 180px column beside the other side panel,
+  // and the panels above the timeline keep the 120px floor the stylesheet gives them.
+  const most = () => vertical
+    ? $('work').getBoundingClientRect().height + $('timeline').getBoundingClientRect().height - 120
+    : $('work').clientWidth - 180 - 10
+      - $(panel === 'bin' ? 'inspector' : 'bin').getBoundingClientRect().width;
+  const measure = () => $(panel).getBoundingClientRect()[vertical ? 'height' : 'width'];
+  const to = (px) => setSize(prop, Math.round(Math.min(most(), Math.max(min, px))));
+  split.onpointerdown = (e) => {
+    const start = measure();
+    const room = most();
+    const from = vertical ? e.clientY : e.clientX;
+    split.setPointerCapture(e.pointerId);
+    split.classList.add('held');
+    split.onpointermove = (m) => setSize(prop,
+      Math.round(Math.min(room, Math.max(min, start + sign * ((vertical ? m.clientY : m.clientX) - from)))));
+    split.onpointerup = () => { split.onpointermove = null; split.classList.remove('held'); saveLayout(); };
+  };
+  split.ondblclick = () => { setSize(prop, null); saveLayout(); };
+  // Without a mouse: the arrow keys move a focused border 16px at a time, Shift ten times that,
+  // and Home puts it back.
+  split.onkeydown = (e) => {
+    const by = vertical ? { ArrowUp: -1, ArrowDown: 1 } : { ArrowLeft: -1, ArrowRight: 1 };
+    if (e.key === 'Home') { e.preventDefault(); setSize(prop, null); saveLayout(); }
+    else if (by[e.key]) {
+      e.preventDefault();
+      to(measure() + sign * by[e.key] * 16 * (e.shiftKey ? 10 : 1));
+      saveLayout();
+    }
+  };
+}
+for (const [prop, px] of Object.entries(layout)) {
+  if (Number.isFinite(px) && px > 0 && Object.values(BORDERS).some((b) => b[0] === prop)) setSize(prop, px);
+  else delete layout[prop];
+}
 
 function field(into, term, value) {
   const dt = document.createElement('dt');
