@@ -156,7 +156,7 @@
      function, so the ruler, the bars and the playhead cannot come to disagree about where a
      frame is. */
   #sheet { --gutter: 190px; position: relative; overflow: auto; padding: 6px 8px 8px; min-height: 0; }
-  #ruler, .track { cursor: ew-resize; }
+  #ruler { cursor: ew-resize; }
   #ruler {
     position: relative; height: 16px; margin-left: var(--gutter);
     border-bottom: 1px solid #3a3a3a;
@@ -172,7 +172,12 @@
     gap: 6px; align-items: center;
   }
   .rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .track { position: relative; height: 18px; background: #171717; border-radius: 2px; }
+  .track { position: relative; height: 26px; background: #171717; border-radius: 2px; }
+  /* Every bar can be pulled, and the ends of the layer's own bar can be pulled apart. The
+     class is set by the row as the pointer nears an end, because where an end is on screen is
+     not something a stylesheet can know. */
+  .track .life, .track .span, .track .free { cursor: grab; }
+  .track.edge > * { cursor: col-resize; }
   /* The layer's own life, document 20's half-open [in_frame, out_frame), and the exposures
      inside it. A layer with no exposures gets a hollow bar rather than nothing, because having
      none is not the same as being empty: every frame then shows the drawing of its own number. */
@@ -184,7 +189,7 @@
      the blocks are two frames wide and without the line a run of them reads as one long block,
      which is the opposite of what the row is for. */
   .track .span {
-    position: absolute; top: 2px; bottom: 2px; background: #4a6fa5;
+    position: absolute; top: 9px; bottom: 2px; background: #4a6fa5;
     border-right: 1px solid #1a1a1d; box-sizing: border-box;
     font-size: 10px; line-height: 14px; text-align: center; overflow: hidden; color: #eaeaf0;
   }
@@ -192,7 +197,7 @@
      below, the same warning colour every other missing thing in this window uses. */
   .track .span.gone { background: #7a5a2a; }
   .track .free {
-    position: absolute; top: 4px; bottom: 4px;
+    position: absolute; top: 9px; bottom: 2px;
     border: 1px dashed #46587a; border-radius: 2px;
   }
   #playhead {
@@ -523,6 +528,7 @@ let selectedAsset = null;
 let renaming = false; // an inline edit is open; accelerators keep off the keyboard while it is
 let dragging = false; // a scrub is in progress; the inspector must not be rebuilt under it
 let scrubbing = false; // the playhead is being dragged along the timeline
+let swallowClick = false; // a bar was just dragged, and the click that follows is not a click
 let relinking = null; // the asset a proposed relink is waiting on, as the last frame reported it
 
 // One request at a time, and the newest one is the one that is kept.
@@ -812,9 +818,18 @@ function drawRuler() {
 // One layer's row of time: the frames it is in the composition for, and the exposures inside
 // them. Every bar carries the same sentence as a tooltip that the fields below say in numbers,
 // because a bar is a picture of a fact and a person has to be able to read the fact.
+//
+// The layer's own bar is the full height of the row and the exposure blocks sit in the lower
+// part of it, so that the strip along the top is always the layer itself: pressing there moves
+// the whole layer, pressing a block moves that exposure, and neither needs a modifier key.
 function track(comp, layer, drawings) {
   const box = document.createElement('div');
   box.className = 'track';
+  box.onpointermove = (m) => {
+    if (dragging) return;
+    const life = box.querySelector('.life').getBoundingClientRect();
+    box.classList.toggle('edge', m.clientX - life.left <= 6 || life.right - m.clientX <= 6);
+  };
   const bar = (kind, from, to) => {
     const piece = document.createElement('div');
     piece.className = kind;
@@ -832,13 +847,22 @@ function track(comp, layer, drawings) {
       'No exposures. Each frame shows the drawing of the same number.';
     return box;
   }
+  // Document 20: an exposure span is in the layer's own frames, and the layer's frame under a
+  // composition frame is `composition_frame - in_frame + source_offset_frames`. Undone here,
+  // so that a layer moved along the timeline carries its exposures with it on screen as it
+  // does in the file. Until W-05 every layer began at frame 0 with no offset and the two
+  // numberings were the same, which is why nothing had noticed.
+  const inComp = (local) => local - (layer.source_offset_frames || 0) + layer.in_frame;
   for (const span of spans) {
     const missing = !drawings.has(span.drawing_number);
-    const piece = bar(missing ? 'span gone' : 'span', span.start_frame, span.end_frame_exclusive);
+    const piece = bar(missing ? 'span gone' : 'span',
+      inComp(span.start_frame), inComp(span.end_frame_exclusive));
+    piece.dataset.start = span.start_frame;
     // The drawing's number, but only where there is room for it to be read. On a shot held on
     // twos every span is two frames wide, and a number in each of them is a wall of digits
     // rather than a label; the tooltip and the fields in the properties column still say it.
-    const wide = atFrame(comp, span.end_frame_exclusive) - atFrame(comp, span.start_frame) > 0.03;
+    const wide = atFrame(comp, inComp(span.end_frame_exclusive))
+      - atFrame(comp, inComp(span.start_frame)) > 0.03;
     if (wide) piece.textContent = span.drawing_number;
     piece.title = 'frames ' + span.start_frame + ' to ' + (span.end_frame_exclusive - 1)
       + ' show drawing ' + span.drawing_number
@@ -874,22 +898,130 @@ function frameUnder(clientX) {
   return Math.min(comp.start_frame + len - 1, Math.max(comp.start_frame, at));
 }
 
-// Scrubbing: press anywhere in the time half of the sheet and the playhead comes to the pointer,
-// then follows it until the button is released. The ruler and the layer rows both scrub, which
-// is how Premiere and Resolve behave; a press on a row still selects that layer, because the
-// row's own click handler is untouched and both fire. The name half is left alone — a press
-// there is aimed at a name, an eye or a lock.
-$('sheet').addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
-  const sheet = $('sheet');
+// One press on the sheet, and what it starts depends on what is under it. The ruler scrubs: the
+// playhead comes to the pointer and follows it until the button is released. A layer's bar is
+// the layer's life in time, and pulling it moves the layer, or trims it when the press is at
+// either end; an exposure block inside it slides that one exposure, and stops where it meets its
+// neighbour. A press on empty track does nothing, and in particular does not move the playhead:
+// until W-05 the rows scrubbed too, as Premiere's do, and the second sitting with this window
+// found that this made a bar something that could not be dragged. The name half is left alone —
+// a press there is aimed at a name, an eye or a lock.
+//
+// The gestures live inside this handler for the reason `view.onpointerdown` gives, and every
+// one of them sends the drag flag so that the window puts its command into the same running
+// transaction a drag on the picture uses: one press, one release, one thing to undo. The
+// commands are sent one after another rather than all at once, because an exposure moved twice
+// is one row edited twice and the second edit has to name where the first one put it.
+const sheet = $('sheet');
+sheet.onpointerdown = (e) => {
+  if (e.button !== 0 || !doc) return;
   const gutter = parseFloat(getComputedStyle(sheet).getPropertyValue('--gutter'));
   if (e.clientX - sheet.getBoundingClientRect().left < gutter + 8) return;
   const at = frameUnder(e.clientX);
   if (at === null) return;
+  if (e.target.closest('#ruler')) {
+    sheet.setPointerCapture(e.pointerId);
+    scrubbing = true;
+    seek(at);
+    return;
+  }
+  const piece = e.target.closest('.life, .span, .free');
+  const li = piece && piece.closest('li');
+  const layer = li && layers().find((l) => l.id === li.dataset.id);
+  if (!layer || layer.locked) return;
+  e.preventDefault();
+  // Where the ends are is read before anything is selected, because selecting redraws the row.
+  const life = piece.parentElement.querySelector('.life').getBoundingClientRect();
+  const edge = e.clientX - life.left <= 6 ? 'in' : life.right - e.clientX <= 6 ? 'out' : null;
+  // A bar that is not yet selected is selected by the press itself, so that a drag has hold of
+  // it from the first frame it moves. The click that follows the release would then select it
+  // again — with Shift held, that is a toggle, and the layer would be dropped by the same
+  // gesture that picked it up — so the click after a press that selected is not let through.
+  const fresh = !selection.includes(layer.id);
+  if (fresh) select(layer.id, e.shiftKey);
+  const spans = layer.exposure_spans || [];
+  const which = piece.classList.contains('span') && !edge
+    ? spans.findIndex((sp) => sp.start_frame === Number(piece.dataset.start)) : -1;
+  const span = which >= 0 ? spans[which] : null;
+  // Every selected layer moves together when the bar pressed is one of them, as clips do in
+  // Premiere. A trim and an exposure only ever have hold of the one bar pressed.
+  const taken = edge || span ? [layer] : movable();
+  const start = taken.map((l) => [l.id, l.in_frame, l.out_frame]);
+  let was = span ? span.start_frame : null;
+  let last = null;
+  let queue = Promise.resolve();
+  const send = (what) => { queue = queue.then(() => command(what)); };
+  dragging = true;
   sheet.setPointerCapture(e.pointerId);
-  scrubbing = true;
-  seek(at);
-});
+  const escape = (k) => { if (k.key === 'Escape') stop(true); };
+  const stop = (cancelled) => {
+    dragging = false;
+    swallowClick = fresh || last !== null;
+    sheet.onpointermove = null;
+    sheet.onpointerup = null;
+    window.removeEventListener('keydown', escape, true);
+    send(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+  };
+  sheet.onpointermove = (m) => {
+    const now = frameUnder(m.clientX);
+    if (now === null || now === last) return;
+    last = now;
+    const by = now - at;
+    const q = '?layer=' + encodeURIComponent(layer.id) + '&drag=1';
+    if (span) {
+      const len = span.end_frame_exclusive - span.start_frame;
+      const floor = which > 0 ? spans[which - 1].end_frame_exclusive : -Infinity;
+      const ceiling = which + 1 < spans.length ? spans[which + 1].start_frame - len : Infinity;
+      const to = Math.min(ceiling, Math.max(floor, span.start_frame + by));
+      send('/exposure.set_span' + q + '&was=' + was + '&start=' + to + '&end=' + (to + len)
+        + '&drawing=' + span.drawing_number);
+      was = to;
+    } else if (edge === 'in') {
+      send('/layer.trim' + q + '&in=' + Math.min(start[0][1] + by, start[0][2] - 1)
+        + '&out=' + start[0][2]);
+    } else if (edge === 'out') {
+      send('/layer.trim' + q + '&in=' + start[0][1]
+        + '&out=' + Math.max(start[0][2] + by, start[0][1] + 1));
+    } else {
+      for (const [id, from] of start) {
+        send('/layer.shift?layer=' + encodeURIComponent(id) + '&drag=1&in=' + (from + by));
+      }
+    }
+  };
+  sheet.onpointerup = () => stop(false);
+  window.addEventListener('keydown', escape, true);
+};
+
+// A bar that has been dragged was also, as far as the row under it can tell, clicked. The row
+// would answer that click by making its layer the only one selected, which after a drag of three
+// layers together would drop two of them; so the click after a drag, or after a press that did
+// the selecting itself, is stopped here on its way down, before the row hears it. A plain click
+// on a bar that was already selected still reaches the row, and still does what it always did.
+$('sheet').addEventListener('click', (e) => {
+  if (swallowClick) { swallowClick = false; e.stopPropagation(); }
+}, true);
+
+// Document 24, W-05: the bracket keys move every selected layer so that it starts, or ends, at
+// the playhead, and with Alt held they trim that end to the playhead instead, as After Effects
+// has them. One press is one history entry however many layers are selected, by the same
+// transaction the arrow keys on the picture use.
+function toPlayhead(end, trim) {
+  const taken = movable();
+  if (!taken.length) return;
+  nudge = nudge.then(async () => {
+    for (const layer of taken) {
+      const q = '?layer=' + encodeURIComponent(layer.id) + '&drag=1';
+      if (trim) {
+        await command('/layer.trim' + q + '&in=' + (end ? layer.in_frame : frame)
+          + '&out=' + (end ? frame + 1 : layer.out_frame));
+      } else {
+        await command('/layer.shift' + q
+          + '&in=' + (end ? frame + 1 - (layer.out_frame - layer.in_frame) : frame));
+      }
+    }
+    await command('/property.drag_end');
+  });
+}
 
 $('sheet').addEventListener('pointermove', (e) => {
   if (!scrubbing) return;
@@ -1440,7 +1572,8 @@ function drawInspector() {
   field(dl, 'Name', layer.name);
   field(dl, 'Identifier', layer.id);
   field(dl, 'Drawing', layer.asset_id);
-  field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive');
+  field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive'
+    + (layer.source_offset_frames ? ', drawings offset by ' + layer.source_offset_frames : ''));
   // Document 19's five transform properties, in its order. Four are shown in the units the file
   // holds — pixels, percent, degrees — and opacity is the one that is not: the file holds nought
   // to one and nobody says a layer is 0.65 opaque. The conversion is the last argument, and it
@@ -1931,6 +2064,7 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && e.key === ']') { e.preventDefault(); $('up').click(); }
   else if (e.ctrlKey && e.key === '[') { e.preventDefault(); $('down').click(); }
   else if (e.ctrlKey) { /* leave every other accelerator alone */ }
+  else if (e.key === '[' || e.key === ']') { e.preventDefault(); toPlayhead(e.key === ']', e.altKey); }
   else if (e.key === 'F2') { e.preventDefault(); beginRename(); }
   // Document 24: "Deleting uses the focused context and must show the target clearly before
   // destructive commands." The target is the row that is visibly selected, and the button that

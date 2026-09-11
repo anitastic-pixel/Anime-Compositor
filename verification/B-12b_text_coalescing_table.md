@@ -26,5 +26,7 @@ The last three rows are not about text at all. They drag a position through seve
 | and a drag of three steps is one entry, which is the same rule for a number | undo list 5 | undo list 5 | pass |
 | a drag holding two layers is one entry that says it moved more than one | undo list 6, Set position to (300, 0) and 1 more | undo list 6, Set position to (300, 0) and 1 more | pass |
 | and undoing that one entry puts both layers back, not just the first | layer-1 (0, 0), layer-2 (180, 0) | layer-1 (0, 0), layer-2 (180, 0) | pass |
+| a layer's bar dragged three steps along the timeline is one entry | undo list 6, 12 to 252 | undo list 6, 12 to 252 | pass |
+| and undoing it puts the bar back where it was | 0 to 240 | 0 to 240 | pass |
 
-**12 of 12 checks pass.**
+**14 of 14 checks pass.**

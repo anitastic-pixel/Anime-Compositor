@@ -8,7 +8,7 @@ It reads `app/ui/index.html`. The question it asks is not "is there a keyboard s
 
 ## What to look at
 
-The one row that says **no**. `property.drag_cancel` is Escape during a drag, and there is no drag to be in the middle of without a pointer. It used to be three: `property.drag_update` and `property.drag_end` are the running transaction and the coalescing document 26 asks for, and until W-04 only a pointer opened one. Nudging the picture with the arrow keys now moves every selected layer, and one press moving three layers has to be one thing to undo, so it opens and commits that same transaction. The rest of the keyboard changes numbers rather than dragging them, and the last six rows are the mouse gestures in this 
+The one row that says **no**. `property.drag_cancel` is Escape during a drag, and there is no drag to be in the middle of without a pointer. It used to be three: `property.drag_update` and `property.drag_end` are the running transaction and the coalescing document 26 asks for, and until W-04 only a pointer opened one. Nudging the picture with the arrow keys now moves every selected layer, and one press moving three layers has to be one thing to undo, so it opens and commits that same transaction. The rest of the keyboard changes numbers rather than dragging them, and the last nine rows are the mouse gestures in this 
          window each paired with the thing that does the same job without one: the arrow keys on a 
          focused handle send `property.set_base`, which is one undo step per press rather than one per 
          drag. The picture itself works the same way: a layer is dragged, and it is nudged by the 
@@ -56,8 +56,10 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.move_up` can be asked for without a mouse | yes | yes | pass |
 | `layer.rename` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_matte` can be asked for without a mouse | yes | yes | pass |
+| `layer.shift` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_lock` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_visibility` can be asked for without a mouse | yes | yes | pass |
+| `layer.trim` can be asked for without a mouse | yes | yes | pass |
 | `media.import` can be asked for without a mouse | yes | yes | pass |
 | `media.relink` can be asked for without a mouse | yes | yes | pass |
 | `open` can be asked for without a mouse | yes | yes | pass |
@@ -76,6 +78,9 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a transform value is not the only way to change it | true | true | pass |
 | dragging a layer on the picture is not the only way to move it | true | true | pass |
 | pulling a corner or the rotation arm on the picture is not the only way to scale or turn the layer | true | true | pass |
-| dragging the playhead along the exposure sheet is not the only way to go to a frame | true | true | pass |
+| dragging along the ruler is not the only way to go to a frame | true | true | pass |
+| dragging a layer's bar along the exposure sheet is not the only way to move the layer in time | true | true | pass |
+| pulling either end of a layer's bar is not the only way to trim it | true | true | pass |
+| dragging an exposure block along its bar is not the only way to move that exposure | true | true | pass |
 
-**48 of 48 checks pass.**
+**53 of 53 checks pass.**

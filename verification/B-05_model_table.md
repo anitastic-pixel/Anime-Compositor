@@ -1,6 +1,6 @@
 # B-05 model, commands and undo
 
-Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **70 of 70 checks pass.**
+Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **75 of 75 checks pass.**
 
 ## What to check by eye
 
@@ -70,9 +70,14 @@ The before file is 305 lines and the after file is 392 lines.
 | drag of two layers: the record counts them and names them both | `Set position to (20, 0) and 1 more, moved layer-4 and layer-3` | `Set position to (20, 0) and 1 more, moved layer-4 and layer-3` | PASS |
 | drag of two layers undone: both go back in one step | `(100, 0), (0, 0)` | `(100, 0), (0, 0)` | PASS |
 | drag of two layers redone: both come forward in one step | `(20, 0), (1020, 0)` | `(20, 0), (1020, 0)` | PASS |
+| move layer along the timeline: length and offset kept | `10 to 250, offset 0` | `10 to 250, offset 0` | PASS |
+| trim layer: the drawing under frame 30 stays the drawing that was there | `20 to 100, offset 10, frame 30 is local frame 20` | `20 to 100, offset 10, frame 30 is local frame 20` | PASS |
+| trim layer: an end pulled past the other end is refused and nothing moves | `COMMAND_INVALID_VALUE, 20 to 100, offset 10` | `COMMAND_INVALID_VALUE, 20 to 100, offset 10` | PASS |
+| drag of a layer along the timeline: one record, labelled where it ended | `16, Move layer to start at frame 25, 25 to 105, offset 10` | `16, Move layer to start at frame 25, 25 to 105, offset 10` | PASS |
+| undone three times: the layer is back where the file put it | `0 to 240, offset 0` | `0 to 240, offset 0` | PASS |
 | transaction: an invalid second command rejects the whole batch | `COMMAND_INVALID_VALUE` | `COMMAND_INVALID_VALUE` | PASS |
 | transaction rejected: the asset from the first command was not added either | `4` | `4` | PASS |
-| transaction rejected: revision unchanged | `27` | `27` | PASS |
+| transaction rejected: revision unchanged | `33` | `33` | PASS |
 | transaction: import plus create layer is one history record | `14` | `14` | PASS |
 | transaction: both parts landed | `5 assets, 5 layers` | `5 assets, 5 layers` | PASS |
 | transaction undone: both parts are gone in one step | `4 assets, 4 layers` | `4 assets, 4 layers` | PASS |

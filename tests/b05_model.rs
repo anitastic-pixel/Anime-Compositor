@@ -599,6 +599,95 @@ fn b05_model_and_undo() {
     // left it and this section can be read on its own.
     doc.undo();
 
+    // -- Document 20: moving a layer in time and trimming it are two commands (W-05) -------------
+    // "Moving a layer changes in_frame/out_frame; trimming and changing source offset are
+    // distinct commands." A move keeps the length and the offset, so every frame of the layer
+    // shows what it showed, ten frames later. A trim keeps the drawing under each surviving frame
+    // where it was, which by document 20's formula means the offset moves with the in point.
+    let timing = |doc: &Document| {
+        let l = layer_named(doc, "layer-3");
+        format!(
+            "{} to {}, offset {}",
+            l.in_frame, l.out_frame, l.source_offset_frames
+        )
+    };
+    doc.apply(Command::ShiftLayer {
+        composition: id(COMP),
+        layer_id: id("layer-3"),
+        in_frame: 10,
+    })
+    .expect("shift");
+    report.check(
+        "move layer along the timeline: length and offset kept",
+        "10 to 250, offset 0",
+        timing(&doc),
+    );
+    doc.apply(Command::TrimLayer {
+        composition: id(COMP),
+        layer_id: id("layer-3"),
+        in_frame: 20,
+        out_frame: 100,
+    })
+    .expect("trim");
+    let local_30 = {
+        let l = layer_named(&doc, "layer-3");
+        30 - l.in_frame + l.source_offset_frames
+    };
+    report.check(
+        "trim layer: the drawing under frame 30 stays the drawing that was there",
+        "20 to 100, offset 10, frame 30 is local frame 20",
+        format!("{}, frame 30 is local frame {local_30}", timing(&doc)),
+    );
+    let bad_trim = doc.apply(Command::TrimLayer {
+        composition: id(COMP),
+        layer_id: id("layer-3"),
+        in_frame: 100,
+        out_frame: 100,
+    });
+    report.check(
+        "trim layer: an end pulled past the other end is refused and nothing moves",
+        "COMMAND_INVALID_VALUE, 20 to 100, offset 10",
+        format!(
+            "{}, {}",
+            match &bad_trim {
+                Err(d) => d.id.to_string(),
+                Ok(_) => "accepted".to_string(),
+            },
+            timing(&doc)
+        ),
+    );
+    // The bar dragged along the timeline: one press, one release, one record, the same
+    // transaction a transform drag uses with a different command inside it.
+    let undo_before_shift = doc.undo_depth();
+    doc.begin_drag().expect("begin");
+    for at in 21..=25 {
+        doc.update_drag(Command::ShiftLayer {
+            composition: id(COMP),
+            layer_id: id("layer-3"),
+            in_frame: at,
+        })
+        .expect("drag step");
+    }
+    let shift_record = doc
+        .end_drag()
+        .map_or("no record at all".to_string(), |r| r.label.clone());
+    report.check(
+        "drag of a layer along the timeline: one record, labelled where it ended",
+        format!(
+            "{}, Move layer to start at frame 25, 25 to 105, offset 10",
+            undo_before_shift + 1
+        ),
+        format!("{}, {shift_record}, {}", doc.undo_depth(), timing(&doc)),
+    );
+    doc.undo();
+    doc.undo();
+    doc.undo();
+    report.check(
+        "undone three times: the layer is back where the file put it",
+        "0 to 240, offset 0",
+        timing(&doc),
+    );
+
     // -- Document 26: import media plus create a layer is all-or-nothing --------------------------
     let revision_before_batch = doc.revision();
     let new_asset = Asset::sequence(id("asset-effects"), "effects", "fx_%03d.png");

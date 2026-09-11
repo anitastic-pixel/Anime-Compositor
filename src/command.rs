@@ -78,6 +78,30 @@ pub enum Command {
         layer_id: Id,
         to_index: usize,
     },
+    /// Move a layer along the timeline. W-05.
+    ///
+    /// Document 20: "Moving a layer changes in_frame/out_frame; trimming and changing source
+    /// offset are distinct commands." This is the move: the layer keeps its length and its
+    /// source offset, so the same drawing sits under each frame of it as before, all of them
+    /// shifted together. Document 24 named no ID for it and the core had no command, so until
+    /// this every layer began where it was added.
+    ShiftLayer {
+        composition: Id,
+        layer_id: Id,
+        in_frame: i32,
+    },
+    /// Trim either end of a layer. W-05.
+    ///
+    /// The other half of document 20's sentence. The drawing under each frame that survives
+    /// the trim stays the drawing that was under it, which is what a person pulling the end of
+    /// a bar in After Effects or Premiere expects; that means the source offset moves with the
+    /// in point, and this command does that arithmetic so that a caller cannot get it wrong.
+    TrimLayer {
+        composition: Id,
+        layer_id: Id,
+        in_frame: i32,
+        out_frame: i32,
+    },
     SetPropertyBase {
         composition: Id,
         layer_id: Id,
@@ -202,6 +226,8 @@ impl Command {
             Command::SetLayerEnabled { .. } => "SET_LAYER_ENABLED",
             Command::SetLayerLocked { .. } => "SET_LAYER_LOCKED",
             Command::ReorderLayer { .. } => "REORDER_LAYER",
+            Command::ShiftLayer { .. } => "SHIFT_LAYER",
+            Command::TrimLayer { .. } => "TRIM_LAYER",
             Command::SetPropertyBase { .. } => "SET_PROPERTY",
             Command::SetKeyframe { .. } => "SET_KEYFRAME",
             Command::RemoveKeyframe { .. } => "REMOVE_KEYFRAME",
@@ -234,6 +260,14 @@ impl Command {
                 format!("{} layer", if *value { "Lock" } else { "Unlock" })
             }
             Command::ReorderLayer { to_index, .. } => format!("Move layer to position {to_index}"),
+            Command::ShiftLayer { in_frame, .. } => {
+                format!("Move layer to start at frame {in_frame}")
+            }
+            Command::TrimLayer {
+                in_frame,
+                out_frame,
+                ..
+            } => format!("Trim layer to frames {in_frame} to {out_frame}"),
             Command::SetPropertyBase { prop, value, .. } => format!("Set {prop} to {value}"),
             Command::SetKeyframe {
                 prop, frame, value, ..
@@ -292,6 +326,8 @@ impl Command {
             | Command::SetLayerEnabled { composition, .. }
             | Command::SetLayerLocked { composition, .. }
             | Command::ReorderLayer { composition, .. }
+            | Command::ShiftLayer { composition, .. }
+            | Command::TrimLayer { composition, .. }
             | Command::SetPropertyBase { composition, .. }
             | Command::SetKeyframe { composition, .. }
             | Command::RemoveKeyframe { composition, .. }
@@ -319,6 +355,8 @@ impl Command {
             | Command::SetLayerEnabled { layer_id, .. }
             | Command::SetLayerLocked { layer_id, .. }
             | Command::ReorderLayer { layer_id, .. }
+            | Command::ShiftLayer { layer_id, .. }
+            | Command::TrimLayer { layer_id, .. }
             | Command::SetPropertyBase { layer_id, .. }
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
@@ -384,6 +422,8 @@ impl Command {
             | Command::SetLayerEnabled { layer_id, .. }
             | Command::SetLayerLocked { layer_id, .. }
             | Command::ReorderLayer { layer_id, .. }
+            | Command::ShiftLayer { layer_id, .. }
+            | Command::TrimLayer { layer_id, .. }
             | Command::SetPropertyBase { layer_id, .. }
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
@@ -939,6 +979,36 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             comp.move_layer(layer_id, *to_index);
+        }
+        Command::ShiftLayer {
+            layer_id, in_frame, ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            layer.out_frame += in_frame - layer.in_frame;
+            layer.in_frame = *in_frame;
+        }
+        Command::TrimLayer {
+            layer_id,
+            in_frame,
+            out_frame,
+            ..
+        } => {
+            if in_frame >= out_frame {
+                return Err(reject(
+                    &format!(
+                        "A layer that starts at frame {in_frame} and ends at frame {out_frame} \
+                         is not a span."
+                    ),
+                    "Document 19 invariant: in_frame < out_frame.",
+                ));
+            }
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            // Document 20: local_frame = composition_frame - in_frame + source_offset_frames.
+            // The in point moving by d must move the offset by d for the local frame under any
+            // surviving composition frame to be unchanged.
+            layer.source_offset_frames += in_frame - layer.in_frame;
+            layer.in_frame = *in_frame;
+            layer.out_frame = *out_frame;
         }
         Command::SetPropertyBase {
             layer_id,

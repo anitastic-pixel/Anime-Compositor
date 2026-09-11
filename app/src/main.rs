@@ -1352,8 +1352,10 @@ const ANSWERS: &[&str] = &[
     "layer.move_up",
     "layer.rename",
     "layer.set_matte",
+    "layer.shift",
     "layer.toggle_lock",
     "layer.toggle_visibility",
+    "layer.trim",
     "media.import",
     "media.relink",
     "property.drag_cancel",
@@ -1670,6 +1672,29 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "layer.move_down" => {
                     return Some(format!("{} is already at the back.", layer.name))
                 }
+                // W-05: the two halves of document 20's sentence, as the bar on the timeline
+                // sends them. Both take frames rather than a distance, so that a drag which
+                // sends the same numbers twice has asked for the same thing twice.
+                "layer.shift" => Command::ShiftLayer {
+                    composition,
+                    layer_id,
+                    in_frame: match frame_parameter(query, "in") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    },
+                },
+                "layer.trim" => Command::TrimLayer {
+                    composition,
+                    layer_id,
+                    in_frame: match frame_parameter(query, "in") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    },
+                    out_frame: match frame_parameter(query, "out") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    },
+                },
                 // Typed into a field, or scrubbed on its label. The same command either way;
                 // what differs is whether it becomes a history entry on its own or joins the one
                 // the drag will commit at release.
@@ -1904,7 +1929,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         .expect("the viewer lock was poisoned")
         .document
         .undo_depth();
-    let said = if id == "property.drag_update" {
+    // W-05: any edit joins the running drag when the page says so. A bar pulled along the
+    // timeline sends `layer.shift` or `exposure.set_span` many times a second, and one press
+    // has to be one thing to undo whichever command is inside it, which is the rule
+    // `property.drag_update` already has for the transform fields.
+    let said = if id == "property.drag_update" || parameter(query, "drag").is_some() {
         drag_update(viewer, command)
     } else {
         edit(viewer, command)
@@ -2254,6 +2283,16 @@ fn parameter(query: Option<&str>, name: &str) -> Option<String> {
     query
         .and_then(|q| q.split('&').find_map(|pair| pair.strip_prefix(&prefix)))
         .map(from_a_query)
+}
+
+/// A frame number the page named, or the sentence to answer with when it did not.
+fn frame_parameter(query: Option<&str>, name: &str) -> Result<i32, String> {
+    let Some(value) = parameter(query, name) else {
+        return Err(format!("Which frame? Say {name}=<frame>."));
+    };
+    value
+        .parse::<i32>()
+        .map_err(|_| format!("A frame is a whole number. Not \"{value}\"."))
 }
 
 /// Undo [`for_a_header`]: percent-decoded back into the string that was encoded.
@@ -7110,8 +7149,10 @@ mod contract {
         "layer.move_up",
         "layer.rename",
         "layer.set_matte",
+        "layer.shift",
         "layer.toggle_lock",
         "layer.toggle_visibility",
+        "layer.trim",
         "media.import",
         "media.relink",
         "property.drag_cancel",
@@ -7386,6 +7427,8 @@ mod contract {
         ("layer.toggle_visibility", "a command the window answers"),
         ("layer.toggle_lock", "a command the window answers"),
         ("layer.set_matte", "a command the window answers"),
+        ("layer.shift", "a command the window answers"),
+        ("layer.trim", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -7431,6 +7474,12 @@ mod contract {
         ("layer.rename", "F2", "e.key === 'F2'"),
         ("layer.move_up", "Ctrl+]", "e.key === ']'"),
         ("layer.move_down", "Ctrl+[", "e.key === '['"),
+        ("layer.shift", "[ or ]", "e.key === '[' || e.key === ']'"),
+        (
+            "layer.trim",
+            "Alt+[ or Alt+]",
+            "e.key === '[' || e.key === ']'",
+        ),
         ("timeline.previous_frame", "Left", "e.key === 'ArrowLeft'"),
         ("timeline.next_frame", "Right", "e.key === 'ArrowRight'"),
         ("timeline.play_pause", "Space", "e.key === ' '"),
@@ -7857,6 +7906,37 @@ mod contract {
                     .collect::<Vec<_>>()
                     .join(", ")
             },
+        );
+
+        // W-05: a layer's bar dragged along the timeline. The same transaction with a different
+        // command inside it, and the flag in the query is what puts it there.
+        let before = held(&viewer).document.undo_depth();
+        let (in_0, out_0) = layer(&viewer, "layer-2", |l| (l.in_frame, l.out_frame))
+            .expect("layer-2 is in the demo");
+        for at in [4, 9, 12] {
+            run(
+                &viewer,
+                &format!("layer.shift?layer=layer-2&in={at}&drag=1"),
+            );
+        }
+        run(&viewer, "property.drag_end");
+        let depth = held(&viewer).document.undo_depth();
+        let frames = |viewer: &Mutex<Viewer>| {
+            layer(viewer, "layer-2", |l| {
+                format!("{} to {}", l.in_frame, l.out_frame)
+            })
+            .unwrap_or_else(|| "(no such layer)".to_string())
+        };
+        report.check(
+            "a layer's bar dragged three steps along the timeline is one entry",
+            format!("undo list {}, 12 to {}", before + 1, 12 + out_0 - in_0),
+            format!("undo list {depth}, {}", frames(&viewer)),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and undoing it puts the bar back where it was",
+            format!("{in_0} to {out_0}"),
+            frames(&viewer),
         );
 
         write_artifact(
@@ -8678,7 +8758,7 @@ mod contract {
     const MOUSE_ONLY: [&str; 1] = ["property.drag_cancel"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 6] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 9] = [
         (
             "double clicking a drawing sequence in the media bin",
             "make a layer out of it",
@@ -8705,9 +8785,24 @@ mod contract {
             "next[i] = held[i] + by * STEP[prop] * (e.shiftKey ? 10 : 1);",
         ),
         (
-            "dragging the playhead along the exposure sheet",
+            "dragging along the ruler",
             "go to a frame",
             "else if (e.key === 'ArrowRight') step(1);",
+        ),
+        (
+            "dragging a layer's bar along the exposure sheet",
+            "move the layer in time",
+            "e.key === '[' || e.key === ']'",
+        ),
+        (
+            "pulling either end of a layer's bar",
+            "trim it",
+            "e.key === '[' || e.key === ']'",
+        ),
+        (
+            "dragging an exposure block along its bar",
+            "move that exposure",
+            "input.onchange = sendSpan;",
         ),
     ];
 
@@ -8732,7 +8827,7 @@ mod contract {
          Nudging the picture with the arrow keys now moves every selected layer, and one press \
          moving three layers has to be one thing to undo, so it opens and commits that same \
          transaction. \
-         The rest of the keyboard changes numbers rather than dragging them, and the last six rows \
+         The rest of the keyboard changes numbers rather than dragging them, and the last nine rows \
          are the mouse gestures in this \r
          window each paired with the thing that does the same job without one: the arrow keys on a \r
          focused handle send `property.set_base`, which is one undo step per press rather than one per \r
