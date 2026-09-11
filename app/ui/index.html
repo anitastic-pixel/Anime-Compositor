@@ -106,7 +106,7 @@
   #stage {
     display: grid; place-items: center; min-height: 0; min-width: 0; padding: 12px;
     grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
-    background: #141414;
+    background: #141414; overflow: auto;
   }
   /* Checkerboard, so a transparent frame reads as transparent rather than as black. Document
      05 line 31 makes it a view that can be turned off, and document 21 line 97 makes it
@@ -117,6 +117,12 @@
      the same rule and the box cannot drift off the drawing it belongs to. Neither is given a
      size here beyond the constraint they share. */
   #stage > canvas, #stage > svg { grid-area: 1 / 1; place-self: center; }
+  /* Zoomed (W-06): the picture is given its size in pixels and the stage scrolls to the rest
+     of it. Auto margins rather than centring, because a centred thing bigger than its box
+     loses its left and top edges past where any scrollbar reaches, and auto margins do not. */
+  #stage.zoomed > canvas, #stage.zoomed > svg {
+    place-self: start; margin: auto; max-width: none; max-height: none;
+  }
   #boxes { max-width: 100%; max-height: 100%; pointer-events: none; overflow: visible; }
   /* Vector-effect keeps the outline one pixel wide however far the canvas has been scaled up:
      a draft frame is a quarter the size of the composition and is drawn four times larger than
@@ -128,6 +134,13 @@
   #boxes rect.handle { fill: #e8b06a; stroke: none; }
   #boxes line.arm { stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
   #boxes circle.spin { fill: #141414; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  /* The anchor, drawn as After Effects draws it: a small circle with a cross through it. */
+  #boxes .anchor { fill: none; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  #boxes rect.marquee {
+    fill: rgba(232, 176, 106, 0.12); stroke: #e8b06a; stroke-width: 1; stroke-dasharray: 4 3;
+    vector-effect: non-scaling-stroke;
+  }
+  #zoomer { width: 110px; margin: 0 2px 0 4px; }
   canvas {
     max-width: 100%; max-height: 100%; image-rendering: pixelated;
     background-color: #2a2a2e;
@@ -413,7 +426,7 @@
          alpha view reads and the screenshots in `verification/` compare. -->
     <div id="stage">
       <canvas id="view" width="480" height="270" tabindex="0"
-        aria-label="The composition. Click a layer to select it; drag to move it."></canvas>
+        aria-label="The composition. Click a layer to select it; drag to move it; drag across nothing to select several."></canvas>
       <svg id="boxes" width="480" height="270" viewBox="0 0 480 270" aria-hidden="true"></svg>
     </div>
     <div class="foot">
@@ -425,6 +438,9 @@
       <button id="toggle">Full resolution</button>
       <button id="alpha">Alpha only</button>
       <button id="checker">Hide grid</button>
+      <button id="fit">Fit</button>
+      <input id="zoomer" type="range" min="-600" max="500" step="1" value="0" aria-label="Zoom">
+      <span id="zoomlabel">&mdash;</span>
     </div>
   </section>
   <section class="panel" id="inspector">
@@ -498,6 +514,9 @@ const PROJECT = 'http://project.localhost';
 const $ = (id) => document.getElementById(id);
 const view = $('view');
 const paint = view.getContext('2d');
+// The dark around the picture. A press is heard here rather than on the canvas, so that a layer
+// dragged off the edge of the composition can still be taken hold of where its outline is.
+const stage = $('stage');
 
 let playing = false;
 let started = 0;      // performance.now() at the instant playback began
@@ -527,6 +546,8 @@ let selection = [];
 let selectedAsset = null;
 let renaming = false; // an inline edit is open; accelerators keep off the keyboard while it is
 let dragging = false; // a scrub is in progress; the inspector must not be rebuilt under it
+let zoom = null; // screen pixels per composition pixel, or null for the fit the stylesheet makes
+let marquee = null; // the corners of the box being dragged across the picture, in frame pixels
 let scrubbing = false; // the playhead is being dragged along the timeline
 let swallowClick = false; // a bar was just dragged, and the click that follows is not a click
 let relinking = null; // the asset a proposed relink is waiting on, as the last frame reported it
@@ -719,7 +740,11 @@ function row(selectedId, id, label, extra) {
   // the mouse does. The global accelerators already stand aside for a focused control, so the
   // space bar here selects the row rather than starting playback.
   li.onkeydown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.click(); }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      // With Shift held it is a Shift-click, which on a layer row adds to the selection.
+      li.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: e.shiftKey }));
+    }
   };
   if (extra) li.append(...extra);
   const name = document.createElement('span');
@@ -1105,11 +1130,13 @@ function select(id, add) {
 
 // Ask the window where the selected layers are on this frame.
 //
-// Only when something is selected, because an outline nobody is looking at is a frame plan
-// nobody needed: the request costs a plan, and while a shot is playing it would cost one sixty
-// times a second beside the frames themselves.
+// Not while a shot is playing, because an outline nobody is looking at is a frame plan nobody
+// needed and it would cost one sixty times a second beside the frames themselves. It is asked
+// for with nothing selected, since W-06: a press on the picture has to know where every layer
+// is to say which one was pressed, and until then the first layer could only be picked from the
+// list. The plan is cached by the frame it is for, so this is the frame's own plan asked twice.
 async function askForBoxes() {
-  if (!doc || playing || !selection.length) { boxes = []; drawBoxes(); return; }
+  if (!doc || playing) { boxes = []; drawBoxes(); return; }
   const asked = frame;
   try {
     const answer = await fetch(FRAMES + '/boxes/' + asked + '?q=' + quality);
@@ -1182,6 +1209,36 @@ function drawBoxes() {
       knob.setAttribute('r', 4 * unit);
       drawn.push(arm, knob);
     }
+    // The anchor, which is the point the turn and the scale happen about and the point the
+    // position places. Drawn because the second sitting asked to see it, as After Effects shows it.
+    const layer = selected();
+    if (layer) {
+      const [ax, ay] = anchorOnScreen(layer);
+      const ring = svgEl('circle');
+      ring.setAttribute('class', 'anchor');
+      ring.setAttribute('cx', ax);
+      ring.setAttribute('cy', ay);
+      ring.setAttribute('r', 4 * unit);
+      drawn.push(ring);
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const line = svgEl('line');
+        line.setAttribute('class', 'anchor');
+        line.setAttribute('x1', ax - dx * 8 * unit);
+        line.setAttribute('y1', ay - dy * 8 * unit);
+        line.setAttribute('x2', ax + dx * 8 * unit);
+        line.setAttribute('y2', ay + dy * 8 * unit);
+        drawn.push(line);
+      }
+    }
+  }
+  if (marquee) {
+    const box = svgEl('rect');
+    box.setAttribute('class', 'marquee');
+    box.setAttribute('x', Math.min(marquee[0], marquee[2]));
+    box.setAttribute('y', Math.min(marquee[1], marquee[3]));
+    box.setAttribute('width', Math.abs(marquee[2] - marquee[0]));
+    box.setAttribute('height', Math.abs(marquee[3] - marquee[1]));
+    drawn.push(box);
   }
   svg.replaceChildren(...drawn);
 }
@@ -1306,10 +1363,29 @@ function rotateAbout(anchorAt) {
   };
 }
 
-// A press on the picture. In order: a handle of the layer already selected, then the layer under
-// the pointer, then nothing — which clears the selection, because clicking the empty part of a
+// Moving the anchor without moving the picture, which is what After Effects' pan-behind tool
+// does: the mark follows the pointer, the position moves with it, and the anchor moves the same
+// distance in the layer's own pixels — back through the layer's turn and scale, since document
+// 21 has the anchor on the far side of both. A scale of zero has no far side and is left alone.
+const panBehind = (start, from, at, m, during) => {
+  const [layer, one] = start[0];
+  const per = perFramePixel();
+  const dx = (at[0] - from[0]) * per, dy = (at[1] - from[1]) * per;
+  during(layer, 'position', [one.position[0] + dx, one.position[1] + dy]);
+  const turn = -one.rotation[0] * Math.PI / 180;
+  const lx = dx * Math.cos(turn) - dy * Math.sin(turn);
+  const ly = dx * Math.sin(turn) + dy * Math.cos(turn);
+  during(layer, 'anchor', [
+    one.anchor[0] + lx / (one.scale[0] / 100 || 1),
+    one.anchor[1] + ly / (one.scale[1] / 100 || 1),
+  ]);
+};
+
+// A press on the picture, or on the dark around it. In order: a handle of the layer already
+// selected, its anchor, then the layer under the pointer, then nothing — which starts a marquee,
+// and a marquee that never moved clears the selection, because clicking the empty part of a
 // shot and having the box stay is the thing that makes a selection feel stuck.
-view.onpointerdown = (e) => {
+stage.onpointerdown = (e) => {
   // The gesture itself lives inside the press that starts it, and not beside it. That is what
   // `verification/B-12c_keyboard_table.md` requires of a drag: it cuts every pointer handler out
   // of this page and asks what commands are left, and `property.drag_update` must not be one of
@@ -1328,22 +1404,23 @@ view.onpointerdown = (e) => {
       position: held(layer, 'position'),
       scale: held(layer, 'scale'),
       rotation: held(layer, 'rotation'),
+      anchor: held(layer, 'anchor'),
     }]);
     dragging = true;
-    view.setPointerCapture(down.pointerId);
+    stage.setPointerCapture(down.pointerId);
     const during = (layer, prop, values) => command('/property.drag_update?layer='
       + encodeURIComponent(layer.id) + '&prop=' + prop
       + '&value=' + encodeURIComponent(values.map(number).join(',')));
     const escape = (k) => { if (k.key === 'Escape') stop(true); };
     const stop = (cancelled) => {
       dragging = false;
-      view.onpointermove = null;
-      view.onpointerup = null;
+      stage.onpointermove = null;
+      stage.onpointerup = null;
       window.removeEventListener('keydown', escape, true);
       command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
     };
-    view.onpointermove = (m) => apply(start, from, atCanvas(m), m, during);
-    view.onpointerup = () => stop(false);
+    stage.onpointermove = (m) => apply(start, from, atCanvas(m), m, during);
+    stage.onpointerup = () => stop(false);
     window.addEventListener('keydown', escape, true);
   };
   if (e.button !== 0 || !doc) return;
@@ -1368,8 +1445,42 @@ view.onpointerdown = (e) => {
         return;
       }
     }
+    if (Math.hypot(x - anchorAt[0], y - anchorAt[1]) <= 6 * unit) {
+      e.preventDefault();
+      beginStageDrag(e, [layer], panBehind);
+      return;
+    }
   }
   const hit = layerUnder(x, y);
+  if (!hit) {
+    // A marquee. Releasing it selects every layer whose box it touches — front-most first, so
+    // the panels describe the one on top — added to the selection with Shift held and replacing
+    // it otherwise. One that never moved is the click it always was.
+    e.preventDefault();
+    const keep = e.shiftKey ? selection.slice() : [];
+    marquee = [x, y, x, y];
+    stage.setPointerCapture(e.pointerId);
+    stage.onpointermove = (m) => { marquee = [x, y, ...atCanvas(m)]; drawBoxes(); };
+    stage.onpointerup = () => {
+      stage.onpointermove = null;
+      stage.onpointerup = null;
+      const [x0, x1] = [Math.min(x, marquee[2]), Math.max(x, marquee[2])];
+      const [y0, y1] = [Math.min(y, marquee[3]), Math.max(y, marquee[3])];
+      marquee = null;
+      const moved = x1 - x0 > 2 * unit || y1 - y0 > 2 * unit;
+      const caught = !moved ? [] : boxes.filter((box) => {
+        const xs = box.corners.filter((_, i) => i % 2 === 0);
+        const ys = box.corners.filter((_, i) => i % 2 === 1);
+        return Math.min(...xs) <= x1 && Math.max(...xs) >= x0
+          && Math.min(...ys) <= y1 && Math.max(...ys) >= y0;
+      }).map((box) => box.layer).reverse();
+      selection = [...caught.filter((id) => !keep.includes(id)), ...keep];
+      selectedLayer = selection[0] || null;
+      drawPanels();
+      askForBoxes();
+    };
+    return;
+  }
   if (hit !== selectedLayer || e.shiftKey) select(hit, e.shiftKey);
   const now = selected();
   // A locked layer selects and shows its box and does not move: document 19's lock is the whole
@@ -1423,9 +1534,68 @@ view.onkeydown = (e) => {
   });
 };
 
-// The canvas is scaled to fit its panel, so a window that changes size changes how many frame
-// pixels a handle is worth. The outline is redrawn rather than recomputed from the window.
-window.addEventListener('resize', drawBoxes);
+// Zoom (W-06). Null is the fit the page has always had: the picture scaled by the stylesheet to
+// the space it has. A number is screen pixels per composition pixel; the picture is given that
+// size and the stage scrolls to the rest of it. Every screen-to-frame conversion on this page
+// reads the canvas's rectangle on screen, so nothing else has to know which of the two it is.
+function applyZoom() {
+  const comp = composition();
+  const fit = zoom === null || !comp;
+  for (const el of [view, $('boxes')]) {
+    el.style.width = fit ? '' : comp.width * zoom + 'px';
+    el.style.height = fit ? '' : comp.height * zoom + 'px';
+  }
+  stage.classList.toggle('zoomed', !fit);
+  const shown = shownScale();
+  $('zoomer').value = Math.round(Math.log2(shown) * 100);
+  $('zoomlabel').textContent = !comp ? '\u2014'
+    : Math.round(shown * 100) + '%' + (fit ? ', fit' : '');
+  drawBoxes();
+}
+
+// Screen pixels per composition pixel as the picture is shown now, zoomed or fitted.
+function shownScale() {
+  const comp = composition();
+  return comp && comp.width ? view.getBoundingClientRect().width / comp.width : 1;
+}
+
+// Zoom to a scale, keeping the point of the picture under the screen point where it is. That is
+// what a wheel over a spot asks for: the spot stays put and the rest grows around it. When the
+// picture is smaller than the stage it is centred and the spot cannot stay, which is right.
+function zoomTo(scale, clientX, clientY) {
+  const comp = composition();
+  if (!comp) return;
+  const was = view.getBoundingClientRect();
+  const fx = (clientX - was.left) / was.width, fy = (clientY - was.top) / was.height;
+  zoom = Math.min(32, Math.max(1 / 64, scale));
+  applyZoom();
+  const is = view.getBoundingClientRect();
+  stage.scrollLeft += is.left + fx * is.width - clientX;
+  stage.scrollTop += is.top + fy * is.height - clientY;
+}
+
+const stageCentre = () => {
+  const r = stage.getBoundingClientRect();
+  return [r.left + r.width / 2, r.top + r.height / 2];
+};
+
+// The wheel, in the three forms the second sitting asked for: plain, about the middle of what
+// is on screen; with Ctrl, about the pointer; with Ctrl and Shift, about the pointer in bigger
+// steps. The browser's own Ctrl+wheel is a page zoom, and is stopped.
+stage.onwheel = (e) => {
+  if (!doc || (e.shiftKey && !e.ctrlKey)) return; // Shift alone is the browser's sideways scroll
+  e.preventDefault();
+  const step = e.ctrlKey && e.shiftKey ? 1.4 : 1.15;
+  const factor = e.deltaY < 0 ? step : 1 / step;
+  const [cx, cy] = e.ctrlKey ? [e.clientX, e.clientY] : stageCentre();
+  zoomTo(shownScale() * factor, cx, cy);
+};
+$('fit').onclick = () => { zoom = null; applyZoom(); };
+$('zoomer').oninput = () => zoomTo(2 ** ($('zoomer').value / 100), ...stageCentre());
+
+// A window that changes size changes how many frame pixels a handle is worth, and what the fit
+// is. The outline is redrawn rather than recomputed from the window.
+window.addEventListener('resize', applyZoom);
 
 function field(into, term, value) {
   const dt = document.createElement('dt');
@@ -1777,6 +1947,7 @@ function drawPanels() {
   // selected, or the next Delete would name something that is not there.
   selection = selection.filter((id) => layers().some((l) => l.id === id));
   if (selectedLayer && !selected()) selectedLayer = selection[0] || null;
+  applyZoom();
   drawComps();
   drawAssets();
   drawRuler();
@@ -2063,7 +2234,10 @@ addEventListener('keydown', (e) => {
   }
   else if (e.ctrlKey && e.key === ']') { e.preventDefault(); $('up').click(); }
   else if (e.ctrlKey && e.key === '[') { e.preventDefault(); $('down').click(); }
+  // Document 24: Ctrl+1 is `viewer.zoom_100` and Shift+/ is `viewer.fit`, both After Effects'.
+  else if (e.ctrlKey && e.key === '1') { e.preventDefault(); zoomTo(1, ...stageCentre()); }
   else if (e.ctrlKey) { /* leave every other accelerator alone */ }
+  else if (e.key === '?') { e.preventDefault(); $('fit').click(); }
   else if (e.key === '[' || e.key === ']') { e.preventDefault(); toPlayhead(e.key === ']', e.altKey); }
   else if (e.key === 'F2') { e.preventDefault(); beginRename(); }
   // Document 24: "Deleting uses the focused context and must show the target clearly before
