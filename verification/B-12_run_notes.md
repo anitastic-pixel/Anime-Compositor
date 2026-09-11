@@ -109,4 +109,77 @@ B-12d:
   "bounded by implementation safety limits" and never gave numbers; these are the build's, not
   the specification's.
 
+## The second sitting, 2026-09-11, in the owner's words
+
+Transcribed at the owner's instruction from what they wrote after the second hands-on sitting,
+with `target/release/anime_compositor_app.exe` rebuilt from `main` at `68d6039` (W-04 merged).
+The first build they tried was the one from 2026-09-09, which held none of W-03 or W-04, and the
+first thing they reported was that nothing had changed: the page is baked into the binary at
+compile time, and a change to it is not in any binary built before it. Their words, unedited;
+the agent added nothing to this block and took nothing out of it. Two screenshots came with it
+and are described under the block, in the agent's words.
+
+> I seem to try and scroll the layer across the timeline, but it instantly teleports the
+> playhead, so limit the playhead clicking to the top bar maybe with the 0 - 25 - 50 - 75, how
+> would you best tackle this, maybe have it like so, but still select the specific frame/layer
+> piece to let me slide around the timeline, and ? the multi-selecting of layers works, along
+> with positioning, I would like to see the anchorpoint as well like AE does; transforming works;
+> hiding the exposures looks much better; any value box, I want the drag to manipulate the values
+> as well, along with a color display to help select the proper color for the tint, maybe
+> different color picker graphs, like a color wheel, however way AE/Davinci Resolve does it;
+> opacity as a percentage is great; effects reordering is great as well, let's also have an
+> option to drag it up and down smoothly; also we need to optimize the effects performance for
+> gpu/cpu acceleration, along with allowing realtime updating for the effects, as I had to toggle
+> visibility of the layer to get it to properly display the effect; but is getting a little
+> better now. also allow me to select layers that are outside of the preview box [Image #6] as it
+> isn't allowing me to click and drag it; click and select multiple layers maybe? looks great
+> with tint and blur! [Image #7] ; we need a scale bar at the bottom, for fit to screen, crl +
+> scroll for specific spot zoom with where the mouse points in the composition area, scroll wheel
+> for basic centered zoom, crl + shift + scroll for slighty boosted dramatic zoom speed.
+
+The first screenshot shows a layer dragged well off the left of the composition, its outline and
+handles drawn in the dark of the stage outside the picture, and the picture itself to the right
+of it. The second shows a layer with a tint of `0, 5, 0` at amount 0.5 and a blur of radius 27,
+with the outline drawn a little turned, and the effect controls beside it.
+
+### What each finding is, read against the build
+
+Fourteen findings. Two are defects. Six are confirmations, which is the best kind of line on this
+page. The rest are gestures the window does not offer yet, and one is a question about the
+engine rather than the window.
+
+| # | The finding | What it is | Where it lives |
+| --- | --- | --- | --- |
+| 1 | Dragging a layer bar along the timeline moves the playhead instead | **Defect** | The whole time half of `#sheet` scrubs, rows included. That was chosen so that the rows scrub like Premiere's, and it makes a bar something that cannot be dragged. Scrubbing belongs to the ruler alone. |
+| 2 | Slide a layer or an exposure along the timeline, keep selecting them | New interaction, part core | Nothing in the core moves a layer in time: no command changes `in_frame`/`out_frame`. `exposure.set_span` can move a span. The rule for a span dragged into its neighbour is the decision the first sitting already raised. |
+| 3 | Multi-select and positioning work | Confirmation | — |
+| 4 | Show the anchor point, as After Effects does | Presentation | `anchorOnScreen` already computes where it is; nothing draws it. |
+| 5 | Transforming works; the collapsed exposures look better; opacity in percent; effect reordering | Confirmation | — |
+| 6 | Drag on any value box, not only the transform ones | Already in the core | `Document::update_drag` takes any command, `effect.set_parameters` included. The effect fields are plain inputs that commit on blur; the transform fields already drag. |
+| 7 | A colour display and picker for the tint | New control | The colour is linear RGB and can exceed 1 (the screenshot has 5); a picker shows the clamped colour and the numbers stay beside it. |
+| 8 | Drag an effect up and down the stack smoothly | New interaction | `ReorderEffect` takes an index; the window only routes one step up or down. |
+| 9 | GPU or CPU acceleration for the effects | Decision | The blur is already separable and the effect result is already cached by value (P-11). Anything more is an ADR, and no timing claim is made here without a measurement. |
+| 10 | The effect did not show until the layer's visibility was toggled | Not reproduced | The effect cache holds the parameters in its key by value, so a stale result cannot come from there. The likeliest cause is finding 6: a typed value is not sent until the field loses focus, and the toggle is what took the focus. Live fields remove the case either way. |
+| 11 | Cannot select or drag a layer that lies outside the picture | **Defect** | The press handler is on the canvas, and a press in the dark around it never reaches the canvas. The outline is drawn there; the pointer is not heard there. |
+| 12 | Click and drag to select several layers | New interaction | A marquee over the stage; the selection model already holds several. |
+| 13 | Tint and blur look great | Confirmation | — |
+| 14 | A scale bar with fit-to-screen; scroll to zoom about the centre, Ctrl+scroll about the pointer, Ctrl+Shift+scroll faster | New interaction | The canvas is fitted by CSS and has no zoom. Every screen-to-frame conversion in the page reads the canvas's rectangle on screen, so a zoom is a transform on the stage and the arithmetic holds. |
+
+### The order agreed
+
+Defects first, then the thing the owner asked how to tackle, then the rest in the order that
+puts a visible change in front of them soonest.
+
+1. **W-05, the timeline as a timeline.** Findings 1 and 2. Only the ruler and the playhead's own
+   head scrub. Pressing the middle of a layer's bar slides the whole layer, exposures riding with
+   it; pressing either end trims that end; pressing an exposure block slides that block, stopping
+   where it meets its neighbour. One drag is one history entry, as on the picture. This needs one
+   new core command for a layer's in and out frames.
+2. **W-06, the stage.** Findings 11, 12, 4 and 14. The press handler moves to the stage; a press
+   on nothing starts a marquee; the anchor is drawn and can be dragged; a zoom with a scale bar.
+3. **W-07, the values.** Findings 6, 7, 8 and 10. Effect fields drag through the same
+   transaction the transform fields use and send as they are typed; a colour swatch and picker
+   on the tint; the effect cards drag to reorder.
+4. **Finding 9** is written down as a decision and not started.
+
 ## Anything else
