@@ -19,7 +19,7 @@ The gesture. Every row here sends the requests a scrub sends, in the order it se
 
 Blend mode is shown in the inspector and cannot be changed from it. There is no command in the core for changing one, W-01 does not ask to change one, and adding a command to the model to fill a gap in a panel is a decision about the project format rather than about this window.
 
-Keyframes. The inspector sets a property's base value, which is what document 19 calls the value with no keyframes on it. `keyframe.add_remove` is in document 24 and is not built.
+Keyframes, since W-10. The diamond beside a property is document 24's `keyframe.add_remove`, and a value typed or dragged on a keyframed property becomes a key at the frame under the playhead rather than a base nothing is drawn from. The rows under "keyframes" are that, and the interpolated value between two keys is read back through the same `/boxes` answer the inspector shows it from. Moving a key along the bar is not built: that is W-11, and needs a command of its own in the core so that undo replays it.
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
@@ -50,6 +50,20 @@ Keyframes. The inspector sets a property's base value, which is what document 19
 | and adds no history entry | 4 | 4 | pass |
 | a locked layer refuses a transform edit, and says which rule stopped it | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | pass |
 | and the value is untouched | [210,-40] | [210,-40] | pass |
+| the diamond on a property with no keys sets one holding the value it has | Keyframe position at frame 12 to (210, -40) | Keyframe position at frame 12 to (210, -40) | pass |
+| and the file now holds that one key, linear as document 19 defaults | [210,-40]@12 linear | [210,-40]@12 linear | pass |
+| a value typed at another frame becomes a second key rather than a base | Keyframe position at frame 36 to (0, 0) | Keyframe position at frame 36 to (0, 0) | pass |
+| so there are two keys | [210,-40]@12 linear, [0,0]@36 linear | [210,-40]@12 linear, [0,0]@36 linear | pass |
+| and the base is the value from before either | [210,-40] | [210,-40] | pass |
+| halfway between the keys the window answers the halfway value | [105,-20] | [105,-20] | pass |
+| a value on a keyframed property with no frame named is refused | position is keyframed, so a value belongs to a frame. Say frame=<frame>. | position is keyframed, so a value belongs to a frame. Say frame=<frame>. | pass |
+| the diamond with no frame named is refused | Which frame? Say frame=<frame>. | Which frame? Say frame=<frame>. | pass |
+| the diamond on a frame that has a key removes it | Remove position keyframe at frame 36 | Remove position keyframe at frame 36 | pass |
+| leaving the first | [210,-40]@12 linear | [210,-40]@12 linear | pass |
+| a drag on two keyed properties commits one entry | Keyframe position at frame 12 to (300, -40) and 1 more | Keyframe position at frame 12 to (300, -40) and 1 more | pass |
+| the position key took the last value dragged | [300,-40]@12 linear | [300,-40]@12 linear | pass |
+| and the scale key beside it survived the position's drag | [200,200]@12 linear | [200,200]@12 linear | pass |
+| five history entries for the five edits: two keys set, one typed, one removed, one drag | 5 | 5 | pass |
 | undoing every transform edit gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**28 of 28 checks pass.**
+**42 of 42 checks pass.**

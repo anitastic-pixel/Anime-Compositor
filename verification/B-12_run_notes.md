@@ -229,9 +229,15 @@ than in what the owner did.
    `verification/B-08_preview_table.md` are the clock starting where it is told to; the seam
    gesture is judged in the window, by pulling the line between two exposure blocks and reading
    the numbers in the fields under it.
-3. **W-10, the keys on the bar.** The first half of finding 5: a mark on a layer's bar at every
-   keyframe it has, draggable in time, so a keyframed solid is no longer a bar with nothing on
-   it. No core change.
-4. **D-52** is finding 5's other half, written down and not started.
+3. **W-10, the keys.** The first half of finding 5: a diamond beside each transform property
+   that sets or removes a keyframe on the frame under the playhead, a value typed or dragged on
+   a keyframed property becoming a key on that frame, the panel showing the value the frame is
+   drawn with, and a mark on the layer's bar at every frame it has a key on, so a keyframed
+   solid is no longer a bar with nothing on it. Rows 42 to 58 of
+   `verification/B-12a_transform_table.md`. One line in the core: a drag that keys two
+   properties at once keeps both.
+4. **W-11, moving a key along the bar.** Not started. Undo replays a drag's commands, and a key
+   moved in time is a key removed and a key set, which is two; it needs a command of its own.
+5. **D-52** is finding 5's other half, written down and not started.
 
 ## Anything else

@@ -212,6 +212,19 @@
     position: absolute; top: 9px; bottom: 2px;
     border: 1px dashed #46587a; border-radius: 2px;
   }
+  /* W-10: a keyframe, on the frame it is on, over the bar. It cannot be taken hold of yet:
+     a press lands on the bar underneath and does what the bar does. Moving a key is W-11. */
+  .track .key {
+    position: absolute; top: 1px; width: 7px; height: 7px; margin-left: -4px;
+    background: #e8b06a; transform: rotate(45deg); pointer-events: none;
+  }
+  /* The diamond beside a transform property: hollow where the property has no key on this
+     frame, filled where it has, and yellow at all where it has keys anywhere. */
+  #detail .key {
+    font: inherit; padding: 0 3px; background: none; border: 0; color: #909096; cursor: pointer;
+  }
+  #detail .key.animated { color: #e8b06a; }
+  #detail .key:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   #playhead {
     position: absolute; top: 6px; bottom: 8px; width: 1px; background: #e8866a;
     pointer-events: none;
@@ -875,6 +888,16 @@ function track(comp, layer, drawings) {
     box.append(piece);
     return piece;
   };
+  // W-10: a mark at every frame any of the five properties has a key on. One mark per frame,
+  // not one per property: the bar is the layer's time, and what is keyed there is in the panel.
+  for (const at of new Set(PROPS.flatMap((prop) => keysOf(layer, prop).map((k) => k.frame)))) {
+    const keyed = PROPS.filter((prop) => keysOf(layer, prop).some((k) => k.frame === at));
+    const mark = document.createElement('div');
+    mark.className = 'key';
+    mark.style.left = percent(atFrame(comp, at + 0.5));
+    mark.title = 'Keyframe at frame ' + at + ': ' + keyed.join(', ');
+    box.append(mark);
+  }
   bar('life', layer.in_frame, layer.out_frame).title = layer.name
     + ' is in the composition from frame ' + layer.in_frame
     + ' up to frame ' + layer.out_frame
@@ -1143,6 +1166,10 @@ function drawLayers() {
 // The page cannot work this out for itself: document 07's project format records no pixel size
 // for a drawing, so how big a cel is at all is something only the renderer knows.
 let boxes = [];
+// W-10: every layer's five properties on the frame on screen, in the file's units, from the
+// same answer. A keyframed property is drawn from these and not from its base, so these are
+// what the inspector shows for it.
+let values = {};
 
 // An SVG element has to be made in the SVG namespace or it draws nothing, and the namespace is
 // taken from the overlay already in the markup rather than written out. That is not shorthand.
@@ -1184,10 +1211,17 @@ async function askForBoxes() {
     // way behind this one.
     if (said.frame !== frame) return;
     boxes = said.layers;
+    values = said.values || {};
   } catch (e) {
     boxes = [];
+    values = {};
   }
   drawBoxes();
+  // A keyframed property's numbers change with the frame, and so does whether its diamond is
+  // filled, so the panel follows the playhead for a layer that has keys. A layer with none
+  // shows the same numbers on every frame and is left alone.
+  const layer = selected();
+  if (layer && PROPS.some((prop) => keysOf(layer, prop).length)) drawInspector();
 }
 
 const boxOf = (id) => boxes.find((box) => box.layer === id) || null;
@@ -1447,7 +1481,7 @@ stage.onpointerdown = (e) => {
     stage.setPointerCapture(down.pointerId);
     const during = (layer, prop, values) => command('/property.drag_update?layer='
       + encodeURIComponent(layer.id) + '&prop=' + prop
-      + '&value=' + encodeURIComponent(values.map(number).join(',')));
+      + '&value=' + encodeURIComponent(values.map(number).join(',')) + '&frame=' + frame);
     const escape = (k) => { if (k.key === 'Escape') stop(true); };
     const stop = (cancelled) => {
       dragging = false;
@@ -1565,7 +1599,8 @@ view.onkeydown = (e) => {
     // same transaction a drag does. For one layer that is the one record it has always been.
     for (const [layer, to] of next) {
       await command('/property.drag_update?layer=' + encodeURIComponent(layer.id)
-        + '&prop=position&value=' + encodeURIComponent(to.map(number).join(',')));
+        + '&prop=position&value=' + encodeURIComponent(to.map(number).join(','))
+        + '&frame=' + frame);
     }
     await command('/property.drag_end');
   });
@@ -1701,9 +1736,35 @@ function scrubHandle(text, title, step, read, live, done, typed) {
   return handle;
 }
 
+const PROPS = ['anchor', 'position', 'scale', 'rotation', 'opacity'];
+const keysOf = (layer, prop) => ((layer.transform || {})[prop] || {}).keyframes || [];
+
+// A property's numbers on the frame on screen: the base where it has no keys, and otherwise
+// what the window said it is on this frame, which is the interpolated value. Until that
+// answer arrives the base is shown, which is wrong for a moment rather than blank.
 function transformValue(layer, prop) {
-  const held = ((layer.transform || {})[prop] || {}).base;
+  const at = (values[layer.id] || {})[prop];
+  const held = keysOf(layer, prop).length && at !== undefined
+    ? at : ((layer.transform || {})[prop] || {}).base;
   return Array.isArray(held) ? held.slice() : [held];
+}
+
+// W-10: the diamond beside a property. Document 24's `keyframe.add_remove`: hollow where the
+// frame on screen has no key for this property and a press sets one, filled where it has and
+// a press removes it. Which of the two is the window's reading of the document, not the page's.
+function keyButton(layer, prop) {
+  const keys = keysOf(layer, prop);
+  const on = keys.some((k) => k.frame === frame);
+  const button = document.createElement('button');
+  button.className = 'key' + (keys.length ? ' animated' : '');
+  button.textContent = on ? '◆' : '◇';
+  button.title = (on ? 'Remove the ' : 'Add a ') + prop + ' keyframe at frame ' + frame
+    + (keys.length ? ' (' + keys.length + ' keyframe' + (keys.length === 1 ? '' : 's') + ')' : '');
+  button.setAttribute('aria-label', button.title);
+  button.setAttribute('aria-pressed', on);
+  button.onclick = () => command('/keyframe.add_remove?layer=' + encodeURIComponent(layer.id)
+    + '&prop=' + prop + '&frame=' + frame);
+  return button;
 }
 
 // One transform property: its label, its one or two numbers, and a scrub handle per number.
@@ -1712,12 +1773,14 @@ function transformValue(layer, prop) {
 // `property.drag_update` until the pointer is released and one history entry covers the lot.
 function propRow(into, layer, prop, parts, per = 1) {
   const dt = document.createElement('dt');
-  dt.textContent = prop[0].toUpperCase() + prop.slice(1);
+  dt.append(keyButton(layer, prop), ' ', prop[0].toUpperCase() + prop.slice(1));
   const dd = document.createElement('dd');
   const held = transformValue(layer, prop).map((v) => v * per);
+  // The frame goes with every value since W-10: on a keyframed property the window makes the
+  // value a key on that frame, and on any other it sets the base as it always has.
   const send = (id, values) => command('/' + id + '?layer=' + encodeURIComponent(layer.id)
     + '&prop=' + prop + '&value='
-    + encodeURIComponent(values.map((v) => number(v / per)).join(',')));
+    + encodeURIComponent(values.map((v) => number(v / per)).join(',')) + '&frame=' + frame);
   parts.forEach((part, i) => {
     const with_ = (v) => { const next = held.slice(); next[i] = v; return next; };
     const handle = scrubHandle(part,

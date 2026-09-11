@@ -49,7 +49,7 @@ use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity
 use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR, TINT};
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
 use anime_compositor::media;
-use anime_compositor::model::{Asset, Composition, Id, Layer, Project, Prop, Value};
+use anime_compositor::model::{Asset, Composition, Id, Interp, Layer, Project, Prop, Value};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
 use anime_compositor::time::{ExposureSpan, FrameRate};
@@ -246,10 +246,46 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             serde_json::json!({ "layer": layer.id.as_str(), "corners": corners })
         })
         .collect();
+    // W-10: what each layer's five properties are on this frame, in the units the file holds,
+    // so that the inspector can show a keyframed property's value under the playhead rather
+    // than a base value nothing is drawn from. Every layer of the composition is here, not only
+    // the ones the plan drew: a layer outside its own life still has a panel.
+    let values: serde_json::Map<String, serde_json::Value> = taken
+        .project
+        .composition(&taken.composition)
+        .map(|comp| {
+            comp.layers_in_order()
+                .map(|layer| {
+                    let at: serde_json::Map<String, serde_json::Value> = layer
+                        .transform
+                        .value_at(frame)
+                        .into_iter()
+                        .map(|(prop, value)| {
+                            // D-22: the file holds a scale as a percentage, and a whole
+                            // number as a whole number, so the panel reads 100 and not 100.0.
+                            let factor = if prop == Prop::Scale { 100.0 } else { 1.0 };
+                            let num = |v: f64| match v * factor {
+                                w if w.fract() == 0.0 && w.abs() < 1e15 => {
+                                    serde_json::json!(w as i64)
+                                }
+                                w => serde_json::json!(w),
+                            };
+                            let value = match value {
+                                Value::Scalar(v) => num(v),
+                                Value::Vec2(x, y) => serde_json::json!([num(x), num(y)]),
+                            };
+                            (prop.as_str().to_string(), value)
+                        })
+                        .collect();
+                    (layer.id.as_str().to_string(), serde_json::Value::Object(at))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     allow_the_page_to_read_this(taken.reply)
         .header("content-type", "application/json; charset=utf-8")
         .body(
-            serde_json::json!({ "frame": frame, "layers": found })
+            serde_json::json!({ "frame": frame, "layers": found, "values": values })
                 .to_string()
                 .into_bytes(),
         )
@@ -1358,6 +1394,7 @@ const ANSWERS: &[&str] = &[
     "effect.set_parameters",
     "effect.toggle_bypass",
     "exposure.set_span",
+    "keyframe.add_remove",
     "layer.create",
     "layer.delete",
     "layer.move_down",
@@ -1707,9 +1744,50 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         Err(said) => return Some(said),
                     },
                 },
+                // W-10: document 24's toggle. Where the property has no key on the frame, one
+                // is set holding the value the property already has there, so pressing the
+                // diamond changes nothing on screen and only begins to hold it; where it has
+                // one, that key is removed. Which of the two is read from the document, as the
+                // other toggles are, rather than sent by a page that may be describing a key
+                // that has since been undone.
+                "keyframe.add_remove" => {
+                    let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
+                        return Some(
+                            "Which property? Say anchor, position, scale, rotation or opacity."
+                                .to_string(),
+                        );
+                    };
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let property = layer.transform.get(prop);
+                    match property.keyframe_at(frame) {
+                        Some(_) => Command::RemoveKeyframe {
+                            composition,
+                            layer_id,
+                            prop,
+                            frame,
+                        },
+                        None => Command::SetKeyframe {
+                            composition,
+                            layer_id,
+                            prop,
+                            frame,
+                            value: property.value_at(frame),
+                            interp: Interp::Linear,
+                        },
+                    }
+                }
                 // Typed into a field, or scrubbed on its label. The same command either way;
                 // what differs is whether it becomes a history entry on its own or joins the one
                 // the drag will commit at release.
+                //
+                // W-10: on a property that has keyframes the base is not what is drawn, so the
+                // same request sets a key at the frame the page names instead, keeping the
+                // interpolation a key already there was given. This is what After Effects does
+                // when a value is changed on an animated property, and it is why the page sends
+                // the frame with every value: the window decides which of the two it means.
                 "property.set_base" | "property.drag_update" => {
                     let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
                         return Some(
@@ -1730,11 +1808,34 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             _ => format!("{prop} needs a number. Not \"{text}\"."),
                         });
                     };
-                    Command::SetPropertyBase {
-                        composition,
-                        layer_id,
-                        prop,
-                        value,
+                    let property = layer.transform.get(prop);
+                    if !property.is_animated() {
+                        Command::SetPropertyBase {
+                            composition,
+                            layer_id,
+                            prop,
+                            value,
+                        }
+                    } else {
+                        let frame = match frame_parameter(query, "frame") {
+                            Ok(frame) => frame,
+                            Err(_) => {
+                                return Some(format!(
+                                    "{prop} is keyframed, so a value belongs to a frame. Say \
+                                     frame=<frame>."
+                                ))
+                            }
+                        };
+                        Command::SetKeyframe {
+                            composition,
+                            layer_id,
+                            prop,
+                            frame,
+                            value,
+                            interp: property
+                                .keyframe_at(frame)
+                                .map_or(Interp::Linear, |k| k.interp),
+                        }
                     }
                 }
                 // One command for all three of choosing a matte, changing whether the matte
@@ -3464,6 +3565,40 @@ mod editing {
             .unwrap_or_else(|| "(no such layer)".to_string())
     }
 
+    /// A property's keyframes as the panels get them, one `value@frame interp` per key.
+    fn keys(viewer: &Mutex<Viewer>, layer_id: &str, prop: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .and_then(|l| l["transform"][prop]["keyframes"].as_array())
+            .map(|keys| {
+                keys.iter()
+                    .map(|k| {
+                        format!(
+                            "{}@{} {}",
+                            k["value"],
+                            k["frame"],
+                            k["interp"].as_str().unwrap_or("?")
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// A property's value on one frame, out of the `/boxes` answer the inspector shows it from.
+    fn value_at(viewer: &Mutex<Viewer>, frame: i32, layer_id: &str, prop: &str) -> String {
+        let body = boxes(viewer, frame, None).into_body();
+        let answer: serde_json::Value =
+            serde_json::from_slice(&body).expect("the boxes answer is JSON");
+        answer["values"][layer_id][prop].to_string()
+    }
+
     #[test]
     fn the_inspector_changes_a_transform_and_a_drag_is_one_history_entry() {
         let mut report = Report { rows: Vec::new() };
@@ -3687,6 +3822,113 @@ mod editing {
         );
         run(&viewer, "layer.toggle_lock?layer=layer-cel");
 
+        // ---- keyframes (W-10) ---------------------------------------------------------------------------
+        // Document 24's toggle, and what a typed or dragged value becomes once a property has
+        // keys. The value between two keys is read through `/boxes`, which is the answer the
+        // inspector shows it from, so the row is the number the artist would see.
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "the diamond on a property with no keys sets one holding the value it has",
+            "Keyframe position at frame 12 to (210, -40)",
+            run(
+                &viewer,
+                "keyframe.add_remove?layer=layer-cel&prop=position&frame=12",
+            ),
+        );
+        report.check(
+            "and the file now holds that one key, linear as document 19 defaults",
+            "[210,-40]@12 linear",
+            keys(&viewer, l, "position"),
+        );
+        report.check(
+            "a value typed at another frame becomes a second key rather than a base",
+            "Keyframe position at frame 36 to (0, 0)",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=0,0&frame=36",
+            ),
+        );
+        report.check(
+            "so there are two keys",
+            "[210,-40]@12 linear, [0,0]@36 linear",
+            keys(&viewer, l, "position"),
+        );
+        report.check(
+            "and the base is the value from before either",
+            "[210,-40]",
+            base(&viewer, l, "position"),
+        );
+        report.check(
+            "halfway between the keys the window answers the halfway value",
+            "[105,-20]",
+            value_at(&viewer, 24, l, "position"),
+        );
+        report.check(
+            "a value on a keyframed property with no frame named is refused",
+            "position is keyframed, so a value belongs to a frame. Say frame=<frame>.",
+            run(
+                &viewer,
+                "property.set_base?layer=layer-cel&prop=position&value=0,0",
+            ),
+        );
+        report.check(
+            "the diamond with no frame named is refused",
+            "Which frame? Say frame=<frame>.",
+            run(&viewer, "keyframe.add_remove?layer=layer-cel&prop=position"),
+        );
+        report.check(
+            "the diamond on a frame that has a key removes it",
+            "Remove position keyframe at frame 36",
+            run(
+                &viewer,
+                "keyframe.add_remove?layer=layer-cel&prop=position&frame=36",
+            ),
+        );
+        report.check(
+            "leaving the first",
+            "[210,-40]@12 linear",
+            keys(&viewer, l, "position"),
+        );
+        // A corner drag on the picture sends a position and a scale for one layer at once.
+        // Keyed, both must survive the drag: the transaction keeps the last of each control,
+        // and a key on another property is another control.
+        run(
+            &viewer,
+            "keyframe.add_remove?layer=layer-cel&prop=scale&frame=12",
+        );
+        for (x, s) in [(240, 120), (270, 160), (300, 200)] {
+            run(
+                &viewer,
+                &format!(
+                    "property.drag_update?layer=layer-cel&prop=position&value={x},-40&frame=12"
+                ),
+            );
+            run(
+                &viewer,
+                &format!("property.drag_update?layer=layer-cel&prop=scale&value={s},{s}&frame=12"),
+            );
+        }
+        report.check(
+            "a drag on two keyed properties commits one entry",
+            "Keyframe position at frame 12 to (300, -40) and 1 more",
+            run(&viewer, "property.drag_end"),
+        );
+        report.check(
+            "the position key took the last value dragged",
+            "[300,-40]@12 linear",
+            keys(&viewer, l, "position"),
+        );
+        report.check(
+            "and the scale key beside it survived the position's drag",
+            "[200,200]@12 linear",
+            keys(&viewer, l, "scale"),
+        );
+        report.check(
+            "five history entries for the five edits: two keys set, one typed, one removed, one drag",
+            5,
+            held(&viewer).document.undo_depth() - depth,
+        );
+
         // ---- back to the file ---------------------------------------------------------------------------
         while held(&viewer).document.undo_depth() > 0 {
             undo(&viewer);
@@ -3755,9 +3997,13 @@ mod editing {
          in the photographs beside this table.\n\nBlend mode is shown in the inspector and cannot \
          be changed from it. There is no command in the core for changing one, W-01 does not ask \
          to change one, and adding a command to the model to fill a gap in a panel is a decision \
-         about the project format rather than about this window.\n\nKeyframes. The inspector sets \
-         a property's base value, which is what document 19 calls the value with no keyframes on \
-         it. `keyframe.add_remove` is in document 24 and is not built.",
+         about the project format rather than about this window.\n\nKeyframes, since W-10. The \
+         diamond beside a property is document 24's `keyframe.add_remove`, and a value typed or \
+         dragged on a keyframed property becomes a key at the frame under the playhead rather \
+         than a base nothing is drawn from. The rows under \"keyframes\" are that, and the \
+         interpolated value between two keys is read back through the same `/boxes` answer the \
+         inspector shows it from. Moving a key along the bar is not built: that is W-11, and \
+         needs a command of its own in the core so that undo replays it.",
     ];
 
     /// The effect records of one layer, out of the same JSON the panels are drawn from.
@@ -7208,6 +7454,7 @@ mod contract {
         "effect.set_parameters",
         "effect.toggle_bypass",
         "exposure.set_span",
+        "keyframe.add_remove",
         "layer.create",
         "layer.delete",
         "layer.move_down",
@@ -7504,7 +7751,7 @@ mod contract {
         ("timeline.set_work_end", "nothing yet"),
         ("exposure.set_span", "a command the window answers"),
         ("property.set_base", "a command the window answers"),
-        ("keyframe.add_remove", "nothing yet"),
+        ("keyframe.add_remove", "a command the window answers"),
         ("effect.add", "a command the window answers"),
         ("effect.delete", "a command the window answers"),
         ("effect.toggle_bypass", "a command the window answers"),
@@ -7766,9 +8013,8 @@ mod contract {
          **`timeline.set_work_start` and `set_work_end`** - the work area is the whole \
          composition in this build, which is what `verification/B-08_preview_table.md` measures \
          and what B-10 exports. Narrowing it is a setting nothing yet reads.\n- \
-         **`keyframe.add_remove`** - the core has interpolated properties since B-05 and the \
-         inspector edits base values only. W-01 asks the artist to adjust transforms, not to \
-         animate them.\n- **`viewer.fit` and `viewer.zoom_100`** are the page's own since W-06: a \
+         **`keyframe.add_remove`** - since W-10 the diamond beside each transform property, \
+         checked in `verification/B-12a_transform_table.md`.\n- **`viewer.fit` and `viewer.zoom_100`** are the page's own since W-06: a \
          zoom is a size the page gives the canvas and a scroll of the stage around it, and \
          nothing in the project changes, so neither sends a request.\n- \
          **`app.command_palette`** - a search over commands, which needs the commands to be \
