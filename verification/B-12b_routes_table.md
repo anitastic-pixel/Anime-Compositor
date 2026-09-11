@@ -24,6 +24,7 @@ And the function itself. It needs a running application to be called, so what is
 | `/cancel-export` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/export` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/open` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
+| `/play` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/recent` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/recover` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/save` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
@@ -47,4 +48,4 @@ And the function itself. It needs a running application to be called, so what is
 | what an export asked for with `missing=` does with a missing drawing | Block | Block | pass |
 | what an export asked for with `no query at all` does with a missing drawing | Block | Block | pass |
 
-**26 of 26 checks pass.**
+**27 of 27 checks pass.**

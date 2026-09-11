@@ -495,6 +495,51 @@ fn b08_previews_at_a_chosen_resolution_and_plays_at_real_time() {
         clock.report(),
     );
 
+    // W-09: playback begins where the playhead is. Until the third sitting every press of Play
+    // counted from the work area's first frame, whatever frame was on screen.
+    let mut clock = Playback::new(0, 239, rate(24, 1));
+    clock.start_from(30);
+    report.check(
+        "started from frame 30, the first frame played is 30",
+        "30",
+        clock.at(Duration::ZERO).frame,
+    );
+    report.check(
+        "and three frame times later it is 33",
+        "33",
+        clock.at(frames24(3)).frame,
+    );
+    clock.at(frames24(90));
+    clock.start_from(5);
+    report.check(
+        "started again from frame 5 after reaching 120, the first frame played is 5, not 120",
+        "5",
+        clock.at(Duration::ZERO).frame,
+    );
+    report.check(
+        "and the report counts the new run only",
+        "Played 1 frames in real time. No frames were dropped.",
+        clock.report(),
+    );
+    let mut clock = Playback::new(10, 13, rate(24, 1));
+    clock.start_from(12);
+    report.check(
+        "started from frame 12 of a work area 10 to 13, the run goes 12 13 10 11",
+        "12 13 10 11",
+        [0, 41_666_667, 83_333_334, 125_000_000]
+            .iter()
+            .map(|&ns| clock.at(Duration::from_nanos(ns)).frame.to_string())
+            .collect::<Vec<_>>()
+            .join(" "),
+    );
+    let mut clock = Playback::new(10, 13, rate(24, 1));
+    clock.start_from(40);
+    report.check(
+        "started from a frame past the work area, the run begins at its last frame",
+        "13",
+        clock.at(Duration::ZERO).frame,
+    );
+
     // Work-area playback loops, which is what R-06a means by a work area.
     let mut clock = Playback::new(10, 13, rate(24, 1));
     let looped: Vec<i32> = [0, 3, 6, 9, 12]

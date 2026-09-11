@@ -141,9 +141,12 @@ enum Ask {
     At(u64),
     /// One named frame, for stepping. The clock is not consulted and nothing is skipped.
     Frame(i32),
+    /// Start the clock over from this frame and answer it (W-09). What the page asks for when
+    /// Play is pressed, so that playback begins under the playhead.
+    Play(i32),
 }
 
-/// Read `/at/<milliseconds>` or `/frame/<n>`, with an optional `?q=draft|full`.
+/// Read `/at/<milliseconds>`, `/frame/<n>` or `/play/<n>`, with an optional `?q=draft|full`.
 ///
 /// Returns `None` for anything else, which the handler answers with a 404 rather than guessing.
 /// An unreadable quality is `None` in the second slot, meaning "leave it as it is": a typo in a
@@ -153,6 +156,7 @@ fn parse(path: &str, query: Option<&str>) -> Option<(Ask, Option<PreviewQuality>
     let ask = match (parts.next()?, parts.next()?, parts.next()) {
         ("at", ms, None) => Ask::At(ms.parse().ok()?),
         ("frame", n, None) => Ask::Frame(n.parse().ok()?),
+        ("play", n, None) => Ask::Play(n.parse().ok()?),
         _ => return None,
     };
     Some((ask, quality_asked(query)))
@@ -402,7 +406,7 @@ fn said_about(
             "x-report",
             match ask {
                 Ask::At(_) => viewer.playback.report(),
-                Ask::Frame(_) => String::new(),
+                Ask::Frame(_) | Ask::Play(_) => String::new(),
             },
         )
 }
@@ -456,6 +460,13 @@ fn serve(
                 let first = viewer.playback.at_rest();
                 let last = first + viewer.playback.length() as i32 - 1;
                 (n.clamp(first, last), 0)
+            }
+            // W-09: playback begins at the playhead. The clock is started over from this frame
+            // and answers it at once, so the first frame played is the one that was on screen.
+            Ask::Play(n) => {
+                viewer.playback.start_from(n);
+                let shown = viewer.playback.at(Duration::ZERO);
+                (shown.frame, shown.skipped)
             }
         };
         Snapshot {
@@ -2696,7 +2707,7 @@ fn main() {
                 Some((ask, quality)) => serve(&viewer, &export, ask, quality),
                 None => allow_the_page_to_read_this(Response::builder().status(404))
                     .header("content-type", "text/plain; charset=utf-8")
-                    .body(b"ask for /at/<milliseconds> or /frame/<number>".to_vec())
+                    .body(b"ask for /at/<milliseconds>, /frame/<number> or /play/<number>".to_vec())
                     .expect("build the not-found response"),
             }
         })
@@ -6975,6 +6986,7 @@ mod tests {
         assert_eq!(parse("/at/0", None), Some((Ask::At(0), None)));
         assert_eq!(parse("/at/16683", None), Some((Ask::At(16683), None)));
         assert_eq!(parse("/frame/100", None), Some((Ask::Frame(100), None)));
+        assert_eq!(parse("/play/30", None), Some((Ask::Play(30), None)));
         assert_eq!(
             parse("/frame/-3", Some("q=full")),
             Some((Ask::Frame(-3), Some(PreviewQuality::Full)))
@@ -7218,17 +7230,19 @@ mod contract {
 
     /// The routes that are not commands: the shell's own, and the two the transport uses.
     const ROUTES: &[&str] = &[
-        // The frame scheme's three, which are not commands and are not answered by the shell:
+        // The frame scheme's four, which are not commands and are not answered by the shell:
         // `frame` is a numbered frame, `at` is the frame playback has reached by a given number
-        // of milliseconds, and `boxes` is where the selected layers landed on that frame, which
-        // only the renderer knows because an asset records no pixel size. The first two are
-        // checked in `verification/B-08_preview_table.md`.
+        // of milliseconds, `play` starts the clock over from the playhead (W-09), and `boxes`
+        // is where the selected layers landed on that frame, which only the renderer knows
+        // because an asset records no pixel size. The clock is checked in
+        // `verification/B-08_preview_table.md`.
         "at",
         "boxes",
         "cancel-export",
         "export",
         "frame",
         "open",
+        "play",
         "recent",
         "recover",
         "save",
@@ -7357,9 +7371,10 @@ mod contract {
         // checked is that the shell has an arm of that name. `frame` and `state` are not in
         // that match: one is the other scheme, one is answered before it.
         for route in &routes {
-            // `frame`, `at` and `boxes` belong to the other scheme and are served beside
-            // `fn frame`, not by the command shell, so there is no arm of that name to look for.
-            if route == "frame" || route == "at" || route == "boxes" {
+            // `frame`, `at`, `play` and `boxes` belong to the other scheme and are served
+            // beside `fn frame`, not by the command shell, so there is no arm of that name to
+            // look for.
+            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes") {
                 continue;
             }
             let arm = format!("\"{route}\"");
@@ -8476,7 +8491,7 @@ mod contract {
         };
         let shell: Vec<String> = ROUTES
             .iter()
-            .filter(|route| !matches!(**route, "frame" | "at" | "boxes"))
+            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes"))
             .map(|route| route.to_string())
             .collect();
         report.check(
@@ -8922,8 +8937,8 @@ mod contract {
             "e.key === '[' || e.key === ']'",
         ),
         (
-            "dragging an exposure block along its bar",
-            "move that exposure",
+            "dragging the seam between two exposure blocks",
+            "retime the exposures on either side of it",
             "input.onchange = sendSpan;",
         ),
         (

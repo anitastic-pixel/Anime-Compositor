@@ -205,6 +205,9 @@ pub struct Playback {
     /// Frames advanced since playback began, counted along the loop rather than modulo it, so
     /// the skip count is right across a loop boundary. `None` until the first [`at`](Self::at).
     position: Option<i64>,
+    /// Where the clock was started from, as frames past `first`, so that playback can begin at
+    /// the playhead rather than at the start of the work area (W-09). Zero until told otherwise.
+    origin: i64,
 }
 
 /// What [`Playback::at`] answers: the frame to show now, and what was passed over to reach it.
@@ -233,7 +236,22 @@ impl Playback {
             shown: 0,
             skipped: 0,
             position: None,
+            origin: 0,
         }
+    }
+
+    /// Start the clock over from `frame`: the next [`at`](Self::at) at zero answers `frame`,
+    /// and the counts of frames shown and skipped begin again.
+    ///
+    /// W-09, from the third sitting: pressing Play with the playhead on frame 30 played from
+    /// frame 0, because the clock only ever counted from the work area's first frame, and a
+    /// second press held the old position until the new clock caught up with it. A frame
+    /// outside the work area is clamped to its nearer end, as stepping is.
+    pub fn start_from(&mut self, frame: i32) {
+        self.origin = (frame.clamp(self.first, self.last) - self.first) as i64;
+        self.position = None;
+        self.shown = 0;
+        self.skipped = 0;
     }
 
     /// The frame at rest, before playback begins and after it stops without having run.
@@ -278,7 +296,7 @@ impl Playback {
         let skipped = (advanced - 1).clamp(0, u32::MAX as i64) as u32;
         self.skipped += skipped;
         Shown {
-            frame: self.first + (position.rem_euclid(self.length())) as i32,
+            frame: self.first + ((self.origin + position).rem_euclid(self.length())) as i32,
             skipped,
         }
     }

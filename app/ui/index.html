@@ -523,7 +523,7 @@ const paint = view.getContext('2d');
 const stage = $('stage');
 
 let playing = false;
-let started = 0;      // performance.now() at the instant playback began
+let started = null;   // performance.now() when the clock's first frame came back; null until then
 let quality = 'draft';
 let frame = 0;        // the frame on screen, as the answer that drew it described it
 // The frame that has been *asked* for, which is not always the one on screen. A held arrow key
@@ -602,6 +602,10 @@ async function show(url, keep = true) {
     paint.putImageData(new ImageData(pixels, width, height), 0, 0);
 
     frame = +h.get('x-frame');
+    // W-09: the answer to Play. The clock in Rust now counts from this frame, and the page's
+    // own clock starts here rather than at the press, so that no instant of the wait for this
+    // frame is charged to playback as frames skipped.
+    if (url.includes('/play/')) started = performance.now();
     // Nothing is queued behind this answer, so the frame asked for and the frame on screen are
     // the same one again. This is also what puts `wanted` back inside the composition after the
     // core has clamped a step that ran off the end, and what makes an arrow press after playback
@@ -695,7 +699,9 @@ async function show(url, keep = true) {
 }
 
 function tick() {
-  if (playing) show(FRAMES + '/at/' + Math.round(performance.now() - started) + '?q=' + quality, false);
+  if (playing && started !== null) {
+    show(FRAMES + '/at/' + Math.round(performance.now() - started) + '?q=' + quality, false);
+  }
   requestAnimationFrame(tick);
 }
 
@@ -858,7 +864,8 @@ function track(comp, layer, drawings) {
   box.onpointermove = (m) => {
     if (dragging) return;
     const life = box.querySelector('.life').getBoundingClientRect();
-    box.classList.toggle('edge', m.clientX - life.left <= 6 || life.right - m.clientX <= 6);
+    box.classList.toggle('edge', m.clientX - life.left <= 6 || life.right - m.clientX <= 6
+      || seamNear(box, spans, m.clientX) > 0);
   };
   const bar = (kind, from, to) => {
     const piece = document.createElement('div');
@@ -870,7 +877,9 @@ function track(comp, layer, drawings) {
   };
   bar('life', layer.in_frame, layer.out_frame).title = layer.name
     + ' is in the composition from frame ' + layer.in_frame
-    + ' up to frame ' + layer.out_frame;
+    + ' up to frame ' + layer.out_frame
+    + '. Pull the middle to move it, either end to trim it, and the line between two exposures '
+    + 'to retime them.';
   const spans = layer.exposure_spans || [];
   if (!spans.length) {
     bar('free', layer.in_frame, layer.out_frame).title =
@@ -887,7 +896,6 @@ function track(comp, layer, drawings) {
     const missing = !drawings.has(span.drawing_number);
     const piece = bar(missing ? 'span gone' : 'span',
       inComp(span.start_frame), inComp(span.end_frame_exclusive));
-    piece.dataset.start = span.start_frame;
     // The drawing's number, but only where there is room for it to be read. On a shot held on
     // twos every span is two frames wide, and a number in each of them is a wall of digits
     // rather than a label; the tooltip and the fields in the properties column still say it.
@@ -899,6 +907,16 @@ function track(comp, layer, drawings) {
       + (missing ? ', which is not in the sequence' : '');
   }
   return box;
+}
+
+// The seam between two exposure blocks that meet, within four pixels of `x` on screen: the
+// index of the block on its right, or -1 where there is none. Blocks are drawn in the order of
+// the spans they stand for, so the two lists line up.
+function seamNear(box, spans, x) {
+  const blocks = box.querySelectorAll('.span');
+  return spans.findIndex((sp, i) => i > 0
+    && spans[i - 1].end_frame_exclusive === sp.start_frame
+    && Math.abs(blocks[i].getBoundingClientRect().left - x) <= 4);
 }
 
 // The playhead moves on its own rather than by redrawing the panels, because a frame arrives
@@ -931,8 +949,9 @@ function frameUnder(clientX) {
 // One press on the sheet, and what it starts depends on what is under it. The ruler scrubs: the
 // playhead comes to the pointer and follows it until the button is released. A layer's bar is
 // the layer's life in time, and pulling it moves the layer, or trims it when the press is at
-// either end; an exposure block inside it slides that one exposure, and stops where it meets its
-// neighbour. A press on empty track does nothing, and in particular does not move the playhead:
+// either end; the seam between two exposure blocks that meet retimes them both, one growing by
+// what the other shrinks. A press on empty track does nothing, and in particular does not move
+// the playhead:
 // until W-05 the rows scrubbed too, as Premiere's do, and the second sitting with this window
 // found that this made a bar something that could not be dragged. The name half is left alone —
 // a press there is aimed at a name, an eye or a lock.
@@ -970,14 +989,19 @@ sheet.onpointerdown = (e) => {
   const fresh = !selection.includes(layer.id);
   if (fresh) select(layer.id, e.shiftKey);
   const spans = layer.exposure_spans || [];
-  const which = piece.classList.contains('span') && !edge
-    ? spans.findIndex((sp) => sp.start_frame === Number(piece.dataset.start)) : -1;
-  const span = which >= 0 ? spans[which] : null;
+  // W-09: a press on the line between two exposure blocks that meet takes hold of the seam,
+  // and pulling it retimes both, as a roll edit does in Premiere: the drawing on one side is
+  // held longer by exactly what the other is held shorter. The third sitting found that a
+  // press on a block slid that one block, stopping at its neighbours - which on a shot held
+  // on twos, every block flush against the next, meant it could not move at all, and every
+  // layer with exposures had a bar that would not drag. The body of a block now moves the
+  // layer, as the body of any bar does.
+  const seam = edge ? -1 : seamNear(piece.parentElement, spans, e.clientX);
   // Every selected layer moves together when the bar pressed is one of them, as clips do in
-  // Premiere. A trim and an exposure only ever have hold of the one bar pressed.
-  const taken = edge || span ? [layer] : movable();
+  // Premiere. A trim and a seam only ever have hold of the one bar pressed.
+  const taken = edge || seam > 0 ? [layer] : movable();
   const start = taken.map((l) => [l.id, l.in_frame, l.out_frame]);
-  let was = span ? span.start_frame : null;
+  let seamAt = seam > 0 ? spans[seam].start_frame : null;
   let last = null;
   let queue = Promise.resolve();
   const send = (what) => { queue = queue.then(() => command(what)); };
@@ -998,14 +1022,22 @@ sheet.onpointerdown = (e) => {
     last = now;
     const by = now - at;
     const q = '?layer=' + encodeURIComponent(layer.id) + '&drag=1';
-    if (span) {
-      const len = span.end_frame_exclusive - span.start_frame;
-      const floor = which > 0 ? spans[which - 1].end_frame_exclusive : -Infinity;
-      const ceiling = which + 1 < spans.length ? spans[which + 1].start_frame - len : Infinity;
-      const to = Math.min(ceiling, Math.max(floor, span.start_frame + by));
-      send('/exposure.set_span' + q + '&was=' + was + '&start=' + to + '&end=' + (to + len)
-        + '&drawing=' + span.drawing_number);
-      was = to;
+    if (seam > 0) {
+      const a = spans[seam - 1], b = spans[seam];
+      // Neither side may vanish: the seam stops one frame short of either block's far end.
+      const to = Math.min(b.end_frame_exclusive - 1,
+        Math.max(a.start_frame + 1, b.start_frame + by));
+      if (to === seamAt) return;
+      // The block that is shrinking goes first, so that at no point do the two overlap.
+      const both = [
+        '/exposure.set_span' + q + '&was=' + a.start_frame + '&start=' + a.start_frame
+          + '&end=' + to + '&drawing=' + a.drawing_number,
+        '/exposure.set_span' + q + '&was=' + seamAt + '&start=' + to
+          + '&end=' + b.end_frame_exclusive + '&drawing=' + b.drawing_number,
+      ];
+      if (to > seamAt) both.reverse();
+      both.forEach(send);
+      seamAt = to;
     } else if (edge === 'in') {
       send('/layer.trim' + q + '&in=' + Math.min(start[0][1] + by, start[0][2] - 1)
         + '&out=' + start[0][2]);
@@ -2155,10 +2187,18 @@ function beginRename() {
 // Wiring
 // -------------------------------------------------------------------------------------------
 
+// Playback begins under the playhead (W-09). The third sitting pressed Play with the playhead
+// placed and saw the shot start from the beginning and catch up to where it had been paused:
+// the clock in Rust only ever counted from the work area's first frame, and a clock told that
+// time had gone backwards held its old position. Now the press tells the clock which frame to
+// start from, and the ticks begin when that frame has come back.
 $('play').onclick = () => {
   playing = !playing;
-  if (playing) started = performance.now();
   $('play').textContent = playing ? 'Pause' : 'Play';
+  if (playing) {
+    started = null;
+    show(FRAMES + '/play/' + wanted + '?q=' + quality);
+  }
 };
 $('back').onclick = () => step(-1);
 $('fwd').onclick = () => step(1);
