@@ -20,7 +20,7 @@ Each is a deliberate absence, and none of them is a step of W-01.
 - **`project.new`** - a new project is an empty window and this build always opens on something: the reference shot when it is given nothing, or the project it was given. Making a new one is Save As over a copy.
 - **`timeline.set_work_start` and `set_work_end`** - the work area is the whole composition in this build, which is what `verification/B-08_preview_table.md` measures and what B-10 exports. Narrowing it is a setting nothing yet reads.
 - **`keyframe.add_remove`** - the core has interpolated properties since B-05 and the inspector edits base values only. W-01 asks the artist to adjust transforms, not to animate them.
-- **`viewer.fit` and `viewer.zoom_100`** - the viewer fits the frame to the space it has and has no zoom to set, so there is nothing for either to do yet.
+- **`viewer.fit` and `viewer.zoom_100`** are the page's own since W-06: a zoom is a size the page gives the canvas and a scroll of the stage around it, and nothing in the project changes, so neither sends a request.
 - **`app.command_palette`** - a search over commands, which needs the commands to be worth searching first.
 
 ## What this cannot cover
@@ -67,8 +67,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `effect.set_parameters` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.move_up` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.move_down` is reached by | a command the window answers | a command the window answers | pass |
-| `viewer.fit` is reached by | nothing yet | nothing yet | pass |
-| `viewer.zoom_100` is reached by | nothing yet | nothing yet | pass |
+| `viewer.fit` is reached by | the page, with no request | the page, with no request | pass |
+| `viewer.zoom_100` is reached by | the page, with no request | the page, with no request | pass |
 | `viewer.toggle_checkerboard` is reached by | a command the window answers | a command the window answers | pass |
 | `viewer.toggle_alpha` is reached by | a command the window answers | a command the window answers | pass |
 | `render.preview_current` is reached by | the page, with no request | the page, with no request | pass |
@@ -115,9 +115,9 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | document 24 gives `timeline.set_work_end` the shortcut | N | N | pass |
 | and N is bound | no, and the command is not built either | no, and the command is not built either | pass |
 | document 24 gives `viewer.fit` the shortcut | Shift+/ | Shift+/ | pass |
-| and Shift+/ is bound | no, and the command is not built either | no, and the command is not built either | pass |
+| and Shift+/ is bound | yes | yes | pass |
 | document 24 gives `viewer.zoom_100` the shortcut | Ctrl+1 | Ctrl+1 | pass |
-| and Ctrl+1 is bound | no, and the command is not built either | no, and the command is not built either | pass |
+| and Ctrl+1 is bound | yes | yes | pass |
 | document 24 gives `export.sequence` the shortcut | Ctrl+M | Ctrl+M | pass |
 | and Ctrl+M is bound | yes | yes | pass |
 | document 24 gives `app.command_palette` the shortcut | Ctrl+Shift+P | Ctrl+Shift+P | pass |
@@ -133,5 +133,6 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and D presses | $('toggle') | $('toggle') | pass |
 | and A presses | $('alpha') | $('alpha') | pass |
 | and G presses | $('checker') | $('checker') | pass |
+| and Shift+/ presses | $('fit') | $('fit') | pass |
 
-**102 of 102 checks pass.**
+**103 of 103 checks pass.**

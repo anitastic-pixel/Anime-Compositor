@@ -6491,8 +6491,9 @@ mod serving {
              of two greys in the page's stylesheet, fixed to the screen rather than to the \
              picture so that zooming does not stretch them, and no test can see it. The \
              photographs of the window are where it is judged.\n\nZoom and pan, which document 05 \
-             lists in the same line and which this build does not have: the viewer fits the frame \
-             to the space it has.\n",
+             lists in the same line: since W-06 the page zooms with the wheel and scrolls the \
+             stage around it, and the grid, fixed to the screen, is what says the picture and \
+             not the window was zoomed. No test can see that either.\n",
         );
         std::fs::write(repo("verification/B-12a_inspect_table.md"), out).expect("write it");
     }
@@ -7443,8 +7444,8 @@ mod contract {
         ("effect.set_parameters", "a command the window answers"),
         ("effect.move_up", "a command the window answers"),
         ("effect.move_down", "a command the window answers"),
-        ("viewer.fit", "nothing yet"),
-        ("viewer.zoom_100", "nothing yet"),
+        ("viewer.fit", "the page, with no request"),
+        ("viewer.zoom_100", "the page, with no request"),
         ("viewer.toggle_checkerboard", "a command the window answers"),
         ("viewer.toggle_alpha", "a command the window answers"),
         ("render.preview_current", "the page, with no request"),
@@ -7485,8 +7486,8 @@ mod contract {
         ("timeline.play_pause", "Space", "e.key === ' '"),
         ("timeline.set_work_start", "B", ""),
         ("timeline.set_work_end", "N", ""),
-        ("viewer.fit", "Shift+/", ""),
-        ("viewer.zoom_100", "Ctrl+1", ""),
+        ("viewer.fit", "Shift+/", "e.key === '?'"),
+        ("viewer.zoom_100", "Ctrl+1", "e.key === '1'"),
         ("export.sequence", "Ctrl+M", "e.key === 'm'"),
         ("app.command_palette", "Ctrl+Shift+P", ""),
     ];
@@ -7509,6 +7510,7 @@ mod contract {
         ("D", "e.key === 'd'", "$('toggle')"),
         ("A", "e.key === 'a'", "$('alpha')"),
         ("G", "e.key === 'g'", "$('checker')"),
+        ("Shift+/", "e.key === '?'", "$('fit')"),
     ];
 
     /// Document 24's command table, read out of the document itself.
@@ -7660,6 +7662,8 @@ mod contract {
         "timeline.next_frame",
         "timeline.play_pause",
         "render.preview_current",
+        "viewer.fit",
+        "viewer.zoom_100",
     ];
 
     const MAP_INTRO: &[&str] = &[
@@ -7696,8 +7700,9 @@ mod contract {
          and what B-10 exports. Narrowing it is a setting nothing yet reads.\n- \
          **`keyframe.add_remove`** - the core has interpolated properties since B-05 and the \
          inspector edits base values only. W-01 asks the artist to adjust transforms, not to \
-         animate them.\n- **`viewer.fit` and `viewer.zoom_100`** - the viewer fits the frame to \
-         the space it has and has no zoom to set, so there is nothing for either to do yet.\n- \
+         animate them.\n- **`viewer.fit` and `viewer.zoom_100`** are the page's own since W-06: a \
+         zoom is a size the page gives the canvas and a scroll of the stage around it, and \
+         nothing in the project changes, so neither sends a request.\n- \
          **`app.command_palette`** - a search over commands, which needs the commands to be \
          worth searching first.",
         "## What this cannot cover\n\nThat a bound shortcut reaches the command. The binding is \
@@ -7772,13 +7777,28 @@ mod contract {
         let page = page();
 
         // The page half. Nothing here can press a key -- what it can say is that no handler in
-        // the page is attached to the event that fires per keystroke.
+        // the page attached to the event that fires per keystroke sends a command. Since W-06
+        // the zoom slider has such a handler, and a zoom asks the window for nothing, so the
+        // statement each handler is in is read for a request rather than the handler counted.
+        let per_keystroke: Vec<&str> = page
+            .match_indices("oninput")
+            .chain(page.match_indices("addEventListener('input'"))
+            .map(|(at, _)| {
+                let rest = &page[at..];
+                let end = [rest.find(";\n"), rest.find(";\r")]
+                    .into_iter()
+                    .flatten()
+                    .min();
+                &rest[..end.map_or(rest.len(), |end| end + 1)]
+            })
+            .filter(|statement| statement.contains("command("))
+            .collect();
         report.check(
             "no field in the page sends anything while a key is being pressed",
-            "no input event handler",
-            match page.contains("oninput") || page.contains("addEventListener('input'") {
-                true => "an input event handler",
-                false => "no input event handler",
+            "no input event handler sends a command",
+            match per_keystroke.is_empty() {
+                true => "no input event handler sends a command".to_string(),
+                false => format!("{} do: {}", per_keystroke.len(), per_keystroke.join(" / ")),
             },
         );
         for (control, id, wiring) in TYPED_FIELDS {
@@ -8630,7 +8650,7 @@ mod contract {
             "and a focused row is chosen with Enter or Space, which is what a click does",
             true,
             page.contains(
-                "if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.click(); }",
+                "li.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: e.shiftKey }));",
             ),
         );
         report.check(
@@ -8694,7 +8714,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 29] = [
+    const CONTROLS: [&str; 31] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -8709,6 +8729,7 @@ mod contract {
         "dellayer",
         "down",
         "export",
+        "fit",
         "fwd",
         "import",
         "makecomp",
@@ -8724,11 +8745,14 @@ mod contract {
         "toggle",
         "undo",
         "up",
+        "zoomer",
     ];
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 17] = [
+    const KEYS: [&str; 19] = [
+        "1",
+        "?",
         "A",
         "ArrowLeft",
         "ArrowRight",
@@ -8758,7 +8782,7 @@ mod contract {
     const MOUSE_ONLY: [&str; 1] = ["property.drag_cancel"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 9] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 12] = [
         (
             "double clicking a drawing sequence in the media bin",
             "make a layer out of it",
@@ -8804,6 +8828,21 @@ mod contract {
             "move that exposure",
             "input.onchange = sendSpan;",
         ),
+        (
+            "dragging a box across the picture",
+            "select several layers",
+            "shiftKey: e.shiftKey",
+        ),
+        (
+            "dragging the anchor mark",
+            "move the anchor",
+            "propRow(dl, layer, 'anchor'",
+        ),
+        (
+            "turning the wheel over the picture",
+            "zoom",
+            "e.key === '1'",
+        ),
     ];
 
     const KEYBOARD_INTRO: &[&str] = &[
@@ -8827,7 +8866,7 @@ mod contract {
          Nudging the picture with the arrow keys now moves every selected layer, and one press \
          moving three layers has to be one thing to undo, so it opens and commits that same \
          transaction. \
-         The rest of the keyboard changes numbers rather than dragging them, and the last nine rows \
+         The rest of the keyboard changes numbers rather than dragging them, and the last twelve rows \
          are the mouse gestures in this \r
          window each paired with the thing that does the same job without one: the arrow keys on a \r
          focused handle send `property.set_base`, which is one undo step per press rather than one per \r
@@ -8835,7 +8874,11 @@ mod contract {
          arrow keys while the canvas holds the focus; a corner handle scales and the rotation arm \r
          turns, and both numbers are typed or stepped in the inspector; the playhead is dragged along \r
          the exposure sheet, and it is stepped by the arrow keys everywhere the canvas does not hold \r
-         the focus.",
+         the focus. Since W-06 a box dragged across the picture selects the layers inside it, and \
+         Shift with Space or Enter on a row in the layer list adds that row the way Shift with a \
+         click does; the anchor mark is dragged, and its two numbers are in the inspector like \
+         the rest; and the wheel zooms, where Ctrl+1 and Shift+/ set the two zooms document 24 \
+         names.",
         "The two lists are the part that had to be built rather than inherited. Every button \
          here is a `button` and every chooser a `select`, so the Tab order is the browser's and \
          nothing had to be arranged; the rows of the media bin and the layer list are `li` \

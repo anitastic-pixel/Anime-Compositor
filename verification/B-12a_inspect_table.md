@@ -33,4 +33,4 @@ The fixture is four pixels of half-transparent red, drawn by this test. The refe
 
 What the grid looks like. It is eight-pixel squares of two greys in the page's stylesheet, fixed to the screen rather than to the picture so that zooming does not stretch them, and no test can see it. The photographs of the window are where it is judged.
 
-Zoom and pan, which document 05 lists in the same line and which this build does not have: the viewer fits the frame to the space it has.
+Zoom and pan, which document 05 lists in the same line: since W-06 the page zooms with the wheel and scrolls the stage around it, and the grid, fixed to the screen, is what says the picture and not the window was zoomed. No test can see that either.
