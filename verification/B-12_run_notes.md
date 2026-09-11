@@ -182,4 +182,62 @@ puts a visible change in front of them soonest.
    on the tint; the effect cards drag to reorder.
 4. **Finding 9** is written down as a decision and not started.
 
+## The third sitting, 2026-09-11, in the owner's words
+
+Transcribed at the owner's instruction from what they wrote after the third hands-on sitting,
+with `target/release/anime_compositor_app.exe` rebuilt from `main` at `935c729` (W-07 merged).
+Two messages, an hour apart; the first was answered by W-08 before the second arrived. Their
+words, unedited; the agent added nothing to either block and took nothing out. One screenshot
+came with the first and is described under it, in the agent's words.
+
+> fit should take up the whole grey area, maybe two different types of fit for the pixel density
+> and general fit of the composition area? [Image #8]
+
+The screenshot shows the window with Fit pressed and the label reading 25%: the picture is a
+quarter of the width of the grey stage around it, with the rest of the stage empty.
+
+> hmm, dragging worked for the layer 1, but not the rest? also, let's allow the manipulation of
+> these exposures/frames on the timeline as well, how would you allow this in a intuitive way?
+> we would also do something similar in visual effect by having say a shape layer, then keyframe
+> the position in a path, maybe ease in and out of certain areas of the path, so it would be a
+> solid layer bar on the timeline, since I am just manipulating a solid shape through a
+> positional keyframe, whilst layers 2, 3, and 4 are shapes of many frames of differing
+> positions, since it mimics how frame-by-frame animation is; also progress with the next batch
+> of items you would like to tackle on as well. when playing, it doesn't seem to preview/play
+> from where I try to place the playhead, it seems to fully restart to the beginning, and catch
+> up to where I last paused from.
+
+### What each finding is, read against the build
+
+Seven findings. Three are defects, and every one of them was in the build as written rather
+than in what the owner did.
+
+| # | The finding | What it is | Where it lives |
+| --- | --- | --- | --- |
+| 1 | Fit leaves the picture at a quarter of the grey area | **Defect** | No fit was ever computed: the stylesheet left the draft canvas at its own 480 by 270, capped at the stage, so on any screen wider than that the picture stopped at a quarter. W-08 works the fit out from the stage's inner size. |
+| 2 | Two kinds of fit, one for the pixels and one for the area | New control | W-08 adds "Fit <=100%", a fit that never enlarges past one screen pixel per composition pixel. Ctrl+1 stays the exact 100%. |
+| 3 | Dragging a layer's bar worked for layer 1 but not the rest | **Defect** | Layers 2 to 4 have exposures, and their blocks cover the whole bar. W-05 made a press on a block slide that one block, stopping at its neighbours; on a shot held on twos every block is flush against the next and cannot move at all. Layer 1 has no exposures, so its press reached the bar underneath. |
+| 4 | Manipulate the exposures on the timeline, intuitively | New interaction | W-09: the body of a block moves the layer like any bar; the hairline between two blocks is a seam, and pulling it retimes both, one held longer by what the other is held shorter. This is Premiere's roll edit and the exposure sheet's own gesture, and it cannot make a gap or an overlap. The fields under the timeline still set any span to any frames. |
+| 5 | A shape layer keyframed along a path, easing in and out, shown as one solid bar | Decision | R-03 is hold and linear; document 20 pins what a frame between two keys looks like, and the fixtures hold it. An ease is a specification change with a fixture of its own before any code; written as D-52. Drawing the keys on the bar is presentation and needs no decision. |
+| 6 | Play starts from the beginning and catches up to where it was paused | **Defect** | The clock in Rust only ever counted from the work area's first frame, and a clock told that time had gone backwards held its old position until the new run caught up. W-09: Play tells the clock which frame is under the playhead, and the run begins there. |
+| 7 | Progress with the next batch | Order | Below. |
+
+### The order agreed
+
+1. **W-08, the fit.** Finding 1 and 2. Done before the second message arrived.
+2. **W-09, the timeline and the clock.** Findings 3, 4 and 6. Rows 36 to 41 of
+   `verification/B-08_preview_table.md` are the clock starting where it is told to; the seam
+   gesture is judged in the window, by pulling the line between two exposure blocks and reading
+   the numbers in the fields under it.
+3. **W-10, the keys.** The first half of finding 5: a diamond beside each transform property
+   that sets or removes a keyframe on the frame under the playhead, a value typed or dragged on
+   a keyframed property becoming a key on that frame, the panel showing the value the frame is
+   drawn with, and a mark on the layer's bar at every frame it has a key on, so a keyframed
+   solid is no longer a bar with nothing on it. Rows 42 to 58 of
+   `verification/B-12a_transform_table.md`. One line in the core: a drag that keys two
+   properties at once keeps both.
+4. **W-11, moving a key along the bar.** Not started. Undo replays a drag's commands, and a key
+   moved in time is a key removed and a key set, which is two; it needs a command of its own.
+5. **D-52** is finding 5's other half, written down and not started.
+
 ## Anything else

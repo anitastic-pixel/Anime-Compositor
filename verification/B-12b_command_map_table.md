@@ -19,7 +19,7 @@ Each is a deliberate absence, and none of them is a step of W-01.
 
 - **`project.new`** - a new project is an empty window and this build always opens on something: the reference shot when it is given nothing, or the project it was given. Making a new one is Save As over a copy.
 - **`timeline.set_work_start` and `set_work_end`** - the work area is the whole composition in this build, which is what `verification/B-08_preview_table.md` measures and what B-10 exports. Narrowing it is a setting nothing yet reads.
-- **`keyframe.add_remove`** - the core has interpolated properties since B-05 and the inspector edits base values only. W-01 asks the artist to adjust transforms, not to animate them.
+- **`keyframe.add_remove`** - since W-10 the diamond beside each transform property, checked in `verification/B-12a_transform_table.md`.
 - **`viewer.fit` and `viewer.zoom_100`** are the page's own since W-06: a zoom is a size the page gives the canvas and a scroll of the stage around it, and nothing in the project changes, so neither sends a request.
 - **`app.command_palette`** - a search over commands, which needs the commands to be worth searching first.
 
@@ -60,7 +60,7 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `timeline.set_work_end` is reached by | nothing yet | nothing yet | pass |
 | `exposure.set_span` is reached by | a command the window answers | a command the window answers | pass |
 | `property.set_base` is reached by | a command the window answers | a command the window answers | pass |
-| `keyframe.add_remove` is reached by | nothing yet | nothing yet | pass |
+| `keyframe.add_remove` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.add` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.delete` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.toggle_bypass` is reached by | a command the window answers | a command the window answers | pass |

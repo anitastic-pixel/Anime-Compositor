@@ -21,8 +21,8 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the identifiers the page sends are the ones written down here | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
-| the routes the page asks for that are not commands are the ones written down here | at, boxes, cancel-export, export, frame, open, recent, recover, save, save-as, state | at, boxes, cancel-export, export, frame, open, recent, recover, save, save-as, state | pass |
+| the identifiers the page sends are the ones written down here | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, layer.create, layer.delete, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
+| the routes the page asks for that are not commands are the ones written down here | at, boxes, cancel-export, export, frame, open, play, recent, recover, save, save-as, state | at, boxes, cancel-export, export, frame, open, play, recent, recover, save, save-as, state | pass |
 | the window answers `composition.create` | a sentence | a sentence | pass |
 | the window answers `composition.open` | a sentence | a sentence | pass |
 | the window answers `edit.redo` | a sentence | a sentence | pass |
@@ -35,6 +35,7 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the window answers `effect.set_parameters` | a sentence | a sentence | pass |
 | the window answers `effect.toggle_bypass` | a sentence | a sentence | pass |
 | the window answers `exposure.set_span` | a sentence | a sentence | pass |
+| the window answers `keyframe.add_remove` | a sentence | a sentence | pass |
 | the window answers `layer.create` | a sentence | a sentence | pass |
 | the window answers `layer.delete` | a sentence | a sentence | pass |
 | the window answers `layer.move_down` | a sentence | a sentence | pass |
@@ -77,4 +78,4 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the Leave it as it is control sends `media.relink` | true | true | pass |
 | every control the script reaches for is one the markup defines | none missing | none missing | pass |
 
-**55 of 55 checks pass.**
+**56 of 56 checks pass.**

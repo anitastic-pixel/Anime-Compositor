@@ -51,6 +51,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `effect.toggle_bypass` can be asked for without a mouse | yes | yes | pass |
 | `export` can be asked for without a mouse | yes | yes | pass |
 | `exposure.set_span` can be asked for without a mouse | yes | yes | pass |
+| `keyframe.add_remove` can be asked for without a mouse | yes | yes | pass |
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_down` can be asked for without a mouse | yes | yes | pass |
@@ -64,6 +65,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `media.import` can be asked for without a mouse | yes | yes | pass |
 | `media.relink` can be asked for without a mouse | yes | yes | pass |
 | `open` can be asked for without a mouse | yes | yes | pass |
+| `play` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_cancel` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_end` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_update` can be asked for without a mouse | yes | yes | pass |
@@ -82,7 +84,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging along the ruler is not the only way to go to a frame | true | true | pass |
 | dragging a layer's bar along the exposure sheet is not the only way to move the layer in time | true | true | pass |
 | pulling either end of a layer's bar is not the only way to trim it | true | true | pass |
-| dragging an exposure block along its bar is not the only way to move that exposure | true | true | pass |
+| dragging the seam between two exposure blocks is not the only way to retime the exposures on either side of it | true | true | pass |
 | dragging a box across the picture is not the only way to select several layers | true | true | pass |
 | dragging the anchor mark is not the only way to move the anchor | true | true | pass |
 | turning the wheel over the picture is not the only way to zoom | true | true | pass |
@@ -90,4 +92,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | moving over the tint's colour picker is not the only way to choose the colour | true | true | pass |
 | dragging an effect's name up or down the stack is not the only way to reorder the effects | true | true | pass |
 
-**60 of 60 checks pass.**
+**62 of 62 checks pass.**

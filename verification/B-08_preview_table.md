@@ -33,7 +33,13 @@ The row that matters most is the fourth from the top of the second group: **a fu
 | and that run reports what it cost | Played 4 frames in real time and dropped 6 to keep the timing true. Step through the frames to see every drawing, or switch the preview to draft resolution. | Played 4 frames in real time and dropped 6 to keep the timing true. Step through the frames to see every drawing, or switch the preview to draft resolution. | pass |
 | the dropped frames are counted, not hidden | shown 4, skipped 6 | shown 4, skipped 6 | pass |
 | a machine that does keep up drops nothing, and says so | Played 3 frames in real time. No frames were dropped. | Played 3 frames in real time. No frames were dropped. | pass |
+| started from frame 30, the first frame played is 30 | 30 | 30 | pass |
+| and three frame times later it is 33 | 33 | 33 | pass |
+| started again from frame 5 after reaching 120, the first frame played is 5, not 120 | 5 | 5 | pass |
+| and the report counts the new run only | Played 1 frames in real time. No frames were dropped. | Played 1 frames in real time. No frames were dropped. | pass |
+| started from frame 12 of a work area 10 to 13, the run goes 12 13 10 11 | 12 13 10 11 | 12 13 10 11 | pass |
+| started from a frame past the work area, the run begins at its last frame | 13 | 13 | pass |
 | playback loops inside the work area rather than running past its end | 10 13 12 11 10 | 10 13 12 11 10 | pass |
 | if the clock the caller supplies runs backwards, the frame is held and nothing is counted as dropped | frame 6, skipped 0 | frame 6, skipped 0 | pass |
 
-**25 of 25 checks pass.**
+**31 of 31 checks pass.**

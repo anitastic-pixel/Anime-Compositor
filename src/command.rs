@@ -389,14 +389,27 @@ impl Command {
     /// The property is part of what makes a control and not the layer alone: a corner drag that
     /// sent a scale and a position for one layer sends two things that must both survive.
     fn refines(&self, other: &Command) -> bool {
-        if let (
-            Command::SetPropertyBase { prop: mine, .. },
-            Command::SetPropertyBase { prop: theirs, .. },
-        ) = (self, other)
-        {
-            if mine != theirs {
-                return false;
-            }
+        match (self, other) {
+            (
+                Command::SetPropertyBase { prop: mine, .. },
+                Command::SetPropertyBase { prop: theirs, .. },
+            ) if mine != theirs => return false,
+            // W-10: the same control, keyed. A drag on a keyframed property sends a keyframe at
+            // the frame under the playhead each time the pointer moves, and two of those at one
+            // frame are one key set twice; a key on another frame or another property is not.
+            (
+                Command::SetKeyframe {
+                    prop: mine,
+                    frame: at,
+                    ..
+                },
+                Command::SetKeyframe {
+                    prop: theirs,
+                    frame: other_at,
+                    ..
+                },
+            ) if mine != theirs || at != other_at => return false,
+            _ => {}
         }
         self.command_id() == other.command_id() && self.affected() == other.affected()
     }
