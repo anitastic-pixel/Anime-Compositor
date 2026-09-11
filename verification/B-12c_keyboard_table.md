@@ -29,7 +29,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up, zoomer | pass |
+| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the drag handle beside a value is put into the Tab order by hand | true | true | pass |
