@@ -1114,26 +1114,49 @@ function perFramePixel() {
 
 const held = (layer, prop) => transformValue(layer, prop);
 
-// Moving: the layer follows the pointer, one composition pixel per frame pixel crossed.
+// The selected layers a gesture may move: the head of the selection first, so that a gesture
+// which can only act on one acts on the one the panels on the right are describing. A locked
+// layer is left out rather than sent and refused, because document 19's lock means the box
+// stays and does not follow the pointer.
+//
+// Whether a layer has an outline yet is not asked. The outline comes back from the renderer a
+// moment after the selection changes, and an arrow key pressed inside that moment would do
+// nothing at all - which is the exact complaint this run of work opened with.
+function movable() {
+  return selection
+    .map((id) => layers().find((l) => l.id === id))
+    .filter((layer) => layer && !layer.locked);
+}
+
+// Moving: every layer the drag took hold of follows the pointer together, one composition
+// pixel per frame pixel crossed. They keep their distances from one another because each one
+// starts from its own position and every one of them is moved by the same amount.
 const moveLayer = (start, from, at, m, during) => {
   const per = perFramePixel();
-  during('position', [
-    start.position[0] + (at[0] - from[0]) * per,
-    start.position[1] + (at[1] - from[1]) * per,
-  ]);
+  for (const [layer, was] of start) {
+    during(layer, 'position', [
+      was.position[0] + (at[0] - from[0]) * per,
+      was.position[1] + (at[1] - from[1]) * per,
+    ]);
+  }
 };
 
 // Scaling from a corner: the anchor stays where it is and the corner follows the pointer, so
 // the factor is how much further from the anchor the pointer is now than when it went down.
 // The anchor's place on screen is the layer's position, because that is what a transform is —
 // document 21 moves the anchor to the position and turns and scales about it.
+// The handles belong to the layer the panels on the right describe and are drawn on its box
+// alone, so these two take the head of the list and turn or scale that one. A corner that
+// scaled three layers about one of their anchors would move the other two as well, which is a
+// different gesture and not one anybody asked for yet.
 function scaleFrom(anchorAt) {
   return (start, from, at, m, during) => {
+    const [layer, one] = start[0];
     const was = Math.hypot(from[0] - anchorAt[0], from[1] - anchorAt[1]);
     if (was < 1e-6) return;
     const now = Math.hypot(at[0] - anchorAt[0], at[1] - anchorAt[1]);
     const factor = now / was;
-    during('scale', [start.scale[0] * factor, start.scale[1] * factor]);
+    during(layer, 'scale', [one.scale[0] * factor, one.scale[1] * factor]);
   };
 }
 
@@ -1142,11 +1165,12 @@ function scaleFrom(anchorAt) {
 function rotateAbout(anchorAt) {
   const angle = (p) => Math.atan2(p[1] - anchorAt[1], p[0] - anchorAt[0]) * 180 / Math.PI;
   return (start, from, at, m, during) => {
+    const [layer, one] = start[0];
     let by = angle(at) - angle(from);
     // Shift snaps to fifteen degrees, the same convention as everywhere else that turns things.
-    const next = m.shiftKey ? Math.round((start.rotation[0] + by) / 15) * 15
-      : start.rotation[0] + by;
-    during('rotation', [next]);
+    const next = m.shiftKey ? Math.round((one.rotation[0] + by) / 15) * 15
+      : one.rotation[0] + by;
+    during(layer, 'rotation', [next]);
   };
 }
 
@@ -1163,16 +1187,19 @@ view.onpointerdown = (e) => {
   // It is the same bargain the number fields make in `propRow` and it sends the same three
   // commands, because it is the same thing: document 26 has a drag be one history record from
   // the value before it to the value at release, whichever control the pointer was on.
-  const beginStageDrag = (down, layer, apply) => {
+  const beginStageDrag = (down, taken, apply) => {
     const from = atCanvas(down);
-    const start = {
+    // Every layer the gesture has hold of, each with the values it started from. One drag, one
+    // history record, one command per layer inside it: `Document::update_drag` keeps the last
+    // value of each control rather than the last value it was sent.
+    const start = taken.map((layer) => [layer, {
       position: held(layer, 'position'),
       scale: held(layer, 'scale'),
       rotation: held(layer, 'rotation'),
-    };
+    }]);
     dragging = true;
     view.setPointerCapture(down.pointerId);
-    const during = (prop, values) => command('/property.drag_update?layer='
+    const during = (layer, prop, values) => command('/property.drag_update?layer='
       + encodeURIComponent(layer.id) + '&prop=' + prop
       + '&value=' + encodeURIComponent(values.map(number).join(',')));
     const escape = (k) => { if (k.key === 'Escape') stop(true); };
@@ -1198,14 +1225,14 @@ view.onpointerdown = (e) => {
     const spin = rotateHandle(one, unit);
     if (spin && Math.hypot(x - spin[0], y - spin[1]) <= 6 * unit) {
       e.preventDefault();
-      beginStageDrag(e, layer, rotateAbout(anchorAt));
+      beginStageDrag(e, [layer], rotateAbout(anchorAt));
       return;
     }
     for (let i = 0; i < 4; i++) {
       const c = one.corners;
       if (Math.abs(x - c[i * 2]) <= 5 * unit && Math.abs(y - c[i * 2 + 1]) <= 5 * unit) {
         e.preventDefault();
-        beginStageDrag(e, layer, scaleFrom(anchorAt));
+        beginStageDrag(e, [layer], scaleFrom(anchorAt));
         return;
       }
     }
@@ -1218,7 +1245,7 @@ view.onpointerdown = (e) => {
   // person is not left watching a box that will not follow the pointer.
   if (now && !now.locked && boxOf(now.id)) {
     e.preventDefault();
-    beginStageDrag(e, now, moveLayer);
+    beginStageDrag(e, movable(), moveLayer);
   }
 };
 
@@ -1234,17 +1261,34 @@ function anchorOnScreen(layer) {
 // everywhere else in this window and taking that away would cost more than it bought; a canvas
 // that has been clicked or tabbed to is the one place where an arrow can mean the layer instead,
 // and the focus ring says which of the two is about to happen.
+//
+// Presses queue rather than overlap. A nudge is a small transaction and two of them in flight at
+// once would have the second begin before the first had committed; chained, a held arrow key is
+// a run of single steps in the order they were pressed and not one of them is dropped, which is
+// the whole of the first complaint made about this window.
+let nudge = Promise.resolve();
+
 view.onkeydown = (e) => {
   const by = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
-  const layer = selected();
-  if (!by || !layer || layer.locked) return;
+  if (!by || !movable().length) return;
   e.preventDefault();
   e.stopPropagation();
   const step = e.shiftKey ? 10 : 1;
-  const position = held(layer, 'position');
-  command('/property.set_base?layer=' + encodeURIComponent(layer.id) + '&prop=position&value='
-    + encodeURIComponent([position[0] + by[0] * step, position[1] + by[1] * step]
-      .map(number).join(',')));
+  nudge = nudge.then(async () => {
+    // Every position read before any of them is sent, because each command brings a fresh
+    // document back with it and a layer read after that would be read after it had moved.
+    const next = movable().map((layer) => {
+      const position = held(layer, 'position');
+      return [layer, [position[0] + by[0] * step, position[1] + by[1] * step]];
+    });
+    // One press moving three layers belongs in the history as one item, so it goes through the
+    // same transaction a drag does. For one layer that is the one record it has always been.
+    for (const [layer, to] of next) {
+      await command('/property.drag_update?layer=' + encodeURIComponent(layer.id)
+        + '&prop=position&value=' + encodeURIComponent(to.map(number).join(',')));
+    }
+    await command('/property.drag_end');
+  });
 };
 
 // The canvas is scaled to fit its panel, so a window that changes size changes how many frame

@@ -10,7 +10,7 @@ There are three fields in this window a person types into: a layer's name, an ef
 
 No test in this project presses a key. The rows about the page read the file and say which event each field is attached to; what the browser then does with that event is the browser's, and is documented behaviour rather than something measured here. The rows about the window send the command a committed field would send and count what lands in the undo list, which is the half that is this project's own.
 
-The last row is not about text at all. It drags a position through three values and ends the drag, and is here because it is the same sentence of document 26 read the other way: many requests, one entry. Without it a reader has no way to see that three entries for three committed settings is the intended answer rather than the same defect in the other direction.
+The last three rows are not about text at all. They drag a position through several values and end the drag, and are here because they are the same sentence of document 26 read the other way: many requests, one entry. Without them a reader has no way to see that three entries for three committed settings is the intended answer rather than the same defect in the other direction. The last two of them have two layers under the pointer at once, which is that promise again with more than one thing being moved: one entry, both layers named in it, and undoing brings both of them back rather than the first.
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
@@ -24,5 +24,7 @@ The last row is not about text at all. It drags a position through three values 
 | three settings committed one after another are three entries, not one and not thirty | undo list 5 | undo list 5 | pass |
 | so undoing once goes back one commit, not back to before the field was touched | GaussianBlur { sigma_px: 6.0 } | GaussianBlur { sigma_px: 6.0 } | pass |
 | and a drag of three steps is one entry, which is the same rule for a number | undo list 5 | undo list 5 | pass |
+| a drag holding two layers is one entry that says it moved more than one | undo list 6, Set position to (300, 0) and 1 more | undo list 6, Set position to (300, 0) and 1 more | pass |
+| and undoing that one entry puts both layers back, not just the first | layer-1 (0, 0), layer-2 (180, 0) | layer-1 (0, 0), layer-2 (180, 0) | pass |
 
-**10 of 10 checks pass.**
+**12 of 12 checks pass.**

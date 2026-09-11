@@ -528,6 +528,77 @@ fn b05_model_and_undo() {
         ),
     );
 
+    // -- Document 26: a drag with hold of two layers is still one history record -----------------
+    // The window lets a person select several layers and drag them together on the picture, which
+    // sends one value per layer per pointer move. All of them have to land: a drag that kept only
+    // the last value it was sent would move both on screen and put only one of them in the record,
+    // so the other would jump back the moment the drag was undone and done again.
+    let undo_before_two = doc.undo_depth();
+    doc.begin_drag().expect("begin");
+    for step in 1..=20 {
+        for (layer, offset) in [("layer-4", 0.0), ("layer-3", 1000.0)] {
+            doc.update_drag(Command::SetPropertyBase {
+                composition: id(COMP),
+                layer_id: id(layer),
+                prop: Prop::Position,
+                value: Value::Vec2(offset + step as f64, 0.0),
+            })
+            .expect("drag step");
+        }
+    }
+    let two_layer_record = match doc.end_drag() {
+        Some(record) => format!(
+            "{}, moved {}",
+            record.label,
+            record
+                .affected
+                .iter()
+                .filter(|held| held.as_str().starts_with("layer-"))
+                .map(|held| held.as_str())
+                .collect::<Vec<_>>()
+                .join(" and ")
+        ),
+        None => "no record at all".to_string(),
+    };
+    report.check(
+        "drag of two layers: one history record, and both layers arrived",
+        format!("{}, (20, 0), (1020, 0)", undo_before_two + 1),
+        format!(
+            "{}, {}, {}",
+            doc.undo_depth(),
+            layer_named(&doc, "layer-4").transform.position.base(),
+            layer_named(&doc, "layer-3").transform.position.base()
+        ),
+    );
+    report.check(
+        "drag of two layers: the record counts them and names them both",
+        "Set position to (20, 0) and 1 more, moved layer-4 and layer-3",
+        two_layer_record,
+    );
+    doc.undo();
+    report.check(
+        "drag of two layers undone: both go back in one step",
+        "(100, 0), (0, 0)",
+        format!(
+            "{}, {}",
+            layer_named(&doc, "layer-4").transform.position.base(),
+            layer_named(&doc, "layer-3").transform.position.base()
+        ),
+    );
+    doc.redo();
+    report.check(
+        "drag of two layers redone: both come forward in one step",
+        "(20, 0), (1020, 0)",
+        format!(
+            "{}, {}",
+            layer_named(&doc, "layer-4").transform.position.base(),
+            layer_named(&doc, "layer-3").transform.position.base()
+        ),
+    );
+    // Undone again, so that the checks after this one find layer-4 where the rest of the file
+    // left it and this section can be read on its own.
+    doc.undo();
+
     // -- Document 26: import media plus create a layer is all-or-nothing --------------------------
     let revision_before_batch = doc.revision();
     let new_asset = Asset::sequence(id("asset-effects"), "effects", "fx_%03d.png");
