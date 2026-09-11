@@ -1143,7 +1143,7 @@ function drawLayers() {
   const comp = composition();
   // Reversed: the last layer in composition order is drawn last and so is in front.
   const list = $('layers');
-  list.replaceChildren(...all.slice().reverse().map((layer) => {
+  list.replaceChildren(...all.slice().reverse().flatMap((layer) => {
     const eye = iconButton(layer.enabled ? '●' : '○',
       layer.enabled ? 'Hide ' + layer.name : 'Show ' + layer.name,
       () => command('/layer.toggle_visibility?layer=' + encodeURIComponent(layer.id)));
