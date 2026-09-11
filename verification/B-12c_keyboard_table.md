@@ -8,14 +8,14 @@ It reads `app/ui/index.html`. The question it asks is not "is there a keyboard s
 
 ## What to look at
 
-The one row that says **no**. `property.drag_cancel` is Escape during a drag, and there is no drag to be in the middle of without a pointer. It used to be three: `property.drag_update` and `property.drag_end` are the running transaction and the coalescing document 26 asks for, and until W-04 only a pointer opened one. Nudging the picture with the arrow keys now moves every selected layer, and one press moving three layers has to be one thing to undo, so it opens and commits that same transaction. The rest of the keyboard changes numbers rather than dragging them, and the last twelve rows are the mouse gestures in this 
+The one row that says **no**. `effect.move` is the drop of a card dragged up or down the effect stack, and the arrows on the card do the same job a step at a time. It used to be `property.drag_cancel`, Escape during a drag, and before W-04 three: `property.drag_update` and `property.drag_end` are the running transaction and the coalescing document 26 asks for, and until W-04 only a pointer opened one. Nudging the picture with the arrow keys now moves every selected layer, and one press moving three layers has to be one thing to undo, so it opens and commits that same transaction; and since W-07 an effect's setting is sent as it is typed inside that same transaction, so Escape in the field abandons it, which is the cancel without a pointer. The rest of the keyboard changes numbers rather than dragging them, and the last fifteen rows are the mouse gestures in this 
          window each paired with the thing that does the same job without one: the arrow keys on a 
          focused handle send `property.set_base`, which is one undo step per press rather than one per 
          drag. The picture itself works the same way: a layer is dragged, and it is nudged by the 
          arrow keys while the canvas holds the focus; a corner handle scales and the rotation arm 
          turns, and both numbers are typed or stepped in the inspector; the playhead is dragged along 
          the exposure sheet, and it is stepped by the arrow keys everywhere the canvas does not hold 
-         the focus. Since W-06 a box dragged across the picture selects the layers inside it, and Shift with Space or Enter on a row in the layer list adds that row the way Shift with a click does; the anchor mark is dragged, and its two numbers are in the inspector like the rest; and the wheel zooms, where Ctrl+1 and Shift+/ set the two zooms document 24 names.
+         the focus. Since W-06 a box dragged across the picture selects the layers inside it, and Shift with Space or Enter on a row in the layer list adds that row the way Shift with a click does; the anchor mark is dragged, and its two numbers are in the inspector like the rest; and the wheel zooms, where Ctrl+1 and Shift+/ set the two zooms document 24 names. Since W-07 every value box in the effects panel has the handle the transform rows have, and its arrow keys step the value the same way; the tint's colour picker sets the three numbers beside it, which are typed like any other; and an effect card is dragged up or down the stack, where the arrows on it move it a step at a time.
 
 The two lists are the part that had to be built rather than inherited. Every button here is a `button` and every chooser a `select`, so the Tab order is the browser's and nothing had to be arranged; the rows of the media bin and the layer list are `li` elements, which nothing focuses, and they carry a tab stop and an Enter/Space handler put there by hand. The row that checks the list of controls is a list rather than a count for the same reason as the one in `verification/B-12b_page_table.md`: a control added tomorrow fails this table until somebody writes it down beside the others, and the row underneath then asks what kind of element it is.
 
@@ -32,7 +32,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
-| the drag handle beside a transform value is put into the Tab order by hand | true | true | pass |
+| the drag handle beside a value is put into the Tab order by hand | true | true | pass |
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
 | the keys the window answers with nothing focused are the ones written down here | 1, ?, A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, N, O, S, Space, Z, [, ] | 1, ?, A, ArrowLeft, ArrowRight, D, Delete, F2, G, I, L, M, N, O, S, Space, Z, [, ] | pass |
@@ -44,6 +44,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `edit.undo` can be asked for without a mouse | yes | yes | pass |
 | `effect.add` can be asked for without a mouse | yes | yes | pass |
 | `effect.delete` can be asked for without a mouse | yes | yes | pass |
+| `effect.move` can be asked for without a mouse | no - it is a drag, and a drag is a mouse | no - it is a drag, and a drag is a mouse | pass |
 | `effect.move_down` can be asked for without a mouse | yes | yes | pass |
 | `effect.move_up` can be asked for without a mouse | yes | yes | pass |
 | `effect.set_parameters` can be asked for without a mouse | yes | yes | pass |
@@ -63,7 +64,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `media.import` can be asked for without a mouse | yes | yes | pass |
 | `media.relink` can be asked for without a mouse | yes | yes | pass |
 | `open` can be asked for without a mouse | yes | yes | pass |
-| `property.drag_cancel` can be asked for without a mouse | no - it is a drag, and a drag is a mouse | no - it is a drag, and a drag is a mouse | pass |
+| `property.drag_cancel` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_end` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_update` can be asked for without a mouse | yes | yes | pass |
 | `property.set_base` can be asked for without a mouse | yes | yes | pass |
@@ -85,5 +86,8 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a box across the picture is not the only way to select several layers | true | true | pass |
 | dragging the anchor mark is not the only way to move the anchor | true | true | pass |
 | turning the wheel over the picture is not the only way to zoom | true | true | pass |
+| dragging the handle beside an effect's setting is not the only way to change the setting | true | true | pass |
+| moving over the tint's colour picker is not the only way to choose the colour | true | true | pass |
+| dragging an effect's name up or down the stack is not the only way to reorder the effects | true | true | pass |
 
-**56 of 56 checks pass.**
+**60 of 60 checks pass.**
