@@ -29,7 +29,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, toggle, undo, up, zoomer | pass |
+| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, graphprop, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, tabgraph, tabsheet, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, graphprop, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, tabgraph, tabsheet, toggle, undo, up, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
@@ -40,6 +40,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
 | `composition.open` can be asked for without a mouse | yes | yes | pass |
+| `curve` can be asked for without a mouse | yes | yes | pass |
 | `edit.redo` can be asked for without a mouse | yes | yes | pass |
 | `edit.undo` can be asked for without a mouse | yes | yes | pass |
 | `effect.add` can be asked for without a mouse | yes | yes | pass |
@@ -53,6 +54,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `exposure.set_span` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.add_remove` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.move` can be asked for without a mouse | yes | yes | pass |
+| `keyframe.set_interp` can be asked for without a mouse | yes | yes | pass |
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_down` can be asked for without a mouse | yes | yes | pass |
@@ -94,4 +96,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | moving over the tint's colour picker is not the only way to choose the colour | true | true | pass |
 | dragging an effect's name up or down the stack is not the only way to reorder the effects | true | true | pass |
 
-**64 of 64 checks pass.**
+**66 of 66 checks pass.**

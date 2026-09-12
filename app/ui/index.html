@@ -193,6 +193,32 @@
     font-variant-numeric: tabular-nums;
   }
   #tracks { position: relative; }
+  /* D-52's graph editor, which shares the panel with the sheet rather than taking room from it:
+     the two answer the same question - what happens to this layer over time - and a window that
+     showed both at once would show each of them half as well. The tabs say which is up. */
+  /* Drawn as two pressable keys rather than two words: as plain text in a strip of plain text
+     they read as a heading saying what the panel is, and a control nobody sees is not a
+     control. */
+  .sheettab {
+    font: inherit; text-transform: inherit; letter-spacing: inherit;
+    background: #232323; border: 1px solid #3a3a3a;
+    color: #b0b0b6; padding: 2px 10px 3px; border-radius: 3px; cursor: pointer;
+  }
+  .sheettab:hover { background: #333; color: #e0e0e4; }
+  .sheettab[aria-pressed="true"] {
+    color: #1e1e1e; background: #e8b06a; border-color: #e8b06a;
+  }
+  .sheettab:focus-visible { outline: 2px solid #6ea8fe; outline-offset: 2px; }
+  #graph { position: relative; overflow: hidden; padding: 6px 8px 8px; min-height: 180px; }
+  #graph svg { display: block; width: 100%; height: 170px; touch-action: none; }
+  #graph .plot { fill: none; stroke: #6ea8fe; stroke-width: 1.5; }
+  #graph .plot.second { stroke: #7bd88f; }
+  #graph .keydot { fill: #e8b06a; }
+  #graph .arm { stroke: #e8b06a; stroke-width: 1; stroke-dasharray: 3 2; }
+  #graph .grab { fill: #141414; stroke: #e8b06a; stroke-width: 1.5; cursor: grab; }
+  #graph .grab:focus-visible { outline: 2px solid #6ea8fe; }
+  #graph .at { stroke: #e8b06a; stroke-width: 1; }
+  #graph text { fill: #909096; font-size: 10px; font-variant-numeric: tabular-nums; }
   #layers li {
     display: grid; grid-template-columns: var(--gutter) minmax(0, 1fr);
     gap: 6px; align-items: center;
@@ -552,14 +578,19 @@
 <div class="split row" id="splitsheet" role="separator" aria-orientation="horizontal" tabindex="0"
   aria-label="The border above the timeline. Drag it, or use the arrow keys."></div>
 <section class="panel" id="timeline">
-  <div class="tab">Timeline<span class="hint">front layer first</span>
+  <div class="tab">
+    <button id="tabsheet" class="sheettab" aria-pressed="true">Timeline</button>
+    <button id="tabgraph" class="sheettab" aria-pressed="false">Graph</button>
+    <span class="hint" id="sheethint">front layer first</span>
     <span class="tools">
+      <select id="graphprop" aria-label="Which property the graph draws" hidden></select>
       <button id="addlayer">Add layer</button>
       <button id="dellayer">Delete layer</button>
       <button id="up">Forward</button>
       <button id="down">Back</button>
     </span>
   </div>
+  <div id="graph" hidden></div>
   <div id="sheet">
     <div id="ruler"></div>
     <div id="tracks">
@@ -1016,6 +1047,9 @@ function movePlayhead() {
   const comp = composition();
   $('playhead').hidden = !comp;
   if (comp) $('playhead').style.setProperty('--at', atFrame(comp, frame));
+  // The graph has a playhead of its own and nothing else on it depends on the frame, so it is
+  // redrawn from the samples already in hand rather than asked for again.
+  if (graphing && plotted) drawGraph();
 }
 
 // The other direction: a point on screen back to the frame under it. The playhead's own `left`
@@ -2101,6 +2135,36 @@ function keyButton(layer, prop) {
   return button;
 }
 
+// D-52's preset, beside the diamond and only where there is a key on this frame to apply it to.
+// Three states rather than two, because hold is already a mode a key can be in and hiding it
+// behind a curve button would make the one a file can hold unreachable from the window.
+//
+// What it changes is the segment that *starts* at this key, which is what document 20 says a
+// keyframe's mode is. After Effects' F9 eases both sides of the key it is pressed on; this does
+// not, and the label says which segment is about to change so that nobody has to guess.
+//
+// A curve that is neither easy ease nor one of the two straight modes -- a file written by a
+// future graph editor, or by hand -- is shown as a filled curve and left alone unless pressed.
+const INTERP_MARK = { hold: '⊐', linear: '⟋', ease: '∿' };
+
+function easeButton(layer, prop) {
+  const key = keysOf(layer, prop).find((k) => k.frame === frame);
+  if (!key) return null;
+  const mode = key.interp || 'linear';
+  const next = mode === 'ease' ? 'linear' : 'ease';
+  const button = document.createElement('button');
+  button.className = 'key animated';
+  button.textContent = INTERP_MARK[mode] || '∿';
+  button.title = 'The ' + prop + ' segment starting at frame ' + frame + ' is ' + mode
+    + '. Press to make it ' + next + (next === 'ease' ? ' (easy ease)' : '')
+    + '. This is the segment after this keyframe, not the one before it.';
+  button.setAttribute('aria-label', button.title);
+  button.setAttribute('aria-pressed', mode === 'ease');
+  button.onclick = () => command('/keyframe.set_interp?layer=' + encodeURIComponent(layer.id)
+    + '&prop=' + prop + '&frame=' + frame + '&mode=' + next);
+  return button;
+}
+
 // The numbers of one transform property, as many blue values as it has with a comma between
 // them, the way After Effects writes a position. Two rows are drawn from this -- the
 // inspector's and, since W-12, the property's own row on the timeline -- so that a value is
@@ -2140,7 +2204,9 @@ function propScrubs(layer, prop) {
 // column of its own over a line of its own.
 function propRow(into, layer, prop) {
   const dt = document.createElement('dt');
-  dt.append(keyButton(layer, prop), ' ', prop[0].toUpperCase() + prop.slice(1));
+  const ease = easeButton(layer, prop);
+  dt.append(keyButton(layer, prop), ...(ease ? [ease] : []), ' ',
+    prop[0].toUpperCase() + prop.slice(1));
   const dd = document.createElement('dd');
   dd.className = 'numbers';
   dd.append(...propScrubs(layer, prop));
@@ -2473,6 +2539,248 @@ function drawEffects() {
   into.replaceChildren(...stack.map((fx, at) => effectRow(layer, fx, at, stack.length)));
 }
 
+// ---- the graph editor (D-52) -------------------------------------------------------------
+//
+// A curve of one property against time, with the handles of an eased segment out where they can
+// be pulled. What it draws is not worked out here: the window is asked for the value at every
+// frame of the composition and the answer is plotted. A graph editor that solved document 20's
+// curve in this page would be a second evaluator, and the day it disagreed with the one that
+// renders the picture the graph would still look perfectly correct.
+let graphing = false;    // the Graph tab is the one showing
+let graphProp = null;    // the property drawn, or null for the first one with keys on it
+let plotted = null;      // the last answer from `/curve`, or null
+let pulling = null;      // the handle under the pointer, while it is being pulled
+
+const GRAPH_PAD = 18;
+
+function graphLayer() {
+  const layer = selected();
+  if (!layer) return null;
+  const withKeys = PROPS.filter((prop) => keysOf(layer, prop).length >= 2);
+  if (!withKeys.length) return null;
+  const prop = withKeys.includes(graphProp) ? graphProp : withKeys[0];
+  return { layer, prop, withKeys };
+}
+
+async function askForCurve() {
+  const comp = composition();
+  const pick = graphLayer();
+  if (!graphing || !comp || !pick) { plotted = null; drawGraph(); return; }
+  try {
+    const answer = await fetch(FRAMES + '/curve?layer=' + encodeURIComponent(pick.layer.id)
+      + '&prop=' + pick.prop
+      + '&from=' + comp.start_frame + '&to=' + (comp.start_frame + comp.duration_frames - 1));
+    plotted = answer.ok ? await answer.json() : null;
+  } catch (e) {
+    plotted = null;
+  }
+  drawGraph();
+}
+
+// The plot's own arithmetic, in one place so that the line, the keyframes, the handles and the
+// pointer all agree about where a frame and a value are on screen.
+function graphSpace(box) {
+  const lo = plotted.from;
+  const hi = Math.max(lo + 1, plotted.to);
+  const all = plotted.samples.flat();
+  let low = Math.min(...all);
+  let high = Math.max(...all);
+  // A property that never changes is a flat line, and a flat line with no room above or below it
+  // is a line drawn on the edge of the box. Half a unit either side gives it somewhere to sit.
+  if (!(high > low)) { low -= 0.5; high += 0.5; }
+  const w = box.width - GRAPH_PAD * 2;
+  const h = box.height - GRAPH_PAD * 2;
+  return {
+    low, high, lo, hi,
+    x: (f) => GRAPH_PAD + (f - lo) / (hi - lo) * w,
+    y: (v) => GRAPH_PAD + h - (v - low) / (high - low) * h,
+    frameAt: (px) => lo + (px - GRAPH_PAD) / w * (hi - lo),
+    valueAt: (py) => low + (GRAPH_PAD + h - py) / h * (high - low),
+  };
+}
+
+// Where a keyframe's two handles sit, in frames and in the property's own units. Document 20
+// puts the curve's ends at the two keyframes, so `x` runs along the segment and `y` runs from the
+// value at its start to the value at its end - which is exactly what the numbers in the file
+// mean, and why nothing here has to know what kind of ease it is looking at.
+function armsOf(space, a, b, at) {
+  const va = at(a.frame);
+  const vb = at(b.frame);
+  // A segment between two equal values has no span to measure `y` against. A quarter of the
+  // plot's own height stands in, so that the handle is somewhere and can still be pulled.
+  const unit = vb - va || (space.high - space.low) / 4;
+  const e = a.ease || [0.3333333333333333, 0, 0.6666666666666666, 1];
+  return [
+    { which: 0, frame: a.frame + e[0] * (b.frame - a.frame), value: va + e[1] * unit },
+    { which: 1, frame: a.frame + e[2] * (b.frame - a.frame), value: va + e[3] * unit },
+  ].map((arm) => Object.assign(arm, { from: arm.which ? b : a, unit, va, key: a, next: b }));
+}
+
+function drawGraph() {
+  const into = $('graph');
+  const pick = graphLayer();
+  // Which handle the keyboard was on, so the knob built for it below can be given the focus
+  // back. Drawing the graph replaces the whole svg, and a focus left on a discarded node is a
+  // second arrow press that does nothing.
+  const held = document.activeElement && document.activeElement.__arm;
+  const same = (arm) => held && held.arm.key.frame === arm.key.frame
+    && held.arm.which === arm.which;
+  let refocus = null;
+  const chooser = $('graphprop');
+  chooser.hidden = !graphing || !pick;
+  if (pick) {
+    chooser.replaceChildren(...pick.withKeys.map((prop) => Object.assign(
+      document.createElement('option'),
+      { value: prop, textContent: prop[0].toUpperCase() + prop.slice(1), selected: prop === pick.prop }
+    )));
+  }
+  if (!graphing) return;
+  if (!plotted || !plotted.samples.length || !pick) {
+    into.replaceChildren(Object.assign(document.createElement('p'), {
+      className: 'empty',
+      textContent: 'Select a layer with two or more keyframes on one of its properties, and its '
+        + 'curve is drawn here.',
+    }));
+    return;
+  }
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const el = (kind, attrs) => {
+    const node = document.createElementNS(svg.namespaceURI, kind);
+    for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
+    svg.append(node);
+    return node;
+  };
+  const box = { width: Math.max(160, into.clientWidth - 16), height: 170 };
+  svg.setAttribute('viewBox', '0 0 ' + box.width + ' ' + box.height);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.onpointerdown = grabDown;
+  svg.onpointermove = grabMove;
+  svg.onpointerup = grabUp;
+  svg.onkeydown = grabKeys;
+  const space = graphSpace(box);
+  const parts = plotted.samples[0].length;
+  for (let c = 0; c < parts; c += 1) {
+    el('polyline', {
+      class: 'plot' + (c ? ' second' : ''),
+      points: plotted.samples
+        .map((s, i) => space.x(plotted.from + i) + ',' + space.y(s[c])).join(' '),
+    });
+  }
+  // The value at a frame comes out of the answer rather than out of the keyframe, so that a
+  // keyframe drawn on this line is drawn where the renderer puts it.
+  const at = (f) => (plotted.samples[f - plotted.from] || [0])[0];
+  const keys = keysOf(pick.layer, pick.prop);
+  for (const key of keys) {
+    if (key.frame < plotted.from || key.frame > plotted.to) continue;
+    el('circle', { class: 'keydot', cx: space.x(key.frame), cy: space.y(at(key.frame)), r: 3 });
+  }
+  for (let i = 0; i < keys.length - 1; i += 1) {
+    if (keys[i].interp !== 'ease') continue;
+    if (keys[i].frame < plotted.from || keys[i + 1].frame > plotted.to) continue;
+    for (const arm of armsOf(space, keys[i], keys[i + 1], at)) {
+      const [ax, ay] = [space.x(arm.from.frame), space.y(at(arm.from.frame))];
+      const line = el('line', {
+        class: 'arm', x1: ax, y1: ay, x2: space.x(arm.frame), y2: space.y(arm.value),
+      });
+      const knob = el('circle', {
+        class: 'grab', cx: space.x(arm.frame), cy: space.y(arm.value), r: 5, tabindex: 0,
+        role: 'slider',
+      });
+      const say = () => 'The ' + (arm.which ? 'second' : 'first') + ' handle of the '
+        + pick.prop + ' curve starting at frame ' + arm.key.frame
+        + '. Drag it, or use the arrow keys.';
+      knob.setAttribute('aria-label', say());
+      el('title', {}).textContent = say();
+      knob.__arm = { arm, line, knob, space, at };
+      if (same(arm)) refocus = knob;
+    }
+  }
+  el('line', {
+    class: 'at', x1: space.x(frame), y1: 4, x2: space.x(frame), y2: box.height - 4,
+  });
+  el('text', { x: 2, y: 12 }).textContent = number(space.high);
+  el('text', { x: 2, y: box.height - 4 }).textContent = number(space.low);
+  into.replaceChildren(svg);
+  if (refocus) refocus.focus();
+}
+
+// Pulling a handle. The shape on screen follows the pointer, and the file is not touched until
+// the pointer comes up: one pull is one thing to undo, and a curve half way through being
+// dragged is not a curve anybody meant to save.
+function pulledTo(what, clientX, clientY) {
+  const { arm, line, knob, space } = what;
+  const box = knob.ownerSVGElement.getBoundingClientRect();
+  const across = (clientX - box.left) / box.width * knob.ownerSVGElement.viewBox.baseVal.width;
+  const down = (clientY - box.top) / box.height * knob.ownerSVGElement.viewBox.baseVal.height;
+  const span = arm.next.frame - arm.key.frame;
+  const x = Math.min(1, Math.max(0, (space.frameAt(across) - arm.key.frame) / (span || 1)));
+  const y = (space.valueAt(down) - arm.va) / arm.unit;
+  knob.setAttribute('cx', space.x(arm.key.frame + x * span));
+  knob.setAttribute('cy', space.y(arm.va + y * arm.unit));
+  line.setAttribute('x2', knob.getAttribute('cx'));
+  line.setAttribute('y2', knob.getAttribute('cy'));
+  return [x, y];
+}
+
+function sendCurve(arm, x, y) {
+  const e = (arm.key.ease || [0.3333333333333333, 0, 0.6666666666666666, 1]).slice();
+  e[arm.which * 2] = Math.round(x * 1e6) / 1e6;
+  e[arm.which * 2 + 1] = Math.round(y * 1e6) / 1e6;
+  command('/keyframe.set_interp?layer=' + encodeURIComponent(selected().id)
+    + '&prop=' + graphLayer().prop + '&frame=' + arm.key.frame
+    + '&mode=ease&curve=' + e.join(','));
+}
+
+function grabDown(e) {
+  const what = e.target.__arm;
+  if (!what || e.button !== 0) return;
+  e.preventDefault();
+  e.target.setPointerCapture(e.pointerId);
+  pulling = { what, x: null, y: null };
+}
+
+function grabMove(e) {
+  if (!pulling) return;
+  const [x, y] = pulledTo(pulling.what, e.clientX, e.clientY);
+  pulling.x = x;
+  pulling.y = y;
+}
+
+function grabUp() {
+  if (!pulling) return;
+  const held = pulling;
+  pulling = null;
+  if (held.x !== null) sendCurve(held.what.arm, held.x, held.y);
+}
+// The same pull, for a hand that is not on a pointing device. A twentieth of the segment a press,
+// which is fine enough to place a handle and coarse enough to get across the segment.
+function grabKeys(e) {
+  const what = e.target.__arm;
+  if (!what) return;
+  const by = { ArrowLeft: [-0.05, 0], ArrowRight: [0.05, 0], ArrowDown: [0, -0.05], ArrowUp: [0, 0.05] }[e.key];
+  if (!by) return;
+  e.preventDefault();
+  const arm = what.arm;
+  const e0 = arm.key.ease || [0.3333333333333333, 0, 0.6666666666666666, 1];
+  sendCurve(arm, Math.min(1, Math.max(0, e0[arm.which * 2] + by[0])), e0[arm.which * 2 + 1] + by[1]);
+}
+
+function showSheet(which) {
+  graphing = which === 'graph';
+  $('sheet').hidden = graphing;
+  $('graph').hidden = !graphing;
+  $('sheethint').hidden = graphing;
+  $('tabsheet').setAttribute('aria-pressed', String(!graphing));
+  $('tabgraph').setAttribute('aria-pressed', String(graphing));
+  askForCurve();
+}
+$('tabsheet').onclick = () => showSheet('sheet');
+$('tabgraph').onclick = () => showSheet('graph');
+$('graphprop').onchange = (e) => { graphProp = e.target.value; askForCurve(); };
+// The plot is stretched to the panel's width, so a resize leaves the curve right and the round
+// handles as ovals. Drawing it again at the new width is the whole of the fix.
+addEventListener('resize', () => { if (graphing && plotted) drawGraph(); });
+
 function drawPanels() {
   // A layer that has gone — deleted, or undone into existence and back out — must not stay
   // selected, or the next Delete would name something that is not there.
@@ -2487,6 +2795,7 @@ function drawPanels() {
   drawInspector();
   drawExposures();
   drawEffects();
+  askForCurve();
   const layer = selected();
   $('dellayer').disabled = !layer;
   $('up').disabled = !layer;
