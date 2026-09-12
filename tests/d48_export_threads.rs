@@ -2,9 +2,12 @@
 //!
 //! ADR-015 bound 3 says the export path "gains nothing and must not", and two units in a row -
 //! P-03(b) and P-10 - have read that sentence, been unable to tell whether it forbids a *cache*
-//! or forbids *threads*, and left the question open rather than guess. D-48 asks the owner to
-//! settle the wording. This file is the evidence that entry rests on, and it is a check rather
-//! than a measurement, so it runs on every build.
+//! or forbids *threads*, and left the question open rather than guess. D-48 asked the owner to
+//! settle the wording, and on 2026-09-12 it was settled: bound 3 now names the cache -"the export
+//! path neither reads nor writes the cel cache or the effect cache" - and a thread count is not a
+//! cache. This file is the evidence that decision rested on, and it stays, because what made the
+//! reading safe to discard is a check rather than an argument: it is a check rather than a
+//! measurement, so it runs on every build.
 //!
 //! # What it shows
 //!
@@ -154,10 +157,12 @@ fn d48_export_is_the_same_frame_however_many_threads_render_it() {
          Written by `d48_export_is_the_same_frame_however_many_threads_render_it` in \
          `tests/d48_export_threads.rs`, which runs on every build. **{checks} of {checks} \
          checks pass.**\n\n\
-         ADR-015 bound 3 says the export path \"gains nothing and must not\", and two units in a \
-         row have been unable to tell from that sentence whether it forbids a *cache* or forbids \
-         *threads*. D-48 asks the owner to settle the wording. This page is the part of the \
-         question that can be answered by a check rather than by a decision.\n\n\
+         ADR-015 bound 3 once said the export path \"gains nothing and must not\", and two units \
+         in a row could not tell from that sentence whether it forbids a *cache* or forbids \
+         *threads*. **D-48 settled it on 2026-09-12**: the bound now reads that the export path \
+         neither reads nor writes the cel cache or the effect cache, because a thread count is \
+         not a cache. This page is the check that made that safe to say, and it keeps running so \
+         that it stays true.\n\n\
          Each row is one frame of the export path - `compose::render_frame`, the function \
          `crate::export` calls - rendered twice: once in a rayon pool of **{low} thread** and \
          once in a pool of **{high}**. Both hold `CelCache::none()`, which is what export holds, \
@@ -168,10 +173,15 @@ fn d48_export_is_the_same_frame_however_many_threads_render_it() {
          | Fixture | Frame | Bytes | Digest at {low} thread | Digest at {high} threads | Result |\n\
          |---|---|---|---|---|---|\n{rows}\n\
          ## What this settles, and what it does not\n\n\
-         It settles one reading of bound 3. Threads have run on the export path since B-05a, \
-         because ADR-011 renders every frame tiled across the rayon pool and export renders \
-         through the same function the viewer does. Whatever bound 3 forbids, it has never been \
-         read as forbidding that, and the frames above are identical either way.\n\n\
+         It settles one reading of bound 3, and that reading is now retired. Threads have run on \
+         the export path since B-05a, because ADR-011 renders every frame tiled across the rayon \
+         pool and export renders through the same function the viewer does. Whatever bound 3 \
+         forbids, it has never been read as forbidding that, and the frames above are identical \
+         either way.\n\n\
+         What it does **not** do is give export a parallel decode. The parallel decode this build \
+         has is `CelCache::prewarm`, which returns early at a zero budget, and export holds a \
+         zero budget. Building one would be a unit of its own with byte-equality evidence of its \
+         own. The amended bound removes the reason not to; it does not do the work.\n\n\
          It settles nothing about caching, which is what bound 3 is for. A full-resolution \
          preview matching an export in 0 of 8,294,400 samples is a property this build has, and \
          a cache reachable from export is the obvious way to lose it. That property is guarded by \

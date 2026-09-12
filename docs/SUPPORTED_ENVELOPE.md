@@ -93,6 +93,20 @@ when it arrived, including the parts this version cannot read.
   file. Save deliberately.
 - **No GPU rendering, no video files.** Frames are composited on the processor and written as
   images.
+- **A ten-layer shot does not preview at full speed, and this build says so rather than
+  pretending otherwise.** The speed this project measures itself against is 24 frames a
+  second, which allows 41.7 ms a frame. The shot that target is written against - ten
+  drawings a frame, two track mattes and three effects at 1920 by 1080 - takes 264.17 ms a
+  frame in draft on the machine this was measured on, about six times the budget, and not one
+  of ten warm playthroughs came in under it. No cache changes that: with every drawing
+  already in memory what is left is compositing ten layers, and that is the cost. What you
+  see is a shot playing at the right *speed* with frames missing from it, never a shot
+  playing slowly, and the window counts the dropped frames on screen. A four-layer shot -
+  one background and three cels, which is what this tool is for - sits on the deadline and
+  falls either side of it between runs. The target was kept rather than lowered to what the
+  heavy shot reaches, so that this paragraph stays true instead of disappearing;
+  `verification/T-06_declared_fixture.md` and `verification/T-06_performance_envelope.md`
+  are the two measurements, and D-47 in `Markdown/14_Decisions_Risks.md` is the decision.
 - **The preview keeps up to 1 GiB of decoded drawings in memory.** It is a ceiling and not a
   reservation: a light shot holds far less, and nothing is held while exporting. On the heaviest
   shot this project measures — ten layers at 1920 by 1080 — one frame's drawings are 316 MiB, so
