@@ -27,6 +27,8 @@
 //! is that the frame still does not depend on tile size once a blur is in it, and the fixture
 //! renders the same blurred frame at six tile sizes to say so.
 
+use rayon::prelude::*;
+
 use crate::model::Id;
 use crate::WorkingBuffer;
 
@@ -347,6 +349,16 @@ enum Axis {
 }
 
 /// One separable pass. `dst` is `src` grown by `radius` on both ends of `axis`.
+///
+/// **Across the thread pool, one destination row at a time (P-13).** A row of the destination
+/// reads the source and writes nothing but itself, so the rows are independent whichever axis is
+/// being filtered, and `par_chunks_mut` hands each one out without any of them being able to see
+/// another. Nothing about the arithmetic moves: a destination pixel is still the same taps
+/// accumulated in the same order into the same `acc`, so the result is the same bits on one
+/// thread or on sixteen, which is what `verification/P-13_parallel_blur.md` compares rather than
+/// asserts. `verification/P-01_frame_trace.md` is why the blur is the loop that got this: on the
+/// declared ten-layer fixture with everything warm, the effect stack is 65.2% of a draft frame
+/// and the tile loop beside it, already spread across this same pool, is 2.1%.
 fn convolve(
     src: &[f32],
     src_w: usize,
@@ -357,28 +369,29 @@ fn convolve(
     axis: Axis,
 ) {
     let src_h = src.len() / (src_w * 4);
-    let dst_h = dst.len() / (dst_w * 4);
-    for y in 0..dst_h {
-        for x in 0..dst_w {
-            let mut acc = [0.0f32; 4];
-            for (k, &weight) in weights.iter().enumerate() {
-                // `k - radius` is the offset from the centre; the centre of destination pixel
-                // (x, y) sits at source pixel (x - radius) or (y - radius) on the blurred axis.
-                let offset = k as isize - radius as isize;
-                let (sx, sy) = match axis {
-                    Axis::X => (x as isize - radius as isize + offset, y as isize),
-                    Axis::Y => (x as isize, y as isize - radius as isize + offset),
-                };
-                if sx < 0 || sy < 0 || sx >= src_w as isize || sy >= src_h as isize {
-                    continue;
+    dst.par_chunks_mut(dst_w * 4)
+        .enumerate()
+        .for_each(|(y, out)| {
+            for x in 0..dst_w {
+                let mut acc = [0.0f32; 4];
+                for (k, &weight) in weights.iter().enumerate() {
+                    // `k - radius` is the offset from the centre; the centre of destination pixel
+                    // (x, y) sits at source pixel (x - radius) or (y - radius) on the blurred axis.
+                    let offset = k as isize - radius as isize;
+                    let (sx, sy) = match axis {
+                        Axis::X => (x as isize - radius as isize + offset, y as isize),
+                        Axis::Y => (x as isize, y as isize - radius as isize + offset),
+                    };
+                    if sx < 0 || sy < 0 || sx >= src_w as isize || sy >= src_h as isize {
+                        continue;
+                    }
+                    let i = (sy as usize * src_w + sx as usize) * 4;
+                    for c in 0..4 {
+                        acc[c] += src[i + c] * weight;
+                    }
                 }
-                let i = (sy as usize * src_w + sx as usize) * 4;
-                for c in 0..4 {
-                    acc[c] += src[i + c] * weight;
-                }
+                let o = x * 4;
+                out[o..o + 4].copy_from_slice(&acc);
             }
-            let o = (y * dst_w + x) * 4;
-            dst[o..o + 4].copy_from_slice(&acc);
-        }
-    }
+        });
 }
