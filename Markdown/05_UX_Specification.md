@@ -14,6 +14,8 @@ Media bin, central composition viewer, property inspector, and a bottom timeline
 
 The timeline is the most important panel in this application, because exposure timing is the product. It represents layer order, exposure duration and drawing identity, and holds must be visually obvious rather than inferred from repeated cells.
 
+Added on 2026-09-12 by D-52. The timeline's place is shared with a graph editor, which the two tabs at the top of that panel switch between. The graph draws one transform property of the selected layer against time, with the selected keyframe's ease handles out where they can be pulled; the two views answer the same question about the same layer, and showing both at once would show each of them half as well. Nothing in the graph is worked out by the window's page: it asks the core for the property's value on every frame of the composition and plots the answer, so what is drawn is what will be rendered rather than a second opinion about it. `verification/B-12a_transform_table.md` is where that is checked.
+
 The inspector edits the selected layer. Selection stays consistent across panels, and selected, locked and hidden states must be distinguishable at a glance.
 
 Original icons, copy and visual styling throughout. Familiar terminology is fine; tracing proprietary screenshots or reproducing distinctive assets is not.

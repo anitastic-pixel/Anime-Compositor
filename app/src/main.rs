@@ -196,6 +196,55 @@ fn quality_asked(query: Option<&str>) -> Option<PreviewQuality> {
 ///
 /// This is the preview path and holds the preview's cache, so it costs a plan the frame beside
 /// it has usually already paid for. ADR-015 is untouched: nothing here is reachable from export.
+/// One property of one layer, evaluated at every frame of a range, for the graph editor.
+///
+/// The graph editor draws a curve, and it has to know where the curve goes. It could work that
+/// out from the keyframes the page already holds, which is what a graph editor usually does -
+/// but then the shape on screen would be a second implementation of document 20, free to
+/// disagree with the one that renders the frame, and a disagreement would look exactly like a
+/// correct curve. So the page asks, and what it draws is what `Property::value_at` says.
+///
+/// This rides on the frame scheme beside `boxes` and for the same reason: it is a question about
+/// what is on screen, whose answer changes nothing and needs no undo record. Unlike `boxes` it
+/// costs no render - a property is evaluated without planning a frame.
+fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
+    let viewer = viewer.lock().expect("the viewer lock was poisoned");
+    let number = |name: &str, fallback: i32| {
+        parameter(query, name)
+            .and_then(|v| v.parse::<i32>().ok())
+            .unwrap_or(fallback)
+    };
+    let answer = (|| {
+        let prop = property(parameter(query, "prop").as_deref()?)?;
+        let layer = viewer
+            .document
+            .project()
+            .composition(&viewer.composition)?
+            .layer(&Id::new(&parameter(query, "layer")?))?;
+        let (from, to) = (number("from", 0), number("to", 0));
+        // A range wider than the longest composition the envelope allows is a page with a bug,
+        // not a person with a problem, so it is cut short rather than refused.
+        let to = to.clamp(from, from.saturating_add(10_000));
+        // D-22: a scale is a percentage in the panels, so the graph is drawn in the numbers the
+        // inspector beside it shows.
+        let factor = if prop == Prop::Scale { 100.0 } else { 1.0 };
+        let samples: Vec<serde_json::Value> = (from..=to)
+            .map(|f| match layer.transform.get(prop).value_at(f) {
+                Value::Scalar(v) => serde_json::json!([v * factor]),
+                Value::Vec2(x, y) => serde_json::json!([x * factor, y * factor]),
+            })
+            .collect();
+        Some(serde_json::json!({ "from": from, "to": to, "samples": samples }))
+    })();
+    // A layer or property that is not there is a page asking about something the person has just
+    // deleted. No samples is the truthful answer to that, and the graph draws nothing.
+    let body = answer.unwrap_or_else(|| serde_json::json!({ "from": 0, "to": 0, "samples": [] }));
+    allow_the_page_to_read_this(Response::builder())
+        .header("content-type", "application/json; charset=utf-8")
+        .body(body.to_string().into_bytes())
+        .expect("build the curve response")
+}
+
 fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) -> Response<Vec<u8>> {
     let taken = {
         let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
@@ -1396,6 +1445,7 @@ const ANSWERS: &[&str] = &[
     "exposure.set_span",
     "keyframe.add_remove",
     "keyframe.move",
+    "keyframe.set_interp",
     "layer.create",
     "layer.delete",
     "layer.move_down",
@@ -1810,6 +1860,63 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         prop,
                         from_frame,
                         to_frame,
+                    }
+                }
+                // D-52's preset, which is the third thing a keyframe can be set to. Document 20
+                // says the mode belongs to the segment that *starts* at the keyframe, so this
+                // changes what happens between this key and the next one and nothing else - it
+                // is not After Effects' F9, which eases both sides of the key it is pressed on.
+                // The page's label says so.
+                //
+                // The value is read out of the document rather than sent, for the same reason
+                // `keyframe.add_remove` reads which of its two halves to do: a page can be
+                // describing a key that has since been undone, and the value is not the thing
+                // being changed here.
+                "keyframe.set_interp" => {
+                    let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
+                        return Some(
+                            "Which property? Say anchor, position, scale, rotation or opacity."
+                                .to_string(),
+                        );
+                    };
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let interp = match parameter(query, "mode").as_deref() {
+                        Some("hold") => Interp::Hold,
+                        Some("linear") => Interp::Linear,
+                        // Without `curve`, this is the preset button beside the diamond and
+                        // the curve is easy ease. With it, it is the graph editor sending the
+                        // four numbers a handle was just dragged to.
+                        Some("ease") => match parameter(query, "curve") {
+                            None => Interp::EASY,
+                            Some(text) => match handles(&text) {
+                                Ok(interp) => interp,
+                                Err(said) => return Some(said),
+                            },
+                        },
+                        other => {
+                            return Some(format!(
+                                "An interpolation is hold, linear or ease. Not \"{}\".",
+                                other.unwrap_or("")
+                            ))
+                        }
+                    };
+                    let property = layer.transform.get(prop);
+                    let Some(key) = property.keyframe_at(frame) else {
+                        return Some(format!(
+                            "{prop} has no keyframe at frame {frame}, so there is no segment to \
+                             ease. Add a keyframe first."
+                        ));
+                    };
+                    Command::SetKeyframe {
+                        composition,
+                        layer_id,
+                        prop,
+                        frame,
+                        value: key.value,
+                        interp,
                     }
                 }
                 // Typed into a field, or scrubbed on its label. The same command either way;
@@ -2458,6 +2565,30 @@ fn parameter(query: Option<&str>, name: &str) -> Option<String> {
         .map(from_a_query)
 }
 
+/// The four numbers of a D-52 curve as the page sends them, or the sentence to answer with.
+///
+/// Document 19 bounds `x` to the segment and leaves `y` free for overshoot; `persist` refuses a
+/// file that breaks that, and this refuses a drag that would write one, so the same rule is
+/// enforced on the way in as on the way back.
+fn handles(text: &str) -> Result<Interp, String> {
+    let numbers: Vec<f64> = text
+        .split(',')
+        .filter_map(|n| n.trim().parse().ok())
+        .collect();
+    let [x1, y1, x2, y2] = numbers[..] else {
+        return Err(format!(
+            "A curve is four numbers, x1,y1,x2,y2. Not \"{text}\"."
+        ));
+    };
+    if !(0.0..=1.0).contains(&x1) || !(0.0..=1.0).contains(&x2) {
+        return Err(format!(
+            "A curve handle cannot reach outside its own segment, so x1 and x2 are between 0 \
+             and 1. Not {x1} and {x2}."
+        ));
+    }
+    Ok(Interp::Ease { x1, y1, x2, y2 })
+}
+
 /// A frame number the page named, or the sentence to answer with when it did not.
 fn frame_parameter(query: Option<&str>, name: &str) -> Result<i32, String> {
     let Some(value) = parameter(query, name) else {
@@ -2836,6 +2967,11 @@ fn main() {
                 .and_then(|n| n.parse::<i32>().ok())
             {
                 return boxes(&viewer, n, quality_asked(request.uri().query()));
+            }
+            // `/curve?layer=&prop=&from=&to=`, the graph editor's samples: the same kind of
+            // question as `boxes` above, on the same scheme, for the same reason.
+            if request.uri().path().trim_matches('/') == "curve" {
+                return curve(&viewer, request.uri().query());
             }
             match parse(request.uri().path(), request.uri().query()) {
                 Some((ask, quality)) => serve(&viewer, &export, ask, quality),
@@ -3611,8 +3747,15 @@ mod editing {
             .map(|keys| {
                 keys.iter()
                     .map(|k| {
+                        // D-52: an eased key's four numbers go in the row. The word "ease" on
+                        // its own would pass whatever curve it was given, which is the one
+                        // thing a table about easing has to be able to tell apart.
+                        let curve = match &k["ease"] {
+                            serde_json::Value::Null => String::new(),
+                            ease => format!(" {ease}"),
+                        };
                         format!(
-                            "{}@{} {}",
+                            "{}@{} {}{curve}",
                             k["value"],
                             k["frame"],
                             k["interp"].as_str().unwrap_or("?")
@@ -3625,6 +3768,20 @@ mod editing {
     }
 
     /// A property's value on one frame, out of the `/boxes` answer the inspector shows it from.
+    /// What the graph editor is told to draw: the first component of one property, frame by
+    /// frame, out of the route the page asks rather than out of the model beside it.
+    fn plotted(viewer: &Mutex<Viewer>, query: &str) -> Vec<f64> {
+        let answer = curve(viewer, Some(query));
+        let said: serde_json::Value =
+            serde_json::from_slice(answer.body()).expect("the route answers with JSON");
+        said["samples"]
+            .as_array()
+            .expect("samples is a list")
+            .iter()
+            .map(|s| s[0].as_f64().expect("a sample is a number"))
+            .collect()
+    }
+
     fn value_at(viewer: &Mutex<Viewer>, frame: i32, layer_id: &str, prop: &str) -> String {
         let body = boxes(viewer, frame, None).into_body();
         let answer: serde_json::Value =
@@ -4033,6 +4190,187 @@ mod editing {
             "[300,-40]@12 linear",
             keys(&viewer, l, "position"),
         );
+
+        // ---- easing a segment (D-52) --------------------------------------------------------
+        // The preset beside the diamond. Document 20 says a keyframe's mode belongs to the
+        // segment that starts at it, so what these rows check is the value *between* two keys
+        // moving while the keys themselves do not - which is what an ease is and the only way to
+        // see one without drawing a graph.
+        let depth = held(&viewer).document.undo_depth();
+        run(
+            &viewer,
+            "keyframe.add_remove?layer=layer-cel&prop=rotation&frame=0",
+        );
+        run(
+            &viewer,
+            "property.set_base?layer=layer-cel&prop=rotation&value=120&frame=24",
+        );
+        report.check(
+            "two linear rotation keys, and the halfway frame is halfway between them",
+            "82.5",
+            value_at(&viewer, 12, l, "rotation"),
+        );
+        report.check(
+            "pressing the curve says which segment it changed",
+            "Keyframe rotation at frame 0 to 45",
+            run(
+                &viewer,
+                "keyframe.set_interp?layer=layer-cel&prop=rotation&frame=0&mode=ease",
+            ),
+        );
+        report.check(
+            "the key carries the four numbers of the curve, not just the word",
+            "45@0 ease [0.3333333333333333,0,0.6666666666666666,1], 120@24 linear",
+            keys(&viewer, l, "rotation"),
+        );
+        report.check(
+            "the halfway frame is still halfway, because easy ease is symmetric",
+            "82.5",
+            value_at(&viewer, 12, l, "rotation"),
+        );
+        report.check(
+            "a quarter of the way along it is behind where linear would have it: 63.75 becomes",
+            "56.71875",
+            value_at(&viewer, 6, l, "rotation"),
+        );
+        report.check(
+            "and three quarters along it is ahead: 101.25 becomes",
+            "108.28125",
+            value_at(&viewer, 18, l, "rotation"),
+        );
+        report.check(
+            "neither keyframe moved",
+            "45",
+            value_at(&viewer, 0, l, "rotation"),
+        );
+        report.check(
+            "nor the one at the end",
+            "120",
+            value_at(&viewer, 24, l, "rotation"),
+        );
+        report.check(
+            "pressing it again puts the segment back to linear",
+            "Keyframe rotation at frame 0 to 45",
+            run(
+                &viewer,
+                "keyframe.set_interp?layer=layer-cel&prop=rotation&frame=0&mode=linear",
+            ),
+        );
+        report.check(
+            "and the four numbers are gone from the file rather than left behind",
+            "45@0 linear, 120@24 linear",
+            keys(&viewer, l, "rotation"),
+        );
+        report.check(
+            "easing a frame that has no key is refused, and says what to do first",
+            "rotation has no keyframe at frame 7, so there is no segment to ease. Add a \
+             keyframe first.",
+            run(
+                &viewer,
+                "keyframe.set_interp?layer=layer-cel&prop=rotation&frame=7&mode=ease",
+            ),
+        );
+        report.check(
+            "a curve this window does not offer is refused rather than guessed at",
+            "An interpolation is hold, linear or ease. Not \"bouncy\".",
+            run(
+                &viewer,
+                "keyframe.set_interp?layer=layer-cel&prop=rotation&frame=0&mode=bouncy",
+            ),
+        );
+        report.check(
+            "four history entries for the four edits, and none for the two refusals",
+            4,
+            held(&viewer).document.undo_depth() - depth,
+        );
+        undo(&viewer);
+        report.check(
+            "undoing the straightening gives the curve back",
+            "45@0 ease [0.3333333333333333,0,0.6666666666666666,1], 120@24 linear",
+            keys(&viewer, l, "rotation"),
+        );
+
+        // ---- the graph editor (D-52) --------------------------------------------------------
+        // The panel that shares the timeline's place draws a line and two handles, and the line
+        // is the one thing about it that could quietly be wrong: a graph that solved the curve
+        // itself would go on looking like a perfectly good graph on the day it stopped agreeing
+        // with the picture. So the page asks the window, and these rows are what it is told.
+        let drawn = plotted(&viewer, "layer=layer-cel&prop=rotation&from=0&to=24");
+        report.check(
+            "the graph is given one sample per frame of the range",
+            25,
+            drawn.len(),
+        );
+        report.check(
+            "and every one of them is the value the renderer would draw on that frame",
+            "all 25 agree",
+            match (0..=24).all(|f| {
+                let shown: f64 = value_at(&viewer, f, l, "rotation")
+                    .parse()
+                    .expect("a rotation is a number");
+                (shown - drawn[f as usize]).abs() < 1e-12
+            }) {
+                true => "all 25 agree",
+                false => "at least one disagrees",
+            },
+        );
+        report.check(
+            "so the eased middle of the segment is drawn where the ease puts it",
+            "82.5",
+            drawn[12],
+        );
+        report.check(
+            "and a quarter along, behind where a straight line would have it",
+            "56.71875",
+            drawn[6],
+        );
+        report.check(
+            "pulling the first handle to the far end of the segment is one edit",
+            "Keyframe rotation at frame 0 to 45",
+            run(
+                &viewer,
+                "keyframe.set_interp?layer=layer-cel&prop=rotation&frame=0&mode=ease\
+                 &curve=0.75,0,1,0.25",
+            ),
+        );
+        report.check(
+            "and the four numbers it was dropped at are the ones in the file",
+            "45@0 ease [0.75,0,1,0.25], 120@24 linear",
+            keys(&viewer, l, "rotation"),
+        );
+        report.check(
+            "and the middle of the segment is held right back: 82.5 becomes",
+            "49.3993",
+            format!(
+                "{:.4}",
+                plotted(&viewer, "layer=layer-cel&prop=rotation&from=0&to=24")[12]
+            ),
+        );
+        report.check(
+            "a handle dragged outside its own segment is refused rather than clamped",
+            "A curve handle cannot reach outside its own segment, so x1 and x2 are between 0 \
+             and 1. Not 1.2 and 0.1.",
+            run(
+                &viewer,
+                "keyframe.set_interp?layer=layer-cel&prop=rotation&frame=0&mode=ease\
+                 &curve=1.2,0,0.1,1",
+            ),
+        );
+        report.check(
+            "and so is a curve that is not four numbers",
+            "A curve is four numbers, x1,y1,x2,y2. Not \"0.4,0.1\".",
+            run(
+                &viewer,
+                "keyframe.set_interp?layer=layer-cel&prop=rotation&frame=0&mode=ease\
+                 &curve=0.4,0.1",
+            ),
+        );
+        report.check(
+            "asking about a layer that has gone draws nothing rather than failing",
+            0,
+            plotted(&viewer, "layer=gone&prop=rotation&from=0&to=24").len(),
+        );
+        undo(&viewer);
 
         // ---- back to the file ---------------------------------------------------------------------------
         while held(&viewer).document.undo_depth() > 0 {
@@ -7566,6 +7904,7 @@ mod contract {
         "exposure.set_span",
         "keyframe.add_remove",
         "keyframe.move",
+        "keyframe.set_interp",
         "layer.create",
         "layer.delete",
         "layer.move_down",
@@ -7592,11 +7931,14 @@ mod contract {
         // `frame` is a numbered frame, `at` is the frame playback has reached by a given number
         // of milliseconds, `play` starts the clock over from the playhead (W-09), and `boxes`
         // is where the selected layers landed on that frame, which only the renderer knows
-        // because an asset records no pixel size. The clock is checked in
+        // because an asset records no pixel size. `curve` is the fifth, added by D-52: one
+        // property evaluated across a range, so the graph editor draws what the renderer will
+        // do rather than its own idea of it. The clock is checked in
         // `verification/B-08_preview_table.md`.
         "at",
         "boxes",
         "cancel-export",
+        "curve",
         "export",
         "frame",
         "open",
@@ -7729,10 +8071,10 @@ mod contract {
         // checked is that the shell has an arm of that name. `frame` and `state` are not in
         // that match: one is the other scheme, one is answered before it.
         for route in &routes {
-            // `frame`, `at`, `play` and `boxes` belong to the other scheme and are served
+            // `frame`, `at`, `play`, `boxes` and `curve` belong to the other scheme and are served
             // beside `fn frame`, not by the command shell, so there is no arm of that name to
             // look for.
-            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes") {
+            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve") {
                 continue;
             }
             let arm = format!("\"{route}\"");
@@ -7864,6 +8206,7 @@ mod contract {
         ("property.set_base", "a command the window answers"),
         ("keyframe.add_remove", "a command the window answers"),
         ("keyframe.move", "a command the window answers"),
+        ("keyframe.set_interp", "a command the window answers"),
         ("effect.add", "a command the window answers"),
         ("effect.delete", "a command the window answers"),
         ("effect.toggle_bypass", "a command the window answers"),
@@ -8852,7 +9195,7 @@ mod contract {
         };
         let shell: Vec<String> = ROUTES
             .iter()
-            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes"))
+            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve"))
             .map(|route| route.to_string())
             .collect();
         report.check(
@@ -9181,7 +9524,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 32] = [
+    const CONTROLS: [&str; 35] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -9199,6 +9542,7 @@ mod contract {
         "fit",
         "fit100",
         "fwd",
+        "graphprop",
         "import",
         "makecomp",
         "newcomp",
@@ -9210,6 +9554,8 @@ mod contract {
         "relink",
         "save",
         "saveas",
+        "tabgraph",
+        "tabsheet",
         "toggle",
         "undo",
         "up",

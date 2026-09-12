@@ -75,6 +75,30 @@ Moving a key along the bar is `keyframe.move`, built by W-11 on 2026-09-12: one 
 | a move onto the frame the key is already on is not an edit | That keyframe is already on that frame. | That keyframe is already on that frame. | pass |
 | two history entries for the two edits that were allowed, and none for the three that were refused | 2 | 2 | pass |
 | undoing puts the key back on the frame it was moved from | [300,-40]@12 linear | [300,-40]@12 linear | pass |
+| two linear rotation keys, and the halfway frame is halfway between them | 82.5 | 82.5 | pass |
+| pressing the curve says which segment it changed | Keyframe rotation at frame 0 to 45 | Keyframe rotation at frame 0 to 45 | pass |
+| the key carries the four numbers of the curve, not just the word | 45@0 ease [0.3333333333333333,0,0.6666666666666666,1], 120@24 linear | 45@0 ease [0.3333333333333333,0,0.6666666666666666,1], 120@24 linear | pass |
+| the halfway frame is still halfway, because easy ease is symmetric | 82.5 | 82.5 | pass |
+| a quarter of the way along it is behind where linear would have it: 63.75 becomes | 56.71875 | 56.71875 | pass |
+| and three quarters along it is ahead: 101.25 becomes | 108.28125 | 108.28125 | pass |
+| neither keyframe moved | 45 | 45 | pass |
+| nor the one at the end | 120 | 120 | pass |
+| pressing it again puts the segment back to linear | Keyframe rotation at frame 0 to 45 | Keyframe rotation at frame 0 to 45 | pass |
+| and the four numbers are gone from the file rather than left behind | 45@0 linear, 120@24 linear | 45@0 linear, 120@24 linear | pass |
+| easing a frame that has no key is refused, and says what to do first | rotation has no keyframe at frame 7, so there is no segment to ease. Add a keyframe first. | rotation has no keyframe at frame 7, so there is no segment to ease. Add a keyframe first. | pass |
+| a curve this window does not offer is refused rather than guessed at | An interpolation is hold, linear or ease. Not "bouncy". | An interpolation is hold, linear or ease. Not "bouncy". | pass |
+| four history entries for the four edits, and none for the two refusals | 4 | 4 | pass |
+| undoing the straightening gives the curve back | 45@0 ease [0.3333333333333333,0,0.6666666666666666,1], 120@24 linear | 45@0 ease [0.3333333333333333,0,0.6666666666666666,1], 120@24 linear | pass |
+| the graph is given one sample per frame of the range | 25 | 25 | pass |
+| and every one of them is the value the renderer would draw on that frame | all 25 agree | all 25 agree | pass |
+| so the eased middle of the segment is drawn where the ease puts it | 82.5 | 82.5 | pass |
+| and a quarter along, behind where a straight line would have it | 56.71875 | 56.71875 | pass |
+| pulling the first handle to the far end of the segment is one edit | Keyframe rotation at frame 0 to 45 | Keyframe rotation at frame 0 to 45 | pass |
+| and the four numbers it was dropped at are the ones in the file | 45@0 ease [0.75,0,1,0.25], 120@24 linear | 45@0 ease [0.75,0,1,0.25], 120@24 linear | pass |
+| and the middle of the segment is held right back: 82.5 becomes | 49.3993 | 49.3993 | pass |
+| a handle dragged outside its own segment is refused rather than clamped | A curve handle cannot reach outside its own segment, so x1 and x2 are between 0 and 1. Not 1.2 and 0.1. | A curve handle cannot reach outside its own segment, so x1 and x2 are between 0 and 1. Not 1.2 and 0.1. | pass |
+| and so is a curve that is not four numbers | A curve is four numbers, x1,y1,x2,y2. Not "0.4,0.1". | A curve is four numbers, x1,y1,x2,y2. Not "0.4,0.1". | pass |
+| asking about a layer that has gone draws nothing rather than failing | 0 | 0 | pass |
 | undoing every transform edit gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**51 of 51 checks pass.**
+**75 of 75 checks pass.**

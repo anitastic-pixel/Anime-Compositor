@@ -39,6 +39,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | property.set_base | Set a transform property's base value | none | yes |
 | keyframe.add_remove | Toggle keyframe for focused property | none | yes |
 | keyframe.move | Move a keyframe to another frame | none | yes |
+| keyframe.set_interp | Set the interpolation of the segment starting at a keyframe | none | yes |
 | effect.add | Add effect instance | none | yes |
 | effect.delete | Remove selected effect | Delete when effect-focused | yes |
 | effect.toggle_bypass | Bypass selected effect | none | yes |
