@@ -16,7 +16,7 @@ R-01 / C / Import: group a selected PNG sequence using an explicit numeric patte
 
 R-02 / C / Exposure timing: map composition frames to drawing IDs with explicit holds. A 1-1-2-2-2 pattern must remain unchanged through save, preview and export. This is the central requirement of the product and the one that justifies its existence. T-02; B-04.
 
-R-03 / C / Layers: add, remove, reorder, rename, lock and hide raster layers; animate 2D position, anchor, scale, rotation and opacity with hold and linear interpolation. T-03; B-05.
+R-03 / C / Layers: add, remove, reorder, rename, lock and hide raster layers; animate 2D position, anchor, scale, rotation and opacity with hold, linear and eased interpolation. T-03; B-05. The third mode was added on 2026-09-12 by D-52, at the owner's request after the third sitting with the window, and it is the only widening this requirement has had. An ease is a cubic Bezier of value against time, written as the two inner control points of a curve whose ends are pinned at (0,0) and (1,1) - the shape CSS writes as `cubic-bezier(x1, y1, x2, y2)` and the shape After Effects draws as two handles in its value graph. It belongs to the segment that starts at the keyframe carrying it, exactly as hold and linear do, so nothing about document 20's keyframe model changes shape. **What it does not add is a motion path**: an eased position moves along a straight line between its keys, faster and slower, and a curve *through* the keys in space is a separate decision D-52 leaves open.
 
 R-06a / C / Preview: frame stepping, work-area playback, resolution selection, and a visible indication when preview quality differs from final export. No bounded cache; render on demand and accept the cost. T-06; B-08.
 

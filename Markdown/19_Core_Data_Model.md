@@ -26,7 +26,17 @@ Transform contains anchor, position, scale, rotation and opacity properties. Sca
 
 ## Property and keyframe model
 
-A Property<T> has a base value and zero or more keyframes. G1 serializes keyframe frame indices as signed integers and supports interpolation values `hold` and `linear`. Duplicate keyframes for the same property at the same frame are invalid.
+A Property<T> has a base value and zero or more keyframes. G1 serializes keyframe frame indices as signed integers and supports interpolation values `hold`, `linear` and `ease`. Duplicate keyframes for the same property at the same frame are invalid.
+
+`ease` was added on 2026-09-12 by D-52 and is the only interpolation value added since version 0.3. A keyframe whose `interp` is `ease` carries one further field, `ease`, and a keyframe whose `interp` is anything else must not carry it:
+
+```json
+{ "frame": 12, "value": [300, -40], "interp": "ease", "ease": [0.3333333333333333, 0, 0.6666666666666666, 1] }
+```
+
+The four numbers are the two inner control points of a cubic Bezier, `[x1, y1, x2, y2]`, of a curve whose ends are pinned at (0,0) and (1,1). They are written in the file in that order and in no other. **`x1` and `x2` must each be within 0 and 1 inclusive**, because they are positions in time within the segment and a handle outside it would make the curve fold back on itself and give one frame two values; a file whose `x` is outside that range is invalid and is diagnosed rather than clamped. **`y1` and `y2` are not bounded**, and that is deliberate: a `y` outside 0 and 1 is an overshoot, the curve going past its destination and coming back, which is a thing an animator means to do. The pair `[1/3, 1/3, 2/3, 2/3]` is the curve that is exactly linear, and `[1/3, 0, 2/3, 1]` is After Effects' easy ease.
+
+A keyframe's `ease` describes the segment that begins at that keyframe, which is what document 20 already says about `interp`. It therefore has no effect on the last keyframe of a property, where there is no next keyframe and no segment; the field is preserved there rather than dropped, because an artist who moves a key back into the middle of a run expects the ease they set to still be on it.
 
 Supported G1 property value types: scalar, vec2, color4 and boolean where appropriate. Color4 is linear RGBA in model/evaluation code; UI color pickers may present display-referred values but must convert explicitly.
 

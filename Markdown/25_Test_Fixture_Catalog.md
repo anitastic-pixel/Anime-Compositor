@@ -32,6 +32,53 @@ FX-TIME-003: 24000/1001 remains the exact stored rate after round-trip; no repla
 
 FX-TIME-004: composition `start_frame=-12`, `duration=24` has valid frames -12 through 11 and exactly 24 export frames.
 
+## Ease fixtures
+
+Added on 2026-09-12 by D-52. Each case is one segment: two keyframes, the four numbers of the curve on the first of them, and the value expected at each of a handful of frames. The expected values are written out here rather than in the machine-readable manifest, because a number a person can read beside the case it belongs to is the point of this document, and because the build's own table prints the same rows for comparison.
+
+**Every number below is produced by `tools/ease_reference.py`**, which solves document 20's equation by bisection, in another language, written from document 20 rather than from the build. Running that file prints this table. The build solves the same equation by Newton's method with a bisection fallback, so an agreement between the two is two independent answers and not one answer twice.
+
+FX-EASE-001: the curve `[1/3, 1/3, 2/3, 2/3]` evaluates as linear, to 1e-9. An implementation that rounds, clamps or shortcuts the solve fails this one first. A scalar from 0 at frame 0 to 120 at frame 24.
+
+| frame | 0 | 1 | 6 | 12 | 18 | 23 | 24 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| value | 0 | 4.999999999999999 | 30 | 60 | 90 | 115 | 120 |
+
+Frame 1 is not exactly 5, and that is the tolerance earning its place: the true answer is 5, the bisection lands one unit in the last place below it, and 1e-9 is far wider than the gap. A build that printed exactly 5 would also pass.
+
+FX-EASE-002: easy ease, `[1/3, 0, 2/3, 1]`, on a scalar from 0 at frame 0 to 100 at frame 24. Tolerance 1e-6. The midpoint is exactly 50, and the whole row can be checked by hand against `100 * (3u^2 - 2u^3)`, which is what document 20 says this curve reduces to.
+
+| frame | 0 | 3 | 6 | 12 | 18 | 21 | 24 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| value | 0 | 4.296875 | 15.625 | 50 | 84.375 | 95.703125 | 100 |
+
+The row is symmetric about its middle - 4.296875 from the start and 95.703125 from the end are the same distance - which is the shape of an ease that starts and stops at rest.
+
+FX-EASE-003: the same curve on a pair, position from (0, 200) at frame 0 to (300, -40) at frame 12. Tolerance 1e-6. One timing curve drives both components; this is an ease in time, not a path in space.
+
+| frame | 0 | 3 | 6 | 9 | 12 |
+| --- | --- | --- | --- | --- | --- |
+| x | 0 | 46.875 | 150 | 253.125 | 300 |
+| y | 200 | 162.5 | 80 | -2.5 | -40 |
+
+Both rows are the same fractions of their own journey, which is the check that matters here: at frame 3 the layer is 15.625% of the way along in x and 15.625% of the way along in y, so it is still on the straight line between the two keys and only its speed along that line has changed.
+
+FX-EASE-004: `[0, 0, 0.58, 1]`, which is not symmetric, so a solver that assumes symmetry has somewhere to break. A scalar from 0 at frame 10 to 1 at frame 34, which also checks that a segment need not start at frame 0. Tolerance 1e-6.
+
+| frame | 10 | 16 | 22 | 28 | 34 |
+| --- | --- | --- | --- | --- | --- |
+| value | 0 | 0.37813813082510966 | 0.6846431874274606 | 0.9065353492811752 | 1 |
+
+This one leaves its first key fast and arrives at its second slowly, so the value at the middle frame is above half rather than at it. A solver that mirrored the curve would put it below.
+
+FX-EASE-005: `[0.42, 0, 0.58, 1]`, whose `x` handles are not a third and two thirds, so the solve is real work rather than free. A scalar from 0 at frame 0 to 1 at frame 20. Tolerance 1e-6. Its presence is deliberate: the first two cases are curves where `x(t) = t` exactly, and a fixture set made only of those would not notice a solver that never worked.
+
+| frame | 0 | 4 | 8 | 10 | 12 | 16 | 20 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| value | 0 | 0.08165985626589747 | 0.3318838700976461 | 0.5 | 0.6681161299023539 | 0.9183401437341024 | 1 |
+
+The curve is symmetric, so the row is too, and the exact 0.5 at the middle frame is the one number in it that can be checked without a calculator.
+
 ## Transform fixtures
 
 FX-XF-001 identity preserves pixels and bounds. FX-XF-002 integer translation moves a 1x1 impulse exactly one pixel. FX-XF-003 half-pixel translation verifies bilinear weights. FX-XF-004 rotates around a nonzero anchor using the matrix order in 21.
