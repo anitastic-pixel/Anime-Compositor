@@ -240,4 +240,41 @@ than in what the owner did.
    moved in time is a key removed and a key set, which is two; it needs a command of its own.
 5. **D-52** is finding 5's other half, written down and not started.
 
+## The fourth sitting, 2026-09-11, in the owner's words
+
+Transcribed at the owner's instruction from what they wrote after the fourth hands-on sitting,
+with `target/release/anime_compositor_app.exe` rebuilt from `main` at `d39fe8e` (W-09 and W-10
+merged). Their words, unedited; the agent added nothing and took nothing out.
+
+> I can drag them across the timeline now; I can play it and it plays from said point; the
+> keyframes for position works! so does rotation, opacity, and scale, just need to create a
+> dropdown arrow to show all the keyframes on the specific layer spanning across the timeline
+> just like AE does for each layer, along with shortcuts that show said transform options below
+> the layer, like s is scale, r rotation, etc just like AE does for shortcuts. Also, we need to
+> have each workspace section be adjustable in size, like the borders allow me to manipulate the
+> amount of space it takes from the screen like most video/compositing applications does.
+
+### What each finding is, read against the build
+
+Four confirmations and three asks. Nothing in this message is a defect.
+
+| # | The finding | What it is | Where it lives |
+| --- | --- | --- | --- |
+| 1 | Layers drag across the timeline now | Confirmed | Finding 3 of the third sitting, closed by W-09. |
+| 2 | Play starts from the playhead | Confirmed | Finding 6 of the third sitting, closed by W-09. |
+| 3 | Keyframes work for position, rotation, opacity and scale | Confirmed | W-10, the first half of finding 5 of the third sitting. |
+| 4 | An arrow on each layer that opens its keyframes under it across the timeline, as After Effects does | New presentation | W-12: an arrow beside the layer's name; pressed, one row per transform property appears under the layer with that property's keys marked along it at the frames they sit on, its value on the frame on screen, and the same diamond the inspector has. The keys were already on the layer's bar since W-10, all five properties on one line; this pulls them apart. |
+| 5 | The After Effects shortcuts that show a transform under the layer: S for scale, R for rotation, and so on | New shortcuts | W-12: with a layer selected, A anchor, P position, S scale, R rotation, T opacity, each alone; Shift with the key adds it to what is open; U the animated ones. Pressed again, each closes what it opened. Alpha-only inspection had been on A, which document 24 never promised it, and moves to Alt+A. |
+| 6 | Each workspace section adjustable in size by its borders, as compositing applications do | New interaction | W-13: the border between the media bin and the viewer, between the viewer and the inspector, and above the timeline can each be dragged; the sizes are kept between runs; a double click on a border puts it back. Document 24's workspace contract allows this: "Panels may be resized/docked when supported by the selected UI framework". |
+| 7 | (implied by the third sitting) the next batch | Order | Below. |
+
+### The order agreed
+
+1. **W-12, the property rows and the keys.** Findings 4 and 5. The rows are judged in the window,
+   by pressing the arrow and by pressing the letters; `verification/B-12c_keyboard_table.md` lists
+   the six new keys and the moved one.
+2. **W-13, the borders.** Finding 6. Judged in the window, by dragging each of the three and by
+   closing and reopening the application.
+3. **W-11, moving a key along the bar.** Still not started, still needs a command of its own.
+
 ## Anything else
