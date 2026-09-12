@@ -2566,10 +2566,19 @@ async function askForCurve() {
   const comp = composition();
   const pick = graphLayer();
   if (!graphing || !comp || !pick) { plotted = null; drawGraph(); return; }
+  // What is drawn is the part of the shot this property animates over, not the whole shot. A
+  // twenty-four frame ease on a two-hundred-and-forty frame composition is a tenth of the panel
+  // wide, and the handles of a curve nobody can see are handles nobody can pull. A margin of a
+  // tenth of that span either side, so the first and last keyframes are not on the frame edge.
+  const keys = keysOf(pick.layer, pick.prop);
+  const end = comp.start_frame + comp.duration_frames - 1;
+  const span = keys[keys.length - 1].frame - keys[0].frame;
+  const margin = Math.max(1, Math.round(span / 10));
+  const from = Math.max(comp.start_frame, keys[0].frame - margin);
+  const to = Math.min(end, keys[keys.length - 1].frame + margin);
   try {
     const answer = await fetch(FRAMES + '/curve?layer=' + encodeURIComponent(pick.layer.id)
-      + '&prop=' + pick.prop
-      + '&from=' + comp.start_frame + '&to=' + (comp.start_frame + comp.duration_frames - 1));
+      + '&prop=' + pick.prop + '&from=' + from + '&to=' + to);
     plotted = answer.ok ? await answer.json() : null;
   } catch (e) {
     plotted = null;
@@ -2668,11 +2677,20 @@ function drawGraph() {
   }
   // The value at a frame comes out of the answer rather than out of the keyframe, so that a
   // keyframe drawn on this line is drawn where the renderer puts it.
-  const at = (f) => (plotted.samples[f - plotted.from] || [0])[0];
+  // Every part of the property, because a position has two lines and a keyframe is on both of
+  // them. The handles below stay on the first: one ease governs the whole property, and two sets
+  // of handles for one curve would be two things to pull that cannot disagree.
+  const part = (f, c) => (plotted.samples[f - plotted.from] || [])[c] || 0;
+  const at = (f) => part(f, 0);
   const keys = keysOf(pick.layer, pick.prop);
   for (const key of keys) {
     if (key.frame < plotted.from || key.frame > plotted.to) continue;
-    el('circle', { class: 'keydot', cx: space.x(key.frame), cy: space.y(at(key.frame)), r: 3 });
+    for (let c = 0; c < parts; c += 1) {
+      el('circle', {
+        class: 'keydot',
+        cx: space.x(key.frame), cy: space.y(part(key.frame, c)), r: 3,
+      });
+    }
   }
   for (let i = 0; i < keys.length - 1; i += 1) {
     if (keys[i].interp !== 'ease') continue;
@@ -2698,8 +2716,11 @@ function drawGraph() {
   el('line', {
     class: 'at', x1: space.x(frame), y1: 4, x2: space.x(frame), y2: box.height - 4,
   });
-  el('text', { x: 2, y: 12 }).textContent = number(space.high);
-  el('text', { x: 2, y: box.height - 4 }).textContent = number(space.low);
+  // Rounded because these two are read at a glance and `120.045139` is not a glance. The number
+  // itself is untouched - this is the label on the axis, not the value of anything.
+  const axis = (v) => String(Math.round(v * 100) / 100);
+  el('text', { x: 2, y: 12 }).textContent = axis(space.high);
+  el('text', { x: 2, y: box.height - 4 }).textContent = axis(space.low);
   into.replaceChildren(svg);
   if (refocus) refocus.focus();
 }
