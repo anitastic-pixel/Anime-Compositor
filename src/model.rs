@@ -97,11 +97,24 @@ impl fmt::Display for Value {
     }
 }
 
-/// Document 19: "supports interpolation values `hold` and `linear`".
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// Document 19: "supports interpolation values `hold`, `linear` and `ease`".
+///
+/// `Eq` is gone as of D-52 and is not coming back: an ease carries four `f64`, and two curves
+/// being the same number is a question `PartialEq` answers honestly and `Eq` would only pretend
+/// to. Nothing compared these by identity.
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Interp {
     Hold,
     Linear,
+    /// D-52's cubic Bezier of value against time: the two inner control points of a curve whose
+    /// ends are pinned at (0,0) and (1,1), in document 19's order. The same four numbers CSS
+    /// writes as `cubic-bezier(x1, y1, x2, y2)`.
+    Ease {
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+    },
 }
 
 impl Interp {
@@ -109,8 +122,72 @@ impl Interp {
         match self {
             Interp::Hold => "hold",
             Interp::Linear => "linear",
+            Interp::Ease { .. } => "ease",
         }
     }
+
+    /// After Effects' easy ease: 33.33% influence either side, no speed. Document 20 records what
+    /// this works out to - `3u^2 - 2u^3`, with the value exactly half way at half the segment.
+    pub const EASY: Interp = Interp::Ease {
+        x1: 0.3333333333333333,
+        y1: 0.0,
+        x2: 0.6666666666666666,
+        y2: 1.0,
+    };
+}
+
+/// One coordinate of document 20's curve at the curve's own parameter `t`, ends pinned at 0 and 1.
+fn bezier(a: f64, b: f64, t: f64) -> f64 {
+    let v = 1.0 - t;
+    3.0 * v * v * t * a + 3.0 * v * t * t * b + t * t * t
+}
+
+/// The fraction document 20 calls `e`: `y` at the `t` where `x(t) = u`.
+///
+/// Newton's method from a sensible start, falling back to bisection when a step would leave the
+/// interval or the derivative is flat. `tools/ease_reference.py` solves the same equation by
+/// bisection alone, in another language and from document 20 rather than from this function;
+/// document 25 tabulates what it got, and the two agree to the tolerance stated there. Both
+/// work because `x` is non-decreasing for `x1` and `x2` within 0 and 1, which document 19
+/// requires of the file and `persist` refuses a file without.
+fn solve(x1: f64, y1: f64, x2: f64, y2: f64, u: f64) -> f64 {
+    if u <= 0.0 {
+        return 0.0;
+    }
+    if u >= 1.0 {
+        return 1.0;
+    }
+    // The ends are pinned, so `u` is never a bad first guess and is an exact one whenever the
+    // handles are a third and two thirds of the way along, which is the common case.
+    let mut t = u;
+    for _ in 0..8 {
+        let err = bezier(x1, x2, t) - u;
+        if err.abs() < 1e-12 {
+            return bezier(y1, y2, t);
+        }
+        let v = 1.0 - t;
+        let slope = 3.0 * v * v * x1 + 6.0 * v * t * (x2 - x1) + 3.0 * t * t * (1.0 - x2);
+        if slope.abs() < 1e-12 {
+            break;
+        }
+        let next = t - err / slope;
+        if !(0.0..=1.0).contains(&next) {
+            break;
+        }
+        t = next;
+    }
+    // Sixty halvings of the unit interval is past what an f64 can split, so this terminates on
+    // the same answer every time rather than on whatever the last Newton step happened to be.
+    let (mut lo, mut hi) = (0.0f64, 1.0f64);
+    for _ in 0..60 {
+        let mid = 0.5 * (lo + hi);
+        if bezier(x1, x2, mid) < u {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    bezier(y1, y2, 0.5 * (lo + hi))
 }
 
 /// Document 20: "Each keyframe contains a value and the interpolation mode used from that
@@ -192,7 +269,8 @@ impl Property {
     /// - before the first: the first keyframe's value;
     /// - exactly on a keyframe: that keyframe's value;
     /// - after the last: the last keyframe's value;
-    /// - between two: hold returns the left value, linear interpolates.
+    /// - between two: hold returns the left value, linear interpolates, an ease interpolates at
+    ///   the fraction its curve gives (D-52).
     pub fn value_at(&self, frame: i32) -> Value {
         let keys = &self.keyframes;
         let Some(first) = keys.first() else {
@@ -213,6 +291,14 @@ impl Property {
             return a.value;
         }
         let u = (frame - a.frame) as f64 / (b.frame - a.frame) as f64;
+        // An ease changes *when* the value arrives and not which values it passes through, which
+        // is why this is the linear line evaluated at a different fraction rather than a second
+        // kind of interpolation. One curve drives both components of a pair: this is an ease in
+        // time. A curve through the keys in space is a different thing and D-52 left it open.
+        let u = match a.interp {
+            Interp::Ease { x1, y1, x2, y2 } => solve(x1, y1, x2, y2, u),
+            _ => u,
+        };
         a.value.lerp(b.value, u)
     }
 }

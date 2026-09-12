@@ -344,6 +344,13 @@ fn property_json(base: Option<&J>, property: &Property, factor: f64) -> J {
             m.insert("frame".into(), J::from(k.frame));
             m.insert("value".into(), value_json(k.value, factor));
             m.insert("interp".into(), J::from(k.interp.as_str()));
+            // Document 19: the four numbers go with `ease` and with nothing else, in this order.
+            if let Interp::Ease { x1, y1, x2, y2 } = k.interp {
+                m.insert(
+                    "ease".into(),
+                    J::Array(vec![J::from(x1), J::from(y1), J::from(x2), J::from(y2)]),
+                );
+            }
             J::Object(m)
         })
         .collect();
@@ -817,9 +824,10 @@ fn parse_property(v: &J, pointer: &str, kind: &str, factor: f64) -> Result<Prope
         let interp = match as_enum(
             field(key, &at, "interp")?,
             &format!("{at}/interp"),
-            &["hold", "linear"],
+            &["hold", "linear", "ease"],
         )? {
             "hold" => Interp::Hold,
+            "ease" => parse_ease(field(key, &at, "ease")?, &format!("{at}/ease"))?,
             _ => Interp::Linear,
         };
         property.set_keyframe(Keyframe {
@@ -829,6 +837,41 @@ fn parse_property(v: &J, pointer: &str, kind: &str, factor: f64) -> Result<Prope
         });
     }
     Ok(property)
+}
+
+/// Document 19's four numbers, `[x1, y1, x2, y2]`, of a keyframe whose `interp` is `ease`.
+///
+/// The two `x` are refused outside 0 to 1 rather than clamped. They are positions in time inside
+/// the segment, and a handle outside it folds the curve back on itself, which would give one frame
+/// two values; document 28's rule is that what cannot be understood is diagnosed and not quietly
+/// repaired. The two `y` are deliberately unbounded - a `y` past 0 or 1 is an overshoot, the curve
+/// going beyond its destination and coming back, and an animator means that one.
+fn parse_ease(v: &J, pointer: &str) -> Result<Interp, Diagnostic> {
+    let four = as_array(v, pointer)?;
+    if four.len() != 4 {
+        return Err(invalid(
+            pointer,
+            &format!("four numbers, x1 y1 x2 y2, and this one has {}", four.len()),
+        ));
+    }
+    let mut n = [0.0f64; 4];
+    for (i, slot) in n.iter_mut().enumerate() {
+        *slot = as_f64(&four[i], &format!("{pointer}/{i}"))?;
+    }
+    for i in [0, 2] {
+        if !(0.0..=1.0).contains(&n[i]) {
+            return Err(invalid(
+                &format!("{pointer}/{i}"),
+                "a number from 0 to 1: an ease handle is a position in time inside its own segment",
+            ));
+        }
+    }
+    Ok(Interp::Ease {
+        x1: n[0],
+        y1: n[1],
+        x2: n[2],
+        y2: n[3],
+    })
 }
 
 fn parse_interpretation(v: &J, pointer: &str) -> Result<Interpretation, Diagnostic> {
