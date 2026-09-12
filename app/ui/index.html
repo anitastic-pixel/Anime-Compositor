@@ -350,19 +350,38 @@
     width: 5.5em; background: #141414; color: #e8e8ea;
     border: 1px solid #4a4a4a; border-radius: 3px; padding: 1px 3px; font: inherit;
   }
-  /* The handle a value is scrubbed by. It is a separate target from the field so that typing a
-     number and dragging one are different gestures and neither can start the other.
+  /* W-14: every number this window can change is drawn the same way, which is the fifth
+     sitting's "highlight any manipulatable value a light blue and allow click drag or click to
+     change values like AE". Blue says a number answers the hand; dragging it changes it; a
+     press with no drag turns it into the field it always was.
 
-     It is drawn as a key rather than as an underlined letter: on 2026-09-10 it was a letter with
-     a dotted line beneath it, and the first person to use this window did not find it and asked
-     for the drag that was already there. An affordance nobody sees is not one. */
+     Until now a value was a grey key beside a spin box -- W-07's answer to an affordance the
+     first person to use this window did not find -- and the two of them took two lines of the
+     panel to say what one number now says. The colour is the affordance, as After Effects has
+     had it, and the dotted line under it carries the same news for anyone who cannot see the
+     colour. */
   .scrub {
-    cursor: ew-resize; user-select: none; display: inline-block; min-width: 1.3em;
-    text-align: center; background: #26262e; border: 1px solid #4a4a4a; border-radius: 3px;
-    padding: 0 3px; color: #b8b8c0;
+    cursor: ew-resize; user-select: none; color: #6fb3ff;
+    border-bottom: 1px dotted #4a7ab8; padding: 0 1px; font-variant-numeric: tabular-nums;
   }
-  .scrub:hover { background: #34343e; color: #e8e8ea; }
+  .scrub:hover { color: #a8d0ff; border-bottom-color: #a8d0ff; }
   .scrub:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
+  .scrub input {
+    width: 100%; min-width: 3em; font: inherit; color: #e8e8ea; background: #141414;
+    border: 1px solid #6ea8fe; border-radius: 2px; padding: 0; box-sizing: border-box;
+  }
+  /* In the inspector every number stands over a line of its own, and a property's two numbers
+     stand in two columns, as the panel the fifth sitting sent as the reference has them. On the
+     timeline they stay on one line with a comma between, where the row is fourteen pixels tall. */
+  #inspector dd .scrub {
+    display: inline-block; min-width: 3em;
+    border-bottom: 1px solid #3d3d45; padding: 0 0 1px 1px;
+  }
+  #inspector dd .scrub:hover, #inspector dd .scrub:focus { border-bottom-color: #6fb3ff; }
+  #inspector dd.numbers {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px;
+  }
+  #inspector dd.numbers .scrub { display: block; }
   .group { margin-bottom: 14px; }
   /* The effects panel of document 24's wireframe, under the layer's own fields in the same
      column. One block per effect, in the order document 21 evaluates them. */
@@ -600,6 +619,7 @@ let selection = [];
 let selectedAsset = null;
 let renaming = false; // an inline edit is open; accelerators keep off the keyboard while it is
 let dragging = false; // a scrub is in progress; the inspector must not be rebuilt under it
+let scrubbed = null; // the number the hand is holding, wherever in the window it is
 let zoom = null; // screen pixels per composition pixel, or null for a fit to the stage
 let fitCap = Infinity; // the most a fit may enlarge: Infinity, or 1 for "Fit <=100%"
 let marquee = null; // the corners of the box being dragged across the picture, in frame pixels
@@ -1158,6 +1178,10 @@ $('sheet').addEventListener('pointerup', () => { scrubbing = false; });
 $('sheet').addEventListener('pointercancel', () => { scrubbing = false; });
 
 function drawLayers() {
+  // A number on one of these rows is dragged or typed into like any other, and rebuilding the
+  // list under the hand would take the element it is holding away mid-gesture. The inspector
+  // has kept the same rule since W-04; this is that rule for the rows W-12 added.
+  if (scrubbed && $('layers').contains(scrubbed)) return;
   const all = layers();
   $('nolayers').hidden = all.length > 0;
   const comp = composition();
@@ -1216,8 +1240,7 @@ function propTrack(comp, layer, prop) {
   name.textContent = prop[0].toUpperCase() + prop.slice(1);
   const value = document.createElement('span');
   value.className = 'value';
-  value.textContent = transformValue(layer, prop).map((v) => number(v * (prop === 'opacity' ? 100 : 1)))
-    .join(', ') + ({ rotation: '\u00b0', opacity: '%' }[prop] || '');
+  value.append(...propScrubs(layer, prop).flatMap((s, i) => (i ? [', ', s] : [s])));
   head.append(keyButton(layer, prop), name, value);
   li.append(head);
   const box = document.createElement('div');
@@ -1830,47 +1853,125 @@ function field(into, term, value) {
 // them is one for one: pixels, percent and degrees are all things a person counts in ones.
 const STEP = { anchor: 1, position: 1, scale: 1, rotation: 1, opacity: 1 };
 
+// What a property's numbers are counted in, where the unit is not pixels.
+const SUFFIX = { rotation: '\u00b0', opacity: '%' };
+
 // A number as the file holds it, without exponent notation or a trailing string of zeros from
 // the arithmetic a drag does.
 const number = (n) => String(Math.round(n * 1e6) / 1e6);
 
-// The handle a number is dragged by. It was the transform rows' own until W-07 asked for the
-// same drag on every value box, so it is one function with two callers: `read` is the number
-// as it stands, `live` is sent per pixel inside the drag, `done` closes the drag, and `typed` is
-// the arrow keys, which commit one step at a time and are how the drag is done without a mouse.
-function scrubHandle(text, title, step, read, live, done, typed) {
+// The one number this window draws: blue, dragged left and right, pressed to be typed into,
+// and moved by the arrow keys for anyone without a mouse. Every value a person can change goes
+// through here -- the transform rows in the inspector and on the timeline, an effect's
+// settings, an exposure's frames -- so a number is changed the same way wherever it is seen.
+//
+// `live` is sent per pixel inside a drag and `done` closes the drag, for the callers that have
+// a drag transaction to run; a caller with none leaves both out and the number is sent once,
+// when the hand lets go. `commit` is a number typed or stepped with the keys.
+//
+// The element answers to `.value` like the field it replaced, so a caller that gathers several
+// numbers at once does not have to know which of the two it is holding.
+function scrubValue({ value, suffix = '', title, label, step = 1, live, done, commit }) {
   const handle = document.createElement('span');
   handle.className = 'scrub';
   handle.tabIndex = 0;
-  handle.textContent = text;
   handle.title = title;
-  handle.onpointerdown = (e) => {
-    e.preventDefault();
+  handle.setAttribute('role', 'spinbutton');
+  handle.setAttribute('aria-label', label);
+  let held = Number(value) || 0;
+  let box = null; // the field, while the number is being typed into
+  const show = () => {
+    handle.textContent = number(held) + suffix;
+    handle.setAttribute('aria-valuenow', number(held));
+  };
+  show();
+  Object.defineProperty(handle, 'value', {
+    get: () => (box ? box.value : number(held)),
+    set: (v) => { held = Number(v) || 0; if (!box) show(); },
+  });
+  // Pressed without a drag, the number becomes a field with itself in it, selected, as After
+  // Effects does. Enter and leaving the field commit; Escape puts the number back.
+  const type = () => {
+    if (box) return;
+    box = document.createElement('input');
+    box.type = 'text';
+    box.inputMode = 'decimal';
+    box.value = number(held);
+    box.setAttribute('aria-label', label);
     dragging = true;
-    handle.setPointerCapture(e.pointerId);
+    scrubbed = handle;
+    handle.textContent = '';
+    handle.append(box);
+    box.focus();
+    box.select();
+    const leave = (cancelled, back) => {
+      if (!box) return;
+      const said = Number(box.value);
+      const take = !cancelled && box.value.trim() !== '' && Number.isFinite(said);
+      box = null;
+      dragging = false;
+      scrubbed = null;
+      if (take) held = said;
+      show();
+      if (back) handle.focus();
+      if (take) commit(held);
+    };
+    box.onkeydown = (e) => {
+      // The field is inside the number it is editing, and the number answers Enter by opening
+      // a field. Without this the key that closes one opens the next.
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); leave(false, true); }
+      else if (e.key === 'Escape') { e.preventDefault(); leave(true, true); }
+    };
+    box.onblur = () => leave(false, false);
+  };
+  handle.onclick = (e) => e.stopPropagation();
+  handle.onpointerdown = (e) => {
+    if (box) return;
+    e.preventDefault();
+    e.stopPropagation();
     const from = e.clientX;
-    const start = read();
+    const start = held;
+    let moved = false;
+    handle.setPointerCapture(e.pointerId);
     // Document 24: "Escape restores the pre-drag value." The key listener is on the window
     // because the pointer owns the events while it is captured.
     const escape = (k) => { if (k.key === 'Escape') { stop(true); } };
     const stop = (cancelled) => {
-      dragging = false;
       handle.onpointermove = null;
       handle.onpointerup = null;
       window.removeEventListener('keydown', escape, true);
-      done(cancelled);
+      // A press that never moved is a press, and a press opens the field.
+      if (!moved) { type(); return; }
+      if (cancelled) { held = start; show(); }
+      dragging = false;
+      scrubbed = null;
+      if (done) done(cancelled, held);
+      else if (!cancelled) commit(held);
     };
-    handle.onpointermove = (m) => live(start + (m.clientX - from) * step);
+    handle.onpointermove = (m) => {
+      // A few pixels of slack, so that a hand that moves while pressing still types.
+      if (!moved && Math.abs(m.clientX - from) < 3) return;
+      moved = true;
+      dragging = true;
+      scrubbed = handle;
+      held = start + (m.clientX - from) * step;
+      show();
+      if (live) live(held);
+    };
     handle.onpointerup = () => stop(false);
     window.addEventListener('keydown', escape, true);
   };
   // The keyboard equivalent, because document 05 asks for every control to be reachable
-  // without a mouse and a drag is not.
+  // without a mouse and neither a drag nor a press is.
   handle.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); type(); return; }
     const by = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }[e.key];
     if (by === undefined) return;
     e.preventDefault();
-    typed(read() + by * step * (e.shiftKey ? 10 : 1));
+    held += by * step * (e.shiftKey ? 10 : 1);
+    show();
+    commit(held);
   };
   return handle;
 }
@@ -1934,49 +2035,49 @@ function keyButton(layer, prop) {
   return button;
 }
 
-// One transform property: its label, its one or two numbers, and a scrub handle per number.
+// The numbers of one transform property, as many blue values as it has with a comma between
+// them, the way After Effects writes a position. Two rows are drawn from this -- the
+// inspector's and, since W-12, the property's own row on the timeline -- so that a value is
+// the same thing in both places and is changed the same way in both.
 //
-// Both gestures send the same command ID. Typing commits on its own; scrubbing sends
+// Four of the five properties are shown in the units the file holds -- pixels, percent,
+// degrees -- and opacity is the one that is not: the file holds nought to one and nobody says
+// a layer is 0.65 opaque. The conversion is applied on the way in and undone on the way out,
+// so what reaches `property.set_base` is still the number the file wants.
+//
+// Both gestures send the same command ID. Typing commits on its own; dragging sends
 // `property.drag_update` until the pointer is released and one history entry covers the lot.
-function propRow(into, layer, prop, parts, per = 1) {
-  const dt = document.createElement('dt');
-  dt.append(keyButton(layer, prop), ' ', prop[0].toUpperCase() + prop.slice(1));
-  const dd = document.createElement('dd');
+function propScrubs(layer, prop) {
+  const per = prop === 'opacity' ? 100 : 1;
   const held = transformValue(layer, prop).map((v) => v * per);
   // The frame goes with every value since W-10: on a keyframed property the window makes the
   // value a key on that frame, and on any other it sets the base as it always has.
   const send = (id, values) => command('/' + id + '?layer=' + encodeURIComponent(layer.id)
     + '&prop=' + prop + '&value='
     + encodeURIComponent(values.map((v) => number(v / per)).join(',')) + '&frame=' + frame);
-  parts.forEach((part, i) => {
-    const with_ = (v) => { const next = held.slice(); next[i] = v; return next; };
-    const handle = scrubHandle(part,
-      'Drag left or right to change ' + prop + ', or use the arrow keys', STEP[prop],
-      () => held[i],
-      (v) => send('property.drag_update', with_(v)),
-      (cancelled) => command(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
-      (v) => send('property.set_base', with_(v)));
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.step = 'any';
-    input.value = number(held[i]);
-    input.setAttribute('aria-label', prop + ' ' + part);
-    // Typing. Enter or leaving the field commits; nothing is sent per keystroke, because a
-    // half-typed "-" is not a value anybody meant.
-    const commit = () => {
-      const next = held.slice();
-      next[i] = Number(input.value);
-      if (!Number.isFinite(next[i])) { input.value = number(held[i]); return; }
-      send('property.set_base', next);
-    };
-    input.onkeydown = (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      if (e.key === 'Escape') { input.value = number(held[i]); input.blur(); }
-    };
-    input.onchange = commit;
-    if (i) dd.append(' ');
-    dd.append(handle, ' ', input);
+  return held.map((v, i) => {
+    const with_ = (x) => { const next = held.slice(); next[i] = x; return next; };
+    return scrubValue({
+      value: v,
+      suffix: SUFFIX[prop] || '',
+      label: prop + (held.length > 1 ? ' ' + 'xy'[i] : ''),
+      title: 'Drag to change ' + prop + ', press to type it, or use the arrow keys',
+      step: STEP[prop],
+      live: (x) => send('property.drag_update', with_(x)),
+      done: (cancelled) => command(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
+      commit: (x) => send('property.set_base', with_(x)),
+    });
   });
+}
+
+// One transform property in the inspector: the diamond, its name, and its numbers, each in a
+// column of its own over a line of its own.
+function propRow(into, layer, prop) {
+  const dt = document.createElement('dt');
+  dt.append(keyButton(layer, prop), ' ', prop[0].toUpperCase() + prop.slice(1));
+  const dd = document.createElement('dd');
+  dd.className = 'numbers';
+  dd.append(...propScrubs(layer, prop));
   into.append(dt, dd);
 }
 
@@ -2029,16 +2130,13 @@ function drawInspector() {
   field(dl, 'Drawing', layer.asset_id);
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive'
     + (layer.source_offset_frames ? ', drawings offset by ' + layer.source_offset_frames : ''));
-  // Document 19's five transform properties, in its order. Four are shown in the units the file
-  // holds — pixels, percent, degrees — and opacity is the one that is not: the file holds nought
-  // to one and nobody says a layer is 0.65 opaque. The conversion is the last argument, and it
-  // is the only one in this panel, applied on the way in and undone on the way out, so what
-  // reaches `property.set_base` is still the number the file wants.
-  propRow(dl, layer, 'anchor', ['x', 'y']);
-  propRow(dl, layer, 'position', ['x', 'y']);
-  propRow(dl, layer, 'scale', ['x', 'y']);
-  propRow(dl, layer, 'rotation', ['°']);
-  propRow(dl, layer, 'opacity', ['%'], 100);
+  // Document 19's five transform properties, in its order. What they are counted in and the
+  // one conversion this panel makes are in `propScrubs`, which the timeline shares.
+  propRow(dl, layer, 'anchor');
+  propRow(dl, layer, 'position');
+  propRow(dl, layer, 'scale');
+  propRow(dl, layer, 'rotation');
+  propRow(dl, layer, 'opacity');
   // Read-only, and said rather than hidden: there is no command in the core for changing a
   // blend mode, W-01 does not ask to change one, and inventing one to fill a gap in a panel
   // would be a decision about the model made from the window.
@@ -2098,13 +2196,12 @@ function exposureRow(layer, span, drawings) {
   line.className = 'exposure';
   const fields = {};
   const box = (name, value, words) => {
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.step = '1';
-    input.value = value;
-    input.setAttribute('aria-label', words + ' of the exposure at frame ' + span.start_frame);
-    input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } };
-    input.onchange = sendSpan;
+    const input = scrubValue({
+      value,
+      label: words + ' of the exposure at frame ' + span.start_frame,
+      title: 'Drag to change the ' + words.toLowerCase() + ', or press to type it',
+      commit: sendSpan,
+    });
     fields[name] = input;
     return input;
   };
@@ -2274,28 +2371,18 @@ function effectRow(layer, fx, at, of) {
       dd.append(pick, ' ');
     }
     values.forEach((value, i) => {
-      const part = count === 3 ? 'rgb'[i] : '±';
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.step = 'any';
-      input.value = number(value);
-      input.setAttribute('aria-label', label + ' ' + words + (count === 3 ? ' ' + part : ''));
-      input.onkeydown = (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-        // Back to the value the field had, so that the blur after it has nothing to commit.
-        if (e.key === 'Escape') { input.value = number(value); close(true); input.blur(); }
-      };
-      input.oninput = () => live();
-      input.onblur = () => close(false);
-      const set = (v) => { input.value = number(v); };
-      const handle = scrubHandle(part,
-        'Drag left or right to change ' + words + ', or use the arrow keys', step,
-        () => Number(input.value) || 0,
-        (v) => { set(v); live(); },
-        close,
-        (v) => { set(v); sendParameters(); });
+      const part = count === 3 ? 'rgb'[i] : '';
+      const input = scrubValue({
+        value,
+        label: label + ' ' + words + (part ? ' ' + part : ''),
+        title: 'Drag to change ' + words + ', press to type it, or use the arrow keys',
+        step,
+        live: () => live(),
+        done: (cancelled) => close(cancelled),
+        commit: () => sendParameters(),
+      });
       if (i) dd.append(' ');
-      dd.append(handle, ' ', input);
+      dd.append(input);
       fields[name].push(input);
     });
     dl.append(dt, dd);

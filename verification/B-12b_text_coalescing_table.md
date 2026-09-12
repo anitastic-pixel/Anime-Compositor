@@ -16,8 +16,8 @@ The last three rows are not about text at all. They drag a position through seve
 |---|---|---|---|
 | no field in the page sends anything while a key is being pressed | no input event handler sends a command | no input event handler sends a command | pass |
 | a layer's name is committed by losing focus, and sends `layer.rename` | true | true | pass |
-| an effect's settings are sent as they are typed, inside one drag that losing focus closes, and sends `effect.set_parameters` | true | true | pass |
-| an exposure's frames are committed by losing focus, and sends `exposure.set_span` | true | true | pass |
+| an effect's settings are sent when the number is committed, by Enter or by leaving the field, and sends `effect.set_parameters` | true | true | pass |
+| an exposure's frames are committed by Enter or by leaving the field, and sends `exposure.set_span` | true | true | pass |
 | what an effect's field sends per keystroke is inside a drag | true | true | pass |
 | and a name committed unchanged sends nothing at all | true | true | pass |
 | committing a new name is one entry in the undo list | undo list 1 | undo list 1 | pass |
