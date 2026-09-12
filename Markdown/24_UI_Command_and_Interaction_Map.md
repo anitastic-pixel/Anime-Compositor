@@ -38,6 +38,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | exposure.set_span | Assign drawing/hold span | none | yes |
 | property.set_base | Set a transform property's base value | none | yes |
 | keyframe.add_remove | Toggle keyframe for focused property | none | yes |
+| keyframe.move | Move a keyframe to another frame | none | yes |
 | effect.add | Add effect instance | none | yes |
 | effect.delete | Remove selected effect | Delete when effect-focused | yes |
 | effect.toggle_bypass | Bypass selected effect | none | yes |
@@ -76,6 +77,8 @@ Every number a person can change is drawn and worked the same way from 2026-09-1
 Ctrl+Shift+N rather than Ctrl+N, because Ctrl+N belongs to `project.new` in the row above and this is not that command. This build binds Ctrl+Shift+N and leaves Ctrl+N unbound, so the day `project.new` is built it takes the shortcut this table already promised it.
 
 An interaction transaction is not a command and has no row here. The three requests that carry one — beginning it, previewing a value inside it, and committing or cancelling it — produce no history record of their own; the single record they commit belongs to the command being dragged, and that command is the one this table names. `property.drag_update`, `property.drag_end` and `property.drag_cancel` are the names this build uses for them.
+
+`keyframe.move` was added on 2026-09-12 by W-11, which is the half of the third sitting's finding 5 that W-10 left: W-10 set, removed and drew the keys, and `verification/B-12a_transform_table.md` has said since that moving one along the bar "needs a command of its own in the core so that undo replays it". This is that command, and it is a correction of an omission in the sense `property.set_base` above is: document 20 has always put a keyframe on a frame, and a keyframe put on the wrong frame could until now only be removed and set again, which is two entries in history and loses the key if the second is refused. One ID rather than two because a move is one gesture. The key keeps its value and its interpolation mode - this changes when it happens, not what it does - and a move onto a frame that already has a key of the same property is refused rather than allowed to overwrite it, because document 19 calls two keyframes at one frame invalid and losing a key silently is the worse of the two answers. No shortcut, and the row above says none for a reason: with a key focused on its property's row Left and Right move it one frame, as After Effects moves a selected key, but those arrows belong to the mark that has the keyboard rather than to the window, in the way W-14's arrows belong to the number being changed. The same mark is dragged with the pointer. A drag sends nothing until it is released, which is not the transaction below and is deliberate - redo replays a drag's commands against the state the drag began in, and a move names the frame it starts from, so an intermediate one would name a frame the key had already left. The page follows the pointer with a mark of its own instead, and either way a move is one entry to undo.
 
 ## Focus and selection
 

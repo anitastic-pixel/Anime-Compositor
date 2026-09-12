@@ -19,7 +19,9 @@ The gesture. Every row here sends the requests a scrub sends, in the order it se
 
 Blend mode is shown in the inspector and cannot be changed from it. There is no command in the core for changing one, W-01 does not ask to change one, and adding a command to the model to fill a gap in a panel is a decision about the project format rather than about this window.
 
-Keyframes, since W-10. The diamond beside a property is document 24's `keyframe.add_remove`, and a value typed or dragged on a keyframed property becomes a key at the frame under the playhead rather than a base nothing is drawn from. The rows under "keyframes" are that, and the interpolated value between two keys is read back through the same `/boxes` answer the inspector shows it from. Moving a key along the bar is not built: that is W-11, and needs a command of its own in the core so that undo replays it.
+Keyframes, since W-10. The diamond beside a property is document 24's `keyframe.add_remove`, and a value typed or dragged on a keyframed property becomes a key at the frame under the playhead rather than a base nothing is drawn from. The rows under "keyframes" are that, and the interpolated value between two keys is read back through the same `/boxes` answer the inspector shows it from.
+
+Moving a key along the bar is `keyframe.move`, built by W-11 on 2026-09-12: one command rather than a remove and a set, so a key put on the wrong frame costs one entry to undo and cannot be lost between the two halves of the gesture. The rows under "moving a key" are that, including the two refusals - a frame that already carries a key of the same property, and a frame that carries none to move. What the rows cannot cover is the gesture itself: that the mark follows the pointer and that nothing is sent until it is let go is in the photographs beside this table.
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
@@ -64,6 +66,15 @@ Keyframes, since W-10. The diamond beside a property is document 24's `keyframe.
 | the position key took the last value dragged | [300,-40]@12 linear | [300,-40]@12 linear | pass |
 | and the scale key beside it survived the position's drag | [200,200]@12 linear | [200,200]@12 linear | pass |
 | five history entries for the five edits: two keys set, one typed, one removed, one drag | 5 | 5 | pass |
+| a key put down on another frame moves, and says which frame it came from | Move position keyframe from frame 12 to frame 20 | Move position keyframe from frame 12 to frame 20 | pass |
+| the key is on the new frame with the value and the interpolation it had | [300,-40]@20 linear | [300,-40]@20 linear | pass |
+| and the key on another property stayed where it was | [200,200]@12 linear | [200,200]@12 linear | pass |
+| a key put down where that property already has one is refused, not allowed to overwrite it | There is already a position keyframe on frame 30. | There is already a position keyframe on frame 30. | pass |
+| and both keys are still there | [300,-40]@20 linear, [300,-40]@30 linear | [300,-40]@20 linear, [300,-40]@30 linear | pass |
+| a key that is not on the frame named cannot be moved | There is no position keyframe at frame 99 to move. The edit was not applied. Nothing in the project changed. | There is no position keyframe at frame 99 to move. The edit was not applied. Nothing in the project changed. | pass |
+| a move onto the frame the key is already on is not an edit | That keyframe is already on that frame. | That keyframe is already on that frame. | pass |
+| two history entries for the two edits that were allowed, and none for the three that were refused | 2 | 2 | pass |
+| undoing puts the key back on the frame it was moved from | [300,-40]@12 linear | [300,-40]@12 linear | pass |
 | undoing every transform edit gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**42 of 42 checks pass.**
+**51 of 51 checks pass.**

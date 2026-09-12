@@ -122,6 +122,19 @@ pub enum Command {
         prop: Prop,
         frame: i32,
     },
+    /// Document 24's `keyframe.move`. W-11: a key taken hold of on the timeline and put down on
+    /// another frame.
+    ///
+    /// One command rather than a remove followed by a set, because those are two history entries
+    /// for one gesture and the second can succeed where the first did not. The key keeps its
+    /// value and its interpolation mode: this moves when it happens, not what it does.
+    MoveKeyframe {
+        composition: Id,
+        layer_id: Id,
+        prop: Prop,
+        from_frame: i32,
+        to_frame: i32,
+    },
     SetMatte {
         composition: Id,
         layer_id: Id,
@@ -231,6 +244,7 @@ impl Command {
             Command::SetPropertyBase { .. } => "SET_PROPERTY",
             Command::SetKeyframe { .. } => "SET_KEYFRAME",
             Command::RemoveKeyframe { .. } => "REMOVE_KEYFRAME",
+            Command::MoveKeyframe { .. } => "MOVE_KEYFRAME",
             Command::SetMatte { .. } => "SET_MATTE",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
             Command::SetMask { .. } => "SET_MASK",
@@ -275,6 +289,12 @@ impl Command {
             Command::RemoveKeyframe { prop, frame, .. } => {
                 format!("Remove {prop} keyframe at frame {frame}")
             }
+            Command::MoveKeyframe {
+                prop,
+                from_frame,
+                to_frame,
+                ..
+            } => format!("Move {prop} keyframe from frame {from_frame} to frame {to_frame}"),
             Command::SetMatte {
                 matte, matte_only, ..
             } => match matte {
@@ -331,6 +351,7 @@ impl Command {
             | Command::SetPropertyBase { composition, .. }
             | Command::SetKeyframe { composition, .. }
             | Command::RemoveKeyframe { composition, .. }
+            | Command::MoveKeyframe { composition, .. }
             | Command::SetMatte { composition, .. }
             | Command::SetExposureSpans { composition, .. }
             | Command::SetMask { composition, .. }
@@ -360,6 +381,7 @@ impl Command {
             | Command::SetPropertyBase { layer_id, .. }
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
+            | Command::MoveKeyframe { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
@@ -440,6 +462,7 @@ impl Command {
             | Command::SetPropertyBase { layer_id, .. }
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
+            | Command::MoveKeyframe { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
@@ -1069,6 +1092,42 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     format!("Layer {layer_id} has no {prop} keyframe at frame {frame}."),
                 ));
             }
+        }
+        Command::MoveKeyframe {
+            layer_id,
+            prop,
+            from_frame,
+            to_frame,
+            ..
+        } => {
+            if from_frame == to_frame {
+                return Err(reject(
+                    "That keyframe is already on that frame.",
+                    "A move from a frame to itself is not an edit and must not enter history.",
+                ));
+            }
+            let property = layer_mut(project, &comp_id, layer_id)?
+                .transform
+                .get_mut(*prop);
+            // Refused rather than overwritten. Document 19 calls two keyframes at one frame
+            // invalid, so a move onto an occupied frame has to lose one of them, and losing a key
+            // the artist can no longer see the mark of is a worse answer than not moving.
+            if property.keyframe_at(*to_frame).is_some() {
+                return Err(reject(
+                    &format!("There is already a {prop} keyframe on frame {to_frame}."),
+                    "Document 19: two keyframes at one frame are invalid.",
+                ));
+            }
+            let Some(key) = property.remove_keyframe(*from_frame) else {
+                return Err(missing(
+                    format!("There is no {prop} keyframe at frame {from_frame} to move."),
+                    format!("Layer {layer_id} has no {prop} keyframe at frame {from_frame}."),
+                ));
+            };
+            property.set_keyframe(Keyframe {
+                frame: *to_frame,
+                ..key
+            });
         }
         Command::SetMatte {
             layer_id,
