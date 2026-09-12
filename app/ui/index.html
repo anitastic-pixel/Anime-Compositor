@@ -214,7 +214,16 @@
     font-variant-numeric: tabular-nums;
   }
   #layers li.prop .track { height: 14px; background: none; }
-  #layers li.prop .track .key { top: 3px; }
+  /* W-11: on a property's own row a key is a control - it can be taken hold of and put down
+     on another frame, and Left and Right move it for anyone without a mouse. On the layer's own
+     bar it stays inert, because a mark there stands for every property keyed on that frame and
+     a move would have no one property to move. */
+  #layers li.prop .track .key {
+    top: 3px; padding: 0; border: 0; appearance: none; pointer-events: auto;
+    cursor: grab; touch-action: none;
+  }
+  #layers li.prop .track .key:focus { outline: 2px solid #6ea8fe; outline-offset: 2px; }
+  #layers li.prop .track .key.moving { cursor: grabbing; background: #f6d3a6; }
   .track { position: relative; height: 26px; background: #171717; border-radius: 2px; }
   /* Every bar can be pulled, and the ends of the layer's own bar can be pulled apart. The
      class is set by the row as the pointer nears an end, because where an end is on screen is
@@ -243,8 +252,9 @@
     position: absolute; top: 9px; bottom: 2px;
     border: 1px dashed #46587a; border-radius: 2px;
   }
-  /* W-10: a keyframe, on the frame it is on, over the bar. It cannot be taken hold of yet:
-     a press lands on the bar underneath and does what the bar does. Moving a key is W-11. */
+  /* W-10: a keyframe, on the frame it is on, over the bar. On the layer's own bar a press
+     lands on the bar underneath and does what the bar does; on a property's row, W-11 below
+     makes the same mark something to take hold of. */
   .track .key {
     position: absolute; top: 1px; width: 7px; height: 7px; margin-left: -4px;
     background: #e8b06a; transform: rotate(45deg); pointer-events: none;
@@ -1226,9 +1236,61 @@ function drawLayers() {
   }));
 }
 
+// W-11: a key taken hold of and put down on another frame. The mark follows the pointer here
+// on the page and nothing is sent until it is let go, because a move names the frame it starts
+// from: an intermediate one would name a frame the key had already left, and redo replays a drag
+// against the state that drag began in. One request at the drop is one entry to undo either way,
+// which is what the transaction the bars use is for. Escape puts the mark back, as it does
+// everywhere else in this window, and Left and Right move the key a frame at a time for anyone
+// without a mouse.
+function grabKey(comp, layer, prop, key, mark) {
+  const where = (frame) => percent(atFrame(comp, frame + 0.5));
+  const send = (to) => {
+    if (to === null || to === key.frame) return;
+    command('/keyframe.move?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
+      + '&from=' + key.frame + '&to=' + to);
+  };
+  mark.onkeydown = (e) => {
+    const by = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (!by || layer.locked) return;
+    // The arrow keys step the playhead when nothing has taken them, and a key that has the
+    // keyboard has taken them.
+    e.preventDefault();
+    e.stopPropagation();
+    send(key.frame + by);
+  };
+  mark.onpointerdown = (e) => {
+    if (layer.locked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    let to = key.frame;
+    dragging = true;
+    mark.classList.add('moving');
+    mark.setPointerCapture(e.pointerId);
+    const escape = (k) => { if (k.key === 'Escape') stop(true); };
+    const stop = (cancelled) => {
+      dragging = false;
+      mark.classList.remove('moving');
+      mark.onpointermove = null;
+      mark.onpointerup = null;
+      window.removeEventListener('keydown', escape, true);
+      if (cancelled) mark.style.left = where(key.frame);
+      else send(to);
+    };
+    mark.onpointermove = (m) => {
+      const now = frameUnder(m.clientX);
+      if (now === null || now === to) return;
+      to = now;
+      mark.style.left = where(to);
+    };
+    mark.onpointerup = () => stop(false);
+    window.addEventListener('keydown', escape, true);
+  };
+}
+
 // W-12: one property of a layer as a row of the timeline: its name, the diamond the inspector
 // has, its value on the frame on screen, and a bar with a mark at each of its keys and nothing
-// else. Moving a mark is W-11; a press on the row selects the layer.
+// else. A mark is W-11's to drag; a press on the row selects the layer.
 function propTrack(comp, layer, prop) {
   const li = document.createElement('li');
   li.className = 'prop';
@@ -1247,10 +1309,14 @@ function propTrack(comp, layer, prop) {
   box.className = 'track';
   if (comp) {
     for (const key of keysOf(layer, prop)) {
-      const mark = document.createElement('div');
+      const mark = document.createElement('button');
+      mark.type = 'button';
       mark.className = 'key';
       mark.style.left = percent(atFrame(comp, key.frame + 0.5));
       mark.title = prop + ' at frame ' + key.frame + ': ' + [].concat(key.value).join(', ');
+      mark.setAttribute('aria-label', prop + ' keyframe at frame ' + key.frame
+        + '. Drag it, or move it with the left and right arrow keys.');
+      grabKey(comp, layer, prop, key, mark);
       box.append(mark);
     }
   }

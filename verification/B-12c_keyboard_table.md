@@ -52,6 +52,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `export` can be asked for without a mouse | yes | yes | pass |
 | `exposure.set_span` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.add_remove` can be asked for without a mouse | yes | yes | pass |
+| `keyframe.move` can be asked for without a mouse | yes | yes | pass |
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_down` can be asked for without a mouse | yes | yes | pass |
@@ -93,4 +94,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | moving over the tint's colour picker is not the only way to choose the colour | true | true | pass |
 | dragging an effect's name up or down the stack is not the only way to reorder the effects | true | true | pass |
 
-**63 of 63 checks pass.**
+**64 of 64 checks pass.**

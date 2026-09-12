@@ -236,8 +236,18 @@ than in what the owner did.
    solid is no longer a bar with nothing on it. Rows 42 to 58 of
    `verification/B-12a_transform_table.md`. One line in the core: a drag that keys two
    properties at once keeps both.
-4. **W-11, moving a key along the bar.** Not started. Undo replays a drag's commands, and a key
-   moved in time is a key removed and a key set, which is two; it needs a command of its own.
+4. **W-11, moving a key along the bar.** Done on 2026-09-12. It needed the command of its own
+   this line said it did: `Command::MoveKeyframe` in the core and `keyframe.move` in document 24,
+   one command for the whole gesture, so a key put on the wrong frame is one press of Ctrl+Z and
+   cannot be lost between a remove and a set that follows it. A mark on a property's own row is
+   what is dragged - not one on the layer's bar, which stands for every property keyed on that
+   frame and so has no one key to move - and the mark follows the pointer on the page with
+   nothing sent until it is let go, because a move names the frame it starts from and redo
+   replays a drag against the state that drag began in. Escape puts it back, and Left and Right
+   move a focused key one frame for anyone without a mouse. A key put down where that property
+   already has one is refused rather than allowed to overwrite it, document 19 calling two
+   keyframes at one frame invalid. The nine rows of `verification/B-12a_transform_table.md` that begin "a key put down on
+   another frame moves".
 5. **D-52** is finding 5's other half, written down and not started.
 
 ## The fourth sitting, 2026-09-11, in the owner's words

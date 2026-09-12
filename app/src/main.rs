@@ -1395,6 +1395,7 @@ const ANSWERS: &[&str] = &[
     "effect.toggle_bypass",
     "exposure.set_span",
     "keyframe.add_remove",
+    "keyframe.move",
     "layer.create",
     "layer.delete",
     "layer.move_down",
@@ -1777,6 +1778,38 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             value: property.value_at(frame),
                             interp: Interp::Linear,
                         },
+                    }
+                }
+                // W-11: a key taken hold of on its property's row and put down on another frame.
+                // The page names both frames rather than a distance, as `layer.shift` does, so
+                // that what arrives is the whole move however many pointer moves drew it.
+                //
+                // No `drag=1` on this one, and that is deliberate: a drag record is replayed by
+                // redo against the state the drag began in, and a move names the frame it starts
+                // from, so an intermediate one would name a frame the key had already left. The
+                // page follows the pointer with a mark of its own and sends this once, on
+                // release, which is one history entry either way.
+                "keyframe.move" => {
+                    let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
+                        return Some(
+                            "Which property? Say anchor, position, scale, rotation or opacity."
+                                .to_string(),
+                        );
+                    };
+                    let from_frame = match frame_parameter(query, "from") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let to_frame = match frame_parameter(query, "to") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    Command::MoveKeyframe {
+                        composition,
+                        layer_id,
+                        prop,
+                        from_frame,
+                        to_frame,
                     }
                 }
                 // Typed into a field, or scrubbed on its label. The same command either way;
@@ -3929,6 +3962,78 @@ mod editing {
             held(&viewer).document.undo_depth() - depth,
         );
 
+        // ---- moving a key (W-11) ------------------------------------------------------------
+        // The mark on a property's row, taken hold of and put down on another frame. One command
+        // rather than a remove and a set, so it is one entry to undo and the key cannot be lost
+        // between the two halves of it; the value and the interpolation mode go with it.
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a key put down on another frame moves, and says which frame it came from",
+            "Move position keyframe from frame 12 to frame 20",
+            run(
+                &viewer,
+                "keyframe.move?layer=layer-cel&prop=position&from=12&to=20",
+            ),
+        );
+        report.check(
+            "the key is on the new frame with the value and the interpolation it had",
+            "[300,-40]@20 linear",
+            keys(&viewer, l, "position"),
+        );
+        report.check(
+            "and the key on another property stayed where it was",
+            "[200,200]@12 linear",
+            keys(&viewer, l, "scale"),
+        );
+        run(
+            &viewer,
+            "keyframe.add_remove?layer=layer-cel&prop=position&frame=30",
+        );
+        report.check(
+            "a key put down where that property already has one is refused, not allowed to \
+             overwrite it",
+            "There is already a position keyframe on frame 30.",
+            run(
+                &viewer,
+                "keyframe.move?layer=layer-cel&prop=position&from=20&to=30",
+            ),
+        );
+        report.check(
+            "and both keys are still there",
+            "[300,-40]@20 linear, [300,-40]@30 linear",
+            keys(&viewer, l, "position"),
+        );
+        report.check(
+            "a key that is not on the frame named cannot be moved",
+            "There is no position keyframe at frame 99 to move. The edit was not applied. \
+             Nothing in the project changed.",
+            run(
+                &viewer,
+                "keyframe.move?layer=layer-cel&prop=position&from=99&to=40",
+            ),
+        );
+        report.check(
+            "a move onto the frame the key is already on is not an edit",
+            "That keyframe is already on that frame.",
+            run(
+                &viewer,
+                "keyframe.move?layer=layer-cel&prop=position&from=20&to=20",
+            ),
+        );
+        report.check(
+            "two history entries for the two edits that were allowed, and none for the three \
+             that were refused",
+            2,
+            held(&viewer).document.undo_depth() - depth,
+        );
+        undo(&viewer);
+        undo(&viewer);
+        report.check(
+            "undoing puts the key back on the frame it was moved from",
+            "[300,-40]@12 linear",
+            keys(&viewer, l, "position"),
+        );
+
         // ---- back to the file ---------------------------------------------------------------------------
         while held(&viewer).document.undo_depth() > 0 {
             undo(&viewer);
@@ -4002,8 +4107,13 @@ mod editing {
          dragged on a keyframed property becomes a key at the frame under the playhead rather \
          than a base nothing is drawn from. The rows under \"keyframes\" are that, and the \
          interpolated value between two keys is read back through the same `/boxes` answer the \
-         inspector shows it from. Moving a key along the bar is not built: that is W-11, and \
-         needs a command of its own in the core so that undo replays it.",
+         inspector shows it from.\n\nMoving a key along the bar is `keyframe.move`, built by \
+         W-11 on 2026-09-12: one command rather than a remove and a set, so a key put on the \
+         wrong frame costs one entry to undo and cannot be lost between the two halves of the \
+         gesture. The rows under \"moving a key\" are that, including the two refusals - a frame \
+         that already carries a key of the same property, and a frame that carries none to move. \
+         What the rows cannot cover is the gesture itself: that the mark follows the pointer and \
+         that nothing is sent until it is let go is in the photographs beside this table.",
     ];
 
     /// The effect records of one layer, out of the same JSON the panels are drawn from.
@@ -7455,6 +7565,7 @@ mod contract {
         "effect.toggle_bypass",
         "exposure.set_span",
         "keyframe.add_remove",
+        "keyframe.move",
         "layer.create",
         "layer.delete",
         "layer.move_down",
@@ -7752,6 +7863,7 @@ mod contract {
         ("exposure.set_span", "a command the window answers"),
         ("property.set_base", "a command the window answers"),
         ("keyframe.add_remove", "a command the window answers"),
+        ("keyframe.move", "a command the window answers"),
         ("effect.add", "a command the window answers"),
         ("effect.delete", "a command the window answers"),
         ("effect.toggle_bypass", "a command the window answers"),
@@ -7982,7 +8094,7 @@ mod contract {
     ];
 
     const MAP_INTRO: &[&str] = &[
-        "Document 24 names thirty-five command identifiers. This walks all thirty-five against \
+        "Document 24 names thirty-six command identifiers. This walks all thirty-six against \
          the build and says, for each, what actually reaches it - and then walks the twenty-one \
          it gives a keyboard shortcut and says whether that shortcut is bound. The identifiers \
          and the shortcuts are read out of `Markdown/24_UI_Command_and_Interaction_Map.md` \
