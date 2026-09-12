@@ -2643,7 +2643,7 @@ function drawGraph() {
     }));
     return;
   }
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const svg = svgEl('svg');
   const el = (kind, attrs) => {
     const node = document.createElementNS(svg.namespaceURI, kind);
     for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
