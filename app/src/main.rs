@@ -8062,16 +8062,19 @@ mod contract {
     /// The three places in the page where somebody types into a field and the window is sent a
     /// command: the control, the text that wires it, and what commits it.
     ///
-    /// Two of the three use `onchange`, which is the browser's own answer to document 26's
-    /// rule. `change` fires when a field is committed **and** its value differs from the value
-    /// it had when it took focus - not on a keystroke, and not on a visit that changed nothing.
-    /// Using it rather than `input` is the whole of the coalescing there, and swapping one for
-    /// the other is a one-word edit, which is why it is pinned rather than trusted.
+    /// The layer's name uses `onblur`, and since W-14 both numbers use the one rule every
+    /// number in this window now keeps: what is typed is sent when it is committed, by Enter or
+    /// by leaving the field, and never per keystroke - "a half-typed `-` is not a value anybody
+    /// meant", which is what the transform fields have said since W-04. That is document 26's
+    /// sentence about text, "committing/focus exit ends the transaction", and it is what After
+    /// Effects does, which is what the fifth sitting asked these numbers to be like.
     ///
-    /// The third is document 26's other sentence about text, since W-07: "text edits may
-    /// coalesce while one field has focus; committing/focus exit ends the transaction". An
-    /// effect's setting is sent on every keystroke inside the drag transaction the picture's
-    /// drags use, so the picture follows the typing, and losing focus is what ends the drag.
+    /// Until W-14 an effect's setting was the one that went per keystroke, inside the drag
+    /// transaction the picture's drags use. The second sitting's finding 10 was that the effect
+    /// "did not show" until a click elsewhere took the focus; Enter now commits it where before
+    /// only a click elsewhere did, so the complaint that bought that liveness is answered
+    /// without it. Swapping a commit for a keystroke is a one-word edit, which is why the line
+    /// that commits is pinned rather than trusted.
     const TYPED_FIELDS: &[(&str, &str, &str)] = &[
         (
             "a layer's name is committed by losing focus",
@@ -8079,15 +8082,15 @@ mod contract {
             "box.onblur = () => finish(true);",
         ),
         (
-            "an effect's settings are sent as they are typed, inside one drag that losing focus \
-             closes",
+            "an effect's settings are sent when the number is committed, by Enter or by leaving \
+             the field",
             "effect.set_parameters",
-            "input.onblur = () => close(false);",
+            "commit: () => sendParameters(),",
         ),
         (
-            "an exposure's frames are committed by losing focus",
+            "an exposure's frames are committed by Enter or by leaving the field",
             "exposure.set_span",
-            "input.onchange = sendSpan;",
+            "commit: sendSpan,",
         ),
     ];
 
@@ -8990,7 +8993,7 @@ mod contract {
                 "a row in the media bin or the layer list",
                 "  li.tabIndex = 0;",
             ),
-            ("the drag handle beside a value", "  handle.tabIndex = 0;"),
+            ("the number a drag changes", "  handle.tabIndex = 0;"),
         ] {
             report.check(
                 &format!("{what} is put into the Tab order by hand"),
@@ -9164,7 +9167,7 @@ mod contract {
         (
             "dragging a transform value",
             "change it",
-            "typed(read() + by * step * (e.shiftKey ? 10 : 1));",
+            "held += by * step * (e.shiftKey ? 10 : 1);",
         ),
         (
             "dragging a layer on the picture",
@@ -9174,7 +9177,7 @@ mod contract {
         (
             "pulling a corner or the rotation arm on the picture",
             "scale or turn the layer",
-            "typed(read() + by * step * (e.shiftKey ? 10 : 1));",
+            "held += by * step * (e.shiftKey ? 10 : 1);",
         ),
         (
             "dragging along the ruler",
@@ -9194,7 +9197,7 @@ mod contract {
         (
             "dragging the seam between two exposure blocks",
             "retime the exposures on either side of it",
-            "input.onchange = sendSpan;",
+            "commit: sendSpan,",
         ),
         (
             "dragging a box across the picture",
@@ -9214,7 +9217,7 @@ mod contract {
         (
             "dragging the handle beside an effect's setting",
             "change the setting",
-            "typed(read() + by * step * (e.shiftKey ? 10 : 1));",
+            "held += by * step * (e.shiftKey ? 10 : 1);",
         ),
         (
             "moving over the tint's colour picker",

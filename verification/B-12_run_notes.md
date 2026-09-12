@@ -277,4 +277,46 @@ Four confirmations and three asks. Nothing in this message is a defect.
    closing and reopening the application.
 3. **W-11, moving a key along the bar.** Still not started, still needs a command of its own.
 
+## The fifth sitting, 2026-09-11, in the owner's words
+
+Transcribed at the owner's instruction from what they wrote after the fifth hands-on sitting,
+with `target/release/anime_compositor_app.exe` rebuilt from `6194e43`, which carries W-12 and
+W-13. Their words, unedited; the agent added nothing and took nothing out. Two messages, the
+second a picture of After Effects' own properties panel sent as the reference for the first.
+
+> highlight any manipulatable value a light blue and allow click drag or click to change values
+> like AE; panel borders work great! AE keys are fantastic as well. also improve/compress the
+> values here [the effect controls panel] to be more like AE's style along with any similar
+> values across the space like with the layers on the timeline.
+
+> style of values/interactiveness like this [After Effects' properties panel] as reference
+
+### What each finding is, read against the build
+
+Two confirmations and one ask in two halves. Nothing in this message is a defect.
+
+| # | The finding | What it is | Where it lives |
+| --- | --- | --- | --- |
+| 1 | "panel borders work great!" | Confirmed | Finding 6 of the fourth sitting, closed by W-13. |
+| 2 | "AE keys are fantastic as well" | Confirmed | Findings 4 and 5 of the fourth sitting, closed by W-12. |
+| 3 | Every value a person can change should be light blue, dragged, or pressed to type into | New presentation and interaction | W-14. A value is light blue over a line, dragged left and right, pressed to be typed into, and moved by the arrow keys. It is one thing now in every panel: the transform rows in the inspector and on the timeline, an effect's settings, an exposure's frames. |
+| 4 | The effect controls panel should be compressed into After Effects' style, and so should the same values elsewhere | New presentation | W-14. The grey key and the spin box beside every number are gone; a property's two numbers stand in two columns each over a line of its own, as the reference picture has them, which took the layer's five transform rows from ten lines to five. On the timeline they stay on one line with a comma between, where the row is fourteen pixels tall. |
+
+### What changed that the owner did not ask for, and why it is said here
+
+An effect's setting and an exposure's frames were sent as they were typed and when the field
+lost focus. They are now sent when the number is committed, by Enter or by leaving the field,
+because every number in the window is one control now and one control has one rule. The rule is
+the one the transform fields have kept since W-04 and the one document 26 describes as
+"committing/focus exit ends the transaction". The second sitting's finding 10 was that an
+effect "did not show" until a click elsewhere took the focus; Enter now commits it, where before
+only a click elsewhere did. It is recorded in document 24 and in
+`verification/B-12b_text_coalescing_table.md`.
+
+### The order agreed
+
+1. **W-14, the blue values.** Findings 3 and 4. Judged in the window: the numbers are blue, a
+   drag changes one, a press types into one.
+2. **W-11, moving a key along the bar.** Still not started, still needs a command of its own.
+
 ## Anything else
