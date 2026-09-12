@@ -70,8 +70,10 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anime_compositor::cache::CelCache;
+use anime_compositor::command::{Command, Document};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::FrameLog;
+use anime_compositor::effects::Effect;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::perf::{self, Stage};
 use anime_compositor::persist;
@@ -664,4 +666,247 @@ fn write_lf(path: &Path, text: &str) {
     fs::write(path, text.replace("\r\n", "\n")).unwrap_or_else(|e| {
         panic!("write {}: {e}", path.display());
     });
+}
+
+/// P-14: the blur while its radius is being dragged.
+///
+/// Document 15's P-14, asked for by D-51 and by nothing else: before any GPU path, take the one
+/// measurement ADR-006's escape clause names. **Not in scope: making it faster.**
+///
+/// P-11 keys an evaluated effect result by the value of its settings, so a blur whose radius has
+/// not changed costs nothing on the next frame. A blur whose radius is *being dragged* is a new
+/// value every frame, and is therefore the one case that cache cannot help at all. The hit rate
+/// is printed beside the timings so that the zero is visible rather than assumed.
+///
+/// The drag is the window's own: `begin_drag`, one `SetEffectParameters` per pointer move, and
+/// `end_drag`, which is what W-07 sends. The playhead does not move, because a person dragging a
+/// slider is looking at one frame. The frame is rendered once before the drag begins, the way it
+/// is on screen when the slider is taken hold of, and that first frame is not in the run.
+///
+/// What is outside the measured span, and said here rather than left to be assumed: the project
+/// clone `update_drag` takes to validate each intermediate value, and the transport into the web
+/// view. The first is the window's cost on the same pointer move; the second is the reason
+/// `verification/B-08_preview_latency.md` stops where it does. Both are small beside a blur, and
+/// neither is a number this file is entitled to invent.
+const DRAG_MOVES: usize = 60;
+/// The page's own drag step for this parameter: `EFFECT_PARAMS` in `app/ui/index.html` gives
+/// `sigma_px` 0.1 per pixel of pointer movement. Sixty moves is about a second of dragging.
+const DRAG_STEP: f64 = 0.1;
+/// Where the drag starts, which is the radius the declared fixture already has.
+const DRAG_FROM: f64 = 4.0;
+
+#[test]
+#[ignore = "P-14: a measurement, run deliberately with --release --ignored"]
+fn p14_blur_drag() {
+    let blur = Stage::ALL
+        .iter()
+        .position(|s| matches!(s, Stage::EffectBlur))
+        .expect("the stage table has a blur");
+    let mut workload = declared_fixture();
+    let base = workload.project.clone();
+    // The first of P-01's twenty scattered frames. One frame, because a drag holds the playhead
+    // still; the assertion below is what makes sure it is a frame the blurred layer is on.
+    let frame = sample_frames()[0];
+    let mut s = String::from("# P-14: the blur while its radius is being dragged\n");
+    // Where the headline goes once the numbers exist. Written from them below rather than
+    // typed beside them, so a re-run cannot leave a sentence disagreeing with its own table.
+    let headline_at = s.len();
+    s.push_str(
+        "\n\
+         Document 15's P-14. D-51 asked for one measurement before any GPU path is started, and \
+         this is it. **Nothing here is an optimisation and nothing here changes a pixel.**\n\n\
+         The run is a drag the window would send: the playhead held on one frame, and one \
+         `SetEffectParameters` per pointer move at the page's own 0.1 step, sixty of them, which \
+         is about a second of dragging. Every one of those frames is a new radius, so every one \
+         of them is a miss in P-11's evaluated-effect cache *for the blur*, by construction. The \
+         hits reported below are the fixture's exposure and tint, which the drag is not holding \
+         and whose results stand; the blur is evaluated on every one of the sixty frames, and \
+         the harness asserts that rather than assuming it. The cel cache is the viewer's own \
+         1 GiB (D-40) and is warm, because the person has been looking at this frame.\n\n\
+         p50, p95 and the worst single frame are all reported, because what makes a drag \
+         unpleasant is its worst frame and not its average.\n\n",
+    );
+    let _ = writeln!(
+        s,
+        "## Machine, build and configuration\n\n\
+         - CPU: AMD Ryzen 9 9900X, 12 cores, 24 hardware threads\n\
+         - OS: Microsoft Windows 11 Education, 10.0.26200\n\
+         - Toolchain: rustc 1.89.0, cargo release profile, `opt-level = 3`\n\
+         - Pool: rayon's default, one thread per hardware thread\n\
+         - Workload: `verification/T-06_declared_fixture.json`, the declared ten-layer fixture, \
+         frame {frame}\n\
+         - Harness: `tests/p01_frame_trace.rs`, the `p14_blur_drag` measurement\n\
+         - The drag: sigma {:.1} to {:.1} source pixels in {DRAG_MOVES} steps of {DRAG_STEP}\n",
+        DRAG_FROM + DRAG_STEP,
+        DRAG_FROM + DRAG_STEP * DRAG_MOVES as f64,
+    );
+    let mut verdicts: Vec<(&str, f64, f64, f64)> = Vec::new();
+    for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
+        let mut cache = CelCache::viewer();
+        let mut document = Document::new(base.clone());
+        // The frame as it stands when the slider is taken hold of. Rendered, and then thrown
+        // away: it is the state the drag starts from, not a frame of the drag.
+        workload.project = base.clone();
+        let _ = measure(&workload, frame, quality, &mut cache);
+        let settled = (cache.hits(), cache.misses(), cache.effect_misses());
+        document.begin_drag().expect("no drag was in progress");
+        let mut frames = Vec::new();
+        for move_ in 1..=DRAG_MOVES {
+            let sigma = DRAG_FROM + DRAG_STEP * move_ as f64;
+            document
+                .update_drag(Command::SetEffectParameters {
+                    composition: Id::new(COMP),
+                    layer_id: Id::new("layer-6"),
+                    instance_id: Id::new("fx-blur"),
+                    effect: Effect::GaussianBlur { sigma_px: sigma },
+                })
+                .expect("the window sends this command on every pointer move of a drag");
+            workload.project = document.project().clone();
+            frames.push(measure(&workload, frame, quality, &mut cache));
+        }
+        document.end_drag();
+        let row = Row {
+            cache_state: "the viewer's own budget, warm, with the radius changing every frame",
+            evictions: cache.evictions(),
+            hits: cache.hits() - settled.0,
+            misses: cache.misses() - settled.1,
+            effect: Some((
+                cache.effect_hits(),
+                cache.effect_misses() - settled.2,
+                cache.effect_evictions(),
+            )),
+            frames,
+        };
+        let totals = row.totals_ms();
+        let worst = *totals.last().expect("the drag rendered frames");
+        let blur_ms = row.stage_ms(blur);
+        assert!(
+            median(&blur_ms) > 0.0,
+            "at {}: the blur stage reads zero across the drag, so frame {frame} is not a frame \
+             the blurred layer is drawn on and this table is measuring the wrong thing",
+            quality.label()
+        );
+        // Not "the effect cache had no hits": it has plenty, because the fixture's exposure and
+        // tint are not being dragged and their results stand. What this unit is about is the one
+        // effect the drag is holding, and the check for that is that it was evaluated on every
+        // single frame of the drag rather than on most of them.
+        assert!(
+            row.frames.iter().all(|m| m.stages[blur] > 0),
+            "at {}: some frame of the drag did not run the blur at all, so the radius did not \
+             change on every pointer move and this is not the case P-14 was asked to measure",
+            quality.label()
+        );
+        let (effect_hits, effect_misses, effect_dropped) =
+            row.effect.expect("the effect cache was read");
+        // In the order the pointer moved, not sorted: the blur's cost grows with its radius,
+        // so the two ends of the drag say more about what a person feels than the spread does.
+        let first = ns_ms(row.frames[0].total_ns);
+        let last = ns_ms(row.frames[row.frames.len() - 1].total_ns);
+        verdicts.push((quality.label(), median(&totals), worst, row.share(blur)));
+        let _ = writeln!(s, "\n## {}\n", quality.label());
+        let _ = writeln!(
+            s,
+            "Frame time across the drag: p50 **{:.3} ms**, p95 **{:.3} ms**, worst single frame \
+             **{:.3} ms**, over {} frames. Against the {FRAME_BUDGET_MS:.3} ms a 24 fps clock \
+             allows, that is {:.2}x, {:.2}x and {:.2}x.\n",
+            median(&totals),
+            percentile(&totals, 0.95),
+            worst,
+            row.calls(),
+            median(&totals) / FRAME_BUDGET_MS,
+            percentile(&totals, 0.95) / FRAME_BUDGET_MS,
+            worst / FRAME_BUDGET_MS,
+        );
+        let _ = writeln!(
+            s,
+            "Cels over the drag: {} hits, {} misses, {} evictions. Effect results over the drag: \
+             {effect_hits} hits (the exposure and the tint, which are not being dragged), \
+             {effect_misses} evaluations, {effect_dropped} dropped.\n",
+            row.hits, row.misses, row.evictions,
+        );
+        s.push_str("| Stage | p50 ms | p95 ms | share of the frame |\n|---|---|---|---|\n");
+        for (index, stage) in Stage::ALL.iter().enumerate() {
+            let ms = row.stage_ms(index);
+            let _ = writeln!(
+                s,
+                "| {} | {:.3} | {:.3} | {:.1}% |",
+                stage.label(),
+                median(&ms),
+                percentile(&ms, 0.95),
+                row.share(index)
+            );
+        }
+        let residual = row.residual_ms();
+        let _ = writeln!(
+            s,
+            "| **unaccounted for** | {:.3} | {:.3} | {:.1}% |",
+            median(&residual),
+            percentile(&residual, 0.95),
+            row.residual_share()
+        );
+        let _ = writeln!(
+            s,
+            "\nIn the order the pointer moved, the first frame of the drag - sigma {:.1} - cost \
+             {first:.3} ms and the last - sigma {:.1} - cost {last:.3} ms. The blur's cost grows \
+             with its radius, so a drag that kept going would keep getting slower, and these two \
+             numbers are the slope of that rather than the whole of it.\n",
+            DRAG_FROM + DRAG_STEP,
+            DRAG_FROM + DRAG_STEP * DRAG_MOVES as f64,
+        );
+    }
+    s.push_str(
+        "\n## Would a person dragging that slider find it usable\n\n\
+         The plain sentence document 15 asks this unit for, and the numbers it is drawn from.\n\n\
+         | Quality | p50 | worst frame | what the picture does while the pointer moves |\n\
+         |---|---|---|---|\n",
+    );
+    for (label, p50, worst, _) in &verdicts {
+        // The only budget this pack states is the 24 fps clock, so the reading is against that
+        // and against how often the picture actually changes, which is what a person sees. No
+        // other threshold is invented here.
+        let felt = match *worst <= FRAME_BUDGET_MS {
+            true => "keeps up with the pointer",
+            false => "follows the pointer a step behind",
+        };
+        let _ = writeln!(
+            s,
+            "| {label} | {p50:.3} ms | {worst:.3} ms | about {:.0} updates a second at its \
+             worst, and it {felt} |",
+            1000.0 / worst.max(f64::MIN_POSITIVE),
+        );
+    }
+    s.push_str(
+        "\n## What this does not say\n\n\
+         - **Nothing about a wider radius.** The drag measured ends at sigma 10 source pixels. A \
+         blur's cost grows with the pixels it touches, so a drag that went further would cost \
+         more, and the two-ended figure under each table is the only slope this page has.\n\
+         - **Nothing about a second machine.** One machine, one build, recorded above.\n\
+         - **Nothing about run-to-run spread.** This page is one run. Five runs of this harness \
+         on this machine while it was being written put the Draft median between 30.9 and 35.0 \
+         ms and its worst frame between 38.6 and 41.3, and the Full median between 49.0 and \
+         54.8 with its worst frame between 58.0 and 68.4. The reading above is the same at \
+         either end of those ranges, which is why one run is reported rather than three.\n\
+         - **Nothing about the window's own overhead.** The clone `update_drag` takes and the \
+         transport into the web view are outside the measured span, for the reasons the harness \
+         gives. Both are small beside a blur; neither is measured here.\n\
+         - **Nothing about making it faster.** Document 15 puts that out of scope for this unit \
+         in the strongest terms it has, and names the two CPU answers that come first if the \
+         answer is over budget.\n",
+    );
+    let headline = {
+        let (_, draft_p50, draft_worst, draft_share) = verdicts[0];
+        let (_, full_p50, full_worst, full_share) = verdicts[1];
+        format!(
+            "\n**Dragging the blur's radius costs {draft_p50:.3} ms a frame at Draft and \
+             {full_p50:.3} ms at Full at the median, and the worst single frame of the drag is \
+             {draft_worst:.3} ms and {full_worst:.3} ms - {:.2}x and {:.2}x the {FRAME_BUDGET_MS:.3} ms \
+             a 24 fps clock allows. The evaluated-effect cache cannot help: the blur is \
+             re-evaluated on every one of the {DRAG_MOVES} frames, and it is {draft_share:.1}% of \
+             the frame at Draft and {full_share:.1}% at Full.**\n",
+            draft_worst / FRAME_BUDGET_MS,
+            full_worst / FRAME_BUDGET_MS,
+        )
+    };
+    s.insert_str(headline_at, &headline);
+    write_lf(&repo("verification/P-14_blur_drag.md"), &s);
 }
