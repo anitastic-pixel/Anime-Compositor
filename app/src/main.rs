@@ -1446,6 +1446,7 @@ const ANSWERS: &[&str] = &[
     "keyframe.add_remove",
     "keyframe.move",
     "keyframe.set_interp",
+    "keyframe.set_path",
     "layer.create",
     "layer.delete",
     "layer.move_down",
@@ -1919,6 +1920,42 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         value: key.value,
                         interp,
                         spatial: key.spatial,
+                    }
+                }
+                // D-53's handles, pulled on the canvas. The four numbers are the whole of the
+                // key's `spatial` as document 19 writes it, sent once at release; the value and
+                // the interpolation are read out of the document, as `keyframe.set_interp` reads
+                // the value, because a handle is the only thing this changes. Position only,
+                // because a path is position only, so there is no property to name.
+                "keyframe.set_path" => {
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let text = parameter(query, "handles").unwrap_or_default();
+                    let numbers: Vec<f64> = text
+                        .split(',')
+                        .filter_map(|n| n.trim().parse().ok())
+                        .collect();
+                    let [in_x, in_y, out_x, out_y] = numbers[..] else {
+                        return Some(format!(
+                            "A path is four numbers, in_x,in_y,out_x,out_y. Not \"{text}\"."
+                        ));
+                    };
+                    let Some(key) = layer.transform.get(Prop::Position).keyframe_at(frame) else {
+                        return Some(format!(
+                            "position has no keyframe at frame {frame}, so there is no handle \
+                             to move. Add a keyframe first."
+                        ));
+                    };
+                    Command::SetKeyframe {
+                        composition,
+                        layer_id,
+                        prop: Prop::Position,
+                        frame,
+                        value: key.value,
+                        interp: key.interp,
+                        spatial: Some([in_x, in_y, out_x, out_y]),
                     }
                 }
                 // Typed into a field, or scrubbed on its label. The same command either way;
@@ -3757,8 +3794,13 @@ mod editing {
                             serde_json::Value::Null => String::new(),
                             ease => format!(" {ease}"),
                         };
+                        // D-53: and a position key's handles, for the same reason.
+                        let path = match &k["spatial"] {
+                            serde_json::Value::Null => String::new(),
+                            spatial => format!(" path {spatial}"),
+                        };
                         format!(
-                            "{}@{} {}{curve}",
+                            "{}@{} {}{curve}{path}",
                             k["value"],
                             k["frame"],
                             k["interp"].as_str().unwrap_or("?")
@@ -4374,6 +4416,89 @@ mod editing {
             plotted(&viewer, "layer=gone&prop=rotation&from=0&to=24").len(),
         );
         undo(&viewer);
+
+        // ---- the motion path's handles (D-53) -----------------------------------------------
+        // The canvas pulls a handle and sends the key's four numbers at release. What these rows
+        // check is that the four numbers land on the key untouched, that the key's value and
+        // mode do not move, and that the layer between the keys is where document 20's cubic
+        // puts it: P0 (0,0), P1 (0,120) from the handle, P2 (160,0) from the third the second
+        // key has with no handles of its own, P3 (240,0). Halfway, (P0 + 3 P1 + 3 P2 + P3) / 8
+        // is (90, 45), worked by hand.
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        run(
+            &viewer,
+            "keyframe.add_remove?layer=layer-cel&prop=position&frame=0",
+        );
+        run(
+            &viewer,
+            "property.set_base?layer=layer-cel&prop=position&value=240,0&frame=24",
+        );
+        report.check(
+            "two position keys with no handles, and halfway is halfway along the straight line",
+            "[120,0]",
+            value_at(&viewer, 12, l, "position"),
+        );
+        report.check(
+            "pulling the first key's outgoing handle says which key it changed",
+            "Keyframe position at frame 0 to (0, 0)",
+            run(
+                &viewer,
+                "keyframe.set_path?layer=layer-cel&frame=0&handles=0,0,0,120",
+            ),
+        );
+        report.check(
+            "the key carries the four numbers it was dropped at, and keeps its value and mode",
+            "[0,0]@0 linear path [0,0,0,120], [240,0]@24 linear",
+            keys(&viewer, l, "position"),
+        );
+        report.check(
+            "and halfway the layer has left the straight line for the curve: (120, 0) becomes",
+            "[90,45]",
+            value_at(&viewer, 12, l, "position"),
+        );
+        report.check(
+            "neither key moved",
+            "[0,0] and [240,0]",
+            format!(
+                "{} and {}",
+                value_at(&viewer, 0, l, "position"),
+                value_at(&viewer, 24, l, "position")
+            ),
+        );
+        report.check(
+            "a handle on a frame with no key is refused, and says what to do first",
+            "position has no keyframe at frame 7, so there is no handle to move. Add a keyframe \
+             first.",
+            run(
+                &viewer,
+                "keyframe.set_path?layer=layer-cel&frame=7&handles=0,0,0,120",
+            ),
+        );
+        report.check(
+            "and so is a path that is not four numbers",
+            "A path is four numbers, in_x,in_y,out_x,out_y. Not \"0,120\".",
+            run(
+                &viewer,
+                "keyframe.set_path?layer=layer-cel&frame=0&handles=0,120",
+            ),
+        );
+        report.check(
+            "three history entries for the two keys and the pull, and none for the refusals",
+            3,
+            held(&viewer).document.undo_depth(),
+        );
+        undo(&viewer);
+        report.check(
+            "undoing the pull puts the straight line back",
+            "[0,0]@0 linear, [240,0]@24 linear and [120,0]",
+            format!(
+                "{} and {}",
+                keys(&viewer, l, "position"),
+                value_at(&viewer, 12, l, "position")
+            ),
+        );
 
         // ---- back to the file ---------------------------------------------------------------------------
         while held(&viewer).document.undo_depth() > 0 {
@@ -7908,6 +8033,7 @@ mod contract {
         "keyframe.add_remove",
         "keyframe.move",
         "keyframe.set_interp",
+        "keyframe.set_path",
         "layer.create",
         "layer.delete",
         "layer.move_down",
@@ -8210,6 +8336,7 @@ mod contract {
         ("keyframe.add_remove", "a command the window answers"),
         ("keyframe.move", "a command the window answers"),
         ("keyframe.set_interp", "a command the window answers"),
+        ("keyframe.set_path", "a command the window answers"),
         ("effect.add", "a command the window answers"),
         ("effect.delete", "a command the window answers"),
         ("effect.toggle_bypass", "a command the window answers"),

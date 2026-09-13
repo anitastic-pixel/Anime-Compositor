@@ -150,6 +150,11 @@
   #boxes circle.spin { fill: #141414; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
   /* The anchor, drawn as After Effects draws it: a small circle with a cross through it. */
   #boxes .anchor { fill: none; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  #boxes polyline.path { fill: none; stroke: #6ea8fe; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  #boxes rect.pathkey { fill: #6ea8fe; stroke: none; }
+  #boxes line.patharm { stroke: #6ea8fe; stroke-width: 1; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; }
+  #boxes circle.pathgrab { fill: #141414; stroke: #6ea8fe; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+  #boxes circle.pathgrab:focus-visible { outline: none; stroke: #ffffff; stroke-width: 3; }
   #boxes rect.marquee {
     fill: rgba(232, 176, 106, 0.12); stroke: #e8b06a; stroke-width: 1; stroke-dasharray: 4 3;
     vector-effect: non-scaling-stroke;
@@ -1372,6 +1377,13 @@ let boxes = [];
 // same answer. A keyframed property is drawn from these and not from its base, so these are
 // what the inspector shows for it.
 let values = {};
+// D-53: the selected layer's positions from its first position key to its last, one per frame,
+// out of the same `/curve` answer the graph editor draws. The path on the canvas is these points
+// and not a curve worked out here, for the reason `curve` in Rust gives.
+let path = null;
+// A path handle being pulled: which key, which of its two handles, and the offset it is at now.
+let pathPull = null;
+let pathNudge = Promise.resolve();
 
 // An SVG element has to be made in the SVG namespace or it draws nothing, and the namespace is
 // taken from the overlay already in the markup rather than written out. That is not shorthand.
@@ -1418,11 +1430,24 @@ async function askForBoxes() {
     boxes = [];
     values = {};
   }
+  const layer = selected();
+  const moves = layer ? keysOf(layer, 'position') : [];
+  if (moves.length > 1) {
+    try {
+      const answer = await fetch(FRAMES + '/curve?layer=' + encodeURIComponent(layer.id)
+        + '&prop=position&from=' + moves[0].frame + '&to=' + moves[moves.length - 1].frame);
+      path = answer.ok ? await answer.json() : null;
+    } catch (e) {
+      path = null;
+    }
+    if (frame !== asked) return;
+  } else {
+    path = null;
+  }
   drawBoxes();
   // A keyframed property's numbers change with the frame, and so does whether its diamond is
   // filled, so the panel follows the playhead for a layer that has keys. A layer with none
   // shows the same numbers on every frame and is left alone.
-  const layer = selected();
   if (layer && PROPS.some((prop) => keysOf(layer, prop).length)) drawInspector();
 }
 
@@ -1504,6 +1529,66 @@ function drawBoxes() {
       }
     }
   }
+  // D-53: the selected layer's motion path, its keys, and the two handles either side of each.
+  // Drawn whether or not the layer has an outline on this frame, since a path runs through
+  // frames the layer is not on.
+  const mover = selected();
+  let refocus = null;
+  if (mover && path && path.samples.length) {
+    const per = perFramePixel();
+    const had = document.activeElement && document.activeElement.__path;
+    const line = svgEl('polyline');
+    line.setAttribute('class', 'path');
+    line.setAttribute('points', path.samples.map((s) => s[0] / per + ',' + s[1] / per).join(' '));
+    drawn.push(line);
+    for (const key of keysOf(mover, 'position')) {
+      const mark = svgEl('rect');
+      mark.setAttribute('class', 'pathkey');
+      mark.setAttribute('x', key.value[0] / per - 3 * unit);
+      mark.setAttribute('y', key.value[1] / per - 3 * unit);
+      mark.setAttribute('width', 6 * unit);
+      mark.setAttribute('height', 6 * unit);
+      drawn.push(mark);
+    }
+    for (const h of pathHandles(mover)) {
+      const arm = svgEl('line');
+      arm.setAttribute('class', 'patharm');
+      arm.setAttribute('x1', h.base[0]);
+      arm.setAttribute('y1', h.base[1]);
+      arm.setAttribute('x2', h.at[0]);
+      arm.setAttribute('y2', h.at[1]);
+      const knob = svgEl('circle');
+      knob.setAttribute('class', 'pathgrab');
+      knob.setAttribute('cx', h.at[0]);
+      knob.setAttribute('cy', h.at[1]);
+      knob.setAttribute('r', 4 * unit);
+      knob.setAttribute('tabindex', 0);
+      knob.setAttribute('role', 'slider');
+      knob.setAttribute('aria-label', 'The ' + (h.which ? 'outgoing' : 'incoming')
+        + ' path handle of the position key at frame ' + h.key.frame
+        + '. Drag it, or use the arrow keys; Shift moves ten pixels.');
+      knob.__path = { frame: h.key.frame, which: h.which };
+      // A pixel a press, in composition pixels, and queued as the nudge on the canvas is so that
+      // a held arrow key is every one of its steps. Each step reads the handle again from the
+      // document the last one brought back rather than from this drawing.
+      knob.onkeydown = (k) => {
+        const by = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[k.key];
+        if (!by) return;
+        k.preventDefault();
+        k.stopPropagation();
+        const step = k.shiftKey ? 10 : 1;
+        pathNudge = pathNudge.then(() => {
+          const now = selected() && pathHandles(selected())
+            .find((o) => o.key.frame === h.key.frame && o.which === h.which);
+          if (now) {
+            return sendPath(now, [now.offset[0] + by[0] * step, now.offset[1] + by[1] * step]);
+          }
+        });
+      };
+      if (had && had.frame === h.key.frame && had.which === h.which) refocus = knob;
+      drawn.push(arm, knob);
+    }
+  }
   if (marquee) {
     const box = svgEl('rect');
     box.setAttribute('class', 'marquee');
@@ -1514,6 +1599,47 @@ function drawBoxes() {
     drawn.push(box);
   }
   svg.replaceChildren(...drawn);
+  // Drawing replaces every node, and a focus left on a discarded handle is an arrow press that
+  // does nothing. The graph editor gives its focus back the same way.
+  if (refocus) refocus.focus();
+}
+
+// D-53: where each position key's two handles are, as offsets in composition pixels and as
+// points on the frame. A key with no `spatial` has them at the thirds towards its neighbours,
+// which is document 19's straight line, so pulling one handle of such a key writes the other
+// where it already was and the segment on the other side does not change. A first key has no
+// incoming segment and a last key no outgoing one, and neither of those handles is drawn.
+function pathHandles(layer) {
+  const keys = keysOf(layer, 'position');
+  if (keys.length < 2) return [];
+  const per = perFramePixel();
+  const found = [];
+  keys.forEach((key, i) => {
+    const third = (other) => (other
+      ? [(other.value[0] - key.value[0]) / 3, (other.value[1] - key.value[1]) / 3] : [0, 0]);
+    const handles = key.spatial || [...third(keys[i - 1]), ...third(keys[i + 1])];
+    for (const which of [0, 1]) {
+      if (!keys[i + (which ? 1 : -1)]) continue;
+      const pulled = pathPull && pathPull.frame === key.frame && pathPull.which === which;
+      const offset = pulled ? pathPull.offset : [handles[which * 2], handles[which * 2 + 1]];
+      found.push({
+        key, which, handles, offset,
+        base: [key.value[0] / per, key.value[1] / per],
+        at: [(key.value[0] + offset[0]) / per, (key.value[1] + offset[1]) / per],
+      });
+    }
+  });
+  return found;
+}
+
+// One handle put down at an offset. The key's other handle goes with it unchanged, because the
+// file holds the four numbers together.
+function sendPath(h, offset) {
+  const handles = h.handles.slice();
+  handles[h.which * 2] = Math.round(offset[0] * 1000) / 1000;
+  handles[h.which * 2 + 1] = Math.round(offset[1] * 1000) / 1000;
+  return command('/keyframe.set_path?layer=' + encodeURIComponent(selectedLayer)
+    + '&frame=' + h.key.frame + '&handles=' + handles.join(','));
 }
 
 // The knob that turns a layer, on a short arm out from the middle of its top edge. Out along the
@@ -1702,6 +1828,37 @@ stage.onpointerdown = (e) => {
   const unit = perScreenPixel();
   const one = boxOf(selectedLayer);
   const layer = selected();
+  // D-53: a path handle, first, because it is the smallest thing on the picture and would
+  // otherwise be taken for the layer under it. The knob follows the pointer and nothing is sent
+  // until release, as the graph editor's handles do: one pull, one thing to undo. Escape puts
+  // it back, and a press that never moved sends nothing.
+  const grab = layer && !layer.locked && path
+    && pathHandles(layer).find((h) => Math.hypot(x - h.at[0], y - h.at[1]) <= 6 * unit);
+  if (grab) {
+    e.preventDefault();
+    stage.setPointerCapture(e.pointerId);
+    const per = perFramePixel();
+    pathPull = { frame: grab.key.frame, which: grab.which, offset: grab.offset, moved: false };
+    const escape = (k) => { if (k.key === 'Escape') stop(false); };
+    const stop = (keep) => {
+      stage.onpointermove = null;
+      stage.onpointerup = null;
+      window.removeEventListener('keydown', escape, true);
+      const pulled = pathPull;
+      pathPull = null;
+      if (keep && pulled.moved) sendPath(grab, pulled.offset);
+      else drawBoxes();
+    };
+    stage.onpointermove = (m) => {
+      const [mx, my] = atCanvas(m);
+      pathPull.offset = [mx * per - grab.key.value[0], my * per - grab.key.value[1]];
+      pathPull.moved = true;
+      drawBoxes();
+    };
+    stage.onpointerup = () => stop(true);
+    window.addEventListener('keydown', escape, true);
+    return;
+  }
   if (one && layer && !layer.locked) {
     const anchorAt = anchorOnScreen(layer);
     const spin = rotateHandle(one, unit);

@@ -99,6 +99,15 @@ Moving a key along the bar is `keyframe.move`, built by W-11 on 2026-09-12: one 
 | a handle dragged outside its own segment is refused rather than clamped | A curve handle cannot reach outside its own segment, so x1 and x2 are between 0 and 1. Not 1.2 and 0.1. | A curve handle cannot reach outside its own segment, so x1 and x2 are between 0 and 1. Not 1.2 and 0.1. | pass |
 | and so is a curve that is not four numbers | A curve is four numbers, x1,y1,x2,y2. Not "0.4,0.1". | A curve is four numbers, x1,y1,x2,y2. Not "0.4,0.1". | pass |
 | asking about a layer that has gone draws nothing rather than failing | 0 | 0 | pass |
+| two position keys with no handles, and halfway is halfway along the straight line | [120,0] | [120,0] | pass |
+| pulling the first key's outgoing handle says which key it changed | Keyframe position at frame 0 to (0, 0) | Keyframe position at frame 0 to (0, 0) | pass |
+| the key carries the four numbers it was dropped at, and keeps its value and mode | [0,0]@0 linear path [0,0,0,120], [240,0]@24 linear | [0,0]@0 linear path [0,0,0,120], [240,0]@24 linear | pass |
+| and halfway the layer has left the straight line for the curve: (120, 0) becomes | [90,45] | [90,45] | pass |
+| neither key moved | [0,0] and [240,0] | [0,0] and [240,0] | pass |
+| a handle on a frame with no key is refused, and says what to do first | position has no keyframe at frame 7, so there is no handle to move. Add a keyframe first. | position has no keyframe at frame 7, so there is no handle to move. Add a keyframe first. | pass |
+| and so is a path that is not four numbers | A path is four numbers, in_x,in_y,out_x,out_y. Not "0,120". | A path is four numbers, in_x,in_y,out_x,out_y. Not "0,120". | pass |
+| three history entries for the two keys and the pull, and none for the refusals | 3 | 3 | pass |
+| undoing the pull puts the straight line back | [0,0]@0 linear, [240,0]@24 linear and [120,0] | [0,0]@0 linear, [240,0]@24 linear and [120,0] | pass |
 | undoing every transform edit gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**75 of 75 checks pass.**
+**84 of 84 checks pass.**

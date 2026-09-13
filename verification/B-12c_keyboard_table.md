@@ -55,6 +55,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `keyframe.add_remove` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.move` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_interp` can be asked for without a mouse | yes | yes | pass |
+| `keyframe.set_path` can be asked for without a mouse | yes | yes | pass |
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_down` can be asked for without a mouse | yes | yes | pass |
@@ -96,4 +97,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | moving over the tint's colour picker is not the only way to choose the colour | true | true | pass |
 | dragging an effect's name up or down the stack is not the only way to reorder the effects | true | true | pass |
 
-**66 of 66 checks pass.**
+**67 of 67 checks pass.**
