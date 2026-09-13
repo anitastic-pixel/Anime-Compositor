@@ -8384,6 +8384,7 @@ mod contract {
         ("timeline.previous_frame", "Left", "e.key === 'ArrowLeft'"),
         ("timeline.next_frame", "Right", "e.key === 'ArrowRight'"),
         ("timeline.play_pause", "Space", "e.key === ' '"),
+        ("keyframe.set_interp", "F9", "e.key === 'F9'"),
         ("timeline.set_work_start", "B", ""),
         ("timeline.set_work_end", "N", ""),
         ("viewer.fit", "Shift+/", "e.key === '?'"),
@@ -9654,7 +9655,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 35] = [
+    const CONTROLS: [&str; 37] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -9672,6 +9673,7 @@ mod contract {
         "fit",
         "fit100",
         "fwd",
+        "graphmode",
         "graphprop",
         "import",
         "makecomp",
@@ -9686,6 +9688,7 @@ mod contract {
         "saveas",
         "tabgraph",
         "tabsheet",
+        "timezoom",
         "toggle",
         "undo",
         "up",
@@ -9694,8 +9697,10 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 23] = [
+    const KEYS: [&str; 26] = [
+        "-",
         "1",
+        "=",
         "?",
         "A",
         "ArrowLeft",
@@ -9703,6 +9708,7 @@ mod contract {
         "D",
         "Delete",
         "F2",
+        "F9",
         "G",
         "I",
         "L",

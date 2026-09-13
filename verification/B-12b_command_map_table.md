@@ -114,6 +114,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and Right is bound | yes | yes | pass |
 | document 24 gives `timeline.play_pause` the shortcut | Space | Space | pass |
 | and Space is bound | yes | yes | pass |
+| document 24 gives `keyframe.set_interp` the shortcut | F9 | F9 | pass |
+| and F9 is bound | yes | yes | pass |
 | document 24 gives `timeline.set_work_start` the shortcut | B | B | pass |
 | and B is bound | no, and the command is not built either | no, and the command is not built either | pass |
 | document 24 gives `timeline.set_work_end` the shortcut | N | N | pass |
@@ -139,4 +141,4 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and G presses | $('checker') | $('checker') | pass |
 | and Shift+/ presses | $('fit') | $('fit') | pass |
 
-**107 of 107 checks pass.**
+**109 of 109 checks pass.**

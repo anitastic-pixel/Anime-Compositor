@@ -224,11 +224,17 @@
   #graph .grab:focus-visible { outline: 2px solid #6ea8fe; }
   #graph .at { stroke: #e8b06a; stroke-width: 1; }
   #graph text { fill: #909096; font-size: 10px; font-variant-numeric: tabular-nums; }
+  #graph .tick { stroke: #2e2e32; stroke-width: 1; }
+  #graph text.mode { fill: #c8c8cc; }
+  #timezoom { width: 90px; }
+  /* The bar starts exactly at the gutter, with no gap or padding before it and none after, so a
+     frame on a bar is under the same frame on the ruler, the playhead and the graph; the space
+     between a name and its bar is the name's own. */
   #layers li {
     display: grid; grid-template-columns: var(--gutter) minmax(0, 1fr);
-    gap: 6px; align-items: center;
+    gap: 0; padding-left: 0; padding-right: 0; align-items: center;
   }
-  .rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 6px; }
   /* W-12: the arrow beside a layer's name, and the property rows it opens under the layer, as
      After Effects twirls a layer open. A property row is indented under its layer and its bar
      carries nothing but that property's keys, so a key can be told from a key on the line
@@ -590,7 +596,12 @@
     <button id="tabgraph" class="sheettab" aria-pressed="false">Graph</button>
     <span class="hint" id="sheethint">front layer first</span>
     <span class="tools">
+      <input id="timezoom" type="range" min="0" max="100" step="1" value="0"
+        aria-label="Timeline zoom. Also = and -, or Alt with the mouse wheel"
+        title="Zoom in on time: = and -, or Alt with the mouse wheel. Shift with the wheel slides along.">
       <select id="graphprop" aria-label="Which property the graph draws" hidden></select>
+      <button id="graphmode" class="sheettab" aria-pressed="false" hidden
+        title="Draw how fast the property changes, as After Effects' speed graph does">Speed</button>
       <button id="addlayer">Add layer</button>
       <button id="dellayer">Delete layer</button>
       <button id="up">Forward</button>
@@ -941,33 +952,145 @@ function drawAssets() {
 // Where a composition frame falls across the width of the timeline: 0 at the composition's first
 // frame, 1 at the one after its last. The ruler, the bars and the playhead are all placed with
 // this and with nothing else, so they cannot come to disagree about where a frame is.
+//
+// Since the owner asked for it on 2026-09-13, "the width of the timeline" is the part of the
+// composition in view rather than all of it: the timeline zooms, as After Effects' and
+// Resolve's do. `timeView` is that part, `null` for the whole composition. It is page state,
+// like the viewer's zoom — nothing about the file changes when a person zooms in on time.
+let timeView = null;
+const MIN_VIEW = 8; // frames across at the closest zoom: a frame is then an eighth of the row
+
+function viewOf(comp) {
+  const whole = Math.max(1, comp.duration_frames);
+  if (!timeView) return { from: comp.start_frame, len: whole };
+  const len = Math.min(whole, Math.max(MIN_VIEW, timeView.len));
+  const from = Math.min(comp.start_frame + whole - len, Math.max(comp.start_frame, timeView.from));
+  return { from, len };
+}
+
 function atFrame(comp, at) {
-  const len = Math.max(1, comp.duration_frames);
-  return Math.min(1, Math.max(0, (at - comp.start_frame) / len));
+  const v = viewOf(comp);
+  return Math.min(1, Math.max(0, (at - v.from) / v.len));
+}
+
+// A mark outside the view is not drawn, where a bar is cut at the edge: a key piled against the
+// edge of the row would say there is a key on a frame that is not on screen.
+function inView(comp, at) {
+  const v = viewOf(comp);
+  return at >= v.from && at <= v.from + v.len;
 }
 
 const percent = (x) => (x * 100) + '%';
 
 // The frame numbers along the top. A label every whole number of frames, chosen so that about
 // eight of them fit: one tick per frame is unreadable at 240 frames and one per hundred says
-// nothing at 24.
+// nothing at 24. The graph draws the same ticks, so the two tabs read as one scale.
+function ticksOf(comp) {
+  const v = viewOf(comp);
+  const steps = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
+  const step = steps.find((s) => v.len / s <= 10) || v.len;
+  const ticks = [];
+  const first = comp.start_frame + Math.ceil((v.from - comp.start_frame) / step) * step;
+  for (let at = first; at < v.from + v.len; at += step) ticks.push(at);
+  return ticks;
+}
+
 function drawRuler() {
   const comp = composition();
   const ruler = $('ruler');
   if (!comp) { ruler.replaceChildren(); return; }
-  const len = Math.max(1, comp.duration_frames);
-  const steps = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
-  const step = steps.find((s) => len / s <= 10) || len;
-  const ticks = [];
-  for (let at = comp.start_frame; at < comp.start_frame + len; at += step) {
+  ruler.replaceChildren(...ticksOf(comp).map((at) => {
     const tick = document.createElement('span');
     tick.className = 'tick';
     tick.style.left = percent(atFrame(comp, at));
     tick.textContent = at;
-    ticks.push(tick);
-  }
-  ruler.replaceChildren(...ticks);
+    return tick;
+  }));
+  const whole = Math.max(1, comp.duration_frames);
+  const range = Math.log(Math.max(1, whole / MIN_VIEW));
+  $('timezoom').value = range ? Math.round(Math.log(whole / viewOf(comp).len) / range * 100) : 0;
+  $('timezoom').disabled = whole <= MIN_VIEW;
 }
+
+// Zooming in on time by `factor`, keeping the frame `at` where it is on screen, `across` of the
+// way along the row. A zoom all the way out is the whole composition again, not a view that
+// happens to be as wide as it.
+function zoomTime(factor, at, across) {
+  const comp = composition();
+  if (!comp) return;
+  const whole = Math.max(1, comp.duration_frames);
+  const len = Math.min(whole, Math.max(MIN_VIEW, viewOf(comp).len / factor));
+  timeView = len >= whole ? null : { from: at - across * len, len };
+  redrawTime();
+}
+
+function panTime(frames) {
+  const comp = composition();
+  if (!comp || !timeView) return;
+  const v = viewOf(comp);
+  timeView = { from: v.from + frames, len: v.len };
+  redrawTime();
+}
+
+// Everything placed along time, and nothing else: a zoom changes where frames are, not what is
+// in the file, so nothing is asked of the window again.
+function redrawTime() {
+  drawRuler();
+  drawLayers();
+  movePlayhead();
+  if (graphing && plotted) drawGraph();
+}
+
+// The playhead's frame, `across` of the way along the row, or the middle when it is off screen.
+function zoomAtPlayhead(factor) {
+  const comp = composition();
+  if (!comp) return;
+  const v = viewOf(comp);
+  const across = (frame + 0.5 - v.from) / v.len;
+  zoomTime(factor, frame + 0.5, across >= 0 && across <= 1 ? across : 0.5);
+}
+
+// Where a point on screen is along the row of time, as a fraction of the row: 0 at its left
+// end and 1 at its right, and outside that past either end. The sheet and the graph have the
+// same padding and the same gutter, which is the whole of what makes a frame sit at the same
+// place in both tabs.
+function acrossTime(clientX) {
+  const panel = graphing ? $('graph') : $('sheet');
+  const box = panel.getBoundingClientRect();
+  const gutter = parseFloat(getComputedStyle($('sheet')).getPropertyValue('--gutter'));
+  const width = box.width - gutter - 16;
+  return width > 0 ? (clientX - box.left - gutter - 8) / width : null;
+}
+
+// Alt or Ctrl with the wheel zooms about the frame under the pointer, as in After Effects and
+// Resolve; Shift with the wheel, or a sideways wheel, slides the view along. A plain wheel is
+// left to scroll the layers up and down, which is what it has always done here.
+function timeWheel(e) {
+  const comp = composition();
+  if (!comp) return;
+  if (e.altKey || e.ctrlKey) {
+    e.preventDefault();
+    const across = acrossTime(e.clientX);
+    if (across === null) return;
+    const v = viewOf(comp);
+    const clamped = Math.min(1, Math.max(0, across));
+    zoomTime(e.deltaY < 0 ? 1.25 : 0.8, v.from + clamped * v.len, clamped);
+  } else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+    if (!timeView) return;
+    e.preventDefault();
+    const d = e.shiftKey ? e.deltaY || e.deltaX : e.deltaX;
+    panTime(Math.sign(d) * Math.max(1, viewOf(comp).len / 20));
+  }
+}
+$('sheet').addEventListener('wheel', timeWheel, { passive: false });
+$('graph').addEventListener('wheel', timeWheel, { passive: false });
+$('timezoom').oninput = () => {
+  const comp = composition();
+  if (!comp) return;
+  const whole = Math.max(1, comp.duration_frames);
+  const wantLen = whole / Math.exp($('timezoom').value / 100 * Math.log(whole / MIN_VIEW));
+  zoomAtPlayhead(viewOf(comp).len / wantLen);
+};
 
 // One layer's row of time: the frames it is in the composition for, and the exposures inside
 // them. Every bar carries the same sentence as a tooltip that the fields below say in numbers,
@@ -990,12 +1113,15 @@ function track(comp, layer, drawings) {
     piece.className = kind;
     piece.style.left = percent(atFrame(comp, from));
     piece.style.width = percent(atFrame(comp, to) - atFrame(comp, from));
+    // Wholly outside a zoomed view: a bar of no width still draws its border at the edge.
+    piece.hidden = !(atFrame(comp, to) > atFrame(comp, from));
     box.append(piece);
     return piece;
   };
   // W-10: a mark at every frame any of the five properties has a key on. One mark per frame,
   // not one per property: the bar is the layer's time, and what is keyed there is in the panel.
   for (const at of new Set(PROPS.flatMap((prop) => keysOf(layer, prop).map((k) => k.frame)))) {
+    if (!inView(comp, at + 0.5)) continue;
     const keyed = PROPS.filter((prop) => keysOf(layer, prop).some((k) => k.frame === at));
     const mark = document.createElement('div');
     mark.className = 'key';
@@ -1052,8 +1178,10 @@ function seamNear(box, spans, x) {
 // fight every click made in it.
 function movePlayhead() {
   const comp = composition();
-  $('playhead').hidden = !comp;
-  if (comp) $('playhead').style.setProperty('--at', atFrame(comp, frame));
+  // Through the middle of its frame, where the keys on that frame are drawn, so that the
+  // playhead on a key passes through the key as it does in After Effects.
+  $('playhead').hidden = !comp || !inView(comp, frame + 0.5);
+  if (comp) $('playhead').style.setProperty('--at', atFrame(comp, frame + 0.5));
   // The graph has a playhead of its own and nothing else on it depends on the frame, so it is
   // redrawn from the samples already in hand rather than asked for again.
   if (graphing && plotted) drawGraph();
@@ -1066,14 +1194,11 @@ function movePlayhead() {
 function frameUnder(clientX) {
   const comp = composition();
   if (!comp) return null;
-  const sheet = $('sheet');
-  const box = sheet.getBoundingClientRect();
-  const gutter = parseFloat(getComputedStyle(sheet).getPropertyValue('--gutter'));
-  const width = box.width - gutter - 16;
-  if (width <= 0) return null;
-  const across = (clientX - box.left - gutter - 8) / width;
+  const across = acrossTime(clientX);
+  if (across === null) return null;
+  const v = viewOf(comp);
   const len = Math.max(1, comp.duration_frames);
-  const at = comp.start_frame + Math.floor(across * len);
+  const at = Math.floor(v.from + across * v.len);
   return Math.min(comp.start_frame + len - 1, Math.max(comp.start_frame, at));
 }
 
@@ -1316,6 +1441,9 @@ function grabKey(comp, layer, prop, key, mark) {
       mark.onpointerup = null;
       window.removeEventListener('keydown', escape, true);
       if (cancelled) mark.style.left = where(key.frame);
+      // A press that did not move is a click, and a click on a key puts the playhead on it, which
+      // is where the ease button and F9 act.
+      else if (to === key.frame) seek(key.frame);
       else send(to);
     };
     mark.onpointermove = (m) => {
@@ -1350,6 +1478,7 @@ function propTrack(comp, layer, prop) {
   box.className = 'track';
   if (comp) {
     for (const key of keysOf(layer, prop)) {
+      if (!inView(comp, key.frame + 0.5)) continue;
       const mark = document.createElement('button');
       mark.type = 'button';
       mark.className = 'key';
@@ -2710,7 +2839,19 @@ let graphProp = null;    // the property drawn, or null for the first one with k
 let plotted = null;      // the last answer from `/curve`, or null
 let pulling = null;      // the handle under the pointer, while it is being pulled
 
-const GRAPH_PAD = 18;
+let speedGraph = false;  // After Effects' speed graph is showing rather than its value graph
+
+// Since 2026-09-13 the graph is drawn on the timeline's own scale: the same frames in view, the
+// same column, the gutter on the left where the layer names are on the sheet. Switching tabs
+// leaves every frame where it was, which is how After Effects' two views of a timeline read.
+const GRAPH_TOP = 16;    // room for the frame numbers along the top
+const GRAPH_FOOT = 6;
+
+// Document 20's curves, as the four numbers a key carries. A linear segment is the curve that
+// is exactly linear, so a speed handle pulled on a linear segment starts from where it was.
+const EASY = [1 / 3, 0, 2 / 3, 1];
+const THIRDS = [1 / 3, 1 / 3, 2 / 3, 2 / 3];
+const easeOf = (key) => (key.interp === 'ease' ? key.ease || EASY : THIRDS);
 
 function graphLayer() {
   const layer = selected();
@@ -2725,16 +2866,11 @@ async function askForCurve() {
   const comp = composition();
   const pick = graphLayer();
   if (!graphing || !comp || !pick) { plotted = null; drawGraph(); return; }
-  // What is drawn is the part of the shot this property animates over, not the whole shot. A
-  // twenty-four frame ease on a two-hundred-and-forty frame composition is a tenth of the panel
-  // wide, and the handles of a curve nobody can see are handles nobody can pull. A margin of a
-  // tenth of that span either side, so the first and last keyframes are not on the frame edge.
-  const keys = keysOf(pick.layer, pick.prop);
-  const end = comp.start_frame + comp.duration_frames - 1;
-  const span = keys[keys.length - 1].frame - keys[0].frame;
-  const margin = Math.max(1, Math.round(span / 10));
-  const from = Math.max(comp.start_frame, keys[0].frame - margin);
-  const to = Math.min(end, keys[keys.length - 1].frame + margin);
+  // The whole composition, because the part on screen is the timeline's zoom and a zoom asks
+  // nothing of the window. What was drawn before 2026-09-13 - the keys' own span - is now what
+  // zooming in on them shows.
+  const from = comp.start_frame;
+  const to = comp.start_frame + Math.max(1, comp.duration_frames) - 1;
   try {
     const answer = await fetch(FRAMES + '/curve?layer=' + encodeURIComponent(pick.layer.id)
       + '&prop=' + pick.prop + '&from=' + from + '&to=' + to);
@@ -2746,24 +2882,22 @@ async function askForCurve() {
 }
 
 // The plot's own arithmetic, in one place so that the line, the keyframes, the handles and the
-// pointer all agree about where a frame and a value are on screen.
-function graphSpace(box) {
-  const lo = plotted.from;
-  const hi = Math.max(lo + 1, plotted.to);
-  const all = plotted.samples.flat();
-  let low = Math.min(...all);
-  let high = Math.max(...all);
+// pointer all agree about where a frame and a value are on screen. `x` of a frame is the left
+// edge of its column, as `atFrame` is on the sheet; the middle of frame f is `x(f + 0.5)`.
+function graphSpace(box, low, high) {
+  const v = viewOf(composition());
+  const gutter = parseFloat(getComputedStyle($('sheet')).getPropertyValue('--gutter'));
   // A property that never changes is a flat line, and a flat line with no room above or below it
   // is a line drawn on the edge of the box. Half a unit either side gives it somewhere to sit.
   if (!(high > low)) { low -= 0.5; high += 0.5; }
-  const w = box.width - GRAPH_PAD * 2;
-  const h = box.height - GRAPH_PAD * 2;
+  const w = Math.max(1, box.width - gutter);
+  const h = box.height - GRAPH_TOP - GRAPH_FOOT;
   return {
-    low, high, lo, hi,
-    x: (f) => GRAPH_PAD + (f - lo) / (hi - lo) * w,
-    y: (v) => GRAPH_PAD + h - (v - low) / (high - low) * h,
-    frameAt: (px) => lo + (px - GRAPH_PAD) / w * (hi - lo),
-    valueAt: (py) => low + (GRAPH_PAD + h - py) / h * (high - low),
+    low, high, gutter, w,
+    x: (f) => gutter + (f - v.from) / v.len * w,
+    y: (val) => GRAPH_TOP + h - (val - low) / (high - low) * h,
+    frameAt: (px) => v.from + (px - gutter) / w * v.len,
+    valueAt: (py) => low + (GRAPH_TOP + h - py) / h * (high - low),
   };
 }
 
@@ -2771,22 +2905,68 @@ function graphSpace(box) {
 // puts the curve's ends at the two keyframes, so `x` runs along the segment and `y` runs from the
 // value at its start to the value at its end - which is exactly what the numbers in the file
 // mean, and why nothing here has to know what kind of ease it is looking at.
-function armsOf(space, a, b, at) {
+function armsOf(a, b, at, spare) {
   const va = at(a.frame);
   const vb = at(b.frame);
   // A segment between two equal values has no span to measure `y` against. A quarter of the
   // plot's own height stands in, so that the handle is somewhere and can still be pulled.
-  const unit = vb - va || (space.high - space.low) / 4;
-  const e = a.ease || [0.3333333333333333, 0, 0.6666666666666666, 1];
+  const unit = vb - va || spare;
+  const e = easeOf(a);
   return [
     { which: 0, frame: a.frame + e[0] * (b.frame - a.frame), value: va + e[1] * unit },
     { which: 1, frame: a.frame + e[2] * (b.frame - a.frame), value: va + e[3] * unit },
   ].map((arm) => Object.assign(arm, { from: arm.which ? b : a, unit, va, key: a, next: b }));
 }
 
+// How fast a segment leaves its first key and reaches its second before any ease, in units per
+// frame. Straight, that is the change over the frames. On a position segment with a curved path
+// document 20's cubic leaves along its handle at three handle-lengths over the segment, and a
+// key without handles has them at the thirds, which comes back to the straight answer.
+function ratesOf(prop, a, b, part, parts) {
+  const span = b.frame - a.frame;
+  const d = [0, 1].slice(0, parts).map((c) => part(b.frame, c) - part(a.frame, c));
+  if (parts === 1) return [d[0] / span, d[0] / span];
+  const chord = Math.hypot(d[0], d[1]) / span;
+  if (prop !== 'position') return [chord, chord];
+  return [
+    a.spatial ? 3 * Math.hypot(a.spatial[2], a.spatial[3]) / span : chord,
+    b.spatial ? 3 * Math.hypot(b.spatial[0], b.spatial[1]) / span : chord,
+  ];
+}
+
+// After Effects' speed handles. The ease's slope at each end, times the rate above, is the speed
+// the value leaves or arrives at; the handle's length along the segment is its influence. Both
+// come straight out of the four numbers and go straight back into them, so there is still one
+// curve in the file and this is another way of holding it.
+function speedArms(a, b, rates, fps) {
+  const e = easeOf(a);
+  const span = b.frame - a.frame;
+  const outInfl = Math.max(0.01, e[0]);
+  const inInfl = Math.max(0.01, 1 - e[2]);
+  return [
+    { which: 0, infl: outInfl, speed: e[1] / outInfl * rates[0] * fps, rate: rates[0] },
+    { which: 1, infl: inInfl, speed: (1 - e[3]) / inInfl * rates[1] * fps, rate: rates[1] },
+  ]
+    // A side with no rate - a segment between equal values - has no speed to scale, and a handle
+    // that cannot change anything is not offered.
+    .filter((arm) => arm.rate)
+    .map((arm) => Object.assign(arm, {
+      key: a, next: b, from: arm.which ? b : a, span, fps,
+      frame: arm.which ? b.frame - arm.infl * span : a.frame + arm.infl * span,
+      value: arm.speed,
+    }));
+}
+
+// The way back: an influence and a speed, as the two numbers of one side of the curve.
+function easeFromSpeed(arm, infl, speed) {
+  const y = speed / (arm.rate * arm.fps) * infl;
+  return arm.which ? [1 - infl, 1 - y] : [infl, y];
+}
+
 function drawGraph() {
   const into = $('graph');
   const pick = graphLayer();
+  const comp = composition();
   // Which handle the keyboard was on, so the knob built for it below can be given the focus
   // back. Drawing the graph replaces the whole svg, and a focus left on a discarded node is a
   // second arrow press that does nothing.
@@ -2796,6 +2976,8 @@ function drawGraph() {
   let refocus = null;
   const chooser = $('graphprop');
   chooser.hidden = !graphing || !pick;
+  $('graphmode').hidden = !graphing || !pick;
+  $('graphmode').setAttribute('aria-pressed', String(speedGraph));
   if (pick) {
     chooser.replaceChildren(...pick.withKeys.map((prop) => Object.assign(
       document.createElement('option'),
@@ -2803,7 +2985,7 @@ function drawGraph() {
     )));
   }
   if (!graphing) return;
-  if (!plotted || !plotted.samples.length || !pick) {
+  if (!plotted || !plotted.samples.length || !pick || !comp) {
     into.replaceChildren(Object.assign(document.createElement('p'), {
       className: 'empty',
       textContent: 'Select a layer with two or more keyframes on one of its properties, and its '
@@ -2812,10 +2994,10 @@ function drawGraph() {
     return;
   }
   const svg = svgEl('svg');
-  const el = (kind, attrs) => {
+  const el = (kind, attrs, parent = svg) => {
     const node = document.createElementNS(svg.namespaceURI, kind);
     for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
-    svg.append(node);
+    parent.append(node);
     return node;
   };
   const box = { width: Math.max(160, into.clientWidth - 16), height: 170 };
@@ -2825,61 +3007,125 @@ function drawGraph() {
   svg.onpointermove = grabMove;
   svg.onpointerup = grabUp;
   svg.onkeydown = grabKeys;
-  const space = graphSpace(box);
+
+  const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
   const parts = plotted.samples[0].length;
-  for (let c = 0; c < parts; c += 1) {
-    el('polyline', {
-      class: 'plot' + (c ? ' second' : ''),
-      points: plotted.samples
-        .map((s, i) => space.x(plotted.from + i) + ',' + space.y(s[c])).join(' '),
-    });
-  }
-  // The value at a frame comes out of the answer rather than out of the keyframe, so that a
-  // keyframe drawn on this line is drawn where the renderer puts it.
-  // Every part of the property, because a position has two lines and a keyframe is on both of
-  // them. The handles below stay on the first: one ease governs the whole property, and two sets
-  // of handles for one curve would be two things to pull that cannot disagree.
   const part = (f, c) => (plotted.samples[f - plotted.from] || [])[c] || 0;
   const at = (f) => part(f, 0);
   const keys = keysOf(pick.layer, pick.prop);
-  for (const key of keys) {
-    if (key.frame < plotted.from || key.frame > plotted.to) continue;
-    for (let c = 0; c < parts; c += 1) {
-      el('circle', {
-        class: 'keydot',
-        cx: space.x(key.frame), cy: space.y(part(key.frame, c)), r: 3,
-      });
-    }
-  }
+  const v = viewOf(comp);
+  const first = Math.max(0, Math.floor(v.from - plotted.from) - 1);
+  const last = Math.min(plotted.samples.length - 1, Math.ceil(v.from + v.len - plotted.from) + 1);
+  const seen = (arm) => inView(comp, arm.frame + 0.5);
+  // The segments that can be pulled. A hold has no curve to pull, and the value graph only offers
+  // handles on a curve that is eased - there, a linear segment's handles would sit on its line.
+  const segments = [];
   for (let i = 0; i < keys.length - 1; i += 1) {
-    if (keys[i].interp !== 'ease') continue;
-    if (keys[i].frame < plotted.from || keys[i + 1].frame > plotted.to) continue;
-    for (const arm of armsOf(space, keys[i], keys[i + 1], at)) {
-      const [ax, ay] = [space.x(arm.from.frame), space.y(at(arm.from.frame))];
-      const line = el('line', {
-        class: 'arm', x1: ax, y1: ay, x2: space.x(arm.frame), y2: space.y(arm.value),
-      });
-      const knob = el('circle', {
-        class: 'grab', cx: space.x(arm.frame), cy: space.y(arm.value), r: 5, tabindex: 0,
-        role: 'slider',
-      });
-      const say = () => 'The ' + (arm.which ? 'second' : 'first') + ' handle of the '
-        + pick.prop + ' curve starting at frame ' + arm.key.frame
-        + '. Drag it, or use the arrow keys.';
-      knob.setAttribute('aria-label', say());
-      el('title', {}).textContent = say();
-      knob.__arm = { arm, line, knob, space, at };
-      if (same(arm)) refocus = knob;
+    const [a, b] = [keys[i], keys[i + 1]];
+    if (a.frame < plotted.from || b.frame > plotted.to || a.interp === 'hold') continue;
+    if (!speedGraph && a.interp !== 'ease') continue;
+    segments.push([a, b]);
+  }
+
+  // What is plotted: the values themselves, or how fast they change - the difference of two
+  // frames of the window's answer, per second. Position's two parts make one speed, as a layer
+  // moving along a path has one speed; any other property is a number and keeps its sign.
+  let lines;
+  let arms = [];
+  let low;
+  let high;
+  if (speedGraph) {
+    const rate = [];
+    for (let i = 0; i + 1 < plotted.samples.length; i += 1) {
+      const [s, t] = [plotted.samples[i], plotted.samples[i + 1]];
+      rate.push(parts === 1 ? (t[0] - s[0]) * fps : Math.hypot(t[0] - s[0], t[1] - s[1]) * fps);
+    }
+    lines = [rate.map((r, i) => [plotted.from + i + 1, r])];
+    for (const [a, b] of segments) {
+      arms.push(...speedArms(a, b, ratesOf(pick.prop, a, b, part, parts), fps).filter(seen));
+    }
+    const shown = rate.slice(first, last).concat(arms.map((arm) => arm.speed));
+    low = Math.min(0, ...shown);
+    high = Math.max(...shown);
+  } else {
+    lines = [];
+    for (let c = 0; c < parts; c += 1) {
+      lines.push(plotted.samples.map((s, i) => [plotted.from + i + 0.5, s[c]]));
+    }
+    const shown = plotted.samples.slice(first, last + 1).flat();
+    low = Math.min(...shown);
+    high = Math.max(...shown);
+    const spare = (high > low ? high - low : 1) / 4;
+    for (const [a, b] of segments) arms.push(...armsOf(a, b, at, spare).filter(seen));
+    for (const arm of arms) { low = Math.min(low, arm.value); high = Math.max(high, arm.value); }
+  }
+  const space = graphSpace(box, low, high);
+
+  // The frame numbers the ruler on the sheet has, at the same places.
+  for (const tick of ticksOf(comp)) {
+    el('line', { class: 'tick', x1: space.x(tick), y1: GRAPH_TOP - 2, x2: space.x(tick), y2: box.height });
+    el('text', { x: space.x(tick) + 3, y: 11 }).textContent = tick;
+  }
+  const clip = el('clipPath', { id: 'graphclip' });
+  el('rect', { x: space.gutter, y: 0, width: space.w, height: box.height }, clip);
+  const plot = el('g', { 'clip-path': 'url(#graphclip)' });
+  if (speedGraph) {
+    el('line', { class: 'tick', x1: space.gutter, y1: space.y(0), x2: box.width, y2: space.y(0) }, plot);
+  }
+  lines.forEach((points, c) => el('polyline', {
+    class: 'plot' + (c ? ' second' : ''),
+    points: points.filter(([f]) => f >= v.from - 1 && f <= v.from + v.len + 1)
+      .map(([f, val]) => space.x(f) + ',' + space.y(val)).join(' '),
+  }, plot));
+  // The value at a frame comes out of the answer rather than out of the keyframe, so that a
+  // keyframe drawn on this line is drawn where the renderer puts it. Every part of the property,
+  // because a position has two lines and a keyframe is on both of them. The handles stay on the
+  // first: one ease governs the whole property, and two sets of handles for one curve would be
+  // two things to pull that cannot disagree.
+  if (!speedGraph) {
+    for (const key of keys) {
+      if (key.frame < plotted.from || key.frame > plotted.to) continue;
+      for (let c = 0; c < parts; c += 1) {
+        el('circle', {
+          class: 'keydot', cx: space.x(key.frame + 0.5), cy: space.y(part(key.frame, c)), r: 3,
+        }, plot);
+      }
     }
   }
-  el('line', {
-    class: 'at', x1: space.x(frame), y1: 4, x2: space.x(frame), y2: box.height - 4,
-  });
+  for (const arm of arms) {
+    // A value handle hangs off the curve at its key; a speed handle is level, at the speed the
+    // key is left or reached at, and its length is the influence.
+    const [ax, ay] = speedGraph
+      ? [space.x(arm.from.frame + 0.5), space.y(arm.speed)]
+      : [space.x(arm.from.frame + 0.5), space.y(at(arm.from.frame))];
+    const line = el('line', {
+      class: 'arm', x1: ax, y1: ay, x2: space.x(arm.frame + 0.5), y2: space.y(arm.value),
+    });
+    const knob = el('circle', {
+      class: 'grab', cx: space.x(arm.frame + 0.5), cy: space.y(arm.value), r: 5, tabindex: 0,
+      role: 'slider',
+    });
+    const say = () => 'The ' + (arm.which ? 'incoming' : 'outgoing') + ' '
+      + (speedGraph ? 'speed' : '') + ' handle of the ' + pick.prop + ' curve starting at frame '
+      + arm.key.frame + (speedGraph ? ': sideways is influence, up and down is speed' : '')
+      + '. Drag it, or use the arrow keys.';
+    knob.setAttribute('aria-label', say());
+    el('title', {}, knob).textContent = say();
+    knob.__arm = { arm, line, knob, space, at };
+    if (same(arm)) refocus = knob;
+  }
+  if (inView(comp, frame + 0.5)) {
+    el('line', {
+      class: 'at', x1: space.x(frame + 0.5), y1: 4, x2: space.x(frame + 0.5), y2: box.height - 4,
+    });
+  }
   // Rounded because these two are read at a glance and `120.045139` is not a glance. The number
   // itself is untouched - this is the label on the axis, not the value of anything.
-  const axis = (v) => String(Math.round(v * 100) / 100);
-  el('text', { x: 2, y: 12 }).textContent = axis(space.high);
-  el('text', { x: 2, y: box.height - 4 }).textContent = axis(space.low);
+  const axis = (val) => String(Math.round(val * 100) / 100) + (speedGraph ? ' /s' : '');
+  el('text', { x: 4, y: GRAPH_TOP + 8 }).textContent = axis(space.high);
+  el('text', { x: 4, y: box.height - GRAPH_FOOT }).textContent = axis(space.low);
+  el('text', { x: 4, y: GRAPH_TOP + 22, class: 'mode' }).textContent =
+    pick.prop + (speedGraph ? ' speed' : ' value');
   into.replaceChildren(svg);
   if (refocus) refocus.focus();
 }
@@ -2893,9 +3139,21 @@ function pulledTo(what, clientX, clientY) {
   const across = (clientX - box.left) / box.width * knob.ownerSVGElement.viewBox.baseVal.width;
   const down = (clientY - box.top) / box.height * knob.ownerSVGElement.viewBox.baseVal.height;
   const span = arm.next.frame - arm.key.frame;
-  const x = Math.min(1, Math.max(0, (space.frameAt(across) - arm.key.frame) / (span || 1)));
+  const pointer = space.frameAt(across) - 0.5;
+  if (speedGraph) {
+    const reach = arm.which ? arm.next.frame - pointer : pointer - arm.key.frame;
+    const infl = Math.min(1, Math.max(0.01, reach / (span || 1)));
+    const speed = space.valueAt(down);
+    knob.setAttribute('cx', space.x((arm.which ? arm.next.frame - infl * span : arm.key.frame + infl * span) + 0.5));
+    knob.setAttribute('cy', space.y(speed));
+    line.setAttribute('x2', knob.getAttribute('cx'));
+    line.setAttribute('y1', knob.getAttribute('cy'));
+    line.setAttribute('y2', knob.getAttribute('cy'));
+    return easeFromSpeed(arm, infl, speed);
+  }
+  const x = Math.min(1, Math.max(0, (pointer - arm.key.frame) / (span || 1)));
   const y = (space.valueAt(down) - arm.va) / arm.unit;
-  knob.setAttribute('cx', space.x(arm.key.frame + x * span));
+  knob.setAttribute('cx', space.x(arm.key.frame + x * span + 0.5));
   knob.setAttribute('cy', space.y(arm.va + y * arm.unit));
   line.setAttribute('x2', knob.getAttribute('cx'));
   line.setAttribute('y2', knob.getAttribute('cy'));
@@ -2903,24 +3161,36 @@ function pulledTo(what, clientX, clientY) {
 }
 
 function sendCurve(arm, x, y) {
-  const e = (arm.key.ease || [0.3333333333333333, 0, 0.6666666666666666, 1]).slice();
-  e[arm.which * 2] = Math.round(x * 1e6) / 1e6;
-  e[arm.which * 2 + 1] = Math.round(y * 1e6) / 1e6;
+  const e = easeOf(arm.key).slice();
+  e[arm.which * 2] = x;
+  e[arm.which * 2 + 1] = y;
   command('/keyframe.set_interp?layer=' + encodeURIComponent(selected().id)
     + '&prop=' + graphLayer().prop + '&frame=' + arm.key.frame
-    + '&mode=ease&curve=' + e.join(','));
+    + '&mode=ease&curve=' + e.map((n) => Math.round(n * 1e6) / 1e6).join(','));
 }
 
 function grabDown(e) {
+  if (e.button !== 0) return;
   const what = e.target.__arm;
-  if (!what || e.button !== 0) return;
   e.preventDefault();
   e.target.setPointerCapture(e.pointerId);
+  // Anywhere else on the graph puts the playhead there, as the ruler does on the sheet.
+  if (!what) {
+    pulling = { scrub: true };
+    const to = frameUnder(e.clientX);
+    if (to !== null) seek(to);
+    return;
+  }
   pulling = { what, x: null, y: null };
 }
 
 function grabMove(e) {
   if (!pulling) return;
+  if (pulling.scrub) {
+    const to = frameUnder(e.clientX);
+    if (to !== null && to !== wanted) seek(to);
+    return;
+  }
   const [x, y] = pulledTo(pulling.what, e.clientX, e.clientY);
   pulling.x = x;
   pulling.y = y;
@@ -2930,10 +3200,11 @@ function grabUp() {
   if (!pulling) return;
   const held = pulling;
   pulling = null;
-  if (held.x !== null) sendCurve(held.what.arm, held.x, held.y);
+  if (!held.scrub && held.x !== null) sendCurve(held.what.arm, held.x, held.y);
 }
 // The same pull, for a hand that is not on a pointing device. A twentieth of the segment a press,
-// which is fine enough to place a handle and coarse enough to get across the segment.
+// which is fine enough to place a handle and coarse enough to get across the segment; on the
+// speed graph up and down is a twentieth of the graph's height.
 function grabKeys(e) {
   const what = e.target.__arm;
   if (!what) return;
@@ -2941,8 +3212,45 @@ function grabKeys(e) {
   if (!by) return;
   e.preventDefault();
   const arm = what.arm;
-  const e0 = arm.key.ease || [0.3333333333333333, 0, 0.6666666666666666, 1];
+  if (speedGraph) {
+    const infl = Math.min(1, Math.max(0.01, arm.infl + (arm.which ? -by[0] : by[0])));
+    const step = (what.space.high - what.space.low) / 20;
+    sendCurve(arm, ...easeFromSpeed(arm, infl, arm.speed + Math.sign(by[1]) * step));
+    return;
+  }
+  const e0 = easeOf(arm.key);
   sendCurve(arm, Math.min(1, Math.max(0, e0[arm.which * 2] + by[0])), e0[arm.which * 2 + 1] + by[1]);
+}
+
+// After Effects' F9 family, on the keys under the playhead of every selected layer: F9 eases both
+// sides of a key, Shift+F9 the side it is reached from, Ctrl+Shift+F9 the side it leaves by. Each
+// side keeps the other half of its segment's curve, a hold is left a hold, and the first and last
+// keys have one side each. One press is one entry to undo, by the transaction `[` and `]` use.
+function easeKeys(sides) {
+  const sends = [];
+  for (const layer of movable()) {
+    for (const prop of PROPS) {
+      const keys = keysOf(layer, prop);
+      const i = keys.findIndex((k) => k.frame === frame);
+      if (i < 0) continue;
+      const ease = (key, at, pair) => {
+        if (!key || key.interp === 'hold') return;
+        const e = easeOf(key).slice();
+        e[at] = pair[0];
+        e[at + 1] = pair[1];
+        sends.push('/keyframe.set_interp?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
+          + '&frame=' + key.frame + '&mode=ease&curve='
+          + e.map((n) => Math.round(n * 1e6) / 1e6).join(',') + '&drag=1');
+      };
+      if (sides !== 'in') ease(keys[i + 1] && keys[i], 0, EASY.slice(0, 2));
+      if (sides !== 'out') ease(keys[i - 1], 2, EASY.slice(2));
+    }
+  }
+  if (!sends.length) return;
+  nudge = nudge.then(async () => {
+    for (const request of sends) await command(request);
+    await command('/property.drag_end');
+  });
 }
 
 function showSheet(which) {
@@ -2957,6 +3265,7 @@ function showSheet(which) {
 $('tabsheet').onclick = () => showSheet('sheet');
 $('tabgraph').onclick = () => showSheet('graph');
 $('graphprop').onchange = (e) => { graphProp = e.target.value; askForCurve(); };
+$('graphmode').onclick = () => { speedGraph = !speedGraph; drawGraph(); };
 // The plot is stretched to the panel's width, so a resize leaves the curve right and the round
 // handles as ovals. Drawing it again at the new width is the whole of the fix.
 addEventListener('resize', () => { if (graphing && plotted) drawGraph(); });
@@ -3264,8 +3573,13 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && e.key === '[') { e.preventDefault(); $('down').click(); }
   // Document 24: Ctrl+1 is `viewer.zoom_100` and Shift+/ is `viewer.fit`, both After Effects'.
   else if (e.ctrlKey && e.key === '1') { e.preventDefault(); zoomTo(1, ...stageCentre()); }
+  // After Effects' easing presets on the keys under the playhead: see `easeKeys`.
+  else if (e.key === 'F9') { e.preventDefault(); easeKeys(e.ctrlKey ? 'out' : e.shiftKey ? 'in' : 'both'); }
   else if (e.ctrlKey) { /* leave every other accelerator alone */ }
   else if (e.key === '?') { e.preventDefault(); $('fit').click(); }
+  // The timeline's zoom, After Effects' keys for it; the view is the page's, like the viewer's.
+  else if (e.key === '=') { e.preventDefault(); zoomAtPlayhead(1.5); }
+  else if (e.key === '-') { e.preventDefault(); zoomAtPlayhead(1 / 1.5); }
   else if (e.key === '[' || e.key === ']') { e.preventDefault(); toPlayhead(e.key === ']', e.altKey); }
   else if (e.key === 'F2') { e.preventDefault(); beginRename(); }
   // Document 24: "Deleting uses the focused context and must show the target clearly before
