@@ -115,6 +115,10 @@ pub enum Command {
         frame: i32,
         value: Value,
         interp: Interp,
+        /// D-53's path handles, `[in_x, in_y, out_x, out_y]`. Refused on anything but
+        /// `position`. A caller replacing a key it means to keep the path of passes the
+        /// existing key's handles, exactly as it passes the existing `interp`.
+        spatial: Option<[f64; 4]>,
     },
     RemoveKeyframe {
         composition: Id,
@@ -127,7 +131,8 @@ pub enum Command {
     ///
     /// One command rather than a remove followed by a set, because those are two history entries
     /// for one gesture and the second can succeed where the first did not. The key keeps its
-    /// value and its interpolation mode: this moves when it happens, not what it does.
+    /// value, its interpolation mode and its path handles: this moves when it happens, not
+    /// what it does.
     MoveKeyframe {
         composition: Id,
         layer_id: Id,
@@ -1064,9 +1069,22 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             frame,
             value,
             interp,
+            spatial,
             ..
         } => {
             let value = check_value(*prop, *value)?;
+            if spatial.is_some() && *prop != Prop::Position {
+                return Err(reject(
+                    &format!("{prop} cannot carry path handles."),
+                    "Document 19: the motion path belongs to position keyframes only.",
+                ));
+            }
+            if spatial.is_some_and(|s| !s.iter().all(|n| n.is_finite())) {
+                return Err(reject(
+                    "A path handle must be a finite offset.",
+                    "Document 19: spatial is four offsets in composition pixels.",
+                ));
+            }
             layer_mut(project, &comp_id, layer_id)?
                 .transform
                 .get_mut(*prop)
@@ -1074,6 +1092,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     frame: *frame,
                     value,
                     interp: *interp,
+                    spatial: *spatial,
                 });
         }
         Command::RemoveKeyframe {

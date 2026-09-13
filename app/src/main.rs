@@ -1827,6 +1827,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             frame,
                             value: property.value_at(frame),
                             interp: Interp::Linear,
+                            spatial: None,
                         },
                     }
                 }
@@ -1917,6 +1918,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         frame,
                         value: key.value,
                         interp,
+                        spatial: key.spatial,
                     }
                 }
                 // Typed into a field, or scrubbed on its label. The same command either way;
@@ -1975,6 +1977,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             interp: property
                                 .keyframe_at(frame)
                                 .map_or(Interp::Linear, |k| k.interp),
+                            spatial: property.keyframe_at(frame).and_then(|k| k.spatial),
                         }
                     }
                 }

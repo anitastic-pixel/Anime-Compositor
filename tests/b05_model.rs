@@ -391,6 +391,7 @@ fn b05_model_and_undo() {
             frame,
             value,
             interp,
+            spatial: None,
         })
         .expect("keyframe");
     }
@@ -449,6 +450,7 @@ fn b05_model_and_undo() {
                 frame: 12,
                 value: Value::Vec2(100.0, 0.0),
                 interp: Interp::Linear,
+                spatial: None,
             })
             .expect("replace");
             layer_named(&doc, "layer-2")
@@ -1064,6 +1066,7 @@ fn interpolation_mode_belongs_to_the_segment_that_starts_at_it() {
             frame,
             value: Value::Scalar(v),
             interp,
+            spatial: None,
         })
         .expect("key");
     }

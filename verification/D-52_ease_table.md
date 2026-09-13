@@ -55,6 +55,6 @@ A row that fails is not necessarily a broken solver. It is a disagreement betwee
 
 ## What this page does not show
 
-A motion path. An eased position travels the straight line between its two keys, faster and slower along it - FX-EASE-003's extra row is that claim checked, not assumed. A curve *through* the keys in space is the third decision D-52 named, and it is still open.
+A motion path. An eased position travels the straight line between its two keys, faster and slower along it - FX-EASE-003's extra row is that claim checked, not assumed. A curve *through* the keys in space is the third decision D-52 named; D-53 closed it, and `verification/D-53_path_table.md` is its page.
 
 It also shows nothing about the window. Whether an artist sets an ease by dragging a graph or by pressing one preset button is a separate unit; this page is about the numbers those controls would produce.

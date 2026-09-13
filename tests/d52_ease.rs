@@ -21,7 +21,7 @@
 //! A motion path. An eased position travels the straight line between its two keys, faster and
 //! slower along it, and FX-EASE-003 is the row that says so: both components of the pair are the
 //! same fraction of their own journey at every frame. A curve *through* the keys in space is the
-//! third decision D-52 named and is still open.
+//! third decision D-52 named; D-53 closed it, and `tests/d53_path.rs` checks it.
 
 use std::fmt::Write as _;
 use std::fs;
@@ -217,6 +217,7 @@ fn evaluated(case: &Case) -> Property {
             frame,
             value,
             interp,
+            spatial: None,
         })
         .expect("key");
     }
@@ -344,8 +345,8 @@ fn d52_eased_segments_match_the_reference_solver() {
          ## What this page does not show\n\n\
          A motion path. An eased position travels the straight line between its two keys, faster \
          and slower along it - FX-EASE-003's extra row is that claim checked, not assumed. A \
-         curve *through* the keys in space is the third decision D-52 named, and it is still \
-         open.\n\n\
+         curve *through* the keys in space is the third decision D-52 named; D-53 closed it, and \
+         `verification/D-53_path_table.md` is its page.\n\n\
          It also shows nothing about the window. Whether an artist sets an ease by dragging a \
          graph or by pressing one preset button is a separate unit; this page is about the \
          numbers those controls would produce.\n",
@@ -374,6 +375,7 @@ fn an_ease_round_trips_through_the_save_format() {
             frame,
             value,
             interp,
+            spatial: None,
         })
         .expect("key");
     }
@@ -480,6 +482,7 @@ fn saved_with_ease(ease: J) -> String {
             frame,
             value,
             interp,
+            spatial: None,
         })
         .expect("key");
     }

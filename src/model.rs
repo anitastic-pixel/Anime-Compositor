@@ -198,6 +198,19 @@ pub struct Keyframe {
     pub frame: i32,
     pub value: Value,
     pub interp: Interp,
+    /// D-53's motion path: the two handles either side of a `position` key, as offsets in
+    /// composition pixels from the key's own value, in document 19's order
+    /// `[in_x, in_y, out_x, out_y]`. `None` is the straight line. Only a position key carries
+    /// one; the command and the file reader refuse it anywhere else, so nothing here checks.
+    pub spatial: Option<[f64; 4]>,
+}
+
+/// Document 20's `B(t) = (1-t)^3 P0 + 3(1-t)^2 t P1 + 3(1-t) t^2 P2 + t^3 P3`, one component at
+/// a time. Expanded rather than by de Casteljau, which is what `tools/path_reference.py` does:
+/// an agreement between the two is two answers and not one answer twice.
+fn cubic(p0: f64, p1: f64, p2: f64, p3: f64, t: f64) -> f64 {
+    let s = 1.0 - t;
+    s * s * s * p0 + 3.0 * s * s * t * p1 + 3.0 * s * t * t * p2 + t * t * t * p3
 }
 
 /// A base value plus zero or more keyframes, sorted by frame and unique in frame.
@@ -270,7 +283,8 @@ impl Property {
     /// - exactly on a keyframe: that keyframe's value;
     /// - after the last: the last keyframe's value;
     /// - between two: hold returns the left value, linear interpolates, an ease interpolates at
-    ///   the fraction its curve gives (D-52).
+    ///   the fraction its curve gives (D-52), and a position segment with handles puts that
+    ///   fraction on its curve through space rather than on the straight line (D-53).
     pub fn value_at(&self, frame: i32) -> Value {
         let keys = &self.keyframes;
         let Some(first) = keys.first() else {
@@ -294,11 +308,27 @@ impl Property {
         // An ease changes *when* the value arrives and not which values it passes through, which
         // is why this is the linear line evaluated at a different fraction rather than a second
         // kind of interpolation. One curve drives both components of a pair: this is an ease in
-        // time. A curve through the keys in space is a different thing and D-52 left it open.
+        // time.
         let u = match a.interp {
             Interp::Ease { x1, y1, x2, y2 } => solve(x1, y1, x2, y2, u),
             _ => u,
         };
+        // D-53: a curve through the keys in space is the other thing, and it is consulted after
+        // the ease has said how far along the segment the layer is. A handle either end of the
+        // segment makes it a cubic; a missing one sits at the third, where the cubic is the
+        // straight line identically, so a segment with no handles at all never comes here and
+        // reads exactly as it did before D-53.
+        if let (Value::Vec2(x0, y0), Value::Vec2(x3, y3), Some(_)) =
+            (a.value, b.value, a.spatial.or(b.spatial))
+        {
+            let third = ((x3 - x0) / 3.0, (y3 - y0) / 3.0);
+            let (ox, oy) = a.spatial.map_or(third, |s| (s[2], s[3]));
+            let (ix, iy) = b.spatial.map_or((-third.0, -third.1), |s| (s[0], s[1]));
+            return Value::Vec2(
+                cubic(x0, x0 + ox, x3 + ix, x3, u),
+                cubic(y0, y0 + oy, y3 + iy, y3, u),
+            );
+        }
         a.value.lerp(b.value, u)
     }
 }

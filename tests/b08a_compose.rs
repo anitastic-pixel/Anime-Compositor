@@ -443,6 +443,7 @@ fn b08a_assembles_and_renders_a_frame_from_a_project() {
             frame: 0,
             value: Value::Scalar(0.0),
             interp: Interp::Linear,
+            spatial: None,
         },
         Command::SetKeyframe {
             composition: id(COMP),
@@ -451,6 +452,7 @@ fn b08a_assembles_and_renders_a_frame_from_a_project() {
             frame: 24,
             value: Value::Scalar(1.0),
             interp: Interp::Linear,
+            spatial: None,
         },
         Command::SetPropertyBase {
             composition: id(COMP),

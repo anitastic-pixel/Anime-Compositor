@@ -351,6 +351,13 @@ fn property_json(base: Option<&J>, property: &Property, factor: f64) -> J {
                     J::Array(vec![J::from(x1), J::from(y1), J::from(x2), J::from(y2)]),
                 );
             }
+            // D-53: the four handle offsets go with `spatial`, in this order, on position only.
+            if let Some(handles) = k.spatial {
+                m.insert(
+                    "spatial".into(),
+                    J::Array(handles.iter().map(|n| num(*n)).collect()),
+                );
+            }
             J::Object(m)
         })
         .collect();
@@ -791,7 +798,8 @@ fn parse_value(v: &J, pointer: &str, kind: &str, factor: f64) -> Result<Value, D
     }
 }
 
-fn parse_property(v: &J, pointer: &str, kind: &str, factor: f64) -> Result<Property, Diagnostic> {
+fn parse_property(v: &J, pointer: &str, prop: Prop, factor: f64) -> Result<Property, Diagnostic> {
+    let kind = prop.kind();
     as_object(v, pointer)?;
     let mut property = Property::constant(parse_value(
         field(v, pointer, "base")?,
@@ -830,10 +838,29 @@ fn parse_property(v: &J, pointer: &str, kind: &str, factor: f64) -> Result<Prope
             "ease" => parse_ease(field(key, &at, "ease")?, &format!("{at}/ease"))?,
             _ => Interp::Linear,
         };
+        // D-53: handles on anything but position are diagnosed, not dropped. Document 19 says
+        // the field appears only there, so a file carrying one elsewhere is a file that does
+        // not say a thing, and document 28's rule is that such a file is refused rather than
+        // quietly repaired.
+        let spatial = match key.get("spatial") {
+            None => None,
+            Some(handles) => {
+                let at = format!("{at}/spatial");
+                if prop != Prop::Position {
+                    return Err(invalid(
+                        &at,
+                        "no spatial: the motion path belongs to position keyframes and to no \
+                         other property",
+                    ));
+                }
+                Some(four_numbers(handles, &at, "in_x in_y out_x out_y")?)
+            }
+        };
         property.set_keyframe(Keyframe {
             frame,
             value,
             interp,
+            spatial,
         });
     }
     Ok(property)
@@ -847,17 +874,7 @@ fn parse_property(v: &J, pointer: &str, kind: &str, factor: f64) -> Result<Prope
 /// repaired. The two `y` are deliberately unbounded - a `y` past 0 or 1 is an overshoot, the curve
 /// going beyond its destination and coming back, and an animator means that one.
 fn parse_ease(v: &J, pointer: &str) -> Result<Interp, Diagnostic> {
-    let four = as_array(v, pointer)?;
-    if four.len() != 4 {
-        return Err(invalid(
-            pointer,
-            &format!("four numbers, x1 y1 x2 y2, and this one has {}", four.len()),
-        ));
-    }
-    let mut n = [0.0f64; 4];
-    for (i, slot) in n.iter_mut().enumerate() {
-        *slot = as_f64(&four[i], &format!("{pointer}/{i}"))?;
-    }
+    let n = four_numbers(v, pointer, "x1 y1 x2 y2")?;
     for i in [0, 2] {
         if !(0.0..=1.0).contains(&n[i]) {
             return Err(invalid(
@@ -872,6 +889,23 @@ fn parse_ease(v: &J, pointer: &str) -> Result<Interp, Diagnostic> {
         x2: n[2],
         y2: n[3],
     })
+}
+
+/// An array of exactly four finite numbers, which both `ease` and `spatial` are. `names` is how
+/// the diagnostic spells them when the count is wrong.
+fn four_numbers(v: &J, pointer: &str, names: &str) -> Result<[f64; 4], Diagnostic> {
+    let four = as_array(v, pointer)?;
+    if four.len() != 4 {
+        return Err(invalid(
+            pointer,
+            &format!("four numbers, {names}, and this one has {}", four.len()),
+        ));
+    }
+    let mut n = [0.0f64; 4];
+    for (i, slot) in n.iter_mut().enumerate() {
+        *slot = as_f64(&four[i], &format!("{pointer}/{i}"))?;
+    }
+    Ok(n)
 }
 
 fn parse_interpretation(v: &J, pointer: &str) -> Result<Interpretation, Diagnostic> {
@@ -975,7 +1009,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         *transform.get_mut(prop) = parse_property(
             field(transform_json, &transform_at, prop.as_str())?,
             &at,
-            prop.kind(),
+            prop,
             factor,
         )?;
     }
