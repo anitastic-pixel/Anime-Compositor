@@ -38,6 +38,18 @@ The four numbers are the two inner control points of a cubic Bezier, `[x1, y1, x
 
 A keyframe's `ease` describes the segment that begins at that keyframe, which is what document 20 already says about `interp`. It therefore has no effect on the last keyframe of a property, where there is no next keyframe and no segment; the field is preserved there rather than dropped, because an artist who moves a key back into the middle of a run expects the ease they set to still be on it.
 
+`spatial` was added on 2026-09-12 by D-53 and is the motion path. It is optional, it appears only on keyframes of `position`, and it is independent of `interp`: a segment may be held, linear or eased and curved or straight in any combination, because the two describe different things.
+
+```json
+{ "frame": 12, "value": [300, -40], "interp": "linear", "spatial": [-60, 0, 80, 25] }
+```
+
+The four numbers are the keyframe's two handles as offsets in composition pixels from the keyframe's own value, `[in_x, in_y, out_x, out_y]`, written in that order and in no other. The incoming handle belongs to the segment arriving at this keyframe and the outgoing handle to the segment leaving it, so one segment is drawn from the outgoing handle of the key it starts at and the incoming handle of the key it ends at. **None of the four is bounded**, unlike the `x` of an `ease`, and the difference is deliberate: a handle outside its own segment in *time* would give one frame two values, while a handle longer than its own segment in *space* makes the layer loop back on itself, which is a thing an animator means to do.
+
+**An absent `spatial` is the straight line**, and the handles that produce the straight line are at the thirds - `out` is one third of the way to the next key, `in` is one third of the way back to the previous one - exactly as `[1/3, 1/3, 2/3, 2/3]` is the `ease` that is exactly linear. Handles of `[0, 0, 0, 0]` are a different segment and not the default: they travel the same straight line at an easy-ease speed. A file written before D-53 therefore reads as what it already was, and every fixture predating it holds unchanged.
+
+A `spatial` on a property other than `position` is invalid and is diagnosed rather than dropped, exactly as an out-of-range `ease` is and under the same `PROJECT_SCHEMA_INVALID`; document 28 gains no new identifier, because this is a file that does not say a thing rather than a feature this build declines to draw. On the last keyframe of a property the outgoing handle has no segment and no effect, and on the first the incoming handle has none; both are preserved rather than dropped, for the reason given above about `ease`.
+
 Supported G1 property value types: scalar, vec2, color4 and boolean where appropriate. Color4 is linear RGBA in model/evaluation code; UI color pickers may present display-referred values but must convert explicitly.
 
 Before the first keyframe, evaluation returns the first keyframe value. After the last, it returns the last. With no keyframes, evaluation returns the base value. Exact time rules are in 20.

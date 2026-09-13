@@ -52,7 +52,7 @@ Evaluation rules:
 - linear segment: component-wise linear interpolation from left to right;
 - eased segment: component-wise linear interpolation from left to right, at a fraction the segment's curve gives rather than at `u` itself.
 
-For scalar/vector/color values, with `u=(f-f0)/(f1-f0)`, linear evaluation is `v0 + u*(v1-v0)`. Rotation in G1 interpolates the stored numeric degrees directly; automatic shortest-path wrapping is not performed. This makes authored values deterministic.
+For scalar/vector/color values, with `u=(f-f0)/(f1-f0)`, linear evaluation is `v0 + u*(v1-v0)`. Rotation in G1 interpolates the stored numeric degrees directly; automatic shortest-path wrapping is not performed. This makes authored values deterministic. The one exception is a `position` segment carrying spatial handles, where the fraction is the same but the point it names is on a curve rather than on the straight line; see the motion path below.
 
 ### Eased segments
 
@@ -65,6 +65,20 @@ That equation has no closed form worth writing and is solved. Any solver is perm
 Two cases are worth stating because they are the ones a reader can check by hand. With `x1 = 1/3` and `x2 = 2/3`, `x(t)` works out to exactly `t`, so the solve is free. Easy ease is that pair with `y1 = 0` and `y2 = 1`, and it therefore reduces to `e = 3u^2 - 2u^3`: the value is exactly half way at exactly half the segment, and the ends are approached at zero rate. And `[1/3, 1/3, 2/3, 2/3]` gives `e = u`, so the curve that looks linear *is* linear rather than nearly so.
 
 The ease belongs to the keyframe the segment starts at, like the mode itself. A keyframe's own value is returned exactly at its frame whatever its ease says, which follows from the rules above and is not a special case: the third rule fires before the sixth.
+
+### The motion path
+
+Added on 2026-09-12 by D-53, and it is the other half of D-52's picture: an ease changes *when* the layer is a given fraction of the way along a segment, and a path changes *where* that fraction is. They are independent and they compose in that order.
+
+The path applies to `position` and to nothing else. A segment from key A to key B is the cubic Bezier with control points `P0 = A.value`, `P1 = A.value + A.out`, `P2 = B.value + B.in`, `P3 = B.value`, where `out` and `in` are the second and first halves of document 19's `spatial` array, offsets in composition pixels from the key that carries them:
+
+`B(t) = (1-t)^3 P0 + 3(1-t)^2 t P1 + 3(1-t) t^2 P2 + t^3 P3`
+
+**`t` is the fraction of the way through the segment, after the ease**: it is `u` on a linear segment and `e` on an eased one, and it is *not* arc length along the curve. D-53 records why, and records the consequence: on a curved segment with uneven handles the layer's speed varies a little even under linear timing. A segment whose handles are absent takes them at the thirds - `P1 = P0 + (P3 - P0)/3` and `P2 = P3 - (P3 - P0)/3` - which reduces the cubic to `P0 + t(P3 - P0)` identically, so an unpathed segment is the straight line this section already specified and no rule above it changes. Handles of zero are not that: they give `P0 + (3t^2 - 2t^3)(P3 - P0)`, the straight line at an easy-ease speed, which is why absence is the thirds and not zero.
+
+Every rule in the list above still fires first. A keyframe's own value is returned exactly at its frame, a hold segment returns the left value and the path has no say in either, and a curve is only consulted between two keys.
+
+There is nothing to solve here: the cubic is evaluated directly at a `t` that is already known, which is the whole benefit of the parameterization D-53 chose. The reference is `tools/path_reference.py`, which evaluates it a second way - by de Casteljau, in another language, written from this section - and prints the expected values document 25 pins.
 
 Opacity is clamped to 0..1 at command validation. Scale may be negative to permit mirroring unless a later UX decision forbids it.
 
