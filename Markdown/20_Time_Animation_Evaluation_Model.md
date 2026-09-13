@@ -28,7 +28,7 @@ A layer is active on `[in_frame, out_frame)`. Its integer local frame is:
 
 `local_frame = composition_frame - in_frame + source_offset_frames`
 
-Frames outside the active interval produce transparent output and do not request media. Moving a layer changes `in_frame/out_frame`; trimming and changing source offset are distinct commands.
+Frames outside the active interval produce transparent output and do not request media. Moving a layer changes `in_frame/out_frame` and moves every keyframe on the layer by the same number of frames (owner decision, 2026-09-13); trimming and changing source offset are distinct commands.
 
 ## Exposure evaluation
 

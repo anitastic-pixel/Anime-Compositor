@@ -84,7 +84,8 @@ pub enum Command {
     /// offset are distinct commands." This is the move: the layer keeps its length and its
     /// source offset, so the same drawing sits under each frame of it as before, all of them
     /// shifted together. Document 24 named no ID for it and the core had no command, so until
-    /// this every layer began where it was added.
+    /// this every layer began where it was added. Its transform keyframes move by the same
+    /// number of frames (owner decision, 2026-09-13); a trim leaves them where they are.
     ShiftLayer {
         composition: Id,
         layer_id: Id,
@@ -1025,8 +1026,14 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             layer_id, in_frame, ..
         } => {
             let layer = layer_mut(project, &comp_id, layer_id)?;
-            layer.out_frame += in_frame - layer.in_frame;
+            let by = in_frame - layer.in_frame;
+            layer.out_frame += by;
             layer.in_frame = *in_frame;
+            // The owner's decision of 2026-09-13: the keys travel with the bar, as in After
+            // Effects. Every key moves by the same amount, so no two can land on one frame.
+            for prop in [Prop::Anchor, Prop::Position, Prop::Scale, Prop::Rotation, Prop::Opacity] {
+                layer.transform.get_mut(prop).shift_keyframes(by);
+            }
         }
         Command::TrimLayer {
             layer_id,

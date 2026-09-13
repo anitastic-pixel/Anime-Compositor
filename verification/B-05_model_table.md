@@ -1,6 +1,6 @@
 # B-05 model, commands and undo
 
-Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **75 of 75 checks pass.**
+Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **77 of 77 checks pass.**
 
 ## What to check by eye
 
@@ -75,9 +75,11 @@ The before file is 305 lines and the after file is 392 lines.
 | trim layer: an end pulled past the other end is refused and nothing moves | `COMMAND_INVALID_VALUE, 20 to 100, offset 10` | `COMMAND_INVALID_VALUE, 20 to 100, offset 10` | PASS |
 | drag of a layer along the timeline: one record, labelled where it ended | `16, Move layer to start at frame 25, 25 to 105, offset 10` | `16, Move layer to start at frame 25, 25 to 105, offset 10` | PASS |
 | undone three times: the layer is back where the file put it | `0 to 240, offset 0` | `0 to 240, offset 0` | PASS |
+| move layer: its keyframes move with it; trim: they stay | `keys at 15,40 after the move, 15,40 after the trim` | `keys at 15,40 after the move, 15,40 after the trim` | PASS |
+| undone: no keyframes and the layer where the file put it | `keys at , 0 to 240, offset 0` | `keys at , 0 to 240, offset 0` | PASS |
 | transaction: an invalid second command rejects the whole batch | `COMMAND_INVALID_VALUE` | `COMMAND_INVALID_VALUE` | PASS |
 | transaction rejected: the asset from the first command was not added either | `4` | `4` | PASS |
-| transaction rejected: revision unchanged | `33` | `33` | PASS |
+| transaction rejected: revision unchanged | `41` | `41` | PASS |
 | transaction: import plus create layer is one history record | `14` | `14` | PASS |
 | transaction: both parts landed | `5 assets, 5 layers` | `5 assets, 5 layers` | PASS |
 | transaction undone: both parts are gone in one step | `4 assets, 4 layers` | `4 assets, 4 layers` | PASS |

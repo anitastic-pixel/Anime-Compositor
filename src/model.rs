@@ -254,6 +254,14 @@ impl Property {
         }
     }
 
+    /// Every keyframe `by` frames later. The same amount for all keeps the order and the frames
+    /// unique, so the list stays valid without a sort.
+    pub(crate) fn shift_keyframes(&mut self, by: i32) {
+        for key in &mut self.keyframes {
+            key.frame += by;
+        }
+    }
+
     pub(crate) fn remove_keyframe(&mut self, frame: i32) -> Option<Keyframe> {
         let i = self
             .keyframes

@@ -689,6 +689,57 @@ fn b05_model_and_undo() {
         "0 to 240, offset 0",
         timing(&doc),
     );
+    // Owner decision, 2026-09-13: a layer's keyframes travel with it when it moves, as in After
+    // Effects, and stay put when an end is trimmed.
+    let key_frames = |doc: &Document| {
+        let frames: Vec<String> = layer_named(doc, "layer-3")
+            .transform
+            .position
+            .keyframes()
+            .iter()
+            .map(|k| k.frame.to_string())
+            .collect();
+        frames.join(",")
+    };
+    for frame in [5, 30] {
+        doc.apply(Command::SetKeyframe {
+            composition: id(COMP),
+            layer_id: id("layer-3"),
+            prop: Prop::Position,
+            frame,
+            value: Value::Vec2(0.0, 0.0),
+            interp: Interp::Linear,
+            spatial: None,
+        })
+        .expect("keyframe");
+    }
+    doc.apply(Command::ShiftLayer {
+        composition: id(COMP),
+        layer_id: id("layer-3"),
+        in_frame: 10,
+    })
+    .expect("shift");
+    let after_move = key_frames(&doc);
+    doc.apply(Command::TrimLayer {
+        composition: id(COMP),
+        layer_id: id("layer-3"),
+        in_frame: 20,
+        out_frame: 100,
+    })
+    .expect("trim");
+    report.check(
+        "move layer: its keyframes move with it; trim: they stay",
+        "keys at 15,40 after the move, 15,40 after the trim",
+        format!("keys at {after_move} after the move, {} after the trim", key_frames(&doc)),
+    );
+    for _ in 0..4 {
+        doc.undo();
+    }
+    report.check(
+        "undone: no keyframes and the layer where the file put it",
+        "keys at , 0 to 240, offset 0",
+        format!("keys at {}, {}", key_frames(&doc), timing(&doc)),
+    );
 
     // -- Document 26: import media plus create a layer is all-or-nothing --------------------------
     let revision_before_batch = doc.revision();

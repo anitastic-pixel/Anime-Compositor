@@ -28,7 +28,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.toggle_visibility | Toggle selected layer | none | yes |
 | layer.toggle_lock | Toggle selected layer lock | none | yes |
 | layer.set_matte | Choose, change or clear the layer that shapes this one | none | yes |
-| layer.shift | Move the selected layer along the timeline, keeping its length | [ or ] | yes |
+| layer.shift | Move the selected layer along the timeline, keeping its length, its keyframes moving with it | [ or ] | yes |
 | layer.trim | Trim the selected layer's in or out point | Alt+[ or Alt+] | yes |
 | timeline.previous_frame | Step one composition frame back | Left | no |
 | timeline.next_frame | Step one composition frame forward | Right | no |

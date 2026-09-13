@@ -287,7 +287,9 @@
      lands on the bar underneath and does what the bar does; on a property's row, W-11 below
      makes the same mark something to take hold of. */
   .track .key {
-    position: absolute; top: 1px; width: 7px; height: 7px; margin-left: -4px;
+    /* Above the bar: the marks are put in before the blocks, and without this the blocks
+       covered them, so a key on a layer's bar could only be seen with the layer moved off it. */
+    position: absolute; z-index: 1; top: 1px; width: 7px; height: 7px; margin-left: -4px;
     background: #e8b06a; transform: rotate(45deg); pointer-events: none;
   }
   /* The diamond beside a transform property: hollow where the property has no key on this
