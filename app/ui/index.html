@@ -218,7 +218,8 @@
   #graph svg { display: block; width: 100%; height: 170px; touch-action: none; }
   #graph .plot { fill: none; stroke: #6ea8fe; stroke-width: 1.5; }
   #graph .plot.second { stroke: #7bd88f; }
-  #graph .keydot { fill: #e8b06a; }
+  #graph .keydot { fill: #e8b06a; cursor: grab; }
+  #graph .keydot.selected { fill: #6ea8fe; }
   #graph .arm { stroke: #e8b06a; stroke-width: 1; stroke-dasharray: 3 2; }
   #graph .grab { fill: #141414; stroke: #e8b06a; stroke-width: 1.5; cursor: grab; }
   #graph .grab:focus-visible { outline: 2px solid #6ea8fe; }
@@ -256,10 +257,11 @@
      bar it stays inert, because a mark there stands for every property keyed on that frame and
      a move would have no one property to move. */
   #layers li.prop .track .key {
-    top: 3px; padding: 0; border: 0; appearance: none; pointer-events: auto;
+    top: 2px; padding: 0; border: 0; appearance: none; pointer-events: auto;
     cursor: grab; touch-action: none;
   }
-  #layers li.prop .track .key:focus { outline: 2px solid #6ea8fe; outline-offset: 2px; }
+  /* The shape clips an outline away, so the keyboard's key is lit instead. */
+  #layers li.prop .track .key:focus-visible { background: #ffffff; }
   #layers li.prop .track .key.moving { cursor: grabbing; background: #f6d3a6; }
   .track { position: relative; height: 26px; background: #171717; border-radius: 2px; }
   /* Every bar can be pulled, and the ends of the layer's own bar can be pulled apart. The
@@ -295,9 +297,26 @@
   .track .key {
     /* Above the bar: the marks are put in before the blocks, and without this the blocks
        covered them, so a key on a layer's bar could only be seen with the layer moved off it. */
-    position: absolute; z-index: 1; top: 1px; width: 7px; height: 7px; margin-left: -4px;
-    background: #e8b06a; transform: rotate(45deg); pointer-events: none;
+    position: absolute; z-index: 1; top: 0; width: 10px; height: 10px; margin-left: -5px;
+    background: #e8b06a; pointer-events: none;
+    /* After Effects' shapes, left half for how the key is reached and right half for how it is
+       left: a point where it is linear, the hourglass's waist where it is eased, a square where
+       it is held. `keyShape` writes the polygon. */
+    clip-path: polygon(50% 0, 0 50%, 50% 100%, 100% 50%);
   }
+  .track .key.selected { background: #6ea8fe; }
+  /* Scroll along a zoomed timeline: the bar is as long, relative to the row, as the whole
+     composition is to what is in view. */
+  #timescroll {
+    appearance: none; height: 10px; box-sizing: border-box; vertical-align: top;
+    width: calc(100% - 190px - 16px); margin: 0 8px 4px calc(190px + 8px);
+    background: #232323; border-radius: 3px;
+  }
+  #timescroll::-webkit-slider-thumb {
+    appearance: none; width: var(--thumb, 40px); height: 10px;
+    background: #5a5a60; border-radius: 3px; cursor: grab;
+  }
+  #timescroll:focus-visible { outline: 2px solid #6ea8fe; outline-offset: 2px; }
   /* The diamond beside a transform property: hollow where the property has no key on this
      frame, filled where it has, and yellow at all where it has keys anywhere. */
   #detail .key {
@@ -617,6 +636,9 @@
     <div id="playhead" hidden></div>
     <span class="hint" id="nolayers" hidden>This composition has no layers.</span>
   </div>
+  <input id="timescroll" type="range" min="0" max="1" step="any" value="0" hidden
+    aria-label="Slide along the zoomed timeline. The arrow keys move it too."
+    title="Slide along the zoomed timeline">
 </section>
 <div id="bar">
   <span id="status"></span>
@@ -998,7 +1020,7 @@ function ticksOf(comp) {
 function drawRuler() {
   const comp = composition();
   const ruler = $('ruler');
-  if (!comp) { ruler.replaceChildren(); return; }
+  if (!comp) { ruler.replaceChildren(); $('timescroll').hidden = true; return; }
   ruler.replaceChildren(...ticksOf(comp).map((at) => {
     const tick = document.createElement('span');
     tick.className = 'tick';
@@ -1010,7 +1032,21 @@ function drawRuler() {
   const range = Math.log(Math.max(1, whole / MIN_VIEW));
   $('timezoom').value = range ? Math.round(Math.log(whole / viewOf(comp).len) / range * 100) : 0;
   $('timezoom').disabled = whole <= MIN_VIEW;
+  // The scroll bar under the rows, only while zoomed: its thumb is the part in view.
+  const bar = $('timescroll');
+  bar.hidden = !timeView;
+  if (!timeView) return;
+  const v = viewOf(comp);
+  bar.max = whole - v.len;
+  bar.value = v.from - comp.start_frame;
+  bar.style.setProperty('--thumb', Math.max(16, bar.clientWidth * v.len / whole) + 'px');
 }
+$('timescroll').oninput = () => {
+  const comp = composition();
+  if (!comp || !timeView) return;
+  timeView = { from: comp.start_frame + Number($('timescroll').value), len: viewOf(comp).len };
+  redrawTime();
+};
 
 // Zooming in on time by `factor`, keeping the frame `at` where it is on screen, `across` of the
 // way along the row. A zoom all the way out is the whole composition again, not a view that
@@ -1099,6 +1135,44 @@ $('timezoom').oninput = () => {
 // The layer's own bar is the full height of the row and the exposure blocks sit in the lower
 // part of it, so that the strip along the top is always the layer itself: pressing there moves
 // the whole layer, pressing a block moves that exposure, and neither needs a modifier key.
+// Keys chosen by a click on the timeline or the graph, as "layer|prop|frame", for F9 to act on.
+// Page state like the zoom: the file has no idea what is selected.
+const pickedKeys = new Set();
+const keyId = (layer, prop, at) => layer.id + '|' + prop + '|' + at;
+
+// A click chooses one key, Shift or Ctrl with it adds or takes away one, and `null` clears.
+// The marks are lit in place rather than redrawn, so the click lands on the mark it began on.
+function pickKey(id, add) {
+  if (!add) pickedKeys.clear();
+  if (id && add && pickedKeys.has(id)) pickedKeys.delete(id);
+  else if (id) pickedKeys.add(id);
+  for (const mark of document.querySelectorAll('[data-key]')) {
+    mark.classList.toggle('selected', pickedKeys.has(mark.dataset.key));
+  }
+}
+
+// After Effects' key shapes: the left half is how the key is reached and the right half how it
+// is left - a point for linear, the hourglass's waist for an ease, square for a hold. A side of
+// an ease whose slope is exactly the straight one is linear, which is what F9 on one side leaves.
+const KEY_LEFT = {
+  linear: '50% 0, 0 50%, 50% 100%', ease: '50% 35%, 0 0, 0 100%, 50% 65%',
+  hold: '50% 0, 0 0, 0 100%, 50% 100%',
+};
+const KEY_RIGHT = {
+  linear: '50% 100%, 100% 50%, 50% 0', ease: '50% 65%, 100% 100%, 100% 0, 50% 35%',
+  hold: '50% 100%, 100% 100%, 100% 0, 50% 0',
+};
+function keyShape(keys, i) {
+  const before = keys[i - 1];
+  const key = keys[i];
+  const bent = (a, b) => Math.abs(a - b) > 1e-3;
+  const into = before && before.interp === 'ease' && bent(easeOf(before)[2], easeOf(before)[3])
+    ? 'ease' : 'linear';
+  const out = key.interp === 'hold' ? 'hold'
+    : key.interp === 'ease' && bent(easeOf(key)[0], easeOf(key)[1]) ? 'ease' : 'linear';
+  return 'polygon(' + KEY_LEFT[into] + ', ' + KEY_RIGHT[out] + ')';
+}
+
 function track(comp, layer, drawings) {
   const box = document.createElement('div');
   box.className = 'track';
@@ -1127,6 +1201,9 @@ function track(comp, layer, drawings) {
     mark.className = 'key';
     mark.style.left = percent(atFrame(comp, at + 0.5));
     mark.title = 'Keyframe at frame ' + at + ': ' + keyed.join(', ');
+    // The shape of the first property keyed here: the bar has room for one mark per frame.
+    const keys = keysOf(layer, keyed[0]);
+    mark.style.clipPath = keyShape(keys, keys.findIndex((k) => k.frame === at));
     box.append(mark);
   }
   bar('life', layer.in_frame, layer.out_frame).title = layer.name
@@ -1396,7 +1473,7 @@ function drawLayers() {
     head.append(...li.childNodes);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
-    li.onclick = (e) => select(layer.id, e.shiftKey);
+    li.onclick = (e) => { if (!e.shiftKey) pickKey(null, false); select(layer.id, e.shiftKey); };
     li.ondblclick = () => beginRename();
     return [li, ...PROPS.filter((prop) => open.has(prop)).map((prop) => propTrack(comp, layer, prop))];
   }));
@@ -1413,8 +1490,17 @@ function grabKey(comp, layer, prop, key, mark) {
   const where = (frame) => percent(atFrame(comp, frame + 0.5));
   const send = (to) => {
     if (to === null || to === key.frame) return;
+    // A chosen key stays chosen where it lands.
+    if (pickedKeys.delete(keyId(layer, prop, key.frame))) pickedKeys.add(keyId(layer, prop, to));
     command('/keyframe.move?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
       + '&from=' + key.frame + '&to=' + to);
+  };
+  // Enter or Space on a key chooses it, as a click does; a pointer's click was handled on release.
+  mark.onclick = (e) => {
+    e.stopPropagation();
+    if (e.detail !== 0) return;
+    pickKey(keyId(layer, prop, key.frame), e.shiftKey || e.ctrlKey);
+    seek(key.frame);
   };
   mark.onkeydown = (e) => {
     const by = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
@@ -1430,6 +1516,7 @@ function grabKey(comp, layer, prop, key, mark) {
     e.preventDefault();
     e.stopPropagation();
     let to = key.frame;
+    const add = e.shiftKey || e.ctrlKey;
     dragging = true;
     mark.classList.add('moving');
     mark.setPointerCapture(e.pointerId);
@@ -1441,9 +1528,9 @@ function grabKey(comp, layer, prop, key, mark) {
       mark.onpointerup = null;
       window.removeEventListener('keydown', escape, true);
       if (cancelled) mark.style.left = where(key.frame);
-      // A press that did not move is a click, and a click on a key puts the playhead on it, which
-      // is where the ease button and F9 act.
-      else if (to === key.frame) seek(key.frame);
+      // A press that did not move is a click: it chooses the key, for F9, and puts the playhead
+      // on it, where the inspector's ease button acts.
+      else if (to === key.frame) { pickKey(keyId(layer, prop, key.frame), add); seek(key.frame); }
       else send(to);
     };
     mark.onpointermove = (m) => {
@@ -1472,26 +1559,29 @@ function propTrack(comp, layer, prop) {
   const value = document.createElement('span');
   value.className = 'value';
   value.append(...propScrubs(layer, prop).flatMap((s, i) => (i ? [', ', s] : [s])));
-  head.append(keyButton(layer, prop), name, value);
+  head.append(keyButton(layer, prop), name, ...(prop === 'scale' ? [linkButton()] : []), value);
   li.append(head);
   const box = document.createElement('div');
   box.className = 'track';
   if (comp) {
-    for (const key of keysOf(layer, prop)) {
+    const keys = keysOf(layer, prop);
+    for (const [i, key] of keys.entries()) {
       if (!inView(comp, key.frame + 0.5)) continue;
       const mark = document.createElement('button');
       mark.type = 'button';
-      mark.className = 'key';
+      mark.dataset.key = keyId(layer, prop, key.frame);
+      mark.className = 'key' + (pickedKeys.has(mark.dataset.key) ? ' selected' : '');
+      mark.style.clipPath = keyShape(keys, i);
       mark.style.left = percent(atFrame(comp, key.frame + 0.5));
       mark.title = prop + ' at frame ' + key.frame + ': ' + [].concat(key.value).join(', ');
       mark.setAttribute('aria-label', prop + ' keyframe at frame ' + key.frame
-        + '. Drag it, or move it with the left and right arrow keys.');
+        + '. Press to choose it for F9, drag it, or move it with the left and right arrow keys.');
       grabKey(comp, layer, prop, key, mark);
       box.append(mark);
     }
   }
   li.append(box);
-  li.onclick = (e) => select(layer.id, e.shiftKey);
+  li.onclick = (e) => { if (!e.shiftKey) pickKey(null, false); select(layer.id, e.shiftKey); };
   return li;
 }
 
@@ -1873,9 +1963,23 @@ function scaleFrom(anchorAt) {
     const [layer, one] = start[0];
     const was = Math.hypot(from[0] - anchorAt[0], from[1] - anchorAt[1]);
     if (was < 1e-6) return;
-    const now = Math.hypot(at[0] - anchorAt[0], at[1] - anchorAt[1]);
-    const factor = now / was;
-    during(layer, 'scale', [one.scale[0] * factor, one.scale[1] * factor]);
+    // Linked (the default, or unlinked with Shift) the corner scales both ways by one factor.
+    if (scaleLinked !== m.shiftKey) {
+      const factor = Math.hypot(at[0] - anchorAt[0], at[1] - anchorAt[1]) / was;
+      during(layer, 'scale', [one.scale[0] * factor, one.scale[1] * factor]);
+      return;
+    }
+    // Apart: each of the layer's own axes by how far the pointer has gone along it, undoing the
+    // layer's turn first. An axis the press started on has nothing to measure and is kept.
+    const turn = -one.rotation[0] * Math.PI / 180;
+    const local = (p) => {
+      const dx = p[0] - anchorAt[0];
+      const dy = p[1] - anchorAt[1];
+      return [dx * Math.cos(turn) - dy * Math.sin(turn), dx * Math.sin(turn) + dy * Math.cos(turn)];
+    };
+    const [a, b] = [local(from), local(at)];
+    during(layer, 'scale', [0, 1].map((c) => (Math.abs(a[c]) < 1e-6 ? one.scale[c]
+      : one.scale[c] * b[c] / a[c])));
   };
 }
 
@@ -2465,6 +2569,20 @@ function easeButton(layer, prop) {
 //
 // Both gestures send the same command ID. Typing commits on its own; dragging sends
 // `property.drag_update` until the pointer is released and one history entry covers the lot.
+// Scale's two numbers move together unless this is off: the owner asked for it linked by default
+// on 2026-09-13. Page state, not the file's. The canvas's corners follow it, Shift for the other.
+let scaleLinked = true;
+
+function linkButton() {
+  const b = iconButton('\u{1F517}', (scaleLinked ? 'Unlink' : 'Link')
+    + ' the two scale numbers, so that they ' + (scaleLinked ? 'change apart' : 'keep their ratio'),
+  () => { scaleLinked = !scaleLinked; drawPanels(); });
+  b.className = 'key link';
+  b.style.opacity = scaleLinked ? 1 : 0.35;
+  b.setAttribute('aria-pressed', String(scaleLinked));
+  return b;
+}
+
 function propScrubs(layer, prop) {
   const per = prop === 'opacity' ? 100 : 1;
   const held = transformValue(layer, prop).map((v) => v * per);
@@ -2474,7 +2592,15 @@ function propScrubs(layer, prop) {
     + '&prop=' + prop + '&value='
     + encodeURIComponent(values.map((v) => number(v / per)).join(',')) + '&frame=' + frame);
   return held.map((v, i) => {
-    const with_ = (x) => { const next = held.slice(); next[i] = x; return next; };
+    const with_ = (x) => {
+      const next = held.slice();
+      next[i] = x;
+      // Linked, the other scale number keeps its ratio to this one, as After Effects' chain does.
+      if (prop === 'scale' && scaleLinked && held.length === 2) {
+        next[1 - i] = held[i] ? held[1 - i] * x / held[i] : x;
+      }
+      return next;
+    };
     return scrubValue({
       value: v,
       suffix: SUFFIX[prop] || '',
@@ -2494,7 +2620,7 @@ function propRow(into, layer, prop) {
   const dt = document.createElement('dt');
   const ease = easeButton(layer, prop);
   dt.append(keyButton(layer, prop), ...(ease ? [ease] : []), ' ',
-    prop[0].toUpperCase() + prop.slice(1));
+    prop[0].toUpperCase() + prop.slice(1), ...(prop === 'scale' ? [' ', linkButton()] : []));
   const dd = document.createElement('dd');
   dd.className = 'numbers';
   dd.append(...propScrubs(layer, prop));
@@ -3085,10 +3211,13 @@ function drawGraph() {
   if (!speedGraph) {
     for (const key of keys) {
       if (key.frame < plotted.from || key.frame > plotted.to) continue;
+      const id = keyId(pick.layer, pick.prop, key.frame);
       for (let c = 0; c < parts; c += 1) {
+        // Chosen and taken hold of like the marks on the sheet: the same selection, for F9.
         el('circle', {
-          class: 'keydot', cx: space.x(key.frame + 0.5), cy: space.y(part(key.frame, c)), r: 3,
-        }, plot);
+          class: 'keydot' + (pickedKeys.has(id) ? ' selected' : ''), 'data-key': id,
+          cx: space.x(key.frame + 0.5), cy: space.y(part(key.frame, c)), r: 4,
+        }, plot).__key = { key, space };
       }
     }
   }
@@ -3174,6 +3303,15 @@ function grabDown(e) {
   const what = e.target.__arm;
   e.preventDefault();
   e.target.setPointerCapture(e.pointerId);
+  // A key's dot: chosen on press, moved along time while held, sent as one move on release.
+  const dot = e.target.__key;
+  if (dot) {
+    const id = e.target.dataset.key;
+    const add = e.shiftKey || e.ctrlKey;
+    if (add || !pickedKeys.has(id)) pickKey(id, add);
+    pulling = { dot, id, to: dot.key.frame };
+    return;
+  }
   // Anywhere else on the graph puts the playhead there, as the ruler does on the sheet.
   if (!what) {
     pulling = { scrub: true };
@@ -3191,6 +3329,15 @@ function grabMove(e) {
     if (to !== null && to !== wanted) seek(to);
     return;
   }
+  if (pulling.dot) {
+    const to = frameUnder(e.clientX);
+    if (to === null || to === pulling.to || selected().locked) return;
+    pulling.to = to;
+    for (const node of $('graph').querySelectorAll('.keydot')) {
+      if (node.dataset.key === pulling.id) node.setAttribute('cx', pulling.dot.space.x(to + 0.5));
+    }
+    return;
+  }
   const [x, y] = pulledTo(pulling.what, e.clientX, e.clientY);
   pulling.x = x;
   pulling.y = y;
@@ -3200,6 +3347,16 @@ function grabUp() {
   if (!pulling) return;
   const held = pulling;
   pulling = null;
+  if (held.dot) {
+    const from = held.dot.key.frame;
+    if (held.to === from) { seek(from); return; }
+    const layer = selected();
+    const prop = graphLayer().prop;
+    if (pickedKeys.delete(held.id)) pickedKeys.add(keyId(layer, prop, held.to));
+    command('/keyframe.move?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
+      + '&from=' + from + '&to=' + held.to);
+    return;
+  }
   if (!held.scrub && held.x !== null) sendCurve(held.what.arm, held.x, held.y);
 }
 // The same pull, for a hand that is not on a pointing device. A twentieth of the segment a press,
@@ -3227,25 +3384,36 @@ function grabKeys(e) {
 // side keeps the other half of its segment's curve, a hold is left a hold, and the first and last
 // keys have one side each. One press is one entry to undo, by the transaction `[` and `]` use.
 function easeKeys(sides) {
-  const sends = [];
-  for (const layer of movable()) {
-    for (const prop of PROPS) {
-      const keys = keysOf(layer, prop);
-      const i = keys.findIndex((k) => k.frame === frame);
-      if (i < 0) continue;
-      const ease = (key, at, pair) => {
-        if (!key || key.interp === 'hold') return;
-        const e = easeOf(key).slice();
-        e[at] = pair[0];
-        e[at + 1] = pair[1];
-        sends.push('/keyframe.set_interp?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
-          + '&frame=' + key.frame + '&mode=ease&curve='
-          + e.map((n) => Math.round(n * 1e6) / 1e6).join(',') + '&drag=1');
-      };
-      if (sides !== 'in') ease(keys[i + 1] && keys[i], 0, EASY.slice(0, 2));
-      if (sides !== 'out') ease(keys[i - 1], 2, EASY.slice(2));
-    }
+  // The keys chosen on the timeline or the graph when there are any; otherwise, as before, every
+  // key under the playhead on the selected layers.
+  const targets = pickedKeys.size
+    ? [...pickedKeys].map((id) => {
+      const parts = id.split('|');
+      const at = Number(parts.pop());
+      const prop = parts.pop();
+      return [layers().find((l) => l.id === parts.join('|')), prop, at];
+    })
+    : movable().flatMap((layer) => PROPS.map((prop) => [layer, prop, frame]));
+  // One curve per segment however many chosen keys touch it: two neighbours both eased would
+  // otherwise send the segment between them twice, the second without the first's half.
+  const curves = new Map();
+  for (const [layer, prop, at] of targets) {
+    if (!layer || layer.locked) continue;
+    const keys = keysOf(layer, prop);
+    const i = keys.findIndex((k) => k.frame === at);
+    if (i < 0) continue;
+    const ease = (key, side, pair) => {
+      if (!key || key.interp === 'hold') return;
+      const id = keyId(layer, prop, key.frame);
+      if (!curves.has(id)) curves.set(id, { layer, prop, key, e: easeOf(key).slice() });
+      curves.get(id).e.splice(side, 2, ...pair);
+    };
+    if (sides !== 'in') ease(keys[i + 1] && keys[i], 0, EASY.slice(0, 2));
+    if (sides !== 'out') ease(keys[i - 1], 2, EASY.slice(2));
   }
+  const sends = [...curves.values()].map(({ layer, prop, key, e }) => '/keyframe.set_interp?layer='
+    + encodeURIComponent(layer.id) + '&prop=' + prop + '&frame=' + key.frame + '&mode=ease&curve='
+    + e.map((n) => Math.round(n * 1e6) / 1e6).join(',') + '&drag=1');
   if (!sends.length) return;
   nudge = nudge.then(async () => {
     for (const request of sends) await command(request);

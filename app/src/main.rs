@@ -9655,7 +9655,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 37] = [
+    const CONTROLS: [&str; 38] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -9688,6 +9688,7 @@ mod contract {
         "saveas",
         "tabgraph",
         "tabsheet",
+        "timescroll",
         "timezoom",
         "toggle",
         "undo",
