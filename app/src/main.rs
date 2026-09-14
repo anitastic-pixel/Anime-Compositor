@@ -1686,11 +1686,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // hold a `|` and a layer id might. The keys furthest along the way they travel go first,
         // so no key is put down on a frame a neighbour moving with it has not left yet; a key
         // landing on one that is not moving is refused by the core, and then none of them move.
-        "keyframe.move" if !parameters(query, "key").is_empty() => {
-            let by = match frame_parameter(query, "by") {
-                Ok(by) => by,
-                Err(said) => return Some(said),
-            };
+        "keyframe.move" | "keyframe.add_remove" if !parameters(query, "key").is_empty() => {
             let mut keys = Vec::new();
             for named in parameters(query, "key") {
                 let mut parts = named.rsplitn(3, '|');
@@ -1703,9 +1699,31 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 };
                 keys.push((Id::new(layer), prop, at));
             }
-            keys.sort_by_key(|&(_, _, at)| if by > 0 { -at } else { at });
             let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
             let composition = held.composition.clone();
+            // W-19: the chosen keys named are removed, as one entry to undo. Only removed: a key
+            // somebody chose is a key that is there, and one that has gone since is refused by
+            // the core rather than put back.
+            if id == "keyframe.add_remove" {
+                let commands = keys
+                    .into_iter()
+                    .map(|(layer_id, prop, frame)| Command::RemoveKeyframe {
+                        composition: composition.clone(),
+                        layer_id,
+                        prop,
+                        frame,
+                    })
+                    .collect();
+                return Some(match held.document.apply_all(commands) {
+                    Ok(record) => record.label.clone(),
+                    Err(diagnostic) => sentence(&diagnostic),
+                });
+            }
+            let by = match frame_parameter(query, "by") {
+                Ok(by) => by,
+                Err(said) => return Some(said),
+            };
+            keys.sort_by_key(|&(_, _, at)| if by > 0 { -at } else { at });
             let commands = keys
                 .into_iter()
                 .map(|(layer_id, prop, from_frame)| Command::MoveKeyframe {
@@ -4312,6 +4330,37 @@ mod editing {
             "[300,-40]@12 linear",
             keys(&viewer, l, "position"),
         );
+        // W-19: Delete with keys chosen removes those keys, all of them as one entry to undo.
+        run(
+            &viewer,
+            "keyframe.add_remove?layer=layer-cel&prop=position&frame=20",
+        );
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "two chosen keys deleted together say so",
+            "Remove position keyframe at frame 12 and 1 more",
+            run(
+                &viewer,
+                "keyframe.add_remove?key=layer-cel|position|12&key=layer-cel|position|20",
+            ),
+        );
+        report.check(
+            "neither key is left",
+            "",
+            keys(&viewer, l, "position"),
+        );
+        report.check(
+            "one history entry for the two",
+            1,
+            held(&viewer).document.undo_depth() - depth,
+        );
+        undo(&viewer);
+        report.check(
+            "one undo puts both back",
+            "[300,-40]@12 linear, [300,-40]@20 linear",
+            keys(&viewer, l, "position"),
+        );
+        undo(&viewer);
 
         // ---- easing a segment (D-52) --------------------------------------------------------
         // The preset beside the diamond. Document 20 says a keyframe's mode belongs to the
@@ -9775,7 +9824,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 26] = [
+    const KEYS: [&str; 28] = [
         "-",
         "1",
         "=",
@@ -9789,6 +9838,8 @@ mod contract {
         "F9",
         "G",
         "I",
+        "J",
+        "K",
         "L",
         "M",
         "N",

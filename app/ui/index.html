@@ -1168,6 +1168,25 @@ function moveKeys(ids, by) {
   }
 }
 
+// W-19: the chosen keys removed, as one request so they are one entry to undo. Keys on a locked
+// layer stay.
+function removeKeys() {
+  const going = [...pickedKeys].filter((id) => { const [layer] = keyParts(id); return layer && !layer.locked; });
+  pickedKeys.clear();
+  if (going.length) command('/keyframe.add_remove?' + going.map((id) => 'key=' + encodeURIComponent(id)).join('&'));
+}
+
+// W-19: After Effects' J and K, the playhead to the key before or after it, on the selected
+// layers or on every layer when none is selected.
+function toKey(later) {
+  const from = movable().length ? movable() : layers();
+  const frames = from.flatMap((layer) => PROPS.flatMap((prop) => keysOf(layer, prop).map((k) => k.frame)));
+  const next = later
+    ? Math.min(...frames.filter((f) => f > frame))
+    : Math.max(...frames.filter((f) => f < frame));
+  if (Number.isFinite(next)) seek(next);
+}
+
 // A click chooses one key, Shift or Ctrl with it adds or takes away one, and `null` clears.
 // The marks are lit in place rather than redrawn, so the click lands on the mark it began on.
 function pickKey(id, add) {
@@ -3874,7 +3893,8 @@ addEventListener('keydown', (e) => {
   // Document 24: "Deleting uses the focused context and must show the target clearly before
   // destructive commands." The target is the row that is visibly selected, and the button that
   // does the same thing names it too.
-  else if (e.key === 'Delete') { e.preventDefault(); $('dellayer').click(); }
+  // W-19: with keys chosen, as in After Effects, Delete removes those keys and not their layer.
+  else if (e.key === 'Delete') { e.preventDefault(); if (pickedKeys.size) removeKeys(); else $('dellayer').click(); }
   else if (e.key === ' ') { e.preventDefault(); $('play').click(); }
   else if (e.key === 'ArrowLeft') step(-1);
   else if (e.key === 'ArrowRight') step(1);
@@ -3885,6 +3905,8 @@ addEventListener('keydown', (e) => {
   // promised alpha-only a key, so Alt+A is the window's own choice, like A was.
   else if (e.altKey && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); $('alpha').click(); }
   else if (e.key === 'g' || e.key === 'G') $('checker').click();
+  else if (e.key === 'j' || e.key === 'J') toKey(false);
+  else if (e.key === 'k' || e.key === 'K') toKey(true);
   // W-12: After Effects' property keys. Each opens one property under the selected layers on
   // the timeline, Shift with it adds to what is open, U opens whatever is animated.
   else if (e.key === 'a' || e.key === 'A') showProps(['anchor'], e.shiftKey);

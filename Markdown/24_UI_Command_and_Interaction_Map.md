@@ -90,6 +90,8 @@ After playing with those, the owner asked the same day to "slide all selected ac
 
 Then the owner asked to "input/change the current frame", for the Shift and Ctrl paces on the graph's handles, and to "compress" the undo button and the sentences along the bottom. The frame beside Play is now a number like the others: dragged it scrubs, pressed it takes a typed frame, and the arrow keys step it; it goes to a frame, so it has no row. Ctrl while pulling a graph handle moves it a tenth as far as the pointer. Shift turns a value graph handle in 15 degree steps, flat among them, keeping its length; on the speed graph, where a handle is always flat, Shift puts influence on 5% steps. The undo and redo buttons and the status line show long decimals to hundredths, in smaller type, with a long label cut short and whole in the button's tooltip; the history itself keeps the exact numbers.
 
+W-19, the next of After Effects' key habits. With keys chosen on the timeline or the graph, Delete removes those keys, all of them as one entry to undo, and leaves the layer; with none chosen it deletes the selected layer as before. `keyframe.add_remove` takes the chosen keys as repeated `key=layer|property|frame` for this, the way `keyframe.move` does. J and K put the playhead on the key before or after it, on the selected layers, or on every layer when none is selected.
+
 ## Focus and selection
 
 One primary selection context exists at a time: media, layer, property/keyframe or effect. Viewer selection and timeline selection must resolve to the same layer ID. Deleting uses the focused context and must show the target clearly before destructive commands.
