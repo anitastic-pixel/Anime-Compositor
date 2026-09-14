@@ -1221,7 +1221,7 @@ function pasteKeys() {
   });
 }
 
-// W-20: After Effects' Ctrl+Alt+H. The chosen keys hold; if every one of them holds already, they
+// W-20: After Effects' Ctrl+Alt+H, moved to Ctrl+Alt+G at the owner's word. The chosen keys hold; if every one of them holds already, they
 // go back to linear. ponytail: an ease a hold replaced is not remembered.
 function holdKeys() {
   const keys = [...pickedKeys].map(keyParts).flatMap(([layer, prop, at]) => {
@@ -3997,7 +3997,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'F9') { e.preventDefault(); easeKeys(e.ctrlKey ? 'out' : e.shiftKey ? 'in' : 'both'); }
   // W-20: After Effects' keys for keys and layers. Copy and paste stay out of a field being typed
   // in, where Ctrl+C and Ctrl+V mean the text.
-  else if (e.ctrlKey && e.altKey && (e.key === 'h' || e.key === 'H')) { e.preventDefault(); holdKeys(); }
+  else if (e.ctrlKey && e.altKey && e.code === 'KeyG') { e.preventDefault(); holdKeys(); }
   else if (e.ctrlKey && !typing && pickedKeys.size && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); }
   else if (e.ctrlKey && !typing && copied.length && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
   else if (e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); nextLayer(e.key === 'ArrowUp'); }

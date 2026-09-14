@@ -16,7 +16,7 @@ Open `verification/W-16_key_shapes_project.json`, click layer4, press `P`:
 6. **Box select.** Press on an empty part of the position row, away from any key, and drag across two or three keys: a blue box follows and the keys inside it light up. Drag again with Shift held to add more. A click on the row without dragging still clears the chosen keys.
 7. **The property's name.** Click the word "Position" on the timeline row: every position key lights up.
 8. **Copy and paste.** Choose the keys at 40 and 80 and press Ctrl+C. The status line says "2 keys copied". Move the playhead to frame 150 and press Ctrl+V: keys appear at 150 and 190 with the same values and the same key shapes. One Ctrl+Z removes both.
-9. **Hold.** Choose a key and press Ctrl+Alt+H: its shape turns square and the motion after it jumps instead of gliding. Press it again: it goes back to linear. If the key was eased, that ease is not brought back.
+9. **Hold.** Choose a key and press Ctrl+Alt+G (After Effects uses Ctrl+Alt+H; moved to G on 2026-09-14 at the owner's request, "change ... to a different command like crl alt g"): its shape turns square and the motion after it jumps instead of gliding. Press it again: it goes back to linear. If the key was eased, that ease is not brought back.
 10. **Graph tooltips.** On the Graph tab, hover a key dot: it says the property, the frame and the value.
 
 ## What checks it by machine

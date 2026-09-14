@@ -9824,7 +9824,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 37] = [
+    const KEYS: [&str; 36] = [
         "-",
         "1",
         "=",
@@ -9841,7 +9841,6 @@ mod contract {
         "F2",
         "F9",
         "G",
-        "H",
         "Home",
         "I",
         "J",
