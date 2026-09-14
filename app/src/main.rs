@@ -8693,6 +8693,11 @@ mod contract {
             "Alt+[ or Alt+]",
             "e.key === '[' || e.key === ']'",
         ),
+        (
+            "layer.move",
+            "Ctrl+Shift+] or Ctrl+Shift+[",
+            "e.code === 'BracketRight' || e.code === 'BracketLeft'",
+        ),
         ("layer.duplicate", "Ctrl+D", "e.code === 'KeyD'"),
         ("layer.split", "Ctrl+Shift+D", "e.shiftKey ? splitLayers()"),
         ("timeline.previous_frame", "Left", "e.key === 'ArrowLeft'"),
@@ -10012,8 +10017,10 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 37] = [
+    const KEYS: [&str; 41] = [
+        ",",
         "-",
+        ".",
         "1",
         "=",
         "?",
@@ -10026,6 +10033,8 @@ mod contract {
         "D",
         "Delete",
         "End",
+        "Enter",
+        "Escape",
         "F2",
         "F3",
         "F9",
@@ -10066,12 +10075,12 @@ mod contract {
     /// `effect.move_down` to the same end a step at a time, which is the pairing the rows
     /// below are for.
     ///
-    /// `layer.move` joined it in W-22, the same drop for a layer's row, paired with
-    /// `layer.move_up` and `layer.move_down` on Ctrl+] and Ctrl+[.
-    const MOUSE_ONLY: [&str; 2] = ["effect.move", "layer.move"];
+    /// `layer.move` joined it in W-22, the same drop for a layer's row, and left again in W-23
+    /// when Ctrl+Shift+] and Ctrl+Shift+[ sent it to take a layer to the very front or back.
+    const MOUSE_ONLY: [&str; 1] = ["effect.move"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 18] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 22] = [
         (
             "dragging the border between two panels",
             "give one of them more of the window",
@@ -10161,6 +10170,26 @@ mod contract {
             "dragging a drawing from the media bin onto the layer list",
             "make a layer out of it at that place",
             "$('addlayer').click();",
+        ),
+        (
+            "right clicking a layer",
+            "open its menu",
+            "else if (e.key === 'F2') { e.preventDefault(); beginRename(); }",
+        ),
+        (
+            "dragging a layer on the picture with Shift held",
+            "move it along one line",
+            "const by = { ArrowLeft: [-1, 0], ArrowRight: [1, 0],",
+        ),
+        (
+            "dragging the picture with the middle button",
+            "look at another part of a zoomed picture",
+            "e.key === '?'",
+        ),
+        (
+            "Alt-clicking a property's diamond",
+            "remove every key of the property",
+            "if (pickedKeys.size) removeKeys()",
         ),
     ];
 

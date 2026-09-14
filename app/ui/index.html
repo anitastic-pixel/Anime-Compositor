@@ -243,6 +243,19 @@
   #layers li.lifted { opacity: 0.6; }
   #layers li.dropabove { box-shadow: inset 0 2px 0 #6ea8fe; }
   #layers li.dropbelow { box-shadow: inset 0 -2px 0 #6ea8fe; }
+  /* W-23: the layer's number, and the menu a right click on its row opens. */
+  .rownum { min-width: 1.4em; text-align: right; color: #909096; font-size: 11px; }
+  .menu {
+    position: fixed; z-index: 20; display: flex; flex-direction: column; min-width: 14em;
+    padding: 4px; border: 1px solid #3a3a40; border-radius: 4px; background: #1c1c20;
+    box-shadow: 0 4px 16px #000c;
+  }
+  .menu button {
+    display: flex; justify-content: space-between; gap: 16px; padding: 4px 8px; text-align: left;
+    border: 0; border-radius: 3px; background: none; color: inherit; font: inherit; cursor: default;
+  }
+  .menu button:hover, .menu button:focus { background: #2f4f7f; outline: none; }
+  .menu kbd { color: #909096; font: inherit; font-size: 11px; }
   /* W-12: the arrow beside a layer's name, and the property rows it opens under the layer, as
      After Effects twirls a layer open. A property row is indented under its layer and its bar
      carries nothing but that property's keys, so a key can be told from a key on the line
@@ -660,7 +673,7 @@
   <span id="report"></span>
   <span id="exported"></span>
   <ul id="notes"></ul>
-  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A &middot; Alt+Shift+P sets a key &middot; Shift+F3 graph &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
+  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -1665,9 +1678,17 @@ function drawLayers() {
     const head = document.createElement('div');
     head.className = 'rowhead';
     head.append(...li.childNodes);
+    // W-23: the layer's number, the front one first, as After Effects numbers them.
+    head.prepend(Object.assign(document.createElement('span'),
+      { className: 'rownum', textContent: all.length - all.indexOf(layer) }));
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     grabRow(li, head, all, layer);
+    li.oncontextmenu = (e) => {
+      e.preventDefault();
+      if (!selection.includes(layer.id)) select(layer.id, false);
+      layerMenu(e.clientX, e.clientY);
+    };
     // W-22: as After Effects' layer list has it, Ctrl-click adds or takes away one layer and
     // Shift-click takes every layer between the one selected and the one clicked.
     li.onclick = (e) => {
@@ -1788,6 +1809,64 @@ function keyAtPlayhead(prop) {
     await command('/property.drag_end');
   });
   showProps([prop], true);
+}
+
+// W-23: Ctrl+Shift+] and Ctrl+Shift+[, the selected layer to the very front or the very back.
+function toEnd(front) {
+  const layer = selected();
+  if (!layer) return;
+  command('/layer.move?layer=' + encodeURIComponent(layer.id) + '&to=' + (front ? layers().length - 1 : 0));
+}
+
+// W-23: Alt with Page Up or Page Down, the selected layers a frame earlier or later in time
+// (ten with Shift), as After Effects has it; one press is one entry to undo.
+function shiftLayers(by) {
+  const taken = movable();
+  if (!taken.length) return;
+  nudge = nudge.then(async () => {
+    for (const layer of taken) {
+      await command('/layer.shift?layer=' + encodeURIComponent(layer.id) + '&drag=1&in=' + (layer.in_frame + by));
+    }
+    await command('/property.drag_end');
+  });
+}
+
+// W-23: the menu a right click on a layer's row opens, as After Effects' has one. Every line on
+// it is a key the window already answers, and the key is written beside it.
+function layerMenu(x, y) {
+  const menu = document.createElement('div');
+  menu.className = 'menu';
+  menu.setAttribute('role', 'menu');
+  const close = () => {
+    menu.remove();
+    removeEventListener('pointerdown', away, true);
+    removeEventListener('keydown', escape, true);
+  };
+  const away = (e) => { if (!menu.contains(e.target)) close(); };
+  const escape = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const lines = [
+    ['Rename', 'F2', beginRename],
+    ['Duplicate', 'Ctrl+D', duplicateLayers],
+    ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
+    ['Bring to front', 'Ctrl+Shift+]', () => toEnd(true)],
+    ['Send to back', 'Ctrl+Shift+[', () => toEnd(false)],
+    ['Delete', 'Delete', () => $('dellayer').click()],
+  ];
+  for (const [label, key, act] of lines) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.setAttribute('role', 'menuitem');
+    item.append(label, Object.assign(document.createElement('kbd'), { textContent: key }));
+    item.onclick = () => { close(); act(); };
+    menu.append(item);
+  }
+  document.body.append(menu);
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, innerWidth - r.width - 4) + 'px';
+  menu.style.top = Math.min(y, innerHeight - r.height - 4) + 'px';
+  addEventListener('pointerdown', away, true);
+  addEventListener('keydown', escape, true);
+  menu.firstChild.focus();
 }
 
 // W-11: a key taken hold of and put down on another frame. The mark follows the pointer here
@@ -2271,11 +2350,11 @@ function movable() {
 // starts from its own position and every one of them is moved by the same amount.
 const moveLayer = (start, from, at, m, during) => {
   const per = perFramePixel();
+  // W-23: Shift holds the move to one line, whichever the pointer has gone further along.
+  let [dx, dy] = [at[0] - from[0], at[1] - from[1]];
+  if (m.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }
   for (const [layer, was] of start) {
-    during(layer, 'position', [
-      was.position[0] + (at[0] - from[0]) * per,
-      was.position[1] + (at[1] - from[1]) * per,
-    ]);
+    during(layer, 'position', [was.position[0] + dx * per, was.position[1] + dy * per]);
   }
 };
 
@@ -2386,6 +2465,15 @@ stage.onpointerdown = (e) => {
     stage.onpointerup = () => stop(false);
     window.addEventListener('keydown', escape, true);
   };
+  // W-23: the middle button drags a picture bigger than the stage about, as a hand tool does.
+  if (e.button === 1 && doc) {
+    e.preventDefault();
+    const [x0, y0, sx, sy] = [e.clientX, e.clientY, stage.scrollLeft, stage.scrollTop];
+    stage.setPointerCapture(e.pointerId);
+    stage.onpointermove = (m) => { stage.scrollLeft = sx + x0 - m.clientX; stage.scrollTop = sy + y0 - m.clientY; };
+    stage.onpointerup = () => { stage.onpointermove = null; stage.onpointerup = null; };
+    return;
+  }
   if (e.button !== 0 || !doc) return;
   view.focus();
   const [x, y] = atCanvas(e);
@@ -2873,10 +2961,19 @@ function keyButton(layer, prop) {
   button.textContent = on ? '◆' : '◇';
   button.title = (on ? 'Remove the ' : 'Add a ') + prop + ' keyframe at frame ' + frame
     + (keys.length ? ' (' + keys.length + ' keyframe' + (keys.length === 1 ? '' : 's') + ')' : '');
+  if (keys.length) button.title += '. Alt-click removes them all';
   button.setAttribute('aria-label', button.title);
   button.setAttribute('aria-pressed', on);
-  button.onclick = () => command('/keyframe.add_remove?layer=' + encodeURIComponent(layer.id)
-    + '&prop=' + prop + '&frame=' + frame);
+  button.onclick = (e) => {
+    // W-23: Alt with it takes every key off the property, as Alt on After Effects' stopwatch
+    // does, as one entry to undo.
+    if (e.altKey && keys.length) {
+      for (const k of keys) pickedKeys.delete(keyId(layer, prop, k.frame));
+      command('/keyframe.add_remove?' + keys.map((k) => 'key=' + encodeURIComponent(keyId(layer, prop, k.frame))).join('&'));
+      return;
+    }
+    command('/keyframe.add_remove?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop + '&frame=' + frame);
+  };
   return button;
 }
 
@@ -4169,6 +4266,9 @@ addEventListener('keydown', (e) => {
     e.preventDefault();
     $('addlayer').click();
   }
+  // W-23: with Shift as well, the very front or the very back. Named by the key's place, because
+  // Shift changes the letter the bracket keys report.
+  else if (e.ctrlKey && e.shiftKey && (e.code === 'BracketRight' || e.code === 'BracketLeft')) { e.preventDefault(); toEnd(e.code === 'BracketRight'); }
   else if (e.ctrlKey && e.key === ']') { e.preventDefault(); $('up').click(); }
   else if (e.ctrlKey && e.key === '[') { e.preventDefault(); $('down').click(); }
   // Document 24: Ctrl+1 is `viewer.zoom_100` and Shift+/ is `viewer.fit`, both After Effects'.
@@ -4215,6 +4315,14 @@ addEventListener('keydown', (e) => {
     const comp = composition();
     if (comp) seek(e.key === 'End' ? comp.start_frame + Math.max(1, comp.duration_frames) - 1 : comp.start_frame);
   }
+  // W-23: Enter renames the selected layer and Escape lets go of every layer and key, as After
+  // Effects has them; the comma and the full stop zoom the picture out and in; Alt with Page Up or
+  // Page Down moves the selected layers in time.
+  else if (e.key === 'Enter' && !el) { e.preventDefault(); beginRename(); }
+  else if (e.key === 'Escape') { if (!dragging) { pickKey(null, false); choose([]); } }
+  else if (e.key === ',') zoomTo(shownScale() / 1.15, ...stageCentre());
+  else if (e.key === '.') zoomTo(shownScale() * 1.15, ...stageCentre());
+  else if (e.altKey && (e.key === 'PageUp' || e.key === 'PageDown')) { e.preventDefault(); shiftLayers((e.key === 'PageUp' ? -1 : 1) * (e.shiftKey ? 10 : 1)); }
   else if (e.key === 'PageUp') { e.preventDefault(); step(e.shiftKey ? -10 : -1); }
   else if (e.key === 'PageDown') { e.preventDefault(); step(e.shiftKey ? 10 : 1); }
   else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {

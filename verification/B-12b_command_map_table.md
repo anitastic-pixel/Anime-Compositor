@@ -111,6 +111,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and [ or ] is bound | yes | yes | pass |
 | document 24 gives `layer.trim` the shortcut | Alt+[ or Alt+] | Alt+[ or Alt+] | pass |
 | and Alt+[ or Alt+] is bound | yes | yes | pass |
+| document 24 gives `layer.move` the shortcut | Ctrl+Shift+] or Ctrl+Shift+[ | Ctrl+Shift+] or Ctrl+Shift+[ | pass |
+| and Ctrl+Shift+] or Ctrl+Shift+[ is bound | yes | yes | pass |
 | document 24 gives `layer.duplicate` the shortcut | Ctrl+D | Ctrl+D | pass |
 | and Ctrl+D is bound | yes | yes | pass |
 | document 24 gives `layer.split` the shortcut | Ctrl+Shift+D | Ctrl+Shift+D | pass |
@@ -148,4 +150,4 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and G presses | $('checker') | $('checker') | pass |
 | and Shift+/ presses | $('fit') | $('fit') | pass |
 
-**116 of 116 checks pass.**
+**118 of 118 checks pass.**

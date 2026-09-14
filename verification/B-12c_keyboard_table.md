@@ -35,7 +35,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
-| the keys the window answers with nothing focused are the ones written down here | -, 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, C, D, Delete, End, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | -, 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, C, D, Delete, End, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | pass |
+| the keys the window answers with nothing focused are the ones written down here | ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, C, D, Delete, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, C, D, Delete, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | pass |
 | `boxes` can be asked for without a mouse | yes | yes | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
@@ -59,7 +59,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
 | `layer.duplicate` can be asked for without a mouse | yes | yes | pass |
-| `layer.move` can be asked for without a mouse | no - it is a drag, and a drag is a mouse | no - it is a drag, and a drag is a mouse | pass |
+| `layer.move` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_down` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_up` can be asked for without a mouse | yes | yes | pass |
 | `layer.rename` can be asked for without a mouse | yes | yes | pass |
@@ -101,5 +101,9 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging an effect's bar up or down the stack is not the only way to reorder the effects | true | true | pass |
 | dragging a layer up or down the list is not the only way to reorder the layers | true | true | pass |
 | dragging a drawing from the media bin onto the layer list is not the only way to make a layer out of it at that place | true | true | pass |
+| right clicking a layer is not the only way to open its menu | true | true | pass |
+| dragging a layer on the picture with Shift held is not the only way to move it along one line | true | true | pass |
+| dragging the picture with the middle button is not the only way to look at another part of a zoomed picture | true | true | pass |
+| Alt-clicking a property's diamond is not the only way to remove every key of the property | true | true | pass |
 
-**72 of 72 checks pass.**
+**76 of 76 checks pass.**
