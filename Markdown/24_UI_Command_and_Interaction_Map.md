@@ -94,6 +94,8 @@ W-19, the next of After Effects' key habits. With keys chosen on the timeline or
 
 W-20, ten more of After Effects' habits, chosen by the agent at the owner's request. Home and End put the playhead on the first and last frame; Page Up and Page Down step a frame, and Shift with them or with the arrows steps ten; I and O go to the selected layer's first and last frame. Ctrl+Up and Ctrl+Down select the layer above or below. Alt with the arrows nudges the chosen keys a frame, ten with Shift. A drag across the empty part of the property rows draws a box and chooses the keys it touches, and a press on a property's name chooses all its keys; Shift adds to what is chosen in both. Ctrl+C keeps the chosen keys and Ctrl+V puts them back on their own layer and property with the earliest on the playhead, values, easing and path handles with them, as one entry to undo. Ctrl+Alt+G makes the chosen keys hold, or linear again when all of them already hold; After Effects has this on Ctrl+Alt+H, and the owner asked for G. A key dot on the graph says its frame and value when hovered, as a mark on the timeline does.
 
+W-21, at the owner's request: a mouse click on a button, a tick box or a list row gives the keyboard back to the window, so Space after clicking the Graph tab or a layer plays the shot instead of pressing that control again. A control reached with Tab still keeps Space and the arrows, as Q-03 requires.
+
 ## Focus and selection
 
 One primary selection context exists at a time: media, layer, property/keyframe or effect. Viewer selection and timeline selection must resolve to the same layer ID. Deleting uses the focused context and must show the target clearly before destructive commands.

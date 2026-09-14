@@ -3934,6 +3934,16 @@ async function fillRecent() {
   } catch (e) { /* no list is a missing convenience, not a broken viewer */ }
 }
 
+// W-21: a mouse click on a button, a tick box or a list row gives the keyboard back to the window,
+// so Space plays the timeline instead of pressing the Graph button again. A click from the
+// keyboard (Tab, then Space) has no click count and keeps the focus Q-03 below protects. The
+// capture phase runs this first, so a handler that moves focus on purpose still wins.
+addEventListener('click', (e) => {
+  const el = e.detail && e.target instanceof Element
+    ? e.target.closest('button, input[type=checkbox], li[tabindex]') : null;
+  if (el) el.blur();
+}, true);
+
 addEventListener('keydown', (e) => {
   // Q-03: a control that has the keyboard keeps it. This found three real defects once already
   // and the rules below are what fixed them, so read before simplifying.
