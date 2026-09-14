@@ -370,6 +370,10 @@
   #dirty { color: #e8b06a; font-weight: 600; }
   #dirty:empty { display: none; }
   #status { color: #7fb37f; }
+  /* W-18: the sentences along the bottom and the history buttons kept short; a long undo label
+     is cut with an ellipsis, and its whole text is the button's tooltip. */
+  #status, #report, #autosaved { font-size: 12px; }
+  #undo, #redo { max-width: 24em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #status:empty { display: none; }
   /* An autosave is not something the person asked for, so it is said quietly and beside the
      status line rather than in it. */
@@ -765,7 +769,7 @@ async function show(url, keep = true) {
     // core has clamped a step that ran off the end, and what makes an arrow press after playback
     // continue from where playback stopped.
     if (!pending) wanted = frame;
-    $('frame').textContent = 'frame ' + frame;
+    frameBox.value = frame;
     movePlayhead();
     // Where the selected layers are on this frame, asked for beside the frame rather than with
     // it: a shot playing at twenty-four frames a second wants no outline and should pay for
@@ -807,7 +811,7 @@ async function show(url, keep = true) {
     // Document 26's dirty state, as the core answers it. A dot, because it has to be visible
     // without being read.
     $('dirty').textContent = h.get('x-dirty') === 'true' ? ' • unsaved' : '';
-    $('status').textContent = decodeURIComponent(h.get('x-status') || '');
+    $('status').textContent = brief(decodeURIComponent(h.get('x-status') || ''));
     $('autosaved').textContent = decodeURIComponent(h.get('x-autosaved') || '');
     // The export writes on a thread in Rust and says nothing until asked, so while one is
     // running the page asks again every second. Nothing here decides what it wrote: the sentence
@@ -2509,6 +2513,19 @@ function scrubValue({ value, suffix = '', title, label, step = 1, whole = false,
   return handle;
 }
 
+// W-18: the frame on screen is a number like any other: dragged to scrub, pressed to type the
+// frame to go to, stepped with the arrow keys.
+const frameBox = scrubValue({
+  // The core stops a frame past the end at the last one, but a frame before 0 is no address at all.
+  value: 0, whole: true, label: 'Current frame', live: (n) => seek(Math.max(0, n)), commit: (n) => seek(Math.max(0, n)),
+  title: 'Drag to scrub, press to type a frame to go to, or use the arrow keys',
+});
+$('frame').replaceChildren('frame ', frameBox);
+
+// W-18: a sentence's long decimals to hundredths where it is read at a glance. The file and the
+// history keep the numbers whole; this is only how they are shown.
+const brief = (text) => text.replace(/-?\d+\.\d{3,}/g, (n) => number(Math.round(n * 100) / 100));
+
 const PROPS = ['anchor', 'position', 'scale', 'rotation', 'opacity'];
 const keysOf = (layer, prop) => ((layer.transform || {})[prop] || {}).keyframes || [];
 
@@ -3324,10 +3341,21 @@ function drawGraph() {
 // the pointer comes up: one pull is one thing to undo, and a curve half way through being
 // dragged is not a curve anybody meant to save.
 function pulledTo(what, clientX, clientY, snap) {
-  const { arm, line, knob, space } = what;
+  const { arm, line, knob, space, at } = what;
   const box = knob.ownerSVGElement.getBoundingClientRect();
-  const across = (clientX - box.left) / box.width * knob.ownerSVGElement.viewBox.baseVal.width;
-  const down = (clientY - box.top) / box.height * knob.ownerSVGElement.viewBox.baseVal.height;
+  let across = (clientX - box.left) / box.width * knob.ownerSVGElement.viewBox.baseVal.width;
+  let down = (clientY - box.top) / box.height * knob.ownerSVGElement.viewBox.baseVal.height;
+  // W-18: on the value graph Shift holds the handle's angle, as drawn, to 15 degree steps, so a
+  // flat handle is one step away; its length stays where the pointer puts it. A speed handle is
+  // level already, so there Shift keeps putting the influence on a 5% step.
+  if (snap && !speedGraph) {
+    const ax = space.x(arm.from.frame + 0.5);
+    const ay = space.y(at(arm.from.frame));
+    const reach = Math.hypot(across - ax, down - ay);
+    const angle = Math.round(Math.atan2(down - ay, across - ax) / (Math.PI / 12)) * (Math.PI / 12);
+    across = ax + reach * Math.cos(angle);
+    down = ay + reach * Math.sin(angle);
+  }
   const span = arm.next.frame - arm.key.frame;
   const pointer = space.frameAt(across) - 0.5;
   if (speedGraph) {
@@ -3343,8 +3371,7 @@ function pulledTo(what, clientX, clientY, snap) {
     line.setAttribute('y2', knob.getAttribute('cy'));
     return easeFromSpeed(arm, infl, speed);
   }
-  let x = Math.min(1, Math.max(0, (pointer - arm.key.frame) / (span || 1)));
-  if (snap) x = Math.round(x * 20) / 20;
+  const x = Math.min(1, Math.max(0, (pointer - arm.key.frame) / (span || 1)));
   const y = (space.valueAt(down) - arm.va) / arm.unit;
   knob.setAttribute('cx', space.x(arm.key.frame + x * span + 0.5));
   knob.setAttribute('cy', space.y(arm.va + y * arm.unit));
@@ -3411,7 +3438,7 @@ function grabDown(e) {
     if (to !== null) seek(to);
     return;
   }
-  pulling = { what, x: null, y: null };
+  pulling = { what, x: null, y: null, at: [e.clientX, e.clientY], last: [e.clientX, e.clientY] };
 }
 
 function grabMove(e) {
@@ -3433,7 +3460,12 @@ function grabMove(e) {
     }
     return;
   }
-  const [x, y] = pulledTo(pulling.what, e.clientX, e.clientY, e.shiftKey);
+  // W-18: Ctrl pulls the handle a tenth as far as the pointer goes, for fine changes, as it does
+  // on a number; Shift still snaps the influence.
+  const now = [e.clientX, e.clientY];
+  pulling.at = pulling.at.map((p, i) => p + (now[i] - pulling.last[i]) * (e.ctrlKey ? 0.1 : 1));
+  pulling.last = now;
+  const [x, y] = pulledTo(pulling.what, ...pulling.at, e.shiftKey);
   pulling.x = x;
   pulling.y = y;
   previewCurve(pulling.what, x, y);
@@ -3561,9 +3593,11 @@ function drawPanels() {
   const undoable = doc ? doc.undo : [];
   const redoable = doc ? doc.redo : [];
   $('undo').disabled = undoable.length === 0;
-  $('undo').textContent = undoable.length ? 'Undo ' + undoable[undoable.length - 1] : 'Undo';
+  $('undo').textContent = undoable.length ? 'Undo ' + brief(undoable[undoable.length - 1]) : 'Undo';
+  $('undo').title = undoable.length ? 'Undo ' + undoable[undoable.length - 1] : '';
   $('redo').disabled = redoable.length === 0;
-  $('redo').textContent = redoable.length ? 'Redo ' + redoable[0] : 'Redo';
+  $('redo').textContent = redoable.length ? 'Redo ' + brief(redoable[0]) : 'Redo';
+  $('redo').title = redoable.length ? 'Redo ' + redoable[0] : '';
 }
 
 // The open project, as the core describes it. Asked for after every command rather than tracked
@@ -3654,7 +3688,7 @@ $('checker').onclick = () => command('/viewer.toggle_checkerboard');
 async function command(what) {
   try {
     const said = await (await fetch(PROJECT + what)).text();
-    if (said) $('status').textContent = said;
+    if (said) $('status').textContent = brief(said);
   } catch (e) {
     $('report').textContent = 'the command did not arrive: ' + e;
     $('report').className = 'dropped';
