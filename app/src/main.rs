@@ -9824,19 +9824,25 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 28] = [
+    const KEYS: [&str; 37] = [
         "-",
         "1",
         "=",
         "?",
         "A",
+        "ArrowDown",
         "ArrowLeft",
         "ArrowRight",
+        "ArrowUp",
+        "C",
         "D",
         "Delete",
+        "End",
         "F2",
         "F9",
         "G",
+        "H",
+        "Home",
         "I",
         "J",
         "K",
@@ -9845,11 +9851,14 @@ mod contract {
         "N",
         "O",
         "P",
+        "PageDown",
+        "PageUp",
         "R",
         "S",
         "Space",
         "T",
         "U",
+        "V",
         "Z",
         "[",
         "]",
@@ -9905,7 +9914,7 @@ mod contract {
         (
             "dragging along the ruler",
             "go to a frame",
-            "else if (e.key === 'ArrowRight') step(1);",
+            "else if (e.key === 'ArrowRight') step(e.shiftKey ? 10 : 1);",
         ),
         (
             "dragging a layer's bar along the exposure sheet",

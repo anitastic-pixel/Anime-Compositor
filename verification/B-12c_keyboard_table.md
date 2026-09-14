@@ -35,7 +35,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
-| the keys the window answers with nothing focused are the ones written down here | -, 1, =, ?, A, ArrowLeft, ArrowRight, D, Delete, F2, F9, G, I, J, K, L, M, N, O, P, R, S, Space, T, U, Z, [, ] | -, 1, =, ?, A, ArrowLeft, ArrowRight, D, Delete, F2, F9, G, I, J, K, L, M, N, O, P, R, S, Space, T, U, Z, [, ] | pass |
+| the keys the window answers with nothing focused are the ones written down here | -, 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, C, D, Delete, End, F2, F9, G, H, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | -, 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, C, D, Delete, End, F2, F9, G, H, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | pass |
 | `boxes` can be asked for without a mouse | yes | yes | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
