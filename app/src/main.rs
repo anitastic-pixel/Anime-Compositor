@@ -1681,6 +1681,46 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 false => import(viewer, &files),
             });
         }
+        // W-17: every chosen key moved by the same distance, as one entry to undo. Each is named
+        // `layer|prop|frame`, split from the right because a frame and a property name cannot
+        // hold a `|` and a layer id might. The keys furthest along the way they travel go first,
+        // so no key is put down on a frame a neighbour moving with it has not left yet; a key
+        // landing on one that is not moving is refused by the core, and then none of them move.
+        "keyframe.move" if !parameters(query, "key").is_empty() => {
+            let by = match frame_parameter(query, "by") {
+                Ok(by) => by,
+                Err(said) => return Some(said),
+            };
+            let mut keys = Vec::new();
+            for named in parameters(query, "key") {
+                let mut parts = named.rsplitn(3, '|');
+                let (Some(at), Some(prop), Some(layer)) = (parts.next(), parts.next(), parts.next())
+                else {
+                    return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
+                };
+                let (Some(prop), Ok(at)) = (property(prop), at.parse::<i32>()) else {
+                    return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
+                };
+                keys.push((Id::new(layer), prop, at));
+            }
+            keys.sort_by_key(|&(_, _, at)| if by > 0 { -at } else { at });
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            let composition = held.composition.clone();
+            let commands = keys
+                .into_iter()
+                .map(|(layer_id, prop, from_frame)| Command::MoveKeyframe {
+                    composition: composition.clone(),
+                    layer_id,
+                    prop,
+                    from_frame,
+                    to_frame: from_frame + by,
+                })
+                .collect();
+            return Some(match held.document.apply_all(commands) {
+                Ok(record) => record.label.clone(),
+                Err(diagnostic) => sentence(&diagnostic),
+            });
+        }
         _ => {}
     }
     // A drawing number an exposure names that its sequence has not got, filled in by the arm
@@ -4232,6 +4272,43 @@ mod editing {
         undo(&viewer);
         report.check(
             "undoing puts the key back on the frame it was moved from",
+            "[300,-40]@12 linear",
+            keys(&viewer, l, "position"),
+        );
+        // W-17: several chosen keys dragged together. Two neighbours a frame pair apart moved
+        // right by that pair: the front one has to leave before the back one lands.
+        run(
+            &viewer,
+            "keyframe.add_remove?layer=layer-cel&prop=position&frame=14",
+        );
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a key moved onto a key that is not moving with it is refused, and neither moves",
+            "There is already a position keyframe on frame 14.",
+            run(&viewer, "keyframe.move?by=2&key=layer-cel|position|12"),
+        );
+        report.check(
+            "two chosen neighbours moved together, the one ahead first, as one entry",
+            "Move position keyframe from frame 14 to frame 16 and 1 more",
+            run(
+                &viewer,
+                "keyframe.move?by=2&key=layer-cel|position|12&key=layer-cel|position|14",
+            ),
+        );
+        report.check(
+            "both keys are two frames on",
+            "[300,-40]@14 linear, [300,-40]@16 linear",
+            keys(&viewer, l, "position"),
+        );
+        report.check(
+            "one history entry for the move of two",
+            1,
+            held(&viewer).document.undo_depth() - depth,
+        );
+        undo(&viewer);
+        undo(&viewer);
+        report.check(
+            "undoing the move and the key added for it leaves the one key where it was",
             "[300,-40]@12 linear",
             keys(&viewer, l, "position"),
         );
@@ -9762,7 +9839,7 @@ mod contract {
         (
             "dragging a transform value",
             "change it",
-            "held += by * step * (e.shiftKey ? 10 : 1);",
+            "held = round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e)));",
         ),
         (
             "dragging a layer on the picture",
@@ -9772,7 +9849,7 @@ mod contract {
         (
             "pulling a corner or the rotation arm on the picture",
             "scale or turn the layer",
-            "held += by * step * (e.shiftKey ? 10 : 1);",
+            "held = round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e)));",
         ),
         (
             "dragging along the ruler",
@@ -9812,7 +9889,7 @@ mod contract {
         (
             "dragging the handle beside an effect's setting",
             "change the setting",
-            "held += by * step * (e.shiftKey ? 10 : 1);",
+            "held = round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e)));",
         ),
         (
             "moving over the tint's colour picker",

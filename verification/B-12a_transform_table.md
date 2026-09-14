@@ -75,6 +75,11 @@ Moving a key along the bar is `keyframe.move`, built by W-11 on 2026-09-12: one 
 | a move onto the frame the key is already on is not an edit | That keyframe is already on that frame. | That keyframe is already on that frame. | pass |
 | two history entries for the two edits that were allowed, and none for the three that were refused | 2 | 2 | pass |
 | undoing puts the key back on the frame it was moved from | [300,-40]@12 linear | [300,-40]@12 linear | pass |
+| a key moved onto a key that is not moving with it is refused, and neither moves | There is already a position keyframe on frame 14. | There is already a position keyframe on frame 14. | pass |
+| two chosen neighbours moved together, the one ahead first, as one entry | Move position keyframe from frame 14 to frame 16 and 1 more | Move position keyframe from frame 14 to frame 16 and 1 more | pass |
+| both keys are two frames on | [300,-40]@14 linear, [300,-40]@16 linear | [300,-40]@14 linear, [300,-40]@16 linear | pass |
+| one history entry for the move of two | 1 | 1 | pass |
+| undoing the move and the key added for it leaves the one key where it was | [300,-40]@12 linear | [300,-40]@12 linear | pass |
 | two linear rotation keys, and the halfway frame is halfway between them | 82.5 | 82.5 | pass |
 | pressing the curve says which segment it changed | Keyframe rotation at frame 0 to 45 | Keyframe rotation at frame 0 to 45 | pass |
 | the key carries the four numbers of the curve, not just the word | 45@0 ease [0.3333333333333333,0,0.6666666666666666,1], 120@24 linear | 45@0 ease [0.3333333333333333,0,0.6666666666666666,1], 120@24 linear | pass |
@@ -110,4 +115,4 @@ Moving a key along the bar is `keyframe.move`, built by W-11 on 2026-09-12: one 
 | undoing the pull puts the straight line back | [0,0]@0 linear, [240,0]@24 linear and [120,0] | [0,0]@0 linear, [240,0]@24 linear and [120,0] | pass |
 | undoing every transform edit gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**84 of 84 checks pass.**
+**89 of 89 checks pass.**

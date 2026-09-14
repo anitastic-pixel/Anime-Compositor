@@ -186,7 +186,10 @@
      Everything drawn here is positioned as a fraction of the composition's length by one
      function, so the ruler, the bars and the playhead cannot come to disagree about where a
      frame is. */
-  #sheet { --gutter: 190px; position: relative; overflow: auto; padding: 6px 8px 8px; min-height: 0; }
+  /* W-17: wider, so a layer's name and its numbers have room before its bar starts. On the panel
+     rather than the sheet, so the scroll bar under it and the graph beside it read the same. */
+  #timeline { --gutter: 260px; }
+  #sheet { position: relative; overflow: auto; padding: 6px 8px 8px; min-height: 0; }
   #ruler { cursor: ew-resize; }
   #ruler {
     position: relative; height: 16px; margin-left: var(--gutter);
@@ -235,7 +238,7 @@
     display: grid; grid-template-columns: var(--gutter) minmax(0, 1fr);
     gap: 0; padding-left: 0; padding-right: 0; align-items: center;
   }
-  .rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 6px; }
+  .rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 14px; }
   /* W-12: the arrow beside a layer's name, and the property rows it opens under the layer, as
      After Effects twirls a layer open. A property row is indented under its layer and its bar
      carries nothing but that property's keys, so a key can be told from a key on the line
@@ -248,8 +251,8 @@
   #layers li.prop { color: #b0b0b6; }
   #layers li.prop .rowhead { padding-left: 24px; }
   #layers li.prop .value {
-    margin-left: auto; padding-right: 6px; color: #909096; white-space: nowrap;
-    font-variant-numeric: tabular-nums;
+    margin-left: auto; color: #909096; white-space: nowrap;
+    font-variant-numeric: tabular-nums; font-size: 11px;
   }
   #layers li.prop .track { height: 14px; background: none; }
   /* W-11: on a property's own row a key is a control - it can be taken hold of and put down
@@ -309,7 +312,7 @@
      composition is to what is in view. */
   #timescroll {
     appearance: none; height: 10px; box-sizing: border-box; vertical-align: top;
-    width: calc(100% - 190px - 16px); margin: 0 8px 4px calc(190px + 8px);
+    width: calc(100% - var(--gutter) - 16px); margin: 0 8px 4px calc(var(--gutter) + 8px);
     background: #232323; border-radius: 3px;
   }
   #timescroll::-webkit-slider-thumb {
@@ -1139,6 +1142,27 @@ $('timezoom').oninput = () => {
 // Page state like the zoom: the file has no idea what is selected.
 const pickedKeys = new Set();
 const keyId = (layer, prop, at) => layer.id + '|' + prop + '|' + at;
+// The other way: the layer, property and frame a chosen key's id names. Split from the right,
+// because a layer id may hold a `|` and a property name and a frame cannot.
+const keyParts = (id) => {
+  const parts = id.split('|');
+  const at = Number(parts.pop());
+  const prop = parts.pop();
+  return [layers().find((l) => l.id === parts.join('|')), prop, at];
+};
+
+// W-17: keys moved together by one distance, sent as one request so they are one entry to undo.
+// Keys on a locked layer stay where they are. A chosen key stays chosen where it lands.
+function moveKeys(ids, by) {
+  const moving = ids.filter((id) => { const [layer] = keyParts(id); return layer && !layer.locked; });
+  if (!by || !moving.length) return;
+  command('/keyframe.move?by=' + by + moving.map((id) => '&key=' + encodeURIComponent(id)).join(''));
+  for (const id of moving) {
+    if (!pickedKeys.delete(id)) continue;
+    const [layer, prop, at] = keyParts(id);
+    pickedKeys.add(keyId(layer, prop, at + by));
+  }
+}
 
 // A click chooses one key, Shift or Ctrl with it adds or takes away one, and `null` clears.
 // The marks are lit in place rather than redrawn, so the click lands on the mark it began on.
@@ -1487,19 +1511,21 @@ function drawLayers() {
 // everywhere else in this window, and Left and Right move the key a frame at a time for anyone
 // without a mouse.
 function grabKey(comp, layer, prop, key, mark) {
+  const id = keyId(layer, prop, key.frame);
   const where = (frame) => percent(atFrame(comp, frame + 0.5));
-  const send = (to) => {
-    if (to === null || to === key.frame) return;
-    // A chosen key stays chosen where it lands.
-    if (pickedKeys.delete(keyId(layer, prop, key.frame))) pickedKeys.add(keyId(layer, prop, to));
-    command('/keyframe.move?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
-      + '&from=' + key.frame + '&to=' + to);
+  // W-17: a chosen key carries every chosen key with it; one that is not chosen goes alone.
+  const groupOf = () => (pickedKeys.has(id) ? [...pickedKeys] : [id]);
+  const shift = (ids, by) => {
+    const going = new Set(ids);
+    for (const m of $('layers').querySelectorAll('.key[data-key]')) {
+      if (going.has(m.dataset.key)) m.style.left = where(keyParts(m.dataset.key)[2] + by);
+    }
   };
   // Enter or Space on a key chooses it, as a click does; a pointer's click was handled on release.
   mark.onclick = (e) => {
     e.stopPropagation();
     if (e.detail !== 0) return;
-    pickKey(keyId(layer, prop, key.frame), e.shiftKey || e.ctrlKey);
+    pickKey(id, e.shiftKey || e.ctrlKey);
     seek(key.frame);
   };
   mark.onkeydown = (e) => {
@@ -1509,7 +1535,7 @@ function grabKey(comp, layer, prop, key, mark) {
     // keyboard has taken them.
     e.preventDefault();
     e.stopPropagation();
-    send(key.frame + by);
+    moveKeys(groupOf(), by);
   };
   mark.onpointerdown = (e) => {
     if (layer.locked) return;
@@ -1517,6 +1543,10 @@ function grabKey(comp, layer, prop, key, mark) {
     e.stopPropagation();
     let to = key.frame;
     const add = e.shiftKey || e.ctrlKey;
+    // Pressing a key that is not chosen chooses it alone, as After Effects does, so what is
+    // dragged is what is lit.
+    if (!add && !pickedKeys.has(id)) pickKey(id, false);
+    const group = groupOf();
     dragging = true;
     mark.classList.add('moving');
     mark.setPointerCapture(e.pointerId);
@@ -1527,17 +1557,17 @@ function grabKey(comp, layer, prop, key, mark) {
       mark.onpointermove = null;
       mark.onpointerup = null;
       window.removeEventListener('keydown', escape, true);
-      if (cancelled) mark.style.left = where(key.frame);
+      if (cancelled) shift(group, 0);
       // A press that did not move is a click: it chooses the key, for F9, and puts the playhead
       // on it, where the inspector's ease button acts.
-      else if (to === key.frame) { pickKey(keyId(layer, prop, key.frame), add); seek(key.frame); }
-      else send(to);
+      else if (to === key.frame) { pickKey(id, add); seek(key.frame); }
+      else moveKeys(group, to - key.frame);
     };
     mark.onpointermove = (m) => {
       const now = frameUnder(m.clientX);
       if (now === null || now === to) return;
       to = now;
-      mark.style.left = where(to);
+      shift(group, to - key.frame);
     };
     mark.onpointerup = () => stop(false);
     window.addEventListener('keydown', escape, true);
@@ -2363,7 +2393,7 @@ const number = (n) => String(Math.round(n * 1e6) / 1e6);
 //
 // The element answers to `.value` like the field it replaced, so a caller that gathers several
 // numbers at once does not have to know which of the two it is holding.
-function scrubValue({ value, suffix = '', title, label, step = 1, live, done, commit }) {
+function scrubValue({ value, suffix = '', title, label, step = 1, whole = false, live, done, commit }) {
   const handle = document.createElement('span');
   handle.className = 'scrub';
   handle.tabIndex = 0;
@@ -2372,9 +2402,15 @@ function scrubValue({ value, suffix = '', title, label, step = 1, live, done, co
   handle.setAttribute('aria-label', label);
   let held = Number(value) || 0;
   let box = null; // the field, while the number is being typed into
+  // W-17: a number a hand changes lands on hundredths, as After Effects' do, or on whole numbers
+  // where only a whole number means anything. A number nobody touched is shown to hundredths and
+  // kept as the file has it.
+  const round = (n) => (whole ? Math.round(n) : Math.round(n * 100) / 100);
+  // Shift for big steps and Ctrl for fine ones, as in After Effects.
+  const pace = (m) => (m.shiftKey ? 10 : m.ctrlKey ? 0.1 : 1);
   const show = () => {
-    handle.textContent = number(held) + suffix;
-    handle.setAttribute('aria-valuenow', number(held));
+    handle.textContent = number(round(held)) + suffix;
+    handle.setAttribute('aria-valuenow', number(round(held)));
   };
   show();
   Object.defineProperty(handle, 'value', {
@@ -2403,7 +2439,7 @@ function scrubValue({ value, suffix = '', title, label, step = 1, live, done, co
       box = null;
       dragging = false;
       scrubbed = null;
-      if (take) held = said;
+      if (take) held = round(said);
       show();
       if (back) handle.focus();
       if (take) commit(held);
@@ -2425,6 +2461,9 @@ function scrubValue({ value, suffix = '', title, label, step = 1, live, done, co
     const from = e.clientX;
     const start = held;
     let moved = false;
+    // Added up move by move, so a modifier pressed half way changes the pace from there on.
+    let raw = held;
+    let last = from;
     handle.setPointerCapture(e.pointerId);
     // Document 24: "Escape restores the pre-drag value." The key listener is on the window
     // because the pointer owns the events while it is captured.
@@ -2447,7 +2486,9 @@ function scrubValue({ value, suffix = '', title, label, step = 1, live, done, co
       moved = true;
       dragging = true;
       scrubbed = handle;
-      held = start + (m.clientX - from) * step;
+      raw += (m.clientX - last) * step * pace(m);
+      last = m.clientX;
+      held = round(raw);
       show();
       if (live) live(held);
     };
@@ -2461,7 +2502,7 @@ function scrubValue({ value, suffix = '', title, label, step = 1, live, done, co
     const by = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }[e.key];
     if (by === undefined) return;
     e.preventDefault();
-    held += by * step * (e.shiftKey ? 10 : 1);
+    held = round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e)));
     show();
     commit(held);
   };
@@ -2746,6 +2787,7 @@ function exposureRow(layer, span, drawings) {
       value,
       label: words + ' of the exposure at frame ' + span.start_frame,
       title: 'Drag to change the ' + words.toLowerCase() + ', or press to type it',
+      whole: true,
       commit: sendSpan,
     });
     fields[name] = input;
@@ -2979,6 +3021,38 @@ const EASY = [1 / 3, 0, 2 / 3, 1];
 const THIRDS = [1 / 3, 1 / 3, 2 / 3, 2 / 3];
 const easeOf = (key) => (key.interp === 'ease' ? key.ease || EASY : THIRDS);
 
+// How far along a segment's value is at a fraction `t` of its time, on the curve `e`: the cubic
+// from (0,0) to (1,1) with its handles at (e[0],e[1]) and (e[2],e[3]). Only for the preview
+// while a handle is pulled; what is drawn otherwise is the window's own answer.
+function eased(e, t) {
+  const at = (s, p, q) => 3 * (1 - s) * (1 - s) * s * p + 3 * (1 - s) * s * s * q + s * s * s;
+  let [lo, hi] = [0, 1];
+  for (let i = 0; i < 30; i += 1) {
+    const s = (lo + hi) / 2;
+    if (at(s, e[0], e[2]) < t) lo = s; else hi = s;
+  }
+  return at((lo + hi) / 2, e[1], e[3]);
+}
+
+// What is plotted: the values themselves, or how fast they change - the difference of two
+// frames of the window's answer, per second. Position's two parts make one speed, as a layer
+// moving along a path has one speed; any other property is a number and keeps its sign.
+function linesOf(samples, fps) {
+  if (speedGraph) {
+    const rate = [];
+    for (let i = 0; i + 1 < samples.length; i += 1) {
+      const [s, t] = [samples[i], samples[i + 1]];
+      rate.push(s.length === 1 ? (t[0] - s[0]) * fps : Math.hypot(t[0] - s[0], t[1] - s[1]) * fps);
+    }
+    return [rate.map((r, i) => [plotted.from + i + 1, r])];
+  }
+  return samples[0].map((_, c) => samples.map((s, i) => [plotted.from + i + 0.5, s[c]]));
+}
+
+const pointsOf = (points, space, v) => points
+  .filter(([f]) => f >= v.from - 1 && f <= v.from + v.len + 1)
+  .map(([f, val]) => space.x(f) + ',' + space.y(val)).join(' ');
+
 function graphLayer() {
   const layer = selected();
   if (!layer) return null;
@@ -3140,8 +3214,6 @@ function drawGraph() {
   const at = (f) => part(f, 0);
   const keys = keysOf(pick.layer, pick.prop);
   const v = viewOf(comp);
-  const first = Math.max(0, Math.floor(v.from - plotted.from) - 1);
-  const last = Math.min(plotted.samples.length - 1, Math.ceil(v.from + v.len - plotted.from) + 1);
   const seen = (arm) => inView(comp, arm.frame + 0.5);
   // The segments that can be pulled. A hold has no curve to pull, and the value graph only offers
   // handles on a curve that is eased - there, a linear segment's handles would sit on its line.
@@ -3153,38 +3225,28 @@ function drawGraph() {
     segments.push([a, b]);
   }
 
-  // What is plotted: the values themselves, or how fast they change - the difference of two
-  // frames of the window's answer, per second. Position's two parts make one speed, as a layer
-  // moving along a path has one speed; any other property is a number and keeps its sign.
-  let lines;
+  // W-17: the height is fitted to the whole composition and every handle on it, not to the part
+  // in view, so sliding along a zoomed timeline slides the curve and never stretches it.
+  const lines = linesOf(plotted.samples, fps);
   let arms = [];
   let low;
   let high;
   if (speedGraph) {
-    const rate = [];
-    for (let i = 0; i + 1 < plotted.samples.length; i += 1) {
-      const [s, t] = [plotted.samples[i], plotted.samples[i + 1]];
-      rate.push(parts === 1 ? (t[0] - s[0]) * fps : Math.hypot(t[0] - s[0], t[1] - s[1]) * fps);
-    }
-    lines = [rate.map((r, i) => [plotted.from + i + 1, r])];
     for (const [a, b] of segments) {
-      arms.push(...speedArms(a, b, ratesOf(pick.prop, a, b, part, parts), fps).filter(seen));
+      arms.push(...speedArms(a, b, ratesOf(pick.prop, a, b, part, parts), fps));
     }
-    const shown = rate.slice(first, last).concat(arms.map((arm) => arm.speed));
+    const shown = lines[0].map(([, r]) => r).concat(arms.map((arm) => arm.speed));
     low = Math.min(0, ...shown);
     high = Math.max(...shown);
   } else {
-    lines = [];
-    for (let c = 0; c < parts; c += 1) {
-      lines.push(plotted.samples.map((s, i) => [plotted.from + i + 0.5, s[c]]));
-    }
-    const shown = plotted.samples.slice(first, last + 1).flat();
+    const shown = plotted.samples.flat();
     low = Math.min(...shown);
     high = Math.max(...shown);
     const spare = (high > low ? high - low : 1) / 4;
-    for (const [a, b] of segments) arms.push(...armsOf(a, b, at, spare).filter(seen));
+    for (const [a, b] of segments) arms.push(...armsOf(a, b, at, spare));
     for (const arm of arms) { low = Math.min(low, arm.value); high = Math.max(high, arm.value); }
   }
+  arms = arms.filter(seen);
   const space = graphSpace(box, low, high);
 
   // The frame numbers the ruler on the sheet has, at the same places.
@@ -3198,11 +3260,10 @@ function drawGraph() {
   if (speedGraph) {
     el('line', { class: 'tick', x1: space.gutter, y1: space.y(0), x2: box.width, y2: space.y(0) }, plot);
   }
-  lines.forEach((points, c) => el('polyline', {
-    class: 'plot' + (c ? ' second' : ''),
-    points: points.filter(([f]) => f >= v.from - 1 && f <= v.from + v.len + 1)
-      .map(([f, val]) => space.x(f) + ',' + space.y(val)).join(' '),
+  const polylines = lines.map((points, c) => el('polyline', {
+    class: 'plot' + (c ? ' second' : ''), points: pointsOf(points, space, v),
   }, plot));
+  svg.__plot = { polylines, space, v, fps };
   // The value at a frame comes out of the answer rather than out of the keyframe, so that a
   // keyframe drawn on this line is drawn where the renderer puts it. Every part of the property,
   // because a position has two lines and a keyframe is on both of them. The handles stay on the
@@ -3262,7 +3323,7 @@ function drawGraph() {
 // Pulling a handle. The shape on screen follows the pointer, and the file is not touched until
 // the pointer comes up: one pull is one thing to undo, and a curve half way through being
 // dragged is not a curve anybody meant to save.
-function pulledTo(what, clientX, clientY) {
+function pulledTo(what, clientX, clientY, snap) {
   const { arm, line, knob, space } = what;
   const box = knob.ownerSVGElement.getBoundingClientRect();
   const across = (clientX - box.left) / box.width * knob.ownerSVGElement.viewBox.baseVal.width;
@@ -3271,7 +3332,9 @@ function pulledTo(what, clientX, clientY) {
   const pointer = space.frameAt(across) - 0.5;
   if (speedGraph) {
     const reach = arm.which ? arm.next.frame - pointer : pointer - arm.key.frame;
-    const infl = Math.min(1, Math.max(0.01, reach / (span || 1)));
+    // W-17: Shift puts the influence on a 5% step.
+    let infl = Math.min(1, Math.max(0.01, reach / (span || 1)));
+    if (snap) infl = Math.max(0.05, Math.round(infl * 20) / 20);
     const speed = space.valueAt(down);
     knob.setAttribute('cx', space.x((arm.which ? arm.next.frame - infl * span : arm.key.frame + infl * span) + 0.5));
     knob.setAttribute('cy', space.y(speed));
@@ -3280,7 +3343,8 @@ function pulledTo(what, clientX, clientY) {
     line.setAttribute('y2', knob.getAttribute('cy'));
     return easeFromSpeed(arm, infl, speed);
   }
-  const x = Math.min(1, Math.max(0, (pointer - arm.key.frame) / (span || 1)));
+  let x = Math.min(1, Math.max(0, (pointer - arm.key.frame) / (span || 1)));
+  if (snap) x = Math.round(x * 20) / 20;
   const y = (space.valueAt(down) - arm.va) / arm.unit;
   knob.setAttribute('cx', space.x(arm.key.frame + x * span + 0.5));
   knob.setAttribute('cy', space.y(arm.va + y * arm.unit));
@@ -3289,10 +3353,38 @@ function pulledTo(what, clientX, clientY) {
   return [x, y];
 }
 
-function sendCurve(arm, x, y) {
+// A segment's four numbers with one side's handle replaced.
+function curveWith(arm, x, y) {
   const e = easeOf(arm.key).slice();
   e[arm.which * 2] = x;
   e[arm.which * 2 + 1] = y;
+  return e;
+}
+
+// W-17: the curve follows the handle while it is pulled, before anything is sent. Every frame
+// outside the segment is still the window's answer; the frames inside it are eased here by the
+// four numbers in the hand, and the window's answer replaces them all when the hand lets go.
+// ponytail: a position segment whose path curves previews as though straight until release; ask
+// the window for a curve per pointer move if that preview is ever misleading.
+function previewCurve(what, x, y) {
+  const drawn = what.knob.ownerSVGElement.__plot;
+  const { arm } = what;
+  const e = curveWith(arm, x, y);
+  const [a, b] = [arm.key.frame, arm.next.frame];
+  const [va, vb] = [plotted.samples[a - plotted.from], plotted.samples[b - plotted.from]];
+  const samples = plotted.samples.map((s, i) => {
+    const f = plotted.from + i;
+    if (f <= a || f >= b) return s;
+    const p = eased(e, (f - a) / (b - a));
+    return va.map((v, c) => v + (vb[c] - v) * p);
+  });
+  linesOf(samples, drawn.fps).forEach((points, c) => {
+    drawn.polylines[c].setAttribute('points', pointsOf(points, drawn.space, drawn.v));
+  });
+}
+
+function sendCurve(arm, x, y) {
+  const e = curveWith(arm, x, y);
   command('/keyframe.set_interp?layer=' + encodeURIComponent(selected().id)
     + '&prop=' + graphLayer().prop + '&frame=' + arm.key.frame
     + '&mode=ease&curve=' + e.map((n) => Math.round(n * 1e6) / 1e6).join(','));
@@ -3309,7 +3401,7 @@ function grabDown(e) {
     const id = e.target.dataset.key;
     const add = e.shiftKey || e.ctrlKey;
     if (add || !pickedKeys.has(id)) pickKey(id, add);
-    pulling = { dot, id, to: dot.key.frame };
+    pulling = { dot, id, to: dot.key.frame, group: pickedKeys.has(id) ? [...pickedKeys] : [id] };
     return;
   }
   // Anywhere else on the graph puts the playhead there, as the ruler does on the sheet.
@@ -3333,14 +3425,18 @@ function grabMove(e) {
     const to = frameUnder(e.clientX);
     if (to === null || to === pulling.to || selected().locked) return;
     pulling.to = to;
+    const going = new Set(pulling.group);
+    const by = to - pulling.dot.key.frame;
     for (const node of $('graph').querySelectorAll('.keydot')) {
-      if (node.dataset.key === pulling.id) node.setAttribute('cx', pulling.dot.space.x(to + 0.5));
+      if (!going.has(node.dataset.key)) continue;
+      node.setAttribute('cx', pulling.dot.space.x(keyParts(node.dataset.key)[2] + by + 0.5));
     }
     return;
   }
-  const [x, y] = pulledTo(pulling.what, e.clientX, e.clientY);
+  const [x, y] = pulledTo(pulling.what, e.clientX, e.clientY, e.shiftKey);
   pulling.x = x;
   pulling.y = y;
+  previewCurve(pulling.what, x, y);
 }
 
 function grabUp() {
@@ -3350,11 +3446,7 @@ function grabUp() {
   if (held.dot) {
     const from = held.dot.key.frame;
     if (held.to === from) { seek(from); return; }
-    const layer = selected();
-    const prop = graphLayer().prop;
-    if (pickedKeys.delete(held.id)) pickedKeys.add(keyId(layer, prop, held.to));
-    command('/keyframe.move?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
-      + '&from=' + from + '&to=' + held.to);
+    moveKeys(held.group, held.to - from);
     return;
   }
   if (!held.scrub && held.x !== null) sendCurve(held.what.arm, held.x, held.y);
@@ -3387,12 +3479,7 @@ function easeKeys(sides) {
   // The keys chosen on the timeline or the graph when there are any; otherwise, as before, every
   // key under the playhead on the selected layers.
   const targets = pickedKeys.size
-    ? [...pickedKeys].map((id) => {
-      const parts = id.split('|');
-      const at = Number(parts.pop());
-      const prop = parts.pop();
-      return [layers().find((l) => l.id === parts.join('|')), prop, at];
-    })
+    ? [...pickedKeys].map(keyParts)
     : movable().flatMap((layer) => PROPS.map((prop) => [layer, prop, frame]));
   // One curve per segment however many chosen keys touch it: two neighbours both eased would
   // otherwise send the segment between them twice, the second without the first's half.
