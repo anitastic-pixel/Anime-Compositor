@@ -239,6 +239,10 @@
     gap: 0; padding-left: 0; padding-right: 0; align-items: center;
   }
   .rowhead { display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 14px; }
+  /* W-22: a layer being dragged up the list, and where a drawing dragged from the bin will land. */
+  #layers li.lifted { opacity: 0.6; }
+  #layers li.dropabove { box-shadow: inset 0 2px 0 #6ea8fe; }
+  #layers li.dropbelow { box-shadow: inset 0 -2px 0 #6ea8fe; }
   /* W-12: the arrow beside a layer's name, and the property rows it opens under the layer, as
      After Effects twirls a layer open. A property row is indented under its layer and its bar
      carries nothing but that property's keys, so a key can be told from a key on the line
@@ -479,8 +483,8 @@
   .exposure input[type=number] { width: 4.5em; }
   .exposure .gone { color: #e8b06a; }
   .effect { border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; }
-  .effect .head { display: flex; align-items: center; gap: 6px; }
-  .effect .head .name { flex: 1; font-weight: 600; cursor: grab; }
+  .effect .head { display: flex; align-items: center; gap: 6px; cursor: grab; }
+  .effect .head .name { flex: 1; font-weight: 600; }
   .effect.lifted { opacity: 0.6; }
   .effect .head .name.off { color: #75757c; font-weight: 400; }
   .effect .head .mark { color: #e8b06a; font-size: 11px; }
@@ -656,7 +660,7 @@
   <span id="report"></span>
   <span id="exported"></span>
   <ul id="notes"></ul>
-  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[ &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
+  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A &middot; Alt+Shift+P sets a key &middot; Shift+F3 graph &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -975,6 +979,40 @@ function drawAssets() {
     const li = row(selectedAsset, asset.id, asset.name, []);
     li.append(kind);
     li.onclick = () => { selectedAsset = asset.id; drawPanels(); };
+    // W-22: a drawing dragged onto the layer list becomes a layer where it is let go: above a
+    // row is in front of that layer, below it behind, anywhere else on the timeline in front.
+    li.onpointerdown = (e) => {
+      if (e.button !== 0 || !doc) return;
+      const [x0, y0] = [e.clientX, e.clientY];
+      let moved = false;
+      let mark = null;
+      const unmark = () => { if (mark) mark.classList.remove('dropabove', 'dropbelow'); mark = null; };
+      li.setPointerCapture(e.pointerId);
+      li.onpointermove = (m) => {
+        if (!moved && Math.hypot(m.clientX - x0, m.clientY - y0) < 4) return;
+        moved = true;
+        li.style.cursor = 'copy';
+        unmark();
+        mark = layerRowAt(m.clientX, m.clientY);
+        if (mark) {
+          const r = mark.getBoundingClientRect();
+          mark.classList.add(m.clientY < r.top + r.height / 2 ? 'dropabove' : 'dropbelow');
+        }
+      };
+      li.onpointerup = (m) => {
+        li.onpointermove = null;
+        li.onpointerup = null;
+        li.style.cursor = '';
+        const over = document.elementFromPoint(m.clientX, m.clientY);
+        const all = layers();
+        const at = mark ? all.findIndex((l) => l.id === mark.dataset.id) : -1;
+        const to = at < 0 ? all.length : mark.classList.contains('dropabove') ? at + 1 : at;
+        unmark();
+        if (!moved || !(over && over.closest('#sheet'))) return;
+        command('/layer.create?asset=' + encodeURIComponent(asset.id)
+          + '&name=' + encodeURIComponent(asset.name) + '&to=' + to);
+      };
+    };
     li.ondblclick = () => command('/layer.create?asset=' + encodeURIComponent(asset.id)
       + '&name=' + encodeURIComponent(asset.name));
     return li;
@@ -1462,7 +1500,16 @@ sheet.onpointerdown = (e) => {
     const now = frameUnder(m.clientX);
     if (now === null || now === last) return;
     last = now;
-    const by = now - at;
+    let by = now - at;
+    // W-22: Shift held lands the bar's start, or its end, on the playhead when it is near.
+    if (m.shiftKey && seam <= 0) {
+      const [, from, until] = start.find(([id]) => id === layer.id);
+      const near = Math.max(1, frameUnder(m.clientX + 8) - now);
+      const ends = edge === 'in' ? [[from, frame]] : edge === 'out' ? [[until, frame + 1]]
+        : [[from, frame], [until, frame + 1]];
+      const hit = ends.find(([end, target]) => Math.abs(end + by - target) <= near);
+      if (hit) by = hit[1] - hit[0];
+    }
     const q = '?layer=' + encodeURIComponent(layer.id) + '&drag=1';
     if (seam > 0) {
       const a = spans[seam - 1], b = spans[seam];
@@ -1565,7 +1612,9 @@ function toPlayhead(end, trim) {
 
 $('sheet').addEventListener('pointermove', (e) => {
   if (!scrubbing) return;
-  const at = frameUnder(e.clientX);
+  let at = frameUnder(e.clientX);
+  // W-22: Shift held lands the playhead on a key or a layer's end when one is near.
+  if (at !== null && e.shiftKey) at = snapped(e.clientX, at, snapFrames());
   // Only ask for a frame that is not the one already asked for. A pointer reports every pixel it
   // crosses and a composition has far fewer frames than the row has pixels, so without this a
   // slow drag would queue the same frame over and over.
@@ -1618,10 +1667,127 @@ function drawLayers() {
     head.append(...li.childNodes);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
-    li.onclick = (e) => { if (!e.shiftKey) pickKey(null, false); select(layer.id, e.shiftKey); };
+    grabRow(li, head, all, layer);
+    // W-22: as After Effects' layer list has it, Ctrl-click adds or takes away one layer and
+    // Shift-click takes every layer between the one selected and the one clicked.
+    li.onclick = (e) => {
+      if (!e.shiftKey && !e.ctrlKey) pickKey(null, false);
+      if (e.shiftKey && selectedLayer) selectRange(layer.id);
+      else select(layer.id, e.ctrlKey);
+    };
     li.ondblclick = () => beginRename();
     return [li, ...PROPS.filter((prop) => open.has(prop)).map((prop) => propTrack(comp, layer, prop))];
   }));
+}
+
+// W-22: a layer's name taken hold of and dragged up or down the list, as After Effects does. The
+// row follows the pointer among the other layers and the drop sends the one position it landed
+// at, as an effect card does, so a drag is one entry to undo. Ctrl+] and Ctrl+[ do the same job a
+// step at a time. A press that does not move is still the row's click.
+function grabRow(li, head, all, layer) {
+  head.onpointerdown = (e) => {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    const y0 = e.clientY;
+    let moved = false;
+    head.setPointerCapture(e.pointerId);
+    head.onpointermove = (m) => {
+      if (!moved && Math.abs(m.clientY - y0) < 4) return;
+      if (!moved) { moved = true; li.classList.add('lifted'); }
+      const over = layerRowAt(m.clientX, m.clientY);
+      if (!over || over === li) return;
+      const r = over.getBoundingClientRect();
+      li.parentElement.insertBefore(li, m.clientY < r.top + r.height / 2 ? over : pastProps(over));
+    };
+    head.onpointerup = () => {
+      head.onpointermove = null;
+      head.onpointerup = null;
+      if (!moved) return;
+      li.classList.remove('lifted');
+      const rows = [...li.parentElement.children].filter((x) => !x.classList.contains('prop'));
+      const to = all.length - 1 - rows.indexOf(li);
+      if (to !== all.indexOf(layer)) {
+        command('/layer.move?layer=' + encodeURIComponent(layer.id) + '&to=' + to);
+      } else drawLayers();
+    };
+  };
+}
+
+// The layer's own row under a point, a property row counting as its layer's.
+function layerRowAt(x, y) {
+  const over = document.elementFromPoint(x, y);
+  const li = over && over.closest('#layers > li');
+  if (!li || !li.classList.contains('prop')) return li;
+  return $('layers').querySelector('li:not(.prop)[data-id="' + CSS.escape(li.dataset.id) + '"]');
+}
+
+// The place after a layer's row and the property rows open under it.
+function pastProps(li) {
+  let after = li.nextSibling;
+  while (after && after.classList.contains('prop')) after = after.nextSibling;
+  return after;
+}
+
+// W-22: several layers chosen at once. Selection's first is the one the inspector shows.
+function choose(ids) {
+  selection = ids;
+  selectedLayer = selection[0] || null;
+  drawPanels();
+  askForBoxes();
+}
+
+function selectRange(id) {
+  const order = layers().map((l) => l.id);
+  const [a, b] = [order.indexOf(selectedLayer), order.indexOf(id)].sort((x, y) => x - y);
+  choose([selectedLayer, ...order.slice(a, b + 1).reverse().filter((x) => x !== selectedLayer)]);
+}
+
+// W-22: Shift while dragging lands on the nearest of these frames within 8 pixels of the pointer.
+function snapped(x, at, targets) {
+  const [lo, hi] = [frameUnder(x - 8), frameUnder(x + 8)];
+  const near = targets.filter((t) => t >= lo && t <= hi);
+  return near.length ? near.reduce((a, b) => (Math.abs(b - at) < Math.abs(a - at) ? b : a)) : at;
+}
+
+// Every layer's first and last frame and every key, which is what the playhead snaps to.
+function snapFrames() {
+  return layers().flatMap((l) => [l.in_frame, l.out_frame - 1,
+    ...PROPS.flatMap((p) => keysOf(l, p).map((k) => k.frame))]);
+}
+
+// W-22: Ctrl+D copies the selected layers, each in front of itself; Ctrl+Shift+D splits them at
+// the playhead. Copies are one entry to undo, by the transaction the bracket keys use; a split
+// is one entry per layer split.
+function duplicateLayers() {
+  const taken = selection.slice();
+  if (!taken.length) return;
+  nudge = nudge.then(async () => {
+    for (const id of taken) await command('/layer.duplicate?layer=' + encodeURIComponent(id) + '&drag=1');
+    await command('/property.drag_end');
+  });
+}
+
+function splitLayers() {
+  const taken = movable();
+  nudge = nudge.then(async () => {
+    for (const layer of taken) {
+      await command('/layer.split?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame);
+    }
+  });
+}
+
+// W-22: Alt+Shift with A, P, S, R or T sets a key on that property of every selected layer at the
+// playhead, as After Effects does, and leaves a key already there alone.
+function keyAtPlayhead(prop) {
+  const taken = movable().filter((l) => !keysOf(l, prop).some((k) => k.frame === frame));
+  if (!taken.length) return;
+  nudge = nudge.then(async () => {
+    for (const layer of taken) {
+      await command('/keyframe.add_remove?layer=' + encodeURIComponent(layer.id)
+        + '&prop=' + prop + '&frame=' + frame + '&drag=1');
+    }
+    await command('/property.drag_end');
+  });
+  showProps([prop], true);
 }
 
 // W-11: a key taken hold of and put down on another frame. The mark follows the pointer here
@@ -1685,7 +1851,9 @@ function grabKey(comp, layer, prop, key, mark) {
       else moveKeys(group, to - key.frame);
     };
     mark.onpointermove = (m) => {
-      const now = frameUnder(m.clientX);
+      let now = frameUnder(m.clientX);
+      // W-22: Shift held lands the key on the playhead when it is near.
+      if (now !== null && m.shiftKey) now = snapped(m.clientX, now, [frame]);
       if (now === null || now === to) return;
       to = now;
       shift(group, to - key.frame);
@@ -3001,20 +3169,22 @@ function effectRow(layer, fx, at, of) {
     + '&effect=' + encodeURIComponent(fx.instance_id);
   const head = document.createElement('div');
   head.className = 'head';
-  // W-07: the name is a grip. The card follows the pointer up and down the stack, the others
-  // making room as it passes, and the drop sends the one position it landed at, so a drag is
-  // one entry to undo. The two arrows beside it do the same job a step at a time.
+  // W-07: the card's bar is a grip (the name alone until W-22). The card follows the pointer up
+  // and down the stack, the others making room as it passes, and the drop sends the one position
+  // it landed at, so a drag is one entry to undo. The two arrows beside it do the same job a step
+  // at a time.
   const name = Object.assign(document.createElement('span'), {
     className: fx.enabled ? 'name' : 'name off',
     textContent: label,
-    title: 'Drag up or down to reorder',
   });
-  name.onpointerdown = (e) => {
+  head.title = 'Drag up or down to reorder';
+  head.onpointerdown = (e) => {
+    if (e.button !== 0 || e.target.closest('button')) return;
     e.preventDefault();
     dragging = true;
-    name.setPointerCapture(e.pointerId);
+    head.setPointerCapture(e.pointerId);
     box.classList.add('lifted');
-    name.onpointermove = (m) => {
+    head.onpointermove = (m) => {
       const over = document.elementFromPoint(m.clientX, m.clientY);
       const card = over && over.closest('.effect');
       if (!card || card === box || card.parentElement !== box.parentElement) return;
@@ -3022,10 +3192,10 @@ function effectRow(layer, fx, at, of) {
       card.parentElement.insertBefore(box,
         m.clientY < r.top + r.height / 2 ? card : card.nextSibling);
     };
-    name.onpointerup = () => {
+    head.onpointerup = () => {
       dragging = false;
-      name.onpointermove = null;
-      name.onpointerup = null;
+      head.onpointermove = null;
+      head.onpointerup = null;
       box.classList.remove('lifted');
       const to = Array.from(box.parentElement.children).indexOf(box);
       if (to !== at) command('/effect.move' + where + '&to=' + to);
@@ -4011,7 +4181,21 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && !typing && pickedKeys.size && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); }
   else if (e.ctrlKey && !typing && copied.length && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
   else if (e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); nextLayer(e.key === 'ArrowUp'); }
+  // W-22: After Effects' Ctrl+D, Ctrl+Shift+D, Ctrl+A and Ctrl+Shift+A. Named by the key's place
+  // rather than its letter, as Ctrl+Alt+G is, so that the plain D and A below stay the first arm
+  // for their letters. Ctrl+A in a field being typed in still means the text.
+  else if (e.ctrlKey && !typing && e.code === 'KeyD') { e.preventDefault(); e.shiftKey ? splitLayers() : duplicateLayers(); }
+  else if (e.ctrlKey && !typing && e.code === 'KeyA') {
+    e.preventDefault();
+    if (e.shiftKey) { pickKey(null, false); choose([]); } else choose(layers().map((l) => l.id).reverse());
+  }
   else if (e.ctrlKey) { /* leave every other accelerator alone */ }
+  // W-22: Shift+F3 swaps the timeline and the graph, as After Effects' does.
+  else if (e.shiftKey && e.key === 'F3') { e.preventDefault(); showSheet(graphing ? 'sheet' : 'graph'); }
+  else if (e.altKey && e.shiftKey && ['KeyA', 'KeyP', 'KeyS', 'KeyR', 'KeyT'].includes(e.code)) {
+    e.preventDefault();
+    keyAtPlayhead({ KeyA: 'anchor', KeyP: 'position', KeyS: 'scale', KeyR: 'rotation', KeyT: 'opacity' }[e.code]);
+  }
   else if (e.key === '?') { e.preventDefault(); $('fit').click(); }
   // The timeline's zoom, After Effects' keys for it; the view is the page's, like the viewer's.
   else if (e.key === '=') { e.preventDefault(); zoomAtPlayhead(1.5); }

@@ -44,6 +44,17 @@ The transform and the effect stack are edited from the same inspector and are ch
 | the front layer cannot go further forward, and is told so by name | Highlight is already at the front. | Highlight is already at the front. | pass |
 | the back layer cannot go further back, and is told so by name | Cel is already at the back. | Cel is already at the back. | pass |
 | neither refusal put an entry in the history that would undo nothing | Cel, 影, Highlight | Cel, 影, Highlight | pass |
+| a layer dragged to the front lands there in one step | 影, Highlight, Cel | 影, Highlight, Cel | pass |
+| and one undo puts it back | Cel, 影, Highlight | Cel, 影, Highlight | pass |
+| a drop without a place is refused, and asks | Where to? Send the position in the stack, counted from nought at the back. | Where to? Send the position in the stack, counted from nought at the back. | pass |
+| a drop where the layer already is changes nothing, and says so by name | 影 is already at position 1. | 影 is already at position 1. | pass |
+| a place past the end of the stack is refused by the core | Position 3 is past the end of a stack of 3 layers. | Position 3 is past the end of a stack of 3 layers. | pass |
+| a duplicate goes in front of the layer it copies, under the same name | Cel, 影, 影, Highlight | Cel, 影, 影, Highlight | pass |
+| and one undo takes it away | Cel, 影, Highlight | Cel, 影, Highlight | pass |
+| a split on the layer's first frame is refused, and says where it can go | 影 runs from frame 0 to 4, so it can only be split on a frame after its first and before its end. | 影 runs from frame 0 to 4, so it can only be split on a frame after its first and before its end. | pass |
+| a split leaves the layer ending where the copy in front of it begins | Cel 0-5, 影 0-2, 影 2-5, Highlight 0-5 | Cel 0-5, 影 0-2, 影 2-5, Highlight 0-5 | pass |
+| and is one entry to undo | 11 | 11 | pass |
+| which puts the one layer back | Cel 0-5, 影 0-5, Highlight 0-5 | Cel 0-5, 影 0-5, Highlight 0-5 | pass |
 | a command naming a layer that is not there is refused by name | layer-gone is not a layer in this composition. | layer-gone is not a layer in this composition. | pass |
 | a command naming no layer at all asks which one | Which layer? Choose one in the layer list. | Which layer? Choose one in the layer list. | pass |
 | deleting a layer removes it | Cel, Highlight | Cel, Highlight | pass |
@@ -59,4 +70,4 @@ The transform and the effect stack are edited from the same inspector and are ch
 | there is nothing left to undo, and it says so | There is nothing to undo. | There is nothing to undo. | pass |
 | after all of the above, a save would write the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**37 of 37 checks pass.**
+**48 of 48 checks pass.**

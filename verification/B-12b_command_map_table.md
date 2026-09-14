@@ -31,8 +31,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 24 names the identifiers this table walks | 45 | 45 | pass |
-| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
+| document 24 names the identifiers this table walks | 48 | 48 | pass |
+| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, layer.move, layer.duplicate, layer.split, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, layer.move, layer.duplicate, layer.split, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
 | `project.new` is reached by | nothing yet | nothing yet | pass |
 | `project.open` is reached by | a route the shell answers | a route the shell answers | pass |
 | `project.save` is reached by | a route the shell answers | a route the shell answers | pass |
@@ -53,6 +53,9 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `layer.set_matte` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.shift` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.trim` is reached by | a command the window answers | a command the window answers | pass |
+| `layer.move` is reached by | a command the window answers | a command the window answers | pass |
+| `layer.duplicate` is reached by | a command the window answers | a command the window answers | pass |
+| `layer.split` is reached by | a command the window answers | a command the window answers | pass |
 | `timeline.previous_frame` is reached by | the page, with no request | the page, with no request | pass |
 | `timeline.next_frame` is reached by | the page, with no request | the page, with no request | pass |
 | `timeline.play_pause` is reached by | the page, with no request | the page, with no request | pass |
@@ -108,6 +111,10 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and [ or ] is bound | yes | yes | pass |
 | document 24 gives `layer.trim` the shortcut | Alt+[ or Alt+] | Alt+[ or Alt+] | pass |
 | and Alt+[ or Alt+] is bound | yes | yes | pass |
+| document 24 gives `layer.duplicate` the shortcut | Ctrl+D | Ctrl+D | pass |
+| and Ctrl+D is bound | yes | yes | pass |
+| document 24 gives `layer.split` the shortcut | Ctrl+Shift+D | Ctrl+Shift+D | pass |
+| and Ctrl+Shift+D is bound | yes | yes | pass |
 | document 24 gives `timeline.previous_frame` the shortcut | Left | Left | pass |
 | and Left is bound | yes | yes | pass |
 | document 24 gives `timeline.next_frame` the shortcut | Right | Right | pass |
@@ -141,4 +148,4 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and G presses | $('checker') | $('checker') | pass |
 | and Shift+/ presses | $('fit') | $('fit') | pass |
 
-**109 of 109 checks pass.**
+**116 of 116 checks pass.**

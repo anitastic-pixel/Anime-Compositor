@@ -30,6 +30,9 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.set_matte | Choose, change or clear the layer that shapes this one | none | yes |
 | layer.shift | Move the selected layer along the timeline, keeping its length, its keyframes moving with it | [ or ] | yes |
 | layer.trim | Trim the selected layer's in or out point | Alt+[ or Alt+] | yes |
+| layer.move | Move a layer to a given place in the stack, where a drag up or down the list drops it | none | yes |
+| layer.duplicate | Copy the selected layers, each in front of itself | Ctrl+D | yes |
+| layer.split | Split the selected layers at the playhead into two layers | Ctrl+Shift+D | yes |
 | timeline.previous_frame | Step one composition frame back | Left | no |
 | timeline.next_frame | Step one composition frame forward | Right | no |
 | timeline.play_pause | Toggle work-area playback | Space | no |
@@ -95,6 +98,8 @@ W-19, the next of After Effects' key habits. With keys chosen on the timeline or
 W-20, ten more of After Effects' habits, chosen by the agent at the owner's request. Home and End put the playhead on the first and last frame; Page Up and Page Down step a frame, and Shift with them or with the arrows steps ten; I and O go to the selected layer's first and last frame. Ctrl+Up and Ctrl+Down select the layer above or below. Alt with the arrows nudges the chosen keys a frame, ten with Shift. A drag across the empty part of the property rows draws a box and chooses the keys it touches, and a press on a property's name chooses all its keys; Shift adds to what is chosen in both. Ctrl+C keeps the chosen keys and Ctrl+V puts them back on their own layer and property with the earliest on the playhead, values, easing and path handles with them, as one entry to undo. Ctrl+Alt+G makes the chosen keys hold, or linear again when all of them already hold; After Effects has this on Ctrl+Alt+H, and the owner asked for G. A key dot on the graph says its frame and value when hovered, as a mark on the timeline does.
 
 W-21, at the owner's request: a mouse click on a button, a tick box or a list row gives the keyboard back to the window, so Space after clicking the Graph tab or a layer plays the shot instead of pressing that control again. A control reached with Tab still keeps Space and the arrows, as Q-03 requires.
+
+W-22, at the owner's request ("I want to be able to drag/switch the layers around, along with the effects panel as well like AE"), and ten After Effects habits with it. `layer.move` is `effect.move` for the layer list: a layer's name is dragged up or down the list and the drop sends the one place it landed, one entry to undo, and Ctrl+] and Ctrl+[ remain the way without a mouse. An effect card is now dragged by its whole bar rather than by its name. A drawing dragged from the media bin onto the list becomes a layer where it is let go, by `layer.create` with a place. Ctrl+D is `layer.duplicate` and Ctrl+Shift+D `layer.split`, which ends the layer on the frame before the playhead and starts a copy of it there, as one entry to undo. Ctrl+A selects every layer and Ctrl+Shift+A clears the layers and keys. Alt+Shift with A, P, S, R or T sets a key on that property at the playhead. Shift while dragging the playhead lands it on a key or a layer's end, and Shift while dragging a key or a bar lands it on the playhead. Shift+F3 swaps the timeline and the graph. In the layer list Ctrl-click adds or takes away one layer and Shift-click takes the range; on a bar in the timeline Shift still adds one, as before. A copy keeps its effects' instance identifiers, which is safe because every effect command names its layer as well.
 
 ## Focus and selection
 

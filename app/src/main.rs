@@ -1113,6 +1113,16 @@ fn unused_layer_id(project: &Project) -> Id {
     Id::new(format!("layer-{}", highest.map_or(1, |n| n + 1)))
 }
 
+/// W-22: a layer as it is, under an identifier nothing in the project is using. Its effects keep
+/// their instance IDs: a command names an effect by its layer as well, so two layers may hold the
+/// same one, and `unused_effect_id` counts past both.
+fn copy_of(project: &Project, layer: &Layer) -> Layer {
+    Layer {
+        id: unused_layer_id(project),
+        ..layer.clone()
+    }
+}
+
 /// An effect instance ID nothing in this project is using, counted the way layer IDs are.
 ///
 /// Counted across the whole project rather than the one layer, so that an effect keeps its
@@ -1449,11 +1459,14 @@ const ANSWERS: &[&str] = &[
     "keyframe.set_path",
     "layer.create",
     "layer.delete",
+    "layer.duplicate",
+    "layer.move",
     "layer.move_down",
     "layer.move_up",
     "layer.rename",
     "layer.set_matte",
     "layer.shift",
+    "layer.split",
     "layer.toggle_lock",
     "layer.toggle_visibility",
     "layer.trim",
@@ -1681,6 +1694,64 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 false => import(viewer, &files),
             });
         }
+        // W-22: After Effects' Ctrl+Shift+D. The layer ends on the frame before the one asked for
+        // and a copy of it in front begins there, each keeping the drawing and the keys under its
+        // frames, as one entry to undo.
+        "layer.split" => {
+            let Some(layer_id) = parameter(query, "layer").map(Id::new) else {
+                return Some("Which layer? Choose one in the layer list.".to_string());
+            };
+            let frame = match frame_parameter(query, "frame") {
+                Ok(frame) => frame,
+                Err(said) => return Some(said),
+            };
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            let composition = held.composition.clone();
+            let project = held.document.project();
+            let Some(comp) = project.composition(&composition) else {
+                return Some("There is no composition on screen to edit.".to_string());
+            };
+            let Some(layer) = comp.layer(&layer_id) else {
+                return Some(format!("{layer_id} is not a layer in this composition."));
+            };
+            if frame <= layer.in_frame || frame >= layer.out_frame {
+                return Some(format!(
+                    "{} runs from frame {} to {}, so it can only be split on a frame after its \
+                     first and before its end.",
+                    layer.name,
+                    layer.in_frame,
+                    layer.out_frame - 1
+                ));
+            }
+            let at = comp
+                .index_of(&layer_id)
+                .expect("a layer that is here has a place");
+            let copy = copy_of(project, layer);
+            let (copy_id, in_frame, out_frame) = (copy.id.clone(), layer.in_frame, layer.out_frame);
+            let commands = vec![
+                Command::AddLayer {
+                    composition: composition.clone(),
+                    layer: Box::new(copy),
+                    index: at + 1,
+                },
+                Command::TrimLayer {
+                    composition: composition.clone(),
+                    layer_id,
+                    in_frame,
+                    out_frame: frame,
+                },
+                Command::TrimLayer {
+                    composition,
+                    layer_id: copy_id,
+                    in_frame: frame,
+                    out_frame,
+                },
+            ];
+            return Some(match held.document.apply_all(commands) {
+                Ok(record) => record.label.clone(),
+                Err(diagnostic) => sentence(&diagnostic),
+            });
+        }
         // W-17: every chosen key moved by the same distance, as one entry to undo. Each is named
         // `layer|prop|frame`, split from the right because a frame and a property name cannot
         // hold a `|` and a layer id might. The keys furthest along the way they travel go first,
@@ -1769,10 +1840,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             );
             // The end of the order is the front of the picture -- `layers_in_order` is bottom
             // first -- and the front is where somebody who has just added a layer looks for it.
+            // W-22: a drawing dropped on the layer list says where in the stack it landed.
             Command::AddLayer {
                 composition,
                 layer: Box::new(layer),
-                index: comp.len(),
+                index: parameter(query, "to")
+                    .and_then(|to| to.parse::<usize>().ok())
+                    .unwrap_or(comp.len()),
             }
         } else {
             let Some(layer_id) = parameter(query, "layer").map(Id::new) else {
@@ -1831,6 +1905,33 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "layer.move_down" => {
                     return Some(format!("{} is already at the back.", layer.name))
                 }
+                // W-22: a row dragged up or down the list lands at one position, sent once at the
+                // drop, as `effect.move` is for the effects. Counted from the back, as the order is.
+                "layer.move" => {
+                    let Some(to_index) =
+                        parameter(query, "to").and_then(|to| to.parse::<usize>().ok())
+                    else {
+                        return Some(
+                            "Where to? Send the position in the stack, counted from nought at \
+                             the back."
+                                .to_string(),
+                        );
+                    };
+                    if to_index == at {
+                        return Some(format!("{} is already at position {to_index}.", layer.name));
+                    }
+                    Command::ReorderLayer {
+                        composition,
+                        layer_id,
+                        to_index,
+                    }
+                }
+                // W-22: After Effects' Ctrl+D. The copy goes in front of the layer it copies.
+                "layer.duplicate" => Command::AddLayer {
+                    composition,
+                    layer: Box::new(copy_of(project, layer)),
+                    index: at + 1,
+                },
                 // W-05: the two halves of document 20's sentence, as the bar on the timeline
                 // sends them. Both take frames rather than a distance, so that a drag which
                 // sends the same numbers twice has asked for the same thing twice.
@@ -3617,6 +3718,85 @@ mod editing {
             "neither refusal put an entry in the history that would undo nothing",
             "Cel, \u{5f71}, Highlight",
             names(&viewer),
+        );
+
+        // W-22: a row dragged to a place in the list, sent once at the drop.
+        run(&viewer, "layer.move?layer=layer-cel&to=2");
+        report.check(
+            "a layer dragged to the front lands there in one step",
+            "\u{5f71}, Highlight, Cel",
+            names(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and one undo puts it back",
+            "Cel, \u{5f71}, Highlight",
+            names(&viewer),
+        );
+        report.check(
+            "a drop without a place is refused, and asks",
+            "Where to? Send the position in the stack, counted from nought at the back.",
+            run(&viewer, "layer.move?layer=layer-1"),
+        );
+        report.check(
+            "a drop where the layer already is changes nothing, and says so by name",
+            "\u{5f71} is already at position 1.",
+            run(&viewer, "layer.move?layer=layer-1&to=1"),
+        );
+        report.check(
+            "a place past the end of the stack is refused by the core",
+            "Position 3 is past the end of a stack of 3 layers.",
+            run(&viewer, "layer.move?layer=layer-1&to=3"),
+        );
+
+        // W-22: Ctrl+D and Ctrl+Shift+D.
+        run(&viewer, "layer.duplicate?layer=layer-1");
+        report.check(
+            "a duplicate goes in front of the layer it copies, under the same name",
+            "Cel, \u{5f71}, \u{5f71}, Highlight",
+            names(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and one undo takes it away",
+            "Cel, \u{5f71}, Highlight",
+            names(&viewer),
+        );
+        report.check(
+            "a split on the layer's first frame is refused, and says where it can go",
+            "\u{5f71} runs from frame 0 to 4, so it can only be split on a frame after its first \
+             and before its end.",
+            run(&viewer, "layer.split?layer=layer-1&frame=0"),
+        );
+        let depth = held(&viewer).document.undo_depth();
+        run(&viewer, "layer.split?layer=layer-1&frame=2");
+        let spans = |viewer: &Mutex<Viewer>| {
+            let held = held(viewer);
+            let comp = held
+                .document
+                .project()
+                .composition(&held.composition)
+                .expect("the composition on screen");
+            comp.layers_in_order()
+                .map(|l| format!("{} {}-{}", l.name, l.in_frame, l.out_frame))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        report.check(
+            "a split leaves the layer ending where the copy in front of it begins",
+            "Cel 0-5, \u{5f71} 0-2, \u{5f71} 2-5, Highlight 0-5",
+            spans(&viewer),
+        );
+        report.check(
+            "and is one entry to undo",
+            depth + 1,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "which puts the one layer back",
+            "Cel 0-5, \u{5f71} 0-5, Highlight 0-5",
+            spans(&viewer),
         );
 
         // ---- a list older than the document ------------------------------------------------------
@@ -8162,11 +8342,14 @@ mod contract {
         "keyframe.set_path",
         "layer.create",
         "layer.delete",
+        "layer.duplicate",
+        "layer.move",
         "layer.move_down",
         "layer.move_up",
         "layer.rename",
         "layer.set_matte",
         "layer.shift",
+        "layer.split",
         "layer.toggle_lock",
         "layer.toggle_visibility",
         "layer.trim",
@@ -8452,6 +8635,9 @@ mod contract {
         ("layer.set_matte", "a command the window answers"),
         ("layer.shift", "a command the window answers"),
         ("layer.trim", "a command the window answers"),
+        ("layer.move", "a command the window answers"),
+        ("layer.duplicate", "a command the window answers"),
+        ("layer.split", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -8507,6 +8693,8 @@ mod contract {
             "Alt+[ or Alt+]",
             "e.key === '[' || e.key === ']'",
         ),
+        ("layer.duplicate", "Ctrl+D", "e.code === 'KeyD'"),
+        ("layer.split", "Ctrl+Shift+D", "e.shiftKey ? splitLayers()"),
         ("timeline.previous_frame", "Left", "e.key === 'ArrowLeft'"),
         ("timeline.next_frame", "Right", "e.key === 'ArrowRight'"),
         ("timeline.play_pause", "Space", "e.key === ' '"),
@@ -9824,7 +10012,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 36] = [
+    const KEYS: [&str; 37] = [
         "-",
         "1",
         "=",
@@ -9839,6 +10027,7 @@ mod contract {
         "Delete",
         "End",
         "F2",
+        "F3",
         "F9",
         "G",
         "Home",
@@ -9876,10 +10065,13 @@ mod contract {
     /// up or down the stack, and the two arrows on the card send `effect.move_up` and
     /// `effect.move_down` to the same end a step at a time, which is the pairing the rows
     /// below are for.
-    const MOUSE_ONLY: [&str; 1] = ["effect.move"];
+    ///
+    /// `layer.move` joined it in W-22, the same drop for a layer's row, paired with
+    /// `layer.move_up` and `layer.move_down` on Ctrl+] and Ctrl+[.
+    const MOUSE_ONLY: [&str; 2] = ["effect.move", "layer.move"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 16] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 18] = [
         (
             "dragging the border between two panels",
             "give one of them more of the window",
@@ -9956,9 +10148,19 @@ mod contract {
             "fields[name].push(input);",
         ),
         (
-            "dragging an effect's name up or down the stack",
+            "dragging an effect's bar up or down the stack",
             "reorder the effects",
             "command('/effect.move_up' + where)",
+        ),
+        (
+            "dragging a layer up or down the list",
+            "reorder the layers",
+            "$('up').onclick = onSelected('layer.move_up');",
+        ),
+        (
+            "dragging a drawing from the media bin onto the layer list",
+            "make a layer out of it at that place",
+            "$('addlayer').click();",
         ),
     ];
 
