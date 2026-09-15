@@ -52,6 +52,15 @@ on 2026-09-15, after a rebuild (the first try ran a build from before the change
 
 ## W-02, the second walk
 
+Not yet walked by the owner. On 2026-09-15, at the owner's request, the agent checked the build
+ahead of that walk; this is not the unaided run B-12 asks for. The scripted walk
+(`verification/B-12c_w02_walkthrough.md`) passed 24 of 24 on this build, and the Relink panel's
+buttons send the same three requests it makes. Frames 8 and 14 were rendered with layer 3 on its
+own drawings and on `verification/B-12 W-02 revised drawings` (layer 4's pictures under layer 3's
+names, drawing 7 left out): frame 8 changed from the yellow and cyan blocks to the green square,
+and frame 14, which exposes drawing 7, was the same picture both times, with no drawing slid into
+the gap and a warning that drawing 7 is missing.
+
 ## Anything that behaved differently from the sheet
 
 The sheet was written from the build of 2026-09-08 and can go stale silently. A step where the
