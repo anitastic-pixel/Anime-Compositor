@@ -334,6 +334,16 @@
             }
           ]
         },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
         "blend_mode": {
           "enum": [
             "normal",

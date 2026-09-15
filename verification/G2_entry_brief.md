@@ -1,5 +1,9 @@
 # A brief for the owner: what stands between B-12 and B-13
 
+**Decided on 2026-09-15.** The owner passed G1 with the three gaps noted (D-54), accepted the
+memory headroom (D-55), and accepted the B-13 plan as proposed (D-56). The parenting contract
+that follows from section 3 is D-57, proposed and awaiting the owner.
+
 Written on 2026-09-15, the day B-12 closed. The owner asked the agent to proceed with the next
 thing it recommended. The agent had recommended performance work, but every performance unit in
 document 15 is already done or cut (P-14, the last, on 2026-09-12). The next unit is B-13, the

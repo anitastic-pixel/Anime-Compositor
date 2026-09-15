@@ -94,6 +94,8 @@ Opacity is clamped to 0..1 at command validation. Scale may be negative to permi
 8. Composite the ordered result.
 9. Apply output/display transform only for the requested destination.
 
+Parents, proposed by D-57, create dependencies in the same way: a parent's anchor, position, scale and rotation are evaluated at the same composition frame as its child's, whether or not that frame is inside the parent's in and out points, whether or not the parent is enabled, and whatever drawing its exposure holds. Nothing else of the parent is evaluated for the child.
+
 Mattes create dependencies but not a second time domain: matte layers evaluate at the same composition frame unless later time-remapping is explicitly introduced.
 
 ## Rounding and conversions

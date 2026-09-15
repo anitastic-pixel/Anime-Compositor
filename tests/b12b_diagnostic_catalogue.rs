@@ -157,6 +157,14 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
 /// a claim about scope that a reader can check against the requirement it names.
 const NOT_BUILT: &[(&str, &str)] = &[
     (
+        "PARENT_CYCLE",
+        "R-12 parenting is proposed in D-57 and not built until B-13b.",
+    ),
+    (
+        "PARENT_REFERENCE_MISSING",
+        "R-12 parenting is proposed in D-57 and not built until B-13b.",
+    ),
+    (
         "EXPRESSION_CYCLE",
         "R-13, expressions, is G2 work and no expression evaluator exists.",
     ),
@@ -228,7 +236,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "21 identifiers",
+        "23 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

@@ -18,6 +18,16 @@ For a layer point p, the 2D transform is:
 
 Position denotes where the anchor lands in composition coordinates. Positive rotation is clockwise in the screen-coordinate system. Renderer sampling uses the inverse transform from destination pixel center to source space.
 
+## Parenting
+
+Proposed by D-57 on 2026-09-15, awaiting the owner. Call the transform above `M(L)`. A layer with a parent has the parent's whole transform applied after its own:
+
+`M_world(L) = M_world(parent(L)) * M(L)`, and `M_world(L) = M(L)` for a layer with no parent.
+
+A child's position is therefore a point in its parent's layer space, the space the parent's anchor is measured in. Step 4 of the layer render order below uses `M_world` in place of `M`, and so do the matte layer's own transform and every viewer overlay drawn on a layer. Opacity, masks, effects, mattes, blend mode and exposure are not inherited.
+
+Keeping place, when a parent is set at frame `f`: with `W` the parent's `M_world` at `f`, the child's new position is `W^-1` applied to its position, its new rotation is its rotation less the sum of the rotations along the parent's chain at `f`, and its new scale is its scale divided, component by component, by the product of the scales along that chain at `f`. The anchor is unchanged. Every keyframe value of position, rotation and scale is converted the same way with `W` taken at `f`, and a spatial handle, being an offset, by the linear part of `W^-1` alone. Clearing a parent applies the reverse. This is exact, every point of the layer landing where it was, when every layer in the parent's chain has equal x and y scale, or when neither the child nor any layer in the chain is rotated. Otherwise the exact result is a skew this transform cannot hold: the anchor lands exactly where it was, the rest may shift, and the command reports it. A chain with a zero scale component at `f` has no inverse, and setting the parent is refused.
+
 ## Resampling and outside bounds
 
 G1 final-quality transform sampling is bilinear in premultiplied linear RGBA. Samples outside the source extent are transparent black. A future higher-order filter may be added only with independent edge fixtures and explicit bounds rules.

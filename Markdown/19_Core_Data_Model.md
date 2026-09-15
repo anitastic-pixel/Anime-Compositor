@@ -20,6 +20,8 @@ Asset records media identity and interpretation. G1 asset kinds are `still` and 
 
 G1 layer kind is `raster`. A raster layer stores ID, name, asset ID, enabled/locked state, in/out frames, source offset, transform, optional exposure map, optional polygon mask, optional matte reference, blend mode and ordered effect instances.
 
+Proposed by D-57 on 2026-09-15, awaiting the owner: an optional `parent`, the ID of another layer in the same composition whose transform is applied after this layer's own (document 21). Absent or null means no parent, and the file carries the field only when it is set. A parent that names no layer is preserved and diagnosed as `PARENT_REFERENCE_MISSING`.
+
 Layer order is composition order. Index is not identity. Reordering must not rewrite layer IDs or references.
 
 Transform contains anchor, position, scale, rotation and opacity properties. Scale is percentage-like in UI but serialized as explicit numeric pairs. Position and anchor use pixels. Rotation uses degrees. Opacity uses normalized 0..1 in the model.
@@ -76,6 +78,7 @@ EffectInstance stores stable instance ID, effect type ID, enabled flag and a typ
 - Layer `in_frame < out_frame`.
 - Exposure spans have `start < end`, are sorted and do not overlap.
 - Matte graph is acyclic.
+- Parent graph is acyclic, and a parent is a layer in the same composition (proposed by D-57).
 - Effect parameter types match the registered effect schema.
 - No serialized path is trusted without normalization and access checks.
 

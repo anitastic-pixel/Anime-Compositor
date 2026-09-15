@@ -125,13 +125,73 @@ The `x` at frame 5 is negative, which is the layer to the left of where it start
 
 FX-XF-001 identity preserves pixels and bounds. FX-XF-002 integer translation moves a 1x1 impulse exactly one pixel. FX-XF-003 half-pixel translation verifies bilinear weights. FX-XF-004 rotates around a nonzero anchor using the matrix order in 21.
 
+## Parenting fixtures
+
+Proposed on 2026-09-15 by D-57, awaiting the owner. Each case is a small chain of layers, every one of them a transform with no keys unless the case says otherwise, and the composition point expected for a handful of points in the child's own layer space. Anchor, position and scale default to (0, 0), (0, 0) and (100, 100), rotation to 0.
+
+**Every number below is produced by `tools/parent_reference.py`**, which carries a point through document 21's four steps one at a time - subtract the anchor, scale, rotate clockwise, add the position - and then hands it to the parent. It never builds a matrix; the build multiplies them. Tolerance 1e-9 throughout, because a rotation of 90 degrees is not exactly a quarter turn in floating point.
+
+FX-PARENT-001: one parent, nothing animated. Parent P: anchor (50, 50), position (400, 300), rotation 90. Child C: position (100, 0), parent P.
+
+| child point | (0, 0) | (10, 0) | (0, 10) |
+| --- | --- | --- | --- |
+| x | 450 | 450 | 440 |
+| y | 350 | 360 | 350 |
+
+By hand: the child's origin is (100, 0) in P's space, which is (50, -50) from P's anchor; a quarter turn clockwise makes that (50, 50), and P's position adds (400, 300). A step to the right along the child is a step down the screen, because the parent is turned.
+
+FX-PARENT-002: a chain of three, with the middle one animated. Grandparent G: position (960, 540), scale (50, 50). Parent P: position (200, 0), rotation keyed linearly from 0 at frame 0 to 90 at frame 24, parent G. Child C: position (100, 0), parent P.
+
+| frame | 0 | 6 | 12 | 24 |
+| --- | --- | --- | --- | --- |
+| origin x | 1110 | 1106.1939766255643 | 1095.3553390593274 | 1060 |
+| origin y | 540 | 559.1341716182545 | 575.3553390593274 | 590 |
+| (20, 0) x | 1120 | 1115.4327719506773 | 1102.4264068711927 | 1060 |
+| (20, 0) y | 540 | 562.9610059419053 | 582.4264068711929 | 600 |
+
+The grandparent's half scale halves everything below it, including the child's 20-pixel step, which is 10 pixels on screen at every frame. The child has no keys of its own and still moves, which is the point of the case.
+
+FX-PARENT-003: what is not inherited. FX-PARENT-001's two layers, with P's opacity 0.5, P switched off, P's out point at frame 24, and the composition read at frame 30. C is a 1x1 opaque white drawing with opacity 1. Expected: C's points land exactly as in FX-PARENT-001; pixel (449, 350), whose centre is where C's one pixel centre lands, reads white at alpha 1; P draws nothing. A build that multiplied C by P's opacity, or dropped P's transform because P is off or out of range, fails this.
+
+FX-PARENT-004: loops. Layers A and B, both unparented. Setting A's parent to B succeeds. Setting B's parent to A is refused with `PARENT_CYCLE`, and so is setting A's parent to A; neither refusal changes the document revision, dirty state or undo stack. A project file in which A and B name each other is reported with `PARENT_CYCLE`, treated as document 28 treats `MATTE_CYCLE`.
+
+FX-PARENT-005: keeping place, in the exact case. Parent P: anchor (50, 50), position (400, 300), scale (200, 200), rotation 90. Child C, unparented: anchor (10, 20), position (500, 400), rotation 30. Setting C's parent to P at frame 0 must give C these values:
+
+| anchor | position | scale | rotation |
+| --- | --- | --- | --- |
+| (10, 20) | (100, 0) | (50, 50) | -60 |
+
+and every corner of C's 100-by-100 layer must land where it was:
+
+| corner | (0, 0) | (100, 0) | (0, 100) | (100, 100) |
+| --- | --- | --- | --- | --- |
+| x | 501.33974596215563 | 587.9422863405995 | 451.33974596215563 | 537.9422863405995 |
+| y | 377.6794919243112 | 427.6794919243112 | 464.2820323027551 | 514.282032302755 |
+
+The reference carries the corners through before and after and finds them equal to within 1e-13.
+
+FX-PARENT-006: keeping place, in the case that cannot be exact. Parent P: position (300, 200), scale (200, 100). Child C, unparented: position (500, 400), rotation 45. Setting C's parent to P at frame 0 gives position (100, 200), scale (50, 100), rotation 45, and the command reports that the layer could not keep its shape exactly. C's anchor corner lands where it was; the others do not:
+
+| corner | (0, 0) | (100, 0) | (0, 100) | (100, 100) |
+| --- | --- | --- | --- | --- |
+| before x | 500 | 570.7106781186548 | 429.28932188134524 | 500 |
+| before y | 400 | 470.71067811865476 | 470.71067811865476 | 541.4213562373095 |
+| after x | 500 | 570.7106781186548 | 358.5786437626905 | 429.28932188134524 |
+| after y | 400 | 435.3553390593274 | 470.71067811865476 | 506.06601717798213 |
+
+This case pins what the build does when it cannot do the right thing, so that it does the same wrong thing every time and says so.
+
+FX-PARENT-007: the file. `Fixtures/projects/parenting_project.json` holds FX-PARENT-002's chain as `layer-grand`, `layer-parent` and `layer-child`, and a fourth layer, `layer-orphan`, at position (10, 10) whose parent is `layer-gone`, which does not exist. Loading it reports one `PARENT_REFERENCE_MISSING` naming `layer-orphan` and `layer-gone`, beside the `MEDIA_MISSING` its absent drawings already give; `layer-child`'s origin matches FX-PARENT-002 at frames 0, 6, 12 and 24; `layer-orphan`'s origin lands at (10, 10). Saving it again writes `"parent": "layer-gone"` unchanged, and no layer without a parent gains a `parent` field.
+
+FX-PARENT-008: deleting a parent. From FX-PARENT-005's result, deleting P leaves C with no parent and with its FX-PARENT-005 starting values, anchor (10, 20), position (500, 400), scale (100, 100), rotation 30, to within 1e-9, as one entry to undo. Undo restores P, and C's parent and values from FX-PARENT-005's table.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
 
 ## Failure fixtures
 
-FX-IO-001 interrupted replacement retains last valid project. FX-IO-002 disk-full/write failure reports `PROJECT_SAVE_FAILED` and does not truncate the previous valid save. FX-MATTE-001 creates A->B and B->A matte references and must be rejected with `MATTE_CYCLE`.
+FX-IO-001 interrupted replacement retains last valid project. FX-IO-002 disk-full/write failure reports `PROJECT_SAVE_FAILED` and does not truncate the previous valid save. FX-MATTE-001 creates A->B and B->A matte references and must be rejected with `MATTE_CYCLE`. FX-PARENT-004, above, does the same for a parent loop with `PARENT_CYCLE`.
 
 ## Image/filter fixtures
 
