@@ -1532,6 +1532,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
 /// `verification/B-12b_command_map_table.md` checks that nothing outside it is answered.
 const ANSWERS: &[&str] = &[
     "composition.create",
+    "composition.delete",
+    "composition.duplicate",
     "composition.open",
     "composition.set_settings",
     "edit.redo",
@@ -1563,6 +1565,7 @@ const ANSWERS: &[&str] = &[
     "layer.shift",
     "layer.split",
     "layer.toggle_lock",
+    "layer.toggle_shy",
     "layer.toggle_solo",
     "layer.toggle_visibility",
     "layer.trim",
@@ -1838,6 +1841,128 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             return Some(match held.document.apply_all(commands) {
                 Ok(record) => record.label.clone(),
                 Err(diagnostic) => sentence(&diagnostic),
+            });
+        }
+        // W-26: a composition deleted from the project panel, one entry to undo. The core keeps
+        // the last one. Deleting the one on screen moves the window to the first that is left.
+        "composition.delete" => {
+            let Some(asked) = parameter(query, "composition") else {
+                return Some(
+                    "Which composition should be deleted? Choose one in the project panel."
+                        .to_string(),
+                );
+            };
+            let id = Id::new(&asked);
+            let name = viewer
+                .lock()
+                .expect("the viewer lock was poisoned")
+                .document
+                .project()
+                .composition(&id)
+                .map(|comp| comp.name.clone());
+            let Some(name) = name else {
+                return Some(format!("There is no composition {asked} in this project."));
+            };
+            let said = edit(
+                viewer,
+                Command::RemoveComposition {
+                    composition: id.clone(),
+                },
+            );
+            let gone = viewer
+                .lock()
+                .expect("the viewer lock was poisoned")
+                .document
+                .project()
+                .composition(&id)
+                .is_none();
+            settle(viewer, &[]);
+            return Some(match gone {
+                true => format!("{name} is deleted. Ctrl+Z brings it back."),
+                false => said,
+            });
+        }
+        // W-26: a copy of a composition, as one entry to undo, and the window moves into it. Its
+        // layers get new identifiers and a matte follows the copy of its layer. A lock goes back on
+        // last, because a locked layer refuses its matte.
+        "composition.duplicate" => {
+            let Some(asked) = parameter(query, "composition") else {
+                return Some(
+                    "Which composition should be duplicated? Choose one in the project panel."
+                        .to_string(),
+                );
+            };
+            let made = {
+                let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+                let project = held.document.project();
+                let Some(comp) = project.composition(&Id::new(&asked)) else {
+                    return Some(format!("There is no composition {asked} in this project."));
+                };
+                let copy = unused_composition_id(project);
+                let name = format!("{} copy", comp.name);
+                let mut empty = Composition::new(
+                    copy.clone(),
+                    name.clone(),
+                    comp.width,
+                    comp.height,
+                    comp.frame_rate,
+                    comp.start_frame,
+                    comp.duration_frames,
+                );
+                empty.work_area = comp.work_area;
+                empty.markers = comp.markers.clone();
+                let first = unused_layer_id(project).as_str()["layer-".len()..]
+                    .parse::<u64>()
+                    .unwrap_or(1);
+                let new_id = |at: usize| Id::new(format!("layer-{}", first + at as u64));
+                let layers: Vec<&Layer> = comp.layers_in_order().collect();
+                let mut commands = vec![Command::AddComposition {
+                    composition: Box::new(empty),
+                }];
+                let mut mattes = Vec::new();
+                let mut locks = Vec::new();
+                for (at, layer) in layers.iter().enumerate() {
+                    commands.push(Command::AddLayer {
+                        composition: copy.clone(),
+                        layer: Box::new(Layer {
+                            id: new_id(at),
+                            matte: None,
+                            locked: false,
+                            ..(*layer).clone()
+                        }),
+                        index: at,
+                    });
+                    if let Some(matte) = &layer.matte {
+                        if let Some(other) = layers.iter().position(|l| l.id == matte.layer_id) {
+                            mattes.push(Command::SetMatte {
+                                composition: copy.clone(),
+                                layer_id: new_id(at),
+                                matte: Some(new_id(other)),
+                                matte_only: matte.matte_only,
+                            });
+                        }
+                    }
+                    if layer.locked {
+                        locks.push(Command::SetLayerLocked {
+                            composition: copy.clone(),
+                            layer_id: new_id(at),
+                            value: true,
+                        });
+                    }
+                }
+                commands.extend(mattes);
+                commands.extend(locks);
+                match held.document.apply_all(commands) {
+                    Ok(_) => Ok((copy, name)),
+                    Err(diagnostic) => Err(sentence(&diagnostic)),
+                }
+            };
+            return Some(match made {
+                Ok((copy, name)) => {
+                    show(viewer, &copy);
+                    format!("{name} is on screen. Ctrl+Z takes it away again.")
+                }
+                Err(said) => said,
             });
         }
         "composition.create" => {
@@ -2198,6 +2323,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     composition,
                     layer_id,
                     value: !layer.locked,
+                },
+                // W-26: the shy switch, read from the document as the other toggles are.
+                "layer.toggle_shy" => Command::SetLayerShy {
+                    composition,
+                    layer_id,
+                    value: !layer.shy,
                 },
                 // W-25: the blend mode, from the inspector's list or the layer's menu.
                 "layer.set_blend_mode" => Command::SetBlendMode {
@@ -8676,6 +8807,8 @@ mod contract {
     /// what the window can do, and it should have to be written down here as well as there.
     const SENT: &[&str] = &[
         "composition.create",
+        "composition.delete",
+        "composition.duplicate",
         "composition.open",
         "composition.set_settings",
         "edit.redo",
@@ -8707,6 +8840,7 @@ mod contract {
         "layer.shift",
         "layer.split",
         "layer.toggle_lock",
+        "layer.toggle_shy",
         "layer.toggle_solo",
         "layer.toggle_visibility",
         "layer.trim",
@@ -8983,6 +9117,8 @@ mod contract {
         ("composition.create", "a command the window answers"),
         ("composition.open", "a command the window answers"),
         ("composition.set_settings", "a command the window answers"),
+        ("composition.duplicate", "a command the window answers"),
+        ("composition.delete", "a command the window answers"),
         ("edit.undo", "a command the window answers"),
         ("edit.redo", "a command the window answers"),
         ("media.import", "a command the window answers"),
@@ -9005,6 +9141,7 @@ mod contract {
         ("layer.set_blend_mode", "a command the window answers"),
         ("layer.copy", "a command the window answers"),
         ("layer.paste", "a command the window answers"),
+        ("layer.toggle_shy", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -9752,11 +9889,12 @@ mod contract {
             "layer.set_matte?layer=layer-3&matte=layer-2&only=false",
         );
         // W-24: a work area, a marker and a label are written only when there is one, so the
-        // ruler and the label colours are given one each the same way.
+        // ruler and the label colours are given one each the same way. W-26: and a shy layer.
         for edit in [
             "timeline.set_work_start?frame=1",
             "timeline.set_markers?marker=2|hit",
             "layer.set_label?layer=layer-3&label=2",
+            "layer.toggle_shy?layer=layer-3",
         ] {
             run(&viewer, edit);
         }
@@ -10353,7 +10491,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 39] = [
+    const CONTROLS: [&str; 43] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -10365,6 +10503,7 @@ mod contract {
         "cancelexport",
         "cancelrelink",
         "checker",
+        "closeprefs",
         "dellayer",
         "down",
         "export",
@@ -10379,12 +10518,15 @@ mod contract {
         "notedetails",
         "open",
         "play",
+        "preferences",
         "recent",
         "recovery",
         "redo",
         "relink",
+        "resetlayout",
         "save",
         "saveas",
+        "shyswitch",
         "tabgraph",
         "tabsheet",
         "timescroll",

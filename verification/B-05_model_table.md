@@ -1,6 +1,6 @@
 # B-05 model, commands and undo
 
-Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **92 of 92 checks pass.**
+Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **98 of 98 checks pass.**
 
 ## What to check by eye
 
@@ -36,7 +36,7 @@ The before file is 305 lines and the after file is 392 lines.
 | rejected command: the model is untouched | `layer1` | `layer1` | PASS |
 | locked layer: unlocking is still allowed | `ok` | `ok` | PASS |
 | reorder: layer 1 moved to the top of the stack | `sakura, layer3, layer4, layer1` | `sakura, layer3, layer4, layer1` | PASS |
-| reorder: an untouched layer is bit-identical afterwards | `Layer { id: Id("layer-4"), name: "layer4", asset_id: Id("asset-layer4"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [ExposureSpan { start_frame: 0, end_frame_exclusive: 3, drawing_number: 0 }, ExposureSpan { start_frame: 3, end_frame_exclusive: 6, drawing_number: 1 }], mask: None, matte: None, effects: [], blend_mode: Normal, label: 0 }` | `Layer { id: Id("layer-4"), name: "layer4", asset_id: Id("asset-layer4"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [ExposureSpan { start_frame: 0, end_frame_exclusive: 3, drawing_number: 0 }, ExposureSpan { start_frame: 3, end_frame_exclusive: 6, drawing_number: 1 }], mask: None, matte: None, effects: [], blend_mode: Normal, label: 0 }` | PASS |
+| reorder: an untouched layer is bit-identical afterwards | `Layer { id: Id("layer-4"), name: "layer4", asset_id: Id("asset-layer4"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [ExposureSpan { start_frame: 0, end_frame_exclusive: 3, drawing_number: 0 }, ExposureSpan { start_frame: 3, end_frame_exclusive: 6, drawing_number: 1 }], mask: None, matte: None, effects: [], blend_mode: Normal, label: 0, shy: false }` | `Layer { id: Id("layer-4"), name: "layer4", asset_id: Id("asset-layer4"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [ExposureSpan { start_frame: 0, end_frame_exclusive: 3, drawing_number: 0 }, ExposureSpan { start_frame: 3, end_frame_exclusive: 6, drawing_number: 1 }], mask: None, matte: None, effects: [], blend_mode: Normal, label: 0, shy: false }` | PASS |
 | reorder undone: the exact prior order is back | `layer1, sakura, layer3, layer4` | `layer1, sakura, layer3, layer4` | PASS |
 | reorder redone: the moved order is back | `sakura, layer3, layer4, layer1` | `sakura, layer3, layer4, layer1` | PASS |
 | reorder: an index in the middle of the stack is the place the layer lands | `sakura, layer1, layer3, layer4` | `sakura, layer1, layer3, layer4` | PASS |
@@ -50,6 +50,12 @@ The before file is 305 lines and the after file is 392 lines.
 | label: layer 1 is colour 3 | `3` | `3` | PASS |
 | label: there is no colour 9 | `true` | `true` | PASS |
 | label undone: none | `0` | `0` | PASS |
+| shy: layer 1 is shy | `true` | `true` | PASS |
+| shy undone: not shy | `false` | `false` | PASS |
+| delete composition: the only one is refused | `true` | `true` | PASS |
+| delete composition: the other is left | `comp-extra` | `comp-extra` | PASS |
+| delete undone: both are back, in their places | `comp-0000-0000-0000 comp-extra` | `comp-0000-0000-0000 comp-extra` | PASS |
+| and the second undone | `comp-0000-0000-0000` | `comp-0000-0000-0000` | PASS |
 | blend mode: layer 1 is screen | `screen` | `screen` | PASS |
 | blend mode undone: normal | `normal` | `normal` | PASS |
 | composition settings: a width of nought is refused | `true` | `true` | PASS |
@@ -94,7 +100,7 @@ The before file is 305 lines and the after file is 392 lines.
 | undone: no keyframes and the layer where the file put it | `keys at , 0 to 240, offset 0` | `keys at , 0 to 240, offset 0` | PASS |
 | transaction: an invalid second command rejects the whole batch | `COMMAND_INVALID_VALUE` | `COMMAND_INVALID_VALUE` | PASS |
 | transaction rejected: the asset from the first command was not added either | `4` | `4` | PASS |
-| transaction rejected: revision unchanged | `55` | `55` | PASS |
+| transaction rejected: revision unchanged | `61` | `61` | PASS |
 | transaction: import plus create layer is one history record | `14` | `14` | PASS |
 | transaction: both parts landed | `5 assets, 5 layers` | `5 assets, 5 layers` | PASS |
 | transaction undone: both parts are gone in one step | `4 assets, 4 layers` | `4 assets, 4 layers` | PASS |
@@ -104,7 +110,7 @@ The before file is 305 lines and the after file is 392 lines.
 | matte: a reference to a layer that is not there is rejected | `MATTE_REFERENCE_MISSING` | `MATTE_REFERENCE_MISSING` | PASS |
 | matte: the dependent layer still records the reference after its target is deleted | `layer-3` | `layer-3` | PASS |
 | the deleted layer's record is gone, not merely unlisted | `absent, 4 layers` | `absent, 4 layers` | PASS |
-| matte: undoing the delete restores the target and the dependent exactly | `Layer { id: Id("layer-fx"), name: "fx", asset_id: Id("asset-effects"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [], mask: None, matte: Some(MatteReference { layer_id: Id("layer-3"), matte_only: false }), effects: [], blend_mode: Normal, label: 0 }` | `Layer { id: Id("layer-fx"), name: "fx", asset_id: Id("asset-effects"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [], mask: None, matte: Some(MatteReference { layer_id: Id("layer-3"), matte_only: false }), effects: [], blend_mode: Normal, label: 0 }` | PASS |
+| matte: undoing the delete restores the target and the dependent exactly | `Layer { id: Id("layer-fx"), name: "fx", asset_id: Id("asset-effects"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [], mask: None, matte: Some(MatteReference { layer_id: Id("layer-3"), matte_only: false }), effects: [], blend_mode: Normal, label: 0, shy: false }` | `Layer { id: Id("layer-fx"), name: "fx", asset_id: Id("asset-effects"), enabled: true, locked: false, in_frame: 0, out_frame: 240, source_offset_frames: 0, transform: Transform { anchor: Property { base: Vec2(0.0, 0.0), keyframes: [] }, position: Property { base: Vec2(0.0, 0.0), keyframes: [] }, scale: Property { base: Vec2(1.0, 1.0), keyframes: [] }, rotation: Property { base: Scalar(0.0), keyframes: [] }, opacity: Property { base: Scalar(1.0), keyframes: [] } }, exposure_spans: [], mask: None, matte: Some(MatteReference { layer_id: Id("layer-3"), matte_only: false }), effects: [], blend_mode: Normal, label: 0, shy: false }` | PASS |
 | matte: the restored target is back in its original position | `sakura, layer3, layer4, layer1, fx` | `sakura, layer3, layer4, layer1, fx` | PASS |
 | after save: dirty | `false` | `false` | PASS |
 | after an edit following save: dirty | `true` | `true` | PASS |

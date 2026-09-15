@@ -500,6 +500,8 @@ pub struct Layer {
     /// W-24: After Effects' label colour, 0 for none and 1 to 8 for the page's eight colours.
     /// Saved as `label` only when set, so a file that never had one is written back unchanged.
     pub label: u8,
+    /// W-26: After Effects' shy switch. Saved as `shy` only when set, as the label is.
+    pub shy: bool,
 }
 
 impl Layer {
@@ -527,6 +529,7 @@ impl Layer {
             effects: Vec::new(),
             blend_mode: BlendMode::Normal,
             label: 0,
+            shy: false,
         }
     }
 

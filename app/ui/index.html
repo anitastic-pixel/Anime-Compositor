@@ -567,6 +567,8 @@
   #newcomposition[hidden] { display: none; }
   #newcomposition label { display: block; }
   #newcomposition input { width: 100%; box-sizing: border-box; }
+  #prefs label { display: block; }
+  #prefs input { width: 100%; box-sizing: border-box; }
   #relinking p { margin: 0 0 6px; }
 </style>
 </head>
@@ -579,6 +581,7 @@
   <button id="saveas">Save As&hellip;</button>
   <select id="recent"><option value="">Recent&hellip;</option></select>
   <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
+  <button id="preferences">Preferences&hellip;</button>
   <span class="sep"></span>
   <button id="undo">Undo</button>
   <button id="redo">Redo</button>
@@ -608,6 +611,21 @@
         <input id="compframes" type="number" min="1" value="240">
         <button id="makecomp">Create it</button>
         <button id="cancelcomp">Leave it</button>
+      </div>
+      <div id="prefs" hidden>
+        <h2>Preferences</h2>
+        <p>These belong to this window on this computer. A project file never holds them.</p>
+        <p>A new composition starts at:</p>
+        <label for="prefwidth">Width in pixels</label>
+        <input id="prefwidth" type="number" min="1" value="1920">
+        <label for="prefheight">Height in pixels</label>
+        <input id="prefheight" type="number" min="1" value="1080">
+        <label for="preffps">Frames per second</label>
+        <input id="preffps" type="number" min="1" value="24">
+        <label for="prefframes">Length in frames</label>
+        <input id="prefframes" type="number" min="1" value="240">
+        <button id="resetlayout">Put the panel sizes back</button>
+        <button id="closeprefs">Close</button>
       </div>
       <h2>Drawings</h2>
       <ul class="rows" id="assets"></ul>
@@ -693,6 +711,8 @@
       <select id="graphprop" aria-label="Which property the graph draws" hidden></select>
       <button id="graphmode" class="sheettab" aria-pressed="false" hidden
         title="Draw how fast the property changes, as After Effects' speed graph does">Speed</button>
+      <button id="shyswitch" class="sheettab" aria-pressed="false"
+        title="Leave shy layers off the timeline. The picture still draws them.">Hide shy layers</button>
       <button id="addlayer">Add layer</button>
       <button id="dellayer">Delete layer</button>
       <button id="up">Forward</button>
@@ -1025,7 +1045,12 @@ function drawComps() {
     size.className = 'kind';
     size.textContent = comp.width + '×' + comp.height;
     const li = row(doc.composition, comp.id, comp.name, []);
-    li.append(size);
+    // W-26: a copy of the composition, and deleting it, each one Ctrl+Z.
+    li.append(size,
+      iconButton('\u29c9', 'Duplicate ' + comp.name,
+        () => command('/composition.duplicate?composition=' + encodeURIComponent(comp.id))),
+      iconButton('\u2715', 'Delete ' + comp.name,
+        () => command('/composition.delete?composition=' + encodeURIComponent(comp.id))));
     li.onclick = () => command('/composition.open?composition=' + encodeURIComponent(comp.id));
     return li;
   }));
@@ -1898,6 +1923,17 @@ sheet.ondblclick = (e) => {
   if (e.target.closest('#ruler .work')) setWork('reset');
 };
 
+// W-26: document 24's preferences for the window rather than the project, kept in the browser's
+// storage beside the panel sizes. The timeline's Hide shy layers switch is kept here too.
+// Each is a preference with its box in Preferences and its box in the new composition form.
+const PREF_FIELDS = [['width', 'prefwidth', 'compwidth'], ['height', 'prefheight', 'compheight'],
+  ['fps', 'preffps', 'compfps'], ['frames', 'prefframes', 'compframes']];
+const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false };
+try { Object.assign(prefs, JSON.parse(localStorage.getItem('prefs') || '{}')); } catch (e) { /* the defaults */ }
+function savePrefs() {
+  try { localStorage.setItem('prefs', JSON.stringify(prefs)); } catch (e) { /* kept for this run only */ }
+}
+
 function drawLayers() {
   // A number on one of these rows is dragged or typed into like any other, and rebuilding the
   // list under the hand would take the element it is holding away mid-gesture. The inspector
@@ -1908,7 +1944,8 @@ function drawLayers() {
   const comp = composition();
   // Reversed: the last layer in composition order is drawn last and so is in front.
   const list = $('layers');
-  list.replaceChildren(...all.slice().reverse().flatMap((layer) => {
+  $('shyswitch').setAttribute('aria-pressed', String(prefs.hideShy));
+  list.replaceChildren(...all.slice().reverse().filter((layer) => !(prefs.hideShy && layer.shy)).flatMap((layer) => {
     const eye = iconButton(layer.enabled ? '●' : '○',
       layer.enabled ? 'Hide ' + layer.name : 'Show ' + layer.name,
       () => command('/layer.toggle_visibility?layer=' + encodeURIComponent(layer.id)));
@@ -1932,12 +1969,18 @@ function drawLayers() {
     const swatch = Object.assign(document.createElement('span'),
       { className: 'swatch', title: 'Label: ' + LABEL_NAMES[layer.label || 0] });
     swatch.style.background = LABELS[layer.label || 0] || 'transparent';
-    const li = row(selectedLayer, layer.id, layer.name, [swatch, twirl, eye, solo, lock]);
-    // Colour is not the only carrier: a layer that is off, soloed or locked says so in words.
-    if (!layer.enabled || layer.locked || soloed) {
+    // W-26: After Effects' shy switch. A shy layer is left off this list while Hide shy layers is
+    // on; the picture still draws it.
+    const shy = iconButton(layer.shy ? '\u25e1' : '\u25e0', (layer.shy ? 'Not shy: ' : 'Shy: ') + layer.name,
+      () => command('/layer.toggle_shy?layer=' + encodeURIComponent(layer.id)));
+    shy.setAttribute('aria-pressed', String(!!layer.shy));
+    const li = row(selectedLayer, layer.id, layer.name, [swatch, twirl, eye, solo, lock, shy]);
+    // Colour is not the only carrier: a layer that is off, soloed, locked or shy says so in words.
+    if (!layer.enabled || layer.locked || soloed || layer.shy) {
       const mark = document.createElement('span');
       mark.className = 'mark';
-      mark.textContent = [!layer.enabled ? 'hidden' : null, soloed ? 'soloed' : null, layer.locked ? 'locked' : null]
+      mark.textContent = [!layer.enabled ? 'hidden' : null, soloed ? 'soloed' : null, layer.locked ? 'locked' : null,
+        layer.shy ? 'shy' : null]
         .filter(Boolean).join(', ');
       li.append(mark);
       if (!layer.enabled) li.querySelector('.name').className = 'name off';
@@ -2159,9 +2202,31 @@ function blendLayers(mode) {
 function toggleLayers(what) {
   const ids = selection.slice();
   if (!ids.length) return;
-  const id = what === 'lock' ? '/layer.toggle_lock' : '/layer.toggle_visibility';
+  const id = { lock: '/layer.toggle_lock', shy: '/layer.toggle_shy' }[what] || '/layer.toggle_visibility';
   nudge = nudge.then(async () => {
     for (const layer of ids) await command(id + '?layer=' + encodeURIComponent(layer) + '&drag=1');
+    await command('/property.drag_end');
+  });
+}
+
+// W-26: After Effects' Sequence Layers. The chosen layers, in the order they were chosen, are laid
+// end to end from the end of the first, each keeping its length, as one entry to undo.
+function sequenceLayers() {
+  const taken = selection.slice().reverse()
+    .map((id) => layers().find((layer) => layer.id === id))
+    .filter((layer) => layer && !layer.locked);
+  if (taken.length < 2) {
+    $('status').textContent = 'Choose two or more unlocked layers, in the order they should play.';
+    return;
+  }
+  let at = taken[0].out_frame;
+  nudge = nudge.then(async () => {
+    for (const layer of taken.slice(1)) {
+      if (layer.in_frame !== at) {
+        await command('/layer.shift?layer=' + encodeURIComponent(layer.id) + '&in=' + at + '&drag=1');
+      }
+      at += layer.out_frame - layer.in_frame;
+    }
     await command('/property.drag_end');
   });
 }
@@ -2275,6 +2340,12 @@ function palette() {
     ['Show changed properties', 'UU', () => showProps('changed')],
     ['Fill the window with the panel', '`', maximise],
     ['Error details', '', () => $('notedetails').click()],
+    ['Sequence the selected layers end to end', '', sequenceLayers],
+    ['Shy or not shy the selected layers', '', () => toggleLayers('shy')],
+    ['Hide or show shy layers', '', () => $('shyswitch').click()],
+    ['Duplicate the composition', '', () => doc && command('/composition.duplicate?composition=' + encodeURIComponent(doc.composition))],
+    ['Delete the composition', '', () => doc && command('/composition.delete?composition=' + encodeURIComponent(doc.composition))],
+    ['Preferences', '', () => $('preferences').click()],
     ...PROPS.map((prop) => ['Reset ' + prop, '', () => resetProp(prop)]),
     ...BLENDS.map((mode) => ['Blend mode ' + mode, '', () => blendLayers(mode)]),
   ];
@@ -2336,6 +2407,8 @@ function layerMenu(x, y, first = []) {
     ['Rename', 'F2', beginRename],
     ['Duplicate', 'Ctrl+D', duplicateLayers],
     ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
+    ['Sequence layers', '', sequenceLayers, selection.length > 1],
+    ['Shy or not shy', '', () => toggleLayers('shy')],
     ['Bring to front', 'Ctrl+Shift+]', () => toEnd(true)],
     ['Send to back', 'Ctrl+Shift+[', () => toEnd(false)],
     ['Copy', 'Ctrl+C', copyLayers],
@@ -4879,11 +4952,32 @@ $('notedetails').onclick = () => {
 $('newcomp').onclick = () => {
   settingComp = null;
   $('makecomp').textContent = 'Create it';
+  // W-26: a new composition starts at the sizes in Preferences.
+  $('compname').value = 'New composition';
+  for (const [f, , box] of PREF_FIELDS) $(box).value = prefs[f];
   const box = $('newcomposition');
   box.hidden = !box.hidden;
   if (!box.hidden) $('compname').focus();
 };
 $('cancelcomp').onclick = () => { $('newcomposition').hidden = true; };
+
+// W-26: the Preferences box. A number is kept as it is typed, once it is a whole number above nought.
+$('preferences').onclick = () => {
+  for (const [f, box] of PREF_FIELDS) $(box).value = prefs[f];
+  $('prefs').hidden = !$('prefs').hidden;
+};
+for (const [f, box] of PREF_FIELDS) {
+  $(box).addEventListener('input', (e) => {
+    const n = Number(e.target.value);
+    if (Number.isInteger(n) && n > 0) { prefs[f] = n; savePrefs(); }
+  });
+}
+$('closeprefs').onclick = () => { $('prefs').hidden = true; };
+$('resetlayout').onclick = () => {
+  for (const [prop] of Object.values(BORDERS)) setSize(prop, null);
+  saveLayout();
+};
+$('shyswitch').onclick = () => { prefs.hideShy = !prefs.hideShy; savePrefs(); drawLayers(); };
 $('makecomp').onclick = () => {
   const q = 'name=' + encodeURIComponent($('compname').value)
     + '&width=' + encodeURIComponent($('compwidth').value)

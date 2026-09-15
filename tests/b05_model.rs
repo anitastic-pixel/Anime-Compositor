@@ -411,6 +411,56 @@ fn b05_model_and_undo() {
         layer_named(&doc, "layer-1").label.to_string(),
     );
 
+    // -- W-26: the shy switch and deleting a composition, each one entry to undo ------------------
+    doc.apply(Command::SetLayerShy {
+        composition: id(COMP),
+        layer_id: id("layer-1"),
+        value: true,
+    })
+    .expect("shy");
+    report.check("shy: layer 1 is shy", true, layer_named(&doc, "layer-1").shy);
+    doc.undo();
+    report.check("shy undone: not shy", false, layer_named(&doc, "layer-1").shy);
+    let comps = |doc: &Document| {
+        doc.project()
+            .compositions
+            .iter()
+            .map(|c| c.id.as_str().to_string())
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    let one = comps(&doc);
+    report.check(
+        "delete composition: the only one is refused",
+        true,
+        doc.apply(Command::RemoveComposition {
+            composition: id(COMP),
+        })
+        .is_err(),
+    );
+    doc.apply(Command::AddComposition {
+        composition: Box::new(anime_compositor::model::Composition::new(
+            id("comp-extra"),
+            "Extra",
+            640,
+            360,
+            FrameRate::new(24, 1).expect("24 fps"),
+            0,
+            24,
+        )),
+    })
+    .expect("a second composition");
+    let two = comps(&doc);
+    doc.apply(Command::RemoveComposition {
+        composition: id(COMP),
+    })
+    .expect("delete composition");
+    report.check("delete composition: the other is left", "comp-extra", comps(&doc));
+    doc.undo();
+    report.check("delete undone: both are back, in their places", &two, comps(&doc));
+    doc.undo();
+    report.check("and the second undone", &one, comps(&doc));
+
     // -- W-25: blend mode and composition settings, each one entry to undo ----------------------
     doc.apply(Command::SetBlendMode {
         composition: id(COMP),

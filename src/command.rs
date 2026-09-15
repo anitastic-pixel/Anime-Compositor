@@ -50,6 +50,11 @@ pub enum Command {
     AddComposition {
         composition: Box<Composition>,
     },
+    /// W-26: a composition deleted from the project panel. The last one in a project is refused,
+    /// so the window always has a composition to show.
+    RemoveComposition {
+        composition: Id,
+    },
     AddLayer {
         composition: Id,
         layer: Box<Layer>,
@@ -79,6 +84,13 @@ pub enum Command {
         composition: Id,
         layer_id: Id,
         label: u8,
+    },
+    /// W-26: After Effects' shy switch. It changes nothing in the picture; the timeline leaves a
+    /// shy layer out while its Hide shy layers switch is on.
+    SetLayerShy {
+        composition: Id,
+        layer_id: Id,
+        value: bool,
     },
     /// Document 24's `timeline.set_work_start` and `set_work_end`, W-24. Both ends at once, so a
     /// drag that moves one end replaces its earlier reading whole.
@@ -275,12 +287,14 @@ impl Command {
             Command::AddAsset { .. } => "ADD_ASSET",
             Command::RelinkAsset { .. } => "RELINK_ASSET",
             Command::AddComposition { .. } => "ADD_COMPOSITION",
+            Command::RemoveComposition { .. } => "REMOVE_COMPOSITION",
             Command::AddLayer { .. } => "ADD_LAYER",
             Command::RemoveLayer { .. } => "REMOVE_LAYER",
             Command::RenameLayer { .. } => "RENAME_LAYER",
             Command::SetLayerEnabled { .. } => "SET_LAYER_ENABLED",
             Command::SetLayerLocked { .. } => "SET_LAYER_LOCKED",
             Command::SetLayerLabel { .. } => "SET_LAYER_LABEL",
+            Command::SetLayerShy { .. } => "SET_LAYER_SHY",
             Command::SetWorkArea { .. } => "SET_WORK_AREA",
             Command::SetMarkers { .. } => "SET_MARKERS",
             Command::SetBlendMode { .. } => "SET_BLEND_MODE",
@@ -311,6 +325,9 @@ impl Command {
             Command::AddComposition { composition } => {
                 format!("New composition {}", composition.name)
             }
+            Command::RemoveComposition { composition } => {
+                format!("Delete composition {composition}")
+            }
             Command::AddLayer { layer, .. } => format!("Add layer {}", layer.name),
             Command::RemoveLayer { layer_id, .. } => format!("Delete layer {layer_id}"),
             Command::RenameLayer { name, .. } => format!("Rename layer to {name}"),
@@ -320,6 +337,10 @@ impl Command {
             Command::SetLayerLocked { value, .. } => {
                 format!("{} layer", if *value { "Lock" } else { "Unlock" })
             }
+            Command::SetLayerShy { value, .. } => match value {
+                true => "Make the layer shy".to_string(),
+                false => "Make the layer not shy".to_string(),
+            },
             Command::SetLayerLabel { label, .. } => match label {
                 0 => "Clear the layer's label".to_string(),
                 n => format!("Set the layer's label to colour {n}"),
@@ -409,13 +430,15 @@ impl Command {
         match self {
             Command::AddAsset { .. }
             | Command::RelinkAsset { .. }
-            | Command::AddComposition { .. } => None,
+            | Command::AddComposition { .. }
+            | Command::RemoveComposition { .. } => None,
             Command::AddLayer { composition, .. }
             | Command::RemoveLayer { composition, .. }
             | Command::RenameLayer { composition, .. }
             | Command::SetLayerEnabled { composition, .. }
             | Command::SetLayerLocked { composition, .. }
             | Command::SetLayerLabel { composition, .. }
+            | Command::SetLayerShy { composition, .. }
             | Command::SetWorkArea { composition, .. }
             | Command::SetMarkers { composition, .. }
             | Command::SetBlendMode { composition, .. }
@@ -445,6 +468,7 @@ impl Command {
             Command::AddAsset { asset } => ids.push(asset.id.clone()),
             Command::RelinkAsset { asset } => ids.push(asset.id.clone()),
             Command::AddComposition { composition } => ids.push(composition.id.clone()),
+            Command::RemoveComposition { composition } => ids.push(composition.clone()),
             Command::AddLayer { layer, .. } => ids.push(layer.id.clone()),
             Command::SetWorkArea { .. }
             | Command::SetMarkers { .. }
@@ -452,6 +476,7 @@ impl Command {
             Command::RemoveLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
+            | Command::SetLayerShy { layer_id, .. }
             | Command::RenameLayer { layer_id, .. }
             | Command::SetLayerEnabled { layer_id, .. }
             | Command::SetLayerLocked { layer_id, .. }
@@ -524,6 +549,8 @@ impl Command {
             self,
             Command::SetLayerLocked { .. }
                 | Command::SetLayerLabel { .. }
+                | Command::SetLayerShy { .. }
+                | Command::RemoveComposition { .. }
                 | Command::AddAsset { .. }
                 | Command::RelinkAsset { .. }
                 | Command::AddComposition { .. }
@@ -546,6 +573,7 @@ impl Command {
             | Command::MoveKeyframe { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
+            | Command::SetLayerShy { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
@@ -976,6 +1004,24 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         return Ok(());
     }
 
+    if let Command::RemoveComposition { composition } = command {
+        if project.composition(composition).is_none() {
+            return Err(missing(
+                format!("The composition {composition} is not in this project."),
+                "A delete names the composition it removes; that ID is not present.".to_string(),
+            ));
+        }
+        if project.compositions.len() == 1 {
+            return Err(reject(
+                "This is the only composition in the project, so it stays. Make another one \
+                 first if this one should go.",
+                "W-26: a project keeps at least one composition for the window to show.",
+            ));
+        }
+        project.compositions.retain(|c| &c.id != composition);
+        return Ok(());
+    }
+
     let comp_id = command
         .composition()
         .expect("only the project-level commands have none")
@@ -1020,7 +1066,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
     }
 
     match command {
-        Command::AddAsset { .. } | Command::RelinkAsset { .. } | Command::AddComposition { .. } => {
+        Command::AddAsset { .. }
+        | Command::RelinkAsset { .. }
+        | Command::AddComposition { .. }
+        | Command::RemoveComposition { .. } => {
             unreachable!("handled above")
         }
         Command::AddLayer { layer, index, .. } => {
@@ -1088,6 +1137,11 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             layer_id, value, ..
         } => {
             layer_mut(project, &comp_id, layer_id)?.locked = *value;
+        }
+        Command::SetLayerShy {
+            layer_id, value, ..
+        } => {
+            layer_mut(project, &comp_id, layer_id)?.shy = *value;
         }
         Command::SetLayerLabel {
             layer_id, label, ..

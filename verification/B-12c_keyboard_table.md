@@ -29,7 +29,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, recent, recovery, redo, relink, save, saveas, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, recent, recovery, redo, relink, save, saveas, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
+| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, closeprefs, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, closeprefs, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
@@ -39,6 +39,8 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `boxes` can be asked for without a mouse | yes | yes | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
+| `composition.delete` can be asked for without a mouse | yes | yes | pass |
+| `composition.duplicate` can be asked for without a mouse | yes | yes | pass |
 | `composition.open` can be asked for without a mouse | yes | yes | pass |
 | `composition.set_settings` can be asked for without a mouse | yes | yes | pass |
 | `curve` can be asked for without a mouse | yes | yes | pass |
@@ -72,6 +74,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.shift` can be asked for without a mouse | yes | yes | pass |
 | `layer.split` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_lock` can be asked for without a mouse | yes | yes | pass |
+| `layer.toggle_shy` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_solo` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_visibility` can be asked for without a mouse | yes | yes | pass |
 | `layer.trim` can be asked for without a mouse | yes | yes | pass |
@@ -123,4 +126,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | right clicking a chosen key is not the only way to open its menu of key speed, ease, hold, copy, paste and delete | true | true | pass |
 | right clicking an empty place on the timeline is not the only way to paste keys or layers there, add a key, a layer or a marker, or open the settings | true | true | pass |
 
-**93 of 93 checks pass.**
+**96 of 96 checks pass.**

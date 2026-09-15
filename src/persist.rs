@@ -539,6 +539,9 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     if layer.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
         owned.push(("label", J::from(layer.label)));
     }
+    if layer.shy || base.is_some_and(|b| b.get("shy").is_some()) {
+        owned.push(("shy", J::from(layer.shy)));
+    }
     merge(base, owned)
 }
 
@@ -1283,6 +1286,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         mask,
         matte,
         effects,
+        shy: match v.get("shy") {
+            None => false,
+            Some(shy) => as_bool(shy, &format!("{pointer}/shy"))?,
+        },
         label: match v.get("label") {
             None => 0,
             Some(label) => match as_u32(label, &format!("{pointer}/label"))? {
