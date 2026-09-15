@@ -1201,6 +1201,8 @@ function nameMarker(at) {
 function drawRuler() {
   const comp = composition();
   const ruler = $('ruler');
+  // A marker's name box lives on the ruler, and redrawing it would take the box away mid-word.
+  if (ruler.querySelector('input.naming')) return;
   if (!comp) { ruler.replaceChildren(); $('timescroll').hidden = true; return; }
   ruler.replaceChildren(...ticksOf(comp).map((at) => {
     const tick = document.createElement('span');
@@ -1603,11 +1605,24 @@ function frameUnder(clientX) {
 // W-24: an end of the work area or a marker pulled along the ruler. Every frame it reaches is sent
 // inside the drag transaction, so a pull is one entry to undo and Escape takes it back. A marker
 // pressed and let go without moving puts the playhead on it; with Ctrl the press removes it.
+let markerPress = { frame: null, at: 0 };
 function dragRuler(e, handle) {
   const comp = composition();
   e.preventDefault();
   const from = handle.classList.contains('marker') ? Number(handle.dataset.frame) : null;
   if (from !== null && e.ctrlKey) { removeMarkerAt(from); return; }
+  // The double click that names a marker is counted here, from the two presses: the first press
+  // holds the pointer on the sheet, so the browser reports the double click on the sheet and not
+  // on the marker, and a dblclick handler never learnt which marker it was.
+  if (from !== null) {
+    const now = performance.now();
+    if (markerPress.frame === from && now - markerPress.at < 500) {
+      markerPress = { frame: null, at: 0 };
+      nameMarker(from);
+      return;
+    }
+    markerPress = { frame: from, at: now };
+  }
   const list = markersOf(comp);
   const [first, past] = workOf(comp);
   const startEnd = handle.classList.contains('first');
@@ -1831,11 +1846,10 @@ $('sheet').addEventListener('pointermove', (e) => {
 
 $('sheet').addEventListener('pointerup', () => { scrubbing = false; });
 $('sheet').addEventListener('pointercancel', () => { scrubbing = false; });
-// W-24: a double click names a marker, or puts the work area back to the whole composition.
+// W-24: a double click on the band puts the work area back to the whole composition. A double
+// click on a marker, which names it, is counted in dragRuler.
 sheet.ondblclick = (e) => {
-  const mark = e.target.closest('#ruler .marker');
-  if (mark) nameMarker(Number(mark.dataset.frame));
-  else if (e.target.closest('#ruler .work')) setWork('reset');
+  if (e.target.closest('#ruler .work')) setWork('reset');
 };
 
 function drawLayers() {
