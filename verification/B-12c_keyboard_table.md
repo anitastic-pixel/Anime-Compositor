@@ -121,5 +121,6 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | double clicking a marker is not the only way to name it | true | true | pass |
 | right clicking a property's name is not the only way to put it back to its default | true | true | pass |
 | right clicking a chosen key is not the only way to open its menu of key speed, ease, hold, copy, paste and delete | true | true | pass |
+| right clicking an empty place on the timeline is not the only way to paste keys or layers there, add a key, a layer or a marker, or open the settings | true | true | pass |
 
-**92 of 92 checks pass.**
+**93 of 93 checks pass.**

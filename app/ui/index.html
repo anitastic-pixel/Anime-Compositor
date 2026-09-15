@@ -720,7 +720,7 @@
   <ul id="notes"></ul>
   <button id="notedetails" type="button" aria-expanded="false" hidden>Error details</button>
   <ul id="notecodes" hidden></ul>
-  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click chosen keys for speed, ease, hold, copy and delete, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file here</span>
+  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -1165,15 +1165,15 @@ function sendMarkers(list, drag) {
   if (drag) q.push('drag=1');
   return command('/timeline.set_markers?' + q.join('&'));
 }
-function addMarker() {
+function addMarker(at = frame) {
   const comp = composition();
   if (!comp) return;
   const list = markersOf(comp);
-  if (list.some((m) => m.frame === frame)) {
-    $('status').textContent = 'There is a marker on frame ' + frame + ' already.';
+  if (list.some((m) => m.frame === at)) {
+    $('status').textContent = 'There is a marker on frame ' + at + ' already.';
     return;
   }
-  sendMarkers([...list, { frame, name: '' }]);
+  sendMarkers([...list, { frame: at, name: '' }]);
 }
 function removeMarkerAt(at) {
   const comp = composition();
@@ -1424,14 +1424,15 @@ function copyKeys() {
   });
   $('status').textContent = copied.length + (copied.length === 1 ? ' key copied' : ' keys copied');
 }
-function pasteKeys() {
+function pasteKeys(start = frame, target = null) {
   const first = Math.min(...copied.map((c) => c.key.frame));
-  const onto = new Set(copied.map((c) => c.layer)).size === 1 && selected() ? selected().id : null;
+  const onto = new Set(copied.map((c) => c.layer)).size === 1
+    ? target || (selected() ? selected().id : null) : null;
   // W-25 fix: a value sent to a property with no keys only changes its one value, so a property
   // pasted onto that has none is given its first key before the copied values arrive.
   const started = new Set();
   const sends = copied.flatMap(({ layer, prop, key }) => {
-    const at = key.frame - first + frame;
+    const at = key.frame - first + start;
     const q = '?layer=' + encodeURIComponent(onto || layer) + '&frame=' + at + '&drag=1';
     const target = layers().find((l) => l.id === (onto || layer));
     const fresh = target && !keysOf(target, prop).length && !started.has(target.id + '|' + prop);
@@ -1806,6 +1807,20 @@ $('sheet').addEventListener('click', (e) => {
   if (swallowClick) { swallowClick = false; e.stopPropagation(); }
 }, true);
 
+// W-25 fix: a right click anywhere on the timeline that a row or a key has not answered.
+sheet.addEventListener('contextmenu', (e) => {
+  if (e.defaultPrevented || !doc || e.target.closest('input')) return;
+  e.preventDefault();
+  const at = frameUnder(e.clientX) ?? frame;
+  popMenu(e.clientX, e.clientY, [
+    ['Paste layers', 'Ctrl+V', pasteLayers, clip === 'layers'],
+    ['Paste keys at frame ' + at, 'Ctrl+V', () => pasteKeys(at), clip === 'keys' && copied.length > 0],
+    ['Add layer', 'Ctrl+Alt+L', () => $('addlayer').click()],
+    ['Add a marker at frame ' + at, '*', () => addMarker(at)],
+    ['Composition settings', 'Ctrl+K', compSettings],
+  ]);
+});
+
 // W-20: a drag across the empty part of the property rows draws a box, and every key it touches
 // is chosen, as After Effects does; Shift or Ctrl adds them to what is chosen. A press that does
 // not move is still the row's click.
@@ -1954,8 +1969,11 @@ function drawLayers() {
     grabRow(li, head, all, layer);
     li.oncontextmenu = (e) => {
       e.preventDefault();
+      // W-25 fix: on the bar, copied keys can be pasted at the frame under the pointer.
+      const at = e.target.closest('.track') ? frameUnder(e.clientX) : null;
       if (!selection.includes(layer.id)) select(layer.id, false);
-      layerMenu(e.clientX, e.clientY);
+      layerMenu(e.clientX, e.clientY, at !== null && clip === 'keys' && copied.length
+        ? [['Paste keys at frame ' + at, 'Ctrl+V', () => pasteKeys(at, layer.id)]] : []);
     };
     // W-22: as After Effects' layer list has it, Ctrl-click adds or takes away one layer and
     // Shift-click takes every layer between the one selected and the one clicked.
@@ -2312,8 +2330,9 @@ function palette() {
   input.focus();
 }
 
-function layerMenu(x, y) {
+function layerMenu(x, y, first = []) {
   const lines = [
+    ...first,
     ['Rename', 'F2', beginRename],
     ['Duplicate', 'Ctrl+D', duplicateLayers],
     ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
@@ -2343,17 +2362,19 @@ function layerMenu(x, y) {
 // W-25 fix: the menu a right click on a chosen key opens, for the chosen keys. Key speed lives
 // here rather than on a shortcut, because Ctrl+Shift+K and Ctrl+Alt+K both belong to other
 // programs on the owner's machine.
-function keyMenu(x, y) {
+function keyMenu(x, y, first = []) {
+  const some = pickedKeys.size > 0;
   popMenu(x, y, [
-    ['Key speed and influence\u2026', '', velocityDialog],
-    ['Easy ease', 'F9', () => easeKeys('both')],
-    ['Easy ease in', 'Shift+F9', () => easeKeys('in')],
-    ['Easy ease out', 'Ctrl+F9', () => easeKeys('out')],
-    ['Linear', '', () => holdKeys('linear')],
-    ['Hold or release', 'Ctrl+Alt+G', () => holdKeys()],
-    ['Copy', 'Ctrl+C', copyKeys],
-    ...(clip === 'keys' && copied.length ? [['Paste', 'Ctrl+V', pasteKeys]] : []),
-    ['Delete', 'Delete', removeKeys],
+    ...first,
+    ['Key speed and influence\u2026', '', velocityDialog, some],
+    ['Easy ease', 'F9', () => easeKeys('both'), some],
+    ['Easy ease in', 'Shift+F9', () => easeKeys('in'), some],
+    ['Easy ease out', 'Ctrl+F9', () => easeKeys('out'), some],
+    ['Linear', '', () => holdKeys('linear'), some],
+    ['Hold or release', 'Ctrl+Alt+G', () => holdKeys(), some],
+    ['Copy', 'Ctrl+C', copyKeys, some],
+    ...(!first.length && clip === 'keys' && copied.length ? [['Paste', 'Ctrl+V', () => pasteKeys()]] : []),
+    ['Delete', 'Delete', removeKeys, some],
   ]);
 }
 
@@ -2371,10 +2392,11 @@ function popMenu(x, y, lines, extra) {
   menu.__close = close;
   const away = (e) => { if (!menu.contains(e.target)) close(); };
   const escape = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
-  for (const [label, key, act] of lines) {
+  for (const [label, key, act, on = true] of lines) {
     const item = document.createElement('button');
     item.type = 'button';
     item.setAttribute('role', 'menuitem');
+    item.disabled = !on;
     item.append(label, Object.assign(document.createElement('kbd'), { textContent: key }));
     item.onclick = () => { close(); act(); };
     menu.append(item);
@@ -2386,7 +2408,7 @@ function popMenu(x, y, lines, extra) {
   menu.style.top = Math.min(y, innerHeight - r.height - 4) + 'px';
   addEventListener('pointerdown', away, true);
   addEventListener('keydown', escape, true);
-  menu.firstChild.focus();
+  (menu.querySelector('button:not(:disabled)') || menu.firstChild).focus();
 }
 
 // W-11: a key taken hold of and put down on another frame. The mark follows the pointer here
@@ -2511,6 +2533,23 @@ function propTrack(comp, layer, prop) {
       box.append(mark);
     }
   }
+  // W-25 fix: a right click on the empty row pastes or adds a key at the frame under the pointer.
+  box.oncontextmenu = (e) => {
+    e.preventDefault();
+    const at = frameUnder(e.clientX) ?? frame;
+    const keys = keysOf(layer, prop);
+    keyMenu(e.clientX, e.clientY, [
+      ['Paste keys at frame ' + at, 'Ctrl+V', () => pasteKeys(at, layer.id), clip === 'keys' && copied.length > 0],
+      ['Add a ' + prop + ' key at frame ' + at, '', () => command('/keyframe.add_remove?layer='
+        + encodeURIComponent(layer.id) + '&prop=' + prop + '&frame=' + at),
+        !layer.locked && !keys.some((k) => k.frame === at)],
+      ['Choose every ' + prop + ' key', '', () => {
+        pickedKeys.clear();
+        for (const k of keys) pickedKeys.add(keyId(layer, prop, k.frame));
+        pickKey(null, true);
+      }, keys.length > 0],
+    ]);
+  };
   li.append(box);
   li.onclick = (e) => { if (!e.shiftKey) pickKey(null, false); select(layer.id, e.shiftKey); };
   return li;
@@ -5107,6 +5146,9 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'Backquote') { e.preventDefault(); maximise(); }
 });
 let lastU = 0;
+addEventListener('contextmenu', (e) => {
+  if (!(e.target instanceof Element && e.target.closest('input, textarea, [contenteditable]'))) e.preventDefault();
+});
 
 // D-35: at rest the viewer shows the work area's first frame.
 show(FRAMES + '/frame/0?q=draft');

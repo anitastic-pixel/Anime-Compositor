@@ -45,6 +45,16 @@ The owner's playtest found seven things. What to check again:
 6. Right-click a key that is not chosen: only that key is chosen, and the menu acts on it.
 7. The same menu opens on a key dot in the graph (Shift+F3).
 
+## Right-click on an empty place (third fix)
+
+1. Press P on layer 4, click the word Position (every key chosen), Ctrl+C.
+2. Press P on layer 1. Right-click an empty place on its Position row near frame 60: the menu starts with Paste keys at frame 60 (or whichever frame is under the pointer). Choose it: layer 1 gets the five keys starting at that frame. One Ctrl+Z.
+3. Right-click an empty place on that row again and choose Add a position key at frame N: a key appears there.
+4. Choose every position key on the same menu: all its keys light up. The key lines under it (ease, hold, delete) are greyed out when no keys are chosen.
+5. Right-click layer 2's blue bar: the layer menu has Paste keys at frame N first, while keys are copied.
+6. Right-click the empty dark area under the last layer: Paste layers, Paste keys, Add layer, Add a marker at frame N and Composition settings. Add a marker puts one at the frame under the pointer, not the playhead.
+7. Right-click anywhere else in the window (the viewer, the bin): no Back, Refresh or Print menu any more. In a text box, the usual copy and paste menu still shows.
+
 ## What checks it by machine
 
 - `verification/B-05_model_table.md`: the blend mode and the composition settings apply, a zero width is refused, a shorter length cuts the work area and drops the last marker, and each undoes exactly.
