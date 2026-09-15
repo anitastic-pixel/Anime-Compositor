@@ -2215,22 +2215,37 @@ function toggleLayers(what) {
 }
 
 // W-26: After Effects' Sequence Layers. The chosen layers, from the top row down, are laid end to
-// end from the end of the first, each keeping its length, as one entry to undo. Row order rather
-// than the order of clicking, because a Shift-click range has no order of clicking.
-function sequenceLayers() {
+// end from the end of the first, as one entry to undo. Row order rather than the order of
+// clicking, because a Shift-click range has no order of clicking. `full` lays out each layer's
+// whole run of drawings rather than its trimmed bar, so a trim leaves a gap where it cut.
+function sequenceLayers(full = false) {
   const taken = layers().slice().reverse()
     .filter((layer) => selection.includes(layer.id) && !layer.locked);
   if (taken.length < 2) {
     $('status').textContent = 'Choose two or more unlocked layers first (Shift-click or Ctrl-click).';
     return;
   }
-  let at = taken[0].out_frame;
+  // A layer's span on the timeline as [start, end): its bar, or its first exposure to its last
+  // (its first drawing to its last, with no exposures), which is where the bar would be untrimmed.
+  const extent = (layer) => {
+    const spans = layer.exposure_spans || [];
+    const drawn = [...drawingsOf(layer)];
+    const local = spans.length
+      ? [Math.min(...spans.map((s) => s.start_frame)), Math.max(...spans.map((s) => s.end_frame_exclusive))]
+      : drawn.length ? [Math.min(...drawn), Math.max(...drawn) + 1] : null;
+    if (!full || !local) return [layer.in_frame, layer.out_frame];
+    const by = layer.in_frame - (layer.source_offset_frames || 0);
+    return [local[0] + by, local[1] + by];
+  };
+  let at = extent(taken[0])[1];
   nudge = nudge.then(async () => {
     for (const layer of taken.slice(1)) {
-      if (layer.in_frame !== at) {
-        await command('/layer.shift?layer=' + encodeURIComponent(layer.id) + '&in=' + at + '&drag=1');
+      const [start, end] = extent(layer);
+      const to = layer.in_frame + at - start;
+      if (to !== layer.in_frame) {
+        await command('/layer.shift?layer=' + encodeURIComponent(layer.id) + '&in=' + to + '&drag=1');
       }
-      at += layer.out_frame - layer.in_frame;
+      at += end - start;
     }
     await command('/property.drag_end');
   });
@@ -2345,7 +2360,8 @@ function palette() {
     ['Show changed properties', 'UU', () => showProps('changed')],
     ['Fill the window with the panel', '`', maximise],
     ['Error details', '', () => $('notedetails').click()],
-    ['Sequence the selected layers end to end', '', sequenceLayers],
+    ['Sequence the selected layers end to end, by trimmed length', '', () => sequenceLayers(false)],
+    ['Sequence the selected layers end to end, by full length', '', () => sequenceLayers(true)],
     ['Shy or not shy the selected layers', '', () => toggleLayers('shy')],
     ['Hide or show shy layers', '', () => $('shyswitch').click()],
     ['Duplicate the composition', '', () => doc && command('/composition.duplicate?composition=' + encodeURIComponent(doc.composition))],
@@ -2412,7 +2428,8 @@ function layerMenu(x, y, first = []) {
     ['Rename', 'F2', beginRename],
     ['Duplicate', 'Ctrl+D', duplicateLayers],
     ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
-    ['Sequence layers', '', sequenceLayers, selection.length > 1],
+    ['Sequence layers by trimmed length', '', () => sequenceLayers(false), selection.length > 1],
+    ['Sequence layers by full length', '', () => sequenceLayers(true), selection.length > 1],
     ['Shy or not shy', '', () => toggleLayers('shy')],
     ['Bring to front', 'Ctrl+Shift+]', () => toEnd(true)],
     ['Send to back', 'Ctrl+Shift+[', () => toEnd(false)],
