@@ -192,13 +192,13 @@
   #sheet { position: relative; overflow: auto; padding: 6px 8px 8px; min-height: 0; }
   #ruler { cursor: ew-resize; }
   #ruler {
-    position: relative; height: 16px; margin-left: var(--gutter);
+    position: relative; height: 24px; margin-left: var(--gutter);
     border-bottom: 1px solid #3a3a3a;
   }
   /* W-24: the work area, a band along the top of the ruler whose two ends are pulled, and the
      markers, a small pennant each on the frame they are on with their name beside it. */
-  #ruler .work { position: absolute; top: 0; height: 5px; background: #6f86b8; z-index: 1; }
-  #ruler .work .end { position: absolute; top: 0; width: 8px; height: 16px; cursor: col-resize; }
+  #ruler .work { position: absolute; top: 0; height: 6px; background: #6f86b8; z-index: 1; }
+  #ruler .work .end { position: absolute; top: 0; width: 8px; height: 24px; cursor: col-resize; }
   #ruler .work .end::after {
     content: ''; position: absolute; left: 3px; top: 0; width: 2px; height: 10px; background: #b9c9ee;
   }
@@ -228,7 +228,7 @@
   .menu.palette [role="listbox"] { overflow: auto; }
   .menu.palette button.current { background: #3a4a6a; }
   #ruler .tick {
-    position: absolute; top: 0; bottom: 0; border-left: 1px solid #3a3a3a;
+    position: absolute; top: 8px; bottom: 0; border-left: 1px solid #3a3a3a;
     padding-left: 3px; font-size: 10px; line-height: 16px; color: #909096;
     font-variant-numeric: tabular-nums;
   }
@@ -460,6 +460,9 @@
   body.maxed #work { grid-template-columns: minmax(0, 1fr); }
   body.maxed #work:not(:has(.max)) { display: none; }
   body.maxed #timeline.max { flex: 1; max-height: none; height: auto; }
+  body.maxed #timeline:not(.max) { display: none; }
+  body.maxed #work { min-height: 0; }
+  #layers .rowhead select.blend { margin-left: auto; flex: none; font-size: 11px; padding: 0; }
 
   /* The two lists — drawings on the left, layers in the timeline. Both are real lists rather
      than rows of buttons, so a screen reader and the Tab key see a list. */
@@ -717,7 +720,7 @@
   <ul id="notes"></ul>
   <button id="notedetails" type="button" aria-expanded="false" hidden>Error details</button>
   <ul id="notecodes" hidden></ul>
-  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, Ctrl+Shift+K key speed, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file here</span>
+  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, Ctrl+Alt+K key speed, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -1424,10 +1427,17 @@ function copyKeys() {
 function pasteKeys() {
   const first = Math.min(...copied.map((c) => c.key.frame));
   const onto = new Set(copied.map((c) => c.layer)).size === 1 && selected() ? selected().id : null;
+  // W-25 fix: a value sent to a property with no keys only changes its one value, so a property
+  // pasted onto that has none is given its first key before the copied values arrive.
+  const started = new Set();
   const sends = copied.flatMap(({ layer, prop, key }) => {
     const at = key.frame - first + frame;
     const q = '?layer=' + encodeURIComponent(onto || layer) + '&frame=' + at + '&drag=1';
+    const target = layers().find((l) => l.id === (onto || layer));
+    const fresh = target && !keysOf(target, prop).length && !started.has(target.id + '|' + prop);
+    if (fresh) started.add(target.id + '|' + prop);
     return [
+      ...(fresh ? ['/keyframe.add_remove' + q + '&prop=' + prop] : []),
       '/property.set_base' + q + '&prop=' + prop + '&value=' + encodeURIComponent([].concat(key.value).join(',')),
       '/keyframe.set_interp' + q + '&prop=' + prop + '&mode=' + key.interp
         + (key.interp === 'ease' ? '&curve=' + easeOf(key).join(',') : ''),
@@ -1926,6 +1936,19 @@ function drawLayers() {
     // W-23: the layer's number, the front one first, as After Effects numbers them.
     head.prepend(Object.assign(document.createElement('span'),
       { className: 'rownum', textContent: all.length - all.indexOf(layer) }));
+    // W-25 fix: the blend mode on the row, as After Effects' Mode column has it.
+    const blend = document.createElement('select');
+    blend.className = 'blend';
+    blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
+    blend.append(...BLENDS.map((mode) => new Option(mode, mode)));
+    blend.value = layer.blend_mode;
+    blend.onclick = (e) => e.stopPropagation();
+    blend.onchange = () => {
+      const mode = blend.value;
+      if (!selection.includes(layer.id)) select(layer.id, false);
+      blendLayers(mode);
+    };
+    head.append(blend);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     grabRow(li, head, all, layer);
@@ -1952,7 +1975,7 @@ function drawLayers() {
 // step at a time. A press that does not move is still the row's click.
 function grabRow(li, head, all, layer) {
   head.onpointerdown = (e) => {
-    if (e.button !== 0 || e.target.closest('button')) return;
+    if (e.button !== 0 || e.target.closest('button, select')) return;
     const y0 = e.clientY;
     let moved = false;
     // The list holds the pointer, not the row: moving the row in the document takes it out and
@@ -2229,7 +2252,7 @@ function palette() {
     ['Centre the selected layers', 'Ctrl+Home', { key: 'Home', ctrlKey: true }],
     ['Centre the anchor in the layer', 'Ctrl+Alt+Home', { key: 'Home', ctrlKey: true, altKey: true }],
     ['Fit the layer to the composition', 'Ctrl+Alt+F', { key: 'f', code: 'KeyF', ctrlKey: true, altKey: true }],
-    ['Key speed and influence', 'Ctrl+Shift+K', { key: 'K', code: 'KeyK', ctrlKey: true, shiftKey: true }],
+    ['Key speed and influence', 'Ctrl+Alt+K', { key: 'K', code: 'KeyK', ctrlKey: true, altKey: true }],
     ['Show effect controls', 'E', { key: 'e' }],
     ['Show changed properties', 'UU', () => showProps('changed')],
     ['Fill the window with the panel', '`', maximise],
@@ -2835,8 +2858,8 @@ function alignLayers(how) {
     const [ax, ay] = transformValue(layer, 'anchor');
     const [px, py] = transformValue(layer, 'position');
     const [sx, sy] = transformValue(layer, 'scale');
-    const w = Math.hypot(...ex) / Math.abs(sx);
-    const h = Math.hypot(...ey) / Math.abs(sy);
+    const w = Math.hypot(...ex) / (Math.abs(sx) / 100);
+    const h = Math.hypot(...ey) / (Math.abs(sy) / 100);
     if (!(w > 0 && h > 0 && Number.isFinite(w + h))) continue;
     const image = (x, y) => [c[0] + ex[0] * x / w + ey[0] * y / h, c[1] + ex[1] * x / w + ey[1] * y / h];
     const mid = image(w / 2, h / 2);
@@ -2846,13 +2869,14 @@ function alignLayers(how) {
     if (how === 'layer') sends.push(q + 'position' + v([px + cx - mid[0], py + cy - mid[1]]));
     else if (how === 'anchor') sends.push(q + 'anchor' + v([w / 2, h / 2]), q + 'position' + v(mid));
     else {
-      const s = [comp.width / w * Math.sign(sx), comp.height / h * Math.sign(sy)];
+      const s = [100 * comp.width / w * Math.sign(sx), 100 * comp.height / h * Math.sign(sy)];
       const [rx, ry] = [s[0] / sx, s[1] / sy];
       const [fx, fy] = [(w / 2 - ax) / w, (h / 2 - ay) / h];
       sends.push(q + 'scale' + v(s), q + 'position' + v([
         cx - ex[0] * rx * fx - ey[0] * ry * fy, cy - ex[1] * rx * fx - ey[1] * ry * fy]));
     }
   }
+  $('status').textContent = sends.length ? '' : 'Select an unlocked layer that is on screen first.';
   if (!sends.length) return;
   nudge = nudge.then(async () => {
     for (const request of sends) await command(request);
@@ -3435,7 +3459,7 @@ const shownOf = (id) => shown.get(id) || new Set();
 
 // W-25: document 19's identity transform, in the file's units, which a right click on a
 // property's name puts back: on the playhead's frame as a key if the property is animated.
-const DEFAULTS = { anchor: [0, 0], position: [0, 0], scale: [1, 1], rotation: [0], opacity: [1] };
+const DEFAULTS = { anchor: [0, 0], position: [0, 0], scale: [100, 100], rotation: [0], opacity: [1] };
 const changed = (layer, prop) => keysOf(layer, prop).length
   || [].concat(((layer.transform || {})[prop] || {}).base).join(',') !== DEFAULTS[prop].join(',');
 function resetProp(prop, only) {
@@ -4117,13 +4141,13 @@ function easeFromSpeed(arm, infl, speed) {
   return arm.which ? [1 - infl, 1 - y] : [infl, y];
 }
 
-// W-25: After Effects' Keyframe Velocity, Ctrl+Shift+K. The speed and influence the chosen keys
+// W-25: After Effects' Keyframe Velocity, Ctrl+Alt+K here, because Ctrl+Shift+K belongs to other programs. The speed and influence the chosen keys
 // arrive and leave at, typed, and written back as the same ease curve the speed handles pull.
 function velocityDialog() {
   if (document.querySelector('.palette')) return;
   const comp = composition();
   const picked = [...pickedKeys].map(keyParts).filter(([layer]) => layer && !layer.locked);
-  if (!comp || !picked.length) { $('status').textContent = 'Choose keys first, then press Ctrl+Shift+K.'; return; }
+  if (!comp || !picked.length) { $('status').textContent = 'Choose keys first, then press Ctrl+Alt+K.'; return; }
   const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
   const armOf = (layer, prop, at, which) => {
     const keys = keysOf(layer, prop);
@@ -4953,13 +4977,13 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && !typing && pickedKeys.size && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); }
   // W-25: with no keys chosen, Ctrl+C copies the selected layers, and Ctrl+V pastes whichever was
   // copied last. Ctrl+Alt+V hides and shows, Ctrl+L locks, Ctrl+K is the composition's settings
-  // and with Shift the chosen keys' speed, Ctrl+Home and Ctrl+Alt+F centre and fit.
+  // and with Alt the chosen keys' speed, Ctrl+Home and Ctrl+Alt+F centre and fit.
   else if (e.ctrlKey && !typing && selection.length && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyLayers(); }
   else if (e.ctrlKey && e.altKey && !typing && e.code === 'KeyV') { e.preventDefault(); toggleLayers('visibility'); }
   else if (e.ctrlKey && !typing && clip === 'keys' && copied.length && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
   else if (e.ctrlKey && !typing && clip === 'layers' && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteLayers(); }
   else if (e.ctrlKey && !e.altKey && !typing && e.code === 'KeyL') { e.preventDefault(); toggleLayers('lock'); }
-  else if (e.ctrlKey && e.shiftKey && e.code === 'KeyK') { e.preventDefault(); velocityDialog(); }
+  else if (e.ctrlKey && e.altKey && e.code === 'KeyK') { e.preventDefault(); velocityDialog(); }
   else if (e.ctrlKey && e.code === 'KeyK') { e.preventDefault(); compSettings(); }
   else if (e.ctrlKey && e.key === 'Home') { e.preventDefault(); alignLayers(e.altKey ? 'anchor' : 'layer'); }
   else if (e.ctrlKey && e.altKey && e.code === 'KeyF') { e.preventDefault(); alignLayers('fit'); }
