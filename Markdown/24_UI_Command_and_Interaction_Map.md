@@ -16,6 +16,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | project.save_as | Save project to new path | Ctrl+Shift+S | no history item |
 | composition.create | Create a composition in the open project | Ctrl+Shift+N | yes |
 | composition.open | Put one of the project's compositions in the viewer | none | no |
+| composition.set_settings | Change the composition's name, size, frame rate and length | Ctrl+K | yes |
 | edit.undo | Undo latest command | Ctrl+Z | control |
 | edit.redo | Redo latest undone command | Ctrl+Shift+Z | control |
 | media.import | Import still/sequence | Ctrl+I | yes |
@@ -25,8 +26,8 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.rename | Rename selected layer | F2 | yes |
 | layer.move_up | Move layer toward front | Ctrl+] | yes |
 | layer.move_down | Move layer toward back | Ctrl+[ | yes |
-| layer.toggle_visibility | Toggle selected layer | none | yes |
-| layer.toggle_lock | Toggle selected layer lock | none | yes |
+| layer.toggle_visibility | Toggle selected layer | Ctrl+Alt+V | yes |
+| layer.toggle_lock | Toggle selected layer lock | Ctrl+L | yes |
 | layer.set_matte | Choose, change or clear the layer that shapes this one | none | yes |
 | layer.shift | Move the selected layer along the timeline, keeping its length, its keyframes moving with it | [ or ] | yes |
 | layer.trim | Trim the selected layer's in or out point | Alt+[ or Alt+] | yes |
@@ -35,6 +36,9 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.split | Split the selected layers at the playhead into two layers | Ctrl+Shift+D | yes |
 | layer.toggle_solo | Show only the soloed layers in the preview | none | no |
 | layer.set_label | Set a layer's label colour | none | yes |
+| layer.set_blend_mode | Set a layer's blend mode | none | yes |
+| layer.copy | Copy the selected layers, with their keys and effects | Ctrl+C | no |
+| layer.paste | Paste the copied layers in front | Ctrl+V | yes |
 | timeline.previous_frame | Step one composition frame back | Left | no |
 | timeline.next_frame | Step one composition frame forward | Right | no |
 | timeline.play_pause | Toggle work-area playback | Space | no |
@@ -107,6 +111,8 @@ W-22, at the owner's request ("I want to be able to drag/switch the layers aroun
 W-23, the batch after it, all page behaviour on commands already built. Ctrl+Shift+] and Ctrl+Shift+[ send `layer.move` with the very front or the very back as the place, so `layer.move` is no longer mouse-only. A right click on a layer's row opens a menu of Rename, Duplicate, Split at playhead, Bring to front, Send to back and Delete, each with its key written beside it. Enter renames the selected layer and Escape lets go of every layer and key. The comma and the full stop zoom the picture out and in, as After Effects', and the middle button drags a zoomed picture about. Alt with Page Up or Page Down moves the selected layers a frame earlier or later in time, ten with Shift. Shift while dragging a layer on the picture holds the move to one line. Alt-clicking a property's diamond takes every key off that property, one entry to undo. The layer list numbers its rows from the front, as After Effects does. B and N, the work area, stayed unbuilt then: the composition had no work area in the model, so they became W-24.
 
 W-24, the batch after that, at the owner's request. The composition's work area is read from the file at last: B and N set its start and end at the playhead, its ends are pulled along the ruler, a double click on it puts it back to the whole composition, Space plays inside it and an export renders it, and Shift+Home and Shift+End go to its ends. A work area outside its composition is refused when the file opens. `timeline.set_markers` is new: `*` adds a marker at the playhead, a marker is dragged along the ruler, a double click names it and Ctrl-click removes it, all saved and each one entry to undo. `layer.set_label` is new and saved: a layer's label colour, one of eight, chosen from the row's right-click menu, shown as a square on its row and a tint on its bar. `layer.toggle_solo` is new and, like the alpha view, belongs to the window: the preview draws the soloed layers alone, and the file, the history and an export never hear of it. Ctrl+N is `project.new`, a project with one empty composition and no file until Save As; with unsaved work it asks for a second press within three seconds, and the unsaved work stays in its recovery snapshot. Ctrl+Shift+P opens `app.command_palette`, a searchable list of the commands with their keys, where each line presses the key it names. Ctrl+V puts keys copied from one layer onto the selected layer. Alt+[ and Alt+] trimming to the playhead were already built by `layer.trim`. The markers, labels, solo, new project and palette are new capabilities and the owner may cut any of them.
+
+W-25, the batch after that, at the owner's request. `layer.set_blend_mode` is new: normal, multiply, screen or add, from a list in the inspector or the layer's right-click menu, saved and one entry to undo; the renderer already drew all four. `composition.set_settings` is new: Ctrl+K opens the composition form filled with the composition on screen, and Apply changes its name, size, frame rate and length as one entry to undo; a shorter length cuts the work area back and drops the markers past its end in that same entry. `layer.copy` and `layer.paste` are new: Ctrl+C with layers selected and no keys chosen keeps the layers in the window, as they are, keys and effects with them, and Ctrl+V puts them in front under new identifiers as one entry to undo; a matte on a layer copied with them follows the copy, and a matte on a layer the composition does not have is let go. Ctrl+C with keys chosen still copies the keys, and Ctrl+V pastes whichever was copied last. Ctrl+L is now `layer.toggle_lock` and Ctrl+Alt+V `layer.toggle_visibility`, for every selected layer at once. A right click on a transform property's name in the inspector puts it back to its default, a key on the playhead's frame if it is animated; the palette has a line for each. Ctrl+Home centres the selected layers in the composition, Ctrl+Alt+Home puts each anchor in the middle of its drawing without moving the picture, and Ctrl+Alt+F scales each layer to the composition's size, all worked out from where the renderer drew the layer on the frame on screen and sent as `property.set_base`. Ctrl+Shift+K types the speed and influence the chosen keys arrive and leave at, written back as the same ease curve the graph's speed handles pull. E brings the effect controls into view; this timeline has no effect rows, so E does not unfold anything under the layer. U pressed twice quickly opens every property that is animated or no longer at its default. The ` key fills the window with the panel under the pointer, and again puts the layout back unchanged. A warning now carries its document 28 code and detail, shown by the Error details button on the strip. The copy and paste of layers, the reset, centre, fit, velocity, maximise and error details are new capabilities and the owner may cut any of them.
 
 ## Focus and selection
 

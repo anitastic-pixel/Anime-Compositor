@@ -29,17 +29,18 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, open, play, recent, recovery, redo, relink, save, saveas, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
+| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, recent, recovery, redo, relink, save, saveas, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, recent, recovery, redo, relink, save, saveas, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
-| the keys the window answers with nothing focused are the ones written down here | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | pass |
+| the keys the window answers with nothing focused are the ones written down here | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | pass |
 | `boxes` can be asked for without a mouse | yes | yes | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
 | `composition.open` can be asked for without a mouse | yes | yes | pass |
+| `composition.set_settings` can be asked for without a mouse | yes | yes | pass |
 | `curve` can be asked for without a mouse | yes | yes | pass |
 | `edit.redo` can be asked for without a mouse | yes | yes | pass |
 | `edit.undo` can be asked for without a mouse | yes | yes | pass |
@@ -56,13 +57,16 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `keyframe.move` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_interp` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_path` can be asked for without a mouse | yes | yes | pass |
+| `layer.copy` can be asked for without a mouse | yes | yes | pass |
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
 | `layer.duplicate` can be asked for without a mouse | yes | yes | pass |
 | `layer.move` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_down` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_up` can be asked for without a mouse | yes | yes | pass |
+| `layer.paste` can be asked for without a mouse | yes | yes | pass |
 | `layer.rename` can be asked for without a mouse | yes | yes | pass |
+| `layer.set_blend_mode` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_label` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_matte` can be asked for without a mouse | yes | yes | pass |
 | `layer.shift` can be asked for without a mouse | yes | yes | pass |
@@ -115,5 +119,6 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | double clicking the work area is not the only way to put it back to the whole composition | true | true | pass |
 | dragging a marker along the ruler, or Ctrl-clicking it is not the only way to move or remove it | true | true | pass |
 | double clicking a marker is not the only way to name it | true | true | pass |
+| right clicking a property's name is not the only way to put it back to its default | true | true | pass |
 
-**86 of 86 checks pass.**
+**91 of 91 checks pass.**

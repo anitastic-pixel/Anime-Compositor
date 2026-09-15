@@ -1,6 +1,6 @@
 # B-05 model, commands and undo
 
-Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **86 of 86 checks pass.**
+Test T-03 (model half), requirements R-03 and R-07. Produced by `tests/b05_model.rs`. **92 of 92 checks pass.**
 
 ## What to check by eye
 
@@ -50,6 +50,12 @@ The before file is 305 lines and the after file is 392 lines.
 | label: layer 1 is colour 3 | `3` | `3` | PASS |
 | label: there is no colour 9 | `true` | `true` | PASS |
 | label undone: none | `0` | `0` | PASS |
+| blend mode: layer 1 is screen | `screen` | `screen` | PASS |
+| blend mode undone: normal | `normal` | `normal` | PASS |
+| composition settings: a width of nought is refused | `true` | `true` | PASS |
+| composition settings: one frame shorter cuts the work area and drops the last marker | `Shorter 960x540 FrameRate { numerator: 12, denominator: 1 } 239 frames, work Some((0, 239)), markers [0]` | `Shorter 960x540 FrameRate { numerator: 12, denominator: 1 } 239 frames, work Some((0, 239)), markers [0]` | PASS |
+| composition settings undone, marker and work area back | `reference shot 1920x1080 FrameRate { numerator: 24, denominator: 1 } 240 frames, work Some((0, 240)), markers [0, 239]` | `reference shot 1920x1080 FrameRate { numerator: 24, denominator: 1 } 240 frames, work Some((0, 240)), markers [0, 239]` | PASS |
+| and the work area and markers undone | `reference shot 1920x1080 FrameRate { numerator: 24, denominator: 1 } 240 frames, work None, markers []` | `reference shot 1920x1080 FrameRate { numerator: 24, denominator: 1 } 240 frames, work None, markers []` | PASS |
 | scalar edit: rotation is 12.5 degrees | `12.5` | `12.5` | PASS |
 | scalar edit undone: the exact prior value returns | `0` | `0` | PASS |
 | scalar edit redone: the exact value returns | `12.5` | `12.5` | PASS |
@@ -88,7 +94,7 @@ The before file is 305 lines and the after file is 392 lines.
 | undone: no keyframes and the layer where the file put it | `keys at , 0 to 240, offset 0` | `keys at , 0 to 240, offset 0` | PASS |
 | transaction: an invalid second command rejects the whole batch | `COMMAND_INVALID_VALUE` | `COMMAND_INVALID_VALUE` | PASS |
 | transaction rejected: the asset from the first command was not added either | `4` | `4` | PASS |
-| transaction rejected: revision unchanged | `47` | `47` | PASS |
+| transaction rejected: revision unchanged | `55` | `55` | PASS |
 | transaction: import plus create layer is one history record | `14` | `14` | PASS |
 | transaction: both parts landed | `5 assets, 5 layers` | `5 assets, 5 layers` | PASS |
 | transaction undone: both parts are gone in one step | `4 assets, 4 layers` | `4 assets, 4 layers` | PASS |

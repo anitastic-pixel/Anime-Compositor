@@ -16,9 +16,10 @@
 
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::{
-    Asset, Composition, Id, Interp, Keyframe, Layer, MatteReference, Project, Prop, Value,
+    Asset, BlendMode, Composition, Id, Interp, Keyframe, Layer, MatteReference, Project, Prop,
+    Value,
 };
-use crate::time::{ExposureMap, ExposureSpan};
+use crate::time::{ExposureMap, ExposureSpan, FrameRate};
 
 /// One user action. Document 26 requires a stable command ID and a human-readable label on
 /// every history record; both are derived from the variant rather than passed in, so a caller
@@ -91,6 +92,22 @@ pub enum Command {
     SetMarkers {
         composition: Id,
         markers: Vec<crate::model::Marker>,
+    },
+    /// W-25: a layer's blend mode, from the inspector or the layer's right-click menu.
+    SetBlendMode {
+        composition: Id,
+        layer_id: Id,
+        mode: BlendMode,
+    },
+    /// W-25: After Effects' Composition Settings, Ctrl+K. A work area or a marker the new length
+    /// leaves outside is cut back or dropped in the same entry to undo.
+    SetCompositionSettings {
+        composition: Id,
+        name: String,
+        width: u32,
+        height: u32,
+        frame_rate: FrameRate,
+        duration_frames: u32,
     },
     ReorderLayer {
         composition: Id,
@@ -266,6 +283,8 @@ impl Command {
             Command::SetLayerLabel { .. } => "SET_LAYER_LABEL",
             Command::SetWorkArea { .. } => "SET_WORK_AREA",
             Command::SetMarkers { .. } => "SET_MARKERS",
+            Command::SetBlendMode { .. } => "SET_BLEND_MODE",
+            Command::SetCompositionSettings { .. } => "SET_COMPOSITION_SETTINGS",
             Command::ReorderLayer { .. } => "REORDER_LAYER",
             Command::ShiftLayer { .. } => "SHIFT_LAYER",
             Command::TrimLayer { .. } => "TRIM_LAYER",
@@ -318,6 +337,12 @@ impl Command {
                 1 => "Set one marker".to_string(),
                 n => format!("Set {n} markers"),
             },
+            Command::SetBlendMode { mode, .. } => {
+                format!("Set the blend mode to {}", mode.as_str())
+            }
+            Command::SetCompositionSettings { name, .. } => {
+                format!("Change the settings of {name}")
+            }
             Command::ReorderLayer { to_index, .. } => format!("Move layer to position {to_index}"),
             Command::ShiftLayer { in_frame, .. } => {
                 format!("Move layer to start at frame {in_frame}")
@@ -393,6 +418,8 @@ impl Command {
             | Command::SetLayerLabel { composition, .. }
             | Command::SetWorkArea { composition, .. }
             | Command::SetMarkers { composition, .. }
+            | Command::SetBlendMode { composition, .. }
+            | Command::SetCompositionSettings { composition, .. }
             | Command::ReorderLayer { composition, .. }
             | Command::ShiftLayer { composition, .. }
             | Command::TrimLayer { composition, .. }
@@ -419,9 +446,12 @@ impl Command {
             Command::RelinkAsset { asset } => ids.push(asset.id.clone()),
             Command::AddComposition { composition } => ids.push(composition.id.clone()),
             Command::AddLayer { layer, .. } => ids.push(layer.id.clone()),
-            Command::SetWorkArea { .. } | Command::SetMarkers { .. } => {}
+            Command::SetWorkArea { .. }
+            | Command::SetMarkers { .. }
+            | Command::SetCompositionSettings { .. } => {}
             Command::RemoveLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
+            | Command::SetBlendMode { layer_id, .. }
             | Command::RenameLayer { layer_id, .. }
             | Command::SetLayerEnabled { layer_id, .. }
             | Command::SetLayerLocked { layer_id, .. }
@@ -515,6 +545,7 @@ impl Command {
             | Command::RemoveKeyframe { layer_id, .. }
             | Command::MoveKeyframe { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
+            | Command::SetBlendMode { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
@@ -861,6 +892,11 @@ fn check_a_new_composition(project: &Project, composition: &Composition) -> Resu
             "Document 19: stable IDs are unique within a project.",
         ));
     }
+    check_composition_size(composition)
+}
+
+/// The size, rate and length rules a composition is held to, new or changed (W-25).
+fn check_composition_size(composition: &Composition) -> Result<(), Diagnostic> {
     if composition.width == 0 || composition.height == 0 || composition.duration_frames == 0 {
         return Err(reject(
             "A composition needs a width, a height and a length, and one of them was zero.",
@@ -1107,6 +1143,39 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             let mut markers = markers.clone();
             markers.sort_by_key(|m| m.frame);
             comp.markers = markers;
+        }
+        Command::SetBlendMode { layer_id, mode, .. } => {
+            layer_mut(project, &comp_id, layer_id)?.blend_mode = *mode;
+        }
+        Command::SetCompositionSettings {
+            name,
+            width,
+            height,
+            frame_rate,
+            duration_frames,
+            ..
+        } => {
+            let comp = comp_mut(project, &comp_id)?;
+            check_composition_size(&Composition::new(
+                comp.id.clone(),
+                name.clone(),
+                *width,
+                *height,
+                *frame_rate,
+                comp.start_frame,
+                *duration_frames,
+            ))?;
+            let past = comp.start_frame + *duration_frames as i32;
+            comp.name = name.clone();
+            comp.width = *width;
+            comp.height = *height;
+            comp.frame_rate = *frame_rate;
+            comp.duration_frames = *duration_frames;
+            comp.work_area = comp
+                .work_area
+                .map(|(start, end)| (start, end.min(past)))
+                .filter(|(start, end)| start < end);
+            comp.markers.retain(|m| m.frame < past);
         }
         Command::ReorderLayer {
             layer_id, to_index, ..

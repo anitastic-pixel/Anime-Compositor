@@ -50,7 +50,7 @@ use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR,
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
 use anime_compositor::media;
 use anime_compositor::model::{
-    Asset, Composition, Id, Interp, Layer, Marker, Project, Prop, Value,
+    Asset, BlendMode, Composition, Id, Interp, Layer, Marker, Project, Prop, Value,
 };
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
@@ -121,6 +121,8 @@ struct Viewer {
     /// W-24: the layers soloed, which the preview draws alone. Presentation like the alpha view:
     /// not in the file, not undoable, and never exported.
     solo: Vec<Id>,
+    /// W-25: the layers Ctrl+C took, as they were, for Ctrl+V. The window's, like `solo`.
+    clipboard: Vec<Layer>,
     /// W-02's relink, worked out and not yet agreed to. See [`PendingRelink`]. At most one at a
     /// time: a person is answering one question, and a second proposal replaces the first rather
     /// than queueing behind it.
@@ -667,9 +669,9 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
     // Document 28's PROJECT_RECOVERY_AVAILABLE, at the one moment it can be acted on. A person
     // who is told about unsaved work an hour after opening the project has already redone it.
     let candidates = persist::recovery_candidates(path);
-    let mut notes: Vec<String> = loaded.warnings.iter().map(sentence).collect();
+    let mut notes: Vec<String> = loaded.warnings.iter().map(note).collect();
     if let Some(diagnostic) = persist::recovery_diagnostic(&candidates) {
-        notes.push(sentence(&diagnostic));
+        notes.push(note(&diagnostic));
     }
 
     Ok(Viewer {
@@ -694,6 +696,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         // misjudges, and every photograph of this window so far was taken with the grid there.
         checkerboard: true,
         solo: Vec::new(),
+        clipboard: Vec::new(),
         relink: None,
         cache: Arc::new(Mutex::new(CelCache::viewer())),
     })
@@ -705,6 +708,17 @@ fn sentence(diagnostic: &Diagnostic) -> String {
         Some(next) => format!("{} {}", diagnostic.message, next),
         None => diagnostic.message.clone(),
     }
+}
+
+/// W-25: a diagnostic as the notes strip carries it: the sentence, then after a tab its document
+/// 28 code and detail, which the page shows only when the error details are opened.
+fn note(diagnostic: &Diagnostic) -> String {
+    format!(
+        "{}\t{} {}",
+        sentence(diagnostic),
+        diagnostic.id.as_str(),
+        diagnostic.detail.replace(['\n', '\t'], " ")
+    )
 }
 
 /// The project the window opens on when it was not given one.
@@ -764,6 +778,7 @@ fn blank(root: PathBuf) -> Viewer {
         alpha_only: false,
         checkerboard: true,
         solo: Vec::new(),
+        clipboard: Vec::new(),
         relink: None,
         cache: Arc::new(Mutex::new(CelCache::viewer())),
     }
@@ -845,7 +860,7 @@ fn take(viewer: &Mutex<Viewer>, path: &Path) {
             viewer.status = format!("Opened {}", path.display());
         }
         Err(diagnostic) => {
-            viewer.notes = vec![sentence(&diagnostic)];
+            viewer.notes = vec![note(&diagnostic)];
             viewer.status = format!("{} could not be opened.", path.display());
         }
     }
@@ -1299,7 +1314,7 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
         if !held.document.project().assets.iter().any(|a| a.id == id) {
             return said;
         }
-        held.notes.extend(told);
+        held.notes.extend(result.diagnostics.iter().map(note));
     }
     let (lo, hi) = sequence
         .range()
@@ -1518,6 +1533,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
 const ANSWERS: &[&str] = &[
     "composition.create",
     "composition.open",
+    "composition.set_settings",
     "edit.redo",
     "edit.undo",
     "effect.add",
@@ -1532,13 +1548,16 @@ const ANSWERS: &[&str] = &[
     "keyframe.move",
     "keyframe.set_interp",
     "keyframe.set_path",
+    "layer.copy",
     "layer.create",
     "layer.delete",
     "layer.duplicate",
     "layer.move",
     "layer.move_down",
     "layer.move_up",
+    "layer.paste",
     "layer.rename",
+    "layer.set_blend_mode",
     "layer.set_label",
     "layer.set_matte",
     "layer.shift",
@@ -1687,6 +1706,140 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // fixture in this build starts at 0; a field nobody in W-01 is told what to put in is a
         // field somebody puts the wrong thing in, and `SetExposureSpans` can move the work
         // afterwards if a shot ever needs it.
+        // W-25: After Effects' Composition Settings, Ctrl+K, for the composition on screen. A
+        // field that is not sent keeps what the composition has, so a rate of 30000/1001 is not
+        // rounded to 30 by a form that only asked for the name.
+        "composition.set_settings" => {
+            let comp = {
+                let held = viewer.lock().expect("the viewer lock was poisoned");
+                match held.document.project().composition(&held.composition) {
+                    Some(comp) => comp.clone(),
+                    None => return Some("There is no composition on screen to change.".to_string()),
+                }
+            };
+            let number = |field: &str, fallback: u32| -> Result<u32, String> {
+                match parameter(query, field) {
+                    None => Ok(fallback),
+                    Some(text) => text.trim().parse::<u32>().map_err(|_| {
+                        format!(
+                            "\"{}\" is not a number of {field}. A composition needs whole \
+                             numbers for its width, its height, its frame rate and its length.",
+                            text.trim()
+                        )
+                    }),
+                }
+            };
+            let (width, height, frames) = match (
+                number("width", comp.width),
+                number("height", comp.height),
+                number("frames", comp.duration_frames),
+            ) {
+                (Ok(w), Ok(h), Ok(f)) => (w, h, f),
+                (Err(said), _, _) | (_, Err(said), _) | (_, _, Err(said)) => return Some(said),
+            };
+            let frame_rate = match parameter(query, "fps") {
+                None => comp.frame_rate,
+                Some(text) => match text.trim().parse::<u32>().map(|r| FrameRate::new(r, 1)) {
+                    Ok(Ok(rate)) => rate,
+                    _ => {
+                        return Some(format!(
+                            "\"{}\" is not a frame rate. Send a whole number above nought.",
+                            text.trim()
+                        ))
+                    }
+                },
+            };
+            let said = edit(
+                viewer,
+                Command::SetCompositionSettings {
+                    composition: comp.id.clone(),
+                    name: parameter(query, "name").unwrap_or(comp.name),
+                    width,
+                    height,
+                    frame_rate,
+                    duration_frames: frames,
+                },
+            );
+            // The clock is rebuilt from the new rate and length, as opening the composition does.
+            show(viewer, &comp.id);
+            return Some(said);
+        }
+        // W-25: Ctrl+C on layers. The layers are kept as they are, keys, effects and all, in the
+        // window rather than the file, and nothing is added to the history.
+        "layer.copy" => {
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            let ids = parameters(query, "layer");
+            let taken: Vec<Layer> = held
+                .document
+                .project()
+                .composition(&held.composition)
+                .map(|comp| {
+                    comp.layers_in_order()
+                        .filter(|l| ids.iter().any(|id| id == l.id.as_str()))
+                        .cloned()
+                        .collect()
+                })
+                .unwrap_or_default();
+            let said = match taken.len() {
+                0 => return Some("Which layers? Choose them in the layer list.".to_string()),
+                1 => format!("Copied {}.", taken[0].name),
+                n => format!("Copied {n} layers."),
+            };
+            held.clipboard = taken;
+            return Some(said);
+        }
+        // W-25: Ctrl+V on layers. The copies go in front, in the order they were in, under new
+        // identifiers, as one entry to undo. A matte on a layer copied with them follows the
+        // copy; a matte on a layer this composition does not have is let go. The mattes are set
+        // after every copy is in, because a copy's matte may be a copy further up.
+        "layer.paste" => {
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            if held.clipboard.is_empty() {
+                return Some("Nothing is copied. Choose layers and press Ctrl+C.".to_string());
+            }
+            let composition = held.composition.clone();
+            let project = held.document.project();
+            let Some(comp) = project.composition(&composition) else {
+                return Some("There is no composition on screen to paste into.".to_string());
+            };
+            let first = unused_layer_id(project).as_str()["layer-".len()..]
+                .parse::<u64>()
+                .unwrap_or(1);
+            let new_id = |at: usize| Id::new(format!("layer-{}", first + at as u64));
+            let mut commands = Vec::new();
+            let mut mattes = Vec::new();
+            for (at, layer) in held.clipboard.iter().enumerate() {
+                if let Some(matte) = &layer.matte {
+                    let copied = held.clipboard.iter().position(|l| l.id == matte.layer_id);
+                    let target = match copied {
+                        Some(other) => Some(new_id(other)),
+                        None => comp.layer(&matte.layer_id).map(|l| l.id.clone()),
+                    };
+                    if let Some(target) = target {
+                        mattes.push(Command::SetMatte {
+                            composition: composition.clone(),
+                            layer_id: new_id(at),
+                            matte: Some(target),
+                            matte_only: matte.matte_only,
+                        });
+                    }
+                }
+                commands.push(Command::AddLayer {
+                    composition: composition.clone(),
+                    layer: Box::new(Layer {
+                        id: new_id(at),
+                        matte: None,
+                        ..layer.clone()
+                    }),
+                    index: comp.len() + at,
+                });
+            }
+            commands.extend(mattes);
+            return Some(match held.document.apply_all(commands) {
+                Ok(record) => record.label.clone(),
+                Err(diagnostic) => sentence(&diagnostic),
+            });
+        }
         "composition.create" => {
             let name = parameter(query, "name").unwrap_or_else(|| "New composition".to_string());
             let number = |field: &str, fallback: u32| -> Result<u32, String> {
@@ -2045,6 +2198,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     composition,
                     layer_id,
                     value: !layer.locked,
+                },
+                // W-25: the blend mode, from the inspector's list or the layer's menu.
+                "layer.set_blend_mode" => Command::SetBlendMode {
+                    composition,
+                    layer_id,
+                    mode: match parameter(query, "mode").as_deref() {
+                        Some("normal") => BlendMode::Normal,
+                        Some("multiply") => BlendMode::Multiply,
+                        Some("screen") => BlendMode::Screen,
+                        Some("add") => BlendMode::Add,
+                        _ => {
+                            return Some(
+                                "Which blend mode? Send mode=normal, multiply, screen or add."
+                                    .to_string(),
+                            )
+                        }
+                    },
                 },
                 // W-24: After Effects' label colours, 0 for none and 1 to 8.
                 "layer.set_label" => {
@@ -7590,7 +7760,7 @@ mod serving {
             &"2 of the files for \"Cel\" are not where the project expects them. The reference is \
               kept as it is. Relink the asset to point it at the files, or put them back. Frames \
               that cannot be found render as nothing rather than as a guess.",
-            &decode(&header(&got, "x-notes")),
+            &decode(&header(&got, "x-notes")).split('\t').next().unwrap_or(""),
         );
         check(
             "which the page can only read because the refusal carries the same permission the \
@@ -8507,6 +8677,7 @@ mod contract {
     const SENT: &[&str] = &[
         "composition.create",
         "composition.open",
+        "composition.set_settings",
         "edit.redo",
         "edit.undo",
         "effect.add",
@@ -8521,13 +8692,16 @@ mod contract {
         "keyframe.move",
         "keyframe.set_interp",
         "keyframe.set_path",
+        "layer.copy",
         "layer.create",
         "layer.delete",
         "layer.duplicate",
         "layer.move",
         "layer.move_down",
         "layer.move_up",
+        "layer.paste",
         "layer.rename",
+        "layer.set_blend_mode",
         "layer.set_label",
         "layer.set_matte",
         "layer.shift",
@@ -8808,6 +8982,7 @@ mod contract {
         ("project.save_as", "a route the shell answers"),
         ("composition.create", "a command the window answers"),
         ("composition.open", "a command the window answers"),
+        ("composition.set_settings", "a command the window answers"),
         ("edit.undo", "a command the window answers"),
         ("edit.redo", "a command the window answers"),
         ("media.import", "a command the window answers"),
@@ -8827,6 +9002,9 @@ mod contract {
         ("layer.split", "a command the window answers"),
         ("layer.toggle_solo", "a command the window answers"),
         ("layer.set_label", "a command the window answers"),
+        ("layer.set_blend_mode", "a command the window answers"),
+        ("layer.copy", "a command the window answers"),
+        ("layer.paste", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -8901,6 +9079,11 @@ mod contract {
         ("viewer.zoom_100", "Ctrl+1", "e.key === '1'"),
         ("export.sequence", "Ctrl+M", "e.key === 'm'"),
         ("app.command_palette", "Ctrl+Shift+P", "e.code === 'KeyP'"),
+        ("composition.set_settings", "Ctrl+K", "e.code === 'KeyK'"),
+        ("layer.copy", "Ctrl+C", "copyLayers()"),
+        ("layer.paste", "Ctrl+V", "pasteLayers()"),
+        ("layer.toggle_lock", "Ctrl+L", "toggleLayers('lock')"),
+        ("layer.toggle_visibility", "Ctrl+Alt+V", "toggleLayers('visibility')"),
     ];
 
     /// The accelerators that work by pressing a button, and the button each one presses.
@@ -10170,7 +10353,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 38] = [
+    const CONTROLS: [&str; 39] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -10193,6 +10376,7 @@ mod contract {
         "import",
         "makecomp",
         "newcomp",
+        "notedetails",
         "open",
         "play",
         "recent",
@@ -10213,7 +10397,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 43] = [
+    const KEYS: [&str; 44] = [
         "*",
         ",",
         "-",
@@ -10230,6 +10414,7 @@ mod contract {
         "C",
         "D",
         "Delete",
+        "E",
         "End",
         "Enter",
         "Escape",
@@ -10278,7 +10463,7 @@ mod contract {
     const MOUSE_ONLY: [&str; 1] = ["effect.move"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 26] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 27] = [
         (
             "dragging the border between two panels",
             "give one of them more of the window",
@@ -10408,6 +10593,11 @@ mod contract {
             "double clicking a marker",
             "name it",
             "['Name the marker at the playhead', '', () => nameMarker(frame)]",
+        ),
+        (
+            "right clicking a property's name",
+            "put it back to its default",
+            "['Reset ' + prop, '', () => resetProp(prop)]",
         ),
     ];
 

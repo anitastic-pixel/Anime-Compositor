@@ -411,6 +411,83 @@ fn b05_model_and_undo() {
         layer_named(&doc, "layer-1").label.to_string(),
     );
 
+    // -- W-25: blend mode and composition settings, each one entry to undo ----------------------
+    doc.apply(Command::SetBlendMode {
+        composition: id(COMP),
+        layer_id: id("layer-1"),
+        mode: BlendMode::Screen,
+    })
+    .expect("blend mode");
+    report.check(
+        "blend mode: layer 1 is screen",
+        "screen",
+        layer_named(&doc, "layer-1").blend_mode.as_str(),
+    );
+    doc.undo();
+    report.check(
+        "blend mode undone: normal",
+        "normal",
+        layer_named(&doc, "layer-1").blend_mode.as_str(),
+    );
+    let settings = |doc: &Document| {
+        let c = doc.project().composition(&id(COMP)).expect("the composition");
+        format!(
+            "{} {}x{} {:?} {} frames, work {:?}, markers {:?}",
+            c.name,
+            c.width,
+            c.height,
+            c.frame_rate,
+            c.duration_frames,
+            c.work_area,
+            c.markers.iter().map(|m| m.frame).collect::<Vec<_>>()
+        )
+    };
+    let untouched = settings(&doc);
+    doc.apply(Command::SetMarkers {
+        composition: id(COMP),
+        markers: vec![
+            Marker { frame: first, name: String::new() },
+            Marker { frame: past - 1, name: "end".to_string() },
+        ],
+    })
+    .expect("markers");
+    doc.apply(Command::SetWorkArea {
+        composition: id(COMP),
+        start_frame: first,
+        end_frame_exclusive: past,
+    })
+    .expect("work area");
+    let before = settings(&doc);
+    let shorter = |width| Command::SetCompositionSettings {
+        composition: id(COMP),
+        name: "Shorter".to_string(),
+        width,
+        height: 540,
+        frame_rate: FrameRate::new(12, 1).expect("12 fps"),
+        duration_frames: (past - first - 1) as u32,
+    };
+    report.check(
+        "composition settings: a width of nought is refused",
+        true,
+        doc.apply(shorter(0)).is_err(),
+    );
+    doc.apply(shorter(960)).expect("composition settings");
+    let rate = FrameRate::new(12, 1).expect("12 fps");
+    report.check(
+        "composition settings: one frame shorter cuts the work area and drops the last marker",
+        format!(
+            "Shorter 960x540 {rate:?} {} frames, work Some(({first}, {})), markers [{first}]",
+            past - first - 1,
+            past - 1
+        ),
+        settings(&doc),
+    );
+    doc.undo();
+    report.check("composition settings undone, marker and work area back", &before, settings(&doc));
+    doc.undo();
+    doc.undo();
+    report.check("and the work area and markers undone", &untouched, settings(&doc));
+
     // -- Document 26: scalar property edit, undo, redo exact value -------------------------------
     doc.apply(Command::SetPropertyBase {
         composition: id(COMP),

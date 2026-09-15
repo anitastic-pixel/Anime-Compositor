@@ -450,6 +450,16 @@
     color: #e8b06a; white-space: pre-wrap;
   }
   #notes:empty { display: none; }
+  /* W-25: each warning's document 28 code and detail, behind the Error details button. */
+  #notecodes {
+    min-width: 100%; margin: 0; padding: 0; list-style: none;
+    font-family: monospace; color: #c8c8cc; white-space: pre-wrap;
+  }
+  /* W-25: the ` key fills the window with the panel under the pointer; the layout is untouched. */
+  body.maxed #work > :not(.max), body.maxed .split { display: none; }
+  body.maxed #work { grid-template-columns: minmax(0, 1fr); }
+  body.maxed #work:not(:has(.max)) { display: none; }
+  body.maxed #timeline.max { flex: 1; max-height: none; height: auto; }
 
   /* The two lists — drawings on the left, layers in the timeline. Both are real lists rather
      than rows of buttons, so a screen reader and the Tab key see a list. */
@@ -705,7 +715,9 @@
   <span id="report"></span>
   <span id="exported"></span>
   <ul id="notes"></ul>
-  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; or drop a project file here</span>
+  <button id="notedetails" type="button" aria-expanded="false" hidden>Error details</button>
+  <ul id="notecodes" hidden></ul>
+  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, Ctrl+Shift+K key speed, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -890,11 +902,17 @@ async function show(url, keep = true) {
     }
     const notes = decodeURIComponent(h.get('x-notes') || '');
     const list = $('notes');
-    list.replaceChildren(...(notes ? notes.split('\n') : []).map((line) => {
+    const lines = notes ? notes.split('\n') : [];
+    // W-25: a note is its sentence, then after a tab its code and detail for the error details.
+    list.replaceChildren(...lines.map((line) => {
       const item = document.createElement('li');
-      item.textContent = line;
+      item.textContent = line.split('\t')[0];
       return item;
     }));
+    $('notecodes').replaceChildren(...lines.map((line) => Object.assign(document.createElement('li'),
+      { textContent: line.split('\t')[1] || line })));
+    $('notedetails').hidden = !lines.length;
+    if (!lines.length) $('notecodes').hidden = true;
   } catch (e) {
     $('report').textContent = 'the frame did not arrive: ' + e;
     $('report').className = 'dropped';
@@ -1393,7 +1411,10 @@ function toKey(later) {
 // W-24: keys copied from one layer land on the selected layer instead, as After Effects pastes
 // them; keys copied from several layers still go back to their own.
 let copied = [];
+// W-25: whether Ctrl+V pastes keys or layers: whichever Ctrl+C copied last.
+let clip = 'keys';
 function copyKeys() {
+  clip = 'keys';
   copied = [...pickedKeys].map(keyParts).flatMap(([layer, prop, at]) => {
     const key = layer && keysOf(layer, prop).find((k) => k.frame === at);
     return key ? [{ layer: layer.id, prop, key }] : [];
@@ -2080,6 +2101,39 @@ function labelLayers(n) {
   });
 }
 
+// W-25: the four blend modes the renderer draws, set on every selected layer as one entry to undo.
+const BLENDS = ['normal', 'multiply', 'screen', 'add'];
+function blendLayers(mode) {
+  const ids = selection.slice();
+  if (!ids.length) return;
+  nudge = nudge.then(async () => {
+    for (const id of ids) {
+      await command('/layer.set_blend_mode?layer=' + encodeURIComponent(id) + '&mode=' + mode + '&drag=1');
+    }
+    await command('/property.drag_end');
+  });
+}
+
+// W-25: Ctrl+L and Ctrl+Alt+V, the lock and the eye of every selected layer, as one entry to undo.
+function toggleLayers(what) {
+  const ids = selection.slice();
+  if (!ids.length) return;
+  const id = what === 'lock' ? '/layer.toggle_lock' : '/layer.toggle_visibility';
+  nudge = nudge.then(async () => {
+    for (const layer of ids) await command(id + '?layer=' + encodeURIComponent(layer) + '&drag=1');
+    await command('/property.drag_end');
+  });
+}
+
+// W-25: Ctrl+C and Ctrl+V on layers. The window keeps the copies, keys and effects with them.
+function copyLayers() {
+  const ids = selection.slice();
+  if (!ids.length) return;
+  clip = 'layers';
+  command('/layer.copy?' + ids.map((id) => 'layer=' + encodeURIComponent(id)).join('&'));
+}
+function pasteLayers() { command('/layer.paste'); }
+
 function soloLayers() {
   const ids = selection.slice();
   nudge = nudge.then(async () => {
@@ -2167,6 +2221,21 @@ function palette() {
     ['Draft or full quality', 'D', { key: 'd' }],
     ['Transparency grid', 'G', { key: 'g' }],
     ['Alpha only', 'Alt+A', { key: 'a', altKey: true }],
+    ['Composition settings', 'Ctrl+K', { key: 'k', code: 'KeyK', ctrlKey: true }],
+    ['Copy layers', 'Ctrl+C', copyLayers],
+    ['Paste layers', 'Ctrl+V', pasteLayers],
+    ['Lock or unlock the selected layers', 'Ctrl+L', { key: 'l', code: 'KeyL', ctrlKey: true }],
+    ['Hide or show the selected layers', 'Ctrl+Alt+V', { key: 'v', code: 'KeyV', ctrlKey: true, altKey: true }],
+    ['Centre the selected layers', 'Ctrl+Home', { key: 'Home', ctrlKey: true }],
+    ['Centre the anchor in the layer', 'Ctrl+Alt+Home', { key: 'Home', ctrlKey: true, altKey: true }],
+    ['Fit the layer to the composition', 'Ctrl+Alt+F', { key: 'f', code: 'KeyF', ctrlKey: true, altKey: true }],
+    ['Key speed and influence', 'Ctrl+Shift+K', { key: 'K', code: 'KeyK', ctrlKey: true, shiftKey: true }],
+    ['Show effect controls', 'E', { key: 'e' }],
+    ['Show changed properties', 'UU', () => showProps('changed')],
+    ['Fill the window with the panel', '`', maximise],
+    ['Error details', '', () => $('notedetails').click()],
+    ...PROPS.map((prop) => ['Reset ' + prop, '', () => resetProp(prop)]),
+    ...BLENDS.map((mode) => ['Blend mode ' + mode, '', () => blendLayers(mode)]),
   ];
   const box = document.createElement('div');
   box.className = 'menu palette';
@@ -2237,6 +2306,9 @@ function layerMenu(x, y) {
     ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
     ['Bring to front', 'Ctrl+Shift+]', () => toEnd(true)],
     ['Send to back', 'Ctrl+Shift+[', () => toEnd(false)],
+    ['Copy', 'Ctrl+C', copyLayers],
+    ['Paste', 'Ctrl+V', pasteLayers],
+    ...BLENDS.map((mode) => ['Blend: ' + mode, '', () => blendLayers(mode)]),
     ['Delete', 'Delete', () => $('dellayer').click()],
   ];
   for (const [label, key, act] of lines) {
@@ -2744,6 +2816,48 @@ function movable() {
   return selection
     .map((id) => layers().find((l) => l.id === id))
     .filter((layer) => layer && !layer.locked);
+}
+
+// W-25: Ctrl+Home centres each selected layer in the composition, Ctrl+Alt+Home puts its anchor in
+// the middle of its drawing without moving the picture, Ctrl+Alt+F scales it to the composition.
+// The drawing's size is only the renderer's, so it is read back out of where the layer's box
+// landed: its two edges, divided by the scale, are the drawing's width and height.
+function alignLayers(how) {
+  const comp = composition();
+  const k = perFramePixel();
+  const sends = [];
+  for (const layer of comp ? movable() : []) {
+    const box = boxes.find((b) => b.layer === layer.id);
+    if (!box) continue;
+    const c = box.corners.map((v) => v * k);
+    const ex = [c[2] - c[0], c[3] - c[1]];
+    const ey = [c[6] - c[0], c[7] - c[1]];
+    const [ax, ay] = transformValue(layer, 'anchor');
+    const [px, py] = transformValue(layer, 'position');
+    const [sx, sy] = transformValue(layer, 'scale');
+    const w = Math.hypot(...ex) / Math.abs(sx);
+    const h = Math.hypot(...ey) / Math.abs(sy);
+    if (!(w > 0 && h > 0 && Number.isFinite(w + h))) continue;
+    const image = (x, y) => [c[0] + ex[0] * x / w + ey[0] * y / h, c[1] + ex[1] * x / w + ey[1] * y / h];
+    const mid = image(w / 2, h / 2);
+    const [cx, cy] = [comp.width / 2, comp.height / 2];
+    const q = '/property.set_base?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame + '&drag=1&prop=';
+    const v = (xs) => '&value=' + encodeURIComponent(xs.map(number).join(','));
+    if (how === 'layer') sends.push(q + 'position' + v([px + cx - mid[0], py + cy - mid[1]]));
+    else if (how === 'anchor') sends.push(q + 'anchor' + v([w / 2, h / 2]), q + 'position' + v(mid));
+    else {
+      const s = [comp.width / w * Math.sign(sx), comp.height / h * Math.sign(sy)];
+      const [rx, ry] = [s[0] / sx, s[1] / sy];
+      const [fx, fy] = [(w / 2 - ax) / w, (h / 2 - ay) / h];
+      sends.push(q + 'scale' + v(s), q + 'position' + v([
+        cx - ex[0] * rx * fx - ey[0] * ry * fy, cy - ex[1] * rx * fx - ey[1] * ry * fy]));
+    }
+  }
+  if (!sends.length) return;
+  nudge = nudge.then(async () => {
+    for (const request of sends) await command(request);
+    await command('/property.drag_end');
+  });
 }
 
 // Moving: every layer the drag took hold of follows the pointer together, one composition
@@ -3319,6 +3433,23 @@ const keysOf = (layer, prop) => ((layer.transform || {})[prop] || {}).keyframes 
 const shown = new Map();
 const shownOf = (id) => shown.get(id) || new Set();
 
+// W-25: document 19's identity transform, in the file's units, which a right click on a
+// property's name puts back: on the playhead's frame as a key if the property is animated.
+const DEFAULTS = { anchor: [0, 0], position: [0, 0], scale: [1, 1], rotation: [0], opacity: [1] };
+const changed = (layer, prop) => keysOf(layer, prop).length
+  || [].concat(((layer.transform || {})[prop] || {}).base).join(',') !== DEFAULTS[prop].join(',');
+function resetProp(prop, only) {
+  const taken = only ? [only].filter((l) => !l.locked) : movable();
+  if (!taken.length) return;
+  nudge = nudge.then(async () => {
+    for (const layer of taken) {
+      await command('/property.set_base?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
+        + '&value=' + DEFAULTS[prop].join(',') + '&frame=' + frame + '&drag=1');
+    }
+    await command('/property.drag_end');
+  });
+}
+
 // After Effects' property keys, on every selected layer. A, P, S, R and T open that property
 // alone, or close it if it was open alone already; with Shift the property is added to what is
 // open, or taken from it; U opens the animated properties, or closes them if they were what was
@@ -3329,13 +3460,15 @@ function showProps(props, add) {
     const layer = layers().find((l) => l.id === id);
     const open = shownOf(id);
     const want = props === 'animated'
-      ? new Set(PROPS.filter((prop) => keysOf(layer, prop).length)) : new Set(props);
+      ? new Set(PROPS.filter((prop) => keysOf(layer, prop).length))
+      : props === 'changed' ? new Set(PROPS.filter((prop) => changed(layer, prop))) : new Set(props);
     const same = open.size === want.size && [...want].every((prop) => open.has(prop));
     let next;
     if (add) {
       next = new Set(open);
       for (const prop of props) { if (next.has(prop)) next.delete(prop); else next.add(prop); }
-    } else next = same ? new Set() : want;
+    // W-25: UU opens what has changed and does not close it again, as U's second press would.
+    } else next = same && props !== 'changed' ? new Set() : want;
     shown.set(id, next);
   }
   drawLayers();
@@ -3472,6 +3605,8 @@ function propRow(into, layer, prop) {
   const ease = easeButton(layer, prop);
   dt.append(keyButton(layer, prop), ...(ease ? [ease] : []), ' ',
     prop[0].toUpperCase() + prop.slice(1), ...(prop === 'scale' ? [' ', linkButton()] : []));
+  dt.title = 'Right-click to put ' + prop + ' back to its default';
+  dt.oncontextmenu = (e) => { e.preventDefault(); resetProp(prop, layer); };
   const dd = document.createElement('dd');
   dd.className = 'numbers';
   dd.append(...propScrubs(layer, prop));
@@ -3534,10 +3669,14 @@ function drawInspector() {
   propRow(dl, layer, 'scale');
   propRow(dl, layer, 'rotation');
   propRow(dl, layer, 'opacity');
-  // Read-only, and said rather than hidden: there is no command in the core for changing a
-  // blend mode, W-01 does not ask to change one, and inventing one to fill a gap in a panel
-  // would be a decision about the model made from the window.
-  field(dl, 'Blend', layer.blend_mode);
+  // W-25: the blend mode, which the owner asked to change, from a list.
+  field(dl, 'Blend', '');
+  const blend = document.createElement('select');
+  blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
+  blend.append(...BLENDS.map((mode) => new Option(mode, mode)));
+  blend.value = layer.blend_mode;
+  blend.onchange = () => blendLayers(blend.value);
+  dl.lastChild.append(blend);
   // What is on this layer that this panel cannot yet change is still said, because a person
   // deciding whether a layer is the one they want needs to know it carries a mask.
   field(dl, 'Mask', layer.mask ? layer.mask.vertices.length + ' points' : 'none');
@@ -3976,6 +4115,87 @@ function speedArms(a, b, rates, fps) {
 function easeFromSpeed(arm, infl, speed) {
   const y = speed / (arm.rate * arm.fps) * infl;
   return arm.which ? [1 - infl, 1 - y] : [infl, y];
+}
+
+// W-25: After Effects' Keyframe Velocity, Ctrl+Shift+K. The speed and influence the chosen keys
+// arrive and leave at, typed, and written back as the same ease curve the speed handles pull.
+function velocityDialog() {
+  if (document.querySelector('.palette')) return;
+  const comp = composition();
+  const picked = [...pickedKeys].map(keyParts).filter(([layer]) => layer && !layer.locked);
+  if (!comp || !picked.length) { $('status').textContent = 'Choose keys first, then press Ctrl+Shift+K.'; return; }
+  const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
+  const armOf = (layer, prop, at, which) => {
+    const keys = keysOf(layer, prop);
+    const i = keys.findIndex((k) => k.frame === at);
+    const [a, b] = which ? [keys[i - 1], keys[i]] : [keys[i], keys[i + 1]];
+    if (i < 0 || !a || !b || a.interp === 'hold') return null;
+    const part = (f, c) => [].concat(keys.find((k) => k.frame === f).value)[c];
+    const rates = ratesOf(prop, a, b, part, [].concat(a.value).length);
+    return speedArms(a, b, rates, fps).find((arm) => arm.which === which) || null;
+  };
+  const box = document.createElement('div');
+  box.className = 'menu palette';
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-label', 'Key speed and influence');
+  const [layer0, prop0, at0] = picked[0];
+  const per0 = prop0 === 'opacity' ? 100 : 1;
+  const boxes4 = [[1, 'Incoming'], [0, 'Outgoing']].map(([which, word]) => {
+    const arm = armOf(layer0, prop0, at0, which);
+    const make = (label, value) => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = 'any';
+      input.value = arm ? number(Math.round(value * 100) / 100) : '';
+      input.disabled = !arm;
+      input.setAttribute('aria-label', word + ' ' + label);
+      const row = document.createElement('label');
+      row.append(word + ' ' + label + ' ', input);
+      box.append(row);
+      return input;
+    };
+    return [which, make('speed per second', arm ? arm.speed * per0 : 0),
+      make('influence %', arm ? arm.infl * 100 : 0)];
+  });
+  const ok = Object.assign(document.createElement('button'), { type: 'button', textContent: 'OK' });
+  const cancel = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Cancel' });
+  box.append(ok, cancel);
+  const away = (p) => { if (!box.contains(p.target)) close(); };
+  const close = () => { box.remove(); removeEventListener('pointerdown', away, true); };
+  const apply = () => {
+    close();
+    const curves = new Map();
+    for (const [layer, prop, at] of picked) {
+      const per = prop === 'opacity' ? 100 : 1;
+      for (const [which, speedBox, inflBox] of boxes4) {
+        const arm = armOf(layer, prop, at, which);
+        const speed = Number(speedBox.value) / per;
+        const infl = Math.min(1, Math.max(0.01, Number(inflBox.value) / 100));
+        if (!arm || speedBox.value === '' || inflBox.value === '' || !Number.isFinite(speed + infl)) continue;
+        const id = keyId(layer, prop, arm.key.frame);
+        if (!curves.has(id)) curves.set(id, { layer, prop, key: arm.key, e: easeOf(arm.key).slice() });
+        curves.get(id).e.splice(which * 2, 2, ...easeFromSpeed(arm, infl, speed));
+      }
+    }
+    const sends = [...curves.values()].map(({ layer, prop, key, e }) => '/keyframe.set_interp?layer='
+      + encodeURIComponent(layer.id) + '&prop=' + prop + '&frame=' + key.frame + '&mode=ease&curve='
+      + e.map((n) => Math.round(n * 1e6) / 1e6).join(',') + '&drag=1');
+    if (!sends.length) return;
+    nudge = nudge.then(async () => {
+      for (const request of sends) await command(request);
+      await command('/property.drag_end');
+    });
+  };
+  ok.onclick = apply;
+  cancel.onclick = close;
+  box.onkeydown = (k) => {
+    k.stopPropagation();
+    if (k.key === 'Escape') close();
+    else if (k.key === 'Enter') { k.preventDefault(); apply(); }
+  };
+  document.body.append(box);
+  addEventListener('pointerdown', away, true);
+  (box.querySelector('input:not([disabled])') || ok).focus();
 }
 
 function drawGraph() {
@@ -4519,7 +4739,49 @@ $('import').onclick = () => command('/media.import');
 // W-01 step 3. The fields are read at the moment Create is pressed, not as they are typed: a
 // half-typed width is not a composition somebody asked for, and the core would refuse it in a
 // status line the person had not finished causing.
+// W-25: Ctrl+K opens the same form on the composition on screen, and its button then applies. The
+// rate is only sent if it was changed, so a 30000/1001 composition is not rounded by a new name.
+let settingComp = null;
+function compSettings() {
+  const comp = composition();
+  if (!comp) return;
+  $('compname').value = comp.name;
+  $('compwidth').value = comp.width;
+  $('compheight').value = comp.height;
+  $('compfps').value = number(comp.frame_rate.numerator / comp.frame_rate.denominator);
+  $('compframes').value = comp.duration_frames;
+  settingComp = { fps: $('compfps').value };
+  $('makecomp').textContent = 'Apply';
+  $('newcomposition').hidden = false;
+  $('compname').focus();
+}
+
+// W-25: E brings the selected layer's effect controls into view. The timeline has no effect rows.
+function showEffects() {
+  if (selected()) $('effects').previousElementSibling.scrollIntoView({ block: 'start' });
+}
+
+// W-25: the ` key fills the window with the panel under the pointer, and again puts it back. The
+// layout the borders set is not touched, so nothing needs remembering.
+let pointerAt = null;
+addEventListener('pointermove', (e) => { pointerAt = e.target; }, true);
+function maximise() {
+  const was = document.querySelector('.panel.max');
+  if (was) was.classList.remove('max');
+  else ((pointerAt instanceof Element && pointerAt.closest('.panel')) || $('viewer')).classList.add('max');
+  document.body.classList.toggle('maxed', !was);
+  applyZoom();
+}
+
+$('notedetails').onclick = () => {
+  const codes = $('notecodes');
+  codes.hidden = !codes.hidden;
+  $('notedetails').setAttribute('aria-expanded', String(!codes.hidden));
+};
+
 $('newcomp').onclick = () => {
+  settingComp = null;
+  $('makecomp').textContent = 'Create it';
   const box = $('newcomposition');
   box.hidden = !box.hidden;
   if (!box.hidden) $('compname').focus();
@@ -4529,10 +4791,14 @@ $('makecomp').onclick = () => {
   const q = 'name=' + encodeURIComponent($('compname').value)
     + '&width=' + encodeURIComponent($('compwidth').value)
     + '&height=' + encodeURIComponent($('compheight').value)
-    + '&fps=' + encodeURIComponent($('compfps').value)
     + '&frames=' + encodeURIComponent($('compframes').value);
+  const fps = '&fps=' + encodeURIComponent($('compfps').value);
+  const settings = settingComp;
+  settingComp = null;
+  $('makecomp').textContent = 'Create it';
   $('newcomposition').hidden = true;
-  command('/composition.create?' + q);
+  if (settings) command('/composition.set_settings?' + q + ($('compfps').value === settings.fps ? '' : fps));
+  else command('/composition.create?' + q + fps);
 };
 // W-02's three steps, one request each: ask what to point at, read what would change, then agree
 // to it or not. The asset an Apply names is the one the proposal came back with, never the one
@@ -4685,7 +4951,18 @@ addEventListener('keydown', (e) => {
   // in, where Ctrl+C and Ctrl+V mean the text.
   else if (e.ctrlKey && e.altKey && e.code === 'KeyG') { e.preventDefault(); holdKeys(); }
   else if (e.ctrlKey && !typing && pickedKeys.size && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); }
-  else if (e.ctrlKey && !typing && copied.length && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
+  // W-25: with no keys chosen, Ctrl+C copies the selected layers, and Ctrl+V pastes whichever was
+  // copied last. Ctrl+Alt+V hides and shows, Ctrl+L locks, Ctrl+K is the composition's settings
+  // and with Shift the chosen keys' speed, Ctrl+Home and Ctrl+Alt+F centre and fit.
+  else if (e.ctrlKey && !typing && selection.length && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyLayers(); }
+  else if (e.ctrlKey && e.altKey && !typing && e.code === 'KeyV') { e.preventDefault(); toggleLayers('visibility'); }
+  else if (e.ctrlKey && !typing && clip === 'keys' && copied.length && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
+  else if (e.ctrlKey && !typing && clip === 'layers' && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteLayers(); }
+  else if (e.ctrlKey && !e.altKey && !typing && e.code === 'KeyL') { e.preventDefault(); toggleLayers('lock'); }
+  else if (e.ctrlKey && e.shiftKey && e.code === 'KeyK') { e.preventDefault(); velocityDialog(); }
+  else if (e.ctrlKey && e.code === 'KeyK') { e.preventDefault(); compSettings(); }
+  else if (e.ctrlKey && e.key === 'Home') { e.preventDefault(); alignLayers(e.altKey ? 'anchor' : 'layer'); }
+  else if (e.ctrlKey && e.altKey && e.code === 'KeyF') { e.preventDefault(); alignLayers('fit'); }
   else if (e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); nextLayer(e.key === 'ArrowUp'); }
   // W-22: After Effects' Ctrl+D, Ctrl+Shift+D, Ctrl+A and Ctrl+Shift+A. Named by the key's place
   // rather than its letter, as Ctrl+Alt+G is, so that the plain D and A below stay the first arm
@@ -4763,8 +5040,16 @@ addEventListener('keydown', (e) => {
   else if (e.key === 's' || e.key === 'S') showProps(['scale'], e.shiftKey);
   else if (e.key === 'r' || e.key === 'R') showProps(['rotation'], e.shiftKey);
   else if (e.key === 't' || e.key === 'T') showProps(['opacity'], e.shiftKey);
-  else if (e.key === 'u' || e.key === 'U') showProps('animated');
+  // W-25: U twice within half a second opens what has changed; E the effect controls; ` a panel.
+  else if (e.key === 'u' || e.key === 'U') {
+    const twice = performance.now() - lastU < 500;
+    lastU = twice ? 0 : performance.now();
+    showProps(twice ? 'changed' : 'animated');
+  }
+  else if (e.key === 'e' || e.key === 'E') showEffects();
+  else if (e.code === 'Backquote') { e.preventDefault(); maximise(); }
 });
+let lastU = 0;
 
 // D-35: at rest the viewer shows the work area's first frame.
 show(FRAMES + '/frame/0?q=draft');
