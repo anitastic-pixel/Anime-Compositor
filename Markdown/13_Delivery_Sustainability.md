@@ -16,7 +16,7 @@ M0 / Feasibility. B-01 complete: five spike reports recorded, reference shot dra
 
 M1 / Internal alpha. B-02 through B-11 complete, covering G1-core only. Exit: applicable fixtures pass with artifacts the owner has reviewed, save and recovery work, and known limitations are written down honestly. Use the reference shot and copies of the owner's own artwork.
 
-M2 / Artist alpha. B-12 complete. Exit: the owner finishes W-01 and W-02 unaided, blocking usability defects are fixed, and performance is reported on the declared machine. This validates the supported workflow only; no studio-readiness claim follows from it.
+M2 / Artist alpha. B-12 complete. Exit: the owner finishes W-01 and W-02 unaided, blocking usability defects are fixed, and performance is reported on the declared machine. This validates the supported workflow only; no studio-readiness claim follows from it. **Reached on 2026-09-15**: B-12 is done, and performance on the declared machine is reported in `verification/P-01_frame_trace.md`.
 
 M3 / G1-rest. Masks, effects and cache, each promoted individually when its trigger in document 23 fires. Not a scheduled milestone; a set of conditionally unlocked ones.
 

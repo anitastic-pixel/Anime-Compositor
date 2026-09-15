@@ -52,7 +52,9 @@ on 2026-09-15, after a rebuild (the first try ran a build from before the change
 
 ## W-02, the second walk
 
-Not yet walked by the owner. On 2026-09-15, at the owner's request, the agent checked the build
+Walked by the owner on 2026-09-15, after the agent's check below. In the owner's words: "it worked!"
+
+On 2026-09-15, at the owner's request, the agent checked the build
 ahead of that walk; this is not the unaided run B-12 asks for. The scripted walk
 (`verification/B-12c_w02_walkthrough.md`) passed 24 of 24 on this build, and the Relink panel's
 buttons send the same three requests it makes. Frames 8 and 14 were rendered with layer 3 on its
