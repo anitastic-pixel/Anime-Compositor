@@ -1747,7 +1747,9 @@ sheet.onpointerdown = (e) => {
   // again — with Shift held, that is a toggle, and the layer would be dropped by the same
   // gesture that picked it up — so the click after a press that selected is not let through.
   const fresh = !selection.includes(layer.id);
-  if (fresh) select(layer.id, e.shiftKey);
+  // W-26 fix: as on the name, Shift takes every layer between, Ctrl adds one.
+  if (fresh && e.shiftKey && selectedLayer) selectRange(layer.id);
+  else if (fresh) select(layer.id, e.ctrlKey);
   const spans = layer.exposure_spans || [];
   // W-09: a press on the line between two exposure blocks that meet takes hold of the seam,
   // and pulling it retimes both, as a roll edit does in Premiere: the drawing on one side is
@@ -1975,6 +1977,9 @@ function drawLayers() {
       () => command('/layer.toggle_shy?layer=' + encodeURIComponent(layer.id)));
     shy.setAttribute('aria-pressed', String(!!layer.shy));
     const li = row(selectedLayer, layer.id, layer.name, [swatch, twirl, eye, solo, lock, shy]);
+    // W-26 fix: every chosen row lights up, not only the last one clicked, so a Shift-click range
+    // and Ctrl-clicks can be seen.
+    li.setAttribute('aria-selected', String(selection.includes(layer.id)));
     // Colour is not the only carrier: a layer that is off, soloed, locked or shy says so in words.
     if (!layer.enabled || layer.locked || soloed || layer.shy) {
       const mark = document.createElement('span');
