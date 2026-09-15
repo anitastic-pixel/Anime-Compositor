@@ -1712,12 +1712,13 @@ function grabRow(li, head, all, layer) {
     let moved = false;
     // The list holds the pointer, not the row: moving the row in the document takes it out and
     // puts it back, and an element taken out lets go of the pointer. Held by the row, the drag
-    // dimmed it on the first move and then nothing followed the hand.
+    // dimmed it on the first move and then nothing followed the hand. And the list takes the
+    // pointer only once the hand has moved: taken at the press, the click that ends a still
+    // press went to the list too, and the row under it never heard it and was never selected.
     const list = li.parentElement;
-    list.setPointerCapture(e.pointerId);
     list.onpointermove = (m) => {
       if (!moved && Math.abs(m.clientY - y0) < 4) return;
-      if (!moved) { moved = true; li.classList.add('lifted'); }
+      if (!moved) { moved = true; li.classList.add('lifted'); list.setPointerCapture(m.pointerId); }
       const over = layerRowAt(m.clientX, m.clientY);
       if (!over || over === li) return;
       const r = over.getBoundingClientRect();
