@@ -10463,7 +10463,7 @@ mod contract {
     const MOUSE_ONLY: [&str; 1] = ["effect.move"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 27] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 28] = [
         (
             "dragging the border between two panels",
             "give one of them more of the window",
@@ -10598,6 +10598,11 @@ mod contract {
             "right clicking a property's name",
             "put it back to its default",
             "['Reset ' + prop, '', () => resetProp(prop)]",
+        ),
+        (
+            "right clicking a chosen key",
+            "open its menu of key speed, ease, hold, copy, paste and delete",
+            "['Key speed and influence', '', velocityDialog]",
         ),
     ];
 

@@ -15,7 +15,7 @@ Open `verification/W-16_key_shapes_project.json`:
 5. **Centre and fit.** Select a layer and press Ctrl+Home: it sits in the middle of the composition. Ctrl+Alt+Home: the anchor mark jumps to the middle of the drawing and the picture does not move. Ctrl+Alt+F: the layer is stretched to fill the composition. One Ctrl+Z each.
 6. **E and UU.** Select a layer with effects and press E: the inspector scrolls to its effects. Press U twice quickly: every property that is animated or changed from its default opens under the layer.
 7. **Ctrl+L and Ctrl+Alt+V.** Ctrl+L locks the selected layers (the lock shows on the row), again unlocks. Ctrl+Alt+V hides them, again shows. One Ctrl+Z each.
-8. **Ctrl+Alt+K.** Choose one key with keys either side of it and press Ctrl+Alt+K. A small box shows its incoming and outgoing speed and influence. Type an outgoing influence of 80 and press Enter: in the graph (Shift+F3, Speed) the handle after the key reaches further. One Ctrl+Z.
+8. **Key speed.** Choose one key with keys either side of it, right-click it and choose Key speed and influence. A small box shows its incoming and outgoing speed and influence. Type an outgoing influence of 80 and press Enter: in the graph (Shift+F3, Speed) the handle after the key reaches further. One Ctrl+Z.
 9. **The ` key.** Point at the timeline and press ` (left of 1): the timeline fills the window. Press it again: everything is back where it was. Try it over the viewer too.
 10. **Error details.** Open a project with a missing drawing (the reference shot's frame 7 will do). The orange warning shows, and an Error details button appears beside it. Press it: each warning is listed with its code, such as `ASSET_MISSING`, and its detail.
 
@@ -31,9 +31,19 @@ The owner's playtest found seven things. What to check again:
 2. **Copy one property's animation.** Press P on layer 4, click the word Position on its row (every key turns selected), Ctrl+C. Click layer 1, move the playhead, Ctrl+V. Press P: layer 1 now has five position keys starting at the playhead and moves as layer 4 does. One Ctrl+Z.
 3. **Ctrl+Home and Ctrl+Alt+Home.** The reference shot's layers already sit centred, so Ctrl+Home may change nothing there. Drag a layer off to one side first, then press Ctrl+Home: it comes back to the middle. Ctrl+Alt+Home: the anchor mark moves to the middle of the drawing and the picture holds still. With nothing selected the strip says to select a layer.
 4. **U.** Press U on layer 1: nothing opens, because nothing on it is animated. Press U twice quickly: still nothing, because its scale of 100% is the default.
-5. **Ctrl+Alt+K** opens the key speed box (step 8). Ctrl+Shift+K is no longer used.
+5. **Key speed** is on the key right-click menu (step 8). Ctrl+Shift+K and Ctrl+Alt+K do nothing, as both open other programs on the owner's machine.
 6. **The ` key over the viewer** fills the whole window with the picture, timeline gone. Press it again to put everything back.
 7. **The ruler.** The blue work-area band sits in its own strip above the frame numbers and no longer covers them.
+
+## The key right-click menu (second fix)
+
+1. Press P on layer 4. Box-select three of its position keys. Right-click one of them: all three stay chosen and a menu opens.
+2. Choose Easy ease: the three keys change to the hourglass shape. One Ctrl+Z.
+3. Right-click again and choose Hold or release: they turn square. Again: back to straight. Linear makes them straight from any shape.
+4. Copy on the menu, then click layer 1 and right-click a key there (or use Ctrl+V): Paste is on the menu once keys are copied.
+5. Delete on the menu removes the chosen keys. One Ctrl+Z.
+6. Right-click a key that is not chosen: only that key is chosen, and the menu acts on it.
+7. The same menu opens on a key dot in the graph (Shift+F3).
 
 ## What checks it by machine
 

@@ -720,7 +720,7 @@
   <ul id="notes"></ul>
   <button id="notedetails" type="button" aria-expanded="false" hidden>Error details</button>
   <ul id="notecodes" hidden></ul>
-  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, Ctrl+Alt+K key speed, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file here</span>
+  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click chosen keys for speed, ease, hold, copy and delete, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -1452,13 +1452,13 @@ function pasteKeys() {
 
 // W-20: After Effects' Ctrl+Alt+H, moved to Ctrl+Alt+G at the owner's word. The chosen keys hold; if every one of them holds already, they
 // go back to linear. ponytail: an ease a hold replaced is not remembered.
-function holdKeys() {
+function holdKeys(to) {
   const keys = [...pickedKeys].map(keyParts).flatMap(([layer, prop, at]) => {
     const key = layer && !layer.locked && keysOf(layer, prop).find((k) => k.frame === at);
     return key ? [[layer, prop, key]] : [];
   });
   if (!keys.length) return;
-  const mode = keys.every(([, , key]) => key.interp === 'hold') ? 'linear' : 'hold';
+  const mode = to || (keys.every(([, , key]) => key.interp === 'hold') ? 'linear' : 'hold');
   nudge = nudge.then(async () => {
     for (const [layer, prop, key] of keys) {
       await command('/keyframe.set_interp?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
@@ -2252,7 +2252,7 @@ function palette() {
     ['Centre the selected layers', 'Ctrl+Home', { key: 'Home', ctrlKey: true }],
     ['Centre the anchor in the layer', 'Ctrl+Alt+Home', { key: 'Home', ctrlKey: true, altKey: true }],
     ['Fit the layer to the composition', 'Ctrl+Alt+F', { key: 'f', code: 'KeyF', ctrlKey: true, altKey: true }],
-    ['Key speed and influence', 'Ctrl+Alt+K', { key: 'K', code: 'KeyK', ctrlKey: true, altKey: true }],
+    ['Key speed and influence', '', velocityDialog],
     ['Show effect controls', 'E', { key: 'e' }],
     ['Show changed properties', 'UU', () => showProps('changed')],
     ['Fill the window with the panel', '`', maximise],
@@ -2313,16 +2313,6 @@ function palette() {
 }
 
 function layerMenu(x, y) {
-  const menu = document.createElement('div');
-  menu.className = 'menu';
-  menu.setAttribute('role', 'menu');
-  const close = () => {
-    menu.remove();
-    removeEventListener('pointerdown', away, true);
-    removeEventListener('keydown', escape, true);
-  };
-  const away = (e) => { if (!menu.contains(e.target)) close(); };
-  const escape = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
   const lines = [
     ['Rename', 'F2', beginRename],
     ['Duplicate', 'Ctrl+D', duplicateLayers],
@@ -2334,14 +2324,6 @@ function layerMenu(x, y) {
     ...BLENDS.map((mode) => ['Blend: ' + mode, '', () => blendLayers(mode)]),
     ['Delete', 'Delete', () => $('dellayer').click()],
   ];
-  for (const [label, key, act] of lines) {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.setAttribute('role', 'menuitem');
-    item.append(label, Object.assign(document.createElement('kbd'), { textContent: key }));
-    item.onclick = () => { close(); act(); };
-    menu.append(item);
-  }
   // W-24: the label colours, a row of squares under the lines.
   const swatches = document.createElement('div');
   swatches.className = 'swatches';
@@ -2352,10 +2334,52 @@ function layerMenu(x, y) {
     b.title = n ? 'Label ' + LABEL_NAMES[n] : 'No label';
     b.setAttribute('aria-label', b.title);
     b.style.background = colour || 'transparent';
-    b.onclick = () => { close(); labelLayers(n); };
+    b.onclick = () => { swatches.parentElement.__close(); labelLayers(n); };
     swatches.append(b);
   });
-  menu.append(swatches);
+  popMenu(x, y, lines, swatches);
+}
+
+// W-25 fix: the menu a right click on a chosen key opens, for the chosen keys. Key speed lives
+// here rather than on a shortcut, because Ctrl+Shift+K and Ctrl+Alt+K both belong to other
+// programs on the owner's machine.
+function keyMenu(x, y) {
+  popMenu(x, y, [
+    ['Key speed and influence\u2026', '', velocityDialog],
+    ['Easy ease', 'F9', () => easeKeys('both')],
+    ['Easy ease in', 'Shift+F9', () => easeKeys('in')],
+    ['Easy ease out', 'Ctrl+F9', () => easeKeys('out')],
+    ['Linear', '', () => holdKeys('linear')],
+    ['Hold or release', 'Ctrl+Alt+G', () => holdKeys()],
+    ['Copy', 'Ctrl+C', copyKeys],
+    ...(clip === 'keys' && copied.length ? [['Paste', 'Ctrl+V', pasteKeys]] : []),
+    ['Delete', 'Delete', removeKeys],
+  ]);
+}
+
+// A menu of lines, each a label, its key and what it does, at a point, closed by a choice, a
+// press outside it or Escape.
+function popMenu(x, y, lines, extra) {
+  const menu = document.createElement('div');
+  menu.className = 'menu';
+  menu.setAttribute('role', 'menu');
+  const close = () => {
+    menu.remove();
+    removeEventListener('pointerdown', away, true);
+    removeEventListener('keydown', escape, true);
+  };
+  menu.__close = close;
+  const away = (e) => { if (!menu.contains(e.target)) close(); };
+  const escape = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  for (const [label, key, act] of lines) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.setAttribute('role', 'menuitem');
+    item.append(label, Object.assign(document.createElement('kbd'), { textContent: key }));
+    item.onclick = () => { close(); act(); };
+    menu.append(item);
+  }
+  if (extra) menu.append(extra);
   document.body.append(menu);
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(x, innerWidth - r.width - 4) + 'px';
@@ -2399,7 +2423,10 @@ function grabKey(comp, layer, prop, key, mark) {
     e.stopPropagation();
     moveKeys(groupOf(), by);
   };
+  mark.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); keyMenu(e.clientX, e.clientY); };
   mark.onpointerdown = (e) => {
+    // A right press chooses a key that is not chosen and keeps the keys that are.
+    if (e.button === 2) { e.stopPropagation(); if (!pickedKeys.has(id)) pickKey(id, false); return; }
     if (layer.locked) return;
     e.preventDefault();
     e.stopPropagation();
@@ -4141,13 +4168,13 @@ function easeFromSpeed(arm, infl, speed) {
   return arm.which ? [1 - infl, 1 - y] : [infl, y];
 }
 
-// W-25: After Effects' Keyframe Velocity, Ctrl+Alt+K here, because Ctrl+Shift+K belongs to other programs. The speed and influence the chosen keys
+// W-25: After Effects' Keyframe Velocity, from a chosen key's right-click menu. The speed and influence the chosen keys
 // arrive and leave at, typed, and written back as the same ease curve the speed handles pull.
 function velocityDialog() {
   if (document.querySelector('.palette')) return;
   const comp = composition();
   const picked = [...pickedKeys].map(keyParts).filter(([layer]) => layer && !layer.locked);
-  if (!comp || !picked.length) { $('status').textContent = 'Choose keys first, then press Ctrl+Alt+K.'; return; }
+  if (!comp || !picked.length) { $('status').textContent = 'Choose keys first, then right-click one of them.'; return; }
   const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
   const armOf = (layer, prop, at, which) => {
     const keys = keysOf(layer, prop);
@@ -4266,6 +4293,13 @@ function drawGraph() {
   svg.onpointermove = grabMove;
   svg.onpointerup = grabUp;
   svg.onkeydown = grabKeys;
+  svg.oncontextmenu = (e) => {
+    const id = e.target.dataset && e.target.dataset.key;
+    if (!id) return;
+    e.preventDefault();
+    if (!pickedKeys.has(id)) pickKey(id, false);
+    keyMenu(e.clientX, e.clientY);
+  };
 
   const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
   const parts = plotted.samples[0].length;
@@ -4977,13 +5011,12 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && !typing && pickedKeys.size && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); }
   // W-25: with no keys chosen, Ctrl+C copies the selected layers, and Ctrl+V pastes whichever was
   // copied last. Ctrl+Alt+V hides and shows, Ctrl+L locks, Ctrl+K is the composition's settings
-  // and with Alt the chosen keys' speed, Ctrl+Home and Ctrl+Alt+F centre and fit.
+  // and Ctrl+Home and Ctrl+Alt+F centre and fit.
   else if (e.ctrlKey && !typing && selection.length && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyLayers(); }
   else if (e.ctrlKey && e.altKey && !typing && e.code === 'KeyV') { e.preventDefault(); toggleLayers('visibility'); }
   else if (e.ctrlKey && !typing && clip === 'keys' && copied.length && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
   else if (e.ctrlKey && !typing && clip === 'layers' && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteLayers(); }
   else if (e.ctrlKey && !e.altKey && !typing && e.code === 'KeyL') { e.preventDefault(); toggleLayers('lock'); }
-  else if (e.ctrlKey && e.altKey && e.code === 'KeyK') { e.preventDefault(); velocityDialog(); }
   else if (e.ctrlKey && e.code === 'KeyK') { e.preventDefault(); compSettings(); }
   else if (e.ctrlKey && e.key === 'Home') { e.preventDefault(); alignLayers(e.altKey ? 'anchor' : 'layer'); }
   else if (e.ctrlKey && e.altKey && e.code === 'KeyF') { e.preventDefault(); alignLayers('fit'); }

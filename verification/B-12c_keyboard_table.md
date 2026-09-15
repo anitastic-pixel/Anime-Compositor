@@ -120,5 +120,6 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a marker along the ruler, or Ctrl-clicking it is not the only way to move or remove it | true | true | pass |
 | double clicking a marker is not the only way to name it | true | true | pass |
 | right clicking a property's name is not the only way to put it back to its default | true | true | pass |
+| right clicking a chosen key is not the only way to open its menu of key speed, ease, hold, copy, paste and delete | true | true | pass |
 
-**91 of 91 checks pass.**
+**92 of 92 checks pass.**
