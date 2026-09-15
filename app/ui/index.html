@@ -1710,18 +1710,24 @@ function grabRow(li, head, all, layer) {
     if (e.button !== 0 || e.target.closest('button')) return;
     const y0 = e.clientY;
     let moved = false;
-    head.setPointerCapture(e.pointerId);
-    head.onpointermove = (m) => {
+    // The list holds the pointer, not the row: moving the row in the document takes it out and
+    // puts it back, and an element taken out lets go of the pointer. Held by the row, the drag
+    // dimmed it on the first move and then nothing followed the hand.
+    const list = li.parentElement;
+    list.setPointerCapture(e.pointerId);
+    list.onpointermove = (m) => {
       if (!moved && Math.abs(m.clientY - y0) < 4) return;
       if (!moved) { moved = true; li.classList.add('lifted'); }
       const over = layerRowAt(m.clientX, m.clientY);
       if (!over || over === li) return;
       const r = over.getBoundingClientRect();
-      li.parentElement.insertBefore(li, m.clientY < r.top + r.height / 2 ? over : pastProps(over));
+      const before = m.clientY < r.top + r.height / 2 ? over : pastProps(over);
+      if (before === li || before === pastProps(li)) return;
+      list.insertBefore(li, before);
     };
-    head.onpointerup = () => {
-      head.onpointermove = null;
-      head.onpointerup = null;
+    list.onpointerup = () => {
+      list.onpointermove = null;
+      list.onpointerup = null;
       if (!moved) return;
       li.classList.remove('lifted');
       const rows = [...li.parentElement.children].filter((x) => !x.classList.contains('prop'));
@@ -3279,20 +3285,23 @@ function effectRow(layer, fx, at, of) {
     if (e.button !== 0 || e.target.closest('button')) return;
     e.preventDefault();
     dragging = true;
-    head.setPointerCapture(e.pointerId);
+    // The stack holds the pointer, not the card, for the reason grabRow gives.
+    const stack = box.parentElement;
+    stack.setPointerCapture(e.pointerId);
     box.classList.add('lifted');
-    head.onpointermove = (m) => {
+    stack.onpointermove = (m) => {
       const over = document.elementFromPoint(m.clientX, m.clientY);
       const card = over && over.closest('.effect');
-      if (!card || card === box || card.parentElement !== box.parentElement) return;
+      if (!card || card === box || card.parentElement !== stack) return;
       const r = card.getBoundingClientRect();
-      card.parentElement.insertBefore(box,
-        m.clientY < r.top + r.height / 2 ? card : card.nextSibling);
+      const before = m.clientY < r.top + r.height / 2 ? card : card.nextSibling;
+      if (before === box || before === box.nextSibling) return;
+      stack.insertBefore(box, before);
     };
-    head.onpointerup = () => {
+    stack.onpointerup = () => {
       dragging = false;
-      head.onpointermove = null;
-      head.onpointerup = null;
+      stack.onpointermove = null;
+      stack.onpointerup = null;
       box.classList.remove('lifted');
       const to = Array.from(box.parentElement.children).indexOf(box);
       if (to !== at) command('/effect.move' + where + '&to=' + to);
