@@ -16,6 +16,8 @@ Three changes asked for during the owner's acceptance run. Each can be checked i
 2. One Ctrl+Z puts both back.
 3. With the top layer and one other chosen, Forward moves only the other, until it reaches the row under the top one.
 4. One layer chosen: Forward and Back work as before.
+5. Dragging rows: Ctrl-click layer 1 and layer 3, then drag layer 1's row to the top of the list. Layer 3 comes too: both sit at the top, layer 3 still above layer 1, and the other layers keep their order below. One Ctrl+Z puts all of them back.
+6. Dragging a row that is not chosen moves only that row, as before.
 
 ## Export progress
 

@@ -43,7 +43,11 @@ screenshots they sent are not kept here. What the agent did about them is in
 Forward and Back move every chosen layer; step 13, an export shows a bar with frames written and
 time left. The refusal in step 13 until the missing-drawing box is ticked is the sheet's expected
 result, not a defect. Step 7 was answered in conversation: a matte shows the layer only where the
-matte layer has picture, and the matte layer itself stops drawing.
+matte layer has picture. The matte layer still draws itself on top unless matte only is ticked, so
+layer 1 matted by layer 3 was hidden under layer 3's own opaque yellow and blue blocks; those blocks
+are the matte, not something it failed to reach. A render of frame 73 with no matte, the matte, and
+matte only confirmed it; with matte only, layer 1's picture shows through the block shapes. Step 5
+follow-up: dragging a chosen row now brings the other chosen layers with it.
 
 ## W-02, the second walk
 

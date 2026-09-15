@@ -2082,12 +2082,35 @@ function grabRow(li, head, all, layer) {
       if (!moved) return;
       li.classList.remove('lifted');
       const rows = [...li.parentElement.children].filter((x) => !x.classList.contains('prop'));
+      if (selection.includes(layer.id) && selection.length > 1) return dropChosen(rows, li);
       const to = all.length - 1 - rows.indexOf(li);
       if (to !== all.indexOf(layer)) {
         command('/layer.move?layer=' + encodeURIComponent(layer.id) + '&to=' + to);
       } else drawLayers();
     };
   };
+}
+
+// B-12 fix: a dragged row that is one of several chosen takes the others with it. They land
+// together where it was dropped, in the order they had, as one entry to undo.
+function dropChosen(rows, li) {
+  const chosen = (id) => selection.includes(id);
+  const top = rows.map((row) => row.dataset.id);
+  const rest = top.filter((id) => !chosen(id));
+  const at = top.slice(0, top.indexOf(li.dataset.id)).filter((id) => !chosen(id)).length;
+  const group = layers().map((l) => l.id).reverse().filter(chosen);
+  const want = [...rest.slice(0, at), ...group, ...rest.slice(at)].reverse();
+  const now = layers().map((l) => l.id);
+  if (want.join() === now.join()) return drawLayers();
+  nudge = nudge.then(async () => {
+    for (let i = 0; i < want.length; i++) {
+      if (now[i] === want[i]) continue;
+      await command('/layer.move?layer=' + encodeURIComponent(want[i]) + '&to=' + i + '&drag=1');
+      now.splice(now.indexOf(want[i]), 1);
+      now.splice(i, 0, want[i]);
+    }
+    await command('/property.drag_end');
+  });
 }
 
 // The layer's own row under a point, a property row counting as its layer's.
