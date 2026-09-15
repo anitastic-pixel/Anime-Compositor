@@ -433,6 +433,7 @@
   #autosaved:empty { display: none; }
   /* An export runs for minutes and writes to disk, so what it is doing is its own line and stays
      on screen after it has finished — including when it refused to write anything. */
+  #exportbar { width: 140px; }
   #exported { min-width: 100%; color: #909096; white-space: pre-wrap; }
   #exported:empty { display: none; }
   #exported.running { color: #7fb37f; }
@@ -588,6 +589,7 @@
   <span class="sep"></span>
   <button id="export">Export&hellip;</button>
   <button id="cancelexport" hidden>Cancel export</button>
+  <progress id="exportbar" hidden></progress><span id="exportleft"></span>
   <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
 </div>
 <div id="work">
@@ -908,6 +910,17 @@ async function show(url, keep = true) {
     exported.textContent = decodeURIComponent(h.get('x-export') || '');
     exported.className = exporting ? 'running' : '';
     $('cancelexport').hidden = !exporting;
+    // B-12 fix: how far the export has got and roughly how long is left, from the frames written
+    // so far and the time they took.
+    const [done, total, ms] = (h.get('x-export-progress') || '').split(' ').map(Number);
+    $('exportbar').hidden = !exporting;
+    $('exportbar').max = total || 1;
+    $('exportbar').value = done || 0;
+    const left = done ? Math.round(ms / done * (total - done) / 1000) : 0;
+    $('exportleft').textContent = !exporting ? ''
+      : done ? done + ' of ' + total + ' frames, about '
+        + (left >= 60 ? Math.floor(left / 60) + ' min ' : '') + (left % 60) + ' s left'
+      : '0 of ' + total + ' frames, checking the drawings first';
     $('export').disabled = exporting;
     clearTimeout(watching);
     if (exporting && !playing) {
@@ -4912,8 +4925,27 @@ $('addlayer').onclick = () => {
     + '&name=' + encodeURIComponent(asset ? asset.name : 'New layer'));
 };
 $('dellayer').onclick = onSelected('layer.delete');
-$('up').onclick = onSelected('layer.move_up');
-$('down').onclick = onSelected('layer.move_down');
+// B-12 fix: Forward and Back move every chosen layer a step, as one entry to undo. The chosen
+// layer nearest the end it is going to moves first; one already against that end, or against a
+// chosen layer that could not move, stays where it is.
+function moveLayers(up) {
+  const order = layers().map((l) => l.id);
+  const picked = order.map((id, i) => [id, i]).filter(([id]) => selection.includes(id));
+  if (!picked.length) return;
+  if (up) picked.reverse();
+  let limit = up ? order.length - 1 : 0;
+  nudge = nudge.then(async () => {
+    for (const [id, i] of picked) {
+      if (up ? i < limit : i > limit) {
+        await command((up ? '/layer.move_up' : '/layer.move_down') + '?layer=' + encodeURIComponent(id) + '&drag=1');
+        limit = i;
+      } else limit = up ? i - 1 : i + 1;
+    }
+    await command('/property.drag_end');
+  });
+}
+$('up').onclick = () => moveLayers(true);
+$('down').onclick = () => moveLayers(false);
 $('import').onclick = () => command('/media.import');
 // W-01 step 3. The fields are read at the moment Create is pressed, not as they are typed: a
 // half-typed width is not a composition somebody asked for, and the core would refuse it in a

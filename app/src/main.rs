@@ -38,7 +38,7 @@
 //! stays free, which is what D-36 wanted it for.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -518,9 +518,16 @@ fn serve(
     ask: Ask,
     quality: Option<PreviewQuality>,
 ) -> Response<Vec<u8>> {
-    let (exporting, exported) = {
+    let (exporting, exported, progress) = {
         let export = export.lock().expect("the export lock was poisoned");
-        (export.cancel.is_some(), export.said.clone())
+        // Frames written, frames asked for, and milliseconds since the export began.
+        let progress = format!(
+            "{} {} {}",
+            export.done.load(Ordering::SeqCst),
+            export.total,
+            export.started.map_or(0, |t| t.elapsed().as_millis())
+        );
+        (export.cancel.is_some(), export.said.clone(), progress)
     };
     // P-01: how long the page waited for the frame already in flight. The guard outlives this
     // statement, so the duration is recorded rather than wrapped around a closure.
@@ -583,7 +590,8 @@ fn serve(
             alpha_only: viewer.alpha_only,
             cache: Arc::clone(&viewer.cache),
             frame,
-            reply: said_about(viewer, ask, frame, skipped, exporting, &exported),
+            reply: said_about(viewer, ask, frame, skipped, exporting, &exported)
+                .header("x-export-progress", progress),
         }
     };
 
@@ -1272,6 +1280,31 @@ fn spoken(numbers: &[u32]) -> String {
 /// the button that was just pressed. The status line gets the summary a person checks a scan
 /// against: how many drawings arrived, which numbers they run between, and what is missing.
 fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
+    // B-12 fix: one file chosen on its own is a still, as After Effects imports one, shown on
+    // every frame of a layer made from it. Grouped as a sequence it was drawing N of a sequence
+    // of one, and a layer showed it on no frame or one.
+    let png = |f: &PathBuf| f.extension().is_some_and(|e| e.eq_ignore_ascii_case("png"));
+    if let [file] = files {
+        if png(file) {
+            let asset = {
+                let held = viewer.lock().expect("the viewer lock was poisoned");
+                let name = file.file_name().map_or_else(
+                    || file.display().to_string(),
+                    |n| n.to_string_lossy().into_owned(),
+                );
+                Asset::still(
+                    unused_asset_id(held.document.project()),
+                    name,
+                    persist::stored_path(&held.root, file),
+                )
+            };
+            let said = edit(viewer, Command::AddAsset { asset });
+            return format!(
+                "{said}: a still picture, shown on every frame of a layer made from it. To import \
+             a sequence, choose all of its files."
+            );
+        }
+    }
     let result = media::import_sequence(files);
     let told: Vec<String> = result.diagnostics.iter().map(sentence).collect();
     let Some(sequence) = result.asset else {
@@ -1717,7 +1750,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 let held = viewer.lock().expect("the viewer lock was poisoned");
                 match held.document.project().composition(&held.composition) {
                     Some(comp) => comp.clone(),
-                    None => return Some("There is no composition on screen to change.".to_string()),
+                    None => {
+                        return Some("There is no composition on screen to change.".to_string())
+                    }
                 }
             };
             let number = |field: &str, fallback: u32| -> Result<u32, String> {
@@ -2956,6 +2991,10 @@ struct Export {
     cancel: Option<Arc<AtomicBool>>,
     /// What the running job is doing, or what the last one did, in the core's words.
     said: String,
+    /// B-12 fix: frames written so far, of how many, since when. The page draws a bar from these.
+    done: Arc<AtomicUsize>,
+    total: usize,
+    started: Option<Instant>,
 }
 
 /// PNG depth and alpha for an export from the window.
@@ -3011,6 +3050,7 @@ fn export_job(
 }
 
 /// Run a job to the end and say what it did in the window's one line.
+#[cfg(test)]
 fn run_export(
     project: &Project,
     root: &Path,
@@ -3087,13 +3127,20 @@ fn start_export(app: &AppHandle, into: &Path, missing: MissingSource) -> String 
         let mut export = state.lock().expect("the export lock was poisoned");
         export.cancel = Some(Arc::clone(&cancel));
         export.said = said.clone();
+        export.done = Arc::new(AtomicUsize::new(0));
+        export.total = (request.last_frame - request.first_frame + 1) as usize;
+        export.started = Some(Instant::now());
     }
+    let done = Arc::clone(&state.lock().expect("the export lock was poisoned").done);
     // A thread, so the window keeps answering for frames while a shot is being written: an
     // export of the reference shot takes minutes, and a viewer frozen for minutes is a viewer
     // that looks broken.
     let handle = app.clone();
     std::thread::spawn(move || {
-        let done = run_export(&project, &root, &request, &cancel);
+        let done = what_the_export_did(
+            &export::export_sequence_counting(&project, &root, &request, &cancel, &done),
+            &request.output_dir,
+        );
         let state = handle.state::<Mutex<Export>>();
         let mut export = state.lock().expect("the export lock was poisoned");
         export.cancel = None;
@@ -3723,6 +3770,27 @@ mod saving {
 
     fn viewer_on(path: &Path) -> Mutex<Viewer> {
         Mutex::new(open(path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message)))
+    }
+
+    #[test]
+    fn one_file_imported_on_its_own_is_a_still() {
+        let viewer = viewer_on(&repo("Fixtures/projects/unknown_effect_project.json"));
+        import(
+            &viewer,
+            &[repo("Fixtures/reference_shot/layer1/layer1_000.png")],
+        );
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        let last = held
+            .document
+            .project()
+            .assets
+            .last()
+            .expect("an asset was added");
+        assert_eq!(last.name, "layer1_000.png");
+        assert!(
+            last.path.is_some() && last.frames.is_empty(),
+            "a still, not a sequence"
+        );
     }
 
     #[test]
@@ -7891,7 +7959,10 @@ mod serving {
             &"2 of the files for \"Cel\" are not where the project expects them. The reference is \
               kept as it is. Relink the asset to point it at the files, or put them back. Frames \
               that cannot be found render as nothing rather than as a guess.",
-            &decode(&header(&got, "x-notes")).split('\t').next().unwrap_or(""),
+            &decode(&header(&got, "x-notes"))
+                .split('\t')
+                .next()
+                .unwrap_or(""),
         );
         check(
             "which the page can only read because the refusal carries the same permission the \
@@ -8897,12 +8968,12 @@ mod contract {
         (
             "Forward",
             "layer.move_up",
-            "$('up').onclick = onSelected('layer.move_up')",
+            "$('up').onclick = () => moveLayers(true)",
         ),
         (
             "Back",
             "layer.move_down",
-            "$('down').onclick = onSelected('layer.move_down')",
+            "$('down').onclick = () => moveLayers(false)",
         ),
         (
             "Undo",
@@ -9220,7 +9291,11 @@ mod contract {
         ("layer.copy", "Ctrl+C", "copyLayers()"),
         ("layer.paste", "Ctrl+V", "pasteLayers()"),
         ("layer.toggle_lock", "Ctrl+L", "toggleLayers('lock')"),
-        ("layer.toggle_visibility", "Ctrl+Alt+V", "toggleLayers('visibility')"),
+        (
+            "layer.toggle_visibility",
+            "Ctrl+Alt+V",
+            "toggleLayers('visibility')",
+        ),
     ];
 
     /// The accelerators that work by pressing a button, and the button each one presses.
@@ -10689,7 +10764,7 @@ mod contract {
         (
             "dragging a layer up or down the list",
             "reorder the layers",
-            "$('up').onclick = onSelected('layer.move_up');",
+            "$('up').onclick = () => moveLayers(true);",
         ),
         (
             "dragging a drawing from the media bin onto the layer list",

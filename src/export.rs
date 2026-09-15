@@ -25,7 +25,7 @@
 //! the build says it rendered.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::compose;
 use crate::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
@@ -107,6 +107,18 @@ pub fn export_sequence(
     root: &Path,
     request: &ExportRequest,
     cancel: &AtomicBool,
+) -> ExportReport {
+    export_sequence_counting(project, root, request, cancel, &AtomicUsize::new(0))
+}
+
+/// [`export_sequence`], adding one to `done` as each frame reaches the disk, so a window can
+/// show how far a running export has got.
+pub fn export_sequence_counting(
+    project: &Project,
+    root: &Path,
+    request: &ExportRequest,
+    cancel: &AtomicBool,
+    done: &AtomicUsize,
 ) -> ExportReport {
     let mut report = ExportReport {
         status: ExportStatus::Completed,
@@ -303,6 +315,7 @@ pub fn export_sequence(
             return report;
         }
         report.written.push(path);
+        done.fetch_add(1, Ordering::SeqCst);
     }
 
     report.diagnostics.extend(log.finish());

@@ -12,8 +12,8 @@ looked like it should be is worth more here than a step that worked. A step that
 completed at all is the most valuable line on the page. Nothing written here is a complaint about
 the build; all of it is the build's report card.
 
-Date of the run:
-Build: `target/release/anime_compositor_app.exe`, from commit
+Date of the run: 2026-09-15
+Build: `target/release/anime_compositor_app.exe`, from commit d126716
 Display scale used:
 
 ## The thirteen steps
@@ -23,19 +23,27 @@ anything you did by accident.
 
 | # | W-01 step | How long | What happened |
 | --- | --- | --- | --- |
-| 1 | Import media | | |
-| 2 | Review grouping and missing-frame warnings | | |
-| 3 | Create a composition | | |
-| 4 | Assign exposures | | |
-| 5 | Stack layers | | |
-| 6 | Adjust anchors and transforms | | |
-| 7 | Apply a matte | | |
-| 8 | Add one blur | | |
-| 9 | Add one colour operation | | |
-| 10 | Inspect alpha | | |
-| 11 | Preview the work area | | |
-| 12 | Save, close, reopen | | |
-| 13 | Export a PNG sequence | | |
+| 1 | Import media | | I imported a drawing but it isn't converting into a legit one still layer across the timeline like in AE |
+| 2 | Review grouping and missing-frame warnings | | true |
+| 3 | Create a composition | | works |
+| 4 | Assign exposures | | works |
+| 5 | Stack layers | | works but would like the ability to move multiple layers when multi-selected as well |
+| 6 | Adjust anchors and transforms | | works |
+| 7 | Apply a matte | | unsure of what's going on here. (screenshot: layer1 given layer3 as its matte) |
+| 8 | Add one blur | | works |
+| 9 | Add one colour operation | | works |
+| 10 | Inspect alpha | | yes |
+| 11 | Preview the work area | | works |
+| 12 | Save, close, reopen | | works |
+| 13 | Export a PNG sequence | | somewhat worked with this project specifically. now it's working with write frames whose drawing is missing. wish there was a progress bar at the top that signified how many frames from the project is rendered along with est time. |
+
+The "What happened" column is the owner's words from 2026-09-15, transcribed unedited; the
+screenshots they sent are not kept here. What the agent did about them is in
+`verification/B-12_run_fixes.md`: step 1, one PNG imported on its own is now a still; step 5,
+Forward and Back move every chosen layer; step 13, an export shows a bar with frames written and
+time left. The refusal in step 13 until the missing-drawing box is ticked is the sheet's expected
+result, not a defect. Step 7 was answered in conversation: a matte shows the layer only where the
+matte layer has picture, and the matte layer itself stops drawing.
 
 ## W-02, the second walk
 
