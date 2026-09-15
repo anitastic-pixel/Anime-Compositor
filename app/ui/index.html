@@ -188,7 +188,7 @@
      frame is. */
   /* W-17: wider, so a layer's name and its numbers have room before its bar starts. On the panel
      rather than the sheet, so the scroll bar under it and the graph beside it read the same. */
-  #timeline { --gutter: 260px; }
+  #timeline { --gutter: 340px; }
   #sheet { position: relative; overflow: auto; padding: 6px 8px 8px; min-height: 0; }
   #ruler { cursor: ew-resize; }
   #ruler {
@@ -2209,14 +2209,14 @@ function toggleLayers(what) {
   });
 }
 
-// W-26: After Effects' Sequence Layers. The chosen layers, in the order they were chosen, are laid
-// end to end from the end of the first, each keeping its length, as one entry to undo.
+// W-26: After Effects' Sequence Layers. The chosen layers, from the top row down, are laid end to
+// end from the end of the first, each keeping its length, as one entry to undo. Row order rather
+// than the order of clicking, because a Shift-click range has no order of clicking.
 function sequenceLayers() {
-  const taken = selection.slice().reverse()
-    .map((id) => layers().find((layer) => layer.id === id))
-    .filter((layer) => layer && !layer.locked);
+  const taken = layers().slice().reverse()
+    .filter((layer) => selection.includes(layer.id) && !layer.locked);
   if (taken.length < 2) {
-    $('status').textContent = 'Choose two or more unlocked layers, in the order they should play.';
+    $('status').textContent = 'Choose two or more unlocked layers first (Shift-click or Ctrl-click).';
     return;
   }
   let at = taken[0].out_frame;
