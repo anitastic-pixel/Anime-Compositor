@@ -47,7 +47,8 @@ matte layer has picture. The matte layer still draws itself on top unless matte 
 layer 1 matted by layer 3 was hidden under layer 3's own opaque yellow and blue blocks; those blocks
 are the matte, not something it failed to reach. A render of frame 73 with no matte, the matte, and
 matte only confirmed it; with matte only, layer 1's picture shows through the block shapes. Step 5
-follow-up: dragging a chosen row now brings the other chosen layers with it.
+follow-up: dragging a chosen row now brings the other chosen layers with it; the owner confirmed it works
+on 2026-09-15, after a rebuild (the first try ran a build from before the change).
 
 ## W-02, the second walk
 
