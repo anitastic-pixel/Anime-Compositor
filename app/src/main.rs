@@ -49,7 +49,9 @@ use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity
 use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR, TINT};
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
 use anime_compositor::media;
-use anime_compositor::model::{Asset, Composition, Id, Interp, Layer, Project, Prop, Value};
+use anime_compositor::model::{
+    Asset, Composition, Id, Interp, Layer, Marker, Project, Prop, Value,
+};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
 use anime_compositor::time::{ExposureSpan, FrameRate};
@@ -116,6 +118,9 @@ struct Viewer {
     /// frame that is about to leave, after the cache has been given the frame it keeps.
     alpha_only: bool,
     checkerboard: bool,
+    /// W-24: the layers soloed, which the preview draws alone. Presentation like the alpha view:
+    /// not in the file, not undoable, and never exported.
+    solo: Vec<Id>,
     /// W-02's relink, worked out and not yet agreed to. See [`PendingRelink`]. At most one at a
     /// time: a person is answering one question, and a second proposal replaces the first rather
     /// than queueing behind it.
@@ -252,7 +257,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             viewer.quality = quality;
         }
         Snapshot {
-            project: viewer.document.project().clone(),
+            project: shown(viewer),
             composition: viewer.composition.clone(),
             root: viewer.root.clone(),
             quality: viewer.quality,
@@ -533,17 +538,31 @@ fn serve(
         if let Some(quality) = quality {
             viewer.quality = quality;
         }
+        // W-24: the clock plays the work area, so it is rebuilt when the work area has changed.
+        if let Some(comp) = viewer.document.project().composition(&viewer.composition) {
+            let (first, last) = comp.work_frames();
+            if viewer.playback.at_rest() != first
+                || viewer.playback.length() as i32 != last - first + 1
+            {
+                viewer.playback = Playback::new(first, last, comp.frame_rate);
+            }
+        }
         let (frame, skipped) = match ask {
             Ask::At(ms) => {
                 let shown = viewer.playback.at(Duration::from_millis(ms));
                 (shown.frame, shown.skipped)
             }
-            // Stepping stops at the ends of the work area rather than running off them: a frame
+            // Stepping stops at the ends of the composition rather than running off them: a frame
             // outside the composition is not a frame, and the viewer has nowhere to go from
-            // there.
+            // there. The composition's ends and not the work area's since W-24, which only
+            // bounds playback, as After Effects' does.
             Ask::Frame(n) => {
-                let first = viewer.playback.at_rest();
-                let last = first + viewer.playback.length() as i32 - 1;
+                let (first, last) = viewer
+                    .document
+                    .project()
+                    .composition(&viewer.composition)
+                    .map(|c| (c.start_frame, c.start_frame + c.duration_frames as i32 - 1))
+                    .unwrap_or((n, n));
                 (n.clamp(first, last), 0)
             }
             // W-09: playback begins at the playhead. The clock is started over from this frame
@@ -555,7 +574,7 @@ fn serve(
             }
         };
         Snapshot {
-            project: viewer.document.project().clone(),
+            project: shown(viewer),
             composition: viewer.composition.clone(),
             root: viewer.root.clone(),
             quality: viewer.quality,
@@ -641,8 +660,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
             )
             .with_remediation("The project that was open is still open. Nothing was changed.")
         })?;
-    let first = composition.start_frame;
-    let last = first + composition.duration_frames as i32 - 1;
+    let (first, last) = composition.work_frames();
     let playback = Playback::new(first, last, composition.frame_rate);
     let composition = composition.id.clone();
 
@@ -675,6 +693,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         // On, because a transparent frame that reads as black is a frame a person
         // misjudges, and every photograph of this window so far was taken with the grid there.
         checkerboard: true,
+        solo: Vec::new(),
         relink: None,
         cache: Arc::new(Mutex::new(CelCache::viewer())),
     })
@@ -716,6 +735,61 @@ fn demo() -> Viewer {
     // fail the build for a reason nobody would connect to a button. Save therefore asks where.
     viewer.path = None;
     viewer
+}
+
+/// W-24: document 24's `project.new`. An empty project with one composition to put layers in, the
+/// size `composition.create` makes by default, and no file until Save As gives it one. Media
+/// resolves against the directory the last project did until then.
+fn blank(root: PathBuf) -> Viewer {
+    let mut project = Project::new(Id::new("project-1"));
+    let rate = FrameRate::new(24, 1).expect("twenty-four frames a second is a frame rate");
+    let composition = Composition::new(Id::new("comp-1"), "Main", 1920, 1080, rate, 0, 240);
+    let (first, last) = composition.work_frames();
+    let id = composition.id.clone();
+    project.compositions.push(composition);
+    Viewer {
+        document: Document::new(project),
+        preserved: Preserved::none(),
+        path: None,
+        root,
+        composition: id,
+        quality: PreviewQuality::default(),
+        playback: Playback::new(first, last, rate),
+        name: "Untitled project".to_string(),
+        notes: Vec::new(),
+        status: String::new(),
+        recovery: Vec::new(),
+        autosaved: String::new(),
+        dirty_since: None,
+        alpha_only: false,
+        checkerboard: true,
+        solo: Vec::new(),
+        relink: None,
+        cache: Arc::new(Mutex::new(CelCache::viewer())),
+    }
+}
+
+/// W-24: the project as the preview draws it. With layers soloed, every other layer of the
+/// composition on screen is off; a soloed layer since deleted, or in another composition, counts
+/// for nothing, so a stale solo can never blank the picture.
+fn shown(viewer: &Viewer) -> Project {
+    let mut project = viewer.document.project().clone();
+    if let Some(comp) = project
+        .compositions
+        .iter_mut()
+        .find(|c| c.id == viewer.composition)
+    {
+        let soloed: Vec<Id> = viewer
+            .solo
+            .iter()
+            .filter(|id| comp.layer(id).is_some())
+            .cloned()
+            .collect();
+        if !soloed.is_empty() {
+            comp.solo(&soloed);
+        }
+    }
+    project
 }
 
 /// Save the open project to `path`, and say what happened in one sentence.
@@ -913,6 +987,8 @@ fn state(viewer: &Mutex<Viewer>) -> String {
         "project": project,
         "composition": viewer.composition.as_str(),
         "revision": viewer.document.revision(),
+        // W-24: which layers are soloed. The window's, not the file's, like the alpha view.
+        "solo": viewer.solo.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
         // What Undo and Redo would do next, in the words document 26 requires each record to
         // carry. The buttons say it rather than saying "Undo", because a person who has been
         // away from the window for a minute cannot otherwise know what is about to be taken back.
@@ -946,8 +1022,7 @@ fn show(viewer: &Mutex<Viewer>, id: &Id) {
     let Some(comp) = held.document.project().composition(id) else {
         return;
     };
-    let first = comp.start_frame;
-    let last = first + comp.duration_frames as i32 - 1;
+    let (first, last) = comp.work_frames();
     held.playback = Playback::new(first, last, comp.frame_rate);
     held.composition = id.clone();
 }
@@ -1464,10 +1539,12 @@ const ANSWERS: &[&str] = &[
     "layer.move_down",
     "layer.move_up",
     "layer.rename",
+    "layer.set_label",
     "layer.set_matte",
     "layer.shift",
     "layer.split",
     "layer.toggle_lock",
+    "layer.toggle_solo",
     "layer.toggle_visibility",
     "layer.trim",
     "media.import",
@@ -1476,6 +1553,9 @@ const ANSWERS: &[&str] = &[
     "property.drag_end",
     "property.drag_update",
     "property.set_base",
+    "timeline.set_markers",
+    "timeline.set_work_end",
+    "timeline.set_work_start",
     "viewer.toggle_alpha",
     "viewer.toggle_checkerboard",
 ];
@@ -1495,6 +1575,32 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // touches the document: they set a flag the next frame is drawn through. That also means
         // neither marks the project dirty, which is the part a person would notice if it were
         // got wrong - looking at the alpha channel is not unsaved work.
+        // W-24: After Effects' solo switch. Presentation, like the alpha view below: the preview
+        // draws the soloed layers alone, and the file, the history and an export are untouched.
+        "layer.toggle_solo" => {
+            let Some(layer) = parameter(query, "layer").map(Id::new) else {
+                return Some("Which layer? Choose one in the layer list.".to_string());
+            };
+            let mut held = viewer.lock().expect("the viewer lock was poisoned");
+            let name = held
+                .document
+                .project()
+                .composition(&held.composition)
+                .and_then(|c| c.layer(&layer))
+                .map(|l| l.name.clone())
+                .unwrap_or_else(|| layer.to_string());
+            let said = match held.solo.iter().position(|id| *id == layer) {
+                Some(at) => {
+                    held.solo.remove(at);
+                    format!("{name} is no longer soloed.")
+                }
+                None => {
+                    held.solo.push(layer);
+                    format!("{name} is soloed: the preview shows the soloed layers alone.")
+                }
+            };
+            return Some(said);
+        }
         "viewer.toggle_alpha" => {
             let mut held = viewer.lock().expect("the viewer lock was poisoned");
             held.alpha_only = !held.alpha_only;
@@ -1761,7 +1867,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             let mut keys = Vec::new();
             for named in parameters(query, "key") {
                 let mut parts = named.rsplitn(3, '|');
-                let (Some(at), Some(prop), Some(layer)) = (parts.next(), parts.next(), parts.next())
+                let (Some(at), Some(prop), Some(layer)) =
+                    (parts.next(), parts.next(), parts.next())
                 else {
                     return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
                 };
@@ -1822,7 +1929,59 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         let Some(comp) = project.composition(&composition) else {
             return Some("There is no composition on screen to edit.".to_string());
         };
-        if id == "layer.create" {
+        // W-24: the composition's work area and markers, which name no layer. B sets the start at
+        // a frame and keeps the end, unless the end would then come first, when the end goes back
+        // to the composition's; N is the same the other way round. Markers are the whole list,
+        // `marker=frame|name` repeated, so a drag sends where every marker now is.
+        if id.starts_with("timeline.") {
+            let past = comp.start_frame + comp.duration_frames as i32;
+            let (start, end) = comp.work_area.unwrap_or((comp.start_frame, past));
+            match id {
+                "timeline.set_work_start" => {
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    Command::SetWorkArea {
+                        composition,
+                        start_frame: frame,
+                        end_frame_exclusive: if frame >= end { past } else { end },
+                    }
+                }
+                "timeline.set_work_end" => {
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    Command::SetWorkArea {
+                        composition,
+                        start_frame: if start > frame {
+                            comp.start_frame
+                        } else {
+                            start
+                        },
+                        end_frame_exclusive: frame + 1,
+                    }
+                }
+                _ => {
+                    let mut markers = Vec::new();
+                    for text in parameters(query, "marker") {
+                        let (at, name) = text.split_once('|').unwrap_or((text.as_str(), ""));
+                        let Ok(frame) = at.trim().parse::<i32>() else {
+                            return Some(format!("A marker is frame|name. Not \"{text}\"."));
+                        };
+                        markers.push(Marker {
+                            frame,
+                            name: name.to_string(),
+                        });
+                    }
+                    Command::SetMarkers {
+                        composition,
+                        markers,
+                    }
+                }
+            }
+        } else if id == "layer.create" {
             // The one layer command that names no existing layer. It names a drawing instead,
             // because document 19's layer has an `asset_id` and no state in which it has none.
             let Some(asset) = parameter(query, "asset").map(Id::new) else {
@@ -1887,6 +2046,21 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     layer_id,
                     value: !layer.locked,
                 },
+                // W-24: After Effects' label colours, 0 for none and 1 to 8.
+                "layer.set_label" => {
+                    match parameter(query, "label").and_then(|l| l.parse::<u8>().ok()) {
+                        Some(label) => Command::SetLayerLabel {
+                            composition,
+                            layer_id,
+                            label,
+                        },
+                        None => {
+                            return Some(
+                                "Which colour? Send label=0 for none, or 1 to 8.".to_string(),
+                            )
+                        }
+                    }
+                }
                 // Toward the front is later in the order. Asking to move the front layer further
                 // forward is not an error and not a history entry: it is somebody pressing the
                 // key one more time, and it is told so rather than given an undo item that
@@ -2505,8 +2679,13 @@ fn export_job(
     into: &Path,
     missing: MissingSource,
 ) -> (Project, PathBuf, ExportRequest) {
-    let first = viewer.playback.at_rest();
-    let last = first + viewer.playback.length() as i32 - 1;
+    // W-24: the work area, as After Effects renders it; the whole composition when there is none.
+    let (first, last) = viewer
+        .document
+        .project()
+        .composition(&viewer.composition)
+        .map(|c| c.work_frames())
+        .unwrap_or((0, -1));
     // The project's own name, so two shots exported into one folder do not overwrite each other.
     let stem = Path::new(&viewer.name)
         .file_stem()
@@ -3060,12 +3239,20 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             String::new()
         }
         "cancel-export" => cancel_export(app),
+        // W-24: document 24's `project.new`. The page asks twice first when there is unsaved
+        // work; whatever was unsaved is still in its recovery snapshot.
+        "new" => {
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            *held = blank(held.root.clone());
+            held.status = "A new, empty project. Save As gives it a file.".to_string();
+            held.status.clone()
+        }
         _ => {
             return allow_the_page_to_read_this(Response::builder().status(404))
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
-                      /cancel-export, /recent, or one of document 24's command IDs"
+                      /cancel-export, /recent, /new, or one of document 24's command IDs"
                         .to_vec(),
                 )
                 .expect("build the not-found response")
@@ -4524,11 +4711,7 @@ mod editing {
                 "keyframe.add_remove?key=layer-cel|position|12&key=layer-cel|position|20",
             ),
         );
-        report.check(
-            "neither key is left",
-            "",
-            keys(&viewer, l, "position"),
-        );
+        report.check("neither key is left", "", keys(&viewer, l, "position"));
         report.check(
             "one history entry for the two",
             1,
@@ -6626,10 +6809,8 @@ mod editing {
          otherwise. The last two rows check that rule, and they pass, but the rule is wrong for \
          anyone who deliberately leaves an empty composition ready to work in and expects to \
          find it. Fixing it properly means adding a field to the project format, which is a \
-         schema change and the owner's decision.\n\n**There is no `project.new`.** Document 24 \
-         names one on Ctrl+N and this build does not have it, so every composition here is made \
-         inside a project that was opened from a file. Ctrl+Shift+N is what this build binds, \
-         leaving Ctrl+N free for the command the table already promises.\n\n**The page.** Every \
+         schema change and the owner's decision.\n\n**`project.new` came later.** W-24 built it on Ctrl+N, the shortcut document 24 \
+         promised it, and Ctrl+Shift+N stays the new composition.\n\n**The page.** Every \
          row calls the same function the window's URL scheme calls. That the New composition \
          button and its five fields send it, and that Ctrl+Shift+N reaches the button, are in \
          `verification/B-12b_page_table.md`, `verification/B-12c_keyboard_table.md` and the \
@@ -8347,10 +8528,12 @@ mod contract {
         "layer.move_down",
         "layer.move_up",
         "layer.rename",
+        "layer.set_label",
         "layer.set_matte",
         "layer.shift",
         "layer.split",
         "layer.toggle_lock",
+        "layer.toggle_solo",
         "layer.toggle_visibility",
         "layer.trim",
         "media.import",
@@ -8359,6 +8542,9 @@ mod contract {
         "property.drag_end",
         "property.drag_update",
         "property.set_base",
+        "timeline.set_markers",
+        "timeline.set_work_end",
+        "timeline.set_work_start",
         "viewer.toggle_alpha",
         "viewer.toggle_checkerboard",
     ];
@@ -8379,6 +8565,7 @@ mod contract {
         "curve",
         "export",
         "frame",
+        "new",
         "open",
         "play",
         "recent",
@@ -8615,7 +8802,7 @@ mod contract {
     /// has noticed is absent. The test measures which of the four this build actually does and
     /// compares; a row that says `nothing yet` is checked to be true as hard as the others.
     const REACHED: &[(&str, &str)] = &[
-        ("project.new", "nothing yet"),
+        ("project.new", "a route the shell answers"),
         ("project.open", "a route the shell answers"),
         ("project.save", "a route the shell answers"),
         ("project.save_as", "a route the shell answers"),
@@ -8638,11 +8825,14 @@ mod contract {
         ("layer.move", "a command the window answers"),
         ("layer.duplicate", "a command the window answers"),
         ("layer.split", "a command the window answers"),
+        ("layer.toggle_solo", "a command the window answers"),
+        ("layer.set_label", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
-        ("timeline.set_work_start", "nothing yet"),
-        ("timeline.set_work_end", "nothing yet"),
+        ("timeline.set_work_start", "a command the window answers"),
+        ("timeline.set_work_end", "a command the window answers"),
+        ("timeline.set_markers", "a command the window answers"),
         ("exposure.set_span", "a command the window answers"),
         ("property.set_base", "a command the window answers"),
         ("keyframe.add_remove", "a command the window answers"),
@@ -8662,7 +8852,7 @@ mod contract {
         ("viewer.toggle_alpha", "a command the window answers"),
         ("render.preview_current", "the page, with no request"),
         ("export.sequence", "a route the shell answers"),
-        ("app.command_palette", "nothing yet"),
+        ("app.command_palette", "the page, with no request"),
     ];
 
     /// Document 24's identifier, and the text in the page that binds the shortcut it promises.
@@ -8670,7 +8860,7 @@ mod contract {
     /// Only the identifiers document 24 gives a G1 shortcut appear here. `none` in that column
     /// is not a gap and is not listed.
     const SHORTCUTS: &[(&str, &str, &str)] = &[
-        ("project.new", "Ctrl+N", ""),
+        ("project.new", "Ctrl+N", "e.preventDefault(); newProject();"),
         ("project.open", "Ctrl+O", "e.ctrlKey && (e.key === 'o'"),
         ("project.save", "Ctrl+S", "e.ctrlKey && (e.key === 's'"),
         ("project.save_as", "Ctrl+Shift+S", "e.shiftKey ? '/save-as'"),
@@ -8704,12 +8894,13 @@ mod contract {
         ("timeline.next_frame", "Right", "e.key === 'ArrowRight'"),
         ("timeline.play_pause", "Space", "e.key === ' '"),
         ("keyframe.set_interp", "F9", "e.key === 'F9'"),
-        ("timeline.set_work_start", "B", ""),
-        ("timeline.set_work_end", "N", ""),
+        ("timeline.set_work_start", "B", "setWork('start')"),
+        ("timeline.set_work_end", "N", "setWork('end')"),
+        ("timeline.set_markers", "*", "e.key === '*'"),
         ("viewer.fit", "Shift+/", "e.key === '?'"),
         ("viewer.zoom_100", "Ctrl+1", "e.key === '1'"),
         ("export.sequence", "Ctrl+M", "e.key === 'm'"),
-        ("app.command_palette", "Ctrl+Shift+P", ""),
+        ("app.command_palette", "Ctrl+Shift+P", "e.code === 'KeyP'"),
     ];
 
     /// The accelerators that work by pressing a button, and the button each one presses.
@@ -8784,6 +8975,7 @@ mod contract {
             // route before `edit_command` sees it, `edit_command` answers a command, the page
             // may do something with no request at all, and otherwise nothing does.
             let route = match *id {
+                "project.new" => "new",
                 "project.open" => "open",
                 "project.save" => "save",
                 "project.save_as" => "save-as",
@@ -8884,6 +9076,7 @@ mod contract {
         "render.preview_current",
         "viewer.fit",
         "viewer.zoom_100",
+        "app.command_palette",
     ];
 
     const MAP_INTRO: &[&str] = &[
@@ -8911,19 +9104,14 @@ mod contract {
          The second says whether the page binds it.\n- **The `presses` rows say what the key \
          does, not only that it is bound.** A shortcut moved onto the wrong button keeps its key \
          test and stops doing its job; those rows are the ones that would say so.",
-        "## The six commands this build does not have\n\nEach is a deliberate absence, and none \
-         of them is a step of W-01.\n\n- **`project.new`** - a new project is an empty window and \
-         this build always opens on something: the reference shot when it is given nothing, or \
-         the project it was given. Making a new one is Save As over a copy.\n- \
-         **`timeline.set_work_start` and `set_work_end`** - the work area is the whole \
-         composition in this build, which is what `verification/B-08_preview_table.md` measures \
-         and what B-10 exports. Narrowing it is a setting nothing yet reads.\n- \
-         **`keyframe.add_remove`** - since W-10 the diamond beside each transform property, \
-         checked in `verification/B-12a_transform_table.md`.\n- **`viewer.fit` and `viewer.zoom_100`** are the page's own since W-06: a \
-         zoom is a size the page gives the canvas and a scroll of the stage around it, and \
-         nothing in the project changes, so neither sends a request.\n- \
-         **`app.command_palette`** - a search over commands, which needs the commands to be \
-         worth searching first.",
+        "## The commands built last\n\n- **`project.new`, `timeline.set_work_start`, \
+         `timeline.set_work_end` and `app.command_palette`** were built by W-24, with \
+         `timeline.set_markers`, `layer.set_label` and `layer.toggle_solo` beside them, so no \
+         row says `nothing yet` any more. Ctrl+N asks twice when the project has unsaved \
+         work. The palette is the page's own: each line presses the key it names.\n- \
+         **`viewer.fit` and `viewer.zoom_100`** are the page's own since W-06: a zoom is a \
+         size the page gives the canvas and a scroll of the stage around it, and nothing in \
+         the project changes, so neither sends a request.",
         "## What this cannot cover\n\nThat a bound shortcut reaches the command. The binding is \
          read as text in the page's accelerator handler; that pressing the key really runs it is \
          `verification/B-12a_window_and_keyboard.md`, where a Q-03 photograph found exactly that \
@@ -9380,6 +9568,15 @@ mod contract {
             &viewer,
             "layer.set_matte?layer=layer-3&matte=layer-2&only=false",
         );
+        // W-24: a work area, a marker and a label are written only when there is one, so the
+        // ruler and the label colours are given one each the same way.
+        for edit in [
+            "timeline.set_work_start?frame=1",
+            "timeline.set_markers?marker=2|hit",
+            "layer.set_label?layer=layer-3&label=2",
+        ] {
+            run(&viewer, edit);
+        }
         let answer: serde_json::Value =
             serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
         let layer = layer_of(&answer, "layer-3");
@@ -9395,8 +9592,7 @@ mod contract {
                         .find(|c| c["id"] == answer["composition"])
                         .expect("the composition on screen")
                         .clone();
-                    // The page reads `comp.layers`, which is there; nothing else of the
-                    // composition is read by name today.
+                    // The page reads `comp.layers`, and since W-24 the work area and markers.
                     comp["layers"] = comp["layers"].clone();
                     comp
                 }
@@ -10017,7 +10213,8 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 41] = [
+    const KEYS: [&str; 43] = [
+        "*",
         ",",
         "-",
         ".",
@@ -10029,6 +10226,7 @@ mod contract {
         "ArrowLeft",
         "ArrowRight",
         "ArrowUp",
+        "B",
         "C",
         "D",
         "Delete",
@@ -10080,7 +10278,7 @@ mod contract {
     const MOUSE_ONLY: [&str; 1] = ["effect.move"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 22] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 26] = [
         (
             "dragging the border between two panels",
             "give one of them more of the window",
@@ -10190,6 +10388,26 @@ mod contract {
             "Alt-clicking a property's diamond",
             "remove every key of the property",
             "if (pickedKeys.size) removeKeys()",
+        ),
+        (
+            "dragging either end of the work area on the ruler",
+            "set the work area",
+            "setWork('start')",
+        ),
+        (
+            "double clicking the work area",
+            "put it back to the whole composition",
+            "['Reset the work area', '', () => setWork('reset')]",
+        ),
+        (
+            "dragging a marker along the ruler, or Ctrl-clicking it",
+            "move or remove it",
+            "['Remove the marker at the playhead', '', () => removeMarkerAt(frame)]",
+        ),
+        (
+            "double clicking a marker",
+            "name it",
+            "['Name the marker at the playhead', '', () => nameMarker(frame)]",
         ),
     ];
 

@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use anime_compositor::command::{Command, Document};
 use anime_compositor::model::{
-    Asset, BlendMode, Composition, Id, Interp, Layer, Project, Prop, Value,
+    Asset, BlendMode, Composition, Id, Interp, Layer, Marker, Project, Prop, Value,
 };
 use anime_compositor::persist::{to_json, Preserved};
 use anime_compositor::time::{ExposureSpan, FrameRate};
@@ -286,6 +286,129 @@ fn b05_model_and_undo() {
         "reorder into the middle undone",
         "sakura, layer3, layer4, layer1",
         order_of(&doc),
+    );
+
+    // -- W-24: work area, markers and label colour, each one entry to undo ----------------------
+    let (first, past) = {
+        let comp = doc
+            .project()
+            .composition(&id(COMP))
+            .expect("the composition");
+        (
+            comp.start_frame,
+            comp.start_frame + comp.duration_frames as i32,
+        )
+    };
+    doc.apply(Command::SetWorkArea {
+        composition: id(COMP),
+        start_frame: first + 1,
+        end_frame_exclusive: past - 1,
+    })
+    .expect("work area");
+    let work = |doc: &Document| {
+        let comp = doc
+            .project()
+            .composition(&id(COMP))
+            .expect("the composition");
+        format!("{:?} plays {:?}", comp.work_area, comp.work_frames())
+    };
+    report.check(
+        "work area: one frame in from each end, and playback runs inside it",
+        format!(
+            "Some(({}, {})) plays ({}, {})",
+            first + 1,
+            past - 1,
+            first + 1,
+            past - 2
+        ),
+        work(&doc),
+    );
+    report.check(
+        "work area: one outside the composition is refused",
+        true,
+        doc.apply(Command::SetWorkArea {
+            composition: id(COMP),
+            start_frame: first,
+            end_frame_exclusive: past + 1,
+        })
+        .is_err(),
+    );
+    doc.undo();
+    report.check(
+        "work area undone: none, and playback runs the whole composition",
+        format!("None plays ({first}, {})", past - 1),
+        work(&doc),
+    );
+    doc.apply(Command::SetMarkers {
+        composition: id(COMP),
+        markers: vec![
+            Marker {
+                frame: first + 2,
+                name: "hit".to_string(),
+            },
+            Marker {
+                frame: first,
+                name: String::new(),
+            },
+        ],
+    })
+    .expect("markers");
+    let markers = |doc: &Document| {
+        let comp = doc
+            .project()
+            .composition(&id(COMP))
+            .expect("the composition");
+        comp.markers
+            .iter()
+            .map(|m| format!("{}:{}", m.frame, m.name))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    report.check(
+        "markers: kept in frame order, names with them",
+        format!("{first}:, {}:hit", first + 2),
+        markers(&doc),
+    );
+    report.check(
+        "markers: one past the composition's last frame is refused",
+        true,
+        doc.apply(Command::SetMarkers {
+            composition: id(COMP),
+            markers: vec![Marker {
+                frame: past,
+                name: String::new(),
+            }],
+        })
+        .is_err(),
+    );
+    doc.undo();
+    report.check("markers undone: none", "", markers(&doc));
+    doc.apply(Command::SetLayerLabel {
+        composition: id(COMP),
+        layer_id: id("layer-1"),
+        label: 3,
+    })
+    .expect("label");
+    report.check(
+        "label: layer 1 is colour 3",
+        "3",
+        layer_named(&doc, "layer-1").label.to_string(),
+    );
+    report.check(
+        "label: there is no colour 9",
+        true,
+        doc.apply(Command::SetLayerLabel {
+            composition: id(COMP),
+            layer_id: id("layer-1"),
+            label: 9,
+        })
+        .is_err(),
+    );
+    doc.undo();
+    report.check(
+        "label undone: none",
+        "0",
+        layer_named(&doc, "layer-1").label.to_string(),
     );
 
     // -- Document 26: scalar property edit, undo, redo exact value -------------------------------
@@ -730,7 +853,10 @@ fn b05_model_and_undo() {
     report.check(
         "move layer: its keyframes move with it; trim: they stay",
         "keys at 15,40 after the move, 15,40 after the trim",
-        format!("keys at {after_move} after the move, {} after the trim", key_frames(&doc)),
+        format!(
+            "keys at {after_move} after the move, {} after the trim",
+            key_frames(&doc)
+        ),
     );
     for _ in 0..4 {
         doc.undo();

@@ -35,7 +35,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
-| the keys the window answers with nothing focused are the ones written down here | ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, C, D, Delete, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, C, D, Delete, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | pass |
+| the keys the window answers with nothing focused are the ones written down here | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | pass |
 | `boxes` can be asked for without a mouse | yes | yes | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
@@ -63,14 +63,17 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.move_down` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_up` can be asked for without a mouse | yes | yes | pass |
 | `layer.rename` can be asked for without a mouse | yes | yes | pass |
+| `layer.set_label` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_matte` can be asked for without a mouse | yes | yes | pass |
 | `layer.shift` can be asked for without a mouse | yes | yes | pass |
 | `layer.split` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_lock` can be asked for without a mouse | yes | yes | pass |
+| `layer.toggle_solo` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_visibility` can be asked for without a mouse | yes | yes | pass |
 | `layer.trim` can be asked for without a mouse | yes | yes | pass |
 | `media.import` can be asked for without a mouse | yes | yes | pass |
 | `media.relink` can be asked for without a mouse | yes | yes | pass |
+| `new` can be asked for without a mouse | yes | yes | pass |
 | `open` can be asked for without a mouse | yes | yes | pass |
 | `play` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_cancel` can be asked for without a mouse | yes | yes | pass |
@@ -81,6 +84,9 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `recover` can be asked for without a mouse | yes | yes | pass |
 | `save` can be asked for without a mouse | yes | yes | pass |
 | `save-as` can be asked for without a mouse | yes | yes | pass |
+| `timeline.set_markers` can be asked for without a mouse | yes | yes | pass |
+| `timeline.set_work_end` can be asked for without a mouse | yes | yes | pass |
+| `timeline.set_work_start` can be asked for without a mouse | yes | yes | pass |
 | `viewer.toggle_alpha` can be asked for without a mouse | yes | yes | pass |
 | `viewer.toggle_checkerboard` can be asked for without a mouse | yes | yes | pass |
 | dragging the border between two panels is not the only way to give one of them more of the window | true | true | pass |
@@ -105,5 +111,9 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a layer on the picture with Shift held is not the only way to move it along one line | true | true | pass |
 | dragging the picture with the middle button is not the only way to look at another part of a zoomed picture | true | true | pass |
 | Alt-clicking a property's diamond is not the only way to remove every key of the property | true | true | pass |
+| dragging either end of the work area on the ruler is not the only way to set the work area | true | true | pass |
+| double clicking the work area is not the only way to put it back to the whole composition | true | true | pass |
+| dragging a marker along the ruler, or Ctrl-clicking it is not the only way to move or remove it | true | true | pass |
+| double clicking a marker is not the only way to name it | true | true | pass |
 
-**76 of 76 checks pass.**
+**86 of 86 checks pass.**

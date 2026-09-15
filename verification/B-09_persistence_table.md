@@ -41,7 +41,7 @@ That one equality is worth more than the rest of the table together. Passing it 
 | after an edit: the new layer name is written | `true` | `true` | pass |
 | after an edit: the unknown vendor data in the effect survives | `true` | `true` | pass |
 | after an edit: the effect record this build cannot run survives | `true` | `true` | pass |
-| after an edit: work_area, which nothing in this build reads, survives | `true` | `true` | pass |
+| after an edit: work_area, which the rename did not touch, survives | `true` | `true` | pass |
 | after an edit: exactly one line of the file differs | `1` | `1` | pass |
 | after an edit: the file is still the same length | `118` | `118` | pass |
 | a project saved by a newer version is refused by name (document 07) | `PROJECT_SCHEMA_NEWER` | `PROJECT_SCHEMA_NEWER` | pass |

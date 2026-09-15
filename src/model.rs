@@ -497,6 +497,9 @@ pub struct Layer {
     /// first, and its output is what index 1 reads.
     pub effects: Vec<crate::effects::EffectInstance>,
     pub blend_mode: BlendMode,
+    /// W-24: After Effects' label colour, 0 for none and 1 to 8 for the page's eight colours.
+    /// Saved as `label` only when set, so a file that never had one is written back unchanged.
+    pub label: u8,
 }
 
 impl Layer {
@@ -523,6 +526,7 @@ impl Layer {
             matte: None,
             effects: Vec::new(),
             blend_mode: BlendMode::Normal,
+            label: 0,
         }
     }
 
@@ -554,8 +558,20 @@ pub struct Composition {
     pub frame_rate: FrameRate,
     pub start_frame: i32,
     pub duration_frames: u32,
+    /// Document 19's work area, `start_frame` and `end_frame_exclusive`, or `None` when the file
+    /// has none, which means the whole composition. W-24: playback and export run inside it.
+    pub work_area: Option<(i32, i32)>,
+    /// W-24: composition markers, a frame and a name each, in frame order. Saved as `markers`
+    /// only when there are some or the file already had the key.
+    pub markers: Vec<Marker>,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct Marker {
+    pub frame: i32,
+    pub name: String,
 }
 
 impl Composition {
@@ -576,8 +592,32 @@ impl Composition {
             frame_rate,
             start_frame,
             duration_frames,
+            work_area: None,
+            markers: Vec::new(),
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
+        }
+    }
+
+    /// The first and last frame playback and export use: the work area, or the whole composition.
+    pub fn work_frames(&self) -> (i32, i32) {
+        match self.work_area {
+            Some((start, end)) => (start, end - 1),
+            None => (
+                self.start_frame,
+                self.start_frame + self.duration_frames as i32 - 1,
+            ),
+        }
+    }
+
+    /// W-24's solo, on a copy made for one preview frame: every layer not in `soloed` is drawn
+    /// as though hidden. A matte is looked up whether its layer is shown or not, so a soloed
+    /// layer keeps its matte.
+    pub fn solo(&mut self, soloed: &[Id]) {
+        for (id, layer) in self.layers.iter_mut() {
+            if !soloed.contains(id) {
+                layer.enabled = false;
+            }
         }
     }
 

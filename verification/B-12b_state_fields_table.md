@@ -20,21 +20,24 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the panels read 4 fields out of the whole answer | true | true | pass |
+| the panels read 5 fields out of the whole answer | true | true | pass |
 | `doc.composition` is in the answer | present | present | pass |
 | `doc.project` is in the answer | present | present | pass |
 | `doc.redo` is in the answer | present | present | pass |
+| `doc.solo` is in the answer | present | present | pass |
 | `doc.undo` is in the answer | present | present | pass |
-| the panels read 8 fields out of the composition on screen | true | true | pass |
+| the panels read 10 fields out of the composition on screen | true | true | pass |
 | `comp.duration_frames` is in the answer | present | present | pass |
 | `comp.frame_rate` is in the answer | present | present | pass |
 | `comp.height` is in the answer | present | present | pass |
 | `comp.id` is in the answer | present | present | pass |
 | `comp.layers` is in the answer | present | present | pass |
+| `comp.markers` is in the answer | present | present | pass |
 | `comp.name` is in the answer | present | present | pass |
 | `comp.start_frame` is in the answer | present | present | pass |
 | `comp.width` is in the answer | present | present | pass |
-| the panels read 14 fields out of one of its layers | true | true | pass |
+| `comp.work_area` is in the answer | present | present | pass |
+| the panels read 15 fields out of one of its layers | true | true | pass |
 | `layer.asset_id` is in the answer | present | present | pass |
 | `layer.blend_mode` is in the answer | present | present | pass |
 | `layer.effects` is in the answer | present | present | pass |
@@ -42,6 +45,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.exposure_spans` is in the answer | present | present | pass |
 | `layer.id` is in the answer | present | present | pass |
 | `layer.in_frame` is in the answer | present | present | pass |
+| `layer.label` is in the answer | present | present | pass |
 | `layer.locked` is in the answer | present | present | pass |
 | `layer.mask` is in the answer | present | present | pass |
 | `layer.matte` is in the answer | present | present | pass |
@@ -78,4 +82,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.tint` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, amount - are the ones the command reads | accepted | accepted | pass |
 
-**57 of 57 checks pass.**
+**61 of 61 checks pass.**

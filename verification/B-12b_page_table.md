@@ -21,8 +21,8 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the identifiers the page sends are the ones written down here | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, layer.create, layer.delete, layer.duplicate, layer.move, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.split, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, layer.create, layer.delete, layer.duplicate, layer.move, layer.move_down, layer.move_up, layer.rename, layer.set_matte, layer.shift, layer.split, layer.toggle_lock, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
-| the routes the page asks for that are not commands are the ones written down here | at, boxes, cancel-export, curve, export, frame, open, play, recent, recover, save, save-as, state | at, boxes, cancel-export, curve, export, frame, open, play, recent, recover, save, save-as, state | pass |
+| the identifiers the page sends are the ones written down here | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, layer.create, layer.delete, layer.duplicate, layer.move, layer.move_down, layer.move_up, layer.rename, layer.set_label, layer.set_matte, layer.shift, layer.split, layer.toggle_lock, layer.toggle_solo, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, timeline.set_markers, timeline.set_work_end, timeline.set_work_start, viewer.toggle_alpha, viewer.toggle_checkerboard | composition.create, composition.open, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, layer.create, layer.delete, layer.duplicate, layer.move, layer.move_down, layer.move_up, layer.rename, layer.set_label, layer.set_matte, layer.shift, layer.split, layer.toggle_lock, layer.toggle_solo, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.set_base, timeline.set_markers, timeline.set_work_end, timeline.set_work_start, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
+| the routes the page asks for that are not commands are the ones written down here | at, boxes, cancel-export, curve, export, frame, new, open, play, recent, recover, save, save-as, state | at, boxes, cancel-export, curve, export, frame, new, open, play, recent, recover, save, save-as, state | pass |
 | the window answers `composition.create` | a sentence | a sentence | pass |
 | the window answers `composition.open` | a sentence | a sentence | pass |
 | the window answers `edit.redo` | a sentence | a sentence | pass |
@@ -46,10 +46,12 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the window answers `layer.move_down` | a sentence | a sentence | pass |
 | the window answers `layer.move_up` | a sentence | a sentence | pass |
 | the window answers `layer.rename` | a sentence | a sentence | pass |
+| the window answers `layer.set_label` | a sentence | a sentence | pass |
 | the window answers `layer.set_matte` | a sentence | a sentence | pass |
 | the window answers `layer.shift` | a sentence | a sentence | pass |
 | the window answers `layer.split` | a sentence | a sentence | pass |
 | the window answers `layer.toggle_lock` | a sentence | a sentence | pass |
+| the window answers `layer.toggle_solo` | a sentence | a sentence | pass |
 | the window answers `layer.toggle_visibility` | a sentence | a sentence | pass |
 | the window answers `layer.trim` | a sentence | a sentence | pass |
 | the window answers `media.import` | a sentence | a sentence | pass |
@@ -58,10 +60,14 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the window answers `property.drag_end` | a sentence | a sentence | pass |
 | the window answers `property.drag_update` | a sentence | a sentence | pass |
 | the window answers `property.set_base` | a sentence | a sentence | pass |
+| the window answers `timeline.set_markers` | a sentence | a sentence | pass |
+| the window answers `timeline.set_work_end` | a sentence | a sentence | pass |
+| the window answers `timeline.set_work_start` | a sentence | a sentence | pass |
 | the window answers `viewer.toggle_alpha` | a sentence | a sentence | pass |
 | the window answers `viewer.toggle_checkerboard` | a sentence | a sentence | pass |
 | the window's shell answers `/cancel-export` | true | true | pass |
 | the window's shell answers `/export` | true | true | pass |
+| the window's shell answers `/new` | true | true | pass |
 | the window's shell answers `/open` | true | true | pass |
 | the window's shell answers `/recent` | true | true | pass |
 | the window's shell answers `/recover` | true | true | pass |
@@ -84,4 +90,4 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the Leave it as it is control sends `media.relink` | true | true | pass |
 | every control the script reaches for is one the markup defines | none missing | none missing | pass |
 
-**62 of 62 checks pass.**
+**68 of 68 checks pass.**

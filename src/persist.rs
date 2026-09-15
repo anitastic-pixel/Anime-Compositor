@@ -536,6 +536,9 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         .map(|e| effect_json(effect_base(base, e.instance_id.as_str()), e))
         .collect();
     owned.push(("effects", J::Array(effects)));
+    if layer.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
+        owned.push(("label", J::from(layer.label)));
+    }
     merge(base, owned)
 }
 
@@ -604,30 +607,48 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
         "denominator".into(),
         J::from(composition.frame_rate.denominator()),
     );
-    merge(
-        base,
-        vec![
-            ("id", J::from(composition.id.as_str())),
-            ("name", J::from(composition.name.as_str())),
-            ("width", J::from(composition.width)),
-            ("height", J::from(composition.height)),
-            ("pixel_aspect_ratio", J::from(1)),
-            ("frame_rate", J::Object(rate)),
-            ("start_frame", J::from(composition.start_frame)),
-            ("duration_frames", J::from(composition.duration_frames)),
-            (
-                "layer_order",
-                J::Array(
-                    composition
-                        .layer_order()
-                        .iter()
-                        .map(|id| J::from(id.as_str()))
-                        .collect(),
-                ),
+    let mut owned = vec![
+        ("id", J::from(composition.id.as_str())),
+        ("name", J::from(composition.name.as_str())),
+        ("width", J::from(composition.width)),
+        ("height", J::from(composition.height)),
+        ("pixel_aspect_ratio", J::from(1)),
+        ("frame_rate", J::Object(rate)),
+        ("start_frame", J::from(composition.start_frame)),
+        ("duration_frames", J::from(composition.duration_frames)),
+        (
+            "layer_order",
+            J::Array(
+                composition
+                    .layer_order()
+                    .iter()
+                    .map(|id| J::from(id.as_str()))
+                    .collect(),
             ),
-            ("layers", J::Array(layers)),
-        ],
-    )
+        ),
+        ("layers", J::Array(layers)),
+    ];
+    // W-24: written only when the model has them, so a file without them stays without them.
+    if let Some((start, end)) = composition.work_area {
+        let mut area = Map::new();
+        area.insert("start_frame".into(), J::from(start));
+        area.insert("end_frame_exclusive".into(), J::from(end));
+        owned.push(("work_area", J::Object(area)));
+    }
+    if !composition.markers.is_empty() || base.is_some_and(|b| b.get("markers").is_some()) {
+        let markers = composition
+            .markers
+            .iter()
+            .map(|m| {
+                let mut marker = Map::new();
+                marker.insert("frame".into(), J::from(m.frame));
+                marker.insert("name".into(), J::from(m.name.as_str()));
+                J::Object(marker)
+            })
+            .collect();
+        owned.push(("markers", J::Array(markers)));
+    }
+    merge(base, owned)
 }
 
 /// The project as the text that would be written to disk.
@@ -1262,6 +1283,18 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         mask,
         matte,
         effects,
+        label: match v.get("label") {
+            None => 0,
+            Some(label) => match as_u32(label, &format!("{pointer}/label"))? {
+                n @ 0..=8 => n as u8,
+                _ => {
+                    return Err(invalid(
+                        &format!("{pointer}/label"),
+                        "a label colour from 0, none, to 8",
+                    ))
+                }
+            },
+        },
         blend_mode: match as_enum(
             field(v, pointer, "blend_mode")?,
             &format!("{pointer}/blend_mode"),
@@ -1331,6 +1364,47 @@ fn parse_composition(
         )?,
         duration,
     );
+
+    // W-24: document 19's work area, which until now rode along unread. One outside its
+    // composition or of no frames has no answer for what to play, so it is refused like a
+    // duration of zero rather than quietly widened.
+    if let Some(area) = v.get("work_area") {
+        let at = format!("{pointer}/work_area");
+        as_object(area, &at)?;
+        let start = as_i32(
+            field(area, &at, "start_frame")?,
+            &format!("{at}/start_frame"),
+        )?;
+        let end = as_i32(
+            field(area, &at, "end_frame_exclusive")?,
+            &format!("{at}/end_frame_exclusive"),
+        )?;
+        let (first, past) = (
+            composition.start_frame,
+            composition.start_frame + duration as i32,
+        );
+        if start < first || end > past || start >= end {
+            return Err(invalid(
+                &at,
+                &format!(
+                    "a work area of at least one frame inside the composition's frames {first} \
+                     to {past}; it is {start} to {end}"
+                ),
+            ));
+        }
+        composition.work_area = Some((start, end));
+    }
+    if let Some(markers) = v.get("markers") {
+        let at = format!("{pointer}/markers");
+        for (i, marker) in as_array(markers, &at)?.iter().enumerate() {
+            let here = format!("{at}/{i}");
+            as_object(marker, &here)?;
+            composition.markers.push(crate::model::Marker {
+                frame: as_i32(field(marker, &here, "frame")?, &format!("{here}/frame"))?,
+                name: as_str(field(marker, &here, "name")?, &format!("{here}/name"))?.to_string(),
+            });
+        }
+    }
 
     let order_at = format!("{pointer}/layer_order");
     let mut order = Vec::new();

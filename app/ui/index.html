@@ -195,6 +195,38 @@
     position: relative; height: 16px; margin-left: var(--gutter);
     border-bottom: 1px solid #3a3a3a;
   }
+  /* W-24: the work area, a band along the top of the ruler whose two ends are pulled, and the
+     markers, a small pennant each on the frame they are on with their name beside it. */
+  #ruler .work { position: absolute; top: 0; height: 5px; background: #6f86b8; z-index: 1; }
+  #ruler .work .end { position: absolute; top: 0; width: 8px; height: 16px; cursor: col-resize; }
+  #ruler .work .end::after {
+    content: ''; position: absolute; left: 3px; top: 0; width: 2px; height: 10px; background: #b9c9ee;
+  }
+  #ruler .work .end.first { left: -4px; }
+  #ruler .work .end.last { right: -4px; }
+  #ruler .marker {
+    position: absolute; bottom: 0; width: 9px; height: 9px; margin-left: -4px; z-index: 2;
+    background: #e0a84a; clip-path: polygon(0 0, 100% 0, 100% 50%, 50% 100%, 0 50%); cursor: grab;
+  }
+  #ruler .markname {
+    position: absolute; bottom: 0; margin-left: 6px; font-size: 9px; line-height: 10px;
+    color: #e0a84a; white-space: nowrap; pointer-events: none; z-index: 2;
+  }
+  #ruler input.naming { position: absolute; top: -2px; width: 140px; font-size: 11px; z-index: 3; }
+  /* W-24: a layer's label colour, a square before its name and a tint on its bar. */
+  .rowhead .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .menu .swatches { display: flex; gap: 4px; padding: 4px 8px; }
+  .menu .swatches button {
+    width: 16px; min-width: 0; height: 16px; padding: 0; border: 1px solid #555; border-radius: 3px;
+  }
+  /* W-24: the command palette, Ctrl+Shift+P. */
+  .menu.palette {
+    position: fixed; left: 50%; top: 12%; transform: translateX(-50%); z-index: 50;
+    width: min(480px, calc(100vw - 32px)); max-height: 60vh; display: flex; flex-direction: column;
+  }
+  .menu.palette input { margin: 6px; }
+  .menu.palette [role="listbox"] { overflow: auto; }
+  .menu.palette button.current { background: #3a4a6a; }
   #ruler .tick {
     position: absolute; top: 0; bottom: 0; border-left: 1px solid #3a3a3a;
     padding-left: 3px; font-size: 10px; line-height: 16px; color: #909096;
@@ -673,7 +705,7 @@
   <span id="report"></span>
   <span id="exported"></span>
   <ul id="notes"></ul>
-  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; or drop a project file here</span>
+  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; or drop a project file here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -1078,6 +1110,94 @@ function ticksOf(comp) {
   return ticks;
 }
 
+// W-24: the work area as frames [first, past), the whole composition when the file has none.
+function workOf(comp) {
+  const w = comp.work_area;
+  return w ? [w.start_frame, w.end_frame_exclusive]
+    : [comp.start_frame, comp.start_frame + Math.max(1, comp.duration_frames)];
+}
+
+// W-24: After Effects' B and N, the work area's start or end at the playhead. `reset` is the
+// double click on the band: both ends back to the composition's, as one entry to undo.
+function setWork(which) {
+  const comp = composition();
+  if (!comp) return;
+  if (which !== 'reset') {
+    command((which === 'start' ? '/timeline.set_work_start' : '/timeline.set_work_end') + '?frame=' + frame);
+    return;
+  }
+  const [first, past] = [comp.start_frame, comp.start_frame + Math.max(1, comp.duration_frames)];
+  nudge = nudge.then(async () => {
+    await command('/timeline.set_work_start?frame=' + first + '&drag=1');
+    await command('/timeline.set_work_end?frame=' + (past - 1) + '&drag=1');
+    await command('/property.drag_end');
+  });
+}
+
+// W-24: the composition's markers. The window takes the whole list each time, so adding, moving,
+// naming and removing one are all the same request and a drag is one entry to undo.
+function markersOf(comp) {
+  return (comp.markers || []).map((m) => ({ frame: m.frame, name: m.name || '' }));
+}
+function sendMarkers(list, drag) {
+  const q = list.map((m) => 'marker=' + encodeURIComponent(m.frame + '|' + m.name));
+  if (drag) q.push('drag=1');
+  return command('/timeline.set_markers?' + q.join('&'));
+}
+function addMarker() {
+  const comp = composition();
+  if (!comp) return;
+  const list = markersOf(comp);
+  if (list.some((m) => m.frame === frame)) {
+    $('status').textContent = 'There is a marker on frame ' + frame + ' already.';
+    return;
+  }
+  sendMarkers([...list, { frame, name: '' }]);
+}
+function removeMarkerAt(at) {
+  const comp = composition();
+  const list = comp ? markersOf(comp) : [];
+  if (!list.some((m) => m.frame === at)) {
+    $('status').textContent = 'There is no marker on frame ' + at + '.';
+    return;
+  }
+  sendMarkers(list.filter((m) => m.frame !== at));
+}
+// A name typed in place on the ruler, as a layer is renamed: Enter or leaving the box keeps it,
+// Escape does not.
+function nameMarker(at) {
+  const comp = composition();
+  const mark = comp && $('ruler').querySelector('.marker[data-frame="' + at + '"]');
+  if (!mark || renaming) {
+    if (!mark) $('status').textContent = 'There is no marker on frame ' + at + ' to name.';
+    return;
+  }
+  const list = markersOf(comp);
+  const box = document.createElement('input');
+  box.type = 'text';
+  box.className = 'naming';
+  box.value = list.find((m) => m.frame === at).name;
+  box.setAttribute('aria-label', 'Name the marker at frame ' + at);
+  box.style.left = mark.style.left;
+  renaming = true;
+  const finish = (commit) => {
+    if (!renaming) return;
+    renaming = false;
+    const name = box.value;
+    box.remove();
+    if (commit) sendMarkers(list.map((m) => (m.frame === at ? { frame: at, name } : m)));
+  };
+  box.onkeydown = (k) => {
+    k.stopPropagation();
+    if (k.key === 'Enter') finish(true);
+    else if (k.key === 'Escape') finish(false);
+  };
+  box.onblur = () => finish(true);
+  $('ruler').append(box);
+  box.focus();
+  box.select();
+}
+
 function drawRuler() {
   const comp = composition();
   const ruler = $('ruler');
@@ -1089,6 +1209,30 @@ function drawRuler() {
     tick.textContent = at;
     return tick;
   }));
+  const [first, past] = workOf(comp);
+  const work = document.createElement('div');
+  work.className = 'work';
+  work.style.left = percent(atFrame(comp, first));
+  work.style.width = percent(atFrame(comp, past) - atFrame(comp, first));
+  work.title = 'Work area, frames ' + first + ' to ' + (past - 1) + '. Space plays it. B and N set '
+    + 'its ends at the playhead, pull an end to move it, double-click it to reset it.';
+  work.append(Object.assign(document.createElement('span'), { className: 'end first' }),
+    Object.assign(document.createElement('span'), { className: 'end last' }));
+  ruler.append(work);
+  for (const m of markersOf(comp)) {
+    if (!inView(comp, m.frame + 0.5)) continue;
+    const mark = document.createElement('span');
+    mark.className = 'marker';
+    mark.dataset.frame = m.frame;
+    mark.style.left = percent(atFrame(comp, m.frame + 0.5));
+    mark.title = (m.name ? m.name + ': marker' : 'Marker') + ' at frame ' + m.frame
+      + '. Drag to move it, double-click to name it, Ctrl+click to remove it.';
+    ruler.append(mark);
+    if (m.name) {
+      ruler.append(Object.assign(document.createElement('span'),
+        { className: 'markname', textContent: m.name, style: 'left:' + mark.style.left }));
+    }
+  }
   const whole = Math.max(1, comp.duration_frames);
   const range = Math.log(Math.max(1, whole / MIN_VIEW));
   $('timezoom').value = range ? Math.round(Math.log(whole / viewOf(comp).len) / range * 100) : 0;
@@ -1244,8 +1388,8 @@ function toKey(later) {
 // W-20: Ctrl+C keeps the chosen keys, as they are now, in the page. Ctrl+V puts them back on the
 // layer and property each came from, the earliest on the playhead and the rest at their distances
 // from it, values, easing and path handles with them, as one entry to undo.
-// ponytail: pastes onto the layer copied from, not onto another selected layer; add that when
-// copying motion between layers is asked for.
+// W-24: keys copied from one layer land on the selected layer instead, as After Effects pastes
+// them; keys copied from several layers still go back to their own.
 let copied = [];
 function copyKeys() {
   copied = [...pickedKeys].map(keyParts).flatMap(([layer, prop, at]) => {
@@ -1256,9 +1400,10 @@ function copyKeys() {
 }
 function pasteKeys() {
   const first = Math.min(...copied.map((c) => c.key.frame));
+  const onto = new Set(copied.map((c) => c.layer)).size === 1 && selected() ? selected().id : null;
   const sends = copied.flatMap(({ layer, prop, key }) => {
     const at = key.frame - first + frame;
-    const q = '?layer=' + encodeURIComponent(layer) + '&frame=' + at + '&drag=1';
+    const q = '?layer=' + encodeURIComponent(onto || layer) + '&frame=' + at + '&drag=1';
     return [
       '/property.set_base' + q + '&prop=' + prop + '&value=' + encodeURIComponent([].concat(key.value).join(',')),
       '/keyframe.set_interp' + q + '&prop=' + prop + '&mode=' + key.interp
@@ -1365,7 +1510,9 @@ function track(comp, layer, drawings) {
     mark.style.clipPath = keyShape(keys, keys.findIndex((k) => k.frame === at));
     box.append(mark);
   }
-  bar('life', layer.in_frame, layer.out_frame).title = layer.name
+  const lifeBar = bar('life', layer.in_frame, layer.out_frame);
+  if (layer.label) lifeBar.style.background = 'color-mix(in srgb, ' + LABELS[layer.label] + ' 55%, #2f3d55)';
+  lifeBar.title = layer.name
     + ' is in the composition from frame ' + layer.in_frame
     + ' up to frame ' + layer.out_frame
     + '. Pull the middle to move it, either end to trim it, and the line between two exposures '
@@ -1453,6 +1600,50 @@ function frameUnder(clientX) {
 // transaction a drag on the picture uses: one press, one release, one thing to undo. The
 // commands are sent one after another rather than all at once, because an exposure moved twice
 // is one row edited twice and the second edit has to name where the first one put it.
+// W-24: an end of the work area or a marker pulled along the ruler. Every frame it reaches is sent
+// inside the drag transaction, so a pull is one entry to undo and Escape takes it back. A marker
+// pressed and let go without moving puts the playhead on it; with Ctrl the press removes it.
+function dragRuler(e, handle) {
+  const comp = composition();
+  e.preventDefault();
+  const from = handle.classList.contains('marker') ? Number(handle.dataset.frame) : null;
+  if (from !== null && e.ctrlKey) { removeMarkerAt(from); return; }
+  const list = markersOf(comp);
+  const [first, past] = workOf(comp);
+  const startEnd = handle.classList.contains('first');
+  let last = null;
+  let queue = Promise.resolve();
+  const send = (what) => { queue = queue.then(what); };
+  dragging = true;
+  sheet.setPointerCapture(e.pointerId);
+  const escape = (k) => { if (k.key === 'Escape') stop(true); };
+  const stop = (cancelled) => {
+    dragging = false;
+    sheet.onpointermove = null;
+    sheet.onpointerup = null;
+    window.removeEventListener('keydown', escape, true);
+    if (last !== null) send(() => command(cancelled ? '/property.drag_cancel' : '/property.drag_end'));
+    else if (from !== null && !cancelled) seek(from);
+  };
+  sheet.onpointermove = (m) => {
+    let now = frameUnder(m.clientX);
+    if (now === null) return;
+    if (from === null) now = startEnd ? Math.min(now, past - 1) : Math.max(now, first);
+    if (now === (last === null ? (from === null ? (startEnd ? first : past - 1) : from) : last)) return;
+    if (from !== null && list.some((x) => x.frame === now)) return;
+    last = now;
+    if (from !== null) {
+      send(() => sendMarkers(list.map((x) => (x.frame === from ? { frame: now, name: x.name } : x)), true));
+    } else if (startEnd) {
+      send(() => command('/timeline.set_work_start?frame=' + now + '&drag=1'));
+    } else {
+      send(() => command('/timeline.set_work_end?frame=' + now + '&drag=1'));
+    }
+  };
+  sheet.onpointerup = () => stop(false);
+  window.addEventListener('keydown', escape, true);
+}
+
 const sheet = $('sheet');
 sheet.onpointerdown = (e) => {
   if (e.button !== 0 || !doc) return;
@@ -1461,6 +1652,10 @@ sheet.onpointerdown = (e) => {
   const at = frameUnder(e.clientX);
   if (at === null) return;
   if (e.target.closest('#ruler')) {
+    // W-24: an end of the work area or a marker is taken hold of; the rest of the ruler scrubs.
+    if (e.target.closest('input')) return;
+    const handle = e.target.closest('.end, .marker');
+    if (handle) { dragRuler(e, handle); return; }
     sheet.setPointerCapture(e.pointerId);
     scrubbing = true;
     seek(at);
@@ -1636,6 +1831,12 @@ $('sheet').addEventListener('pointermove', (e) => {
 
 $('sheet').addEventListener('pointerup', () => { scrubbing = false; });
 $('sheet').addEventListener('pointercancel', () => { scrubbing = false; });
+// W-24: a double click names a marker, or puts the work area back to the whole composition.
+sheet.ondblclick = (e) => {
+  const mark = e.target.closest('#ruler .marker');
+  if (mark) nameMarker(Number(mark.dataset.frame));
+  else if (e.target.closest('#ruler .work')) setWork('reset');
+};
 
 function drawLayers() {
   // A number on one of these rows is dragged or typed into like any other, and rebuilding the
@@ -1662,12 +1863,21 @@ function drawLayers() {
       () => { shown.set(layer.id, open.size ? new Set() : new Set(PROPS)); drawLayers(); });
     twirl.className = 'twirl';
     twirl.setAttribute('aria-expanded', String(open.size > 0));
-    const li = row(selectedLayer, layer.id, layer.name, [twirl, eye, lock]);
-    // Colour is not the only carrier: a layer that is off or locked says so in words.
-    if (!layer.enabled || layer.locked) {
+    // W-24: After Effects' solo switch, which the preview obeys and the file never hears of, and
+    // the layer's label colour.
+    const soloed = (doc.solo || []).includes(layer.id);
+    const solo = iconButton(soloed ? '\u25c9' : '\u25cb', (soloed ? 'Unsolo ' : 'Solo ') + layer.name,
+      () => command('/layer.toggle_solo?layer=' + encodeURIComponent(layer.id)));
+    solo.setAttribute('aria-pressed', String(soloed));
+    const swatch = Object.assign(document.createElement('span'),
+      { className: 'swatch', title: 'Label: ' + LABEL_NAMES[layer.label || 0] });
+    swatch.style.background = LABELS[layer.label || 0] || 'transparent';
+    const li = row(selectedLayer, layer.id, layer.name, [swatch, twirl, eye, solo, lock]);
+    // Colour is not the only carrier: a layer that is off, soloed or locked says so in words.
+    if (!layer.enabled || layer.locked || soloed) {
       const mark = document.createElement('span');
       mark.className = 'mark';
-      mark.textContent = [!layer.enabled ? 'hidden' : null, layer.locked ? 'locked' : null]
+      mark.textContent = [!layer.enabled ? 'hidden' : null, soloed ? 'soloed' : null, layer.locked ? 'locked' : null]
         .filter(Boolean).join(', ');
       li.append(mark);
       if (!layer.enabled) li.querySelector('.name').className = 'name off';
@@ -1840,6 +2050,162 @@ function shiftLayers(by) {
 
 // W-23: the menu a right click on a layer's row opens, as After Effects' has one. Every line on
 // it is a key the window already answers, and the key is written beside it.
+// W-24: After Effects' eight label colours, 0 for none.
+const LABELS = [null, '#c8554f', '#d9c75b', '#79b8b0', '#d99bb5', '#9f96c9', '#d9a878', '#8fb58f', '#6d86d9'];
+const LABEL_NAMES = ['none', 'red', 'yellow', 'aqua', 'pink', 'lavender', 'peach', 'sea foam', 'blue'];
+
+// The selected layers' label, as one entry to undo however many are selected.
+function labelLayers(n) {
+  const ids = selection.slice();
+  if (!ids.length) return;
+  nudge = nudge.then(async () => {
+    for (const id of ids) {
+      await command('/layer.set_label?layer=' + encodeURIComponent(id) + '&label=' + n + '&drag=1');
+    }
+    await command('/property.drag_end');
+  });
+}
+
+function soloLayers() {
+  const ids = selection.slice();
+  nudge = nudge.then(async () => {
+    for (const id of ids) await command('/layer.toggle_solo?layer=' + encodeURIComponent(id));
+  });
+}
+
+// W-24: document 24's Ctrl+N. Unsaved work is asked about by a second press within three seconds
+// rather than a dialog, and is still in its recovery snapshot either way.
+let newAsked = 0;
+function newProject() {
+  if ($('dirty').textContent && performance.now() - newAsked > 3000) {
+    newAsked = performance.now();
+    $('status').textContent = 'This project has unsaved changes. Press Ctrl+N again within three '
+      + 'seconds for a new project anyway, or Ctrl+S to save first.';
+    return;
+  }
+  newAsked = 0;
+  command('/new');
+}
+
+// W-24: document 24's command palette, Ctrl+Shift+P. Each line presses the key it names on the
+// window, so a line and its shortcut cannot come to disagree; the few with no key call what the
+// menus call. Typed words narrow the list, the arrows move through it, Enter runs, Escape closes.
+function palette() {
+  if (document.querySelector('.palette')) return;
+  const entries = [
+    ['New project', 'Ctrl+N', { key: 'n', ctrlKey: true }],
+    ['Open project', 'Ctrl+O', { key: 'o', ctrlKey: true }],
+    ['Save', 'Ctrl+S', { key: 's', ctrlKey: true }],
+    ['Save as', 'Ctrl+Shift+S', { key: 'S', ctrlKey: true, shiftKey: true }],
+    ['New composition', 'Ctrl+Shift+N', { key: 'N', ctrlKey: true, shiftKey: true }],
+    ['Import drawings', 'Ctrl+I', { key: 'i', ctrlKey: true }],
+    ['Export PNG sequence', 'Ctrl+M', { key: 'm', ctrlKey: true }],
+    ['Undo', 'Ctrl+Z', { key: 'z', ctrlKey: true }],
+    ['Redo', 'Ctrl+Shift+Z', { key: 'Z', ctrlKey: true, shiftKey: true }],
+    ['Add layer', 'Ctrl+Alt+L', { key: 'l', ctrlKey: true, altKey: true }],
+    ['Rename layer', 'F2', { key: 'F2' }],
+    ['Delete layer or keys', 'Delete', { key: 'Delete' }],
+    ['Duplicate layers', 'Ctrl+D', { key: 'd', code: 'KeyD', ctrlKey: true }],
+    ['Split layers at the playhead', 'Ctrl+Shift+D', { key: 'D', code: 'KeyD', ctrlKey: true, shiftKey: true }],
+    ['Bring layer forward', 'Ctrl+]', { key: ']', ctrlKey: true }],
+    ['Send layer backward', 'Ctrl+[', { key: '[', ctrlKey: true }],
+    ['Bring layer to front', 'Ctrl+Shift+]', { key: '}', code: 'BracketRight', ctrlKey: true, shiftKey: true }],
+    ['Send layer to back', 'Ctrl+Shift+[', { key: '{', code: 'BracketLeft', ctrlKey: true, shiftKey: true }],
+    ['Start layers at the playhead', '[', { key: '[' }],
+    ['End layers at the playhead', ']', { key: ']' }],
+    ['Trim layer start to the playhead', 'Alt+[', { key: '[', altKey: true }],
+    ['Trim layer end to the playhead', 'Alt+]', { key: ']', altKey: true }],
+    ['Move layers a frame earlier', 'Alt+PageUp', { key: 'PageUp', altKey: true }],
+    ['Move layers a frame later', 'Alt+PageDown', { key: 'PageDown', altKey: true }],
+    ['Select all layers', 'Ctrl+A', { key: 'a', code: 'KeyA', ctrlKey: true }],
+    ['Select nothing', 'Escape', { key: 'Escape' }],
+    ['Solo or unsolo the selected layers', '', soloLayers],
+    ...LABEL_NAMES.map((name, n) => [n ? 'Label the selected layers ' + name : 'Clear the label',
+      '', () => labelLayers(n)]),
+    ['Play or pause', 'Space', { key: ' ' }],
+    ['First frame', 'Home', { key: 'Home' }],
+    ['Last frame', 'End', { key: 'End' }],
+    ['Start of the work area', 'Shift+Home', { key: 'Home', shiftKey: true }],
+    ['End of the work area', 'Shift+End', { key: 'End', shiftKey: true }],
+    ['Set the work area start', 'B', { key: 'b' }],
+    ['Set the work area end', 'N', { key: 'n' }],
+    ['Reset the work area', '', () => setWork('reset')],
+    ['Add a marker', '*', { key: '*' }],
+    ['Name the marker at the playhead', '', () => nameMarker(frame)],
+    ['Remove the marker at the playhead', '', () => removeMarkerAt(frame)],
+    ['Previous key', 'J', { key: 'j' }],
+    ['Next key', 'K', { key: 'k' }],
+    ['Selected layer in point', 'I', { key: 'i' }],
+    ['Selected layer out point', 'O', { key: 'o' }],
+    ['Copy keys', 'Ctrl+C', { key: 'c', ctrlKey: true }],
+    ['Paste keys', 'Ctrl+V', { key: 'v', ctrlKey: true }],
+    ['Easy ease', 'F9', { key: 'F9' }],
+    ['Hold keys', 'Ctrl+Alt+G', { key: 'g', code: 'KeyG', ctrlKey: true, altKey: true }],
+    ['Show position', 'P', { key: 'p' }],
+    ['Show animated properties', 'U', { key: 'u' }],
+    ['Timeline or graph', 'Shift+F3', { key: 'F3', shiftKey: true }],
+    ['Zoom the timeline in', '=', { key: '=' }],
+    ['Zoom the timeline out', '-', { key: '-' }],
+    ['Fit the picture', 'Shift+/', { key: '?', shiftKey: true }],
+    ['Picture at 100%', 'Ctrl+1', { key: '1', ctrlKey: true }],
+    ['Zoom the picture in', '.', { key: '.' }],
+    ['Zoom the picture out', ',', { key: ',' }],
+    ['Draft or full quality', 'D', { key: 'd' }],
+    ['Transparency grid', 'G', { key: 'g' }],
+    ['Alpha only', 'Alt+A', { key: 'a', altKey: true }],
+  ];
+  const box = document.createElement('div');
+  box.className = 'menu palette';
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-label', 'Search commands');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Search commands';
+  input.setAttribute('aria-label', 'Search commands');
+  const list = document.createElement('div');
+  list.setAttribute('role', 'listbox');
+  box.append(input, list);
+  let matches = entries;
+  let at = 0;
+  const away = (p) => { if (!box.contains(p.target)) close(); };
+  const close = () => { box.remove(); removeEventListener('pointerdown', away, true); };
+  const run = ([, , act]) => {
+    close();
+    if (typeof act === 'function') act();
+    else dispatchEvent(new KeyboardEvent('keydown', { cancelable: true, ...act }));
+  };
+  const draw = () => {
+    const words = input.value.toLowerCase().split(/\s+/).filter(Boolean);
+    matches = entries.filter(([label, key]) => words.every((w) => (label + ' ' + key).toLowerCase().includes(w)));
+    at = Math.min(at, Math.max(0, matches.length - 1));
+    list.replaceChildren(...matches.map((entry, i) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.tabIndex = -1;
+      item.setAttribute('role', 'option');
+      if (i === at) item.className = 'current';
+      item.append(entry[0], Object.assign(document.createElement('kbd'), { textContent: entry[1] }));
+      item.onclick = () => run(entry);
+      return item;
+    }));
+    if (list.children[at]) list.children[at].scrollIntoView({ block: 'nearest' });
+  };
+  input.oninput = () => { at = 0; draw(); };
+  input.onkeydown = (k) => {
+    k.stopPropagation();
+    if (k.key === 'Escape') close();
+    else if (k.key === 'ArrowDown' || k.key === 'ArrowUp') {
+      k.preventDefault();
+      at = (at + (k.key === 'ArrowDown' ? 1 : matches.length - 1)) % Math.max(1, matches.length);
+      draw();
+    } else if (k.key === 'Enter' && matches[at]) { k.preventDefault(); run(matches[at]); }
+  };
+  document.body.append(box);
+  addEventListener('pointerdown', away, true);
+  draw();
+  input.focus();
+}
+
 function layerMenu(x, y) {
   const menu = document.createElement('div');
   menu.className = 'menu';
@@ -1867,6 +2233,20 @@ function layerMenu(x, y) {
     item.onclick = () => { close(); act(); };
     menu.append(item);
   }
+  // W-24: the label colours, a row of squares under the lines.
+  const swatches = document.createElement('div');
+  swatches.className = 'swatches';
+  LABELS.forEach((colour, n) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'menuitem');
+    b.title = n ? 'Label ' + LABEL_NAMES[n] : 'No label';
+    b.setAttribute('aria-label', b.title);
+    b.style.background = colour || 'transparent';
+    b.onclick = () => { close(); labelLayers(n); };
+    swatches.append(b);
+  });
+  menu.append(swatches);
   document.body.append(menu);
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(x, innerWidth - r.width - 4) + 'px';
@@ -4259,13 +4639,15 @@ addEventListener('keydown', (e) => {
     e.preventDefault();
     $('import').click();
   }
-  // Document 24 gives Ctrl+N to `project.new`, which this build does not have. B-12d added
-  // `composition.create` beside it and Ctrl+Shift+N is its shortcut, so the two stay apart: a
-  // person who later presses Ctrl+N for a new project must not get a new composition instead.
+  // Document 24 gives Ctrl+N to `project.new` and B-12d gave Ctrl+Shift+N to `composition.create`
+  // beside it, so the two stay apart. W-24 built the new project.
   else if (e.ctrlKey && e.shiftKey && (e.key === 'n' || e.key === 'N')) {
     e.preventDefault();
     $('newcomp').click();
   }
+  else if (e.ctrlKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); newProject(); }
+  // W-24: document 24's command palette. By the key's place, as Shift changes the letter.
+  else if (e.ctrlKey && e.shiftKey && e.code === 'KeyP') { e.preventDefault(); palette(); }
   // Document 24: Ctrl+Z undo, Ctrl+Shift+Z redo, Ctrl+Alt+L add layer, Ctrl+] and Ctrl+[ move
   // the selected layer toward the front and toward the back.
   else if (e.ctrlKey && (e.key === 'z' || e.key === 'Z')) {
@@ -4320,10 +4702,13 @@ addEventListener('keydown', (e) => {
   else if (e.key === ' ') { e.preventDefault(); $('play').click(); }
   // W-20: Home and End the first and last frame; Page Up and Page Down a frame, and Shift with
   // them or the arrows ten; Alt with the arrows nudges the chosen keys, as After Effects has them.
+  // W-24: with Shift, the first and last frame of the work area.
   else if (e.key === 'Home' || e.key === 'End') {
     e.preventDefault();
     const comp = composition();
-    if (comp) seek(e.key === 'End' ? comp.start_frame + Math.max(1, comp.duration_frames) - 1 : comp.start_frame);
+    const [first, past] = comp ? workOf(comp) : [0, 1];
+    if (comp && e.shiftKey) seek(e.key === 'End' ? past - 1 : first);
+    else if (comp) seek(e.key === 'End' ? comp.start_frame + Math.max(1, comp.duration_frames) - 1 : comp.start_frame);
   }
   // W-23: Enter renames the selected layer and Escape lets go of every layer and key, as After
   // Effects has them; the comma and the full stop zoom the picture out and in; Alt with Page Up or
@@ -4348,6 +4733,10 @@ addEventListener('keydown', (e) => {
   // promised alpha-only a key, so Alt+A is the window's own choice, like A was.
   else if (e.altKey && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); $('alpha').click(); }
   else if (e.key === 'g' || e.key === 'G') $('checker').click();
+  // W-24: After Effects' B and N set the work area's ends at the playhead, and * adds a marker.
+  else if (e.key === 'b' || e.key === 'B') setWork('start');
+  else if (e.key === 'n' || e.key === 'N') setWork('end');
+  else if (e.key === '*') { e.preventDefault(); addMarker(); }
   else if (e.key === 'j' || e.key === 'J') toKey(false);
   else if (e.key === 'k' || e.key === 'K') toKey(true);
   // W-20: I and O, the selected layer's first and last frame.

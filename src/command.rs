@@ -73,6 +73,25 @@ pub enum Command {
         layer_id: Id,
         value: bool,
     },
+    /// W-24: After Effects' label colour, 0 for none and 1 to 8.
+    SetLayerLabel {
+        composition: Id,
+        layer_id: Id,
+        label: u8,
+    },
+    /// Document 24's `timeline.set_work_start` and `set_work_end`, W-24. Both ends at once, so a
+    /// drag that moves one end replaces its earlier reading whole.
+    SetWorkArea {
+        composition: Id,
+        start_frame: i32,
+        end_frame_exclusive: i32,
+    },
+    /// W-24: the composition's markers, the whole list, so adding, moving, naming and removing
+    /// one are all this command and a dragged marker is one entry to undo.
+    SetMarkers {
+        composition: Id,
+        markers: Vec<crate::model::Marker>,
+    },
     ReorderLayer {
         composition: Id,
         layer_id: Id,
@@ -244,6 +263,9 @@ impl Command {
             Command::RenameLayer { .. } => "RENAME_LAYER",
             Command::SetLayerEnabled { .. } => "SET_LAYER_ENABLED",
             Command::SetLayerLocked { .. } => "SET_LAYER_LOCKED",
+            Command::SetLayerLabel { .. } => "SET_LAYER_LABEL",
+            Command::SetWorkArea { .. } => "SET_WORK_AREA",
+            Command::SetMarkers { .. } => "SET_MARKERS",
             Command::ReorderLayer { .. } => "REORDER_LAYER",
             Command::ShiftLayer { .. } => "SHIFT_LAYER",
             Command::TrimLayer { .. } => "TRIM_LAYER",
@@ -279,6 +301,23 @@ impl Command {
             Command::SetLayerLocked { value, .. } => {
                 format!("{} layer", if *value { "Lock" } else { "Unlock" })
             }
+            Command::SetLayerLabel { label, .. } => match label {
+                0 => "Clear the layer's label".to_string(),
+                n => format!("Set the layer's label to colour {n}"),
+            },
+            Command::SetWorkArea {
+                start_frame,
+                end_frame_exclusive,
+                ..
+            } => format!(
+                "Set the work area to frames {start_frame} to {}",
+                end_frame_exclusive - 1
+            ),
+            Command::SetMarkers { markers, .. } => match markers.len() {
+                0 => "Clear the markers".to_string(),
+                1 => "Set one marker".to_string(),
+                n => format!("Set {n} markers"),
+            },
             Command::ReorderLayer { to_index, .. } => format!("Move layer to position {to_index}"),
             Command::ShiftLayer { in_frame, .. } => {
                 format!("Move layer to start at frame {in_frame}")
@@ -351,6 +390,9 @@ impl Command {
             | Command::RenameLayer { composition, .. }
             | Command::SetLayerEnabled { composition, .. }
             | Command::SetLayerLocked { composition, .. }
+            | Command::SetLayerLabel { composition, .. }
+            | Command::SetWorkArea { composition, .. }
+            | Command::SetMarkers { composition, .. }
             | Command::ReorderLayer { composition, .. }
             | Command::ShiftLayer { composition, .. }
             | Command::TrimLayer { composition, .. }
@@ -377,7 +419,9 @@ impl Command {
             Command::RelinkAsset { asset } => ids.push(asset.id.clone()),
             Command::AddComposition { composition } => ids.push(composition.id.clone()),
             Command::AddLayer { layer, .. } => ids.push(layer.id.clone()),
+            Command::SetWorkArea { .. } | Command::SetMarkers { .. } => {}
             Command::RemoveLayer { layer_id, .. }
+            | Command::SetLayerLabel { layer_id, .. }
             | Command::RenameLayer { layer_id, .. }
             | Command::SetLayerEnabled { layer_id, .. }
             | Command::SetLayerLocked { layer_id, .. }
@@ -449,6 +493,7 @@ impl Command {
         !matches!(
             self,
             Command::SetLayerLocked { .. }
+                | Command::SetLayerLabel { .. }
                 | Command::AddAsset { .. }
                 | Command::RelinkAsset { .. }
                 | Command::AddComposition { .. }
@@ -469,6 +514,7 @@ impl Command {
             | Command::SetKeyframe { layer_id, .. }
             | Command::RemoveKeyframe { layer_id, .. }
             | Command::MoveKeyframe { layer_id, .. }
+            | Command::SetLayerLabel { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
@@ -1007,6 +1053,61 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         } => {
             layer_mut(project, &comp_id, layer_id)?.locked = *value;
         }
+        Command::SetLayerLabel {
+            layer_id, label, ..
+        } => {
+            if *label > 8 {
+                return Err(reject(
+                    &format!("There is no label colour {label}; the colours are 1 to 8."),
+                    "W-24: a label is 0 for none or one of eight colours.",
+                ));
+            }
+            layer_mut(project, &comp_id, layer_id)?.label = *label;
+        }
+        Command::SetWorkArea {
+            start_frame,
+            end_frame_exclusive,
+            ..
+        } => {
+            let comp = comp_mut(project, &comp_id)?;
+            let (first, past) = (
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            if *start_frame < first
+                || *end_frame_exclusive > past
+                || start_frame >= end_frame_exclusive
+            {
+                return Err(reject(
+                    &format!(
+                        "The work area has to be at least one frame, inside frames {first} to {}.",
+                        past - 1
+                    ),
+                    "Document 19: the work area lies within the composition.",
+                ));
+            }
+            comp.work_area = Some((*start_frame, *end_frame_exclusive));
+        }
+        Command::SetMarkers { markers, .. } => {
+            let comp = comp_mut(project, &comp_id)?;
+            let (first, past) = (
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            if let Some(m) = markers.iter().find(|m| m.frame < first || m.frame >= past) {
+                return Err(reject(
+                    &format!(
+                        "A marker on frame {} is outside the composition's frames {first} to {}.",
+                        m.frame,
+                        past - 1
+                    ),
+                    "W-24: a marker is on a frame of its composition.",
+                ));
+            }
+            let mut markers = markers.clone();
+            markers.sort_by_key(|m| m.frame);
+            comp.markers = markers;
+        }
         Command::ReorderLayer {
             layer_id, to_index, ..
         } => {
@@ -1031,7 +1132,13 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             layer.in_frame = *in_frame;
             // The owner's decision of 2026-09-13: the keys travel with the bar, as in After
             // Effects. Every key moves by the same amount, so no two can land on one frame.
-            for prop in [Prop::Anchor, Prop::Position, Prop::Scale, Prop::Rotation, Prop::Opacity] {
+            for prop in [
+                Prop::Anchor,
+                Prop::Position,
+                Prop::Scale,
+                Prop::Rotation,
+                Prop::Opacity,
+            ] {
                 layer.transform.get_mut(prop).shift_keyframes(by);
             }
         }

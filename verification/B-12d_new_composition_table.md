@@ -17,7 +17,7 @@ It is a new capability rather than a correction of an omission, which is written
 
 **Which composition a reopened project shows is a rule of thumb, not a restored setting.** Document 07's project format has no field for which composition was open, so there is nothing on disk to come back to. This build opens the first composition that has anything in it, and the first composition otherwise. The last two rows check that rule, and they pass, but the rule is wrong for anyone who deliberately leaves an empty composition ready to work in and expects to find it. Fixing it properly means adding a field to the project format, which is a schema change and the owner's decision.
 
-**There is no `project.new`.** Document 24 names one on Ctrl+N and this build does not have it, so every composition here is made inside a project that was opened from a file. Ctrl+Shift+N is what this build binds, leaving Ctrl+N free for the command the table already promises.
+**`project.new` came later.** W-24 built it on Ctrl+N, the shortcut document 24 promised it, and Ctrl+Shift+N stays the new composition.
 
 **The page.** Every row calls the same function the window's URL scheme calls. That the New composition button and its five fields send it, and that Ctrl+Shift+N reaches the button, are in `verification/B-12b_page_table.md`, `verification/B-12c_keyboard_table.md` and the photograph beside this table.
 

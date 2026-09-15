@@ -262,7 +262,8 @@ fn b09_persistence() {
     // == 3. Data this build does not model ==================================================
     // ADR-008: "Unknown additive data is preserved."
     //
-    // `work_area` is in every fixture and in the schema, and nothing in this build reads it.
+    // `work_area` is in every fixture and in the schema; W-24 reads it, and an edit elsewhere
+    // must still write it back as it was.
     // `opaque_unknown_data` is in the effect record of `unknown_effect_project.json` and is
     // not in the schema at all. Both have to come back out. This is not the same check as the
     // round trip above: here the project is *edited* first, which is when a naive
@@ -300,7 +301,7 @@ fn b09_persistence() {
         edited.contains("\"vendor.future.effect\"") && edited.contains("\"strength\": 0.5"),
     );
     report.check(
-        "after an edit: work_area, which nothing in this build reads, survives",
+        "after an edit: work_area, which the rename did not touch, survives",
         true,
         edited.contains("\"work_area\""),
     );

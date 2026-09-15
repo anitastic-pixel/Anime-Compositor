@@ -13,15 +13,10 @@ There are four ways a command is reached in this build, and the second column of
 - **The shortcut rows come in pairs.** The first says what document 24 promises, read from the document. The second says whether the page binds it.
 - **The `presses` rows say what the key does, not only that it is bound.** A shortcut moved onto the wrong button keeps its key test and stops doing its job; those rows are the ones that would say so.
 
-## The six commands this build does not have
+## The commands built last
 
-Each is a deliberate absence, and none of them is a step of W-01.
-
-- **`project.new`** - a new project is an empty window and this build always opens on something: the reference shot when it is given nothing, or the project it was given. Making a new one is Save As over a copy.
-- **`timeline.set_work_start` and `set_work_end`** - the work area is the whole composition in this build, which is what `verification/B-08_preview_table.md` measures and what B-10 exports. Narrowing it is a setting nothing yet reads.
-- **`keyframe.add_remove`** - since W-10 the diamond beside each transform property, checked in `verification/B-12a_transform_table.md`.
+- **`project.new`, `timeline.set_work_start`, `timeline.set_work_end` and `app.command_palette`** were built by W-24, with `timeline.set_markers`, `layer.set_label` and `layer.toggle_solo` beside them, so no row says `nothing yet` any more. Ctrl+N asks twice when the project has unsaved work. The palette is the page's own: each line presses the key it names.
 - **`viewer.fit` and `viewer.zoom_100`** are the page's own since W-06: a zoom is a size the page gives the canvas and a scroll of the stage around it, and nothing in the project changes, so neither sends a request.
-- **`app.command_palette`** - a search over commands, which needs the commands to be worth searching first.
 
 ## What this cannot cover
 
@@ -31,9 +26,9 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 24 names the identifiers this table walks | 48 | 48 | pass |
-| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, layer.move, layer.duplicate, layer.split, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, layer.move, layer.duplicate, layer.split, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, exposure.set_span, property.set_base, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
-| `project.new` is reached by | nothing yet | nothing yet | pass |
+| document 24 names the identifiers this table walks | 51 | 51 | pass |
+| and they are the same identifiers, in the same order | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, layer.move, layer.duplicate, layer.split, layer.toggle_solo, layer.set_label, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, timeline.set_markers, exposure.set_span, property.set_base, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | project.new, project.open, project.save, project.save_as, composition.create, composition.open, edit.undo, edit.redo, media.import, media.relink, layer.create, layer.delete, layer.rename, layer.move_up, layer.move_down, layer.toggle_visibility, layer.toggle_lock, layer.set_matte, layer.shift, layer.trim, layer.move, layer.duplicate, layer.split, layer.toggle_solo, layer.set_label, timeline.previous_frame, timeline.next_frame, timeline.play_pause, timeline.set_work_start, timeline.set_work_end, timeline.set_markers, exposure.set_span, property.set_base, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_path, effect.add, effect.delete, effect.toggle_bypass, effect.set_parameters, effect.move_up, effect.move_down, effect.move, viewer.fit, viewer.zoom_100, viewer.toggle_checkerboard, viewer.toggle_alpha, render.preview_current, export.sequence, app.command_palette | pass |
+| `project.new` is reached by | a route the shell answers | a route the shell answers | pass |
 | `project.open` is reached by | a route the shell answers | a route the shell answers | pass |
 | `project.save` is reached by | a route the shell answers | a route the shell answers | pass |
 | `project.save_as` is reached by | a route the shell answers | a route the shell answers | pass |
@@ -56,11 +51,14 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `layer.move` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.duplicate` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.split` is reached by | a command the window answers | a command the window answers | pass |
+| `layer.toggle_solo` is reached by | a command the window answers | a command the window answers | pass |
+| `layer.set_label` is reached by | a command the window answers | a command the window answers | pass |
 | `timeline.previous_frame` is reached by | the page, with no request | the page, with no request | pass |
 | `timeline.next_frame` is reached by | the page, with no request | the page, with no request | pass |
 | `timeline.play_pause` is reached by | the page, with no request | the page, with no request | pass |
-| `timeline.set_work_start` is reached by | nothing yet | nothing yet | pass |
-| `timeline.set_work_end` is reached by | nothing yet | nothing yet | pass |
+| `timeline.set_work_start` is reached by | a command the window answers | a command the window answers | pass |
+| `timeline.set_work_end` is reached by | a command the window answers | a command the window answers | pass |
+| `timeline.set_markers` is reached by | a command the window answers | a command the window answers | pass |
 | `exposure.set_span` is reached by | a command the window answers | a command the window answers | pass |
 | `property.set_base` is reached by | a command the window answers | a command the window answers | pass |
 | `keyframe.add_remove` is reached by | a command the window answers | a command the window answers | pass |
@@ -80,9 +78,9 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `viewer.toggle_alpha` is reached by | a command the window answers | a command the window answers | pass |
 | `render.preview_current` is reached by | the page, with no request | the page, with no request | pass |
 | `export.sequence` is reached by | a route the shell answers | a route the shell answers | pass |
-| `app.command_palette` is reached by | nothing yet | nothing yet | pass |
+| `app.command_palette` is reached by | the page, with no request | the page, with no request | pass |
 | document 24 gives `project.new` the shortcut | Ctrl+N | Ctrl+N | pass |
-| and Ctrl+N is bound | no, and the command is not built either | no, and the command is not built either | pass |
+| and Ctrl+N is bound | yes | yes | pass |
 | document 24 gives `project.open` the shortcut | Ctrl+O | Ctrl+O | pass |
 | and Ctrl+O is bound | yes | yes | pass |
 | document 24 gives `project.save` the shortcut | Ctrl+S | Ctrl+S | pass |
@@ -126,9 +124,11 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | document 24 gives `keyframe.set_interp` the shortcut | F9 | F9 | pass |
 | and F9 is bound | yes | yes | pass |
 | document 24 gives `timeline.set_work_start` the shortcut | B | B | pass |
-| and B is bound | no, and the command is not built either | no, and the command is not built either | pass |
+| and B is bound | yes | yes | pass |
 | document 24 gives `timeline.set_work_end` the shortcut | N | N | pass |
-| and N is bound | no, and the command is not built either | no, and the command is not built either | pass |
+| and N is bound | yes | yes | pass |
+| document 24 gives `timeline.set_markers` the shortcut | * | * | pass |
+| and * is bound | yes | yes | pass |
 | document 24 gives `viewer.fit` the shortcut | Shift+/ | Shift+/ | pass |
 | and Shift+/ is bound | yes | yes | pass |
 | document 24 gives `viewer.zoom_100` the shortcut | Ctrl+1 | Ctrl+1 | pass |
@@ -136,7 +136,7 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | document 24 gives `export.sequence` the shortcut | Ctrl+M | Ctrl+M | pass |
 | and Ctrl+M is bound | yes | yes | pass |
 | document 24 gives `app.command_palette` the shortcut | Ctrl+Shift+P | Ctrl+Shift+P | pass |
-| and Ctrl+Shift+P is bound | no, and the command is not built either | no, and the command is not built either | pass |
+| and Ctrl+Shift+P is bound | yes | yes | pass |
 | and Ctrl+M presses | $('export') | $('export') | pass |
 | and Ctrl+I presses | $('import') | $('import') | pass |
 | and Ctrl+Shift+N presses | $('newcomp') | $('newcomp') | pass |
@@ -150,4 +150,4 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and G presses | $('checker') | $('checker') | pass |
 | and Shift+/ presses | $('fit') | $('fit') | pass |
 
-**118 of 118 checks pass.**
+**123 of 123 checks pass.**
