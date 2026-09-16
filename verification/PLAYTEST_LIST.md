@@ -9,10 +9,10 @@ and all three passed; what they reported is written under each. The fourth was n
 this list was written and is ready now, because D-58 was accepted the same day and B-13c was
 built against it.
 
-**Outstanding on 2026-09-16: numbers 5, 6 and 7.** The first four have been performed - number 4
-on 2026-09-15, which is the playtest that asked for 5 and 6 and is why they exist. Numbers 5 and
-6 were built on 2026-09-16 and nobody has walked either. Number 7 was written on 2026-09-16 and
-is the last piece of T-06 that no test can reach.
+**Outstanding on 2026-09-16: number 7 only.** The first six have been performed - number 4 on
+2026-09-15, which is the playtest that asked for 5 and 6, and numbers 5 and 6 on 2026-09-16, the
+day they were built. Number 7 was written on 2026-09-16 and is the last piece of T-06 that no
+test can reach.
 
 ## 1. Parenting, which was built yesterday and has never been used
 
@@ -85,6 +85,8 @@ move can be animated from the window now, which it could not be when this walk w
 
 `verification/B-13d_depth_keys_playtest.md`, nine steps by hand.
 
+**PASSED on 2026-09-16**: the owner walked the sheet and reported every step as working.
+
 This one exists because of the playtest above. The owner walked W-04 on 2026-09-15, reported
 that the camera and the parallax work, and asked for two things: that the values update while
 they change rather than after, and that the depth be "keyable and drag-click like all the other
@@ -109,6 +111,14 @@ diamonds, is the one step of it that is now out of date.
 
 `verification/B-13e_camera_keys_playtest.md`, ten steps by hand.
 
+**PASSED on 2026-09-16, after two fixes.** The owner's first walk found two defects:
+- Step 9: Save As lost the drawings.
+- Step 7: camera keys pasted onto a selected layer.
+
+Commit 939e4cf fixed both. The owner also asked for the camera in the graph editor, and commit
+6ed9c42 added it. The owner confirmed all three by hand and reported the rest of the sheet as
+working.
+
 The other half of number 5, built the same day. The owner asked whether the camera's values
 could be changed through keyframes, *"though a camera layer maybe? unsure if that's how AE can
 do it or if that's a good idea"*, and chose the answer when asked: key it where it is. The
@@ -128,9 +138,9 @@ edge of the deferred camera-as-layer, and the camera appearing in any of those i
 **Corrected on 2026-09-16, before anyone played it.** Step 7 of this sheet used to promise that
 F9 eased a camera key and that the graph editor drew it a curve. F9 was broken - it sent a layer
 id for a key the camera owned - as were Ctrl+Alt+G and Ctrl+V on camera keys; B-13f fixed all
-three, and step 7 now says so and asks you to confirm it. The graph editor genuinely cannot draw
-the camera and the sheet now says that too, as something not built rather than something to find
-broken. If a step on any sheet promises something that does not happen, that is worth reporting
+three, and step 7 now says so and asks you to confirm it. At that point the graph editor could not
+draw the camera, and the sheet said so. That stopped being true with 6ed9c42: clicking Camera on
+the timeline now graphs it. If a step on any sheet promises something that does not happen, that is worth reporting
 whether or not it is listed here.
 
 The thing to know before starting: the Camera block's three boxes are no longer special. They

@@ -103,12 +103,11 @@ with.
 key, and the camera is deliberately not in that list. The playhead is moved by hand or by the
 timeline for now - though since B-13f it does snap to a camera key when you drag it near one.
 
-**The graph editor cannot be pointed at the camera.** It draws whichever layer is selected, and
-the camera is not selectable, so it has no way to be told to look at one. B-13e's notes claimed
-it did draw the camera; that was wrong, and B-13f corrected the record rather than building the
-thing, because whether a camera needs a curve to pull by hand is a question for the owner and
-not one to assume. F9 and the curve button on the Camera block are how a camera key is eased
-today.
+**The graph editor could not be pointed at the camera when this sheet was written.** B-13e's
+notes claimed it did draw the camera. That was wrong, and B-13f corrected the record. The owner
+asked for the camera graph after walking this sheet, and 6ed9c42 built it on 2026-09-16. Click
+Camera on the timeline to graph the camera. With no layer selected, the graph shows the camera
+anyway.
 
 **Nothing here sends `camera.set_property` any more.** The Inspector's three boxes send what
 every other number in the window sends. The command still exists and the window still answers
