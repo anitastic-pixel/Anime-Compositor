@@ -19,7 +19,7 @@ There is no new command behind it and no new contract. Document 24 line 91 said 
 
 The numbers. Where a layer at a depth actually lands is D-58's arithmetic, checked against independently generated values in `verification/B-13c_camera_table.md`. A keyed camera is sampled at the frame and then goes through the same two lines, so keying changed nothing about it.
 
-Easing a camera key. F9 and the graph editor reach the camera because it is named where a layer is named, and `verification/D-52_ease_table.md` and `verification/D-53_path_table.md` are where that machinery is checked; the hold row above is enough to show the camera reaches it. Step 7 of the playtest sheet is where a person confirms the rest.
+Easing a camera key. F9 reaches the camera's keys and `verification/D-52_ease_table.md` is where that machinery is checked; the hold row above is enough to show the camera reaches it. B-13e's notes said the graph editor reached it too, and that was wrong: the graph draws whichever layer is selected, and the camera is deliberately not in the layer list, so there is no way to point the graph at it. B-13f fixed F9 - which was sending a layer id for a camera key, and being refused - and left the graph editor as work the owner has not been asked about. Step 7 of the playtest sheet is where a person confirms the rest.
 
 Whether animating a camera is comfortable, and whether the Camera group belongs at the top of the timeline. No table can say either, which is what `verification/B-13e_camera_keys_playtest.md` is for.
 

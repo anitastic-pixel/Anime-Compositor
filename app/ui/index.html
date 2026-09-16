@@ -1416,8 +1416,16 @@ const keyParts = (id) => {
   const at = Number(parts.pop());
   const prop = parts.pop();
   const whom = parts.join('|');
-  return [whom === CAMERA_ROW ? cameraRow() : layers().find((l) => l.id === whom), prop, at];
+  return [rowOf(whom), prop, at];
 };
+
+// B-13f: the row an id names, which is a layer for every id but one.
+//
+// `keyParts` has always had to do this. Pasting keys did it a second time with `layers().find`
+// alone, and a camera key pasted therefore landed on nothing: the lookup could not find the row
+// it had just been given the id of. One lookup that knows where the camera lives is the whole of
+// the fix, and it is the same one the ids themselves already assume.
+const rowOf = (id) => (id === CAMERA_ROW ? cameraRow() : layers().find((l) => l.id === id) || null);
 
 // B-13e: the camera, shaped like a layer so that the code which draws a property can draw it.
 //
@@ -1457,9 +1465,10 @@ function cameraRow() {
 // Who a property request is about. Every request that changes a property says this, and the
 // camera is not a layer, so it is named as what it is instead of being given an id it has not
 // got. Document 24 line 91 is the reason one word is all that differs.
-const whose = (layer) => (layer.id === CAMERA_ROW
+const whoseId = (id) => (id === CAMERA_ROW
   ? 'target=camera'
-  : 'layer=' + encodeURIComponent(layer.id));
+  : 'layer=' + encodeURIComponent(id));
+const whose = (layer) => whoseId(layer.id);
 
 // W-17: keys moved together by one distance, sent as one request so they are one entry to undo.
 // Keys on a locked layer stay where they are. A chosen key stays chosen where it lands.
@@ -1518,8 +1527,8 @@ function pasteKeys(start = frame, target = null) {
   const started = new Set();
   const sends = copied.flatMap(({ layer, prop, key }) => {
     const at = key.frame - first + start;
-    const q = '?layer=' + encodeURIComponent(onto || layer) + '&frame=' + at + '&drag=1';
-    const target = layers().find((l) => l.id === (onto || layer));
+    const q = '?' + whoseId(onto || layer) + '&frame=' + at + '&drag=1';
+    const target = rowOf(onto || layer);
     const fresh = target && !keysOf(target, prop).length && !started.has(target.id + '|' + prop);
     if (fresh) started.add(target.id + '|' + prop);
     return [
@@ -1547,7 +1556,7 @@ function holdKeys(to) {
   const mode = to || (keys.every(([, , key]) => key.interp === 'hold') ? 'linear' : 'hold');
   nudge = nudge.then(async () => {
     for (const [layer, prop, key] of keys) {
-      await command('/keyframe.set_interp?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop
+      await command('/keyframe.set_interp?' + whose(layer) + '&prop=' + prop
         + '&frame=' + key.frame + '&mode=' + mode + '&drag=1');
     }
     await command('/property.drag_end');
@@ -2227,8 +2236,12 @@ function snapped(x, at, targets) {
 
 // Every layer's first and last frame and every key, which is what the playhead snaps to.
 function snapFrames() {
+  // B-13f: a camera key snaps the playhead like any other key. The camera has no first and last
+  // frame to snap to, because it belongs to the composition rather than sitting inside it.
+  const camera = cameraRow();
   return layers().flatMap((l) => [l.in_frame, l.out_frame - 1,
-    ...PROPS.flatMap((p) => keysOf(l, p).map((k) => k.frame))]);
+    ...PROPS.flatMap((p) => keysOf(l, p).map((k) => k.frame))])
+    .concat(camera ? CAMERA_PROPS.flatMap((p) => keysOf(camera, p).map((k) => k.frame)) : []);
 }
 
 // W-22: Ctrl+D copies the selected layers, each in front of itself; Ctrl+Shift+D splits them at
@@ -2700,7 +2713,9 @@ function propTrack(comp, layer, prop) {
     e.stopPropagation();
     if (!e.shiftKey) pickedKeys.clear();
     for (const key of keysOf(layer, prop)) pickedKeys.add(keyId(layer, prop, key.frame));
-    if (!selection.includes(layer.id)) select(layer.id, e.shiftKey);
+    // B-13f: the camera is not in the layer list and must not be selected as though it were.
+    // Choosing its keys used to clear whatever layer the person had chosen and select nothing.
+    if (layer.id !== CAMERA_ROW && !selection.includes(layer.id)) select(layer.id, e.shiftKey);
     pickKey(null, true);
   };
   const value = document.createElement('span');
@@ -4954,8 +4969,8 @@ function easeKeys(sides) {
     if (sides !== 'in') ease(keys[i + 1] && keys[i], 0, EASY.slice(0, 2));
     if (sides !== 'out') ease(keys[i - 1], 2, EASY.slice(2));
   }
-  const sends = [...curves.values()].map(({ layer, prop, key, e }) => '/keyframe.set_interp?layer='
-    + encodeURIComponent(layer.id) + '&prop=' + prop + '&frame=' + key.frame + '&mode=ease&curve='
+  const sends = [...curves.values()].map(({ layer, prop, key, e }) => '/keyframe.set_interp?'
+    + whose(layer) + '&prop=' + prop + '&frame=' + key.frame + '&mode=ease&curve='
     + e.map((n) => Math.round(n * 1e6) / 1e6).join(',') + '&drag=1');
   if (!sends.length) return;
   nudge = nudge.then(async () => {

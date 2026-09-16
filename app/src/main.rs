@@ -7661,10 +7661,13 @@ mod editing {
          D-58's arithmetic, checked against independently generated values in \
          `verification/B-13c_camera_table.md`. A keyed camera is sampled at the frame and then \
          goes through the same two lines, so keying changed nothing about it.\n\nEasing a \
-         camera key. F9 and the graph editor reach the camera because it is named where a layer \
-         is named, and `verification/D-52_ease_table.md` and `verification/D-53_path_table.md` \
-         are where that machinery is checked; the hold row above is enough to show the camera \
-         reaches it. Step 7 of the playtest sheet is where a person confirms the \
+         camera key. F9 reaches the camera's keys and `verification/D-52_ease_table.md` is where \
+         that machinery is checked; the hold row above is enough to show the camera reaches it. \
+         B-13e's notes said the graph editor reached it too, and that was wrong: the graph draws \
+         whichever layer is selected, and the camera is deliberately not in the layer list, so \
+         there is no way to point the graph at it. B-13f fixed F9 - which was sending a layer id \
+         for a camera key, and being refused - and left the graph editor as work the owner has \
+         not been asked about. Step 7 of the playtest sheet is where a person confirms the \
          rest.\n\nWhether animating a camera is comfortable, and whether the Camera group \
          belongs at the top of the timeline. No table can say either, which is what \
          `verification/B-13e_camera_keys_playtest.md` is for.\n\nA camera that is a layer. The \
@@ -11594,6 +11597,48 @@ mod contract {
             .iter()
             .find(|l| l["id"] == id)
             .unwrap_or_else(|| panic!("no layer {id} in the composition"))
+    }
+
+    /// B-13f: every request built from a chosen key's own row names its target, not a layer.
+    ///
+    /// The camera's keys ride the same `layer|prop|frame` ids a layer's keys ride, and `keyParts`
+    /// hands back the camera's row for the one id that names it. A send built from that row with
+    /// `layer=` therefore puts the window's own `::camera` name where a layer id belongs, and the
+    /// window refuses it by name. Three functions did exactly that - F9, the hold and the paste -
+    /// and B-13e's notes, document 24, the backlog and a playtest step all said they did not.
+    ///
+    /// The page is not run by this suite, so this is a text pin like `fields_read` beside it: the
+    /// body of each function that acts on chosen keys must not spell `layer=` anywhere. `whose`
+    /// and `whoseId` are the only two spellings allowed, and they are the two that know a camera
+    /// is named rather than identified.
+    #[test]
+    fn the_gestures_that_act_on_chosen_keys_name_their_target() {
+        let page = page();
+        let body = |name: &str| -> String {
+            let at = page
+                .find(&format!("function {name}("))
+                .unwrap_or_else(|| panic!("the page has no function called {name}"));
+            let rest = &page[at..];
+            let end = rest
+                .find("\n}\n")
+                .unwrap_or_else(|| panic!("{name} does not end at the margin"));
+            rest[..end].to_string()
+        };
+        for name in [
+            "easeKeys", "holdKeys", "pasteKeys", "copyKeys", "moveKeys", "removeKeys",
+        ] {
+            assert!(
+                !body(name).contains("layer="),
+                "{name} spells a layer into its request, so a camera key cannot travel through \
+                 it: everything built from a chosen key's row goes through `whose` or `whoseId`"
+            );
+        }
+        // The one place that turns a row's id into the word a request carries. If this moves,
+        // the pin above is checking the absence of something nothing produces any more.
+        assert!(
+            page.contains("const whoseId = (id) => (id === CAMERA_ROW"),
+            "the single place that decides how a row is named to the window has moved"
+        );
     }
 
     #[test]

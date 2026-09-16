@@ -50,7 +50,12 @@ different depths - the parallax is what makes a camera move worth watching.
 7. **A keyed camera behaves like a keyed property, because it is one.** With the camera keyed,
    try the things you would try on a Position track:
    - a camera key drags along its row to another frame;
-   - F9 eases a camera key, and the graph editor draws it a curve;
+   - F9 eases a camera key. **This was broken when the sheet was written**: F9 built its
+     request out of a layer id, and a camera has none, so the window refused it. B-13f fixed it
+     on 2026-09-16 and this step is where you confirm the fix;
+   - Ctrl+Alt+G holds a camera key, and Ctrl+C then Ctrl+V copies one onto another frame. Both
+     were broken the same way and by the same one-line cause, and both are fixed;
+   - dragging the playhead near a camera key snaps to it, as it does to a layer's;
    - a camera key is deleted with the Delete key;
    - the camera's Place can be given motion-path handles, and its Depth and Lens refuse them by
      name, because they are lengths and not points.
@@ -96,7 +101,14 @@ with.
 
 **J and K do not step over the camera's keys.** Those walk the layer list looking for the next
 key, and the camera is deliberately not in that list. The playhead is moved by hand or by the
-timeline for now.
+timeline for now - though since B-13f it does snap to a camera key when you drag it near one.
+
+**The graph editor cannot be pointed at the camera.** It draws whichever layer is selected, and
+the camera is not selectable, so it has no way to be told to look at one. B-13e's notes claimed
+it did draw the camera; that was wrong, and B-13f corrected the record rather than building the
+thing, because whether a camera needs a curve to pull by hand is a question for the owner and
+not one to assume. F9 and the curve button on the Camera block are how a camera key is eased
+today.
 
 **Nothing here sends `camera.set_property` any more.** The Inspector's three boxes send what
 every other number in the window sends. The command still exists and the window still answers

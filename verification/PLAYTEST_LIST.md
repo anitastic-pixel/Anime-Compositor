@@ -120,6 +120,14 @@ D-58 exists and it is the first time in this project it can be animated.
 belongs to layers - the parent chooser, the matte chooser, Select All, and Delete. That is the
 edge of the deferred camera-as-layer, and the camera appearing in any of those is a bug.
 
+**Corrected on 2026-09-16, before anyone played it.** Step 7 of this sheet used to promise that
+F9 eased a camera key and that the graph editor drew it a curve. F9 was broken - it sent a layer
+id for a key the camera owned - as were Ctrl+Alt+G and Ctrl+V on camera keys; B-13f fixed all
+three, and step 7 now says so and asks you to confirm it. The graph editor genuinely cannot draw
+the camera and the sheet now says that too, as something not built rather than something to find
+broken. If a step on any sheet promises something that does not happen, that is worth reporting
+whether or not it is listed here.
+
 The thing to know before starting: the Camera block's three boxes are no longer special. They
 send what every other number in the window sends, which is what made keying them possible. If
 anything about them behaves differently from the rest of the Inspector, that is worth saying.
