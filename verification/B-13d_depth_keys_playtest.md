@@ -16,9 +16,11 @@ and one is not, and it is worth saying which is which before starting.
   **Answered.** The Depth row is one of the window's blue numbers now, and it keys.
 - *"I would like the changes to update in realtime when values change."* **Answered** by the
   drag: the picture follows the number while it is moving, rather than at the end.
-- *"maybe change said values through keyframes though a camera layer maybe?"* **Not answered.**
-  The camera still does not key from the window, and a camera is still not a layer. That is the
-  next unit, not this one, and it is listed at the bottom.
+- *"maybe change said values through keyframes though a camera layer maybe?"* **Half answered,
+  and that half changed later the same day this sheet was written.** The camera keys from the
+  window now: B-13e built it on 2026-09-16 in the shape you chose when asked - key it where it
+  is - and `verification/B-13e_camera_keys_playtest.md` is its sheet. A camera is still not a
+  layer; that half stays deferred, and it is listed at the bottom.
 
 ## What to check by hand
 
@@ -64,10 +66,13 @@ Open `Fixtures/reference_shot` as a project, or any shot with a layer or three i
    with their eases, and the shot plays the same. Then open a project made before today - any
    fixture under `Fixtures/projects/` - and save it: it still has no depth written into any
    layer that never had one.
-9. **The camera still does not key.** Set a camera property in the Camera block. There is no
-   diamond beside those three rows, and there is no Camera row group on the timeline. This is
-   not an oversight in the build; it is the part deliberately left for the next unit, and step
-   4 of `verification/B-13c_camera_playtest.md` is still the only way to move the camera.
+9. **The camera keys too, since B-13e - this step has been turned around.** It used to ask you
+   to confirm the opposite: that there was no diamond beside the Camera block's three rows and
+   no Camera group on the timeline. B-13e built both on 2026-09-16, later the same day this
+   sheet was written, so following the old wording would have looked like finding a bug. What
+   you should see is a diamond beside each of the three camera rows and a Camera group at the
+   top of the timeline. Keying them is walked properly by
+   `verification/B-13e_camera_keys_playtest.md` and is not this sheet's job.
 
 ## What checks it by machine
 
@@ -89,12 +94,12 @@ Open `Fixtures/reference_shot` as a project, or any shot with a layer or three i
 
 ## What this build does not do
 
-**The camera does not key from the window.** The renderer has followed a keyed camera since
-B-13c and `Fixtures/projects/camera_project.json` holds one, so what is missing is the gesture
-and not the arithmetic - the same sentence that was true of the depth yesterday. The owner's
-chosen shape for it, from the playtest, is to key it where it is: the camera stays a property of
-the composition, its three rows gain diamonds, and the camera gets its own fixed row group at the
-top of the timeline. That is the next unit.
+**The camera keys from the window now, which it did not when this sheet was written.** B-13e
+built it on 2026-09-16 in the shape you chose when asked: the camera stays a property of the
+composition, its three rows gained diamonds, and it got a fixed row group of its own at the top
+of the timeline. B-13f then fixed three gestures that were claimed to reach the camera's keys
+and did not - F9, Ctrl+Alt+G's hold and Ctrl+V's paste. None of that is this sheet's to check;
+`verification/B-13e_camera_keys_playtest.md` is where it is walked.
 
 **A camera is still not a layer.** The owner raised this as a question rather than a request
 (*"unsure if that's how AE can do it or if that's a good idea"*), and it was deliberately
