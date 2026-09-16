@@ -170,6 +170,7 @@ const KEY_ORDER: &[&str] = &[
     "mode",
     "blend_mode",
     "effects",
+    "parent",
     "instance_id",
     "type_id",
     "parameters",
@@ -536,6 +537,16 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         .map(|e| effect_json(effect_base(base, e.instance_id.as_str()), e))
         .collect();
     owned.push(("effects", J::Array(effects)));
+    // D-57: written only when the layer has a parent, so a project that never had one is
+    // written back without the key. A parent that was cleared writes null, because that is what
+    // overrides the record the file held; leaving the pair out would merge the old one back in.
+    match &layer.parent {
+        Some(parent) => owned.push(("parent", J::from(parent.as_str()))),
+        None if base.is_some_and(|b| b.get("parent").is_some()) => {
+            owned.push(("parent", J::Null))
+        }
+        None => {}
+    }
     if layer.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
         owned.push(("label", J::from(layer.label)));
     }
@@ -1065,6 +1076,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             .map_err(|e| invalid(&at, &format!("exposure spans that {e}")))?;
     }
 
+    // D-57. An unresolved parent is not refused here: document 28 makes it a warning raised
+    // once the whole composition is known, beside the matte's, so that the reference survives.
+    let parent = match v.get("parent") {
+        None | Some(J::Null) => None,
+        Some(p) => Some(as_id(p, &format!("{pointer}/parent"))?),
+    };
+
     let matte = match v.get("matte") {
         None | Some(J::Null) => None,
         Some(m) => {
@@ -1285,6 +1303,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         exposure_spans,
         mask,
         matte,
+        parent,
         effects,
         shy: match v.get("shy") {
             None => false,
@@ -1478,6 +1497,24 @@ fn parse_composition(
     }
 
     for id in &order {
+        if composition.parent_cycle_from(id) {
+            return Err(Diagnostic::new(
+                DiagnosticId::ParentCycle,
+                Severity::Error,
+                "This project cannot be opened, because two layers are parented to each other.",
+                format!(
+                    "A parent cycle was reached from layer {id} in composition {}. D-57 \
+                     requires the parent graph to be acyclic.",
+                    composition.id
+                ),
+            )
+            .with_remediation(
+                "The project was not opened and nothing on disk was changed. One of the parent \
+                 references has to be cleared before it can open.",
+            ));
+        }
+    }
+    for id in &order {
         if composition.matte_cycle_from(id) {
             return Err(Diagnostic::new(
                 DiagnosticId::MatteCycle,
@@ -1496,6 +1533,31 @@ fn parse_composition(
         }
     }
     for layer in composition.layers_in_order() {
+        if let Some(parent) = &layer.parent {
+            if composition.layer(parent).is_none() {
+                warnings.push(
+                    Diagnostic::new(
+                        DiagnosticId::ParentReferenceMissing,
+                        Severity::Warning,
+                        format!(
+                            "The layer \"{}\" is parented to a layer that is not in this \
+                             composition.",
+                            layer.name
+                        ),
+                        format!(
+                            "Layer {} names parent {}, which no layer in composition {} \
+                             matches. The reference is kept and the layer is drawn where it \
+                             would be with no parent.",
+                            layer.id, parent, composition.id
+                        ),
+                    )
+                    .with_remediation(
+                        "Choose a parent in the layer's panel, or clear it, to say which it is \
+                         meant to be.",
+                    ),
+                );
+            }
+        }
         if let Some(matte) = &layer.matte {
             if composition.layer(&matte.layer_id).is_none() {
                 warnings.push(

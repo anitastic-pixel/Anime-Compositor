@@ -3852,6 +3852,27 @@ function matteRow(into, layer) {
   into.append(dt, dd);
 }
 
+// D-57: which layer this one rides on. The frame goes with it because document 21 works the
+// keep-place conversion at one frame, and on an animated parent the answer differs frame to
+// frame: the layer keeps where it is on the frame the person is looking at.
+function parentRow(into, layer) {
+  const dt = document.createElement('dt');
+  dt.textContent = 'Parent';
+  const dd = document.createElement('dd');
+  const chooser = document.createElement('select');
+  chooser.setAttribute('aria-label', 'Parent for ' + layer.name);
+  chooser.append(new Option('none', ''), ...layers()
+    // A layer cannot ride on itself. The core refuses the whole loop, of which this is only
+    // the shortest; the list not offering it is the first line rather than the only one.
+    .filter((l) => l.id !== layer.id)
+    .map((l) => new Option(l.name, l.id)));
+  chooser.value = layer.parent || '';
+  chooser.onchange = () => command('/layer.set_parent?layer=' + encodeURIComponent(layer.id)
+    + '&parent=' + encodeURIComponent(chooser.value) + '&frame=' + frame);
+  dd.append(chooser);
+  into.append(dt, dd);
+}
+
 function drawInspector() {
   // Rebuilding these fields under a pointer that is holding one of them would take the drag's
   // own element away mid-gesture, and the value would stop following the mouse with nothing on
@@ -3889,6 +3910,7 @@ function drawInspector() {
   // deciding whether a layer is the one they want needs to know it carries a mask.
   field(dl, 'Mask', layer.mask ? layer.mask.vertices.length + ' points' : 'none');
   matteRow(dl, layer);
+  parentRow(dl, layer);
   into.replaceChildren(dl);
 }
 
@@ -4947,7 +4969,10 @@ $('addlayer').onclick = () => {
   command('/layer.create?asset=' + encodeURIComponent(selectedAsset)
     + '&name=' + encodeURIComponent(asset ? asset.name : 'New layer'));
 };
-$('dellayer').onclick = onSelected('layer.delete');
+$('dellayer').onclick = () => {
+  if (!selectedLayer) return;
+  command('/layer.delete?layer=' + encodeURIComponent(selectedLayer) + '&frame=' + frame);
+};
 // B-12 fix: Forward and Back move every chosen layer a step, as one entry to undo. The chosen
 // layer nearest the end it is going to moves first; one already against that end, or against a
 // chosen layer that could not move, stays where it is.

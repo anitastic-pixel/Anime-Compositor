@@ -197,6 +197,18 @@ pub enum Command {
         /// Ignored when `matte` is `None`, since there is then no layer to keep out of the stack.
         matte_only: bool,
     },
+    /// D-57's parenting: the layer rides on `parent`, or on nothing when that is `None`.
+    SetParent {
+        composition: Id,
+        layer_id: Id,
+        parent: Option<Id>,
+        /// The composition frame document 21's keep-place conversion is worked at.
+        frame: i32,
+        /// Whether the layer keeps where it is on screen, which is what a person choosing a
+        /// parent means. False only where the layer is already in the parent's space and its
+        /// values must not be touched: a copy pasted beside the layer it was copied from.
+        keep_place: bool,
+    },
     /// Document 24's `exposure.set_span`. B-12a.
     ///
     /// The whole ordered list is the unit of change, for the reason [`Command::SetMask`] gives.
@@ -307,6 +319,7 @@ impl Command {
             Command::RemoveKeyframe { .. } => "REMOVE_KEYFRAME",
             Command::MoveKeyframe { .. } => "MOVE_KEYFRAME",
             Command::SetMatte { .. } => "SET_MATTE",
+            Command::SetParent { .. } => "SET_PARENT",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
             Command::SetMask { .. } => "SET_MASK",
             Command::AddEffect { .. } => "ADD_EFFECT",
@@ -393,6 +406,10 @@ impl Command {
                 Some(id) => format!("Set matte to {id}"),
                 None => "Clear matte".to_string(),
             },
+            Command::SetParent { parent, .. } => match parent {
+                Some(id) => format!("Set parent to {id}"),
+                None => "Clear parent".to_string(),
+            },
             Command::SetExposureSpans { spans, .. } => match spans.len() {
                 0 => "Clear the exposures".to_string(),
                 1 => "Set one exposure".to_string(),
@@ -451,6 +468,7 @@ impl Command {
             | Command::RemoveKeyframe { composition, .. }
             | Command::MoveKeyframe { composition, .. }
             | Command::SetMatte { composition, .. }
+            | Command::SetParent { composition, .. }
             | Command::SetExposureSpans { composition, .. }
             | Command::SetMask { composition, .. }
             | Command::AddEffect { composition, .. }
@@ -504,6 +522,12 @@ impl Command {
             } => {
                 ids.push(layer_id.clone());
                 ids.extend(matte.clone());
+            }
+            Command::SetParent {
+                layer_id, parent, ..
+            } => {
+                ids.push(layer_id.clone());
+                ids.extend(parent.clone());
             }
         }
         ids
@@ -575,6 +599,7 @@ impl Command {
             | Command::SetBlendMode { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
+            | Command::SetParent { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
             | Command::AddEffect { layer_id, .. }
@@ -1419,6 +1444,51 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 .with_remediation("Choose a layer that does not already use this one as its matte."));
             }
         }
+        Command::SetParent {
+            layer_id,
+            parent,
+            frame,
+            keep_place: keeping,
+            ..
+        } => {
+            let comp = project.composition(&comp_id).expect("checked above");
+            if let Some(target) = parent {
+                if comp.layer(target).is_none() {
+                    return Err(Diagnostic::new(
+                        DiagnosticId::ParentReferenceMissing,
+                        Severity::Error,
+                        format!(
+                            "The layer chosen as a parent, {target}, is not in this composition."
+                        ),
+                        "D-57: a parent must be a layer in the same composition.".to_string(),
+                    ));
+                }
+            }
+            // Worked before the write, because it reads the chain the layer is in now.
+            let conversion = match keeping {
+                true => Some(keep_place(comp, layer_id, parent.as_ref(), *frame)?),
+                false => None,
+            };
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            layer.parent = parent.clone();
+            if let Some(by) = &conversion {
+                apply_keep_place(layer, by);
+            }
+            // Checked after the write and rolled back by the caller's working clone if bad, the
+            // way the matte's cycle is. A layer named as its own parent is caught here too.
+            let comp = project.composition(&comp_id).expect("checked above");
+            if comp.parent_cycle_from(layer_id) {
+                return Err(Diagnostic::new(
+                    DiagnosticId::ParentCycle,
+                    Severity::Error,
+                    "That parent would make two layers ride on each other.".to_string(),
+                    format!(
+                        "Parenting {layer_id} to {parent:?} closes a loop in the parent graph."
+                    ),
+                )
+                .with_remediation("Choose a layer that is not already riding on this one."));
+            }
+        }
         Command::SetExposureSpans {
             layer_id, spans, ..
         } => {
@@ -1684,4 +1754,133 @@ fn finite(value: Value) -> bool {
         Value::Scalar(v) => v.is_finite(),
         Value::Vec2(x, y) => x.is_finite() && y.is_finite(),
     }
+}
+
+/// D-57's keep-place conversion, worked at one frame: what a layer must hold under its new
+/// parent for every point of it to stay where it is on screen.
+///
+/// Document 21: with `W` the new parent's `M_world`, the new position is `W^-1` applied to the
+/// position the layer has in the chain it is in now; the new rotation is its rotation less the
+/// rotations along that chain; the new scale is its scale divided, component by component, by
+/// the product of the chain's scales. The anchor does not move.
+struct KeepPlace {
+    /// `W_new^-1 * W_old`, which carries a point from where it is now into the new parent's
+    /// space. Both keyframe values and base values go through it.
+    map: crate::render::Affine,
+    rotation: f64,
+    scale: (f64, f64),
+    /// Document 21's exactness rule: true when every chain scales equally in x and y, or when
+    /// neither the layer nor any layer in either chain is turned. False means the exact answer
+    /// is a skew this transform cannot hold -- the anchor lands where it was and the rest may
+    /// shift -- which the window says at the moment it happens.
+    exact: bool,
+}
+
+fn keep_place(
+    comp: &crate::model::Composition,
+    layer_id: &Id,
+    parent: Option<&Id>,
+    frame: i32,
+) -> Result<KeepPlace, Diagnostic> {
+    let old = crate::compose::parent_chain_at(comp, layer_id, frame);
+    let new = match parent {
+        Some(id) => crate::compose::world_at(comp, id, frame),
+        None => crate::compose::Chain::IDENTITY,
+    };
+    // Document 21: "A chain with a zero scale component at `f` has no inverse, and setting the
+    // parent is refused." A layer scaled to nothing has no space to put the child in.
+    let Some(inverse) = new.matrix.invert() else {
+        return Err(Diagnostic::new(
+            DiagnosticId::CommandInvalidValue,
+            Severity::Error,
+            "That layer cannot be a parent, because it is scaled to nothing.".to_string(),
+            format!(
+                "The parent chain has a zero scale component at frame {frame}, so it has no \
+                 inverse and document 21's keep-place conversion is undefined."
+            ),
+        )
+        .with_remediation("Give the parent a scale that is not zero, then set the parent again."));
+    };
+    let turned = comp
+        .layer(layer_id)
+        .and_then(|l| l.transform.rotation.value_at(frame).as_scalar())
+        .is_some_and(|r| r != 0.0);
+    Ok(KeepPlace {
+        map: old.matrix.then(inverse),
+        rotation: old.rotation - new.rotation,
+        scale: (old.scale.0 / new.scale.0, old.scale.1 / new.scale.1),
+        exact: (old.uniform && new.uniform) || (!turned && old.unrotated && new.unrotated),
+    })
+}
+
+/// Write the conversion over position, scale and rotation, base value and every keyframe alike.
+fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
+    use crate::model::{Keyframe, Property, Value};
+
+    let origin = by.map.apply(0.0, 0.0);
+    // A spatial handle is an offset from its own key, so only the map's linear part moves it:
+    // the map applied to the offset, less where the map sends the origin.
+    let handle = |h: [f64; 4]| {
+        let mut out = h;
+        for pair in 0..2 {
+            let (x, y) = by.map.apply(h[pair * 2], h[pair * 2 + 1]);
+            out[pair * 2] = x - origin.0;
+            out[pair * 2 + 1] = y - origin.1;
+        }
+        out
+    };
+    fn convert(
+        prop: &mut Property,
+        value: impl Fn(Value) -> Value,
+        handle: impl Fn([f64; 4]) -> [f64; 4],
+    ) {
+        prop.set_base(value(prop.base()));
+        for key in prop.keyframes().to_vec() {
+            prop.set_keyframe(Keyframe {
+                value: value(key.value),
+                spatial: key.spatial.map(&handle),
+                ..key
+            });
+        }
+    }
+
+    convert(
+        &mut layer.transform.position,
+        |v| match v.as_vec2() {
+            Some((x, y)) => {
+                let (nx, ny) = by.map.apply(x, y);
+                Value::Vec2(nx, ny)
+            }
+            None => v,
+        },
+        &handle,
+    );
+    convert(
+        &mut layer.transform.scale,
+        |v| match v.as_vec2() {
+            Some((x, y)) => Value::Vec2(x * by.scale.0, y * by.scale.1),
+            None => v,
+        },
+        &handle,
+    );
+    convert(
+        &mut layer.transform.rotation,
+        |v| match v.as_scalar() {
+            Some(r) => Value::Scalar(r + by.rotation),
+            None => v,
+        },
+        &handle,
+    );
+}
+
+/// Whether parenting `layer_id` to `parent` at `frame` can keep every point of the layer where
+/// it is, or only its anchor. Document 21's exactness rule, asked before the command is sent so
+/// that the window can say which of the two happened.
+pub fn parent_keep_place_is_exact(
+    comp: &crate::model::Composition,
+    layer_id: &Id,
+    parent: Option<&Id>,
+    frame: i32,
+) -> bool {
+    keep_place(comp, layer_id, parent, frame).is_ok_and(|k| k.exact)
 }

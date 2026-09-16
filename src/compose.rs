@@ -175,7 +175,7 @@ pub fn plan_frame_cached(
         if !layer.enabled || matte_only.contains(&&layer.id) {
             continue;
         }
-        let Some(resolved) = resolve_layer(project, layer, frame, root, cache, log) else {
+        let Some(resolved) = resolve_layer(project, comp, layer, frame, root, cache, log) else {
             continue;
         };
 
@@ -190,7 +190,7 @@ pub fn plan_frame_cached(
                     // layer "through its own source, mask, effects and transform", which does
                     // not include its own matte. A matte's matte is not a chain, so there is
                     // nothing here to recurse into and no cycle to guard against.
-                    resolve_layer(project, matte_layer, frame, root, cache, log).map(|m| {
+                    resolve_layer(project, comp, matte_layer, frame, root, cache, log).map(|m| {
                         Box::new(render::MatteDraw {
                             source: m.source,
                             transform: m.transform,
@@ -291,8 +291,101 @@ fn exposed_cel(
     Some((root.join(relative), asset.interpretation))
 }
 
+/// D-57's `M_world` for a chain of layers, with the two things keeping place needs that the
+/// matrix cannot give back: the chain's total rotation, and the product of its scales.
+///
+/// `uniform` and `unrotated` are what document 21's exactness rule is read from: the conversion
+/// is exact when every layer in the chain scales equally in x and y, or when nothing along it
+/// is turned.
+#[derive(Clone, Copy)]
+pub(crate) struct Chain {
+    pub matrix: Affine,
+    pub rotation: f64,
+    pub scale: (f64, f64),
+    pub uniform: bool,
+    pub unrotated: bool,
+}
+
+impl Chain {
+    pub const IDENTITY: Chain = Chain {
+        matrix: Affine::IDENTITY,
+        rotation: 0.0,
+        scale: (1.0, 1.0),
+        uniform: true,
+        unrotated: true,
+    };
+}
+
+/// The layers' transforms at `frame`, accumulated nearest first.
+///
+/// Every layer is read at this same composition frame whatever its own in and out points, its
+/// switch or its exposures say (document 20, D-57): what a child inherits is a transform, not a
+/// picture. A property holding the wrong kind of value is skipped rather than guessed at; the
+/// layer's own transform reports that case one step further down.
+fn chain_of(layers: &[&crate::model::Layer], frame: i32) -> Chain {
+    let mut chain = Chain::IDENTITY;
+    for layer in layers {
+        let t = &layer.transform;
+        let (Some(anchor), Some(position), Some(scale), Some(rotation)) = (
+            t.anchor.value_at(frame).as_vec2(),
+            t.position.value_at(frame).as_vec2(),
+            t.scale.value_at(frame).as_vec2(),
+            t.rotation.value_at(frame).as_scalar(),
+        ) else {
+            continue;
+        };
+        chain.matrix = chain
+            .matrix
+            .then(Affine::from_transform(anchor, position, scale, rotation));
+        chain.rotation += rotation;
+        chain.scale.0 *= scale.0;
+        chain.scale.1 *= scale.1;
+        chain.uniform &= scale.0 == scale.1;
+        chain.unrotated &= rotation == 0.0;
+    }
+    chain
+}
+
+/// D-57: the chain above `layer_id`, identity for a layer with no parent.
+pub(crate) fn parent_chain_at(
+    comp: &crate::model::Composition,
+    layer_id: &crate::model::Id,
+    frame: i32,
+) -> Chain {
+    chain_of(&comp.parent_chain(layer_id), frame)
+}
+
+/// D-57's `M_world(L)`: the layer's own transform and then everything above it.
+pub(crate) fn world_at(
+    comp: &crate::model::Composition,
+    layer_id: &crate::model::Id,
+    frame: i32,
+) -> Chain {
+    let Some(layer) = comp.layer(layer_id) else {
+        return Chain::IDENTITY;
+    };
+    let mut chain = vec![layer];
+    chain.extend(comp.parent_chain(layer_id));
+    chain_of(&chain, frame)
+}
+
+/// D-57's `M_world(L)`: the map from a layer's own pixels into composition pixels at `frame`,
+/// its parent chain included.
+///
+/// The same map the renderer builds at step 4, minus the translation an effect's bounds growth
+/// adds, which is a fact about a buffer rather than about where the layer is. Public because
+/// where a layer lands is a question worth asking of a project whose drawings are not at hand.
+pub fn world_transform(
+    comp: &crate::model::Composition,
+    layer_id: &crate::model::Id,
+    frame: i32,
+) -> Affine {
+    world_at(comp, layer_id, frame).matrix
+}
+
 fn resolve_layer(
     project: &Project,
+    comp: &crate::model::Composition,
     layer: &crate::model::Layer,
     frame: i32,
     root: &Path,
@@ -542,8 +635,15 @@ fn resolve_layer(
         // the grown buffer held what pixel `p - offset` held before, so shifting by `-offset`
         // first puts every pixel back exactly where it was and leaves only the new margin, which
         // holds what the blur pushed outside the old extent. Zero offset makes it the identity.
+        //
+        // D-57 closes step 4 with the parent chain: `M_world(L) = M_world(parent(L)) * M(L)`.
+        // A parent that is not in the composition is reported when the project is opened and
+        // leaves an identity here, so the layer draws where it would with no parent rather than
+        // vanishing. There is no second report per frame: nothing can lose a parent while the
+        // program runs, because deleting one lets its children go in place.
         transform: Affine::translation(-(offset.0 as f64), -(offset.1 as f64))
-            .then(Affine::from_transform(anchor, position, scale, rotation)),
+            .then(Affine::from_transform(anchor, position, scale, rotation))
+            .then(parent_chain_at(comp, &layer.id, frame).matrix),
         // Document 21 step 6. Opacity is normalized 0..1 in the model (document 19).
         opacity: opacity as f32,
     })

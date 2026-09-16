@@ -112,6 +112,16 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "B-05_model_table.md",
     ),
     (
+        DiagnosticId::ParentReferenceMissing,
+        "PARENT_REFERENCE_MISSING",
+        "B-13b_parenting_table.md",
+    ),
+    (
+        DiagnosticId::ParentCycle,
+        "PARENT_CYCLE",
+        "B-13b_parenting_table.md",
+    ),
+    (
         DiagnosticId::MatteCycle,
         "MATTE_CYCLE",
         "B-05_model_table.md",
@@ -156,14 +166,6 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
 /// a claim about scope that a reader can check against the requirement it names.
 const NOT_BUILT: &[(&str, &str)] = &[
-    (
-        "PARENT_CYCLE",
-        "R-12 parenting is proposed in D-57 and not built until B-13b.",
-    ),
-    (
-        "PARENT_REFERENCE_MISSING",
-        "R-12 parenting is proposed in D-57 and not built until B-13b.",
-    ),
     (
         "EXPRESSION_CYCLE",
         "R-13, expressions, is G2 work and no expression evaluator exists.",

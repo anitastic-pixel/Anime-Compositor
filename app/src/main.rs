@@ -1595,6 +1595,7 @@ const ANSWERS: &[&str] = &[
     "layer.set_blend_mode",
     "layer.set_label",
     "layer.set_matte",
+    "layer.set_parent",
     "layer.shift",
     "layer.split",
     "layer.toggle_lock",
@@ -1846,7 +1847,28 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             let new_id = |at: usize| Id::new(format!("layer-{}", first + at as u64));
             let mut commands = Vec::new();
             let mut mattes = Vec::new();
+            // D-57: a parent travels with a copy exactly as a matte does, and for the same
+            // reason -- a copy of a chain is a chain. `keep_place` is false here alone: the
+            // copy is made in the space it is being put into, so converting its values would
+            // move it away from the layer it was copied from. The frame is not read.
+            let mut parents = Vec::new();
             for (at, layer) in held.clipboard.iter().enumerate() {
+                if let Some(parent) = &layer.parent {
+                    let copied = held.clipboard.iter().position(|l| l.id == *parent);
+                    let target = match copied {
+                        Some(other) => Some(new_id(other)),
+                        None => comp.layer(parent).map(|l| l.id.clone()),
+                    };
+                    if let Some(target) = target {
+                        parents.push(Command::SetParent {
+                            composition: composition.clone(),
+                            layer_id: new_id(at),
+                            parent: Some(target),
+                            frame: 0,
+                            keep_place: false,
+                        });
+                    }
+                }
                 if let Some(matte) = &layer.matte {
                     let copied = held.clipboard.iter().position(|l| l.id == matte.layer_id);
                     let target = match copied {
@@ -1867,12 +1889,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     layer: Box::new(Layer {
                         id: new_id(at),
                         matte: None,
+                        parent: None,
                         ..layer.clone()
                     }),
                     index: comp.len() + at,
                 });
             }
             commands.extend(mattes);
+            commands.extend(parents);
             return Some(match held.document.apply_all(commands) {
                 Ok(record) => record.label.clone(),
                 Err(diagnostic) => sentence(&diagnostic),
@@ -1955,6 +1979,10 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     composition: Box::new(empty),
                 }];
                 let mut mattes = Vec::new();
+                // D-57: as with a matte, a parent is remapped onto the copy of the layer it
+                // named. A parent outside this composition cannot exist, so there is no second
+                // case to handle here.
+                let mut parents = Vec::new();
                 let mut locks = Vec::new();
                 for (at, layer) in layers.iter().enumerate() {
                     commands.push(Command::AddLayer {
@@ -1962,6 +1990,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         layer: Box::new(Layer {
                             id: new_id(at),
                             matte: None,
+                            parent: None,
                             locked: false,
                             ..(*layer).clone()
                         }),
@@ -1977,6 +2006,17 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             });
                         }
                     }
+                    if let Some(parent) = &layer.parent {
+                        if let Some(other) = layers.iter().position(|l| l.id == *parent) {
+                            parents.push(Command::SetParent {
+                                composition: copy.clone(),
+                                layer_id: new_id(at),
+                                parent: Some(new_id(other)),
+                                frame: 0,
+                                keep_place: false,
+                            });
+                        }
+                    }
                     if layer.locked {
                         locks.push(Command::SetLayerLocked {
                             composition: copy.clone(),
@@ -1986,6 +2026,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     }
                 }
                 commands.extend(mattes);
+                commands.extend(parents);
                 commands.extend(locks);
                 match held.document.apply_all(commands) {
                     Ok(_) => Ok((copy, name)),
@@ -2235,6 +2276,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
     // A drawing number an exposure names that its sequence has not got, filled in by the arm
     // that can see both and said at the end, once the core has accepted the change.
     let mut absent: Option<u32> = None;
+    // D-57: whether the parent just chosen could keep the layer exactly where it was. Read
+    // before the change, because it is a question about the chain the layer is in now.
+    let mut inexact = false;
+    // D-57: a layer being deleted lets its children go where they stand. Filled in by the
+    // delete arm, which can see the composition, and applied with the deletion as one entry.
+    let mut unparent: Vec<Command> = Vec::new();
     let command = {
         let held = viewer.lock().expect("the viewer lock was poisoned");
         let composition = held.composition.clone();
@@ -2331,10 +2378,29 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 .index_of(&layer_id)
                 .expect("a layer that is here has a place");
             match id {
-                "layer.delete" => Command::RemoveLayer {
-                    composition,
-                    layer_id,
-                },
+                // D-57: the children of a layer being deleted let go where they stand,
+                // in the same entry as the deletion, so that one undo puts both back. This is
+                // the one place parenting does not follow the matte, whose reference is left
+                // dangling: a dangling parent would move the layer, and a layer deleted by
+                // mistake would take everything riding on it across the screen.
+                "layer.delete" => {
+                    let frame = frame_parameter(query, "frame").unwrap_or(0);
+                    unparent = comp
+                        .children_of(&layer_id)
+                        .into_iter()
+                        .map(|child| Command::SetParent {
+                            composition: composition.clone(),
+                            layer_id: child,
+                            parent: None,
+                            frame,
+                            keep_place: true,
+                        })
+                        .collect();
+                    Command::RemoveLayer {
+                        composition,
+                        layer_id,
+                    }
+                }
                 // Not refused for being the name it already has. Document 26 makes that a
                 // history entry that changes nothing, which is honest: somebody pressed F2 and
                 // pressed return, and undo should take them back to before they did.
@@ -2703,6 +2769,37 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         .map(Id::new),
                     matte_only: parameter(query, "only").as_deref() == Some("true"),
                 },
+                // D-57's parenting. No layer named means no parent, which is what the "none"
+                // entry in the list sends; a layer that is not here is refused by the core.
+                //
+                // The frame comes from the page because document 21 works the keep-place
+                // conversion at one frame, and on an animated parent the answer differs from
+                // frame to frame. The layer keeps where it is on screen, which is what a person
+                // choosing a parent means, and whether that could be done exactly is a sentence
+                // said afterwards rather than a refusal.
+                "layer.set_parent" => {
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let parent = parameter(query, "parent")
+                        .filter(|p| !p.is_empty())
+                        .map(Id::new);
+                    inexact = parent.is_some()
+                        && !anime_compositor::command::parent_keep_place_is_exact(
+                            comp,
+                            &layer_id,
+                            parent.as_ref(),
+                            frame,
+                        );
+                    Command::SetParent {
+                        composition,
+                        layer_id,
+                        parent,
+                        frame,
+                        keep_place: true,
+                    }
+                }
                 // Document 24's `exposure.set_span`, which assigns one span. The core takes the
                 // whole ordered list, so the list is built here out of the one the layer has:
                 // a span starting where an existing one starts replaces it, which is what
@@ -2922,7 +3019,16 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
     // timeline sends `layer.shift` or `exposure.set_span` many times a second, and one press
     // has to be one thing to undo whichever command is inside it, which is the rule
     // `property.drag_update` already has for the transform fields.
-    let said = if id == "property.drag_update" || parameter(query, "drag").is_some() {
+    let said = if !unparent.is_empty() {
+        // D-57: the children first, so that each is converted while the parent it is letting
+        // go of is still there, and all of it as one entry to undo.
+        let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        unparent.push(command);
+        match held.document.apply_all(unparent) {
+            Ok(record) => record.label.clone(),
+            Err(diagnostic) => sentence(&diagnostic),
+        }
+    } else if id == "property.drag_update" || parameter(query, "drag").is_some() {
         drag_update(viewer, command)
     } else {
         edit(viewer, command)
@@ -2939,6 +3045,17 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         return Some(format!(
             "{said} Drawing {drawing} is not in this sequence, so the frames exposing it stay \
              empty; no neighbouring drawing is put there instead."
+        ));
+    }
+    // Document 21: where the chain scales differently in x and y and something in it is
+    // turned, the exact answer is a skew a layer cannot hold. The anchor lands where it was and
+    // the rest of the layer may shift. That is a thing to meet at the moment it happens rather
+    // than to find later by looking at the picture, so the answer says it.
+    if inexact && landed {
+        return Some(format!(
+            "{said} It could not keep its shape exactly: the parent is stretched more one way \
+             than the other and something in the chain is turned, so the anchor is where it \
+             was and the rest of the layer has moved. Ctrl+Z undoes it."
         ));
     }
     // Deleting a layer that another layer was using as its matte leaves that reference behind.
@@ -6110,6 +6227,317 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// What a layer rides on, as the panels are given it.
+    fn parent(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .map(|l| l["parent"].to_string())
+            .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    #[test]
+    fn the_inspector_chooses_a_parent_and_says_when_a_layer_cannot_keep_its_shape() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        report.check(
+            "the fixture's layer rides on nothing",
+            "null",
+            parent(&viewer, "layer-cel"),
+        );
+        // Parenting is one layer riding on another, so there has to be another. This is the
+        // layer a person would draw the head on, with the cel riding on it.
+        run(&viewer, "layer.create?asset=asset-cel&name=Head");
+
+        // ---- choosing one ------------------------------------------------------------------------
+        report.check(
+            "choosing a parent says which layer this one now rides on",
+            "Set parent to layer-1",
+            run(
+                &viewer,
+                "layer.set_parent?layer=layer-cel&parent=layer-1&frame=0",
+            ),
+        );
+        report.check(
+            "and the panels are given it back",
+            "\"layer-1\"",
+            parent(&viewer, "layer-cel"),
+        );
+        // D-57: a parent carries the transform and nothing else. A layer that has just been
+        // given a parent is shaped by no more than it was before.
+        report.check(
+            "a parent is not a matte, and choosing one shaped the layer by nothing",
+            "null",
+            matte(&viewer, "layer-cel"),
+        );
+
+        // ---- clearing it ---------------------------------------------------------------------------
+        report.check(
+            "clearing the parent says so",
+            "Clear parent",
+            run(&viewer, "layer.set_parent?layer=layer-cel&parent=&frame=0"),
+        );
+        report.check(
+            "and the layer rides on nothing again",
+            "null",
+            parent(&viewer, "layer-cel"),
+        );
+        report.check(
+            "undo puts back the parent that was cleared",
+            "\"layer-1\"",
+            {
+                undo(&viewer);
+                parent(&viewer, "layer-cel")
+            },
+        );
+
+        // ---- what is refused ------------------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a layer that is not in this composition cannot be a parent, and is named",
+            "The layer chosen as a parent, layer-gone, is not in this composition.",
+            run(
+                &viewer,
+                "layer.set_parent?layer=layer-cel&parent=layer-gone&frame=0",
+            ),
+        );
+        // D-57 forbids the loop and the core refuses it. The list in the panel does not offer a
+        // layer itself, so this is the second line of defence rather than the first.
+        report.check(
+            "a layer cannot ride on itself",
+            "That parent would make two layers ride on each other. Choose a layer that is not \
+             already riding on this one.",
+            run(
+                &viewer,
+                "layer.set_parent?layer=layer-cel&parent=layer-cel&frame=0",
+            ),
+        );
+        report.check(
+            "and two layers cannot ride on each other",
+            "That parent would make two layers ride on each other. Choose a layer that is not \
+             already riding on this one.",
+            run(
+                &viewer,
+                "layer.set_parent?layer=layer-1&parent=layer-cel&frame=0",
+            ),
+        );
+        // The frame is what document 21 works the keep-place conversion at, so a request that
+        // does not carry one has no answer rather than a default one.
+        report.check(
+            "a request that does not say which frame is refused rather than assuming one",
+            "Which frame? Say frame=<frame>.",
+            run(&viewer, "layer.set_parent?layer=layer-cel&parent=layer-1"),
+        );
+        report.check(
+            "no layer named at all is asked for",
+            "Which layer? Choose one in the layer list.",
+            run(&viewer, "layer.set_parent?parent=layer-1&frame=0"),
+        );
+        report.check(
+            "none of those five refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "and the parent is the one that was chosen",
+            "\"layer-1\"",
+            parent(&viewer, "layer-cel"),
+        );
+
+        // ---- a locked layer ---------------------------------------------------------------------------
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a locked layer refuses a parent, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(
+                &viewer,
+                "layer.set_parent?layer=layer-cel&parent=layer-1&frame=0",
+            ),
+        );
+        report.check(
+            "which changed nothing",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        // ---- keeping its place, and saying when it could not keep its shape ----------------------
+        // Document 21: the conversion is exact when every layer in the chain is scaled evenly,
+        // or when nothing involved is turned. Otherwise the exact answer is a slant no layer can
+        // hold: the anchor lands where it was and the rest of the layer moves. Both are allowed;
+        // what separates them is whether the window says so.
+        run(&viewer, "layer.set_parent?layer=layer-cel&parent=&frame=0");
+        run(&viewer, "property.set_base?layer=layer-1&prop=scale&value=200,200");
+        report.check(
+            "a parent scaled evenly keeps the layer exactly, and the answer says only what it did",
+            "Set parent to layer-1",
+            run(
+                &viewer,
+                "layer.set_parent?layer=layer-cel&parent=layer-1&frame=0",
+            ),
+        );
+        undo(&viewer);
+        run(&viewer, "property.set_base?layer=layer-1&prop=scale&value=200,50");
+        run(&viewer, "property.set_base?layer=layer-cel&prop=rotation&value=45");
+        report.check(
+            "a parent stretched one way, under a turned layer, says the shape could not be kept",
+            "Set parent to layer-1 It could not keep its shape exactly: the parent is stretched \
+             more one way than the other and something in the chain is turned, so the anchor is \
+             where it was and the rest of the layer has moved. Ctrl+Z undoes it.",
+            run(
+                &viewer,
+                "layer.set_parent?layer=layer-cel&parent=layer-1&frame=0",
+            ),
+        );
+        report.check(
+            "and it did happen: the sentence is a warning about a change that landed",
+            "\"layer-1\"",
+            parent(&viewer, "layer-cel"),
+        );
+
+        // ---- the parent going away ----------------------------------------------------------------
+        // This is the one place parenting does not follow the matte. A matte reference is kept
+        // when its layer is deleted; a kept parent reference would move the layer across the
+        // screen, so the children let go where they stand, in the same entry.
+        // The children are converted before the layer goes, and they are converted by a
+        // command the lock refuses, so a locked child stops the whole deletion rather than being
+        // left pointing at a layer that is not there. That is the existing lock rule reaching a
+        // new command rather than a rule parenting invented, and it is written on the playtest
+        // sheet, so it is checked here rather than reasoned about.
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        report.check(
+            "a locked layer riding on it stops the deletion rather than being left behind",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(&viewer, "layer.delete?layer=layer-1&frame=0"),
+        );
+        report.check(
+            "and neither layer went anywhere",
+            "Cel, Head",
+            names(&viewer),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "deleting a layer lets go of what was riding on it",
+            "Clear parent and 1 more",
+            run(&viewer, "layer.delete?layer=layer-1&frame=0"),
+        );
+        report.check(
+            "the layer that was riding on it is still here, riding on nothing",
+            "null",
+            parent(&viewer, "layer-cel"),
+        );
+        report.check(
+            "and letting go and deleting are one entry in the history, not two",
+            depth + 1,
+            held(&viewer).document.undo_depth(),
+        );
+        report.check(
+            "so one undo brings the layer back",
+            "Cel, Head",
+            {
+                undo(&viewer);
+                names(&viewer)
+            },
+        );
+        report.check(
+            "with the layer riding on it again",
+            "\"layer-1\"",
+            parent(&viewer, "layer-cel"),
+        );
+
+        // ---- back to the file ---------------------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, including the effect this build cannot model";
+        report.check(
+            "undoing everything gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-13b_panel_table.md",
+            "B-13b: what the parent chooser does",
+            PARENT_INTRO,
+            PARENT_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const PARENT_INTRO: &[&str] = &[
+        "D-57 lets a layer ride on another layer's transform, so that a mouth cel moves with the \
+         head cel it belongs to rather than being keyed twice. That the arithmetic is document \
+         21's - the parent's whole transform applied after the child's own, up the chain - is \
+         checked against independently generated numbers in \
+         `verification/B-13b_parenting_table.md` and is not repeated here. What is checked here \
+         is the part between a chooser in a panel and that arithmetic: that the layer chosen is \
+         the layer used, that the arrangements D-57 forbids are refused in a sentence, and that \
+         the two things this window owes a person at the moment they happen - a shape that could \
+         not be kept exactly, and a parent being deleted - are said rather than left to be found \
+         in the picture.",
+        "One command carries choosing a parent, changing it and clearing it. \
+         `layer.set_parent` is added to document 24 for it, and it is the only layer command \
+         that carries the frame, because document 21 works the keep-place conversion at one \
+         frame and on an animated parent the answer differs from frame to frame.",
+    ];
+
+    const PARENT_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The layer keeps where it is on screen.** Choosing a parent is \
+         a statement about what moves with what, not an instruction to move the layer, so the \
+         values are converted through the parent's chain and the layer stays put. That is After \
+         Effects' default and it is what the rows above check the answers of.\n- **When the \
+         shape cannot be kept, the window says so rather than hiding it.** A parent stretched \
+         more one way than the other, under a layer that is turned, asks for a slant no layer \
+         can hold; the anchor lands exactly where it was and the rest of the layer moves. The \
+         change is allowed and a sentence says what happened, with Ctrl+Z named in it.\n- \
+         **Deleting a parent is the one place parenting does not copy the matte.** A deleted \
+         matte leaves its reference behind, because the layer it shaped can wait to be undone \
+         without moving. A child pointing at a deleted parent would jump instead, so the \
+         children let go where they stand - and in the same entry, so that one undo brings back \
+         the layer and everything that was riding on it.\n- **A loop is refused, twice over.** \
+         The chooser does not offer a layer itself, and the core refuses the whole loop of which \
+         that is only the shortest; the rows here go through the request the chooser sends, so \
+         what they check is the second line of defence.\n- **Clearing is the same command with \
+         no layer named**, which is what the \"none\" entry in the list sends. A layer that is \
+         not in this composition is a different thing and is refused.",
+        "## What this does not cover\n\nThe numbers. These rows check what the chooser does to \
+         the project; where a parented layer's pixels actually land is FX-PARENT-001 to 008 in \
+         `verification/B-13b_parenting_table.md`, worked from document 21's four steps by a \
+         generator that never builds a matrix.\n\nParenting without keeping place. After Effects \
+         offers it on a modifier key; D-57 leaves it undecided and nothing in W-04 asks for it, \
+         so this window always keeps place.\n\nThe camera. B-13c is a separate contract, and \
+         parenting does not imply it.",
+    ];
+
     const MATTE_INTRO: &[&str] = &[
         "W-01 asks the artist to apply a matte: one layer shaping another, which is how a cel is \
          held inside a shape rather than being cut with a pair of scissors. That the matte is \
@@ -8908,6 +9336,7 @@ mod contract {
         "layer.set_blend_mode",
         "layer.set_label",
         "layer.set_matte",
+        "layer.set_parent",
         "layer.shift",
         "layer.split",
         "layer.toggle_lock",
@@ -8963,7 +9392,8 @@ mod contract {
         (
             "Delete layer",
             "layer.delete",
-            "$('dellayer').onclick = onSelected('layer.delete')",
+            "command('/layer.delete?layer=' + encodeURIComponent(selectedLayer) \
+             + '&frame=' + frame)",
         ),
         (
             "Forward",
@@ -9202,6 +9632,7 @@ mod contract {
         ("layer.toggle_visibility", "a command the window answers"),
         ("layer.toggle_lock", "a command the window answers"),
         ("layer.set_matte", "a command the window answers"),
+        ("layer.set_parent", "a command the window answers"),
         ("layer.shift", "a command the window answers"),
         ("layer.trim", "a command the window answers"),
         ("layer.move", "a command the window answers"),
@@ -9965,11 +10396,13 @@ mod contract {
         );
         // W-24: a work area, a marker and a label are written only when there is one, so the
         // ruler and the label colours are given one each the same way. W-26: and a shy layer.
+        // B-13b: and a parent, which D-57 writes only when the layer rides on something.
         for edit in [
             "timeline.set_work_start?frame=1",
             "timeline.set_markers?marker=2|hit",
             "layer.set_label?layer=layer-3&label=2",
             "layer.toggle_shy?layer=layer-3",
+            "layer.set_parent?layer=layer-3&parent=layer-2&frame=0",
         ] {
             run(&viewer, edit);
         }

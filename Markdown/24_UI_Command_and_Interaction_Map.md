@@ -31,6 +31,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.toggle_visibility | Toggle selected layer | Ctrl+Alt+V | yes |
 | layer.toggle_lock | Toggle selected layer lock | Ctrl+L | yes |
 | layer.set_matte | Choose, change or clear the layer that shapes this one | none | yes |
+| layer.set_parent | Choose, change or clear the layer this one rides on | none | yes |
 | layer.shift | Move the selected layer along the timeline, keeping its length, its keyframes moving with it | [ or ] | yes |
 | layer.trim | Trim the selected layer's in or out point | Alt+[ or Alt+] | yes |
 | layer.move | Move a layer to a given place in the stack: where a drag up or down the list drops it, or the very front or back | Ctrl+Shift+] or Ctrl+Shift+[ | yes |
@@ -72,6 +73,18 @@ Every state-changing UI action invokes a stable command ID through the command l
 Shortcuts are proposed defaults and must be tested for OS/framework conflicts. Users may remap commands later; command IDs remain stable.
 
 `layer.set_matte` was added on 2026-09-07 by B-12a, for the same reason and by the same reading. W-01 requires the artist to apply a matte, `SetMatte` has existed in the command layer since B-06, and this table named no ID for reaching it. One ID covers choosing a matte, clearing it and changing whether the matte layer is still drawn in its own right, because document 19 holds all three in one record and the core takes them in one command; an ID for each would give a window a way to send half of a setting the file cannot hold in halves.
+
+`layer.set_parent` was added on 2026-09-15 by B-13b, and it is a new capability rather than a
+correction of an omission: D-57 was accepted the same day and nothing in this build could parent
+a layer before it. One ID covers choosing a parent, changing it and clearing it, because all
+three are the same field of the layer record holding a different value. It carries the frame,
+which no other layer command does, because document 21 works the keep-place conversion at one
+frame and on an animated parent the answer differs from frame to frame: the layer keeps where it
+is on the frame the person is looking at. `layer.delete` now carries the frame for the same
+reason, because a layer being deleted lets its children go where they stand. No shortcut: the
+parent is chosen from a list in the inspector, and this table already promises its free chords
+elsewhere. The owner may cut it, and cutting it leaves the transform chain in the core with no
+way to reach it from the window.
 
 `property.set_base` was added on 2026-09-07 by B-12a. W-01 requires the artist to adjust anchors and transforms, `SetPropertyBase` has existed in the command layer since B-05, and this table named no ID for reaching it, so an inspector had nothing stable to invoke. This is a correction of an omission, not a new capability; if the owner would rather it were named something else, the string is changed in one place.
 

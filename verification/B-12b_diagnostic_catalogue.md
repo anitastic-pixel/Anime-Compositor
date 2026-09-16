@@ -24,6 +24,8 @@ One row per identifier this build can print, and the table where a person can re
 | `MEDIA_SEQUENCE_UNNUMBERED` | **no — added by a decision** | `verification/B-03_import_table.md` |
 | `MEDIA_SEQUENCE_NAME_VARIANT` | **no — added by a decision** | `verification/B-03_import_table.md` |
 | `MATTE_REFERENCE_MISSING` | yes | `verification/B-05_model_table.md` |
+| `PARENT_REFERENCE_MISSING` | yes | `verification/B-13b_parenting_table.md` |
+| `PARENT_CYCLE` | yes | `verification/B-13b_parenting_table.md` |
 | `MATTE_CYCLE` | yes | `verification/B-05_model_table.md` |
 | `MASK_INVALID_OUTLINE` | yes | `verification/B-06_mask_table.md` |
 | `COMMAND_TARGET_MISSING` | **no — added by a decision** | `verification/B-05_model_table.md` |
@@ -37,8 +39,6 @@ One row per identifier this build can print, and the table where a person can re
 
 | Identifier | Why there is no code for it |
 |---|---|
-| `PARENT_CYCLE` | R-12 parenting is proposed in D-57 and not built until B-13b. |
-| `PARENT_REFERENCE_MISSING` | R-12 parenting is proposed in D-57 and not built until B-13b. |
 | `EXPRESSION_CYCLE` | R-13, expressions, is G2 work and no expression evaluator exists. |
 | `EXPRESSION_TIMEOUT` | R-13, expressions, is G2 work and no expression evaluator exists. |
 | `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |
@@ -113,6 +113,12 @@ One row per identifier this build can print, and the table where a person can re
 | MATTE_REFERENCE_MISSING: the enum spells it the way the catalogue does | MATTE_REFERENCE_MISSING | MATTE_REFERENCE_MISSING | pass |
 | MATTE_REFERENCE_MISSING: says truthfully whether document 28 lists it | true | true | pass |
 | MATTE_REFERENCE_MISSING: a table somewhere shows a person this sentence | named in B-05_model_table.md | named in B-05_model_table.md | pass |
+| PARENT_REFERENCE_MISSING: the enum spells it the way the catalogue does | PARENT_REFERENCE_MISSING | PARENT_REFERENCE_MISSING | pass |
+| PARENT_REFERENCE_MISSING: says truthfully whether document 28 lists it | true | true | pass |
+| PARENT_REFERENCE_MISSING: a table somewhere shows a person this sentence | named in B-13b_parenting_table.md | named in B-13b_parenting_table.md | pass |
+| PARENT_CYCLE: the enum spells it the way the catalogue does | PARENT_CYCLE | PARENT_CYCLE | pass |
+| PARENT_CYCLE: says truthfully whether document 28 lists it | true | true | pass |
+| PARENT_CYCLE: a table somewhere shows a person this sentence | named in B-13b_parenting_table.md | named in B-13b_parenting_table.md | pass |
 | MATTE_CYCLE: the enum spells it the way the catalogue does | MATTE_CYCLE | MATTE_CYCLE | pass |
 | MATTE_CYCLE: says truthfully whether document 28 lists it | true | true | pass |
 | MATTE_CYCLE: a table somewhere shows a person this sentence | named in B-05_model_table.md | named in B-05_model_table.md | pass |
@@ -142,7 +148,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**77 of 77 checks pass.**
+**83 of 83 checks pass.**
 
 ## What this cannot cover
 

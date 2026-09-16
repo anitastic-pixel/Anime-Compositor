@@ -139,12 +139,16 @@ fn opening(text: &str) -> String {
     }
 }
 
-const FIXTURES: [&str; 5] = [
+const FIXTURES: [&str; 6] = [
     "minimal_project",
     "cel_holds_project",
     "missing_media_project",
     "unicode_paths_project",
     "unknown_effect_project",
+    // FX-PARENT-007. D-57's `parent` is written only where it is set, so this file is also the
+    // check that a layer without one does not gain the key, and that the parent of a layer
+    // whose parent is gone survives being opened and saved.
+    "parenting_project",
 ];
 
 // ---------------------------------------------------------------------------------------

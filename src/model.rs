@@ -492,6 +492,11 @@ pub struct Layer {
     /// composition ones.
     pub mask: Option<crate::mask::PolygonMask>,
     pub matte: Option<MatteReference>,
+    /// D-57: the layer this one rides on, which must be in the same composition. Document 21
+    /// applies the parent's whole transform after this layer's own. Only anchor, position,
+    /// scale and rotation travel; opacity, masks, effects, mattes, the blend mode and the
+    /// exposures do not. Saved as `parent` only when it is set, as `label` and `shy` are.
+    pub parent: Option<Id>,
     /// Document 19's ordered effect instances, evaluated at step 3 of document 21 in layer
     /// space -- after the mask, before the transform. Order is the stack order: index 0 runs
     /// first, and its output is what index 1 reads.
@@ -526,6 +531,7 @@ impl Layer {
             exposure_spans: Vec::new(),
             mask: None,
             matte: None,
+            parent: None,
             effects: Vec::new(),
             blend_mode: BlendMode::Normal,
             label: 0,
@@ -673,6 +679,52 @@ impl Composition {
             at = next.layer_id.clone();
         }
         false
+    }
+
+    /// Layers riding on `id`. D-57: deleting a parent lets these go where they stand, which is
+    /// the one place parenting does not follow the matte, whose reference is left dangling.
+    pub fn children_of(&self, id: &Id) -> Vec<Id> {
+        self.layers_in_order()
+            .filter(|l| l.parent.as_ref() == Some(id))
+            .map(|l| l.id.clone())
+            .collect()
+    }
+
+    /// D-57: "the parent graph is acyclic". A layer has at most one parent, so this is the same
+    /// functional graph `matte_cycle_from` walks, and a cycle is a walk that repeats.
+    pub fn parent_cycle_from(&self, start: &Id) -> bool {
+        let mut seen = vec![start.clone()];
+        let mut at = start.clone();
+        while let Some(next) = self.layers.get(&at).and_then(|l| l.parent.as_ref()) {
+            if seen.contains(next) {
+                return true;
+            }
+            seen.push(next.clone());
+            at = next.clone();
+        }
+        false
+    }
+
+    /// The chain above `id`, nearest parent first, empty for a layer with no parent.
+    ///
+    /// It stops at a parent this composition does not have, which is document 28's
+    /// `PARENT_REFERENCE_MISSING`: the reference is kept in the record and the layer draws as
+    /// if it had none. It also stops on a repeat, so that a cycle reached some way other than a
+    /// command or a load -- there is no such way today -- ends a render rather than hanging it.
+    pub fn parent_chain(&self, id: &Id) -> Vec<&Layer> {
+        let mut out: Vec<&Layer> = Vec::new();
+        let mut at = self.layers.get(id).and_then(|l| l.parent.clone());
+        while let Some(next) = at {
+            if next == *id || out.iter().any(|l| l.id == next) {
+                break;
+            }
+            let Some(layer) = self.layers.get(&next) else {
+                break;
+            };
+            out.push(layer);
+            at = layer.parent.clone();
+        }
+        out
     }
 
     pub(crate) fn insert_layer(&mut self, layer: Layer, index: usize) {

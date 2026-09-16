@@ -89,6 +89,13 @@ pub enum DiagnosticId {
     MatteReferenceMissing,
     /// Document 28: matte dependency cycle detected; reject the command.
     MatteCycle,
+    /// Document 28, added by D-57: a parent ID no layer in the composition matches. WARNING
+    /// when a loaded project holds one, in which case the reference is kept and the layer draws
+    /// as if it had no parent; ERROR from a command that would create one.
+    ParentReferenceMissing,
+    /// Document 28, added by D-57: a parent chain that loops back on itself. Refused the way
+    /// `MatteCycle` is, by both the command and the loader.
+    ParentCycle,
     /// Document 28, added by D-43: a mask outline this build refuses to draw -- fewer than
     /// three corners, or an outline that crosses itself. ERROR when a command would create
     /// one, WARNING when a project already on disk holds one, in which case the record is
@@ -133,6 +140,8 @@ impl DiagnosticId {
             DiagnosticId::MediaSequenceNameVariant => "MEDIA_SEQUENCE_NAME_VARIANT",
             DiagnosticId::MatteReferenceMissing => "MATTE_REFERENCE_MISSING",
             DiagnosticId::MatteCycle => "MATTE_CYCLE",
+            DiagnosticId::ParentReferenceMissing => "PARENT_REFERENCE_MISSING",
+            DiagnosticId::ParentCycle => "PARENT_CYCLE",
             DiagnosticId::MaskInvalidOutline => "MASK_INVALID_OUTLINE",
             DiagnosticId::CommandTargetMissing => "COMMAND_TARGET_MISSING",
             DiagnosticId::CommandInvalidValue => "COMMAND_INVALID_VALUE",
@@ -162,6 +171,8 @@ impl DiagnosticId {
                 | DiagnosticId::MediaDecodeFailed
                 | DiagnosticId::MatteReferenceMissing
                 | DiagnosticId::MatteCycle
+                | DiagnosticId::ParentReferenceMissing
+                | DiagnosticId::ParentCycle
                 | DiagnosticId::MaskInvalidOutline
                 | DiagnosticId::ExportWriteFailed
                 | DiagnosticId::ExportCancelled
