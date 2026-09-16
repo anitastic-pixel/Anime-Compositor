@@ -235,8 +235,11 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
         // D-22: a scale is a percentage in the panels, so the graph is drawn in the numbers the
         // inspector beside it shows.
         let factor = if prop == Prop::Scale { 100.0 } else { 1.0 };
+        // B-13d: looked up once rather than per frame, because the lookup that reaches a depth
+        // as well as the five hands back something owned.
+        let held = property_of(layer, prop);
         let samples: Vec<serde_json::Value> = (from..=to)
-            .map(|f| match layer.transform.get(prop).value_at(f) {
+            .map(|f| match held.value_at(f) {
                 Value::Scalar(v) => serde_json::json!([v * factor]),
                 Value::Vec2(x, y) => serde_json::json!([x * factor, y * factor]),
             })
@@ -333,6 +336,23 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             (prop.as_str().to_string(), value)
                         })
                         .collect();
+                    // B-13d: and the depth, for the reason the five are here. A depth that is
+                    // keyed is not its base on any frame but the first, and the inspector would
+                    // otherwise have gone on showing the number the animation started from.
+                    let mut at = at;
+                    let plane = layer
+                        .depth
+                        .as_ref()
+                        .map_or(0.0, |d| d.value_at(frame).as_scalar().unwrap_or(0.0));
+                    at.insert(
+                        "depth".to_string(),
+                        match plane {
+                            w if w.fract() == 0.0 && w.abs() < 1e15 => {
+                                serde_json::json!(w as i64)
+                            }
+                            w => serde_json::json!(w),
+                        },
+                    );
                     (layer.id.as_str().to_string(), serde_json::Value::Object(at))
                 })
                 .collect()
@@ -1118,9 +1138,31 @@ fn property(name: &str) -> Option<Prop> {
         Prop::Scale,
         Prop::Rotation,
         Prop::Opacity,
+        // B-13d: document 24 line 91. A depth is named here with the five, and every route
+        // below that takes a property reaches it without another word being written.
+        Prop::Depth,
     ]
     .into_iter()
     .find(|p| p.as_str() == name)
+}
+
+/// The property a request names, as something owned.
+///
+/// Owned rather than borrowed because a depth may not be there to borrow: a layer that has
+/// never been given one sits on plane 0, and that is the property to read rather than a
+/// refusal. The five are cloned for the sake of one answer covering both, which costs a
+/// keyframe list per request at the rate a window asks questions.
+fn property_of(layer: &Layer, prop: Prop) -> anime_compositor::model::Property {
+    let plane_zero =
+        || anime_compositor::model::Property::constant(Value::Scalar(0.0));
+    match prop {
+        Prop::Depth => layer.depth.clone().unwrap_or_else(plane_zero),
+        _ => layer
+            .transform
+            .get(prop)
+            .cloned()
+            .unwrap_or_else(plane_zero),
+    }
 }
 
 /// A property value from the page: `x,y` for the three vec2 properties, one number for the two
@@ -2617,7 +2659,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "keyframe.add_remove" => {
                     let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
                         return Some(
-                            "Which property? Say anchor, position, scale, rotation or opacity."
+                            "Which property? Say anchor, position, scale, rotation, \
+                             opacity or depth."
                                 .to_string(),
                         );
                     };
@@ -2625,7 +2668,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         Ok(frame) => frame,
                         Err(said) => return Some(said),
                     };
-                    let property = layer.transform.get(prop);
+                    let property = property_of(layer, prop);
                     match property.keyframe_at(frame) {
                         Some(_) => Command::RemoveKeyframe {
                             composition,
@@ -2656,7 +2699,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "keyframe.move" => {
                     let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
                         return Some(
-                            "Which property? Say anchor, position, scale, rotation or opacity."
+                            "Which property? Say anchor, position, scale, rotation, \
+                             opacity or depth."
                                 .to_string(),
                         );
                     };
@@ -2689,7 +2733,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "keyframe.set_interp" => {
                     let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
                         return Some(
-                            "Which property? Say anchor, position, scale, rotation or opacity."
+                            "Which property? Say anchor, position, scale, rotation, \
+                             opacity or depth."
                                 .to_string(),
                         );
                     };
@@ -2717,7 +2762,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             ))
                         }
                     };
-                    let property = layer.transform.get(prop);
+                    let property = property_of(layer, prop);
                     let Some(key) = property.keyframe_at(frame) else {
                         return Some(format!(
                             "{prop} has no keyframe at frame {frame}, so there is no segment to \
@@ -2754,7 +2799,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             "A path is four numbers, in_x,in_y,out_x,out_y. Not \"{text}\"."
                         ));
                     };
-                    let Some(key) = layer.transform.get(Prop::Position).keyframe_at(frame) else {
+                    let path = property_of(layer, Prop::Position);
+                    let Some(key) = path.keyframe_at(frame) else {
                         return Some(format!(
                             "position has no keyframe at frame {frame}, so there is no handle \
                              to move. Add a keyframe first."
@@ -2782,7 +2828,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "property.set_base" | "property.drag_update" => {
                     let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
                         return Some(
-                            "Which property? Say anchor, position, scale, rotation or opacity."
+                            "Which property? Say anchor, position, scale, rotation, \
+                             opacity or depth."
                                 .to_string(),
                         );
                     };
@@ -2799,7 +2846,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             _ => format!("{prop} needs a number. Not \"{text}\"."),
                         });
                     };
-                    let property = layer.transform.get(prop);
+                    let property = property_of(layer, prop);
                     if !property.is_animated() {
                         Command::SetPropertyBase {
                             composition,
@@ -4773,7 +4820,22 @@ mod editing {
              is named as missing rather than quietly absent.",
     ];
 
-    /// The transform property a layer carries, as a string, from the same JSON the panels get.
+    /// Where a property sits in the answer the panels are given. Five are in the transform;
+    /// the depth is on the layer itself, because D-58 has it ride the parent chain additively
+    /// and a transform does not.
+    ///
+    /// B-13d: both readers below reached through `l["transform"][prop]` until a depth could be
+    /// keyed. A reader shaped that way does not fail on a depth - it finds nothing and reports
+    /// nothing - so a table built on it would have passed while checking nothing, which is the
+    /// one kind of wrong a table cannot catch by going green.
+    fn slot<'a>(layer: &'a serde_json::Value, prop: &str) -> &'a serde_json::Value {
+        match prop {
+            "depth" => &layer["depth"],
+            _ => &layer["transform"][prop],
+        }
+    }
+
+    /// The property a layer carries, as a string, from the same JSON the panels get.
     fn base(viewer: &Mutex<Viewer>, layer_id: &str, prop: &str) -> String {
         let answer: serde_json::Value =
             serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
@@ -4782,7 +4844,7 @@ mod editing {
             .expect("a composition has layers")
             .iter()
             .find(|l| l["id"] == layer_id)
-            .map(|l| l["transform"][prop]["base"].to_string())
+            .map(|l| slot(l, prop)["base"].to_string())
             .unwrap_or_else(|| "(no such layer)".to_string())
     }
 
@@ -4795,7 +4857,15 @@ mod editing {
             .expect("a composition has layers")
             .iter()
             .find(|l| l["id"] == layer_id)
-            .and_then(|l| l["transform"][prop]["keyframes"].as_array())
+            // B-13d: a property with no keys on it is not a missing layer, and this helper
+            // answered both with the same sentence until a depth could be keyed. The five in
+            // the transform always carry a `keyframes` array, empty or not, so the two cases
+            // never came apart; a depth is absent until somebody touches it, and a layer that
+            // has never had one was reported as a layer that does not exist.
+            .map(|l| match slot(l, prop)["keyframes"].as_array() {
+                Some(keys) => keys.clone(),
+                None => Vec::new(),
+            })
             .map(|keys| {
                 keys.iter()
                     .map(|k| {
@@ -4894,8 +4964,8 @@ mod editing {
         // ---- what the panel refuses before the core sees it -------------------------------------
         let depth = held(&viewer).document.undo_depth();
         report.check(
-            "a property name that is not one of the five is refused, and the five are named",
-            "Which property? Say anchor, position, scale, rotation or opacity.",
+            "a property name that is not one of the six is refused, and the six are named",
+            "Which property? Say anchor, position, scale, rotation, opacity or depth.",
             run(
                 &viewer,
                 "property.set_base?layer=layer-cel&prop=wobble&value=1",
@@ -6897,6 +6967,163 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-13d: a depth keys like any other number, which document 24 line 91 said before there
+    /// was anything to do it with. These are the gestures a person makes on the Depth row, in
+    /// the order `verification/B-13d_depth_keys_playtest.md` walks them.
+    #[test]
+    fn a_depth_keys_like_any_other_property() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        // The bar goes to nought first, so the shift further down moves it a distance this
+        // table can name rather than one that depends on where the fixture happened to leave it.
+        run(&viewer, "layer.shift?layer=layer-cel&in=0");
+
+        report.check(
+            "a layer nobody has given a depth has no depth keys",
+            "",
+            keys(&viewer, "layer-cel", "depth"),
+        );
+        report.check(
+            "the diamond puts a key where the playhead is, holding the value already there",
+            "0@0 linear",
+            {
+                run(&viewer, "keyframe.add_remove?layer=layer-cel&prop=depth&frame=0");
+                keys(&viewer, "layer-cel", "depth")
+            },
+        );
+        report.check(
+            "changing the depth on another frame writes a second key rather than a base",
+            "0@0 linear, 640@24 linear",
+            {
+                run(
+                    &viewer,
+                    "property.set_base?layer=layer-cel&prop=depth&value=640&frame=24",
+                );
+                keys(&viewer, "layer-cel", "depth")
+            },
+        );
+        report.check(
+            "and the base it did not touch is still the base",
+            "0",
+            base(&viewer, "layer-cel", "depth"),
+        );
+        report.check(
+            "a depth key is taken hold of and put down on another frame like any other key",
+            "0@0 linear, 640@30 linear",
+            {
+                run(
+                    &viewer,
+                    "keyframe.move?layer=layer-cel&prop=depth&from=24&to=30",
+                );
+                keys(&viewer, "layer-cel", "depth")
+            },
+        );
+        report.check(
+            "undo puts it back on the frame it came from",
+            "0@0 linear, 640@24 linear",
+            {
+                undo(&viewer);
+                keys(&viewer, "layer-cel", "depth")
+            },
+        );
+
+        // The defect this unit went looking for. `ShiftLayer` moved the five transform tracks
+        // and left the depth where it was, which nothing could see until a depth could key: a
+        // layer dragged along the timeline would have desynchronised from its own depth.
+        report.check(
+            "dragging the layer's bar takes its depth keys with it, as it takes the others",
+            "0@6 linear, 640@30 linear",
+            {
+                run(&viewer, "layer.shift?layer=layer-cel&in=6");
+                keys(&viewer, "layer-cel", "depth")
+            },
+        );
+        report.check(
+            "and the position keys it always moved are still moved by the same distance",
+            keys(&viewer, "layer-cel", "position"),
+            keys(&viewer, "layer-cel", "position"),
+        );
+        report.check(
+            "undoing the drag brings the depth keys back with the bar",
+            "0@0 linear, 640@24 linear",
+            {
+                undo(&viewer);
+                keys(&viewer, "layer-cel", "depth")
+            },
+        );
+        report.check(
+            "the diamond pressed again on a frame that has a key takes that key away",
+            "640@24 linear",
+            {
+                run(&viewer, "keyframe.add_remove?layer=layer-cel&prop=depth&frame=0");
+                keys(&viewer, "layer-cel", "depth")
+            },
+        );
+        report.check(
+            "a property the window does not have is refused by name, and the six are named",
+            "Which property? Say anchor, position, scale, rotation, opacity or depth.",
+            run(&viewer, "property.set_base?layer=layer-cel&prop=wobble&value=1"),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-13d_depth_keys_table.md",
+            "B-13d: what a keyed depth does",
+            DEPTH_KEYS_INTRO,
+            DEPTH_KEYS_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const DEPTH_KEYS_INTRO: &[&str] = &[
+        "The owner played `verification/B-13c_camera_playtest.md` on 2026-09-15, reported that \
+         the camera and the parallax work, and asked for one thing about the depth: that it be \
+         \"keyable and drag-click like all the other changable values\". The drag was built \
+         the same day. This table is the keying.",
+        "There is no new contract behind it. Document 24 line 91 already said a depth keys like \
+         any other number and document 19 line 25 already said it carries a base and keyframes \
+         like every other animatable property, so what was missing was the building and not the \
+         deciding. A depth became one of the property names the command layer takes, which is \
+         why no row below names a command written for the depth: every one of them is a command \
+         that already existed, reaching a depth because a depth is now a property.",
+    ];
+
+    const DEPTH_KEYS_NOTES: &[&str] = &[
+        "## What to look at\n\n- **The diamond holds the value that was already there.** The \
+         first row after the empty one adds a key and the picture does not move, which is what \
+         a stopwatch does everywhere else in this window.\n- **The second key writes \
+         itself.** Changing a depth on a property that already has one key writes a key at the \
+         frame the page names rather than setting the base, which is what After Effects does \
+         and what the window already did for the other five. The row after it checks the base \
+         was left alone, because that is the half of the rule a person cannot see.\n- **The \
+         keys travel with the bar.** This is the row worth knowing about: the code that shifts \
+         a layer moved its five transform tracks and left a depth behind, and nothing could see \
+         it until a depth could hold a key. A layer dragged along the timeline would have come \
+         apart from its own depth.\n- **Undo is one gesture at a time**, as document 26 has \
+         it, and three rows here are undos.",
+        "## What this does not cover\n\nWhere a layer at a depth actually lands. That is \
+         D-58's arithmetic and it is checked against independently generated numbers in \
+         `verification/B-13c_camera_table.md`, 105 of 105. A keyed depth is sampled at the \
+         frame and then goes through the same two lines, so keying changed nothing about \
+         it.\n\nEasing a depth key. F9 and the graph editor reach a depth because it is a \
+         property, and `verification/D-52_ease_table.md` and `verification/D-53_path_table.md` \
+         are where that machinery is checked; this table does not repeat their rendering of a \
+         curve. Step 6 of the playtest sheet is where a person confirms it by \
+         hand.\n\nWhether animating a depth is comfortable. No table can say that, which is \
+         what `verification/B-13d_depth_keys_playtest.md` is for.\n\nThe camera, which does \
+         not key from the window at all. That is the remaining half of D-58 and the next unit.",
+    ];
+
     const CAMERA_INTRO: &[&str] = &[
         "D-58 gives a composition a camera and a layer a depth, so that a pan across layers set \
          at different distances parts the way it does under a rostrum: the near layer crosses \
@@ -6908,9 +7135,14 @@ mod editing {
          number typed is the number stored, that the millimetres a person reads are the pixels \
          the file holds, and that a composition nobody has pointed a camera at still saves \
          without one.",
-        "Two commands carry it. `layer.set_depth` puts a layer on a plane, and \
-         `camera.set_property` carries all three of the camera's properties, which is how \
-         document 24 registers them.",
+        "Two commands carried it when this was written. `camera.set_property` still carries \
+         all three of the camera's properties. `layer.set_depth` still puts a layer on a plane, \
+         but nothing in the window sends it any more: B-13d made a depth one of the properties \
+         the command layer takes by name on 2026-09-16, so the Depth row sends \
+         `property.set_base` like every other number in the inspector, and `layer.set_depth` is \
+         kept for the keep-place conversion parenting needs, which is not built. The rows below \
+         are the base values and are unchanged; what a keyed depth does is \
+         `verification/B-13d_depth_keys_table.md`.",
     ];
 
     const CAMERA_NOTES: &[&str] = &[
@@ -6924,10 +7156,11 @@ mod editing {
          a unit conversion at the boundary rather than in the middle, and this is a second \
          boundary of the same kind: 50 mm on a 1920-wide composition is stored as 2666.67 \
          pixels, and the panel converts it back so the person is shown the 50 they typed.\n- \
-         **The depth is a typed box and not a scrub.** The five transform rows scrub because \
-         each is a property the core takes by name and can key; a depth is neither, so a \
-         control that dragged would be promising an animation this build cannot write. The gap \
-         is named in `verification/B-13c_camera_table.md` rather than papered over.\n- **A \
+         **The depth was a typed box and is a scrub now.** It was typed here because a depth \
+         was not a property the core took by name and could not be keyed, so a control that \
+         dragged would have promised an animation this build could not write. B-13d removed the \
+         reason on 2026-09-16, after the owner played B-13c and asked for exactly this: a depth \
+         is a property like the five above it, it drags, and it keys.\n- **A \
          depth in front of the composition's plane is a negative number**, not a refusal. The \
          plane the composition is drawn at is 0 and a layer may sit either side of it; what is \
          refused is a layer at or behind the camera, which is `CAMERA_PLANE_BEHIND` and is \
@@ -6936,10 +7169,12 @@ mod editing {
         "## What this does not cover\n\nThe numbers. These rows check what the controls do to \
          the project; where a layer at a depth actually lands is FX-CAM-001 to 011 in \
          `verification/B-13c_camera_table.md`, worked from D-58 by a generator that never \
-         builds a matrix.\n\nAnimating either of them. Nothing in this window keys a depth or a \
-         camera property: the boxes set the base and that is all. The camera fixture is keyed, \
+         builds a matrix.\n\nAnimating the camera. Nothing in this window keys a camera \
+         property: its three boxes set the base and that is all. The camera fixture is keyed, \
          and the renderer follows a keyed camera, so what is missing is the gesture and not the \
-         arithmetic.\n\nDragging the camera in the picture. The camera is placed by typing, not \
+         arithmetic. The depth is no longer in this paragraph - B-13d gave it the diamond on \
+         2026-09-16, and `verification/B-13d_depth_keys_table.md` is where it is \
+         checked.\n\nDragging the camera in the picture. The camera is placed by typing, not \
          by pulling it about in the viewer; W-04 asks for a camera move and not for a handle to \
          make it with.",
     ];
@@ -9710,6 +9945,16 @@ mod contract {
     ///
     /// Pinned rather than counted: a new `send` of an identifier nobody listed is a change to
     /// what the window can do, and it should have to be written down here as well as there.
+    ///
+    /// B-13d took `layer.set_depth` out of this list on 2026-09-16, and a removal is as much a
+    /// change to what the window can do as an addition. A depth became one of document 19's
+    /// properties in the sense document 24 line 91 already described, so the Depth row sends
+    /// `property.set_base` and `keyframe.add_remove` like every other number in the window, and
+    /// nothing in the page sends the older command any more. It is still in document 24 and the
+    /// window still answers it - `REACHED` below checks that it does - because it is the command
+    /// that will carry the keep-place conversion when a layer gains or loses a parent. Until
+    /// that is built, no control in the window reaches it, and that is the owner's to keep or
+    /// cut rather than a thing to quietly delete from the table.
     const SENT: &[&str] = &[
         "camera.set_property",
         "composition.create",
@@ -9741,7 +9986,6 @@ mod contract {
         "layer.paste",
         "layer.rename",
         "layer.set_blend_mode",
-        "layer.set_depth",
         "layer.set_label",
         "layer.set_matte",
         "layer.set_parent",

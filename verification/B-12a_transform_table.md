@@ -30,7 +30,7 @@ Moving a key along the bar is `keyframe.move`, built by W-11 on 2026-09-12: one 
 | and the panels are given the new value back | [120,-40] | [120,-40] | pass |
 | a scalar property takes one number | 45 | 45 | pass |
 | opacity above one is clamped rather than refused | 1 | 1 | pass |
-| a property name that is not one of the five is refused, and the five are named | Which property? Say anchor, position, scale, rotation or opacity. | Which property? Say anchor, position, scale, rotation or opacity. | pass |
+| a property name that is not one of the six is refused, and the six are named | Which property? Say anchor, position, scale, rotation, opacity or depth. | Which property? Say anchor, position, scale, rotation, opacity or depth. | pass |
 | no value at all is refused, and asks | What should scale be set to? | What should scale be set to? | pass |
 | text that is not numbers is refused in the shape the property wants | position needs two numbers, like 12, -4. Not "over there". | position needs two numbers, like 12, -4. Not "over there". | pass |
 | one number for a two-number property is refused the same way | position needs two numbers, like 12, -4. Not "7". | position needs two numbers, like 12, -4. Not "7". | pass |

@@ -197,7 +197,11 @@ fn keyed(prop: Prop, keys: &[(i32, Value, Interp, Option<[f64; 4]>)]) -> Propert
         .unwrap()
         .layer(&id("l"))
         .unwrap();
-    layer.transform.get(prop).clone()
+    layer
+        .transform
+        .get(prop)
+        .expect("d53 asks only about position")
+        .clone()
 }
 
 /// A case's two position keys, with the mode of the segment on the first.

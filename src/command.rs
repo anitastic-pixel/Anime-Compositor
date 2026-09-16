@@ -1327,7 +1327,16 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 Prop::Rotation,
                 Prop::Opacity,
             ] {
-                layer.transform.get_mut(prop).shift_keyframes(by);
+                if let Some(property) = layer.transform.get_mut(prop) {
+                    property.shift_keyframes(by);
+                }
+            }
+            // B-13d: and the depth, which is keyed like the five and so travels like the five.
+            // Without this a layer dragged along the timeline kept its depth animation where it
+            // was and came apart from itself, which the five have been protected from since the
+            // owner's decision of 2026-09-13.
+            if let Some(depth) = &mut layer.depth {
+                depth.shift_keyframes(by);
             }
         }
         Command::TrimLayer {
@@ -1360,10 +1369,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             ..
         } => {
             let value = check_value(*prop, *value)?;
-            layer_mut(project, &comp_id, layer_id)?
-                .transform
-                .get_mut(*prop)
-                .set_base(value);
+            property_mut(project, &comp_id, layer_id, *prop)?.set_base(value);
         }
         Command::SetKeyframe {
             layer_id,
@@ -1387,10 +1393,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "Document 19: spatial is four offsets in composition pixels.",
                 ));
             }
-            layer_mut(project, &comp_id, layer_id)?
-                .transform
-                .get_mut(*prop)
-                .set_keyframe(Keyframe {
+            property_mut(project, &comp_id, layer_id, *prop)?.set_keyframe(Keyframe {
                     frame: *frame,
                     value,
                     interp: *interp,
@@ -1403,10 +1406,8 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             frame,
             ..
         } => {
-            let removed = layer_mut(project, &comp_id, layer_id)?
-                .transform
-                .get_mut(*prop)
-                .remove_keyframe(*frame);
+            let removed =
+                property_mut(project, &comp_id, layer_id, *prop)?.remove_keyframe(*frame);
             if removed.is_none() {
                 return Err(missing(
                     format!("There is no {prop} keyframe at frame {frame} to remove."),
@@ -1427,9 +1428,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "A move from a frame to itself is not an edit and must not enter history.",
                 ));
             }
-            let property = layer_mut(project, &comp_id, layer_id)?
-                .transform
-                .get_mut(*prop);
+            let property = property_mut(project, &comp_id, layer_id, *prop)?;
             // Refused rather than overwritten. Document 19 calls two keyframes at one frame
             // invalid, so a move onto an occupied frame has to lose one of them, and losing a key
             // the artist can no longer see the mark of is a worse answer than not moving.
@@ -1792,6 +1791,32 @@ fn layer_mut<'a>(
 /// Document 20: "Opacity is clamped to 0..1 at command validation. Scale may be negative to
 /// permit mirroring." Clamped, not rejected: an artist dragging opacity past the end of its
 /// slider means the end of the slider.
+/// The property a command names on a layer: one of document 19's five, or D-58's depth.
+///
+/// A depth that was never set is created here holding 0, which is the plane the layer was
+/// already being drawn on. So pressing the diamond on a depth that has no value yet changes
+/// nothing in the picture and only begins to hold it, which is what W-10 says a first keyframe
+/// does, and the file gains a depth only because somebody touched one.
+fn property_mut<'a>(
+    project: &'a mut Project,
+    comp_id: &Id,
+    layer_id: &Id,
+    prop: Prop,
+) -> Result<&'a mut crate::model::Property, Diagnostic> {
+    let layer = layer_mut(project, comp_id, layer_id)?;
+    match prop {
+        Prop::Depth => Ok(layer
+            .depth
+            .get_or_insert_with(|| crate::model::Property::constant(Value::Scalar(0.0)))),
+        _ => layer.transform.get_mut(prop).ok_or_else(|| {
+            reject(
+                &format!("{prop} is not a property this layer holds."),
+                "Document 19: a transform holds anchor, position, scale, rotation and opacity.",
+            )
+        }),
+    }
+}
+
 fn check_value(prop: Prop, value: Value) -> Result<Value, Diagnostic> {
     if value.kind() != prop.kind() {
         return Err(reject(

@@ -1087,7 +1087,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         let at = format!("{transform_at}/{prop}");
         // D-22: the file stores scale as a percentage and the model as a factor.
         let factor = if prop == Prop::Scale { 100.0 } else { 1.0 };
-        *transform.get_mut(prop) = parse_property(
+        // The loop names document 19's five, so this answers for every one of them. The
+        // `else` is for a `Prop` a transform does not hold, which is B-13d's depth, and that
+        // is read from the layer's own `depth` field further down.
+        let Some(slot) = transform.get_mut(prop) else {
+            continue;
+        };
+        *slot = parse_property(
             field(transform_json, &transform_at, prop.as_str())?,
             &at,
             prop.kind(),

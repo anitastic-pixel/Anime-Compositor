@@ -71,10 +71,33 @@ dragging one to the top of the layer list will not bring it in front of the othe
 depth means and every program that has it works that way, but it is worth knowing before it
 happens rather than after.
 
-The largest gap, which the sheet repeats: **nothing in the window keys a depth or a camera
-yet.** The boxes set a value and that is all, so a camera move cannot be animated from the
-window even though the renderer follows a keyed camera. That is the obvious thing to ask for
-next, and the playtest is the right place to decide how much it matters.
+The largest gap when this was written was that nothing in the window keyed a depth or a camera.
+**The owner played this on 2026-09-15 and asked for the depth half of it**, which B-13d built on
+2026-09-16; it is number 5 below. The camera half is still open: a camera move cannot be
+animated from the window even though the renderer follows a keyed camera.
+
+## 5. A depth that keys, which is what the last playtest asked for
+
+`verification/B-13d_depth_keys_playtest.md`, nine steps by hand.
+
+This one exists because of the playtest above. The owner walked W-04 on 2026-09-15, reported
+that the camera and the parallax work, and asked for two things: that the values update while
+they change rather than after, and that the depth be "keyable and drag-click like all the other
+changable values". Both are built. The Depth row is a blue number that drags, and it keys.
+
+**The one to watch for**: step 4, where a second key writes itself. Once a depth has one key,
+changing its value at another frame writes a key there without the diamond being pressed again.
+That is what After Effects does, and whether it is a pleasant surprise or an unwanted one is a
+question only a person at the window can answer.
+
+**The other one to watch for**: step 7, dragging the layer's bar along the timeline with depth
+keys on it. The keys must travel with the bar. They did not until this build - the code that
+moved a layer moved its five transform tracks and left the depth behind - and a fix nobody
+checks is a fix nobody knows about.
+
+What is still not built, and is named on the sheet: the camera does not key from the window.
+The owner chose the shape for it - key it where it is, the camera staying a property of the
+composition with its own row group at the top of the timeline - and that is the next unit.
 
 ## Not on this list
 

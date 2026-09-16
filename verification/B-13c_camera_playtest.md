@@ -88,6 +88,12 @@ follows a keyed camera - `Fixtures/projects/camera_project.json` has one and the
 walks it - so what is missing is the gesture, not the arithmetic. This is the largest gap in
 the entry and it is the obvious thing to ask for next.
 
+**Half of that was answered on 2026-09-16.** The owner performed this sheet on 2026-09-15 and
+asked for it, so B-13d made a depth key: the Depth row is a blue number that drags and keys like
+every other value in the window, and it has its own track on the timeline. Steps 1 to 9 above are
+unchanged and still worth walking - none of them was about keying - but the paragraph above is
+now only true of the camera. The depth half is `verification/B-13d_depth_keys_playtest.md`.
+
 **The camera is placed by typing, not by dragging it in the picture.** W-04 asks for a camera
 move and not for a handle to make it with.
 

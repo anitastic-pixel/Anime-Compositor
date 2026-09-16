@@ -352,6 +352,13 @@ pub enum Prop {
     Scale,
     Rotation,
     Opacity,
+    /// D-58's depth, which lives on the layer rather than in its transform.
+    ///
+    /// Named here with the five because every command that addresses a property addresses it
+    /// by a `Prop`, and document 24 line 91 requires that a depth key the way a position does.
+    /// [`Transform::get`] answers `None` for it, which is the one place the difference between
+    /// a transform property and a layer's own property is visible.
+    Depth,
 }
 
 impl Prop {
@@ -362,6 +369,7 @@ impl Prop {
             Prop::Scale => "scale",
             Prop::Rotation => "rotation",
             Prop::Opacity => "opacity",
+            Prop::Depth => "depth",
         }
     }
 
@@ -369,7 +377,7 @@ impl Prop {
     pub fn kind(self) -> &'static str {
         match self {
             Prop::Anchor | Prop::Position | Prop::Scale => "vec2",
-            Prop::Rotation | Prop::Opacity => "scalar",
+            Prop::Rotation | Prop::Opacity | Prop::Depth => "scalar",
         }
     }
 }
@@ -406,23 +414,31 @@ impl Default for Transform {
 }
 
 impl Transform {
-    pub fn get(&self, prop: Prop) -> &Property {
+    /// The property, or `None` for a `Prop` a transform does not hold.
+    ///
+    /// `Prop::Depth` is the only one. D-58 put a layer's depth on the layer, beside its parent,
+    /// because it rides the parent chain additively and a transform does not. An `Option` and
+    /// not a panic, because the caller that can be handed a depth is a request from the window,
+    /// and a window must not be able to stop the program by naming a property.
+    pub fn get(&self, prop: Prop) -> Option<&Property> {
         match prop {
-            Prop::Anchor => &self.anchor,
-            Prop::Position => &self.position,
-            Prop::Scale => &self.scale,
-            Prop::Rotation => &self.rotation,
-            Prop::Opacity => &self.opacity,
+            Prop::Anchor => Some(&self.anchor),
+            Prop::Position => Some(&self.position),
+            Prop::Scale => Some(&self.scale),
+            Prop::Rotation => Some(&self.rotation),
+            Prop::Opacity => Some(&self.opacity),
+            Prop::Depth => None,
         }
     }
 
-    pub(crate) fn get_mut(&mut self, prop: Prop) -> &mut Property {
+    pub(crate) fn get_mut(&mut self, prop: Prop) -> Option<&mut Property> {
         match prop {
-            Prop::Anchor => &mut self.anchor,
-            Prop::Position => &mut self.position,
-            Prop::Scale => &mut self.scale,
-            Prop::Rotation => &mut self.rotation,
-            Prop::Opacity => &mut self.opacity,
+            Prop::Anchor => Some(&mut self.anchor),
+            Prop::Position => Some(&mut self.position),
+            Prop::Scale => Some(&mut self.scale),
+            Prop::Rotation => Some(&mut self.rotation),
+            Prop::Opacity => Some(&mut self.opacity),
+            Prop::Depth => None,
         }
     }
 
