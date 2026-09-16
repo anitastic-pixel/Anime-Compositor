@@ -9633,6 +9633,11 @@ mod contract {
         ("layer.toggle_lock", "a command the window answers"),
         ("layer.set_matte", "a command the window answers"),
         ("layer.set_parent", "a command the window answers"),
+        // D-58 is written and awaiting the owner, so document 24 names these two and nothing
+        // carries them out. The row saying so is the point: an identifier a document promises
+        // and no build reaches looks exactly like one nobody has noticed is missing.
+        ("layer.set_depth", "nothing yet"),
+        ("camera.set_property", "nothing yet"),
         ("layer.shift", "a command the window answers"),
         ("layer.trim", "a command the window answers"),
         ("layer.move", "a command the window answers"),

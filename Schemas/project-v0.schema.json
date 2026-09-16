@@ -334,6 +334,9 @@
             }
           ]
         },
+        "depth": {
+          "type": "number"
+        },
         "parent": {
           "anyOf": [
             {
@@ -432,6 +435,26 @@
             "start_frame",
             "end_frame_exclusive"
           ],
+          "additionalProperties": false
+        },
+        "camera": {
+          "type": "object",
+          "required": [
+            "position",
+            "depth",
+            "zoom"
+          ],
+          "properties": {
+            "position": {
+              "$ref": "#/$defs/propertyVec2"
+            },
+            "depth": {
+              "$ref": "#/$defs/propertyScalar"
+            },
+            "zoom": {
+              "$ref": "#/$defs/propertyScalar"
+            }
+          },
           "additionalProperties": false
         },
         "layer_order": {

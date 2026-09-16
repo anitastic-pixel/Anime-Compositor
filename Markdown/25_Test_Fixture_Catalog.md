@@ -185,6 +185,155 @@ FX-PARENT-007: the file. `Fixtures/projects/parenting_project.json` holds FX-PAR
 
 FX-PARENT-008: deleting a parent. From FX-PARENT-005's result, deleting P leaves C with no parent and with its FX-PARENT-005 starting values, anchor (10, 20), position (500, 400), scale (100, 100), rotation 30, to within 1e-9, as one entry to undo. Undo restores P, and C's parent and values from FX-PARENT-005's table.
 
+## Camera and depth fixtures
+
+Proposed on 2026-09-15 by D-58, awaiting the owner. Every case is a composition 1920 by 1080, so
+the centre of the frame is (960, 540) and the camera a file says nothing about is position
+(960, 540), depth -1920, zoom 1920. Layer transforms are document 21's, with no keys unless the
+case says otherwise, and no depth unless the case gives one.
+
+**Every number below is produced by `tools/camera_reference.py`**, which reuses
+`tools/parent_reference.py` to walk a point through document 21's four steps one at a time, and
+then does D-58's two lines by hand - the scale `zoom / (world depth - camera depth)`, and the
+point measured from the camera and scaled about the centre of the frame. It never builds a
+matrix; the build folds the projection into the layer's transform and multiplies matrices.
+Tolerance 1e-9.
+
+FX-CAM-001: the camera nobody has touched changes nothing. One layer, anchor (50, 50), position
+(400, 300), scale (150, 150), rotation 30, no depth, seen by the default camera.
+
+| layer point | comp x | comp y | screen x | screen y |
+| --- | --- | --- | --- | --- |
+| (0, 0) | 372.5480947161671 | 197.5480947161671 | 372.54809471616704 | 197.5480947161671 |
+| (10, 0) | 385.5384757729337 | 205.0480947161671 | 385.5384757729337 | 205.0480947161671 |
+| (0, 10) | 365.0480947161671 | 210.53847577293368 | 365.04809471616704 | 210.53847577293368 |
+
+**Look at the first row before reading on.** The two halves agree to 1e-13 and not bit for bit,
+because carrying a point out to the camera and back is two roundings. That is why D-58 requires
+a build to leave out a projection that is the identity rather than to apply one: a build that
+applies it puts every transform fixture written before D-58 within a tolerance of its expected
+value instead of exactly on it. This case exists to catch that, and it was found by running the
+reference rather than by argument.
+
+FX-CAM-002: one plane, at four depths, seen by the default camera. The layer is at position
+(960, 540), which is the centre of the frame, so its origin cannot move and only its size
+answers.
+
+| depth | drawn at | origin x | origin y | (100,0) x | (100,0) y |
+| --- | --- | --- | --- | --- | --- |
+| -960 | 2 | 960 | 540 | 1160 | 540 |
+| 0 | 1 | 960 | 540 | 1060 | 540 |
+| 960 | 0.6666666666666666 | 960 | 540 | 1026.6666666666667 | 540 |
+| 1920 | 0.5 | 960 | 540 | 1010 | 540 |
+
+Depth 1920 is twice as far from the camera as depth 0 and is drawn half the size, which is the
+convention D-56 accepted. Depth -960 is half as far and is drawn at twice the size.
+
+FX-CAM-003: the sideways track, which is what the whole entry is for. Three planes at depths 0,
+640 and 1920, each at position (960, 540). The camera's position is keyed linearly from
+(760, 540) at frame 0 to (1160, 540) at frame 48; its depth and zoom are the defaults. Where
+each plane's origin lands:
+
+| frame | near x | middle x | far x |
+| --- | --- | --- | --- |
+| 0 | 1160 | 1110 | 1060 |
+| 16 | 1026.6666666666667 | 1010 | 993.3333333333334 |
+| 32 | 893.3333333333335 | 910 | 926.6666666666667 |
+| 48 | 760 | 810 | 860 |
+
+| plane | depth | pixels travelled |
+| --- | --- | --- |
+| near | 0 | 400 |
+| middle | 640 | 300 |
+| far | 1920 | 200 |
+
+The camera travelled 400 pixels. The near plane travelled all 400 of them, the middle plane 300
+and the far plane 200. A build that moves all three the same distance has a camera that pans
+rather than a camera that is somewhere, and fails here rather than in the owner's eye.
+
+FX-CAM-004: a zoom and a dolly are different moves, which is why the camera has both numbers.
+Two planes, at depths 0 and 1920, both at position (960, 540); the point measured is (100, 0).
+One camera keys `zoom` from 1920 to 2880 over 48 frames; the other keys the camera's own `depth`
+from -1920 to -960, which is the same camera moving 960 pixels closer.
+
+| move | frame | near x | far x | near over far |
+| --- | --- | --- | --- | --- |
+| zoom to 2880 | 0 | 1060 | 1010 | 2 |
+| zoom to 2880 | 48 | 1110 | 1035 | 2 |
+| dolly in 960 | 0 | 1060 | 1010 | 2 |
+| dolly in 960 | 48 | 1160 | 1026.6666666666667 | 3 |
+
+The last column is how far the near plane's point sits from the centre divided by how far the
+far plane's does. **A zoom leaves it at 2**: both planes grow together and the parallax between
+them is unchanged. **A dolly moves it to 3**: the near plane grows faster than the far one, which
+is the difference a person sees and cannot get from a zoom. A build with one number for both
+cannot produce both pairs of rows.
+
+FX-CAM-005: what is drawn first. Four layers in composition order A, B, C, D, at depths 0, 1920,
+1920 and -960.
+
+| layer stack | depths | drawn first to last |
+| --- | --- | --- |
+| A, B, C, D | 0, 1920, 1920, -960 | B, C, A, D |
+
+Farthest first, so B and C are drawn before A, and D is drawn last and is nearest the viewer. B
+and C are at the same depth and keep the order the composition gives them. Note what this costs:
+D is last in the stack and ends up in front of everything, so **depth overrides the layer stack
+whenever two layers are at different depths.**
+
+FX-CAM-006: level with the camera, and behind it. The default camera, whose own depth is -1920.
+
+| depth | in front of the camera by | drawn at |
+| --- | --- | --- |
+| -2000 | -80 | not drawn |
+| -1920 | 0 | not drawn |
+| -1919 | 1 | 1920 |
+| -960 | 960 | 2 |
+
+The first two rows report `CAMERA_PLANE_BEHIND` and draw nothing, and neither changes the
+layer's record. The third is one pixel in front of the camera and is drawn at 1920 times its
+size, which is not an error and must not be clamped into one.
+
+FX-CAM-007: a layer rides on its parent's plane. FX-PARENT-001's two layers - P with anchor
+(50, 50), position (400, 300), rotation 90, and C at position (100, 0) parented to P - with P
+given depth 1920 and C given no depth at all.
+
+| layer | own depth | world depth | drawn at |
+| --- | --- | --- | --- |
+| P | 1920 | 1920 | 0.5 |
+| C | 0 | 1920 | 0.5 |
+
+| child point | comp x | comp y | screen x | screen y |
+| --- | --- | --- | --- | --- |
+| (0, 0) | 450 | 350 | 705 | 445 |
+| (10, 0) | 450 | 360 | 705 | 450 |
+| (0, 10) | 440 | 350 | 700 | 445 |
+
+The comp columns are FX-PARENT-001's numbers unchanged, which is the check that this entry adds
+a step to document 21 rather than editing one. C has no depth of its own and is on P's plane, so
+a mouth cel parented to a head plane is on the head's plane without anybody saying so twice. A
+build in which C stays at depth 0 draws it at full size in front of the head and fails here.
+
+FX-CAM-008: the file. `Fixtures/projects/camera_project.json` holds FX-CAM-003's three planes as
+`layer-near`, `layer-middle` and `layer-far`, with FX-CAM-003's keyed camera. Loading it and
+saving it again must reproduce it byte for byte. `layer-near` carries no `depth` field and must
+not gain one. Its `layer_order` is near, middle, far - deliberately not the order the planes are
+drawn in - so a build that draws by the stack fails. Each plane's origin matches FX-CAM-003 at
+frames 0 and 48, beside the `MEDIA_MISSING` its absent drawings already give.
+
+FX-CAM-009: a matte is a plane too. Layer A at depth 0 and its matte M at depth 1920, both at
+position (960, 540), seen by a camera at (760, 540) with the default depth and zoom.
+
+| layer | depth | origin x with the camera at 760 |
+| --- | --- | --- |
+| A | 0 | 1160 |
+| M | 1920 | 1060 |
+
+The matte is projected at its own depth before its alpha is sampled, so a matte on another plane
+slides against the layer it shapes by 100 pixels here, and by more as the camera moves further.
+This is correct and it looks like a defect, which is why it is written down: a matte is meant to
+share its layer's depth, and nothing in this contract forces it to.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

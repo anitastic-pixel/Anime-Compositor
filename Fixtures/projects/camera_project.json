@@ -1,0 +1,260 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-camera",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-cel",
+      "kind": "image_sequence",
+      "name": "Cel",
+      "pattern": "cel_####.png",
+      "frames": {
+        "1": "media/cel_0001.png",
+        "2": "media/cel_0002.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 1920,
+      "height": 1080,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 49,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 49
+      },
+      "camera": {
+        "position": {
+          "base": [
+            960,
+            540
+          ],
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": [
+                760,
+                540
+              ],
+              "interp": "linear"
+            },
+            {
+              "frame": 48,
+              "value": [
+                1160,
+                540
+              ],
+              "interp": "linear"
+            }
+          ]
+        },
+        "depth": {
+          "base": -1920,
+          "keyframes": []
+        },
+        "zoom": {
+          "base": 1920,
+          "keyframes": []
+        }
+      },
+      "layer_order": [
+        "layer-near",
+        "layer-middle",
+        "layer-far"
+      ],
+      "layers": [
+        {
+          "id": "layer-near",
+          "kind": "raster",
+          "name": "Near",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 2,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 49,
+              "drawing_number": 2
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-middle",
+          "kind": "raster",
+          "name": "Middle",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 2,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 49,
+              "drawing_number": 2
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "depth": 640
+        },
+        {
+          "id": "layer-far",
+          "kind": "raster",
+          "name": "Far",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 2,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 49,
+              "drawing_number": 2
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "depth": 1920
+        }
+      ]
+    }
+  ]
+}

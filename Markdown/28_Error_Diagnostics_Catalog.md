@@ -26,6 +26,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | MATTE_CYCLE | ERROR | Matte dependency cycle detected | reject command/load render graph |
 | PARENT_REFERENCE_MISSING | WARNING | Parent ID unresolved (D-57) | preserve reference; draw the layer as if it had no parent, with warning |
 | PARENT_CYCLE | ERROR | Parent chain loops back on itself (D-57) | reject command/load render graph, as MATTE_CYCLE |
+| CAMERA_PLANE_BEHIND | WARNING | Layer sits level with the camera or behind it (D-58) | preserve the record; draw nothing for the layer; report once per frame, rate-limited |
 | MASK_INVALID_OUTLINE | ERROR on a command, WARNING on a load | Mask outline crosses itself, or has fewer than three corners | reject the command; on load preserve the record exactly, draw the layer unmasked, and report fidelity incomplete |
 | EXPRESSION_CYCLE | ERROR | Expression dependency cycle | stop affected property evaluation |
 | EXPRESSION_TIMEOUT | ERROR | Bounded evaluator limit exceeded | terminate expression deterministically |

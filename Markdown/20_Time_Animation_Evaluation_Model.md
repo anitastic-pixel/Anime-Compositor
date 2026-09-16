@@ -96,6 +96,8 @@ Opacity is clamped to 0..1 at command validation. Scale may be negative to permi
 
 Parents, accepted by D-57, create dependencies in the same way: a parent's anchor, position, scale and rotation are evaluated at the same composition frame as its child's, whether or not that frame is inside the parent's in and out points, whether or not the parent is enabled, and whatever drawing its exposure holds. Nothing else of the parent is evaluated for the child.
 
+The camera, proposed by D-58, is evaluated the same way and at the same composition frame: its position, depth and zoom are read once for the frame being drawn, whatever drawing each layer's exposure holds at that frame. There is no shutter and no subframe camera sampling in G2, so a camera move and a cel on twos stay independent of one another.
+
 Mattes create dependencies but not a second time domain: matte layers evaluate at the same composition frame unless later time-remapping is explicitly introduced.
 
 ## Rounding and conversions

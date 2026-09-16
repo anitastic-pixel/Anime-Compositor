@@ -188,6 +188,11 @@ const NOT_BUILT: &[(&str, &str)] = &[
          a path that cannot be read is reported by the identifier for what failed to read it.",
     ),
     (
+        "CAMERA_PLANE_BEHIND",
+        "D-58, the camera and depth, is written and awaiting the owner; no layer has a depth \
+         and no composition has a camera, so nothing in this build can be behind one.",
+    ),
+    (
         "DEPENDENCY_LICENSE_UNRESOLVED",
         "A distribution-time check rather than a running one: tools/archive_licenses.py and \
          docs/DEPENDENCIES.md flag the unresolved entries and CI blocks on them.",
@@ -238,7 +243,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "23 identifiers",
+        "24 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

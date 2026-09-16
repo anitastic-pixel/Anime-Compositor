@@ -32,6 +32,8 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.toggle_lock | Toggle selected layer lock | Ctrl+L | yes |
 | layer.set_matte | Choose, change or clear the layer that shapes this one | none | yes |
 | layer.set_parent | Choose, change or clear the layer this one rides on | none | yes |
+| layer.set_depth | Set the plane a layer sits on, in pixels from its parent's plane | none | yes |
+| camera.set_property | Set or key the camera's place, depth or zoom | none | yes |
 | layer.shift | Move the selected layer along the timeline, keeping its length, its keyframes moving with it | [ or ] | yes |
 | layer.trim | Trim the selected layer's in or out point | Alt+[ or Alt+] | yes |
 | layer.move | Move a layer to a given place in the stack: where a drag up or down the list drops it, or the very front or back | Ctrl+Shift+] or Ctrl+Shift+[ | yes |
@@ -85,6 +87,8 @@ reason, because a layer being deleted lets its children go where they stand. No 
 parent is chosen from a list in the inspector, and this table already promises its free chords
 elsewhere. The owner may cut it, and cutting it leaves the transform chain in the core with no
 way to reach it from the window.
+
+`layer.set_depth` and `camera.set_property` were added on 2026-09-15 by B-13a, proposed with D-58 and not built. They are two commands rather than four because the camera's place, depth and zoom are ordinary properties in document 19's sense: once a command can name the camera as its target instead of a layer, every property command that already exists - set a base value, add a key, delete a key, set an ease, set a motion path - reaches the camera unchanged, and the camera's sideways track is keyed with the same tools as a layer's. `layer.set_depth` is separate because a layer's depth is a plain number and not a property, and because it is the one of the two that has to carry the keep-place conversion when a layer gains or loses a parent.
 
 `property.set_base` was added on 2026-09-07 by B-12a. W-01 requires the artist to adjust anchors and transforms, `SetPropertyBase` has existed in the command layer since B-05, and this table named no ID for reaching it, so an inspector had nothing stable to invoke. This is a correction of an omission, not a new capability; if the owner would rather it were named something else, the string is changed in one place.
 

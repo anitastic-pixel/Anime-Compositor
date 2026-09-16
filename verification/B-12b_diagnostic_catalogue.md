@@ -44,6 +44,7 @@ One row per identifier this build can print, and the table where a person can re
 | `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |
 | `GPU_OUT_OF_MEMORY` | There is no GPU path; every frame is composited on the processor. |
 | `INVALID_PATH` | Paths reach this build through Windows file dialogs and are read, not normalised; a path that cannot be read is reported by the identifier for what failed to read it. |
+| `CAMERA_PLANE_BEHIND` | D-58, the camera and depth, is written and awaiting the owner; no layer has a depth and no composition has a camera, so nothing in this build can be behind one. |
 | `DEPENDENCY_LICENSE_UNRESOLVED` | A distribution-time check rather than a running one: tools/archive_licenses.py and docs/DEPENDENCIES.md flag the unresolved entries and CI blocks on them. |
 
 ## What the build says that the catalogue does not list
@@ -64,7 +65,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 23 identifiers | 23 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 24 identifiers | 24 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |

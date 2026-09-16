@@ -47,12 +47,44 @@ For each raster layer, the G1 order is:
 1. Decode the selected source drawing into tagged linear premultiplied RGBA.
 2. Apply the layer polygon mask in layer/source space.
 3. Evaluate ordered layer effects in layer space.
-4. Transform the resulting image into composition space.
+4. Transform the resulting image into composition space, and project it to the screen through the composition camera (see Camera and depth below, proposed by D-58).
 5. Apply the referenced alpha matte in composition space.
 6. Multiply by animated layer opacity.
 7. Composite with the accumulated background using the layer blend mode.
 
 The matte layer is evaluated through its own source, mask, effects and transform at the same frame. When marked matte-only for a dependent layer, it contributes its alpha to that dependency but is not separately composited into the final stack unless another explicit layer instance also displays it.
+
+## Camera and depth
+
+Proposed by D-58 on 2026-09-15, awaiting the owner. Every layer sits on a plane parallel to the
+screen at a depth `d`, absent meaning 0, and a parented layer's depth adds to its parent's up the
+chain: `world_depth(L) = depth(L) + world_depth(parent(L))`.
+
+A composition is seen through a camera with a position, a depth of its own and a zoom, all three
+animatable and all three read at the frame being drawn. A composition whose file carries no
+camera has the default one: position at the centre of the frame, depth `-width`, zoom `width`.
+
+For a point already carried into composition space by the transform above:
+
+`s = zoom / (world_depth(L) - camera_depth)`
+
+`p_screen = centre + (p_comp - camera_position) * s`
+
+where `centre` is `(width/2, height/2)`. A plane at the camera's true-size distance has `s = 1`;
+one twice as far has `s = 1/2`. The map is a uniform scale about a point followed by a shift, so
+it composes with `M_world` into the one matrix step 4 samples through, and adds no second
+resampling. **A projection that is the identity must be left out rather than applied**, so that a
+composition with the default camera and no depths reproduces earlier results exactly rather than
+within a tolerance.
+
+`world_depth(L) - camera_depth` at or below zero means the layer is level with the camera or
+behind it: it is not drawn and `CAMERA_PLANE_BEHIND` is reported. A `zoom` at or below zero is
+invalid rather than clamped.
+
+Layers are drawn from far to near, and layers at equal depth keep composition order. Depth
+therefore overrides the layer stack wherever two layers differ in depth. A matte layer is
+projected at its own depth before its alpha is sampled, so a matte on another plane slides
+against the layer it shapes.
 
 ## Mask and matte math
 
@@ -108,7 +140,7 @@ Viewer checkerboard, alpha-only display, overlays, selection outlines and draft-
 
 ## Deferred rendering questions
 
-G2 camera projection, intersecting transparent planes, motion blur, depth of field, HDR display transforms and higher-order resampling are separate contracts. They must not be implied by this G1 specification.
+Intersecting transparent planes, motion blur, depth of field, HDR display transforms and higher-order resampling are separate contracts. They must not be implied by this G1 specification. G2 camera projection was one of them until D-58 proposed it on 2026-09-15; it is specified under Camera and depth above, and it deliberately specifies none of the rest - in particular a camera that tilts or turns, which would need a perspective transform rather than the affine one written there.
 
 Related documents: 08, 18, 20, 25 and 27.
 
