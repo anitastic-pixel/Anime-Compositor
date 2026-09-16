@@ -24,7 +24,7 @@ Accepted by D-57 on 2026-09-15: an optional `parent`, the ID of another layer in
 
 By D-58, accepted by the owner on 2026-09-15 and built by B-13c: an optional `depth`, a scalar property in pixels, absent meaning 0, giving the plane the layer sits on (document 21). It is written only when set, and when written it carries a base and keyframes like every other animatable property. A parented layer's depth is measured from its parent's plane and adds to it up the chain, as its position is a point in its parent's space.
 
-Proposed by D-61 on 2026-09-16: an asset may carry `redistribute`, false when the artist may not pass its drawings on, absent otherwise. It changes nothing about how the asset is drawn; collecting a package lists such an asset's drawings without copying them.
+D-61, accepted on 2026-09-16: an asset may carry `redistribute`, false when the artist may not pass its drawings on, absent otherwise. It changes nothing about how the asset is drawn; collecting a package lists such an asset's drawings without copying them.
 
 Layer order is composition order. Index is not identity. Reordering must not rewrite layer IDs or references.
 

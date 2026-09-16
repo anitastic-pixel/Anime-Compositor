@@ -197,6 +197,7 @@ fn asset_for(layer: u32) -> Asset {
         pattern: Some(imported.pattern().to_string()),
         frames,
         interpretation: Interpretation::default(),
+        redistribute: true,
     }
 }
 

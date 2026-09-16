@@ -48,7 +48,7 @@ R-12 / N / 2.5D: one perspective camera, flat planes, parent transforms and docu
 
 R-13 / N / Expressions: a documented native property-expression subset with deterministic time and seeded randomness, bounded evaluation and cycle errors. T-12; B-14. Runtime undecided per D-10; D-59, accepted by the owner on 2026-09-16, answers it with a language document 09 specifies and this project evaluates itself.
 
-R-14 / L / Packaging: collect permitted media with hashes and usage information, and verify reopening from a new path. T-13; B-15. Proposed contract: D-61.
+R-14 / L / Packaging: collect permitted media with hashes and usage information, and verify reopening from a new path. T-13; B-15. Contract: D-61, accepted 2026-09-16.
 
 R-15 / L / Handoff: evaluate EXR and WAV first, then other formats, based on actual need. Each format needs its own conformance fixtures. T-14; B-16.
 

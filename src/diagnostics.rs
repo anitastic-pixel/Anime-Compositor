@@ -137,6 +137,18 @@ pub enum DiagnosticId {
     ExpressionCycle,
     /// Document 28, added by D-59: an expression that takes more than its steps or its depth.
     ExpressionTimeout,
+    /// Document 28, added by D-61: collecting was refused because the destination folder holds something, or its `.partial` sibling exists.
+    PackageDestinationNotEmpty,
+    /// Document 28, added by D-61: a package could not be written; the partial folder was removed.
+    PackageWriteFailed,
+    /// Document 28, added by D-61: a package's manifest is absent or cannot be read.
+    PackageManifestInvalid,
+    /// Document 28, added by D-61: a packaged file's size or fingerprint differs from its manifest.
+    PackageFileChanged,
+    /// Document 28, added by D-61: a file the package lists but did not copy, because its asset may not be passed on.
+    PackageMediaExcluded,
+    /// Document 28, added by D-61: a file is present where the manifest recorded none, so nothing can vouch for it.
+    PackageFileUnverified,
 }
 
 impl DiagnosticId {
@@ -174,6 +186,12 @@ impl DiagnosticId {
             DiagnosticId::ExpressionReferenceMissing => "EXPRESSION_REFERENCE_MISSING",
             DiagnosticId::ExpressionCycle => "EXPRESSION_CYCLE",
             DiagnosticId::ExpressionTimeout => "EXPRESSION_TIMEOUT",
+            DiagnosticId::PackageDestinationNotEmpty => "PACKAGE_DESTINATION_NOT_EMPTY",
+            DiagnosticId::PackageWriteFailed => "PACKAGE_WRITE_FAILED",
+            DiagnosticId::PackageManifestInvalid => "PACKAGE_MANIFEST_INVALID",
+            DiagnosticId::PackageFileChanged => "PACKAGE_FILE_CHANGED",
+            DiagnosticId::PackageMediaExcluded => "PACKAGE_MEDIA_EXCLUDED",
+            DiagnosticId::PackageFileUnverified => "PACKAGE_FILE_UNVERIFIED",
         }
     }
 
@@ -207,6 +225,12 @@ impl DiagnosticId {
                 | DiagnosticId::ExpressionReferenceMissing
                 | DiagnosticId::ExpressionCycle
                 | DiagnosticId::ExpressionTimeout
+                | DiagnosticId::PackageDestinationNotEmpty
+                | DiagnosticId::PackageWriteFailed
+                | DiagnosticId::PackageManifestInvalid
+                | DiagnosticId::PackageFileChanged
+                | DiagnosticId::PackageMediaExcluded
+                | DiagnosticId::PackageFileUnverified
         )
     }
 }

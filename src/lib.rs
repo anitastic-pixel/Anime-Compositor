@@ -21,11 +21,13 @@ pub mod expr;
 pub mod mask;
 pub mod media;
 pub mod model;
+pub mod package;
 pub mod perf;
 pub mod persist;
 pub mod png_out;
 pub mod preview;
 pub mod render;
+pub mod sha256;
 pub mod time;
 pub mod trace;
 

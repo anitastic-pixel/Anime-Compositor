@@ -23,9 +23,9 @@ Every state-changing UI action invokes a stable command ID through the command l
 | edit.redo | Redo latest undone command | Ctrl+Shift+Z | control |
 | media.import | Import still/sequence | Ctrl+I | yes |
 | media.relink | Relink missing asset | none | yes |
-| asset.set_redistribute | Mark whether an asset's drawings may be passed on in a package (D-61, proposed) | none | yes |
-| project.collect | Collect the project and its media into one folder with a manifest (D-61, proposed) | none | no history item |
-| package.check | Check the files of the open package against its manifest (D-61, proposed) | none | no |
+| asset.set_redistribute | Mark whether an asset's drawings may be passed on in a package (D-61) | none | yes |
+| project.collect | Collect the project and its media into one folder with a manifest (D-61) | none | no history item |
+| package.check | Check the files of the open package against its manifest (D-61) | none | no |
 | layer.create | Add raster layer | Ctrl+Alt+L | yes |
 | layer.delete | Delete selected layer | Delete | yes |
 | layer.rename | Rename selected layer | F2 | yes |
@@ -108,7 +108,7 @@ Still deferred rather than refused: a camera that is a layer, which the owner ra
 
 `composition.open` was added on 2026-09-08, the same day, and for a reason the owner found rather than a reason a document named: `composition.create` moves the window into what it made, this table had no ID for moving it anywhere else, and nothing in the window listed the compositions a project holds. Making a composition was therefore a one-way door out of the shot somebody was working on. It is not undoable and it is not an edit — nothing about the project changes, the window looks somewhere else — which puts it with `viewer.toggle_alpha` and `viewer.toggle_checkerboard` rather than with the commands above it. No shortcut: the compositions are a list in the project panel, reachable by Tab like the drawings beside them, and this table promises Ctrl+N and Ctrl+Shift+N to two other things already. Like `composition.create`, it is a new capability and the owner may cut it; cutting it means cutting that one as well, or restoring the one-way door.
 
-`asset.set_redistribute`, `project.collect` and `package.check` were proposed on 2026-09-16 by B-15a, with D-61. They are a new capability, R-14, entered by the owner's decision D-60. Collecting changes nothing in the window, so, like saving, it makes no history item; the tick is an ordinary undoable change to the asset. No shortcut is proposed: After Effects gives Collect Files none.
+`asset.set_redistribute`, `project.collect` and `package.check` were proposed on 2026-09-16 by B-15a, with D-61, and accepted by the owner the same day. B-15b builds what they do; B-15c puts them in the window. They are a new capability, R-14, entered by the owner's decision D-60. Collecting changes nothing in the window, so, like saving, it makes no history item; the tick is an ordinary undoable change to the asset. No shortcut is proposed: After Effects gives Collect Files none.
 
 `property.set_expression` was added on 2026-09-16 by B-14a, with D-59, which the owner accepted the same day, and was built by B-14c the same day, with the window's text box. Alt-click on a property's diamond, or Alt+Shift+= on a focused one, adds the expression `value` or removes the one there, as After Effects' stopwatch does; this replaced W-23's Alt-click, at the owner's request. It is a new capability, not a correction of an omission, and the owner may cut it with D-59. One ID covers setting, changing, switching off and clearing, because all four are one field of one property and each has an exact inverse: the record as it was. It takes a `target` and a property name exactly as `property.set_base` does, so it reaches the camera's three properties the way B-13e made every property command reach them. A text the language cannot read is **accepted and stored**, not refused, because a person half way through typing an expression must not lose it; its `EXPRESSION_SYNTAX` is shown on the property until it is fixed or switched off. That is the one place this command differs from every other value command in this table, which refuse an invalid value outright.
 

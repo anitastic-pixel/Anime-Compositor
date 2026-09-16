@@ -305,6 +305,7 @@ fn shot_asset() -> Asset {
         pattern: Some(imported.pattern().to_string()),
         frames,
         interpretation: Interpretation::default(),
+        redistribute: true,
     }
 }
 

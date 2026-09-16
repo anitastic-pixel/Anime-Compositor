@@ -978,6 +978,9 @@ pub struct Asset {
     /// the project records, not one inferred from which files happen to be on disk today.
     pub frames: BTreeMap<u32, String>,
     pub interpretation: Interpretation,
+    /// D-61: whether collecting copies this asset's files. False for media the project may use
+    /// but may not pass on; its files are then listed in the package but not copied.
+    pub redistribute: bool,
 }
 
 impl Asset {
@@ -991,6 +994,7 @@ impl Asset {
             pattern: Some(pattern.into()),
             frames: BTreeMap::new(),
             interpretation: Interpretation::default(),
+            redistribute: true,
         }
     }
 
@@ -1004,6 +1008,7 @@ impl Asset {
             pattern: None,
             frames: BTreeMap::new(),
             interpretation: Interpretation::default(),
+            redistribute: true,
         }
     }
 

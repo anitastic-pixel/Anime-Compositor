@@ -40,17 +40,17 @@ One row per identifier this build can print, and the table where a person can re
 | `EXPRESSION_REFERENCE_MISSING` | yes | `verification/B-14b_expression_table.md` |
 | `EXPRESSION_CYCLE` | yes | `verification/B-14b_expression_table.md` |
 | `EXPRESSION_TIMEOUT` | yes | `verification/B-14b_expression_table.md` |
+| `PACKAGE_DESTINATION_NOT_EMPTY` | yes | `verification/B-15b_package_table.md` |
+| `PACKAGE_WRITE_FAILED` | yes | `verification/B-15b_package_table.md` |
+| `PACKAGE_MANIFEST_INVALID` | yes | `verification/B-15b_package_table.md` |
+| `PACKAGE_FILE_CHANGED` | yes | `verification/B-15b_package_table.md` |
+| `PACKAGE_MEDIA_EXCLUDED` | yes | `verification/B-15b_package_table.md` |
+| `PACKAGE_FILE_UNVERIFIED` | yes | `verification/B-15b_package_table.md` |
 
 ## What the catalogue promises and the build does not have
 
 | Identifier | Why there is no code for it |
 |---|---|
-| `PACKAGE_DESTINATION_NOT_EMPTY` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
-| `PACKAGE_WRITE_FAILED` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
-| `PACKAGE_MANIFEST_INVALID` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
-| `PACKAGE_FILE_CHANGED` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
-| `PACKAGE_MEDIA_EXCLUDED` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
-| `PACKAGE_FILE_UNVERIFIED` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
 | `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |
 | `GPU_OUT_OF_MEMORY` | There is no GPU path; every frame is composited on the processor. |
 | `INVALID_PATH` | Paths reach this build through Windows file dialogs and are read, not normalised; a path that cannot be read is reported by the identifier for what failed to read it. |
@@ -171,12 +171,30 @@ One row per identifier this build can print, and the table where a person can re
 | EXPRESSION_TIMEOUT: the enum spells it the way the catalogue does | EXPRESSION_TIMEOUT | EXPRESSION_TIMEOUT | pass |
 | EXPRESSION_TIMEOUT: says truthfully whether document 28 lists it | true | true | pass |
 | EXPRESSION_TIMEOUT: a table somewhere shows a person this sentence | named in B-14b_expression_table.md | named in B-14b_expression_table.md | pass |
+| PACKAGE_DESTINATION_NOT_EMPTY: the enum spells it the way the catalogue does | PACKAGE_DESTINATION_NOT_EMPTY | PACKAGE_DESTINATION_NOT_EMPTY | pass |
+| PACKAGE_DESTINATION_NOT_EMPTY: says truthfully whether document 28 lists it | true | true | pass |
+| PACKAGE_DESTINATION_NOT_EMPTY: a table somewhere shows a person this sentence | named in B-15b_package_table.md | named in B-15b_package_table.md | pass |
+| PACKAGE_WRITE_FAILED: the enum spells it the way the catalogue does | PACKAGE_WRITE_FAILED | PACKAGE_WRITE_FAILED | pass |
+| PACKAGE_WRITE_FAILED: says truthfully whether document 28 lists it | true | true | pass |
+| PACKAGE_WRITE_FAILED: a table somewhere shows a person this sentence | named in B-15b_package_table.md | named in B-15b_package_table.md | pass |
+| PACKAGE_MANIFEST_INVALID: the enum spells it the way the catalogue does | PACKAGE_MANIFEST_INVALID | PACKAGE_MANIFEST_INVALID | pass |
+| PACKAGE_MANIFEST_INVALID: says truthfully whether document 28 lists it | true | true | pass |
+| PACKAGE_MANIFEST_INVALID: a table somewhere shows a person this sentence | named in B-15b_package_table.md | named in B-15b_package_table.md | pass |
+| PACKAGE_FILE_CHANGED: the enum spells it the way the catalogue does | PACKAGE_FILE_CHANGED | PACKAGE_FILE_CHANGED | pass |
+| PACKAGE_FILE_CHANGED: says truthfully whether document 28 lists it | true | true | pass |
+| PACKAGE_FILE_CHANGED: a table somewhere shows a person this sentence | named in B-15b_package_table.md | named in B-15b_package_table.md | pass |
+| PACKAGE_MEDIA_EXCLUDED: the enum spells it the way the catalogue does | PACKAGE_MEDIA_EXCLUDED | PACKAGE_MEDIA_EXCLUDED | pass |
+| PACKAGE_MEDIA_EXCLUDED: says truthfully whether document 28 lists it | true | true | pass |
+| PACKAGE_MEDIA_EXCLUDED: a table somewhere shows a person this sentence | named in B-15b_package_table.md | named in B-15b_package_table.md | pass |
+| PACKAGE_FILE_UNVERIFIED: the enum spells it the way the catalogue does | PACKAGE_FILE_UNVERIFIED | PACKAGE_FILE_UNVERIFIED | pass |
+| PACKAGE_FILE_UNVERIFIED: says truthfully whether document 28 lists it | true | true | pass |
+| PACKAGE_FILE_UNVERIFIED: a table somewhere shows a person this sentence | named in B-15b_package_table.md | named in B-15b_package_table.md | pass |
 | PROJECT_FEATURE_UNSUPPORTED is kept but raised by nothing | no source file raises it | no source file raises it | pass |
 | every catalogue entry is either built or written down as not built | none unaccounted for | none unaccounted for | pass |
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**101 of 101 checks pass.**
+**119 of 119 checks pass.**
 
 ## What this cannot cover
 

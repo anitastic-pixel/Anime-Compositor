@@ -191,35 +191,41 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "EXPRESSION_TIMEOUT",
         "B-14b_expression_table.md",
     ),
+    (
+        DiagnosticId::PackageDestinationNotEmpty,
+        "PACKAGE_DESTINATION_NOT_EMPTY",
+        "B-15b_package_table.md",
+    ),
+    (
+        DiagnosticId::PackageWriteFailed,
+        "PACKAGE_WRITE_FAILED",
+        "B-15b_package_table.md",
+    ),
+    (
+        DiagnosticId::PackageManifestInvalid,
+        "PACKAGE_MANIFEST_INVALID",
+        "B-15b_package_table.md",
+    ),
+    (
+        DiagnosticId::PackageFileChanged,
+        "PACKAGE_FILE_CHANGED",
+        "B-15b_package_table.md",
+    ),
+    (
+        DiagnosticId::PackageMediaExcluded,
+        "PACKAGE_MEDIA_EXCLUDED",
+        "B-15b_package_table.md",
+    ),
+    (
+        DiagnosticId::PackageFileUnverified,
+        "PACKAGE_FILE_UNVERIFIED",
+        "B-15b_package_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
 /// a claim about scope that a reader can check against the requirement it names.
 const NOT_BUILT: &[(&str, &str)] = &[
-    (
-        "PACKAGE_DESTINATION_NOT_EMPTY",
-        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
-    ),
-    (
-        "PACKAGE_WRITE_FAILED",
-        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
-    ),
-    (
-        "PACKAGE_MANIFEST_INVALID",
-        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
-    ),
-    (
-        "PACKAGE_FILE_CHANGED",
-        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
-    ),
-    (
-        "PACKAGE_MEDIA_EXCLUDED",
-        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
-    ),
-    (
-        "PACKAGE_FILE_UNVERIFIED",
-        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
-    ),
     (
         "GPU_BACKEND_FAILED",
         "There is no GPU path; every frame is composited on the processor.",

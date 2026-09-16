@@ -11220,8 +11220,8 @@ mod contract {
         ("edit.redo", "a command the window answers"),
         ("media.import", "a command the window answers"),
         ("media.relink", "a command the window answers"),
-        // D-61 is written and awaiting the owner, so document 24 names these and nothing
-        // carries them out yet.
+        // D-61 is accepted and B-15b built `package`, but the window does not offer these
+        // until B-15c.
         ("asset.set_redistribute", "nothing yet"),
         ("project.collect", "nothing yet"),
         ("package.check", "nothing yet"),

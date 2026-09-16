@@ -128,6 +128,7 @@ const KEY_ORDER: &[&str] = &[
     "name",
     "path",
     "pattern",
+    "redistribute",
     "frames",
     "interpretation",
     "color_space",
@@ -470,6 +471,15 @@ fn asset_json(base: Option<&J>, asset: &Asset) -> J {
         Some(p) => owned.push(("pattern", J::from(p.as_str()))),
         None => owned.push(("pattern", J::Null)),
     }
+    // D-61: written only when false, so every project saved before it is unchanged.
+    owned.push((
+        "redistribute",
+        if asset.redistribute {
+            J::Null
+        } else {
+            J::from(false)
+        },
+    ));
     if !asset.frames.is_empty() {
         let mut frames = Map::new();
         for (number, file) in &asset.frames {
@@ -1092,6 +1102,10 @@ fn parse_asset(v: &J, pointer: &str) -> Result<Asset, Diagnostic> {
             field(v, pointer, "interpretation")?,
             &format!("{pointer}/interpretation"),
         )?,
+        redistribute: match v.get("redistribute") {
+            Some(r) => as_bool(r, &format!("{pointer}/redistribute"))?,
+            None => true,
+        },
     })
 }
 
@@ -2269,6 +2283,7 @@ pub fn relink_candidate(
         // states it, so the record's own interpretation carries over rather than being reset
         // to a default that would silently change how the pixels are read.
         interpretation: existing.interpretation,
+        redistribute: existing.redistribute,
     };
 
     Ok(RelinkCandidate {
