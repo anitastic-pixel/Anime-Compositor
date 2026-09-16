@@ -2034,6 +2034,9 @@ function cameraGroup(comp) {
   const name = document.createElement('span');
   name.className = 'name';
   name.textContent = 'Camera';
+  // Picks the camera for the graph editor, and lets go of any layer so the panels agree.
+  li.classList.toggle('selected', cameraPicked);
+  name.onclick = () => { cameraPicked = true; select(null); };
   name.title = "The composition's camera. Its place, its depth and its lens key like a layer's "
     + 'properties.';
   head.append(twirl, name);
@@ -2802,6 +2805,7 @@ const svgEl = (kind) => document.createElementNS($('boxes').namespaceURI, kind);
 // cannot show five numbers for three layers, and picking one of them silently would be worse
 // than saying which one it is.
 function select(id, add) {
+  if (id) cameraPicked = false;
   if (!add || !id) selection = id ? [id] : [];
   else if (selection.includes(id)) selection = selection.filter((held) => held !== id);
   else selection = [id, ...selection];
@@ -4421,10 +4425,15 @@ const pointsOf = (points, space, v) => points
   .filter(([f]) => f >= v.from - 1 && f <= v.from + v.len + 1)
   .map(([f, val]) => space.x(f) + ',' + space.y(val)).join(' ');
 
+// The camera is graphed once its name on the timeline is clicked, or when no layer is selected.
+// Selecting a layer hands the graph back to it.
+let cameraPicked = false;
+const CAMERA_WORDS = { position: 'Place', depth: 'Depth', zoom: 'Lens' };
 function graphLayer() {
-  const layer = selected();
+  const layer = cameraPicked || !selected() ? cameraRow() : selected();
   if (!layer) return null;
-  const withKeys = PROPS.filter((prop) => keysOf(layer, prop).length >= 2);
+  const withKeys = (layer.id === CAMERA_ROW ? CAMERA_PROPS : PROPS)
+    .filter((prop) => keysOf(layer, prop).length >= 2);
   if (!withKeys.length) return null;
   const prop = withKeys.includes(graphProp) ? graphProp : withKeys[0];
   return { layer, prop, withKeys };
@@ -4440,7 +4449,7 @@ async function askForCurve() {
   const from = comp.start_frame;
   const to = comp.start_frame + Math.max(1, comp.duration_frames) - 1;
   try {
-    const answer = await fetch(FRAMES + '/curve?layer=' + encodeURIComponent(pick.layer.id)
+    const answer = await fetch(FRAMES + '/curve?' + whose(pick.layer)
       + '&prop=' + pick.prop + '&from=' + from + '&to=' + to);
     plotted = answer.ok ? await answer.json() : null;
   } catch (e) {
@@ -4630,15 +4639,20 @@ function drawGraph() {
   if (pick) {
     chooser.replaceChildren(...pick.withKeys.map((prop) => Object.assign(
       document.createElement('option'),
-      { value: prop, textContent: prop[0].toUpperCase() + prop.slice(1), selected: prop === pick.prop }
+      {
+        value: prop,
+        textContent: pick.layer.id === CAMERA_ROW
+          ? 'Camera ' + CAMERA_WORDS[prop] : prop[0].toUpperCase() + prop.slice(1),
+        selected: prop === pick.prop,
+      }
     )));
   }
   if (!graphing) return;
   if (!plotted || !plotted.samples.length || !pick || !comp) {
     into.replaceChildren(Object.assign(document.createElement('p'), {
       className: 'empty',
-      textContent: 'Select a layer with two or more keyframes on one of its properties, and its '
-        + 'curve is drawn here.',
+      textContent: 'Select a layer, or click Camera on the timeline, with two or more keyframes '
+        + 'on one of its properties, and its curve is drawn here.',
     }));
     return;
   }
@@ -4855,8 +4869,9 @@ function previewCurve(what, x, y) {
 
 function sendCurve(arm, x, y) {
   const e = curveWith(arm, x, y);
-  command('/keyframe.set_interp?layer=' + encodeURIComponent(selected().id)
-    + '&prop=' + graphLayer().prop + '&frame=' + arm.key.frame
+  const pick = graphLayer();
+  command('/keyframe.set_interp?' + whose(pick.layer)
+    + '&prop=' + pick.prop + '&frame=' + arm.key.frame
     + '&mode=ease&curve=' + e.map((n) => Math.round(n * 1e6) / 1e6).join(','));
 }
 

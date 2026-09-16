@@ -222,22 +222,31 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
             .unwrap_or(fallback)
     };
     let answer = (|| {
-        let prop = property(parameter(query, "prop").as_deref()?)?;
-        let layer = viewer
-            .document
-            .project()
-            .composition(&viewer.composition)?
-            .layer(&Id::new(&parameter(query, "layer")?))?;
+        let comp = viewer.document.project().composition(&viewer.composition)?;
+        let name = parameter(query, "prop")?;
+        // D-22: a scale is a percentage in the panels and a lens is millimetres, so the graph is
+        // drawn in the numbers the inspector beside it shows.
+        let (held, factor) = if parameter(query, "target").as_deref() == Some("camera") {
+            // B-13e's camera, at the default the renderer uses when the file has none.
+            use anime_compositor::model::{Camera, CameraProp};
+            let which = CameraProp::from_str(&name)?;
+            let camera = comp
+                .camera
+                .clone()
+                .unwrap_or_else(|| Camera::default_for(comp.width, comp.height));
+            let factor = if which == CameraProp::Zoom { 36.0 / comp.width as f64 } else { 1.0 };
+            (camera.get(which).clone(), factor)
+        } else {
+            let prop = property(&name)?;
+            let layer = comp.layer(&Id::new(&parameter(query, "layer")?))?;
+            // B-13d: looked up once rather than per frame, because the lookup that reaches a
+            // depth as well as the five hands back something owned.
+            (property_of(layer, prop), if prop == Prop::Scale { 100.0 } else { 1.0 })
+        };
         let (from, to) = (number("from", 0), number("to", 0));
         // A range wider than the longest composition the envelope allows is a page with a bug,
         // not a person with a problem, so it is cut short rather than refused.
         let to = to.clamp(from, from.saturating_add(10_000));
-        // D-22: a scale is a percentage in the panels, so the graph is drawn in the numbers the
-        // inspector beside it shows.
-        let factor = if prop == Prop::Scale { 100.0 } else { 1.0 };
-        // B-13d: looked up once rather than per frame, because the lookup that reaches a depth
-        // as well as the five hands back something owned.
-        let held = property_of(layer, prop);
         let samples: Vec<serde_json::Value> = (from..=to)
             .map(|f| match held.value_at(f) {
                 Value::Scalar(v) => serde_json::json!([v * factor]),
@@ -9359,6 +9368,38 @@ mod serving {
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).expect("make the scratch directory");
         directory
+    }
+
+    /// The graph editor asks for the camera by the same word the commands use, and a lens comes
+    /// back in the millimetres the inspector shows it in.
+    #[test]
+    fn the_graph_editor_can_ask_for_the_cameras_curve() {
+        let viewer = Mutex::new(demo());
+        let samples = |query: &str| -> Vec<f64> {
+            let body = curve(&viewer, Some(query)).into_body();
+            let said: serde_json::Value = serde_json::from_slice(&body).expect("json");
+            said["samples"]
+                .as_array()
+                .expect("samples")
+                .iter()
+                .map(|s| s[0].as_f64().expect("a number"))
+                .collect()
+        };
+        let lens = samples("target=camera&prop=zoom&from=0&to=24");
+        assert_eq!(lens.len(), 25);
+        assert!((lens[0] - 50.0).abs() < 1e-9, "an unmoved camera is a 50 mm lens: {}", lens[0]);
+
+        let width = {
+            let viewer = held(&viewer);
+            viewer.document.project().composition(&viewer.composition).expect("a composition").width
+        };
+        run(&viewer, "keyframe.add_remove?target=camera&prop=zoom&frame=0");
+        run(&viewer, &format!("property.set_base?target=camera&prop=zoom&value={width}&frame=24"));
+        let lens = samples("target=camera&prop=zoom&from=0&to=24");
+        assert!((lens[0] - 50.0).abs() < 1e-9 && (lens[24] - 36.0).abs() < 1e-9, "{lens:?}");
+        assert!(lens[12] < 50.0 && lens[12] > 36.0, "the curve goes between its keys: {lens:?}");
+
+        assert!(samples("target=camera&prop=opacity&from=0&to=24").is_empty());
     }
 
     #[test]
