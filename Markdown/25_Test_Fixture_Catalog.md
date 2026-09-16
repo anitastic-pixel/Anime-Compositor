@@ -551,6 +551,46 @@ FX-EXPR-016: a switched-off expression, and opacity read by another expression. 
 | Spin rotation reading Switched off's opacity | 100 | none |
 | Spin rotation reading Fade's opacity | 50 | none |
 
+## Packaging fixtures
+
+Proposed on 2026-09-16 by D-61, for B-15b. Every case starts from `Fixtures/packaging/source/shot.json`: two compositions, 64 by 36, three frames, eight assets and seven small drawings, laid out to catch each of D-61's rules. **Every expected value is produced by `tools/package_reference.py`**, which applies D-61 in Python with Python's own SHA-256 and shares nothing with the build. The exact manifest is `Fixtures/packaging/expected_manifest.json`, and the places and check answers are `Fixtures/packaging/expected_package.json`. A build must match both exactly, byte for byte for the manifest.
+
+FX-PACK-001: collecting the shot into an empty folder. Each asset's folder and files, and what happened to each file:
+
+| Asset | Folder | Files, with the frame numbers they stand for | Status |
+|---|---|---|---|
+| `asset-cel` | `asset-cel` | `cel_0001.png` [1], `cel_0002.png` [2, 3] | copied, copied |
+| `asset-bg` | `asset-bg` | `背景.png` | copied |
+| `asset-mix` | `asset-mix` | `x.png` [1], `x-2.png` [2], `X-3.png` [3] | copied, copied, copied |
+| `asset-licensed` | `asset-licensed` | `sheet.png` | excluded |
+| `asset-gone` | `asset-gone` | `gone_0001.png` [1], `cel_0001.png` [2] | missing, copied |
+| `shot 1/é` | `shot 1_é` | `背景.png` | copied |
+| `shot 1?é` | `shot 1_é-2` | `cel_0001.png` | copied |
+| `con` | `_con` | `cel_0002.png` | copied |
+
+Frame 3 of `asset-cel` reuses frame 2's drawing, which is copied once. `asset-bg` is used by a layer in each composition and listed with both. `shot 1?é` is used by nothing and is still collected. Ten files are copied, and no file is written for the excluded or the missing drawing.
+
+FX-PACK-002: the packaged project. It is the source project with each path replaced by its place above (the `places` of the expected file), and with nothing else changed. Opened from the package, it reports `MEDIA_MISSING` for exactly two drawings: the licensed sheet and `gone_0001.png`.
+
+FX-PACK-003: moved. The whole package folder is moved to a folder with a different name and depth, with a space and Japanese in it, and opened there. The answer is the same as FX-PACK-002. Every frame of `comp-alt`, which uses neither the licensed sheet nor the missing drawing, is the same to the byte as the source's. So is every frame of `comp-main` once the licensed sheet is put in its place, except for the missing drawing, which the source cannot draw either: that layer shows drawing 2, which is present in both.
+
+FX-PACK-004: checking, in six situations. Every file not named is `ok`.
+
+| Situation | Files not `ok` |
+|---|---|
+| as collected | asset-licensed/sheet.png: excluded; asset-gone/gone_0001.png: missing |
+| one byte of cel_0001.png changed | asset-cel/cel_0001.png: changed; asset-licensed/sheet.png: excluded; asset-gone/gone_0001.png: missing |
+| cel_0001.png deleted | asset-cel/cel_0001.png: missing; asset-licensed/sheet.png: excluded; asset-gone/gone_0001.png: missing |
+| the licensed sheet supplied by the recipient | asset-gone/gone_0001.png: missing |
+| a different file put where the licensed sheet goes | asset-licensed/sheet.png: changed; asset-gone/gone_0001.png: missing |
+| a file put where the missing drawing goes | asset-licensed/sheet.png: excluded; asset-gone/gone_0001.png: unverified |
+
+FX-PACK-005: refusals. A folder holding any file is refused with `PACKAGE_DESTINATION_NOT_EMPTY` and is unchanged afterwards; so is an empty folder whose `.partial` sibling exists. A write that fails partway, made to fail by the test, gives `PACKAGE_WRITE_FAILED` and leaves neither the folder nor its `.partial` sibling behind. Checking a project with no manifest beside it gives `PACKAGE_MANIFEST_INVALID`.
+
+FX-PACK-006: nothing in the window changes. After collecting, the open project, its file on disk, its undo history and whether it has unsaved changes are all as they were.
+
+The build's SHA-256 must also give FIPS 180-4's published digests for the empty message, `abc`, the 448-bit message `abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq`, and a million `a`s.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

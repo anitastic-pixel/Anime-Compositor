@@ -505,6 +505,10 @@
         "pattern": {
           "type": "string"
         },
+        "redistribute": {
+          "type": "boolean",
+          "description": "D-61, proposed: false when the artist may not pass the asset's drawings on in a package. Written only when false."
+        },
         "frames": {
           "type": "object",
           "additionalProperties": {

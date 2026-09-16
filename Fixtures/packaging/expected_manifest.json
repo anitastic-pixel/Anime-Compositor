@@ -1,0 +1,217 @@
+{
+  "format": "anime-compositor-package",
+  "version": 1,
+  "project": "shot.json",
+  "assets": [
+    {
+      "id": "asset-cel",
+      "name": "Cel",
+      "kind": "image_sequence",
+      "redistribute": true,
+      "used_by": [
+        {
+          "composition": "comp-main",
+          "layer": "layer-cel"
+        }
+      ],
+      "files": [
+        {
+          "frames": [
+            1
+          ],
+          "path": "media/asset-cel/cel_0001.png",
+          "status": "copied",
+          "bytes": 75,
+          "sha256": "8e4ae8c56dd0af8d196c02ae5a4224b21302de3f6f701f24cf11d7c644984150"
+        },
+        {
+          "frames": [
+            2,
+            3
+          ],
+          "path": "media/asset-cel/cel_0002.png",
+          "status": "copied",
+          "bytes": 72,
+          "sha256": "d9becd2cc3aee0000c0284b539163814934f6865c61cf49477b7484c18e43a4c"
+        }
+      ]
+    },
+    {
+      "id": "asset-bg",
+      "name": "Background",
+      "kind": "still",
+      "redistribute": true,
+      "used_by": [
+        {
+          "composition": "comp-main",
+          "layer": "layer-bg"
+        },
+        {
+          "composition": "comp-alt",
+          "layer": "layer-bg-alt"
+        }
+      ],
+      "files": [
+        {
+          "frames": [],
+          "path": "media/asset-bg/背景.png",
+          "status": "copied",
+          "bytes": 75,
+          "sha256": "4a361128d317031729ee84d9b6239ed9dec3d27a6759bc19f94cb03f7afbcd02"
+        }
+      ]
+    },
+    {
+      "id": "asset-mix",
+      "name": "Mix",
+      "kind": "image_sequence",
+      "redistribute": true,
+      "used_by": [
+        {
+          "composition": "comp-main",
+          "layer": "layer-mix"
+        }
+      ],
+      "files": [
+        {
+          "frames": [
+            1
+          ],
+          "path": "media/asset-mix/x.png",
+          "status": "copied",
+          "bytes": 75,
+          "sha256": "5c658abc997d19ec43b258296f370100d7583779e0cf35b00fdc2577e7bc98f0"
+        },
+        {
+          "frames": [
+            2
+          ],
+          "path": "media/asset-mix/x-2.png",
+          "status": "copied",
+          "bytes": 74,
+          "sha256": "4dfd0dfd622ea5447d3e24a828ebaf187edbcaa0712009e8a8eaff7bf059e67f"
+        },
+        {
+          "frames": [
+            3
+          ],
+          "path": "media/asset-mix/X-3.png",
+          "status": "copied",
+          "bytes": 75,
+          "sha256": "8109bd8e451fb70ad259252f6be42adfe59fb88938b26cad979bcf916456a7d4"
+        }
+      ]
+    },
+    {
+      "id": "asset-licensed",
+      "name": "Licensed sheet",
+      "kind": "still",
+      "redistribute": false,
+      "used_by": [
+        {
+          "composition": "comp-main",
+          "layer": "layer-licensed"
+        }
+      ],
+      "files": [
+        {
+          "frames": [],
+          "path": "media/asset-licensed/sheet.png",
+          "status": "excluded",
+          "bytes": 75,
+          "sha256": "69005849bbaa3cd0c342fb0c795615cc48c191cb7f5c7498aa9f0f76c37da92d"
+        }
+      ]
+    },
+    {
+      "id": "asset-gone",
+      "name": "Gone",
+      "kind": "image_sequence",
+      "redistribute": true,
+      "used_by": [
+        {
+          "composition": "comp-main",
+          "layer": "layer-gone"
+        }
+      ],
+      "files": [
+        {
+          "frames": [
+            1
+          ],
+          "path": "media/asset-gone/gone_0001.png",
+          "status": "missing",
+          "bytes": null,
+          "sha256": null
+        },
+        {
+          "frames": [
+            2
+          ],
+          "path": "media/asset-gone/cel_0001.png",
+          "status": "copied",
+          "bytes": 75,
+          "sha256": "8e4ae8c56dd0af8d196c02ae5a4224b21302de3f6f701f24cf11d7c644984150"
+        }
+      ]
+    },
+    {
+      "id": "shot 1/é",
+      "name": "Odd one",
+      "kind": "still",
+      "redistribute": true,
+      "used_by": [
+        {
+          "composition": "comp-alt",
+          "layer": "layer-odd"
+        }
+      ],
+      "files": [
+        {
+          "frames": [],
+          "path": "media/shot 1_é/背景.png",
+          "status": "copied",
+          "bytes": 75,
+          "sha256": "4a361128d317031729ee84d9b6239ed9dec3d27a6759bc19f94cb03f7afbcd02"
+        }
+      ]
+    },
+    {
+      "id": "shot 1?é",
+      "name": "Odd two, unused",
+      "kind": "still",
+      "redistribute": true,
+      "used_by": [],
+      "files": [
+        {
+          "frames": [],
+          "path": "media/shot 1_é-2/cel_0001.png",
+          "status": "copied",
+          "bytes": 75,
+          "sha256": "8e4ae8c56dd0af8d196c02ae5a4224b21302de3f6f701f24cf11d7c644984150"
+        }
+      ]
+    },
+    {
+      "id": "con",
+      "name": "Device name",
+      "kind": "still",
+      "redistribute": true,
+      "used_by": [
+        {
+          "composition": "comp-alt",
+          "layer": "layer-con"
+        }
+      ],
+      "files": [
+        {
+          "frames": [],
+          "path": "media/_con/cel_0002.png",
+          "status": "copied",
+          "bytes": 72,
+          "sha256": "d9becd2cc3aee0000c0284b539163814934f6865c61cf49477b7484c18e43a4c"
+        }
+      ]
+    }
+  ]
+}

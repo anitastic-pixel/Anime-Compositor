@@ -1,0 +1,601 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-package",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-cel",
+      "kind": "image_sequence",
+      "name": "Cel",
+      "pattern": "cel_####.png",
+      "frames": {
+        "1": "media/cel_0001.png",
+        "2": "media/cel_0002.png",
+        "3": "media/cel_0002.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-bg",
+      "kind": "still",
+      "name": "Background",
+      "path": "bg/背景.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-mix",
+      "kind": "image_sequence",
+      "name": "Mix",
+      "pattern": "x.png",
+      "frames": {
+        "1": "a/x.png",
+        "2": "b/x.png",
+        "3": "c/X.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-licensed",
+      "kind": "still",
+      "name": "Licensed sheet",
+      "path": "licensed/sheet.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      },
+      "redistribute": false
+    },
+    {
+      "id": "asset-gone",
+      "kind": "image_sequence",
+      "name": "Gone",
+      "pattern": "gone_####.png",
+      "frames": {
+        "1": "media/gone_0001.png",
+        "2": "media/cel_0001.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "shot 1/é",
+      "kind": "still",
+      "name": "Odd one",
+      "path": "bg/背景.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "shot 1?é",
+      "kind": "still",
+      "name": "Odd two, unused",
+      "path": "media/cel_0001.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "con",
+      "kind": "still",
+      "name": "Device name",
+      "path": "media/cel_0002.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 64,
+      "height": 36,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 3,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 3
+      },
+      "layer_order": [
+        "layer-bg",
+        "layer-cel",
+        "layer-mix",
+        "layer-licensed",
+        "layer-gone"
+      ],
+      "layers": [
+        {
+          "id": "layer-bg",
+          "kind": "raster",
+          "name": "layer-bg",
+          "asset_id": "asset-bg",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-cel",
+          "kind": "raster",
+          "name": "layer-cel",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 1,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 1,
+              "end_frame_exclusive": 2,
+              "drawing_number": 2
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 3,
+              "drawing_number": 3
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-mix",
+          "kind": "raster",
+          "name": "layer-mix",
+          "asset_id": "asset-mix",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 1,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 1,
+              "end_frame_exclusive": 2,
+              "drawing_number": 2
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 3,
+              "drawing_number": 3
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-licensed",
+          "kind": "raster",
+          "name": "layer-licensed",
+          "asset_id": "asset-licensed",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-gone",
+          "kind": "raster",
+          "name": "layer-gone",
+          "asset_id": "asset-gone",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 2
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "comp-alt",
+      "name": "Alt",
+      "width": 64,
+      "height": 36,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 3,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 3
+      },
+      "layer_order": [
+        "layer-bg-alt",
+        "layer-odd",
+        "layer-con"
+      ],
+      "layers": [
+        {
+          "id": "layer-bg-alt",
+          "kind": "raster",
+          "name": "layer-bg-alt",
+          "asset_id": "asset-bg",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-odd",
+          "kind": "raster",
+          "name": "layer-odd",
+          "asset_id": "shot 1/é",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-con",
+          "kind": "raster",
+          "name": "layer-con",
+          "asset_id": "con",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 3,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        }
+      ]
+    }
+  ]
+}

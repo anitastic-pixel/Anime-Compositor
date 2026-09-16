@@ -45,6 +45,12 @@ One row per identifier this build can print, and the table where a person can re
 
 | Identifier | Why there is no code for it |
 |---|---|
+| `PACKAGE_DESTINATION_NOT_EMPTY` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
+| `PACKAGE_WRITE_FAILED` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
+| `PACKAGE_MANIFEST_INVALID` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
+| `PACKAGE_FILE_CHANGED` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
+| `PACKAGE_MEDIA_EXCLUDED` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
+| `PACKAGE_FILE_UNVERIFIED` | D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet. |
 | `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |
 | `GPU_OUT_OF_MEMORY` | There is no GPU path; every frame is composited on the processor. |
 | `INVALID_PATH` | Paths reach this build through Windows file dialogs and are read, not normalised; a path that cannot be read is reported by the identifier for what failed to read it. |
@@ -68,7 +74,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 27 identifiers | 27 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 33 identifiers | 33 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |

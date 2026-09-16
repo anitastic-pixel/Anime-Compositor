@@ -1,0 +1,381 @@
+{
+  "folders": [
+    "asset-cel",
+    "asset-bg",
+    "asset-mix",
+    "asset-licensed",
+    "asset-gone",
+    "shot 1_é",
+    "shot 1_é-2",
+    "_con"
+  ],
+  "copied": [
+    "media/_con/cel_0002.png",
+    "media/asset-bg/背景.png",
+    "media/asset-cel/cel_0001.png",
+    "media/asset-cel/cel_0002.png",
+    "media/asset-gone/cel_0001.png",
+    "media/asset-mix/X-3.png",
+    "media/asset-mix/x-2.png",
+    "media/asset-mix/x.png",
+    "media/shot 1_é-2/cel_0001.png",
+    "media/shot 1_é/背景.png"
+  ],
+  "places": {
+    "asset-cel": {
+      "frames": {
+        "1": "media/asset-cel/cel_0001.png",
+        "2": "media/asset-cel/cel_0002.png",
+        "3": "media/asset-cel/cel_0002.png"
+      }
+    },
+    "asset-bg": {
+      "path": "media/asset-bg/背景.png"
+    },
+    "asset-mix": {
+      "frames": {
+        "1": "media/asset-mix/x.png",
+        "2": "media/asset-mix/x-2.png",
+        "3": "media/asset-mix/X-3.png"
+      }
+    },
+    "asset-licensed": {
+      "path": "media/asset-licensed/sheet.png"
+    },
+    "asset-gone": {
+      "frames": {
+        "1": "media/asset-gone/gone_0001.png",
+        "2": "media/asset-gone/cel_0001.png"
+      }
+    },
+    "shot 1/é": {
+      "path": "media/shot 1_é/背景.png"
+    },
+    "shot 1?é": {
+      "path": "media/shot 1_é-2/cel_0001.png"
+    },
+    "con": {
+      "path": "media/_con/cel_0002.png"
+    }
+  },
+  "checks": [
+    {
+      "situation": "as collected",
+      "rows": [
+        {
+          "path": "media/asset-cel/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-cel/cel_0002.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-bg/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x-2.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/X-3.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-licensed/sheet.png",
+          "answer": "excluded"
+        },
+        {
+          "path": "media/asset-gone/gone_0001.png",
+          "answer": "missing"
+        },
+        {
+          "path": "media/asset-gone/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é-2/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/_con/cel_0002.png",
+          "answer": "ok"
+        }
+      ]
+    },
+    {
+      "situation": "one byte of cel_0001.png changed",
+      "rows": [
+        {
+          "path": "media/asset-cel/cel_0001.png",
+          "answer": "changed"
+        },
+        {
+          "path": "media/asset-cel/cel_0002.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-bg/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x-2.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/X-3.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-licensed/sheet.png",
+          "answer": "excluded"
+        },
+        {
+          "path": "media/asset-gone/gone_0001.png",
+          "answer": "missing"
+        },
+        {
+          "path": "media/asset-gone/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é-2/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/_con/cel_0002.png",
+          "answer": "ok"
+        }
+      ]
+    },
+    {
+      "situation": "cel_0001.png deleted",
+      "rows": [
+        {
+          "path": "media/asset-cel/cel_0001.png",
+          "answer": "missing"
+        },
+        {
+          "path": "media/asset-cel/cel_0002.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-bg/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x-2.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/X-3.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-licensed/sheet.png",
+          "answer": "excluded"
+        },
+        {
+          "path": "media/asset-gone/gone_0001.png",
+          "answer": "missing"
+        },
+        {
+          "path": "media/asset-gone/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é-2/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/_con/cel_0002.png",
+          "answer": "ok"
+        }
+      ]
+    },
+    {
+      "situation": "the licensed sheet supplied by the recipient",
+      "rows": [
+        {
+          "path": "media/asset-cel/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-cel/cel_0002.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-bg/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x-2.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/X-3.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-licensed/sheet.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-gone/gone_0001.png",
+          "answer": "missing"
+        },
+        {
+          "path": "media/asset-gone/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é-2/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/_con/cel_0002.png",
+          "answer": "ok"
+        }
+      ]
+    },
+    {
+      "situation": "a different file put where the licensed sheet goes",
+      "rows": [
+        {
+          "path": "media/asset-cel/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-cel/cel_0002.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-bg/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x-2.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/X-3.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-licensed/sheet.png",
+          "answer": "changed"
+        },
+        {
+          "path": "media/asset-gone/gone_0001.png",
+          "answer": "missing"
+        },
+        {
+          "path": "media/asset-gone/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é-2/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/_con/cel_0002.png",
+          "answer": "ok"
+        }
+      ]
+    },
+    {
+      "situation": "a file put where the missing drawing goes",
+      "rows": [
+        {
+          "path": "media/asset-cel/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-cel/cel_0002.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-bg/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/x-2.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-mix/X-3.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/asset-licensed/sheet.png",
+          "answer": "excluded"
+        },
+        {
+          "path": "media/asset-gone/gone_0001.png",
+          "answer": "unverified"
+        },
+        {
+          "path": "media/asset-gone/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é/背景.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/shot 1_é-2/cel_0001.png",
+          "answer": "ok"
+        },
+        {
+          "path": "media/_con/cel_0002.png",
+          "answer": "ok"
+        }
+      ]
+    }
+  ]
+}

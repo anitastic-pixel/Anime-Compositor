@@ -197,6 +197,30 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
 /// a claim about scope that a reader can check against the requirement it names.
 const NOT_BUILT: &[(&str, &str)] = &[
     (
+        "PACKAGE_DESTINATION_NOT_EMPTY",
+        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
+    ),
+    (
+        "PACKAGE_WRITE_FAILED",
+        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
+    ),
+    (
+        "PACKAGE_MANIFEST_INVALID",
+        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
+    ),
+    (
+        "PACKAGE_FILE_CHANGED",
+        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
+    ),
+    (
+        "PACKAGE_MEDIA_EXCLUDED",
+        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
+    ),
+    (
+        "PACKAGE_FILE_UNVERIFIED",
+        "D-61, collecting and packaging, is written and awaiting the owner; nothing packages yet.",
+    ),
+    (
         "GPU_BACKEND_FAILED",
         "There is no GPU path; every frame is composited on the processor.",
     ),
@@ -260,7 +284,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "27 identifiers",
+        "33 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

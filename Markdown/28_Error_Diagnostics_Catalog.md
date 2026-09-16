@@ -38,6 +38,12 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | EXPORT_WRITE_FAILED | ERROR | Output file could not be written | report completed frames and failing path |
 | EXPORT_CANCELLED | INFO | User cancelled export | preserve completed-frame list; no false success |
 | INVALID_PATH | ERROR | Path fails normalization/access policy | reject operation with remediation |
+| PACKAGE_DESTINATION_NOT_EMPTY | ERROR | Chosen package folder, or its `.partial` sibling, already holds something (D-61) | write nothing; ask for an empty or new folder |
+| PACKAGE_WRITE_FAILED | ERROR | A package file could not be written (D-61) | remove the partial folder; name the failing path; the open project is unchanged |
+| PACKAGE_MANIFEST_INVALID | ERROR | `package-manifest.json` is absent beside the project, or cannot be read (D-61) | check nothing; say what is wrong with it |
+| PACKAGE_FILE_CHANGED | ERROR | A packaged file's size or SHA-256 differs from the manifest (D-61) | name the file; the drawing is still used as it is |
+| PACKAGE_MEDIA_EXCLUDED | INFO | A drawing the artist marked as not to be passed on is not in the package (D-61) | name the file and where it goes |
+| PACKAGE_FILE_UNVERIFIED | INFO | A drawing missing when packed is now present, with no hash to check it against (D-61) | name the file |
 | DEPENDENCY_LICENSE_UNRESOLVED | ERROR for distribution | Required distribution review incomplete | block public package |
 
 ## Missing/unsupported render fallback
