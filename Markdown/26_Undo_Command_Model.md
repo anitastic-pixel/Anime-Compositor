@@ -28,7 +28,7 @@ Repeated discrete commands such as layer nudges are not coalesced unless an expl
 
 ## Multi-object transactions
 
-Operations such as importing media plus creating a layer, deleting a matte with dependent-reference repair, deleting a parent that lets go of its children in place (proposed by D-57), or relinking several occurrences must either succeed as one transaction or change nothing. Partial success is not permitted unless the UI explicitly presents a batch result and each accepted item is a separate command.
+Operations such as importing media plus creating a layer, deleting a matte with dependent-reference repair, deleting a parent that lets go of its children in place (D-57), or relinking several occurrences must either succeed as one transaction or change nothing. Partial success is not permitted unless the UI explicitly presents a batch result and each accepted item is a separate command.
 
 ## Validation and failure
 

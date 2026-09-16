@@ -80,9 +80,9 @@ B-08b / R-06b bounded preview cache. UNPARKED on 2026-09-05 by D-37, after `veri
 
 B-13 / R-12 flat-plane camera and parenting, split by D-56 on 2026-09-15 into three units done in this order, after G1 passed (D-54).
 
-B-13a / R-12 specifications and fixtures before code. Parenting is proposed in D-57, with documents 07, 19, 20, 21, 25, 26 and 28, the schema, `tools/parent_reference.py` and `Fixtures/projects/parenting_project.json`; the camera and depth contract follows in its own entry. Each is the owner's to accept, and none of B-13b or B-13c starts before its own is accepted.
+B-13a / R-12 specifications and fixtures before code. Parenting is D-57, accepted by the owner on 2026-09-15, with documents 07, 19, 20, 21, 25, 26 and 28, the schema, `tools/parent_reference.py` and `Fixtures/projects/parenting_project.json`; the camera and depth contract follows in its own entry. Each is the owner's to accept, and none of B-13b or B-13c starts before its own is accepted.
 
-B-13b / R-12 parenting, built against D-57 once accepted. Artifact: a fixture table for FX-PARENT-001 to 008, and a playtest sheet for the parent pick list on the layer row.
+B-13b / R-12 parenting, built against D-57. Artifact: a fixture table for FX-PARENT-001 to 008, and a playtest sheet for the parent pick list on the layer row.
 
 B-13c / R-12 camera and depth, built against its accepted contract. Artifact: a fixture table, the generated parallax reference shot, and W-04 walked by the owner for T-11.
 

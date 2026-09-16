@@ -6,7 +6,7 @@ Version 0.2 | 2026-09-04 | Proposed baseline
 
 Use a versioned, inspectable structured format for G1; JSON is the initial candidate, with a schema and migrations. Do not embed media or cache in the project file. Fields include schema_version, project_id, compositions, assets, layers, effects, color_settings and application_metadata.
 
-A composition stores stable ID, pixel dimensions, pixel aspect ratio, frame-rate numerator/denominator, start frame and duration. G1 supports square pixels only and rejects unsupported ratios explicitly. A layer references an asset and stores order, timing, transforms, visibility, masks, matte references, an optional parent reference (proposed by D-57) and effect instances.
+A composition stores stable ID, pixel dimensions, pixel aspect ratio, frame-rate numerator/denominator, start frame and duration. G1 supports square pixels only and rejects unsupported ratios explicitly. A layer references an asset and stores order, timing, transforms, visibility, masks, matte references, an optional parent reference (D-57) and effect instances.
 
 An effect instance stores stable instance ID, effect type, contract version, enabled state and typed parameters. References must use IDs rather than display names. Unknown effect records are preserved and surfaced as unsupported.
 

@@ -20,7 +20,7 @@ Position denotes where the anchor lands in composition coordinates. Positive rot
 
 ## Parenting
 
-Proposed by D-57 on 2026-09-15, awaiting the owner. Call the transform above `M(L)`. A layer with a parent has the parent's whole transform applied after its own:
+Accepted by D-57 on 2026-09-15. Call the transform above `M(L)`. A layer with a parent has the parent's whole transform applied after its own:
 
 `M_world(L) = M_world(parent(L)) * M(L)`, and `M_world(L) = M(L)` for a layer with no parent.
 
