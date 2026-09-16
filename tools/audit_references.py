@@ -35,11 +35,37 @@ SKIP = {'.git', 'target', 'node_modules', '.claude', 'spike-output', 'trace', 's
 # A path in backticks, which is how every document here writes one.
 PATH = re.compile(r'`([A-Za-z0-9_./-]+\.(?:md|png|json|rs|py|ps1|toml|html|yml|yaml))`')
 
-# A named artifact followed closely by a score claimed for it.
-QUOTED_SCORE = re.compile(r'`(verification/[A-Za-z0-9_.-]+\.md)`[^.]{0,120}?(\d+) of (\d+) checks')
+# A named artifact followed closely by a score claimed for it. The count may be written as
+# "N of N checks", as a bare total "N checks", or as a word - all three are in the pack, and a
+# pattern that reads only the first let document 18 go on claiming eighteen checks for a table
+# that had grown to thirty-one.
+WORDS = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7,
+         'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11, 'twelve': 12, 'thirteen': 13,
+         'fourteen': 14, 'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18,
+         'nineteen': 19, 'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50, 'sixty': 60}
+COUNT = r'(?:\d+|' + '|'.join(WORDS) + r')'
+QUOTED_SCORE = re.compile(
+    r'`(verification/[A-Za-z0-9_.-]+\.md)`[^.]{0,120}?'
+    r'(?:(\d+) of (\d+) checks|(' + COUNT + r') checks)')
 
 # The score an artifact states for itself, which is the first one in the file.
 OWN_SCORE = re.compile(r'(\d+) of (\d+) checks')
+
+# A named artifact, and a claim in the PRESENT TENSE about what it reads now. These are
+# photographs and they get retaken; three records went on saying one reads a number it stopped
+# reading two captures ago. Only "reads N" is checked: a record saying what a picture *read*
+# before is describing history, which is exactly what these records have to be able to do.
+QUOTED_PLAY = re.compile(
+    r'`(verification/[A-Za-z0-9_.-]+\.md)`[^.]{0,160}?'
+    r'reads\s+(\d+)\s+(?:draft\s+)?(?:frames?\s+)?played')
+
+# What a photograph reports today, which is the count in its own quoted capture.
+OWN_PLAY = re.compile(r'^>\s*Played\s+(\d+)', re.M)
+
+
+def as_count(word):
+    """The number a claim spells, however it spells it."""
+    return int(word) if word.isdigit() else WORDS[word.lower()]
 
 # Names that are deliberately not files on disk, with why.
 ALLOWED = {
@@ -94,9 +120,32 @@ def main():
             if not other.exists():
                 continue
             own = OWN_SCORE.search(other.read_text(encoding='utf-8', errors='replace'))
-            if own and (m.group(2), m.group(3)) != (own.group(1), own.group(2)):
-                found.append(f'{p}: says {m.group(1)} is {m.group(2)} of {m.group(3)}, '
+            if not own:
+                continue
+            total = int(own.group(2))
+            if m.group(2) is not None:
+                claimed = f'{m.group(2)} of {m.group(3)}'
+                wrong = (m.group(2), m.group(3)) != (own.group(1), own.group(2))
+            else:
+                # A bare total, in digits or in words: "41 checks", "eighteen checks".
+                # "grew from 46 checks to 60" names both numbers and is not a claim about
+                # the count today, so it is history rather than drift.
+                if re.match(r'\s+to\s+\d+', text[m.end():m.end() + 20]):
+                    continue
+                claimed = f'{m.group(4)} checks'
+                wrong = as_count(m.group(4)) != total
+            if wrong:
+                found.append(f'{p}: says {m.group(1)} is {claimed}, '
                              f'the file itself says {own.group(1)} of {own.group(2)}')
+
+        for m in QUOTED_PLAY.finditer(text):
+            other = ROOT / m.group(1)
+            if not other.exists():
+                continue
+            own = OWN_PLAY.search(other.read_text(encoding='utf-8', errors='replace'))
+            if own and m.group(2) != own.group(1):
+                found.append(f'{p}: says {m.group(1)} reads {m.group(2)} frames played, '
+                             f'the file itself reports {own.group(1)}')
 
     for line in found:
         print(line)
