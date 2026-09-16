@@ -17,6 +17,7 @@ pub mod composite;
 pub mod diagnostics;
 pub mod effects;
 pub mod export;
+pub mod expr;
 pub mod mask;
 pub mod media;
 pub mod model;

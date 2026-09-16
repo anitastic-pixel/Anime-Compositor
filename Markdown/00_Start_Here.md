@@ -54,7 +54,7 @@ Amended again later the same day, and this is the part to read carefully. That r
 
 This decision was the owner's, as it had to be. An agent must not open a gate on its own reading of the evidence, and that rule still stands for G1 and G2.
 
-**G1 is passed. The owner opened the gate on 2026-09-15.** The answer was "Pass now, gaps noted": the three gaps are written down as accepted and open in D-54. The owner accepted the measured memory headroom the same day (D-55), which is the other half of what document 04 asks before G2. B-13 is done by the owner's word on 2026-09-16. Current work is B-14 in `Markdown/15_Initial_Backlog.md`, the expressions of R-13. B-14a is done: the owner accepted D-59, the answer to D-10, on 2026-09-16. Current work is B-14b, the evaluator.
+**G1 is passed. The owner opened the gate on 2026-09-15.** The answer was "Pass now, gaps noted": the three gaps are written down as accepted and open in D-54. The owner accepted the measured memory headroom the same day (D-55), which is the other half of what document 04 asks before G2. B-13 is done by the owner's word on 2026-09-16. Current work is B-14 in `Markdown/15_Initial_Backlog.md`, the expressions of R-13. B-14a is done: the owner accepted D-59, the answer to D-10, on 2026-09-16. B-14b, the evaluator, the file and the export refusal, is built on 2026-09-16 and T-12 passes. Current work is B-14c, expressions in the window.
 
 Current task is B-02 in `Markdown/15_Initial_Backlog.md`: tagged image buffers, the linear-light premultiplied float32 working space and normal-over compositing on the CPU. Its artifact is `verification/B-02_fixture_table.md`.
 

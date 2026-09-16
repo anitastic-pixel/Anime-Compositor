@@ -166,31 +166,36 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "CAMERA_PLANE_BEHIND",
         "B-13c_camera_table.md",
     ),
+    (
+        DiagnosticId::ExpressionSyntax,
+        "EXPRESSION_SYNTAX",
+        "B-14b_expression_table.md",
+    ),
+    (
+        DiagnosticId::ExpressionType,
+        "EXPRESSION_TYPE",
+        "B-14b_expression_table.md",
+    ),
+    (
+        DiagnosticId::ExpressionReferenceMissing,
+        "EXPRESSION_REFERENCE_MISSING",
+        "B-14b_expression_table.md",
+    ),
+    (
+        DiagnosticId::ExpressionCycle,
+        "EXPRESSION_CYCLE",
+        "B-14b_expression_table.md",
+    ),
+    (
+        DiagnosticId::ExpressionTimeout,
+        "EXPRESSION_TIMEOUT",
+        "B-14b_expression_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
 /// a claim about scope that a reader can check against the requirement it names.
 const NOT_BUILT: &[(&str, &str)] = &[
-    (
-        "EXPRESSION_SYNTAX",
-        "D-59, the expression language, is accepted and B-14b has not built the evaluator yet.",
-    ),
-    (
-        "EXPRESSION_TYPE",
-        "D-59, the expression language, is accepted and B-14b has not built the evaluator yet.",
-    ),
-    (
-        "EXPRESSION_REFERENCE_MISSING",
-        "D-59, the expression language, is accepted and B-14b has not built the evaluator yet.",
-    ),
-    (
-        "EXPRESSION_CYCLE",
-        "R-13, expressions, is G2 work and no expression evaluator exists.",
-    ),
-    (
-        "EXPRESSION_TIMEOUT",
-        "R-13, expressions, is G2 work and no expression evaluator exists.",
-    ),
     (
         "GPU_BACKEND_FAILED",
         "There is no GPU path; every frame is composited on the processor.",

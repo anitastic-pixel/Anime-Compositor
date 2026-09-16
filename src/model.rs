@@ -213,11 +213,22 @@ fn cubic(p0: f64, p1: f64, p2: f64, p3: f64, t: f64) -> f64 {
     s * s * s * p0 + 3.0 * s * s * t * p1 + 3.0 * s * t * t * p2 + t * t * t * p3
 }
 
+/// D-59: an expression a property may carry, kept exactly as written.
+///
+/// The text is stored whether or not it can be read: a text the language refuses is reported
+/// by [`crate::expr`] each time the property is evaluated, never dropped or repaired.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Expression {
+    pub text: String,
+    pub enabled: bool,
+}
+
 /// A base value plus zero or more keyframes, sorted by frame and unique in frame.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Property {
     base: Value,
     keyframes: Vec<Keyframe>,
+    expression: Option<Expression>,
 }
 
 impl Property {
@@ -225,7 +236,25 @@ impl Property {
         Property {
             base,
             keyframes: Vec::new(),
+            expression: None,
         }
+    }
+
+    /// D-59's expression, switched on or off, or `None`.
+    pub fn expression(&self) -> Option<&Expression> {
+        self.expression.as_ref()
+    }
+
+    /// The expression that is switched on, if there is one. [`crate::expr`] reads nothing else.
+    pub fn live_expression(&self) -> Option<&str> {
+        self.expression
+            .as_ref()
+            .filter(|e| e.enabled)
+            .map(|e| e.text.as_str())
+    }
+
+    pub(crate) fn set_expression(&mut self, expression: Option<Expression>) {
+        self.expression = expression;
     }
 
     pub fn base(&self) -> Value {

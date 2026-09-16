@@ -35,16 +35,16 @@ One row per identifier this build can print, and the table where a person can re
 | `EXPORT_CANCELLED` | yes | `verification/T-08_export_table.md` |
 | `EXPORT_BLOCKED_MISSING_MEDIA` | **no — added by a decision** | `verification/T-08_export_table.md` |
 | `CAMERA_PLANE_BEHIND` | yes | `verification/B-13c_camera_table.md` |
+| `EXPRESSION_SYNTAX` | yes | `verification/B-14b_expression_table.md` |
+| `EXPRESSION_TYPE` | yes | `verification/B-14b_expression_table.md` |
+| `EXPRESSION_REFERENCE_MISSING` | yes | `verification/B-14b_expression_table.md` |
+| `EXPRESSION_CYCLE` | yes | `verification/B-14b_expression_table.md` |
+| `EXPRESSION_TIMEOUT` | yes | `verification/B-14b_expression_table.md` |
 
 ## What the catalogue promises and the build does not have
 
 | Identifier | Why there is no code for it |
 |---|---|
-| `EXPRESSION_SYNTAX` | D-59, the expression language, is accepted and B-14b has not built the evaluator yet. |
-| `EXPRESSION_TYPE` | D-59, the expression language, is accepted and B-14b has not built the evaluator yet. |
-| `EXPRESSION_REFERENCE_MISSING` | D-59, the expression language, is accepted and B-14b has not built the evaluator yet. |
-| `EXPRESSION_CYCLE` | R-13, expressions, is G2 work and no expression evaluator exists. |
-| `EXPRESSION_TIMEOUT` | R-13, expressions, is G2 work and no expression evaluator exists. |
 | `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |
 | `GPU_OUT_OF_MEMORY` | There is no GPU path; every frame is composited on the processor. |
 | `INVALID_PATH` | Paths reach this build through Windows file dialogs and are read, not normalised; a path that cannot be read is reported by the identifier for what failed to read it. |
@@ -150,12 +150,27 @@ One row per identifier this build can print, and the table where a person can re
 | CAMERA_PLANE_BEHIND: the enum spells it the way the catalogue does | CAMERA_PLANE_BEHIND | CAMERA_PLANE_BEHIND | pass |
 | CAMERA_PLANE_BEHIND: says truthfully whether document 28 lists it | true | true | pass |
 | CAMERA_PLANE_BEHIND: a table somewhere shows a person this sentence | named in B-13c_camera_table.md | named in B-13c_camera_table.md | pass |
+| EXPRESSION_SYNTAX: the enum spells it the way the catalogue does | EXPRESSION_SYNTAX | EXPRESSION_SYNTAX | pass |
+| EXPRESSION_SYNTAX: says truthfully whether document 28 lists it | true | true | pass |
+| EXPRESSION_SYNTAX: a table somewhere shows a person this sentence | named in B-14b_expression_table.md | named in B-14b_expression_table.md | pass |
+| EXPRESSION_TYPE: the enum spells it the way the catalogue does | EXPRESSION_TYPE | EXPRESSION_TYPE | pass |
+| EXPRESSION_TYPE: says truthfully whether document 28 lists it | true | true | pass |
+| EXPRESSION_TYPE: a table somewhere shows a person this sentence | named in B-14b_expression_table.md | named in B-14b_expression_table.md | pass |
+| EXPRESSION_REFERENCE_MISSING: the enum spells it the way the catalogue does | EXPRESSION_REFERENCE_MISSING | EXPRESSION_REFERENCE_MISSING | pass |
+| EXPRESSION_REFERENCE_MISSING: says truthfully whether document 28 lists it | true | true | pass |
+| EXPRESSION_REFERENCE_MISSING: a table somewhere shows a person this sentence | named in B-14b_expression_table.md | named in B-14b_expression_table.md | pass |
+| EXPRESSION_CYCLE: the enum spells it the way the catalogue does | EXPRESSION_CYCLE | EXPRESSION_CYCLE | pass |
+| EXPRESSION_CYCLE: says truthfully whether document 28 lists it | true | true | pass |
+| EXPRESSION_CYCLE: a table somewhere shows a person this sentence | named in B-14b_expression_table.md | named in B-14b_expression_table.md | pass |
+| EXPRESSION_TIMEOUT: the enum spells it the way the catalogue does | EXPRESSION_TIMEOUT | EXPRESSION_TIMEOUT | pass |
+| EXPRESSION_TIMEOUT: says truthfully whether document 28 lists it | true | true | pass |
+| EXPRESSION_TIMEOUT: a table somewhere shows a person this sentence | named in B-14b_expression_table.md | named in B-14b_expression_table.md | pass |
 | PROJECT_FEATURE_UNSUPPORTED is kept but raised by nothing | no source file raises it | no source file raises it | pass |
 | every catalogue entry is either built or written down as not built | none unaccounted for | none unaccounted for | pass |
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**86 of 86 checks pass.**
+**101 of 101 checks pass.**
 
 ## What this cannot cover
 

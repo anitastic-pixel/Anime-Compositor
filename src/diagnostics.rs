@@ -124,6 +124,19 @@ pub enum DiagnosticId {
     /// the requested range has no source drawing. Document 07 requires a blocked final export
     /// as the default missing-frame behaviour and document 28 names no identifier for it.
     ExportBlockedMissingMedia,
+    /// Document 28, added by D-59: an expression that cannot be read, or that names a word, a
+    /// member or a function the language does not have. ERROR, though the frame is still drawn with
+    /// the property at its keyed value; an export that meets one is refused.
+    ExpressionSyntax,
+    /// Document 28, added by D-59: an expression that reads but gives the wrong kind of value,
+    /// or a number that is not finite.
+    ExpressionType,
+    /// Document 28, added by D-59: an expression naming a layer ID the composition does not hold.
+    ExpressionReferenceMissing,
+    /// Document 28, added by D-59: expressions that read each other in a loop.
+    ExpressionCycle,
+    /// Document 28, added by D-59: an expression that takes more than its steps or its depth.
+    ExpressionTimeout,
 }
 
 impl DiagnosticId {
@@ -156,6 +169,11 @@ impl DiagnosticId {
             DiagnosticId::ExportWriteFailed => "EXPORT_WRITE_FAILED",
             DiagnosticId::ExportCancelled => "EXPORT_CANCELLED",
             DiagnosticId::ExportBlockedMissingMedia => "EXPORT_BLOCKED_MISSING_MEDIA",
+            DiagnosticId::ExpressionSyntax => "EXPRESSION_SYNTAX",
+            DiagnosticId::ExpressionType => "EXPRESSION_TYPE",
+            DiagnosticId::ExpressionReferenceMissing => "EXPRESSION_REFERENCE_MISSING",
+            DiagnosticId::ExpressionCycle => "EXPRESSION_CYCLE",
+            DiagnosticId::ExpressionTimeout => "EXPRESSION_TIMEOUT",
         }
     }
 
@@ -184,6 +202,11 @@ impl DiagnosticId {
                 | DiagnosticId::MaskInvalidOutline
                 | DiagnosticId::ExportWriteFailed
                 | DiagnosticId::ExportCancelled
+                | DiagnosticId::ExpressionSyntax
+                | DiagnosticId::ExpressionType
+                | DiagnosticId::ExpressionReferenceMissing
+                | DiagnosticId::ExpressionCycle
+                | DiagnosticId::ExpressionTimeout
         )
     }
 }

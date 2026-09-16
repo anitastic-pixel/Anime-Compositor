@@ -50,7 +50,7 @@ pub enum ExportStatus {
     /// Every frame in the range was written.
     Completed,
     /// Refused before writing anything, because a frame in the range has no source drawing and
-    /// the policy is [`MissingSource::Block`].
+    /// the policy is [`MissingSource::Block`], or because an expression fails on one (D-59).
     Blocked,
     /// Stopped between frames because the caller asked. The frames already written are kept.
     Cancelled,
@@ -149,6 +149,44 @@ pub fn export_sequence_counting(
             request.naming
         )));
         return report;
+    }
+
+    // D-59: an expression that fails on any frame of the range refuses the export, whatever the
+    // missing-drawing policy, and before anything is written.
+    if let Some(comp) = project.composition(&request.composition) {
+        let mut refused = false;
+        for (target, prop) in crate::expr::live_properties(comp) {
+            let failing: Vec<(i32, crate::expr::ExprError)> = frames
+                .iter()
+                .filter_map(|&f| {
+                    crate::expr::evaluate(comp, &target, prop, f)
+                        .err()
+                        .map(|e| (f, e))
+                })
+                .collect();
+            let Some((first, e)) = failing.first() else {
+                continue;
+            };
+            refused = true;
+            let owner = crate::expr::owner_name(comp, &target);
+            let at: Vec<i32> = failing.iter().map(|(f, _)| *f).collect();
+            report.diagnostics.push(
+                Diagnostic::new(
+                    e.id,
+                    Severity::Error,
+                    format!(
+                        "The expression on {owner}'s {prop} does not work at frame {first}, so \
+                         nothing was exported."
+                    ),
+                    format!("{}. It fails on frames {}.", e.message, ranges(&at)),
+                )
+                .with_remediation("Correct the expression, or switch it off, and export again."),
+            );
+        }
+        if refused {
+            report.status = ExportStatus::Blocked;
+            return report;
+        }
     }
 
     // Document 07's default: a missing drawing blocks a final export, and nothing is written

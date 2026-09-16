@@ -172,6 +172,9 @@ pub fn plan_frame_cached(
     // D-58: each drawn layer with the plane it ends up on, so the vector can be put in draw
     // order once every layer is resolved.
     let mut layers: Vec<(f64, LayerDraw)> = Vec::new();
+    for (prop, e) in camera_expression_failures(comp, frame) {
+        log.record(frame, format!("camera/{prop}"), e.diagnostic("the camera", prop, frame));
+    }
     // Step 3: composition order, bottom of the stack first, which is `FramePlan.layers`' order.
     for layer in comp.layers_in_order() {
         if !layer.enabled || matte_only.contains(&&layer.id) {
@@ -336,15 +339,25 @@ impl Chain {
 /// switch or its exposures say (document 20, D-57): what a child inherits is a transform, not a
 /// picture. A property holding the wrong kind of value is skipped rather than guessed at; the
 /// layer's own transform reports that case one step further down.
-fn chain_of(layers: &[&crate::model::Layer], frame: i32) -> Chain {
+fn chain_of(
+    comp: &crate::model::Composition,
+    layers: &[&crate::model::Layer],
+    frame: i32,
+) -> Chain {
     let mut chain = Chain::IDENTITY;
     for layer in layers {
-        let t = &layer.transform;
+        // D-59: a parent is inherited after its expressions. A failing one is reported by the
+        // parent's own frame, not again by every child.
+        let at = |prop| {
+            let property = layer.transform.get(prop).expect("the four are transform properties");
+            let owner = || crate::expr::Target::Layer(layer.id.clone());
+            crate::expr::resolve(comp, property, owner, prop, frame).0
+        };
         let (Some(anchor), Some(position), Some(scale), Some(rotation)) = (
-            t.anchor.value_at(frame).as_vec2(),
-            t.position.value_at(frame).as_vec2(),
-            t.scale.value_at(frame).as_vec2(),
-            t.rotation.value_at(frame).as_scalar(),
+            at(Prop::Anchor).as_vec2(),
+            at(Prop::Position).as_vec2(),
+            at(Prop::Scale).as_vec2(),
+            at(Prop::Rotation).as_scalar(),
         ) else {
             continue;
         };
@@ -366,7 +379,7 @@ pub(crate) fn parent_chain_at(
     layer_id: &crate::model::Id,
     frame: i32,
 ) -> Chain {
-    chain_of(&comp.parent_chain(layer_id), frame)
+    chain_of(comp, &comp.parent_chain(layer_id), frame)
 }
 
 /// D-58's camera at one frame: where it is, how far back it sits, and its zoom.
@@ -392,11 +405,31 @@ pub fn camera_at(comp: &crate::model::Composition, frame: i32) -> Option<CameraA
             &default
         }
     };
+    let at = |prop, property| {
+        crate::expr::resolve(comp, property, || crate::expr::Target::Camera, prop, frame).0
+    };
     Some(CameraAt {
-        position: camera.position.value_at(frame).as_vec2()?,
-        depth: camera.depth.value_at(frame).as_scalar()?,
-        zoom: camera.zoom.value_at(frame).as_scalar()?,
+        position: at(Prop::Position, &camera.position).as_vec2()?,
+        depth: at(Prop::Depth, &camera.depth).as_scalar()?,
+        zoom: at(Prop::Zoom, &camera.zoom).as_scalar()?,
     })
+}
+
+/// D-59: every expression in `comp` that fails at `frame`, with the property it sits on. The
+/// camera's are reported once a frame from here; a layer's are reported as that layer is drawn.
+pub fn camera_expression_failures(
+    comp: &crate::model::Composition,
+    frame: i32,
+) -> Vec<(Prop, crate::expr::ExprError)> {
+    crate::expr::live_properties(comp)
+        .into_iter()
+        .filter(|(target, _)| *target == crate::expr::Target::Camera)
+        .filter_map(|(target, prop)| {
+            crate::expr::evaluate(comp, &target, prop, frame)
+                .err()
+                .map(|e| (prop, e))
+        })
+        .collect()
 }
 
 /// D-58's `world_depth(L) = depth(L) + world_depth(parent(L))`: the plane a layer ends up on,
@@ -414,7 +447,12 @@ pub fn world_depth(
         layer
             .depth
             .as_ref()
-            .and_then(|d| d.value_at(frame).as_scalar())
+            .and_then(|d| {
+                let owner = || crate::expr::Target::Layer(layer.id.clone());
+                crate::expr::resolve(comp, d, owner, Prop::Depth, frame)
+                    .0
+                    .as_scalar()
+            })
             .unwrap_or(0.0)
     };
     let mut total = comp.layer(layer_id).map_or(0.0, own);
@@ -472,7 +510,7 @@ pub(crate) fn world_at(
     };
     let mut chain = vec![layer];
     chain.extend(comp.parent_chain(layer_id));
-    chain_of(&chain, frame)
+    chain_of(comp, &chain, frame)
 }
 
 /// D-57's `M_world(L)`: the map from a layer's own pixels into composition pixels at `frame`,
@@ -733,13 +771,31 @@ fn resolve_layer(
     // Step 6: the animated properties at this frame. A property holding the wrong kind of
     // value cannot come from a loaded project — persistence refuses it — so this reports
     // rather than guesses a default, which would put a layer somewhere nobody asked for.
-    let t = &layer.transform;
+    // D-59: each after its expression; one that fails is drawn at its keys and said so.
+    let mut at = |prop: Prop| {
+        let property = match prop {
+            Prop::Depth => layer.depth.as_ref()?,
+            _ => layer.transform.get(prop).expect("the five are transform properties"),
+        };
+        let owner = || crate::expr::Target::Layer(layer.id.clone());
+        let (value, failed) = crate::expr::resolve(comp, property, owner, prop, frame);
+        if let Some(e) = failed {
+            log.record(
+                frame,
+                format!("{}/{prop}", layer.name),
+                e.diagnostic(&layer.name, prop, frame),
+            );
+        }
+        Some(value)
+    };
+    // Depth is read again by `world_depth` below; this reads it only to report it.
+    at(Prop::Depth);
     let (Some(anchor), Some(position), Some(scale), Some(rotation), Some(opacity)) = (
-        t.anchor.value_at(frame).as_vec2(),
-        t.position.value_at(frame).as_vec2(),
-        t.scale.value_at(frame).as_vec2(),
-        t.rotation.value_at(frame).as_scalar(),
-        t.opacity.value_at(frame).as_scalar(),
+        at(Prop::Anchor).and_then(|v| v.as_vec2()),
+        at(Prop::Position).and_then(|v| v.as_vec2()),
+        at(Prop::Scale).and_then(|v| v.as_vec2()),
+        at(Prop::Rotation).and_then(|v| v.as_scalar()),
+        at(Prop::Opacity).and_then(|v| v.as_scalar()),
     ) else {
         log.record(
             frame,

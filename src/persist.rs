@@ -60,7 +60,8 @@ use crate::command::{Command, Document};
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::media::{self, SequenceAsset};
 use crate::model::{
-    Asset, AssetKind, BlendMode, Composition, Id, Interp, Interpretation, Keyframe, Layer,
+    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Keyframe,
+    Layer,
     MatteReference, Project, Prop, Property, Value,
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
@@ -177,6 +178,7 @@ const KEY_ORDER: &[&str] = &[
     "type_id",
     "parameters",
     "zoom",
+    "expression",
 ];
 
 /// An effect record is the one place a flat list is not enough: it spells `enabled` after
@@ -184,9 +186,15 @@ const KEY_ORDER: &[&str] = &[
 /// records are recognised by `instance_id`, which nothing else in the schema has.
 const EFFECT_KEY_ORDER: &[&str] = &["instance_id", "type_id", "enabled", "parameters"];
 
+/// D-59's expression record is the other: `text`, then `enabled`. Recognised by `text`, which
+/// nothing else in the schema has.
+const EXPRESSION_KEY_ORDER: &[&str] = &["text", "enabled"];
+
 fn order_for(map: &Map<String, J>) -> &'static [&'static str] {
     if map.contains_key("instance_id") {
         EFFECT_KEY_ORDER
+    } else if map.contains_key("text") {
+        EXPRESSION_KEY_ORDER
     } else {
         KEY_ORDER
     }
@@ -365,13 +373,27 @@ fn property_json(base: Option<&J>, property: &Property, factor: f64) -> J {
             J::Object(m)
         })
         .collect();
-    merge(
+    let mut out = merge(
         base,
         vec![
             ("base", value_json(property.base(), factor)),
             ("keyframes", J::Array(keyframes)),
         ],
-    )
+    );
+    // D-59: the text and its switch, or no field at all when the property has no expression.
+    let map = out.as_object_mut().expect("merge makes an object");
+    match property.expression() {
+        Some(e) => {
+            let mut m = Map::new();
+            m.insert("text".into(), J::from(e.text.as_str()));
+            m.insert("enabled".into(), J::from(e.enabled));
+            map.insert("expression".into(), J::Object(m));
+        }
+        None => {
+            map.remove("expression");
+        }
+    }
+    out
 }
 
 fn transform_json(base: Option<&J>, layer: &Layer) -> J {
@@ -944,7 +966,30 @@ fn parse_property(
             spatial,
         });
     }
+    if let Some(e) = v.get("expression") {
+        property.set_expression(Some(parse_expression(e, &format!("{pointer}/expression"))?));
+    }
     Ok(property)
+}
+
+/// D-59: exactly a `text` and an `enabled`. The text is kept as written, even one that does not
+/// read: that is diagnosed when a frame is evaluated, not by refusing the file.
+fn parse_expression(v: &J, pointer: &str) -> Result<Expression, Diagnostic> {
+    let m = as_object(v, pointer)?;
+    let shape = "an object holding exactly a text and an enabled";
+    if m.len() != 2 {
+        return Err(invalid(pointer, shape));
+    }
+    let text = field(v, pointer, "text")?
+        .as_str()
+        .ok_or_else(|| invalid(&format!("{pointer}/text"), "a string"))?;
+    let enabled = field(v, pointer, "enabled")?
+        .as_bool()
+        .ok_or_else(|| invalid(&format!("{pointer}/enabled"), "true or false"))?;
+    Ok(Expression {
+        text: text.to_string(),
+        enabled,
+    })
 }
 
 /// Document 19's four numbers, `[x1, y1, x2, y2]`, of a keyframe whose `interp` is `ease`.
