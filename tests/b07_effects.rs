@@ -62,7 +62,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::{self, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::{apply_stack, Bypassed, Effect, EffectInstance};
@@ -1183,7 +1183,7 @@ fn seeded_document() -> Document {
         },
         Command::SetPropertyBase {
             composition: Id::new("comp"),
-            layer_id: Id::new("a"),
+            target: Target::Layer(Id::new("a")),
             prop: Prop::Position,
             value: Value::Vec2(14.0, 14.0),
         },

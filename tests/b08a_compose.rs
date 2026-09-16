@@ -47,7 +47,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::{plan_frame, render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::media::import_sequence;
@@ -438,7 +438,7 @@ fn b08a_assembles_and_renders_a_frame_from_a_project() {
     doc.apply_all(vec![
         Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("layer-2"),
+            target: Target::Layer(id("layer-2")),
             prop: Prop::Opacity,
             frame: 0,
             value: Value::Scalar(0.0),
@@ -447,7 +447,7 @@ fn b08a_assembles_and_renders_a_frame_from_a_project() {
         },
         Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("layer-2"),
+            target: Target::Layer(id("layer-2")),
             prop: Prop::Opacity,
             frame: 24,
             value: Value::Scalar(1.0),
@@ -456,19 +456,19 @@ fn b08a_assembles_and_renders_a_frame_from_a_project() {
         },
         Command::SetPropertyBase {
             composition: id(COMP),
-            layer_id: id("layer-3"),
+            target: Target::Layer(id("layer-3")),
             prop: Prop::Anchor,
             value: Value::Vec2(100.0, 50.0),
         },
         Command::SetPropertyBase {
             composition: id(COMP),
-            layer_id: id("layer-3"),
+            target: Target::Layer(id("layer-3")),
             prop: Prop::Position,
             value: Value::Vec2(960.0, 540.0),
         },
         Command::SetPropertyBase {
             composition: id(COMP),
-            layer_id: id("layer-3"),
+            target: Target::Layer(id("layer-3")),
             prop: Prop::Scale,
             value: Value::Vec2(2.0, 2.0),
         },

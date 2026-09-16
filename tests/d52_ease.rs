@@ -27,7 +27,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::model::{
     Asset, Composition, Id, Interp, Layer, Project, Prop, Property, Value,
 };
@@ -212,7 +212,7 @@ fn evaluated(case: &Case) -> Property {
     ] {
         doc.apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("l"),
+            target: Target::Layer(id("l")),
             prop,
             frame,
             value,
@@ -370,7 +370,7 @@ fn an_ease_round_trips_through_the_save_format() {
     for (frame, value, interp) in [(0, s(0.0), case.interp), (20, s(1.0), Interp::Linear)] {
         doc.apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("l"),
+            target: Target::Layer(id("l")),
             prop: Prop::Rotation,
             frame,
             value,
@@ -477,7 +477,7 @@ fn saved_with_ease(ease: J) -> String {
     for (frame, value, interp) in [(0, s(0.0), EASE_IN_OUT), (20, s(1.0), Interp::Linear)] {
         doc.apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("l"),
+            target: Target::Layer(id("l")),
             prop: Prop::Rotation,
             frame,
             value,

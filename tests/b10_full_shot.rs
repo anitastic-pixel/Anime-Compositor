@@ -80,7 +80,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::DiagnosticId;
 use anime_compositor::export::{export_sequence, ExportReport, ExportRequest, MissingSource};
@@ -249,7 +249,7 @@ fn build_project() -> Project {
     // drawn. The one property set is layer 4's opacity, which the shot's own sheet calls for.
     doc.apply_all(vec![Command::SetPropertyBase {
         composition: id(COMP),
-        layer_id: id("layer-4"),
+        target: Target::Layer(id("layer-4")),
         prop: Prop::Opacity,
         value: Value::Scalar(1.0),
     }])

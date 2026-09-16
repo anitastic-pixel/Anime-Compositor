@@ -26,7 +26,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::model::{
     Asset, Composition, Id, Interp, Layer, Project, Prop, Property, Value,
 };
@@ -182,7 +182,7 @@ fn keyed(prop: Prop, keys: &[(i32, Value, Interp, Option<[f64; 4]>)]) -> Propert
     for &(frame, value, interp, spatial) in keys {
         doc.apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("l"),
+            target: Target::Layer(id("l")),
             prop,
             frame,
             value,
@@ -358,7 +358,7 @@ fn path_handles_round_trip_through_the_save_format() {
     ] {
         doc.apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("l"),
+            target: Target::Layer(id("l")),
             prop: Prop::Position,
             frame,
             value,
@@ -446,7 +446,7 @@ fn path_handles_on_anything_but_position_are_refused() {
     let d = doc
         .apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("l"),
+            target: Target::Layer(id("l")),
             prop: Prop::Rotation,
             frame: 0,
             value: Value::Scalar(0.0),
@@ -474,7 +474,7 @@ fn saved_with_spatial(prop: Prop, spatial: J) -> String {
     for (frame, value) in [(0, a), (24, b)] {
         doc.apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("l"),
+            target: Target::Layer(id("l")),
             prop,
             frame,
             value,

@@ -15,7 +15,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::model::{
     Asset, BlendMode, Composition, Id, Interp, Layer, Marker, Project, Prop, Value,
 };
@@ -541,7 +541,7 @@ fn b05_model_and_undo() {
     // -- Document 26: scalar property edit, undo, redo exact value -------------------------------
     doc.apply(Command::SetPropertyBase {
         composition: id(COMP),
-        layer_id: id("layer-3"),
+        target: Target::Layer(id("layer-3")),
         prop: Prop::Rotation,
         value: Value::Scalar(12.5),
     })
@@ -577,7 +577,7 @@ fn b05_model_and_undo() {
     // -- Document 20: opacity is clamped at command validation, scale may be negative ------------
     doc.apply(Command::SetPropertyBase {
         composition: id(COMP),
-        layer_id: id("layer-3"),
+        target: Target::Layer(id("layer-3")),
         prop: Prop::Opacity,
         value: Value::Scalar(1.4),
     })
@@ -589,7 +589,7 @@ fn b05_model_and_undo() {
     );
     doc.apply(Command::SetPropertyBase {
         composition: id(COMP),
-        layer_id: id("layer-4"),
+        target: Target::Layer(id("layer-4")),
         prop: Prop::Scale,
         value: Value::Vec2(-1.0, 1.0),
     })
@@ -604,7 +604,7 @@ fn b05_model_and_undo() {
         "COMMAND_INVALID_VALUE",
         match doc.apply(Command::SetPropertyBase {
             composition: id(COMP),
-            layer_id: id("layer-4"),
+            target: Target::Layer(id("layer-4")),
             prop: Prop::Position,
             value: Value::Scalar(3.0),
         }) {
@@ -636,7 +636,7 @@ fn b05_model_and_undo() {
     ] {
         doc.apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("layer-2"),
+            target: Target::Layer(id("layer-2")),
             prop: Prop::Position,
             frame,
             value,
@@ -695,7 +695,7 @@ fn b05_model_and_undo() {
         {
             doc.apply(Command::SetKeyframe {
                 composition: id(COMP),
-                layer_id: id("layer-2"),
+                target: Target::Layer(id("layer-2")),
                 prop: Prop::Position,
                 frame: 12,
                 value: Value::Vec2(100.0, 0.0),
@@ -716,7 +716,7 @@ fn b05_model_and_undo() {
         "COMMAND_TARGET_MISSING",
         match doc.apply(Command::RemoveKeyframe {
             composition: id(COMP),
-            layer_id: id("layer-2"),
+            target: Target::Layer(id("layer-2")),
             prop: Prop::Position,
             frame: 7,
         }) {
@@ -731,7 +731,7 @@ fn b05_model_and_undo() {
     for step in 1..=100 {
         doc.update_drag(Command::SetPropertyBase {
             composition: id(COMP),
-            layer_id: id("layer-4"),
+            target: Target::Layer(id("layer-4")),
             prop: Prop::Position,
             value: Value::Vec2(step as f64, 0.0),
         })
@@ -764,7 +764,7 @@ fn b05_model_and_undo() {
     let undo_before_cancel = doc.undo_depth();
     doc.update_drag(Command::SetPropertyBase {
         composition: id(COMP),
-        layer_id: id("layer-4"),
+        target: Target::Layer(id("layer-4")),
         prop: Prop::Position,
         value: Value::Vec2(999.0, 0.0),
     })
@@ -791,7 +791,7 @@ fn b05_model_and_undo() {
         for (layer, offset) in [("layer-4", 0.0), ("layer-3", 1000.0)] {
             doc.update_drag(Command::SetPropertyBase {
                 composition: id(COMP),
-                layer_id: id(layer),
+                target: Target::Layer(id(layer)),
                 prop: Prop::Position,
                 value: Value::Vec2(offset + step as f64, 0.0),
             })
@@ -954,7 +954,7 @@ fn b05_model_and_undo() {
     for frame in [5, 30] {
         doc.apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("layer-3"),
+            target: Target::Layer(id("layer-3")),
             prop: Prop::Position,
             frame,
             value: Value::Vec2(0.0, 0.0),
@@ -1081,7 +1081,7 @@ fn b05_model_and_undo() {
     for value in [500.0, 250.0, 100.0] {
         doc.update_drag(Command::SetPropertyBase {
             composition: id(COMP),
-            layer_id: id("layer-4"),
+            target: Target::Layer(id("layer-4")),
             prop: Prop::Position,
             value: Value::Vec2(value, 0.0),
         })
@@ -1365,7 +1365,7 @@ fn interpolation_mode_belongs_to_the_segment_that_starts_at_it() {
     ] {
         doc.apply(Command::SetKeyframe {
             composition: id(COMP),
-            layer_id: id("l"),
+            target: Target::Layer(id("l")),
             prop: Prop::Rotation,
             frame,
             value: Value::Scalar(v),

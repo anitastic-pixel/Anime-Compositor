@@ -52,7 +52,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::export::{export_sequence, ExportRequest, MissingSource};
 use anime_compositor::media::import_sequence;
 use anime_compositor::model::{Asset, AssetKind, Composition, Id, Layer, Project, Prop, Value};
@@ -379,7 +379,7 @@ fn build_project(layers: &[u32]) -> Project {
             },
             Command::SetPropertyBase {
                 composition: id(COMP),
-                layer_id: id(&format!("layer-{n}")),
+                target: Target::Layer(id(&format!("layer-{n}"))),
                 prop: Prop::Opacity,
                 value: Value::Scalar(1.0),
             },

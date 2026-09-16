@@ -31,7 +31,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anime_compositor::command::{parent_keep_place_is_exact, Command, Document};
+use anime_compositor::command::{parent_keep_place_is_exact, Command, Document, Target};
 use anime_compositor::compose::world_transform;
 use anime_compositor::diagnostics::DiagnosticId;
 use anime_compositor::model::{Asset, Composition, Id, Interp, Layer, Project, Prop, Value};
@@ -125,7 +125,7 @@ fn set(document: &mut Document, layer_id: &Id, prop: Prop, value: Value) {
     document
         .apply(Command::SetPropertyBase {
             composition: Id::new(COMP),
-            layer_id: layer_id.clone(),
+            target: Target::Layer(layer_id.clone()),
             prop,
             value,
         })
@@ -136,7 +136,7 @@ fn key(document: &mut Document, layer_id: &Id, prop: Prop, frame: i32, value: Va
     document
         .apply(Command::SetKeyframe {
             composition: Id::new(COMP),
-            layer_id: layer_id.clone(),
+            target: Target::Layer(layer_id.clone()),
             prop,
             frame,
             value,

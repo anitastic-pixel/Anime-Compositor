@@ -359,6 +359,14 @@ pub enum Prop {
     /// [`Transform::get`] answers `None` for it, which is the one place the difference between
     /// a transform property and a layer's own property is visible.
     Depth,
+    /// D-58's zoom, which only the camera has.
+    ///
+    /// Named here with the others for document 24 line 91's reason: a command names a target
+    /// and a property, and the camera's three properties are reached by the same four property
+    /// commands a layer's five are. [`Transform::get`] answers `None` for it as it does for a
+    /// depth, so a layer asked for a zoom is refused at the one lookup rather than by every
+    /// caller in turn.
+    Zoom,
 }
 
 impl Prop {
@@ -370,6 +378,7 @@ impl Prop {
             Prop::Rotation => "rotation",
             Prop::Opacity => "opacity",
             Prop::Depth => "depth",
+            Prop::Zoom => "zoom",
         }
     }
 
@@ -377,7 +386,7 @@ impl Prop {
     pub fn kind(self) -> &'static str {
         match self {
             Prop::Anchor | Prop::Position | Prop::Scale => "vec2",
-            Prop::Rotation | Prop::Opacity | Prop::Depth => "scalar",
+            Prop::Rotation | Prop::Opacity | Prop::Depth | Prop::Zoom => "scalar",
         }
     }
 }
@@ -427,7 +436,7 @@ impl Transform {
             Prop::Scale => Some(&self.scale),
             Prop::Rotation => Some(&self.rotation),
             Prop::Opacity => Some(&self.opacity),
-            Prop::Depth => None,
+            Prop::Depth | Prop::Zoom => None,
         }
     }
 
@@ -438,7 +447,7 @@ impl Transform {
             Prop::Scale => Some(&mut self.scale),
             Prop::Rotation => Some(&mut self.rotation),
             Prop::Opacity => Some(&mut self.opacity),
-            Prop::Depth => None,
+            Prop::Depth | Prop::Zoom => None,
         }
     }
 

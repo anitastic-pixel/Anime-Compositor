@@ -44,7 +44,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::{plan_frame, screen_transform, world_depth, world_transform};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::media::import_sequence;
@@ -149,7 +149,7 @@ fn set(document: &mut Document, layer_id: &Id, prop: Prop, value: Value) {
     document
         .apply(Command::SetPropertyBase {
             composition: Id::new(COMP),
-            layer_id: layer_id.clone(),
+            target: Target::Layer(layer_id.clone()),
             prop,
             value,
         })

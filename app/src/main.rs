@@ -43,7 +43,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anime_compositor::cache::CelCache;
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR, TINT};
@@ -2360,7 +2360,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .into_iter()
                     .map(|(layer_id, prop, frame)| Command::RemoveKeyframe {
                         composition: composition.clone(),
-                        layer_id,
+                        target: Target::Layer(layer_id.clone()),
                         prop,
                         frame,
                     })
@@ -2379,7 +2379,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 .into_iter()
                 .map(|(layer_id, prop, from_frame)| Command::MoveKeyframe {
                     composition: composition.clone(),
-                    layer_id,
+                    target: Target::Layer(layer_id.clone()),
                     prop,
                     from_frame,
                     to_frame: from_frame + by,
@@ -2672,13 +2672,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     match property.keyframe_at(frame) {
                         Some(_) => Command::RemoveKeyframe {
                             composition,
-                            layer_id,
+                            target: Target::Layer(layer_id.clone()),
                             prop,
                             frame,
                         },
                         None => Command::SetKeyframe {
                             composition,
-                            layer_id,
+                            target: Target::Layer(layer_id.clone()),
                             prop,
                             frame,
                             value: property.value_at(frame),
@@ -2714,7 +2714,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     };
                     Command::MoveKeyframe {
                         composition,
-                        layer_id,
+                        target: Target::Layer(layer_id.clone()),
                         prop,
                         from_frame,
                         to_frame,
@@ -2771,7 +2771,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     };
                     Command::SetKeyframe {
                         composition,
-                        layer_id,
+                        target: Target::Layer(layer_id.clone()),
                         prop,
                         frame,
                         value: key.value,
@@ -2808,7 +2808,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     };
                     Command::SetKeyframe {
                         composition,
-                        layer_id,
+                        target: Target::Layer(layer_id.clone()),
                         prop: Prop::Position,
                         frame,
                         value: key.value,
@@ -2850,7 +2850,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     if !property.is_animated() {
                         Command::SetPropertyBase {
                             composition,
-                            layer_id,
+                            target: Target::Layer(layer_id.clone()),
                             prop,
                             value,
                         }
@@ -2866,7 +2866,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         };
                         Command::SetKeyframe {
                             composition,
-                            layer_id,
+                            target: Target::Layer(layer_id.clone()),
                             prop,
                             frame,
                             value,

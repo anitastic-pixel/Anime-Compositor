@@ -59,7 +59,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::export::{export_sequence, ExportReport, ExportRequest, MissingSource};
@@ -385,7 +385,7 @@ fn build_project() -> Project {
         // the file and the difference can be read off it.
         Command::SetPropertyBase {
             composition: id(COMP),
-            layer_id: id("layer-cels"),
+            target: Target::Layer(id("layer-cels")),
             prop: Prop::Opacity,
             value: Value::Scalar(0.5),
         },

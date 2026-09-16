@@ -66,7 +66,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anime_compositor::command::{Command, Document};
+use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::media::import_sequence;
@@ -391,25 +391,25 @@ fn build_project() -> Project {
             },
             Command::SetPropertyBase {
                 composition: id(COMP),
-                layer_id: id(&format!("layer-{n}")),
+                target: Target::Layer(id(&format!("layer-{n}"))),
                 prop: Prop::Anchor,
                 value: Value::Vec2(ax, ay),
             },
             Command::SetPropertyBase {
                 composition: id(COMP),
-                layer_id: id(&format!("layer-{n}")),
+                target: Target::Layer(id(&format!("layer-{n}"))),
                 prop: Prop::Position,
                 value: Value::Vec2(px, py),
             },
             Command::SetPropertyBase {
                 composition: id(COMP),
-                layer_id: id(&format!("layer-{n}")),
+                target: Target::Layer(id(&format!("layer-{n}"))),
                 prop: Prop::Scale,
                 value: Value::Vec2(sx, sy),
             },
             Command::SetPropertyBase {
                 composition: id(COMP),
-                layer_id: id(&format!("layer-{n}")),
+                target: Target::Layer(id(&format!("layer-{n}"))),
                 prop: Prop::Opacity,
                 value: Value::Scalar(opacity),
             },

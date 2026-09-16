@@ -21,6 +21,44 @@ use crate::model::{
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
 
+/// What a property command addresses: a layer, or the composition's camera.
+///
+/// Document 24 line 91 gives the reason there is a target at all rather than a second family of
+/// camera commands: "once a command can name the camera as its target instead of a layer, every
+/// property command that already exists - set a base value, add a key, delete a key, set an
+/// ease, set a motion path - reaches the camera unchanged". So the four commands below take one
+/// of these and the camera is keyed, moved, eased and undone by the machinery a layer already
+/// had, rather than by a copy of it that could drift.
+///
+/// The camera carries no identifier because a composition has at most one, and D-58 makes it a
+/// property of the composition rather than a layer in it. That is also why [`Target::layer`]
+/// answers `None` for it: a camera cannot be locked, and the history record it belongs to names
+/// the composition, which is in the affected list already.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Target {
+    Layer(Id),
+    Camera,
+}
+
+impl Target {
+    /// The layer this addresses, or `None` for the camera.
+    pub fn layer(&self) -> Option<&Id> {
+        match self {
+            Target::Layer(id) => Some(id),
+            Target::Camera => None,
+        }
+    }
+
+    /// How a diagnostic names it. The layer wording is unchanged from before there was a
+    /// target, because tests and the window both read these sentences.
+    fn named(&self) -> String {
+        match self {
+            Target::Layer(id) => format!("Layer {id}"),
+            Target::Camera => "The camera".to_string(),
+        }
+    }
+}
+
 /// One user action. Document 26 requires a stable command ID and a human-readable label on
 /// every history record; both are derived from the variant rather than passed in, so a caller
 /// cannot mislabel history.
@@ -153,13 +191,13 @@ pub enum Command {
     },
     SetPropertyBase {
         composition: Id,
-        layer_id: Id,
+        target: Target,
         prop: Prop,
         value: Value,
     },
     SetKeyframe {
         composition: Id,
-        layer_id: Id,
+        target: Target,
         prop: Prop,
         frame: i32,
         value: Value,
@@ -171,7 +209,7 @@ pub enum Command {
     },
     RemoveKeyframe {
         composition: Id,
-        layer_id: Id,
+        target: Target,
         prop: Prop,
         frame: i32,
     },
@@ -184,7 +222,7 @@ pub enum Command {
     /// what it does.
     MoveKeyframe {
         composition: Id,
-        layer_id: Id,
+        target: Target,
         prop: Prop,
         from_frame: i32,
         to_frame: i32,
@@ -529,16 +567,19 @@ impl Command {
             | Command::ReorderLayer { layer_id, .. }
             | Command::ShiftLayer { layer_id, .. }
             | Command::TrimLayer { layer_id, .. }
-            | Command::SetPropertyBase { layer_id, .. }
-            | Command::SetKeyframe { layer_id, .. }
-            | Command::RemoveKeyframe { layer_id, .. }
-            | Command::MoveKeyframe { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
             | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
             | Command::SetEffectParameters { layer_id, .. } => ids.push(layer_id.clone()),
+            // B-13e: these four name a target. A layer goes in the affected list as it always
+            // did; the camera adds nothing, because it belongs to the composition and the
+            // composition is in the list already.
+            Command::SetPropertyBase { target, .. }
+            | Command::SetKeyframe { target, .. }
+            | Command::RemoveKeyframe { target, .. }
+            | Command::MoveKeyframe { target, .. } => ids.extend(target.layer().cloned()),
             Command::AddEffect {
                 layer_id, effect, ..
             } => {
@@ -630,10 +671,6 @@ impl Command {
             | Command::ReorderLayer { layer_id, .. }
             | Command::ShiftLayer { layer_id, .. }
             | Command::TrimLayer { layer_id, .. }
-            | Command::SetPropertyBase { layer_id, .. }
-            | Command::SetKeyframe { layer_id, .. }
-            | Command::RemoveKeyframe { layer_id, .. }
-            | Command::MoveKeyframe { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
@@ -647,6 +684,14 @@ impl Command {
             | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
             | Command::SetEffectParameters { layer_id, .. } => Some(layer_id),
+            // B-13e: a property command on a layer is still blocked by that layer's lock. On
+            // the camera it is not, for the reason `blocked_by_lock` already gives
+            // `SetCameraProperty`: the camera belongs to the composition and a locked layer has
+            // no say in it.
+            Command::SetPropertyBase { target, .. }
+            | Command::SetKeyframe { target, .. }
+            | Command::RemoveKeyframe { target, .. }
+            | Command::MoveKeyframe { target, .. } => target.layer(),
             _ => None,
         }
     }
@@ -1363,16 +1408,16 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             layer.out_frame = *out_frame;
         }
         Command::SetPropertyBase {
-            layer_id,
+            target,
             prop,
             value,
             ..
         } => {
-            let value = check_value(*prop, *value)?;
-            property_mut(project, &comp_id, layer_id, *prop)?.set_base(value);
+            let value = check_target_value(target, *prop, *value)?;
+            property_mut(project, &comp_id, target, *prop)?.set_base(value);
         }
         Command::SetKeyframe {
-            layer_id,
+            target,
             prop,
             frame,
             value,
@@ -1380,7 +1425,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             spatial,
             ..
         } => {
-            let value = check_value(*prop, *value)?;
+            let value = check_target_value(target, *prop, *value)?;
             if spatial.is_some() && *prop != Prop::Position {
                 return Err(reject(
                     &format!("{prop} cannot carry path handles."),
@@ -1393,7 +1438,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "Document 19: spatial is four offsets in composition pixels.",
                 ));
             }
-            property_mut(project, &comp_id, layer_id, *prop)?.set_keyframe(Keyframe {
+            property_mut(project, &comp_id, target, *prop)?.set_keyframe(Keyframe {
                     frame: *frame,
                     value,
                     interp: *interp,
@@ -1401,22 +1446,25 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 });
         }
         Command::RemoveKeyframe {
-            layer_id,
+            target,
             prop,
             frame,
             ..
         } => {
             let removed =
-                property_mut(project, &comp_id, layer_id, *prop)?.remove_keyframe(*frame);
+                property_mut(project, &comp_id, target, *prop)?.remove_keyframe(*frame);
             if removed.is_none() {
                 return Err(missing(
                     format!("There is no {prop} keyframe at frame {frame} to remove."),
-                    format!("Layer {layer_id} has no {prop} keyframe at frame {frame}."),
+                    format!(
+                        "{} has no {prop} keyframe at frame {frame}.",
+                        target.named()
+                    ),
                 ));
             }
         }
         Command::MoveKeyframe {
-            layer_id,
+            target,
             prop,
             from_frame,
             to_frame,
@@ -1428,7 +1476,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "A move from a frame to itself is not an edit and must not enter history.",
                 ));
             }
-            let property = property_mut(project, &comp_id, layer_id, *prop)?;
+            let property = property_mut(project, &comp_id, target, *prop)?;
             // Refused rather than overwritten. Document 19 calls two keyframes at one frame
             // invalid, so a move onto an occupied frame has to lose one of them, and losing a key
             // the artist can no longer see the mark of is a worse answer than not moving.
@@ -1441,7 +1489,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             let Some(key) = property.remove_keyframe(*from_frame) else {
                 return Err(missing(
                     format!("There is no {prop} keyframe at frame {from_frame} to move."),
-                    format!("Layer {layer_id} has no {prop} keyframe at frame {from_frame}."),
+                    format!(
+                        "{} has no {prop} keyframe at frame {from_frame}.",
+                        target.named()
+                    ),
                 ));
             };
             property.set_keyframe(Keyframe {
@@ -1800,9 +1851,30 @@ fn layer_mut<'a>(
 fn property_mut<'a>(
     project: &'a mut Project,
     comp_id: &Id,
-    layer_id: &Id,
+    target: &Target,
     prop: Prop,
 ) -> Result<&'a mut crate::model::Property, Diagnostic> {
+    let layer_id = match target {
+        Target::Layer(id) => id,
+        // B-13e: the camera, which has no layer to look up. A camera the file did not name is
+        // made here holding document 21's default, for the reason a depth is: touching a
+        // property that was at its default changes nothing in the picture and only begins to
+        // hold it, and the file gains a camera because somebody moved one.
+        Target::Camera => {
+            let Some(which) = camera_prop(prop) else {
+                return Err(reject(
+                    &format!("A camera has no {prop}."),
+                    "D-58: a camera has a position, a depth and a zoom.",
+                ));
+            };
+            let comp = comp_mut(project, comp_id)?;
+            let (width, height) = (comp.width, comp.height);
+            return Ok(comp
+                .camera
+                .get_or_insert_with(|| crate::model::Camera::default_for(width, height))
+                .get_mut(which));
+        }
+    };
     let layer = layer_mut(project, comp_id, layer_id)?;
     match prop {
         Prop::Depth => Ok(layer
@@ -1814,6 +1886,39 @@ fn property_mut<'a>(
                 "Document 19: a transform holds anchor, position, scale, rotation and opacity.",
             )
         }),
+    }
+}
+
+/// Which of the camera's three a property name means, or `None` where the camera has no such
+/// property. The two names a layer and a camera share mean the same thing on both.
+fn camera_prop(prop: Prop) -> Option<crate::model::CameraProp> {
+    match prop {
+        Prop::Position => Some(crate::model::CameraProp::Position),
+        Prop::Depth => Some(crate::model::CameraProp::Depth),
+        Prop::Zoom => Some(crate::model::CameraProp::Zoom),
+        Prop::Anchor | Prop::Scale | Prop::Rotation | Prop::Opacity => None,
+    }
+}
+
+/// The value check for whichever of the two a property command is addressing.
+///
+/// There is no new rule here and deliberately no second copy of an old one: a layer's value is
+/// checked by the function that always checked it, and a camera's by the one `SetCameraProperty`
+/// already used, which is where document 19 line 84's "camera `zoom` is greater than zero" lives.
+/// B-13e gives the camera a second road in, and a rule enforced on one road and not the other is
+/// not enforced at all.
+fn check_target_value(target: &Target, prop: Prop, value: Value) -> Result<Value, Diagnostic> {
+    match target {
+        Target::Layer(_) => check_value(prop, value),
+        Target::Camera => {
+            let Some(which) = camera_prop(prop) else {
+                return Err(reject(
+                    &format!("A camera has no {prop}."),
+                    "D-58: a camera has a position, a depth and a zoom.",
+                ));
+            };
+            check_camera_value(which, value)
+        }
     }
 }
 
