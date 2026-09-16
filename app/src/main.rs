@@ -52,6 +52,7 @@ use anime_compositor::media;
 use anime_compositor::model::{
     Asset, BlendMode, Composition, Expression, Id, Interp, Layer, Marker, Project, Prop, Value,
 };
+use anime_compositor::package::{self, Answer};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
 use anime_compositor::time::{ExposureSpan, FrameRate};
@@ -1730,6 +1731,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
 /// `verification/B-12b_page_table.md` checks that everything the page sends is in this list, and
 /// `verification/B-12b_command_map_table.md` checks that nothing outside it is answered.
 const ANSWERS: &[&str] = &[
+    "asset.set_redistribute",
     "camera.set_property",
     "composition.create",
     "composition.delete",
@@ -1902,6 +1904,20 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .to_string(),
                 false => propose_relink(viewer, &asset, &files),
             });
+        }
+        // D-61's "Can be passed on" tick, for the drawing chosen in the Project panel.
+        "asset.set_redistribute" => {
+            let Some(asset) = parameter(query, "asset") else {
+                return Some("Which drawings? Choose them in the Project panel.".to_string());
+            };
+            let redistribute = parameter(query, "redistribute").as_deref() != Some("false");
+            return Some(edit(
+                viewer,
+                Command::SetAssetRedistribute {
+                    asset: Id::new(&asset),
+                    redistribute,
+                },
+            ));
         }
         // W-01 step 3, which had no command until B-12d. Answered here rather than below
         // because everything below reads the composition on screen first, and this is the one
@@ -3798,6 +3814,138 @@ fn ask_where_to_export(app: &AppHandle, missing: MissingSource) {
         });
 }
 
+/// The file the open project is, or would be: stored drawing paths are relative to the media
+/// root, and D-61 names a never-saved project `project.json`.
+fn project_file(viewer: &Viewer) -> PathBuf {
+    let name = viewer
+        .path
+        .as_deref()
+        .and_then(Path::file_name)
+        .map_or("project.json".into(), |n| n.to_os_string());
+    viewer.root.join(name)
+}
+
+/// D-61's `project.collect`: write the package into `into` and say what happened. Nothing in the
+/// window changes, so there is nothing to refresh but the status line.
+fn collect_into(viewer: &Mutex<Viewer>, into: &Path) -> String {
+    let held = viewer.lock().expect("the viewer lock was poisoned");
+    let written = package::collect(
+        held.document.project(),
+        &held.preserved,
+        Some(&project_file(&held)),
+        into,
+    );
+    drop(held);
+    if let Err(diagnostic) = written {
+        return sentence(&diagnostic);
+    }
+    // The counts are read back from the manifest just written, so the sentence cannot disagree
+    // with it.
+    let manifest: serde_json::Value = std::fs::read_to_string(into.join(package::MANIFEST))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default();
+    let count = |status: &str| {
+        manifest["assets"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .flat_map(|a| a["files"].as_array().into_iter().flatten())
+            .filter(|f| f["status"] == status)
+            .count()
+    };
+    let (copied, missing, excluded) = (count("copied"), count("missing"), count("excluded"));
+    let mut said = format!(
+        "Collected into {}: {} copied.",
+        into.display(),
+        drawings(copied)
+    );
+    if missing > 0 {
+        said += &format!(" {} missing, listed without a copy.", were(missing));
+    }
+    if excluded > 0 {
+        said += &format!(" {} left out, marked not to be passed on.", were(excluded));
+    }
+    said + " The open project is unchanged."
+}
+
+fn drawings(n: usize) -> String {
+    match n {
+        1 => "1 drawing".to_string(),
+        n => format!("{n} drawings"),
+    }
+}
+
+fn were(n: usize) -> String {
+    match n {
+        1 => "1 drawing was".to_string(),
+        n => format!("{n} drawings were"),
+    }
+}
+
+/// D-61's `package.check`: every listed file that is not as packaged goes to the notes, and the
+/// status line gives the count of each answer.
+fn check_package(viewer: &Mutex<Viewer>) -> String {
+    let mut held = viewer.lock().expect("the viewer lock was poisoned");
+    if held.path.is_none() {
+        return "This project has no file yet, so there is no package beside it to check. \
+                Open the project inside a collected folder first."
+            .to_string();
+    }
+    let rows = match package::check(&project_file(&held)) {
+        Ok(rows) => rows,
+        Err(diagnostic) => {
+            held.notes = vec![note(&diagnostic)];
+            return sentence(&diagnostic);
+        }
+    };
+    held.notes = rows
+        .iter()
+        .filter_map(|row| {
+            row.diagnostic
+                .as_ref()
+                .map(|d| format!("{}: {}", row.path, note(d)))
+        })
+        .collect();
+    let counts: Vec<String> = [
+        Answer::Ok,
+        Answer::Changed,
+        Answer::Missing,
+        Answer::Excluded,
+        Answer::Unverified,
+    ]
+    .into_iter()
+    .filter_map(|answer| {
+        let n = rows.iter().filter(|r| r.answer == answer).count();
+        (n > 0).then(|| format!("{n} {}", answer.as_str()))
+    })
+    .collect();
+    format!(
+        "Checked {} {} against the package manifest: {}.",
+        rows.len(),
+        if rows.len() == 1 { "file" } else { "files" },
+        counts.join(", ")
+    )
+}
+
+/// Ask which folder to collect into. After Effects asks for a new folder; so does this, and a
+/// folder with anything in it is refused rather than mixed into.
+fn ask_where_to_collect(app: &AppHandle) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Collect the project and its drawings into an empty folder")
+        .pick_folder(move |chosen| {
+            let Some(into) = chosen.and_then(|c| c.into_path().ok()) else {
+                return;
+            };
+            let viewer = handle.state::<Mutex<Viewer>>();
+            let said = collect_into(&viewer, &into);
+            announce(&viewer, said);
+            refresh(&handle);
+        });
+}
+
 /// Ask a running export to stop. It stops between frames, so the file being written finishes.
 fn cancel_export(app: &AppHandle) -> String {
     let state = app.state::<Mutex<Export>>();
@@ -4220,6 +4368,15 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             String::new()
         }
         "cancel-export" => cancel_export(app),
+        "collect" => {
+            ask_where_to_collect(app);
+            String::new()
+        }
+        "check-package" => {
+            let said = check_package(&viewer);
+            announce(&viewer, said.clone());
+            said
+        }
         // W-24: document 24's `project.new`. The page asks twice first when there is unsaved
         // work; whatever was unsaved is still in its recovery snapshot.
         "new" => {
@@ -4233,7 +4390,8 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
-                      /cancel-export, /recent, /new, or one of document 24's command IDs"
+                      /cancel-export, /collect, /check-package, /recent, /new, or one of \
+                      document 24's command IDs"
                         .to_vec(),
                 )
                 .expect("build the not-found response")
@@ -9162,6 +9320,250 @@ mod editing {
          now adds or removes the expression. Taking every key off is still two steps: press the \
          property's name on the timeline, which chooses all its keys, then press Delete.",
     ];
+
+    /// Whether the asset `id` may be passed on, as the state answer gives it to the page.
+    fn passed_on(viewer: &Mutex<Viewer>, id: &str) -> String {
+        let state: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        let asset = state["project"]["assets"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|a| a["id"] == id)
+            .cloned()
+            .unwrap_or_default();
+        match asset["redistribute"].as_bool() {
+            None => "ticked".to_string(),
+            Some(true) => "ticked, written".to_string(),
+            Some(false) => "unticked".to_string(),
+        }
+    }
+
+    /// B-15c: the "Can be passed on" tick, File > Collect Files and File > Check Package, on
+    /// D-61's fixture shot. The order is the playtest sheet's.
+    #[test]
+    fn a_shot_is_collected_and_checked_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let scratch = repo("target/b15c-scratch");
+        let _ = std::fs::remove_dir_all(&scratch);
+        std::fs::create_dir_all(&scratch).expect("make the scratch folder");
+        let source = repo("Fixtures/packaging/source/shot.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        // ---- the tick ----------------------------------------------------------------------
+        report.check(
+            "the licensed sheet opens unticked and the cels ticked",
+            "unticked, ticked",
+            format!(
+                "{}, {}",
+                passed_on(&viewer, "asset-licensed"),
+                passed_on(&viewer, "asset-cel")
+            ),
+        );
+        report.check(
+            "unticking the cels says so in the history's words",
+            "Keep asset-cel out of packages",
+            run(
+                &viewer,
+                "asset.set_redistribute?asset=asset-cel&redistribute=false",
+            ),
+        );
+        report.check(
+            "and the cels are unticked, with unsaved changes",
+            "unticked, true",
+            format!(
+                "{}, {}",
+                passed_on(&viewer, "asset-cel"),
+                held(&viewer).document.is_dirty()
+            ),
+        );
+        report.check("undo ticks them again", "ticked", {
+            undo(&viewer);
+            passed_on(&viewer, "asset-cel")
+        });
+        report.check(
+            "ticking the licensed sheet is one history item",
+            "Let asset-licensed be passed on; ticked",
+            {
+                let said = run(
+                    &viewer,
+                    "asset.set_redistribute?asset=asset-licensed&redistribute=true",
+                );
+                format!("{said}; {}", passed_on(&viewer, "asset-licensed"))
+            },
+        );
+        report.check("and undo unticks it", "unticked", {
+            undo(&viewer);
+            passed_on(&viewer, "asset-licensed")
+        });
+        report.check(
+            "a tick on a drawing that is not there is refused and changes nothing",
+            "refused, 0 undo items",
+            {
+                let said = run(
+                    &viewer,
+                    "asset.set_redistribute?asset=asset-nobody&redistribute=false",
+                );
+                format!(
+                    "{}, {} undo items",
+                    if said.contains("not in this project") {
+                        "refused"
+                    } else {
+                        "accepted"
+                    },
+                    held(&viewer).document.undo_labels().len()
+                )
+            },
+        );
+
+        // ---- Collect Files -----------------------------------------------------------------
+        let package = scratch.join("package");
+        let before = state(&viewer);
+        report.check(
+            "Collect Files says how many drawings were copied, missing and left out",
+            "Collected into (the chosen folder): 10 drawings copied. 1 drawing was missing, \
+             listed without a copy. 1 drawing was left out, marked not to be passed on. The open \
+             project is unchanged.",
+            collect_into(&viewer, &package)
+                .replace(&package.display().to_string(), "(the chosen folder)"),
+        );
+        report.check(
+            "the manifest it wrote is FX-PACK-001's, to the byte",
+            true,
+            std::fs::read(package.join(package::MANIFEST)).ok()
+                == std::fs::read(repo("Fixtures/packaging/expected_manifest.json")).ok(),
+        );
+        report.check(
+            "and the window, its history and its unsaved state are as they were",
+            true,
+            state(&viewer) == before,
+        );
+        report.check(
+            "collecting into the same folder again is refused",
+            "Files were not collected: the chosen folder is not empty. Choose an empty folder, \
+             or a new one.",
+            collect_into(&viewer, &package),
+        );
+        report.check(
+            "with the licensed sheet ticked, it is copied too",
+            "11 drawings copied, nothing left out",
+            {
+                run(
+                    &viewer,
+                    "asset.set_redistribute?asset=asset-licensed&redistribute=true",
+                );
+                let said = collect_into(&viewer, &scratch.join("ticked"));
+                format!(
+                    "{}, {}",
+                    if said.contains(": 11 drawings copied.") {
+                        "11 drawings copied"
+                    } else {
+                        &said
+                    },
+                    if said.contains("left out") {
+                        "something left out"
+                    } else {
+                        "nothing left out"
+                    }
+                )
+            },
+        );
+
+        // ---- Check Package -----------------------------------------------------------------
+        report.check(
+            "Check Package on a project that is not a package names the manifest",
+            "PACKAGE_MANIFEST_INVALID",
+            {
+                check_package(&viewer);
+                held(&viewer)
+                    .notes
+                    .join("\n")
+                    .split('\t')
+                    .nth(1)
+                    .unwrap_or("")
+                    .split(' ')
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+            },
+        );
+        let viewer = Mutex::new(open(&package.join("shot.json")).expect("open the package"));
+        report.check(
+            "on the package, it counts each answer",
+            "Checked 12 files against the package manifest: 10 ok, 1 missing, 1 excluded.",
+            check_package(&viewer),
+        );
+        report.check(
+            "and lists the two that are not ok, by path, in the notes",
+            "media/asset-licensed/sheet.png, media/asset-gone/gone_0001.png",
+            held(&viewer)
+                .notes
+                .iter()
+                .map(|n| n.split(':').next().unwrap_or(""))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        let cel = package.join("media/asset-cel/cel_0001.png");
+        let mut bytes = std::fs::read(&cel).expect("read the packaged cel");
+        let last = bytes.len() - 1;
+        bytes[last] ^= 1;
+        std::fs::write(&cel, bytes).expect("change one byte");
+        report.check(
+            "a cel changed by one byte is reported changed",
+            "Checked 12 files against the package manifest: 9 ok, 1 changed, 1 missing, 1 \
+             excluded.",
+            check_package(&viewer),
+        );
+        report.check(
+            "with its code in the note",
+            true,
+            held(&viewer).notes.iter().any(|n| {
+                n.starts_with("media/asset-cel/cel_0001.png: ")
+                    && n.contains("PACKAGE_FILE_CHANGED")
+            }),
+        );
+        held(&viewer).path = None;
+        report.check(
+            "a project with no file has nothing beside it to check",
+            "This project has no file yet, so there is no package beside it to check. Open the \
+             project inside a collected folder first.",
+            check_package(&viewer),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-15c_panel_table.md",
+            "B-15c: collecting and checking from the window",
+            PACKAGE_PANEL_INTRO,
+            PACKAGE_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const PACKAGE_PANEL_INTRO: &[&str] = &[
+        "D-61 decided what a package is and B-15b built it, checked against the fixtures in \
+         `verification/B-15b_package_table.md`. This is the window's half: a \"Can be passed \
+         on\" tick on each drawing in the Project panel, and Collect Files and Check Package \
+         beside Save As.",
+        "Every row calls what the window calls, on `Fixtures/packaging/source/shot.json`, and \
+         reads back what the page is given. The folder picker Collect Files opens is the one \
+         step skipped: no test can answer a Windows dialog, so the rows start with the folder \
+         already chosen.",
+    ];
+
+    const PACKAGE_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhether the tick and the two buttons are where you \
+         expect them, and whether the package opens on another computer. That is \
+         `verification/B-15c_package_playtest.md`, for a person.",
+    ];
 }
 
 /// What the autosave timer and the recovery path do, checked without a window.
@@ -10900,6 +11302,7 @@ mod contract {
     /// the older command any more. It too stays in document 24 and `REACHED` still checks the
     /// window answers it.
     const SENT: &[&str] = &[
+        "asset.set_redistribute",
         "composition.create",
         "composition.delete",
         "composition.duplicate",
@@ -10966,6 +11369,8 @@ mod contract {
         "at",
         "boxes",
         "cancel-export",
+        "check-package",
+        "collect",
         "curve",
         "export",
         "frame",
@@ -10985,6 +11390,11 @@ mod contract {
     /// handler that sends it, so moving `layer.delete` onto the button that moves a layer
     /// forward fails here rather than passing because the string is still somewhere in the file.
     const WIRING: &[(&str, &str, &str)] = &[
+        (
+            "Can be passed on",
+            "asset.set_redistribute",
+            "command('/asset.set_redistribute?asset=' + encodeURIComponent(asset.id)",
+        ),
         (
             "Delete layer",
             "layer.delete",
@@ -11220,11 +11630,10 @@ mod contract {
         ("edit.redo", "a command the window answers"),
         ("media.import", "a command the window answers"),
         ("media.relink", "a command the window answers"),
-        // D-61 is accepted and B-15b built `package`, but the window does not offer these
-        // until B-15c.
-        ("asset.set_redistribute", "nothing yet"),
-        ("project.collect", "nothing yet"),
-        ("package.check", "nothing yet"),
+        // D-61, B-15c: the tick on a drawing, and File > Collect Files and Check Package.
+        ("asset.set_redistribute", "a command the window answers"),
+        ("project.collect", "a route the shell answers"),
+        ("package.check", "a route the shell answers"),
         ("layer.create", "a command the window answers"),
         ("layer.delete", "a command the window answers"),
         ("layer.rename", "a command the window answers"),
@@ -11414,6 +11823,8 @@ mod contract {
                 "project.save" => "save",
                 "project.save_as" => "save-as",
                 "export.sequence" => "export",
+                "project.collect" => "collect",
+                "package.check" => "check-package",
                 _ => "",
             };
             let reached = if !route.is_empty() && source.contains(&format!("\"{route}\"")) {
@@ -12050,6 +12461,12 @@ mod contract {
         // B-13c: and a depth and a camera, which D-58 writes only where one has been set. The
         // inspector reads both through a default, so their absence is not what this test is
         // about; that the two names are spelled the way the answer spells them is.
+        // B-15c: and D-61's tick, written only when unticked.
+        let first_asset = held(&viewer).document.project().assets[0].id.clone();
+        run(
+            &viewer,
+            &format!("asset.set_redistribute?asset={first_asset}&redistribute=false"),
+        );
         for edit in [
             "timeline.set_work_start?frame=1",
             "timeline.set_markers?marker=2|hit",
@@ -12654,7 +13071,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 43] = [
+    const CONTROLS: [&str; 45] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -12666,7 +13083,9 @@ mod contract {
         "cancelexport",
         "cancelrelink",
         "checker",
+        "checkpackage",
         "closeprefs",
+        "collect",
         "dellayer",
         "down",
         "export",

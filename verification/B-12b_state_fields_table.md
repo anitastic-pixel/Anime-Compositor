@@ -57,11 +57,12 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.shy` is in the answer | present | present | pass |
 | `layer.source_offset_frames` is in the answer | present | present | pass |
 | `layer.transform` is in the answer | present | present | pass |
-| the panels read 4 fields out of one sequence in the media bin | true | true | pass |
+| the panels read 5 fields out of one sequence in the media bin | true | true | pass |
 | `asset.frames` is in the answer | present | present | pass |
 | `asset.id` is in the answer | present | present | pass |
 | `asset.kind` is in the answer | present | present | pass |
 | `asset.name` is in the answer | present | present | pass |
+| `asset.redistribute` is in the answer | present | present | pass |
 | the panels read 3 fields out of one exposure on a layer | true | true | pass |
 | `span.drawing_number` is in the answer | present | present | pass |
 | `span.end_frame_exclusive` is in the answer | present | present | pass |
@@ -86,4 +87,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.tint` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, amount - are the ones the command reads | accepted | accepted | pass |
 
-**65 of 65 checks pass.**
+**66 of 66 checks pass.**

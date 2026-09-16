@@ -41,9 +41,9 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `edit.redo` is reached by | a command the window answers | a command the window answers | pass |
 | `media.import` is reached by | a command the window answers | a command the window answers | pass |
 | `media.relink` is reached by | a command the window answers | a command the window answers | pass |
-| `asset.set_redistribute` is reached by | nothing yet | nothing yet | pass |
-| `project.collect` is reached by | nothing yet | nothing yet | pass |
-| `package.check` is reached by | nothing yet | nothing yet | pass |
+| `asset.set_redistribute` is reached by | a command the window answers | a command the window answers | pass |
+| `project.collect` is reached by | a route the shell answers | a route the shell answers | pass |
+| `package.check` is reached by | a route the shell answers | a route the shell answers | pass |
 | `layer.create` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.delete` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.rename` is reached by | a command the window answers | a command the window answers | pass |

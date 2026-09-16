@@ -29,15 +29,18 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, closeprefs, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, closeprefs, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
+| the controls the page wires are the ones written down here | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, fit, fit100, fwd, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
 | the keys the window answers with nothing focused are the ones written down here | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | pass |
+| `asset.set_redistribute` can be asked for without a mouse | yes | yes | pass |
 | `boxes` can be asked for without a mouse | yes | yes | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
+| `check-package` can be asked for without a mouse | yes | yes | pass |
+| `collect` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
 | `composition.delete` can be asked for without a mouse | yes | yes | pass |
 | `composition.duplicate` can be asked for without a mouse | yes | yes | pass |
@@ -128,4 +131,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | right clicking a chosen key is not the only way to open its menu of key speed, ease, hold, copy, paste and delete | true | true | pass |
 | right clicking an empty place on the timeline is not the only way to paste keys or layers there, add a key, a layer or a marker, or open the settings | true | true | pass |
 
-**98 of 98 checks pass.**
+**101 of 101 checks pass.**

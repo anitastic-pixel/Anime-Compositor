@@ -74,6 +74,11 @@ pub enum Command {
     RelinkAsset {
         asset: Box<Asset>,
     },
+    /// Document 24's `asset.set_redistribute`, D-61: the "Can be passed on" tick. B-15c.
+    SetAssetRedistribute {
+        asset: Id,
+        redistribute: bool,
+    },
     /// Document 24's `composition.create`. B-12d.
     ///
     /// W-01 lists "creates a composition" third of thirteen and no command reached it: the
@@ -367,6 +372,7 @@ impl Command {
         match self {
             Command::AddAsset { .. } => "ADD_ASSET",
             Command::RelinkAsset { .. } => "RELINK_ASSET",
+            Command::SetAssetRedistribute { .. } => "SET_ASSET_REDISTRIBUTE",
             Command::AddComposition { .. } => "ADD_COMPOSITION",
             Command::RemoveComposition { .. } => "REMOVE_COMPOSITION",
             Command::AddLayer { .. } => "ADD_LAYER",
@@ -407,6 +413,13 @@ impl Command {
         match self {
             Command::AddAsset { asset } => format!("Import {}", asset.name),
             Command::RelinkAsset { asset } => format!("Relink {}", asset.name),
+            Command::SetAssetRedistribute {
+                asset,
+                redistribute,
+            } => match redistribute {
+                true => format!("Let {asset} be passed on"),
+                false => format!("Keep {asset} out of packages"),
+            },
             Command::AddComposition { composition } => {
                 format!("New composition {}", composition.name)
             }
@@ -530,6 +543,7 @@ impl Command {
         match self {
             Command::AddAsset { .. }
             | Command::RelinkAsset { .. }
+            | Command::SetAssetRedistribute { .. }
             | Command::AddComposition { .. }
             | Command::RemoveComposition { .. } => None,
             Command::AddLayer { composition, .. }
@@ -571,6 +585,7 @@ impl Command {
         match self {
             Command::AddAsset { asset } => ids.push(asset.id.clone()),
             Command::RelinkAsset { asset } => ids.push(asset.id.clone()),
+            Command::SetAssetRedistribute { asset, .. } => ids.push(asset.clone()),
             Command::AddComposition { composition } => ids.push(composition.id.clone()),
             Command::RemoveComposition { composition } => ids.push(composition.clone()),
             Command::AddLayer { layer, .. } => ids.push(layer.id.clone()),
@@ -676,6 +691,7 @@ impl Command {
                 | Command::RemoveComposition { .. }
                 | Command::AddAsset { .. }
                 | Command::RelinkAsset { .. }
+                | Command::SetAssetRedistribute { .. }
                 | Command::AddComposition { .. }
                 | Command::AddLayer { .. }
                 // The camera belongs to the composition; a locked layer has no say in it.
@@ -1130,6 +1146,21 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         return Ok(());
     }
 
+    if let Command::SetAssetRedistribute {
+        asset,
+        redistribute,
+    } = command
+    {
+        let Some(slot) = project.assets.iter_mut().find(|a| a.id == *asset) else {
+            return Err(missing(
+                format!("The asset {asset} is not in this project."),
+                "The tick names an asset record; that ID is not present.".to_string(),
+            ));
+        };
+        slot.redistribute = *redistribute;
+        return Ok(());
+    }
+
     if let Command::AddComposition { composition } = command {
         check_a_new_composition(project, composition)?;
         project.compositions.push((**composition).clone());
@@ -1200,6 +1231,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
     match command {
         Command::AddAsset { .. }
         | Command::RelinkAsset { .. }
+        | Command::SetAssetRedistribute { .. }
         | Command::AddComposition { .. }
         | Command::RemoveComposition { .. } => {
             unreachable!("handled above")

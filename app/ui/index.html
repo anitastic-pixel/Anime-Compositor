@@ -595,6 +595,9 @@
   <button id="open">Open&hellip;</button>
   <button id="save">Save</button>
   <button id="saveas">Save As&hellip;</button>
+  <!-- D-61: After Effects' File > Collect Files and a check of what was collected. -->
+  <button id="collect" title="Copy the project and every drawing it uses into an empty folder">Collect Files&hellip;</button>
+  <button id="checkpackage" title="Compare the drawings beside this project with its package manifest">Check Package</button>
   <select id="recent"><option value="">Recent&hellip;</option></select>
   <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
   <button id="preferences">Preferences&hellip;</button>
@@ -1100,7 +1103,22 @@ function drawAssets() {
     kind.textContent = asset.kind === 'image_sequence'
       ? Object.keys(asset.frames || {}).length + ' frames' : 'still';
     const li = row(selectedAsset, asset.id, asset.name, []);
-    li.append(kind);
+    // D-61: whether Collect Files copies these drawings. Absent in the file means yes.
+    const pass = document.createElement('label');
+    pass.className = 'kind';
+    pass.title = 'Unticked, Collect Files lists these drawings but does not copy them';
+    const tick = document.createElement('input');
+    tick.type = 'checkbox';
+    tick.checked = asset.redistribute !== false;
+    tick.onpointerdown = (e) => e.stopPropagation();
+    tick.onclick = (e) => e.stopPropagation();
+    // Space ticks the box, rather than the row's Space choosing the row.
+    tick.onkeydown = (e) => e.stopPropagation();
+    tick.onchange = () => command('/asset.set_redistribute?asset=' + encodeURIComponent(asset.id)
+      + '&redistribute=' + tick.checked);
+    pass.append(tick, 'Can be passed on');
+    pass.onclick = (e) => e.stopPropagation();
+    li.append(kind, pass);
     li.onclick = () => { selectedAsset = asset.id; drawPanels(); };
     // W-22: a drawing dragged onto the layer list becomes a layer where it is let go: above a
     // row is in front of that layer, below it behind, anywhere else on the timeline in front.
@@ -5470,6 +5488,8 @@ $('redo').onclick = () => command('/edit.redo');
 $('open').onclick = () => command('/open');
 $('save').onclick = () => command('/save');
 $('saveas').onclick = () => command('/save-as');
+$('collect').onclick = () => command('/collect');
+$('checkpackage').onclick = () => command('/check-package');
 // The checkbox travels with the command rather than being remembered anywhere: document 07's
 // default is that a missing drawing blocks the export, and an override has to be a thing the
 // person did this time, in front of the words that say what it does.
