@@ -188,9 +188,17 @@ FX-PARENT-008: deleting a parent. From FX-PARENT-005's result, deleting P leaves
 ## Camera and depth fixtures
 
 Proposed on 2026-09-15 by D-58, awaiting the owner. Every case is a composition 1920 by 1080, so
-the centre of the frame is (960, 540) and the camera a file says nothing about is position
-(960, 540), depth -1920, zoom 1920. Layer transforms are document 21's, with no keys unless the
-case says otherwise, and no depth unless the case gives one.
+the centre of the frame is (960, 540). Layer transforms are document 21's, with no keys unless
+the case says otherwise, and no depth unless the case gives one.
+
+Two cameras appear below and the difference matters. **The default camera** is the one a
+composition has when its file says nothing: a 50 mm lens on a 36 mm film back, which is After
+Effects' own default, so on a 1920-wide composition its zoom is 1920 x 50 / 36 and it sits that
+far back - position (960, 540), depth and zoom 2666.6666666666665. FX-CAM-001 and FX-CAM-011 are
+its cases. **Every other case names its own camera** at depth -1920 and zoom 1920, a 36 mm lens,
+because a fixture that pins parallax is easier to read and to check by hand in whole pixels. A
+plane at depth 0 is drawn at 1:1 under either of them, which is why the lens can be argued about
+without touching a number in any fixture written before D-58.
 
 **Every number below is produced by `tools/camera_reference.py`**, which reuses
 `tools/parent_reference.py` to walk a point through document 21's four steps one at a time, and
@@ -213,11 +221,12 @@ because carrying a point out to the camera and back is two roundings. That is wh
 a build to leave out a projection that is the identity rather than to apply one: a build that
 applies it puts every transform fixture written before D-58 within a tolerance of its expected
 value instead of exactly on it. This case exists to catch that, and it was found by running the
-reference rather than by argument.
+reference rather than by argument. It is also why the lens could be changed after the fact -
+these three rows are the same under any zoom, because the camera always sits at `-zoom`.
 
-FX-CAM-002: one plane, at four depths, seen by the default camera. The layer is at position
-(960, 540), which is the centre of the frame, so its origin cannot move and only its size
-answers.
+FX-CAM-002: one plane, at four depths, seen by a 36 mm camera the file names for itself. The
+layer is at position (960, 540), which is the centre of the frame, so its origin cannot move and
+only its size answers.
 
 | depth | drawn at | origin x | origin y | (100,0) x | (100,0) y |
 | --- | --- | --- | --- | --- | --- |
@@ -226,12 +235,12 @@ answers.
 | 960 | 0.6666666666666666 | 960 | 540 | 1026.6666666666667 | 540 |
 | 1920 | 0.5 | 960 | 540 | 1010 | 540 |
 
-Depth 1920 is twice as far from the camera as depth 0 and is drawn half the size, which is the
+Depth 1920 is twice as far from this camera as depth 0 and is drawn half the size, which is the
 convention D-56 accepted. Depth -960 is half as far and is drawn at twice the size.
 
 FX-CAM-003: the sideways track, which is what the whole entry is for. Three planes at depths 0,
 640 and 1920, each at position (960, 540). The camera's position is keyed linearly from
-(760, 540) at frame 0 to (1160, 540) at frame 48; its depth and zoom are the defaults. Where
+(760, 540) at frame 0 to (1160, 540) at frame 48; its depth is -1920 and its zoom 1920. Where
 each plane's origin lands:
 
 | frame | near x | middle x | far x |
@@ -281,7 +290,7 @@ and C are at the same depth and keep the order the composition gives them. Note 
 D is last in the stack and ends up in front of everything, so **depth overrides the layer stack
 whenever two layers are at different depths.**
 
-FX-CAM-006: level with the camera, and behind it. The default camera, whose own depth is -1920.
+FX-CAM-006: level with the camera, and behind it. The 36 mm camera, whose own depth is -1920.
 
 | depth | in front of the camera by | drawn at |
 | --- | --- | --- |
@@ -317,12 +326,14 @@ build in which C stays at depth 0 draws it at full size in front of the head and
 FX-CAM-008: the file. `Fixtures/projects/camera_project.json` holds FX-CAM-003's three planes as
 `layer-near`, `layer-middle` and `layer-far`, with FX-CAM-003's keyed camera. Loading it and
 saving it again must reproduce it byte for byte. `layer-near` carries no `depth` field and must
-not gain one. Its `layer_order` is near, middle, far - deliberately not the order the planes are
-drawn in - so a build that draws by the stack fails. Each plane's origin matches FX-CAM-003 at
-frames 0 and 48, beside the `MEDIA_MISSING` its absent drawings already give.
+not gain one; the other two carry a depth in the same shape as every other animatable property,
+a base and an empty keyframe list. Its `layer_order` is near, middle, far - deliberately not the
+order the planes are drawn in - so a build that draws by the stack fails. Each plane's origin
+matches FX-CAM-003 at frames 0 and 48, beside the `MEDIA_MISSING` its absent drawings already
+give.
 
 FX-CAM-009: a matte is a plane too. Layer A at depth 0 and its matte M at depth 1920, both at
-position (960, 540), seen by a camera at (760, 540) with the default depth and zoom.
+position (960, 540), seen by a 36 mm camera at (760, 540).
 
 | layer | depth | origin x with the camera at 760 |
 | --- | --- | --- |
@@ -333,6 +344,40 @@ The matte is projected at its own depth before its alpha is sampled, so a matte 
 slides against the layer it shapes by 100 pixels here, and by more as the camera moves further.
 This is correct and it looks like a defect, which is why it is written down: a matte is meant to
 share its layer's depth, and nothing in this contract forces it to.
+
+FX-CAM-010: a depth that is animated, and a draw order that changes because of it. Two planes at
+position (960, 540): A at depth 0, and B whose depth is keyed from -960 at frame 0 to 1920 at
+frame 48.
+
+| frame | B depth | B drawn at | drawn first to last |
+| --- | --- | --- | --- |
+| 0 | -960 | 2 | A, B |
+| 24 | 480 | 0.8 | B, A |
+| 48 | 1920 | 0.5 | B, A |
+
+At frame 0 B is nearer than A and is drawn last, in front. By frame 24 it has passed behind A
+and is drawn first. **What is in front of what is a question with a different answer on
+different frames**, so a build that sorts the layers once when a project is opened fails here. A
+depth is an animatable property for this reason and because After Effects keyframes Z all day;
+the cost of it is this case.
+
+FX-CAM-011: what the default lens is, in the terms After Effects uses for it.
+
+| composition width | lens in mm on a 36 mm back | zoom in pixels | horizontal angle of view | a plane one width back, drawn at |
+| --- | --- | --- | --- | --- |
+| 1920 | 50 | 2666.6666666666665 | 39.597752709049864 | 0.5813953488372093 |
+| 1280 | 50 | 1777.7777777777778 | 39.597752709049864 | 0.5813953488372093 |
+
+| lens in mm | zoom in pixels | horizontal angle of view | a plane one width back, drawn at |
+| --- | --- | --- | --- |
+| 36 | 1920 | 53.13010235415598 | 0.5 |
+
+The second table is the lens D-58 proposed before the After Effects question was asked, kept
+here because the difference is the answer to that question. Both are honest cameras and neither
+is more correct; what the 50 mm one buys is that a depth copied out of an After Effects project,
+or out of a tutorial written for one, parallaxes here by the amount it does there. The angle of
+view does not depend on the composition's width, which is the check that the default is a lens
+and not a number of pixels that happens to suit one size of picture.
 
 ## Persistence fixtures
 

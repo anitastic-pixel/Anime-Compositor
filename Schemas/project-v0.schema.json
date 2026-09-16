@@ -335,7 +335,7 @@
           ]
         },
         "depth": {
-          "type": "number"
+          "$ref": "#/$defs/propertyScalar"
         },
         "parent": {
           "anyOf": [

@@ -28,22 +28,39 @@ and never to make a build pass.
     python tools/camera_reference.py
 """
 
+from math import atan, degrees
+
 from parent_reference import chain, static, table, to_comp, value
 
 W, H = 1920, 1080
 CENTRE = [W / 2, H / 2]
 
-# The camera a composition has when its file says nothing about one. It sits at the centre of
-# the frame, `zoom` in front of the depth-0 plane, so that a layer at depth 0 lands exactly
-# where document 21 puts it and every G1 fixture written before this entry still holds.
+# The camera a composition has when its file says nothing about one.
+#
+# After Effects names a camera by the focal length of a lens on a 36 mm film back, and a new
+# camera there defaults to 50 mm, which on a composition `W` pixels wide is a zoom of
+# `W * 50 / 36` pixels. This default is that one. It is the whole of the After Effects answer
+# in D-58: the arithmetic was already theirs, and now the lens is too, so a depth copied out of
+# an After Effects project or a tutorial parallaxes here by the amount it does there.
+#
+# The camera sits at `-zoom`, so a plane at depth 0 is drawn at 1:1 whatever the lens. That is
+# what lets the lens change without touching one number of any fixture written before D-58.
+LENS_MM, FILM_MM = 50, 36
 DEFAULT = {
     "position": {"base": list(CENTRE)},
-    "depth": {"base": -W},
-    "zoom": {"base": W},
+    "depth": {"base": -W * LENS_MM / FILM_MM},
+    "zoom": {"base": W * LENS_MM / FILM_MM},
 }
 
 
 def camera(position=CENTRE, depth=-W, zoom=W, **keyed):
+    """A camera a file names for itself.
+
+    Its defaults are the round ones - one composition width back, a zoom of one composition
+    width, which is a 36 mm lens - because a fixture that pins parallax is easier to read in
+    whole pixels, and because an explicit camera is the ordinary case. The 50 mm default above
+    is what a file gets when it says nothing at all.
+    """
     cam = {
         "position": {"base": list(position)},
         "depth": {"base": depth},
@@ -54,14 +71,20 @@ def camera(position=CENTRE, depth=-W, zoom=W, **keyed):
     return cam
 
 
-def world_depth(layers, name):
+def depth_of(layer, frame):
+    """One layer's own depth. A plain number, or a property read at the frame."""
+    d = layer.get("depth", 0)
+    return value(d, frame) if isinstance(d, dict) else d
+
+
+def world_depth(layers, name, frame=0):
     """A layer's depth from the camera's axis: its own, plus every plane it rides on."""
-    return sum(layers[n].get("depth", 0) for n in chain(layers, name))
+    return sum(depth_of(layers[n], frame) for n in chain(layers, name))
 
 
 def scale(cam, layers, name, frame):
     """How big a plane is drawn. 1 on the plane the camera draws at true size."""
-    ahead = world_depth(layers, name) - value(cam["depth"], frame)
+    ahead = world_depth(layers, name, frame) - value(cam["depth"], frame)
     if ahead <= 0:
         return None  # CAMERA_PLANE_BEHIND: level with the camera or behind it.
     return value(cam["zoom"], frame) / ahead
@@ -77,9 +100,13 @@ def to_screen(cam, layers, name, p, frame):
     return [c + (q - e) * s for c, q, e in zip(CENTRE, at_comp, eye)]
 
 
-def order(layers, stack):
-    """What is drawn first. Farthest away first; the layer stack breaks a tie."""
-    return sorted(stack, key=lambda n: -world_depth(layers, n))
+def order(layers, stack, frame=0):
+    """What is drawn first. Farthest away first; the layer stack breaks a tie.
+
+    Read at a frame, because a depth can be animated: what is in front of what is a question
+    with a different answer on different frames, and FX-CAM-010 is the case that says so.
+    """
+    return sorted(stack, key=lambda n: -world_depth(layers, n, frame))
 
 
 def num(v):
@@ -110,14 +137,15 @@ def fx_001():
 
 
 def fx_002():
-    """One plane, at four depths, seen by the camera nobody has touched."""
+    """One plane, at four depths, seen by a 36 mm camera the file names for itself."""
+    cam = camera()
     rows = []
     for d in (-960, 0, 960, 1920):
         layers = {"A": static(position=(960, 540))}
         layers["A"]["depth"] = d
-        s = scale(DEFAULT, layers, "A", 0)
-        origin = to_screen(DEFAULT, layers, "A", [0, 0], 0)
-        right = to_screen(DEFAULT, layers, "A", [100, 0], 0)
+        s = scale(cam, layers, "A", 0)
+        origin = to_screen(cam, layers, "A", [0, 0], 0)
+        right = to_screen(cam, layers, "A", [100, 0], 0)
         rows.append(row(d, s, *origin, *right))
     table("FX-CAM-002", ["depth", "drawn at", "origin x", "origin y", "(100,0) x", "(100,0) y"], rows)
 
@@ -186,12 +214,13 @@ def fx_005():
 
 def fx_006():
     """Level with the camera, and behind it."""
+    cam = camera()
     rows = []
     for d in (-2000, -1920, -1919, -960):
         layers = {"A": static(position=(960, 540))}
         layers["A"]["depth"] = d
-        s = scale(DEFAULT, layers, "A", 0)
-        rows.append(row(d, d - value(DEFAULT["depth"], 0), s))
+        s = scale(cam, layers, "A", 0)
+        rows.append(row(d, d - value(cam["depth"], 0), s))
     table("FX-CAM-006", ["depth", "in front of the camera by", "drawn at"], rows)
     assert rows[0][2] == "not drawn" and rows[1][2] == "not drawn"
 
@@ -203,17 +232,18 @@ def fx_007():
         "C": static(position=(100, 0), parent="P"),
     }
     layers["P"]["depth"] = 1920
+    cam = camera()
     rows = []
     for name in ("P", "C"):
-        rows.append(row(name, layers[name].get("depth", 0), world_depth(layers, name),
-                        scale(DEFAULT, layers, name, 0)))
+        rows.append(row(name, layers[name].get("depth", 0), world_depth(layers, name, 0),
+                        scale(cam, layers, name, 0)))
     table("FX-CAM-007 depths", ["layer", "own depth", "world depth", "drawn at"], rows)
 
     points = []
     for p in ([0, 0], [10, 0], [0, 10]):
-        points.append(row(str(p), *to_comp(layers, "C", p, 0), *to_screen(DEFAULT, layers, "C", p, 0)))
+        points.append(row(str(p), *to_comp(layers, "C", p, 0), *to_screen(cam, layers, "C", p, 0)))
     table("FX-CAM-007 child", ["child point", "comp x", "comp y", "screen x", "screen y"], points)
-    assert world_depth(layers, "C") == 1920, "the child did not ride its parent's plane"
+    assert world_depth(layers, "C", 0) == 1920, "the child did not ride its parent's plane"
 
 
 def fx_009():
@@ -229,6 +259,43 @@ def fx_009():
     assert rows[0][2] != rows[1][2], "the matte did not slide"
 
 
+def fx_010():
+    """A depth that is animated, which is what After Effects keyframes all day."""
+    layers = {"A": static(position=(960, 540)), "B": static(position=(960, 540))}
+    layers["A"]["depth"] = 0
+    # The property shape every other animated number in this project already uses.
+    layers["B"]["depth"] = {"base": 0, "keys": [(0, -960), (48, 1920)]}
+    cam = camera()
+
+    rows = []
+    for f in (0, 24, 48):
+        drawn = order(layers, ["A", "B"], f)
+        rows.append(row(f, world_depth(layers, "B", f), scale(cam, layers, "B", f),
+                        ", ".join(drawn)))
+    table("FX-CAM-010", ["frame", "B depth", "B drawn at", "drawn first to last"], rows)
+    assert rows[0][3] != rows[2][3], "an animated depth did not change what is in front"
+
+
+def fx_011():
+    """What the default lens actually is, in the terms After Effects uses for it."""
+    rows = []
+    for w in (1920, 1280):
+        zoom = w * LENS_MM / FILM_MM
+        angle = 2 * degrees(atan((w / 2) / zoom))
+        # A plane one composition width behind the one the camera draws at true size.
+        rows.append(row(w, LENS_MM, zoom, angle, zoom / (w + zoom)))
+    table("FX-CAM-011",
+          ["composition width", "lens in mm on a 36 mm back", "zoom in pixels",
+           "horizontal angle of view", "a plane one width back, drawn at"], rows)
+    assert abs(rows[0][3] - 39.5978) < 1e-3, rows[0][3]
+
+    # The same plane under the lens D-58 proposed before the After Effects question was asked.
+    table("FX-CAM-011 the lens that was proposed first",
+          ["lens in mm", "zoom in pixels", "horizontal angle of view",
+           "a plane one width back, drawn at"],
+          [row(FILM_MM, W, 2 * degrees(atan((W / 2) / W)), W / (W + W))])
+
+
 if __name__ == "__main__":
     fx_001()
     fx_002()
@@ -238,3 +305,5 @@ if __name__ == "__main__":
     fx_006()
     fx_007()
     fx_009()
+    fx_010()
+    fx_011()

@@ -193,7 +193,10 @@
           "matte": null,
           "blend_mode": "normal",
           "effects": [],
-          "depth": 640
+          "depth": {
+            "base": 640,
+            "keyframes": []
+          }
         },
         {
           "id": "layer-far",
@@ -252,7 +255,10 @@
           "matte": null,
           "blend_mode": "normal",
           "effects": [],
-          "depth": 1920
+          "depth": {
+            "base": 1920,
+            "keyframes": []
+          }
         }
       ]
     }

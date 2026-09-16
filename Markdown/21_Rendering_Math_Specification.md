@@ -57,12 +57,14 @@ The matte layer is evaluated through its own source, mask, effects and transform
 ## Camera and depth
 
 Proposed by D-58 on 2026-09-15, awaiting the owner. Every layer sits on a plane parallel to the
-screen at a depth `d`, absent meaning 0, and a parented layer's depth adds to its parent's up the
+screen at a depth `d` - a scalar property read at the frame being drawn, absent meaning 0 - and a
+parented layer's depth adds to its parent's up the
 chain: `world_depth(L) = depth(L) + world_depth(parent(L))`.
 
 A composition is seen through a camera with a position, a depth of its own and a zoom, all three
 animatable and all three read at the frame being drawn. A composition whose file carries no
-camera has the default one: position at the centre of the frame, depth `-width`, zoom `width`.
+camera has the default one: position at the centre of the frame, with depth and zoom both
+`width * 50 / 36`, a 50 mm lens on a 36 mm film back (D-58).
 
 For a point already carried into composition space by the transform above:
 
@@ -82,7 +84,8 @@ behind it: it is not drawn and `CAMERA_PLANE_BEHIND` is reported. A `zoom` at or
 invalid rather than clamped.
 
 Layers are drawn from far to near, and layers at equal depth keep composition order. Depth
-therefore overrides the layer stack wherever two layers differ in depth. A matte layer is
+therefore overrides the layer stack wherever two layers differ in depth. The order is settled at
+every frame rather than once, because a depth can be animated and two planes can cross. A matte layer is
 projected at its own depth before its alpha is sampled, so a matte on another plane slides
 against the layer it shapes.
 
