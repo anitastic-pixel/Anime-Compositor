@@ -16,8 +16,8 @@
 
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::{
-    Asset, BlendMode, Composition, Id, Interp, Keyframe, Layer, MatteReference, Project, Prop,
-    Value,
+    Asset, BlendMode, Composition, Expression, Id, Interp, Keyframe, Layer, MatteReference,
+    Project, Prop, Value,
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
 
@@ -194,6 +194,17 @@ pub enum Command {
         target: Target,
         prop: Prop,
         value: Value,
+    },
+    /// Document 24's `property.set_expression`, D-59. B-14c.
+    ///
+    /// One command for setting, changing, switching off and clearing (`None`), because all four
+    /// are one field of one property. The text is stored even when it cannot be read: somebody
+    /// half way through typing must not lose it, and [`crate::expr`] reports it on every frame.
+    SetExpression {
+        composition: Id,
+        target: Target,
+        prop: Prop,
+        expression: Option<Expression>,
     },
     SetKeyframe {
         composition: Id,
@@ -373,6 +384,7 @@ impl Command {
             Command::ShiftLayer { .. } => "SHIFT_LAYER",
             Command::TrimLayer { .. } => "TRIM_LAYER",
             Command::SetPropertyBase { .. } => "SET_PROPERTY",
+            Command::SetExpression { .. } => "SET_EXPRESSION",
             Command::SetKeyframe { .. } => "SET_KEYFRAME",
             Command::RemoveKeyframe { .. } => "REMOVE_KEYFRAME",
             Command::MoveKeyframe { .. } => "MOVE_KEYFRAME",
@@ -447,6 +459,13 @@ impl Command {
                 ..
             } => format!("Trim layer to frames {in_frame} to {out_frame}"),
             Command::SetPropertyBase { prop, value, .. } => format!("Set {prop} to {value}"),
+            Command::SetExpression {
+                prop, expression, ..
+            } => match expression {
+                None => format!("Remove the {prop} expression"),
+                Some(e) if !e.enabled => format!("Switch off the {prop} expression"),
+                Some(_) => format!("Set the {prop} expression"),
+            },
             Command::SetKeyframe {
                 prop, frame, value, ..
             } => format!("Keyframe {prop} at frame {frame} to {value}"),
@@ -528,6 +547,7 @@ impl Command {
             | Command::ShiftLayer { composition, .. }
             | Command::TrimLayer { composition, .. }
             | Command::SetPropertyBase { composition, .. }
+            | Command::SetExpression { composition, .. }
             | Command::SetKeyframe { composition, .. }
             | Command::RemoveKeyframe { composition, .. }
             | Command::MoveKeyframe { composition, .. }
@@ -577,6 +597,7 @@ impl Command {
             // did; the camera adds nothing, because it belongs to the composition and the
             // composition is in the list already.
             Command::SetPropertyBase { target, .. }
+            | Command::SetExpression { target, .. }
             | Command::SetKeyframe { target, .. }
             | Command::RemoveKeyframe { target, .. }
             | Command::MoveKeyframe { target, .. } => ids.extend(target.layer().cloned()),
@@ -689,6 +710,7 @@ impl Command {
             // `SetCameraProperty`: the camera belongs to the composition and a locked layer has
             // no say in it.
             Command::SetPropertyBase { target, .. }
+            | Command::SetExpression { target, .. }
             | Command::SetKeyframe { target, .. }
             | Command::RemoveKeyframe { target, .. }
             | Command::MoveKeyframe { target, .. } => target.layer(),
@@ -1415,6 +1437,14 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         } => {
             let value = check_target_value(target, *prop, *value)?;
             property_mut(project, &comp_id, target, *prop)?.set_base(value);
+        }
+        Command::SetExpression {
+            target,
+            prop,
+            expression,
+            ..
+        } => {
+            property_mut(project, &comp_id, target, *prop)?.set_expression(expression.clone());
         }
         Command::SetKeyframe {
             target,

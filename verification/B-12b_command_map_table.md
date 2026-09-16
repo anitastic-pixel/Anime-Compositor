@@ -75,7 +75,7 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `keyframe.move` is reached by | a command the window answers | a command the window answers | pass |
 | `keyframe.set_interp` is reached by | a command the window answers | a command the window answers | pass |
 | `keyframe.set_path` is reached by | a command the window answers | a command the window answers | pass |
-| `property.set_expression` is reached by | nothing yet | nothing yet | pass |
+| `property.set_expression` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.add` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.delete` is reached by | a command the window answers | a command the window answers | pass |
 | `effect.toggle_bypass` is reached by | a command the window answers | a command the window answers | pass |

@@ -378,6 +378,21 @@
     font: inherit; padding: 0 3px; background: none; border: 0; color: #909096; cursor: pointer;
   }
   #detail .key.animated { color: #e8b06a; }
+  /* B-14c: a property's expression, under it, as After Effects puts one. The switch is its "="
+     (on) or its crossed-out one (off); the text is typed into; an error is red under the text. */
+  .expr { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; }
+  .exprtext {
+    font: 12px/1.35 Consolas, 'Cascadia Mono', monospace; color: #e6e6ea; background: #141416;
+    border: 1px solid #3a3a40; border-radius: 3px; padding: 2px 4px; resize: vertical;
+    min-height: 1.6em; box-sizing: border-box; width: 100%;
+  }
+  .exprtext:focus { outline: 2px solid #6ea8fe; outline-offset: 0; }
+  .exprtext.off { color: #77777d; }
+  .exprerror { margin: 0; color: #ff8a80; font-size: 11px; overflow-wrap: anywhere; }
+  .exprswitch { font: inherit; padding: 0 3px; background: none; border: 0; color: #e8866a; cursor: pointer; }
+  .exprswitch.off { color: #77777d; }
+  .exprswitch:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
+  #layers li.prop.expr .exprtrack { padding: 2px 8px 2px 0; min-width: 0; }
   #detail .key:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   #playhead {
     position: absolute; top: 6px; bottom: 8px; width: 1px; background: #e8866a;
@@ -2041,7 +2056,7 @@ function cameraGroup(comp) {
     + 'properties.';
   head.append(twirl, name);
   li.append(head);
-  return [li, ...(cameraOpen ? CAMERA_PROPS.map((prop) => propTrack(comp, camera, prop)) : [])];
+  return [li, ...(cameraOpen ? CAMERA_PROPS.flatMap((prop) => propTrack(comp, camera, prop)) : [])];
 }
 
 function drawLayers() {
@@ -2049,6 +2064,7 @@ function drawLayers() {
   // list under the hand would take the element it is holding away mid-gesture. The inspector
   // has kept the same rule since W-04; this is that rule for the rows W-12 added.
   if (scrubbed && $('layers').contains(scrubbed)) return;
+  if (typingExpression()) return;
   const all = layers();
   $('nolayers').hidden = all.length > 0;
   const comp = composition();
@@ -2139,7 +2155,7 @@ function drawLayers() {
       else select(layer.id, e.ctrlKey);
     };
     li.ondblclick = () => beginRename();
-    return [li, ...PROPS.filter((prop) => open.has(prop)).map((prop) => propTrack(comp, layer, prop))];
+    return [li, ...PROPS.filter((prop) => open.has(prop)).flatMap((prop) => propTrack(comp, layer, prop))];
   }));
 }
 
@@ -2768,7 +2784,23 @@ function propTrack(comp, layer, prop) {
   };
   li.append(box);
   li.onclick = (e) => { if (!e.shiftKey) pickKey(null, false); select(layer.id, e.shiftKey); };
-  return li;
+  // B-14c: the expression is a row of its own under the property, its text across the bar.
+  const expr = exprParts(layer, prop, 'track');
+  if (!expr) return [li];
+  const row = document.createElement('li');
+  row.className = 'prop expr';
+  row.dataset.id = layer.id;
+  const rowHead = document.createElement('div');
+  rowHead.className = 'rowhead';
+  const label = document.createElement('span');
+  label.className = 'name';
+  label.textContent = 'Expression';
+  rowHead.append(expr.toggle, label);
+  const rowBody = document.createElement('div');
+  rowBody.className = 'exprtrack';
+  rowBody.append(expr.box);
+  row.append(rowHead, rowBody);
+  return [li, row];
 }
 
 
@@ -2784,6 +2816,9 @@ let boxes = [];
 // same answer. A keyframed property is drawn from these and not from its base, so these are
 // what the inspector shows for it.
 let values = {};
+// B-14c: why a property's expression gives nothing on the frame on screen, by the same two
+// names, from the same answer. A property named here is drawn at its keyed value.
+let errors = {};
 // D-53: the selected layer's positions from its first position key to its last, one per frame,
 // out of the same `/curve` answer the graph editor draws. The path on the canvas is these points
 // and not a curve worked out here, for the reason `curve` in Rust gives.
@@ -2834,9 +2869,11 @@ async function askForBoxes() {
     if (said.frame !== frame) return;
     boxes = said.layers;
     values = said.values || {};
+    errors = said.errors || {};
   } catch (e) {
     boxes = [];
     values = {};
+    errors = {};
   }
   const layer = selected();
   const moves = layer ? keysOf(layer, 'position') : [];
@@ -2856,7 +2893,14 @@ async function askForBoxes() {
   // A keyframed property's numbers change with the frame, and so does whether its diamond is
   // filled, so the panel follows the playhead for a layer that has keys. A layer with none
   // shows the same numbers on every frame and is left alone.
-  if (layer && PROPS.some((prop) => keysOf(layer, prop).length)) drawInspector();
+  // B-14c: and so do an expression's, and whether it is failing on this frame.
+  if (layer && PROPS.some((prop) => keysOf(layer, prop).length || exprOf(layer, prop))) {
+    drawInspector();
+  }
+  const camera = cameraRow();
+  if (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop))) drawCamera();
+  if (layers().some((l) => PROPS.some((prop) => exprOf(l, prop)))
+    || (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop)))) drawLayers();
 }
 
 const boxOf = (id) => boxes.find((box) => box.layer === id) || null;
@@ -3745,6 +3789,8 @@ const propOf = (layer, prop) => (prop === 'depth'
   ? (layer.depth || { base: 0 })
   : ((layer.transform || {})[prop] || {}));
 const keysOf = (layer, prop) => (propOf(layer, prop).keyframes || []);
+// D-59's expression on a property, switched on or off, or null.
+const exprOf = (layer, prop) => propOf(layer, prop).expression || null;
 
 // W-12: which of a layer's properties are open under it on the timeline, by layer id. Page
 // state and not project state: a file says nothing about what is unfolded on screen, so this
@@ -3798,7 +3844,7 @@ function showProps(props, add) {
 // answer arrives the base is shown, which is wrong for a moment rather than blank.
 function transformValue(layer, prop) {
   const at = (values[layer.id] || {})[prop];
-  const held = keysOf(layer, prop).length && at !== undefined
+  const held = (keysOf(layer, prop).length || exprOf(layer, prop)) && at !== undefined
     ? at : propOf(layer, prop).base;
   return Array.isArray(held) ? held.slice() : [held];
 }
@@ -3814,20 +3860,115 @@ function keyButton(layer, prop) {
   button.textContent = on ? '◆' : '◇';
   button.title = (on ? 'Remove the ' : 'Add a ') + prop + ' keyframe at frame ' + frame
     + (keys.length ? ' (' + keys.length + ' keyframe' + (keys.length === 1 ? '' : 's') + ')' : '');
-  if (keys.length) button.title += '. Alt-click removes them all';
+  button.title += exprOf(layer, prop)
+    ? '. Alt-click removes the expression' : '. Alt-click adds an expression';
   button.setAttribute('aria-label', button.title);
   button.setAttribute('aria-pressed', on);
   button.onclick = (e) => {
-    // W-23: Alt with it takes every key off the property, as Alt on After Effects' stopwatch
-    // does, as one entry to undo.
-    if (e.altKey && keys.length) {
-      for (const k of keys) pickedKeys.delete(keyId(layer, prop, k.frame));
-      command('/keyframe.add_remove?' + keys.map((k) => 'key=' + encodeURIComponent(keyId(layer, prop, k.frame))).join('&'));
+    // B-14c: Alt with it adds an expression to the property, or takes it away, as Alt on
+    // After Effects' stopwatch does. The owner asked for this on 2026-09-16. W-23 had Alt take
+    // every key off; pressing the property's name and then Delete still does that.
+    if (e.altKey) {
+      toggleExpression(layer, prop, button.closest('#layers') ? 'track' : 'panel');
       return;
     }
     command('/keyframe.add_remove?' + whose(layer) + '&prop=' + prop + '&frame=' + frame);
   };
+  // After Effects' Alt+Shift+= on the diamond that has the keyboard does the same.
+  button.onkeydown = (e) => {
+    if (e.altKey && e.shiftKey && (e.key === '=' || e.key === '+')) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleExpression(layer, prop, button.closest('#layers') ? 'track' : 'panel');
+    }
+  };
   return button;
+}
+
+// B-14c: document 24's `property.set_expression`. No text removes the expression; a text is
+// stored as typed, even one the language cannot read, and its error is shown beside it.
+function setExpression(layer, prop, text, on) {
+  return command('/property.set_expression?' + whose(layer) + '&prop=' + prop
+    + (text === null ? '' : '&text=' + encodeURIComponent(text) + '&on=' + on));
+}
+
+// Which expression box gets the keyboard once the page is drawn again: the one just added,
+// in the place whose diamond was pressed.
+let focusExpr = null;
+
+function toggleExpression(layer, prop, where) {
+  if (exprOf(layer, prop)) return setExpression(layer, prop, null);
+  focusExpr = { id: layer.id, prop, where };
+  // `value` is the property's own keyed value, so a new expression changes nothing until typed.
+  return setExpression(layer, prop, 'value', true).then(() => { focusExpr = null; });
+}
+
+// While an expression is being typed, the rows holding it are not rebuilt, for the reason a
+// drag is not: the box would be taken away under the keyboard. Leaving the box applies it.
+const typingExpression = () => !!(document.activeElement
+  && document.activeElement.classList.contains('exprtext'));
+
+// The switch and the text box of a property's expression, or null if it has none.
+function exprParts(layer, prop, where) {
+  const expression = exprOf(layer, prop);
+  if (!expression) return null;
+  const on = expression.enabled !== false;
+  const toggle = document.createElement('button');
+  toggle.className = 'exprswitch' + (on ? '' : ' off');
+  toggle.textContent = on ? '=' : '≠';
+  toggle.title = (on ? 'Switch off' : 'Switch on') + ' the ' + prop
+    + ' expression. Switched off, it is kept and the property is its keyed value';
+  toggle.setAttribute('aria-label', toggle.title);
+  toggle.setAttribute('aria-pressed', String(on));
+  toggle.onclick = (e) => {
+    e.stopPropagation();
+    setExpression(layer, prop, expression.text, !on);
+  };
+  const text = document.createElement('textarea');
+  text.className = 'exprtext' + (on ? '' : ' off');
+  text.value = expression.text;
+  const fit = () => { text.rows = Math.max(1, text.value.split('\n').length); };
+  fit();
+  text.spellcheck = false;
+  text.title = 'The ' + prop + ' expression. Click away or press Ctrl+Enter to apply it, '
+    + 'Escape to put it back. Emptied, it is removed';
+  text.setAttribute('aria-label', 'Expression on ' + prop);
+  const apply = () => {
+    if (text.value === expression.text) return Promise.resolve();
+    return setExpression(layer, prop, text.value.trim() === '' ? null : text.value, on);
+  };
+  text.onblur = () => { apply(); };
+  text.onpointerdown = (e) => e.stopPropagation();
+  text.onclick = (e) => e.stopPropagation();
+  text.oninput = fit;
+  // Every key typed here is text, not a shortcut. Ctrl+S saves what is typed first.
+  text.onkeydown = (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { text.value = expression.text; text.blur(); }
+    else if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); text.blur(); }
+    else if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      text.onblur = null;
+      apply().then(() => command(e.shiftKey ? '/save-as' : '/save'));
+    }
+  };
+  if (focusExpr && focusExpr.id === layer.id && focusExpr.prop === prop
+    && focusExpr.where === where) {
+    focusExpr = null;
+    requestAnimationFrame(() => { text.focus(); text.select(); });
+  }
+  const box = document.createElement('div');
+  box.className = 'expr';
+  box.append(text);
+  const failing = on && (errors[layer.id] || {})[prop];
+  if (failing) {
+    const said = document.createElement('p');
+    said.className = 'exprerror';
+    said.setAttribute('role', 'status');
+    said.textContent = '⚠ ' + failing + ' The ' + prop + ' is drawn at its keyed value.';
+    box.append(said);
+  }
+  return { toggle, box };
 }
 
 // D-52's preset, beside the diamond and only where there is a key on this frame to apply it to.
@@ -3937,6 +4078,11 @@ function propRow(into, layer, prop) {
   dd.className = 'numbers';
   dd.append(...propScrubs(layer, prop));
   into.append(dt, dd);
+  const expr = exprParts(layer, prop, 'panel');
+  if (expr) {
+    dt.append(' ', expr.toggle);
+    into.append(expr.box);
+  }
 }
 
 // Which layer shapes this one, and whether that layer is still drawn in its own right.
@@ -3999,7 +4145,7 @@ function drawInspector() {
   // Rebuilding these fields under a pointer that is holding one of them would take the drag's
   // own element away mid-gesture, and the value would stop following the mouse with nothing on
   // screen to say why. The values shown are the drag's, which are the document's.
-  if (dragging) return;
+  if (dragging || typingExpression()) return;
   const layer = selected();
   const into = $('detail');
   if (!layer) {
@@ -4064,7 +4210,7 @@ function drawCamera() {
   // under a pointer that is holding one of them would take the drag's own element away
   // mid-gesture, and the number would stop following the mouse with nothing on screen to say
   // why. B-13c had no need of it because a typed box is not held.
-  if (dragging) return;
+  if (dragging || typingExpression()) return;
   const comp = composition();
   const into = $('camera');
   if (!comp) {
@@ -4093,6 +4239,11 @@ function drawCamera() {
     dd.className = 'numbers';
     dd.append(...propScrubs(camera, prop).flatMap((s, i) => (i ? [', ', s] : [s])));
     dl.append(dt, dd);
+    const expr = exprParts(camera, prop, 'panel');
+    if (expr) {
+      dt.append(' ', expr.toggle);
+      dl.append(expr.box);
+    }
   };
   row('position', 'Place', 'Where the camera is, across and down the composition, in pixels.');
   row('depth', 'Depth',
@@ -5378,8 +5529,9 @@ addEventListener('keydown', (e) => {
   // started playback, which is a photograph of a layer being selected and the shot playing.
   if (e.defaultPrevented) return;
   const el = e.target instanceof Element
-    ? e.target.closest('button, select, input, .scrub, [contenteditable]') : null;
-  const typing = renaming || (el && el.tagName === 'INPUT' && el.type !== 'checkbox');
+    ? e.target.closest('button, select, input, textarea, .scrub, [contenteditable]') : null;
+  const typing = renaming || (el && ((el.tagName === 'INPUT' && el.type !== 'checkbox')
+    || el.tagName === 'TEXTAREA'));
   if (typing && !e.ctrlKey) return;
   if (el && !e.ctrlKey && (e.key === ' ' || e.key.startsWith('Arrow'))) return;
 

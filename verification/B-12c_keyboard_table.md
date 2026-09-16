@@ -88,6 +88,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `property.drag_end` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_update` can be asked for without a mouse | yes | yes | pass |
 | `property.set_base` can be asked for without a mouse | yes | yes | pass |
+| `property.set_expression` can be asked for without a mouse | yes | yes | pass |
 | `recent` can be asked for without a mouse | yes | yes | pass |
 | `recover` can be asked for without a mouse | yes | yes | pass |
 | `save` can be asked for without a mouse | yes | yes | pass |
@@ -118,7 +119,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | right clicking a layer is not the only way to open its menu | true | true | pass |
 | dragging a layer on the picture with Shift held is not the only way to move it along one line | true | true | pass |
 | dragging the picture with the middle button is not the only way to look at another part of a zoomed picture | true | true | pass |
-| Alt-clicking a property's diamond is not the only way to remove every key of the property | true | true | pass |
+| Alt-clicking a property's diamond is not the only way to add an expression to the property or remove it | true | true | pass |
 | dragging either end of the work area on the ruler is not the only way to set the work area | true | true | pass |
 | double clicking the work area is not the only way to put it back to the whole composition | true | true | pass |
 | dragging a marker along the ruler, or Ctrl-clicking it is not the only way to move or remove it | true | true | pass |
@@ -127,4 +128,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | right clicking a chosen key is not the only way to open its menu of key speed, ease, hold, copy, paste and delete | true | true | pass |
 | right clicking an empty place on the timeline is not the only way to paste keys or layers there, add a key, a layer or a marker, or open the settings | true | true | pass |
 
-**97 of 97 checks pass.**
+**98 of 98 checks pass.**

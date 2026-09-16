@@ -50,7 +50,7 @@ use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR,
 use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
 use anime_compositor::media;
 use anime_compositor::model::{
-    Asset, BlendMode, Composition, Id, Interp, Layer, Marker, Project, Prop, Value,
+    Asset, BlendMode, Composition, Expression, Id, Interp, Layer, Marker, Project, Prop, Value,
 };
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
@@ -318,18 +318,39 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
     // so that the inspector can show a keyframed property's value under the playhead rather
     // than a base value nothing is drawn from. Every layer of the composition is here, not only
     // the ones the plan drew: a layer outside its own life still has a panel.
+    //
+    // B-14c: a property with an expression is its value after the expression, which is what is
+    // drawn, and one whose expression fails is its keyed value with the reason in `errors`,
+    // under the same two names, so the panel can say it beside the property.
+    let mut errors = serde_json::Map::new();
     let values: serde_json::Map<String, serde_json::Value> = taken
         .project
         .composition(&taken.composition)
         .map(|comp| {
+            use anime_compositor::expr;
+            let mut failed = |row: &str, prop: Prop, e: Option<expr::ExprError>| {
+                if let Some(e) = e {
+                    errors
+                        .entry(row.to_string())
+                        .or_insert_with(|| serde_json::json!({}))[prop.as_str()] =
+                        serde_json::json!(format!("{}: {}.", e.id.as_str(), e.message));
+                }
+            };
             let mut values: serde_json::Map<String, serde_json::Value> = comp
                 .layers_in_order()
                 .map(|layer| {
+                    let target = || expr::Target::Layer(layer.id.clone());
                     let at: serde_json::Map<String, serde_json::Value> = layer
                         .transform
                         .value_at(frame)
                         .into_iter()
                         .map(|(prop, value)| {
+                            let property = layer.transform.get(prop).expect("one of the five");
+                            let (value, e) = match property.live_expression() {
+                                None => (value, None),
+                                Some(_) => expr::resolve(comp, property, target, prop, frame),
+                            };
+                            failed(layer.id.as_str(), prop, e);
                             // D-22: the file holds a scale as a percentage, and a whole
                             // number as a whole number, so the panel reads 100 and not 100.0.
                             let factor = if prop == Prop::Scale { 100.0 } else { 1.0 };
@@ -350,10 +371,11 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                     // keyed is not its base on any frame but the first, and the inspector would
                     // otherwise have gone on showing the number the animation started from.
                     let mut at = at;
-                    let plane = layer
-                        .depth
-                        .as_ref()
-                        .map_or(0.0, |d| d.value_at(frame).as_scalar().unwrap_or(0.0));
+                    let plane = layer.depth.as_ref().map_or(0.0, |d| {
+                        let (v, e) = expr::resolve(comp, d, target, Prop::Depth, frame);
+                        failed(layer.id.as_str(), Prop::Depth, e);
+                        v.as_scalar().unwrap_or(0.0)
+                    });
                     at.insert(
                         "depth".to_string(),
                         match plane {
@@ -389,7 +411,16 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             ]
             .into_iter()
             .map(|which| {
-                let value = match camera.get(which).value_at(frame) {
+                let prop = prop_of_camera(which);
+                let (value, e) = expr::resolve(
+                    comp,
+                    camera.get(which),
+                    || expr::Target::Camera,
+                    prop,
+                    frame,
+                );
+                failed(CAMERA_ROW, prop, e);
+                let value = match value {
                     Value::Scalar(v) => nice(v),
                     Value::Vec2(x, y) => serde_json::json!([nice(x), nice(y)]),
                 };
@@ -403,9 +434,14 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
     allow_the_page_to_read_this(taken.reply)
         .header("content-type", "application/json; charset=utf-8")
         .body(
-            serde_json::json!({ "frame": frame, "layers": found, "values": values })
-                .to_string()
-                .into_bytes(),
+            serde_json::json!({
+                "frame": frame,
+                "layers": found,
+                "values": values,
+                "errors": errors,
+            })
+            .to_string()
+            .into_bytes(),
         )
         .expect("build the boxes response")
 }
@@ -1741,6 +1777,7 @@ const ANSWERS: &[&str] = &[
     "property.drag_end",
     "property.drag_update",
     "property.set_base",
+    "property.set_expression",
     "timeline.set_markers",
     "timeline.set_work_end",
     "timeline.set_work_start",
@@ -2561,6 +2598,43 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         markers,
                     }
                 }
+            }
+        } else if id == "property.set_expression" {
+            // B-14c: D-59's expression, on a layer's property or the camera's. `text` absent
+            // removes it; `on=false` keeps it and switches it off. A text the language cannot
+            // read is stored as typed, because document 24 says a half-typed expression is not
+            // lost: its error is shown beside the property until it is fixed or switched off.
+            let camera = parameter(query, "target").as_deref() == Some("camera");
+            let name = parameter(query, "prop").unwrap_or_default();
+            let chosen = if camera {
+                anime_compositor::model::CameraProp::from_str(&name).map(prop_of_camera)
+            } else {
+                property(&name)
+            };
+            let Some(prop) = chosen else {
+                return Some(format!(
+                    "\"{name}\" is not a property that can carry an expression."
+                ));
+            };
+            let target = if camera {
+                Target::Camera
+            } else {
+                let Some(layer_id) = parameter(query, "layer").map(Id::new) else {
+                    return Some("Which layer? Choose one in the layer list.".to_string());
+                };
+                if comp.layer(&layer_id).is_none() {
+                    return Some(format!("{layer_id} is not a layer in this composition."));
+                }
+                Target::Layer(layer_id)
+            };
+            Command::SetExpression {
+                composition,
+                target,
+                prop,
+                expression: parameter(query, "text").map(|text| Expression {
+                    text,
+                    enabled: parameter(query, "on").as_deref() != Some("false"),
+                }),
             }
         } else if id == "layer.create" {
             // The one layer command that names no existing layer. It names a drawing instead,
@@ -8838,6 +8912,256 @@ mod editing {
     fn cell(text: &str) -> String {
         text.replace('|', r"\|")
     }
+
+    /// B-14c: what `/boxes` says one property is on a frame, and what it says is wrong with its
+    /// expression there, which are the two things the panel shows beside the property.
+    fn shown_at(viewer: &Mutex<Viewer>, frame: i32, row: &str, prop: &str) -> (String, String) {
+        let answer: serde_json::Value =
+            serde_json::from_slice(boxes(viewer, frame, None).body()).expect("boxes is JSON");
+        let error = match &answer["errors"][row][prop] {
+            serde_json::Value::String(e) => e.clone(),
+            _ => "none".to_string(),
+        };
+        (answer["values"][row][prop].to_string(), error)
+    }
+
+    fn both((a, b): (String, String)) -> String {
+        format!("{a}, {b}")
+    }
+
+    /// B-14c: a layer's or the camera's expression, as the state answer gives it to the page.
+    fn expression_of(viewer: &Mutex<Viewer>, row: &str, prop: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        let comp = &answer["project"]["compositions"][0];
+        let property = match row {
+            "camera" => &comp["camera"][prop],
+            id => {
+                let layer = comp["layers"]
+                    .as_array()
+                    .and_then(|all| all.iter().find(|l| l["id"] == id))
+                    .expect("the layer is in the composition");
+                &layer["transform"][prop]
+            }
+        };
+        property["expression"].to_string()
+    }
+
+    /// B-14c: the expression box on each property, its switch, and the error beside it, driven
+    /// by the requests the page sends. The order is the playtest sheet's.
+    #[test]
+    fn an_expression_is_typed_switched_and_removed_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        report.check(
+            "Alt-click on the rotation diamond adds `value`, which changes nothing yet",
+            r#"{"enabled":true,"text":"value"}"#,
+            {
+                run(
+                    &viewer,
+                    "property.set_expression?layer=layer-cel&prop=rotation&text=value&on=true",
+                );
+                expression_of(&viewer, "layer-cel", "rotation")
+            },
+        );
+        report.check(
+            "and the panel still reads the rotation it read before",
+            "0, none",
+            both(shown_at(&viewer, 24, "layer-cel", "rotation")),
+        );
+        report.check(
+            "typing `time * 90` into the box makes frame 24 (one second) read 90",
+            "90, none",
+            {
+                run(&viewer, "property.set_expression?layer=layer-cel&prop=rotation&text=time%20*%2090&on=true");
+                both(shown_at(&viewer, 24, "layer-cel", "rotation"))
+            },
+        );
+        report.check(
+            "the switch turns it off, keeping the text, and the rotation is its own again",
+            r#"{"enabled":false,"text":"time * 90"}, 0"#,
+            {
+                run(&viewer, "property.set_expression?layer=layer-cel&prop=rotation&text=time%20*%2090&on=false");
+                both((
+                    expression_of(&viewer, "layer-cel", "rotation"),
+                    shown_at(&viewer, 24, "layer-cel", "rotation").0,
+                ))
+            },
+        );
+        report.check("undo switches it back on", "90", {
+            undo(&viewer);
+            shown_at(&viewer, 24, "layer-cel", "rotation").0
+        });
+        report.check(
+            "half-typed text is kept as typed, not refused",
+            r#"{"enabled":true,"text":"time *"}"#,
+            {
+                run(
+                    &viewer,
+                    "property.set_expression?layer=layer-cel&prop=rotation&text=time%20*&on=true",
+                );
+                expression_of(&viewer, "layer-cel", "rotation")
+            },
+        );
+        let (value, error) = shown_at(&viewer, 24, "layer-cel", "rotation");
+        report.check(
+            "and the error beside it names what is wrong, while the rotation falls back to its own",
+            "0, EXPRESSION_SYNTAX",
+            format!("{value}, {}", error.split(':').next().unwrap_or("")),
+        );
+        report.check(
+            "a position expression gives a pair of numbers, the second one kept from the value",
+            "[120,0]",
+            {
+                run(&viewer, "property.set_expression?layer=layer-cel&prop=position&text=%5B120%2C%20value%5B1%5D%5D&on=true");
+                shown_at(&viewer, 0, "layer-cel", "position").0
+            },
+        );
+        report.check("Alt-click again removes the expression", "null", {
+            run(
+                &viewer,
+                "property.set_expression?layer=layer-cel&prop=position",
+            );
+            expression_of(&viewer, "layer-cel", "position")
+        });
+        report.check(
+            "and undo brings it back",
+            r#"{"enabled":true,"text":"[120, value[1]]"}"#,
+            {
+                undo(&viewer);
+                expression_of(&viewer, "layer-cel", "position")
+            },
+        );
+
+        // ---- the camera ---------------------------------------------------------------------
+        report.check(
+            "the camera's lens takes an expression the same way",
+            "1000, none",
+            {
+                run(
+                    &viewer,
+                    "property.set_expression?target=camera&prop=zoom&text=1000&on=true",
+                );
+                both(shown_at(&viewer, 0, CAMERA_ROW, "zoom"))
+            },
+        );
+        report.check(
+            "and the camera's depth refuses a pair of numbers with the reason beside it",
+            "EXPRESSION_TYPE",
+            {
+                run(
+                    &viewer,
+                    "property.set_expression?target=camera&prop=depth&text=%5B1%2C2%5D&on=true",
+                );
+                shown_at(&viewer, 0, CAMERA_ROW, "depth")
+                    .1
+                    .split(':')
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+            },
+        );
+
+        // ---- what is refused ----------------------------------------------------------------
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        let before = held(&viewer).document.undo_depth();
+        let locked = run(
+            &viewer,
+            "property.set_expression?layer=layer-cel&prop=scale&text=50&on=true",
+        );
+        report.check(
+            "a locked layer refuses an expression",
+            "null",
+            expression_of(&viewer, "layer-cel", "scale"),
+        );
+        report.check(
+            "and the window says why, in words",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            locked,
+        );
+        report.check(
+            "a property that cannot carry one is refused by name",
+            "true",
+            run(
+                &viewer,
+                "property.set_expression?layer=layer-cel&prop=wobble&text=1",
+            )
+            .contains("wobble")
+            .to_string(),
+        );
+        report.check(
+            "and the refusals put nothing in the history",
+            before,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        // ---- the file ----------------------------------------------------------------------
+        let folder = std::env::temp_dir().join("anime_compositor_b14c");
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).expect("make the scratch directory");
+        let file = folder.join("expressions.json");
+        save_as(&viewer, &file);
+        let saved = std::fs::read_to_string(&file).unwrap_or_default();
+        report.check(
+            "Save writes the text and the switch into the file",
+            "true",
+            (saved.contains("\"text\": \"time *\"") && saved.contains("\"text\": \"1000\""))
+                .to_string(),
+        );
+        report.check(
+            "and opening that file shows the same broken expression and its error",
+            "EXPRESSION_SYNTAX",
+            shown_at(&viewer, 24, "layer-cel", "rotation")
+                .1
+                .split(':')
+                .next()
+                .unwrap_or("")
+                .to_string(),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-14c_panel_table.md",
+            "B-14c: expressions in the window",
+            EXPRESSION_PANEL_INTRO,
+            EXPRESSION_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const EXPRESSION_PANEL_INTRO: &[&str] = &[
+        "D-59 gave a property an expression and B-14b taught the core to work one out. This is \
+         the window's half: Alt-click on a property's diamond (or Alt+Shift+= on it) adds a box \
+         under the property with `value` in it, which changes nothing until something else is \
+         typed; the `=` beside the property's name switches it off and on; and a text the \
+         language cannot read is kept, with the reason in red under it.",
+        "Every row sends the request the page sends, to the same handler, and reads back what \
+         the page is given: the project for the text and the switch, and the frame's `/boxes` \
+         answer for the number the panel shows and the error beside it.",
+    ];
+
+    const EXPRESSION_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhether the box is comfortable to type into, whether \
+         the red line is readable, and whether Alt-click feels like After Effects. That is \
+         `verification/B-14c_expressions_playtest.md`, for a person.\n\nWhat an expression \
+         works out to in detail. That is `verification/B-14b_expression_table.md`, 184 of 184 \
+         against independently written numbers; this table only checks that the window shows \
+         the same answer.",
+        "## What changed for Alt-click\n\nW-23 had Alt-click on the diamond take every key off \
+         the property. The owner asked on 2026-09-16 for After Effects' behaviour instead, so it \
+         now adds or removes the expression. Taking every key off is still two steps: press the \
+         property's name on the timeline, which chooses all its keys, then press Delete.",
+    ];
 }
 
 /// What the autosave timer and the recovery path do, checked without a window.
@@ -10621,6 +10945,7 @@ mod contract {
         "property.drag_end",
         "property.drag_update",
         "property.set_base",
+        "property.set_expression",
         "timeline.set_markers",
         "timeline.set_work_end",
         "timeline.set_work_start",
@@ -10932,9 +11257,8 @@ mod contract {
         ("keyframe.move", "a command the window answers"),
         ("keyframe.set_interp", "a command the window answers"),
         ("keyframe.set_path", "a command the window answers"),
-        // D-59, accepted by the owner on 2026-09-16. Document 24 names this and nothing
-        // carries it out yet.
-        ("property.set_expression", "nothing yet"),
+        // D-59, accepted by the owner on 2026-09-16; B-14c carries it out.
+        ("property.set_expression", "a command the window answers"),
         ("effect.add", "a command the window answers"),
         ("effect.delete", "a command the window answers"),
         ("effect.toggle_bypass", "a command the window answers"),
@@ -12547,8 +12871,8 @@ mod contract {
         ),
         (
             "Alt-clicking a property's diamond",
-            "remove every key of the property",
-            "if (pickedKeys.size) removeKeys()",
+            "add an expression to the property or remove it",
+            "e.altKey && e.shiftKey && (e.key === '=' || e.key === '+')",
         ),
         (
             "dragging either end of the work area on the ruler",
