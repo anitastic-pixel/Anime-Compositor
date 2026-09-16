@@ -173,15 +173,15 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
 const NOT_BUILT: &[(&str, &str)] = &[
     (
         "EXPRESSION_SYNTAX",
-        "D-59, the expression language, is written and awaiting the owner; no expression evaluator exists.",
+        "D-59, the expression language, is accepted and B-14b has not built the evaluator yet.",
     ),
     (
         "EXPRESSION_TYPE",
-        "D-59, the expression language, is written and awaiting the owner; no expression evaluator exists.",
+        "D-59, the expression language, is accepted and B-14b has not built the evaluator yet.",
     ),
     (
         "EXPRESSION_REFERENCE_MISSING",
-        "D-59, the expression language, is written and awaiting the owner; no expression evaluator exists.",
+        "D-59, the expression language, is accepted and B-14b has not built the evaluator yet.",
     ),
     (
         "EXPRESSION_CYCLE",

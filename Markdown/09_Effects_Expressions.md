@@ -1,6 +1,6 @@
 # Effects and expressions specification
 
-> **PARKED in version 0.3 under D-12.** The G1 effect stack (R-05) is not part of G1-core, and expressions (R-13) were a G2 concern with an undecided runtime per D-10. Effects were unparked on 2026-09-06 by the D-12 amendment and built by B-07. Expressions are specified in the section below, proposed on 2026-09-16 by D-59 as the answer to D-10 and awaiting the owner; that section replaces the earlier G2 proposal and keeps every rule it set.
+> **PARKED in version 0.3 under D-12.** The G1 effect stack (R-05) is not part of G1-core, and expressions (R-13) were a G2 concern with an undecided runtime per D-10. Effects were unparked on 2026-09-06 by the D-12 amendment and built by B-07. Expressions are specified in the section below, accepted on 2026-09-16 by the owner as D-59, the answer to D-10; that section replaces the earlier G2 proposal and keeps every rule it set.
 >
 > Revisit trigger for effects: repeated manual effort in finishing real shots that an effect would remove.
 >
@@ -33,7 +33,7 @@ Keep a candidate record with visual goal, reference source, algorithm provenance
 
 ## Native expressions
 
-PROPOSED on 2026-09-16 by D-59, awaiting the owner. This section is the language. `tools/expression_reference.py` is a whole second implementation of it, written from this section and sharing nothing with the build, and document 25's FX-EXPR cases are its output. Where this section and that file disagree, this section is wrong or the file is, and the fix is a specification change, never a build change.
+ACCEPTED on 2026-09-16 by the owner as D-59. This section is the language. `tools/expression_reference.py` is a whole second implementation of it, written from this section and sharing nothing with the build, and document 25's FX-EXPR cases are its output. Where this section and that file disagree, this section is wrong or the file is, and the fix is a specification change, never a build change.
 
 The rules the earlier G2 proposal set are all kept: evaluation against an immutable project snapshot; no filesystem, network, process or native access; limits that actually stop runaway work; cycles refused; errors shown on the property that has them; references by stable ID, so a rename breaks nothing; randomness from a saved seed and a defined time; stated units, dimensions and conversions.
 

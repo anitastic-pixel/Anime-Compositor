@@ -40,9 +40,9 @@ One row per identifier this build can print, and the table where a person can re
 
 | Identifier | Why there is no code for it |
 |---|---|
-| `EXPRESSION_SYNTAX` | D-59, the expression language, is written and awaiting the owner; no expression evaluator exists. |
-| `EXPRESSION_TYPE` | D-59, the expression language, is written and awaiting the owner; no expression evaluator exists. |
-| `EXPRESSION_REFERENCE_MISSING` | D-59, the expression language, is written and awaiting the owner; no expression evaluator exists. |
+| `EXPRESSION_SYNTAX` | D-59, the expression language, is accepted and B-14b has not built the evaluator yet. |
+| `EXPRESSION_TYPE` | D-59, the expression language, is accepted and B-14b has not built the evaluator yet. |
+| `EXPRESSION_REFERENCE_MISSING` | D-59, the expression language, is accepted and B-14b has not built the evaluator yet. |
 | `EXPRESSION_CYCLE` | R-13, expressions, is G2 work and no expression evaluator exists. |
 | `EXPRESSION_TIMEOUT` | R-13, expressions, is G2 work and no expression evaluator exists. |
 | `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |

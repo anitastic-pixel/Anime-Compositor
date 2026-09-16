@@ -26,7 +26,7 @@ By D-58, accepted by the owner on 2026-09-15 and built by B-13c: an optional `de
 
 Layer order is composition order. Index is not identity. Reordering must not rewrite layer IDs or references.
 
-Proposed by D-59 on 2026-09-16: any layer transform property, a layer's depth and any of the camera's three properties may carry an optional `expression`, an object of `text` and `enabled`, written only when present. A switched-off expression is preserved exactly and ignored. The language is document 09's.
+By D-59, accepted by the owner on 2026-09-16: any layer transform property, a layer's depth and any of the camera's three properties may carry an optional `expression`, an object of `text` and `enabled`, written only when present. A switched-off expression is preserved exactly and ignored. The language is document 09's.
 
 Transform contains anchor, position, scale, rotation and opacity properties. Scale is percentage-like in UI but serialized as explicit numeric pairs. Position and anchor use pixels. Rotation uses degrees. Opacity uses normalized 0..1 in the model.
 
