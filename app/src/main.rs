@@ -313,7 +313,8 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
         .project
         .composition(&taken.composition)
         .map(|comp| {
-            comp.layers_in_order()
+            let mut values: serde_json::Map<String, serde_json::Value> = comp
+                .layers_in_order()
                 .map(|layer| {
                     let at: serde_json::Map<String, serde_json::Value> = layer
                         .transform
@@ -355,7 +356,39 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                     );
                     (layer.id.as_str().to_string(), serde_json::Value::Object(at))
                 })
-                .collect()
+                .collect();
+            // B-13e: and the camera's three, under the window's own name for it, because the
+            // rows that draw them are the rows that draw a layer's and read this same answer.
+            // W-10's rule is what makes it necessary: a keyed camera is not its base on any
+            // frame but the first, and the boxes would have gone on showing the number the
+            // move started from.
+            //
+            // In the units the file holds, as every other value here is. The lens is the one
+            // a person reads in millimetres, and the page turns it over at the place it draws
+            // it, exactly as it already does for an opacity the file keeps as nought to one.
+            let camera = comp.camera.clone().unwrap_or_else(|| {
+                anime_compositor::model::Camera::default_for(comp.width, comp.height)
+            });
+            let nice = |v: f64| match v {
+                w if w.fract() == 0.0 && w.abs() < 1e15 => serde_json::json!(w as i64),
+                w => serde_json::json!(w),
+            };
+            let at: serde_json::Map<String, serde_json::Value> = [
+                anime_compositor::model::CameraProp::Position,
+                anime_compositor::model::CameraProp::Depth,
+                anime_compositor::model::CameraProp::Zoom,
+            ]
+            .into_iter()
+            .map(|which| {
+                let value = match camera.get(which).value_at(frame) {
+                    Value::Scalar(v) => nice(v),
+                    Value::Vec2(x, y) => serde_json::json!([nice(x), nice(y)]),
+                };
+                (which.as_str().to_string(), value)
+            })
+            .collect();
+            values.insert(CAMERA_ROW.to_string(), serde_json::Value::Object(at));
+            values
         })
         .unwrap_or_default();
     allow_the_page_to_read_this(taken.reply)
@@ -1187,6 +1220,47 @@ fn property_value(prop: Prop, text: &str) -> Option<Value> {
             Some(Value::Vec2(number(x)? / percent, number(y)? / percent))
         }
         _ => Some(Value::Scalar(number(text)? / percent)),
+    }
+}
+
+/// The interpolation a request names, for the two routes that name one.
+///
+/// One reader rather than two since B-13e: a layer's keys and the camera's are eased by the same
+/// request, and a second copy of this match is a second place for `curve` to be forgotten.
+/// The window's name for the camera where a request wants a layer id.
+///
+/// Not a name a file can hold: document 19's ids come out of the project and this one comes out
+/// of the page, which is what lets a key on a camera row travel through the requests that name
+/// their keys `layer|property|frame` without a second format being invented for it.
+const CAMERA_ROW: &str = "::camera";
+
+/// A camera property as one of `Prop`'s.
+///
+/// B-13e: the camera's properties go through the same commands as a layer's and so arrive as the
+/// same `Prop`. Which of the two a command means is the target beside it, never the name.
+fn prop_of_camera(which: anime_compositor::model::CameraProp) -> Prop {
+    match which {
+        anime_compositor::model::CameraProp::Position => Prop::Position,
+        anime_compositor::model::CameraProp::Depth => Prop::Depth,
+        anime_compositor::model::CameraProp::Zoom => Prop::Zoom,
+    }
+}
+
+fn interp_parameter(query: Option<&str>) -> Result<Interp, String> {
+    match parameter(query, "mode").as_deref() {
+        Some("hold") => Ok(Interp::Hold),
+        Some("linear") => Ok(Interp::Linear),
+        // Without `curve`, this is the preset button beside the diamond and the curve is easy
+        // ease. With it, it is the graph editor sending the four numbers a handle was just
+        // dragged to.
+        Some("ease") => match parameter(query, "curve") {
+            None => Ok(Interp::EASY),
+            Some(text) => handles(&text),
+        },
+        other => Err(format!(
+            "An interpolation is hold, linear or ease. Not \"{}\".",
+            other.unwrap_or("")
+        )),
     }
 }
 
@@ -2345,10 +2419,24 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 else {
                     return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
                 };
-                let (Some(prop), Ok(at)) = (property(prop), at.parse::<i32>()) else {
+                // B-13e: the camera's three rows carry keys on the timeline like a layer's,
+                // and the page names them with the same three parts. Only the first part tells
+                // them apart, and a camera has its own three property names rather than the six
+                // a layer answers to.
+                let chosen = if layer == CAMERA_ROW {
+                    anime_compositor::model::CameraProp::from_str(prop).map(prop_of_camera)
+                } else {
+                    property(prop)
+                };
+                let (Some(prop), Ok(at)) = (chosen, at.parse::<i32>()) else {
                     return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
                 };
-                keys.push((Id::new(layer), prop, at));
+                let target = if layer == CAMERA_ROW {
+                    Target::Camera
+                } else {
+                    Target::Layer(Id::new(layer))
+                };
+                keys.push((target, prop, at));
             }
             let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
             let composition = held.composition.clone();
@@ -2358,9 +2446,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             if id == "keyframe.add_remove" {
                 let commands = keys
                     .into_iter()
-                    .map(|(layer_id, prop, frame)| Command::RemoveKeyframe {
+                    .map(|(target, prop, frame)| Command::RemoveKeyframe {
                         composition: composition.clone(),
-                        target: Target::Layer(layer_id.clone()),
+                        target,
                         prop,
                         frame,
                     })
@@ -2374,12 +2462,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 Ok(by) => by,
                 Err(said) => return Some(said),
             };
-            keys.sort_by_key(|&(_, _, at)| if by > 0 { -at } else { at });
+            keys.sort_by_key(|key| if by > 0 { -key.2 } else { key.2 });
             let commands = keys
                 .into_iter()
-                .map(|(layer_id, prop, from_frame)| Command::MoveKeyframe {
+                .map(|(target, prop, from_frame)| Command::MoveKeyframe {
                     composition: composition.clone(),
-                    target: Target::Layer(layer_id.clone()),
+                    target,
                     prop,
                     from_frame,
                     to_frame: from_frame + by,
@@ -2485,6 +2573,214 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 index: parameter(query, "to")
                     .and_then(|to| to.parse::<usize>().ok())
                     .unwrap_or(comp.len()),
+            }
+        } else if parameter(query, "target").as_deref() == Some("camera") {
+            // B-13e: the camera, named as a target instead of a layer.
+            //
+            // Document 24 line 91: "once a command can name the camera as its target instead of
+            // a layer, every property command that already exists - set a base value, add a key,
+            // delete a key, set an ease, set a motion path - reaches the camera unchanged". These
+            // arms are that sentence. Each reads the camera's property and builds one of the same
+            // four commands the layer arms below build, and then falls through to the same tail:
+            // the drag transaction, the history entry, and the refusal turned into a sentence.
+            //
+            // The camera is not a layer, so this arm is beside the layer block rather than inside
+            // it. Nothing here looks a layer up, and a lock on a layer does not reach it.
+            use anime_compositor::model::{Camera, CameraProp};
+            let name = match parameter(query, "prop") {
+                Some(name) => name,
+                // D-53: a path is position only, so that route names no property.
+                None if id == "keyframe.set_path" => "position".to_string(),
+                None => {
+                    return Some(
+                        "Which of the camera's properties? Its position, its depth or its zoom."
+                            .to_string(),
+                    )
+                }
+            };
+            let Some(which) = CameraProp::from_str(&name) else {
+                return Some(format!(
+                    "\"{name}\" is not one of the camera's properties. They are position, \
+                     depth and zoom."
+                ));
+            };
+            let prop = prop_of_camera(which);
+            // A composition nobody has pointed a camera at is shown, and keyed, at the camera the
+            // renderer would have used. Pressing the diamond on a fresh composition holds that
+            // default rather than a blank, which is what the three boxes already showed.
+            let camera = comp
+                .camera
+                .clone()
+                .unwrap_or_else(|| Camera::default_for(comp.width, comp.height));
+            let property = camera.get(which).clone();
+            match id {
+                "keyframe.add_remove" => {
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    // Which of the two, read from the document as the layer arm reads it: a page
+                    // can be describing a key that has since been undone.
+                    match property.keyframe_at(frame) {
+                        Some(_) => Command::RemoveKeyframe {
+                            composition,
+                            target: Target::Camera,
+                            prop,
+                            frame,
+                        },
+                        None => Command::SetKeyframe {
+                            composition,
+                            target: Target::Camera,
+                            prop,
+                            frame,
+                            value: property.value_at(frame),
+                            interp: Interp::Linear,
+                            spatial: None,
+                        },
+                    }
+                }
+                "keyframe.move" => {
+                    let from_frame = match frame_parameter(query, "from") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let to_frame = match frame_parameter(query, "to") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    Command::MoveKeyframe {
+                        composition,
+                        target: Target::Camera,
+                        prop,
+                        from_frame,
+                        to_frame,
+                    }
+                }
+                "keyframe.set_interp" => {
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let interp = match interp_parameter(query) {
+                        Ok(interp) => interp,
+                        Err(said) => return Some(said),
+                    };
+                    let Some(key) = property.keyframe_at(frame) else {
+                        return Some(format!(
+                            "The camera's {name} has no keyframe at frame {frame}, so there is \
+                             no segment to ease. Add a keyframe first."
+                        ));
+                    };
+                    Command::SetKeyframe {
+                        composition,
+                        target: Target::Camera,
+                        prop,
+                        frame,
+                        value: key.value,
+                        interp,
+                        spatial: key.spatial,
+                    }
+                }
+                // D-53's handles. The camera's place is a point that travels, so it can carry
+                // them; its depth and its zoom are lengths and cannot, which is the same rule
+                // the core states and is said here in the words of the thing being asked for.
+                "keyframe.set_path" => {
+                    if which != CameraProp::Position {
+                        return Some(format!(
+                            "The camera's {name} is a number, not a path. Only its place can \
+                             carry handles."
+                        ));
+                    }
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let text = parameter(query, "handles").unwrap_or_default();
+                    let numbers: Vec<f64> = text
+                        .split(',')
+                        .filter_map(|n| n.trim().parse().ok())
+                        .collect();
+                    let [in_x, in_y, out_x, out_y] = numbers[..] else {
+                        return Some(format!(
+                            "A path is four numbers, in_x,in_y,out_x,out_y. Not \"{text}\"."
+                        ));
+                    };
+                    let Some(key) = property.keyframe_at(frame) else {
+                        return Some(format!(
+                            "The camera's place has no keyframe at frame {frame}, so there is \
+                             no handle to move. Add a keyframe first."
+                        ));
+                    };
+                    Command::SetKeyframe {
+                        composition,
+                        target: Target::Camera,
+                        prop,
+                        frame,
+                        value: key.value,
+                        interp: key.interp,
+                        spatial: Some([in_x, in_y, out_x, out_y]),
+                    }
+                }
+                "property.set_base" | "property.drag_update" => {
+                    let Some(text) = parameter(query, "value") else {
+                        return Some(format!("What should the camera's {name} be set to?"));
+                    };
+                    let Some(value) = property_value(prop, &text) else {
+                        return Some(match which {
+                            CameraProp::Position => format!(
+                                "The camera's place needs two numbers, like 960, 540. Not \
+                                 \"{text}\"."
+                            ),
+                            _ => format!("The camera's {name} needs a number. Not \"{text}\"."),
+                        });
+                    };
+                    // No unit conversion here, deliberately. This road carries what the file
+                    // holds, as it does for every property: an opacity crosses it as nought to
+                    // one and the panel is what shows a percentage, so a lens crosses it as the
+                    // pixels D-58's arithmetic uses and the control is what shows millimetres.
+                    // `camera.set_property` converts because its boxes are the boundary; this
+                    // command's boundary is the blue number the person is dragging.
+                    // W-10's rule, which is why the page sends the frame with every value: on a
+                    // property that has keys the base is not what is drawn, so the same request
+                    // sets a key at the frame on screen instead.
+                    if !property.is_animated() {
+                        Command::SetPropertyBase {
+                            composition,
+                            target: Target::Camera,
+                            prop,
+                            value,
+                        }
+                    } else {
+                        let frame = match frame_parameter(query, "frame") {
+                            Ok(frame) => frame,
+                            Err(_) => {
+                                return Some(format!(
+                                    "The camera's {name} is keyframed, so a value belongs to a \
+                                     frame. Say frame=<frame>."
+                                ))
+                            }
+                        };
+                        Command::SetKeyframe {
+                            composition,
+                            target: Target::Camera,
+                            prop,
+                            frame,
+                            value,
+                            interp: property
+                                .keyframe_at(frame)
+                                .map_or(Interp::Linear, |k| k.interp),
+                            spatial: property.keyframe_at(frame).and_then(|k| k.spatial),
+                        }
+                    }
+                }
+                // Every other command names a layer, and saying so is better than the "Which
+                // layer?" a camera request would otherwise have fallen through to.
+                _ => {
+                    return Some(format!(
+                        "{id} changes a layer, not the camera. The camera takes a value, a \
+                         keyframe, a move, an ease and a path."
+                    ))
+                }
             }
         } else {
             let Some(layer_id) = parameter(query, "layer").map(Id::new) else {
@@ -2742,25 +3038,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         Ok(frame) => frame,
                         Err(said) => return Some(said),
                     };
-                    let interp = match parameter(query, "mode").as_deref() {
-                        Some("hold") => Interp::Hold,
-                        Some("linear") => Interp::Linear,
-                        // Without `curve`, this is the preset button beside the diamond and
-                        // the curve is easy ease. With it, it is the graph editor sending the
-                        // four numbers a handle was just dragged to.
-                        Some("ease") => match parameter(query, "curve") {
-                            None => Interp::EASY,
-                            Some(text) => match handles(&text) {
-                                Ok(interp) => interp,
-                                Err(said) => return Some(said),
-                            },
-                        },
-                        other => {
-                            return Some(format!(
-                                "An interpolation is hold, linear or ease. Not \"{}\".",
-                                other.unwrap_or("")
-                            ))
-                        }
+                    let interp = match interp_parameter(query) {
+                        Ok(interp) => interp,
+                        Err(said) => return Some(said),
                     };
                     let property = property_of(layer, prop);
                     let Some(key) = property.keyframe_at(frame) else {
@@ -4866,32 +5146,39 @@ mod editing {
                 Some(keys) => keys.clone(),
                 None => Vec::new(),
             })
-            .map(|keys| {
-                keys.iter()
-                    .map(|k| {
-                        // D-52: an eased key's four numbers go in the row. The word "ease" on
-                        // its own would pass whatever curve it was given, which is the one
-                        // thing a table about easing has to be able to tell apart.
-                        let curve = match &k["ease"] {
-                            serde_json::Value::Null => String::new(),
-                            ease => format!(" {ease}"),
-                        };
-                        // D-53: and a position key's handles, for the same reason.
-                        let path = match &k["spatial"] {
-                            serde_json::Value::Null => String::new(),
-                            spatial => format!(" path {spatial}"),
-                        };
-                        format!(
-                            "{}@{} {}{curve}{path}",
-                            k["value"],
-                            k["frame"],
-                            k["interp"].as_str().unwrap_or("?")
-                        )
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            })
+            .map(|keys| as_keys(&keys))
             .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// One property's keyframes, in the rows every table in this file writes them as.
+    ///
+    /// Shared rather than copied, because B-13e gave the camera keys too: a camera's row has to
+    /// read exactly as a layer's or the two tables cannot be held up against each other, and the
+    /// moment there were two of these one of them would have started drifting.
+    fn as_keys(list: &[serde_json::Value]) -> String {
+        list.iter()
+            .map(|k| {
+                // D-52: an eased key's four numbers go in the row. The word "ease" on its own
+                // would pass whatever curve it was given, which is the one thing a table about
+                // easing has to be able to tell apart.
+                let curve = match &k["ease"] {
+                    serde_json::Value::Null => String::new(),
+                    ease => format!(" {ease}"),
+                };
+                // D-53: and a position key's handles, for the same reason.
+                let path = match &k["spatial"] {
+                    serde_json::Value::Null => String::new(),
+                    spatial => format!(" path {spatial}"),
+                };
+                format!(
+                    "{}@{} {}{curve}{path}",
+                    k["value"],
+                    k["frame"],
+                    k["interp"].as_str().unwrap_or("?")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 
     /// A property's value on one frame, out of the `/boxes` answer the inspector shows it from.
@@ -6738,6 +7025,18 @@ mod editing {
         }
     }
 
+    /// One of the camera's three properties' keyframes, written as `keys` writes a layer's.
+    /// Empty where there are none, and empty where there is no camera at all, which is the same
+    /// thing to a reader: nobody has keyed it.
+    fn camera_keys(viewer: &Mutex<Viewer>, prop: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        match answer["project"]["compositions"][0]["camera"][prop]["keyframes"].as_array() {
+            Some(list) => as_keys(list),
+            None => String::new(),
+        }
+    }
+
     /// The lens the panel would show back, in millimetres, from the pixels the file holds.
     /// This is the conversion of `drawCamera` worked the other way, and it is the round trip
     /// that matters: a person types 50 and has to be shown 50 again.
@@ -7120,8 +7419,259 @@ mod editing {
          are where that machinery is checked; this table does not repeat their rendering of a \
          curve. Step 6 of the playtest sheet is where a person confirms it by \
          hand.\n\nWhether animating a depth is comfortable. No table can say that, which is \
-         what `verification/B-13d_depth_keys_playtest.md` is for.\n\nThe camera, which does \
-         not key from the window at all. That is the remaining half of D-58 and the next unit.",
+         what `verification/B-13d_depth_keys_playtest.md` is for.\n\nThe camera, which was the \
+         remaining half of D-58 when this was written and was built the same day: B-13e gave its \
+         three properties the same diamonds, and `verification/B-13e_camera_keys_table.md` is \
+         where they are checked.",
+    ];
+
+    /// B-13e: the camera keys like any other property, which is what document 24 line 91 said
+    /// would happen once a command could name it as a target. These are the gestures a person
+    /// makes on the Camera rows, in the order `verification/B-13e_camera_keys_playtest.md`
+    /// walks them.
+    #[test]
+    fn the_camera_keys_like_any_other_property() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        // D-58's default lens on this fixture's 1920-wide composition: 50 mm on a 36 mm back is
+        // 1920 * 50 / 36 pixels, and the camera is pulled back by its own zoom. Every number
+        // below is that one or a number typed in place of it.
+        let lens = "2666.6666666666665";
+
+        report.check(
+            "a composition nobody has pointed a camera at has no camera keys",
+            "",
+            camera_keys(&viewer, "zoom"),
+        );
+        report.check(
+            "the diamond puts a key where the playhead is, holding the lens already shown",
+            format!("{lens}@0 linear"),
+            {
+                run(&viewer, "keyframe.add_remove?target=camera&prop=zoom&frame=0");
+                camera_keys(&viewer, "zoom")
+            },
+        );
+        report.check(
+            "keying a camera that is not in the file writes the default one the panel showed",
+            "[960,540]",
+            camera_of(&viewer, "position"),
+        );
+        report.check(
+            "changing the lens on another frame writes a second key rather than a base",
+            format!("{lens}@0 linear, 1920@24 linear"),
+            {
+                run(
+                    &viewer,
+                    "property.set_base?target=camera&prop=zoom&value=1920&frame=24",
+                );
+                camera_keys(&viewer, "zoom")
+            },
+        );
+        report.check(
+            "and the base it did not touch is still the base",
+            lens,
+            camera_of(&viewer, "zoom"),
+        );
+        // The key beside this one reads 1920, which is the lens in the pixels the wire carries.
+        // This row is the other half of that: the base was not touched, so the panel still shows
+        // the 50 mm it always showed, and a person watching the box sees no ghost movement.
+        report.check(
+            "and the millimetres the panel reads from that base are the 50 mm it always showed",
+            "50",
+            lens_mm(&viewer, 1920.0),
+        );
+        report.check(
+            "a camera key is taken hold of and put down on another frame like any other key",
+            format!("{lens}@0 linear, 1920@30 linear"),
+            {
+                run(
+                    &viewer,
+                    "keyframe.move?target=camera&prop=zoom&from=24&to=30",
+                );
+                camera_keys(&viewer, "zoom")
+            },
+        );
+        report.check(
+            "undo puts it back on the frame it came from",
+            format!("{lens}@0 linear, 1920@24 linear"),
+            {
+                undo(&viewer);
+                camera_keys(&viewer, "zoom")
+            },
+        );
+        report.check(
+            "a camera key holds rather than travels when it is told to",
+            format!("{lens}@0 hold, 1920@24 linear"),
+            {
+                run(
+                    &viewer,
+                    "keyframe.set_interp?target=camera&prop=zoom&frame=0&mode=hold",
+                );
+                camera_keys(&viewer, "zoom")
+            },
+        );
+
+        // ---- the place, which is the one of the three that can carry handles ------------------
+        report.check(
+            "the camera's place keys as a pair of numbers, as a layer's position does",
+            "[960,540]@0 linear",
+            {
+                run(
+                    &viewer,
+                    "keyframe.add_remove?target=camera&prop=position&frame=0",
+                );
+                camera_keys(&viewer, "position")
+            },
+        );
+        report.check(
+            "and takes motion path handles, from a route that names no property at all",
+            "[960,540]@0 linear path [-40,0,40,0]",
+            {
+                run(
+                    &viewer,
+                    "keyframe.set_path?target=camera&frame=0&handles=-40,0,40,0",
+                );
+                camera_keys(&viewer, "position")
+            },
+        );
+        report.check(
+            "a depth nobody has keyed is still set as a base, which is W-10's rule",
+            "-1920",
+            {
+                run(&viewer, "property.set_base?target=camera&prop=depth&value=-1920");
+                camera_of(&viewer, "depth")
+            },
+        );
+
+        // ---- what the camera refuses ------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a length is not a path, and is told so in the words of what was asked for",
+            "The camera's zoom is a number, not a path. Only its place can carry handles.",
+            run(
+                &viewer,
+                "keyframe.set_path?target=camera&prop=zoom&frame=0&handles=0,0,0,0",
+            ),
+        );
+        report.check(
+            "a property the camera does not have is named back with the three it does",
+            "\"tilt\" is not one of the camera's properties. They are position, depth and zoom.",
+            run(&viewer, "property.set_base?target=camera&prop=tilt&value=50"),
+        );
+        report.check(
+            "a request naming no property is asked which one",
+            "Which of the camera's properties? Its position, its depth or its zoom.",
+            run(&viewer, "property.set_base?target=camera&value=50"),
+        );
+        report.check(
+            "a keyed property needs the frame the value belongs to, and says which to send",
+            "The camera's zoom is keyframed, so a value belongs to a frame. Say frame=<frame>.",
+            run(&viewer, "property.set_base?target=camera&prop=zoom&value=50"),
+        );
+        report.check(
+            "an interpolation the window does not have is quoted back with the three it does",
+            "An interpolation is hold, linear or ease. Not \"wobble\".",
+            run(
+                &viewer,
+                "keyframe.set_interp?target=camera&prop=zoom&frame=0&mode=wobble",
+            ),
+        );
+        report.check(
+            "a command that only a layer has is refused by name rather than asking which layer",
+            "layer.rename changes a layer, not the camera. The camera takes a value, a \
+             keyframe, a move, an ease and a path.",
+            run(
+                &viewer,
+                "layer.rename?target=camera&prop=position&name=Camera",
+            ),
+        );
+        report.check(
+            "none of those six refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- back to the file ------------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        report.check(
+            "undoing everything takes the camera back out of a file that never had one",
+            "null",
+            camera_of(&viewer, "zoom"),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-13e_camera_keys_table.md",
+            "B-13e: what a keyed camera does",
+            CAMERA_KEYS_INTRO,
+            CAMERA_KEYS_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const CAMERA_KEYS_INTRO: &[&str] = &[
+        "The owner played `verification/B-13c_camera_playtest.md` on 2026-09-15 and asked for \
+         the camera's values to update as they change, to be keyframable, and to drag like \
+         every other changeable value. The first was already true. B-13d gave the depth the \
+         other two the next day and this is the camera, which is the last piece of D-58.",
+        "There is no new command behind it and no new contract. Document 24 line 91 said that \
+         once a command could name the camera as its target instead of a layer, every property \
+         command that already exists would reach it unchanged - a base, a key, a move, an ease, \
+         a path - and that is what the rows below are. Every request in them is a command that \
+         was already there, carrying `target=camera` where it usually carries a layer's id. The \
+         owner chose the shape when asked: key it where it is, with the camera staying a \
+         property of the composition rather than becoming a layer.",
+    ];
+
+    const CAMERA_KEYS_NOTES: &[&str] = &[
+        "## What to look at\n\n- **A camera nobody has pointed is keyed at the camera the \
+         renderer would have used.** The first two rows key a composition whose file holds no \
+         camera at all, and what gets written is D-58's default: the 50 mm lens on a 36 mm \
+         back, in the middle, pulled back by its own zoom. Pressing the diamond holds what the \
+         panel was already showing, which is what a stopwatch does everywhere else.\n- **The \
+         lens crosses the wire in pixels.** `property.set_base` has always carried what the \
+         file holds - an opacity goes over it as nought to one - so a lens goes over it as the \
+         pixels D-58's arithmetic uses, and the millimetres a person reads are turned over at \
+         the control beside opacity's conversion. The row that sets 1920 and reads back 36 mm \
+         is that boundary in one line.\n- **The second key writes itself**, as it does for \
+         every other animated property: changing a keyed camera value writes a key at the frame \
+         the page names rather than moving the base. The row after it checks the base was left \
+         alone, which is the half a person cannot see, and it is the reason the Camera block's \
+         three boxes no longer send `camera.set_property` - that command sets a base, and on a \
+         keyed camera it would have moved a number nothing is drawn from.\n- **Only the place \
+         can carry handles.** A camera's place is a point that travels and its depth and lens \
+         are lengths, so D-53's handles reach one of the three and are refused by name on the \
+         other two.\n- **Six refusals and none of them in the history**, which is document \
+         26's rule and is checked in one row after them.\n- **Undo takes the camera back out \
+         of the file.** The last row reopens the question B-13c answered for the panel: a \
+         project made before the camera existed is not given one by being looked at.",
+        "## What this does not cover\n\nThe numbers. Where a layer at a depth actually lands is \
+         D-58's arithmetic, checked against independently generated values in \
+         `verification/B-13c_camera_table.md`. A keyed camera is sampled at the frame and then \
+         goes through the same two lines, so keying changed nothing about it.\n\nEasing a \
+         camera key. F9 and the graph editor reach the camera because it is named where a layer \
+         is named, and `verification/D-52_ease_table.md` and `verification/D-53_path_table.md` \
+         are where that machinery is checked; the hold row above is enough to show the camera \
+         reaches it. Step 7 of the playtest sheet is where a person confirms the \
+         rest.\n\nWhether animating a camera is comfortable, and whether the Camera group \
+         belongs at the top of the timeline. No table can say either, which is what \
+         `verification/B-13e_camera_keys_playtest.md` is for.\n\nA camera that is a layer. The \
+         owner raised it as a question and chose to key the camera where it is instead, so the \
+         camera is deliberately not in the layer list: not in the parent chooser, not in the \
+         matte chooser, not selected by Select All and not deleted by Delete. D-58 names the \
+         camera-layer rig as a later contract and it stays one.",
     ];
 
     const CAMERA_INTRO: &[&str] = &[
@@ -7135,14 +7685,17 @@ mod editing {
          number typed is the number stored, that the millimetres a person reads are the pixels \
          the file holds, and that a composition nobody has pointed a camera at still saves \
          without one.",
-        "Two commands carried it when this was written. `camera.set_property` still carries \
-         all three of the camera's properties. `layer.set_depth` still puts a layer on a plane, \
-         but nothing in the window sends it any more: B-13d made a depth one of the properties \
-         the command layer takes by name on 2026-09-16, so the Depth row sends \
-         `property.set_base` like every other number in the inspector, and `layer.set_depth` is \
-         kept for the keep-place conversion parenting needs, which is not built. The rows below \
-         are the base values and are unchanged; what a keyed depth does is \
-         `verification/B-13d_depth_keys_table.md`.",
+        "Two commands carried it when this was written and neither is sent by the window any \
+         more, which is worth saying because both still answer and both are still in document \
+         24. `layer.set_depth` stopped on 2026-09-16, when B-13d made a depth one of the \
+         properties the command layer takes by name, and it is kept for the keep-place \
+         conversion parenting needs, which is not built. `camera.set_property` stopped the same \
+         day, when B-13e made the camera something a property command can name as its target: a \
+         box that set a base would have been a trap on a camera with keys, because the base is \
+         not what is drawn on any frame but the first. The rows below are still the base values \
+         and are unchanged. What a keyed depth does is \
+         `verification/B-13d_depth_keys_table.md`, and what a keyed camera does is \
+         `verification/B-13e_camera_keys_table.md`.",
     ];
 
     const CAMERA_NOTES: &[&str] = &[
@@ -7169,14 +7722,14 @@ mod editing {
         "## What this does not cover\n\nThe numbers. These rows check what the controls do to \
          the project; where a layer at a depth actually lands is FX-CAM-001 to 011 in \
          `verification/B-13c_camera_table.md`, worked from D-58 by a generator that never \
-         builds a matrix.\n\nAnimating the camera. Nothing in this window keys a camera \
-         property: its three boxes set the base and that is all. The camera fixture is keyed, \
-         and the renderer follows a keyed camera, so what is missing is the gesture and not the \
-         arithmetic. The depth is no longer in this paragraph - B-13d gave it the diamond on \
-         2026-09-16, and `verification/B-13d_depth_keys_table.md` is where it is \
-         checked.\n\nDragging the camera in the picture. The camera is placed by typing, not \
-         by pulling it about in the viewer; W-04 asks for a camera move and not for a handle to \
-         make it with.",
+         builds a matrix.\n\nAnimating, which is no longer missing and is no longer here. The \
+         depth got the diamond from B-13d and the camera from B-13e, both on 2026-09-16, and \
+         the two tables are `verification/B-13d_depth_keys_table.md` and \
+         `verification/B-13e_camera_keys_table.md`. The rows below are the base values, which \
+         is what a property has before anybody keys it and what these controls still set on a \
+         camera nobody has keyed.\n\nDragging the camera in the picture. The camera is placed \
+         by dragging its numbers, not by pulling it about in the viewer; W-04 asks for a camera \
+         move and not for a handle to make it with.",
     ];
 
     const MATTE_INTRO: &[&str] = &[
@@ -9955,8 +10508,15 @@ mod contract {
     /// that will carry the keep-place conversion when a layer gains or loses a parent. Until
     /// that is built, no control in the window reaches it, and that is the owner's to keep or
     /// cut rather than a thing to quietly delete from the table.
+    ///
+    /// B-13e took `camera.set_property` out on the same day, for the same reason and with the
+    /// same care. Once the camera could be keyed, a box that set a base was a trap rather than a
+    /// control: on a camera with keys the base is not what is drawn on any frame, so the box
+    /// would have moved a number nobody could see and looked broken. The Camera block's three
+    /// rows send `property.set_base` like every other number in the window, and no control sends
+    /// the older command any more. It too stays in document 24 and `REACHED` still checks the
+    /// window answers it.
     const SENT: &[&str] = &[
-        "camera.set_property",
         "composition.create",
         "composition.delete",
         "composition.duplicate",

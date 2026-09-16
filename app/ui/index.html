@@ -1415,8 +1415,51 @@ const keyParts = (id) => {
   const parts = id.split('|');
   const at = Number(parts.pop());
   const prop = parts.pop();
-  return [layers().find((l) => l.id === parts.join('|')), prop, at];
+  const whom = parts.join('|');
+  return [whom === CAMERA_ROW ? cameraRow() : layers().find((l) => l.id === whom), prop, at];
 };
+
+// B-13e: the camera, shaped like a layer so that the code which draws a property can draw it.
+//
+// The window's own name goes where a layer id goes. A file's ids come out of the project and
+// this one cannot collide with them, which is what lets a camera key ride the `layer|prop|frame`
+// ids F9, the timeline drag and the delete key already send.
+//
+// It is not in `layers()` and must not be: that list is the parent chooser, the matte chooser,
+// select-all and delete, and a camera in it would be the camera-as-layer the owner deferred.
+const CAMERA_ROW = '::camera';
+const CAMERA_PROPS = ['position', 'depth', 'zoom'];
+
+// D-58's default, which is what the renderer would use and so what the rows should show: a 50 mm
+// lens on a 36 mm back, in the middle of the composition and pulled back by its own zoom. A
+// composition nobody has pointed a camera at has none in its file, and drawing blanks there
+// would say the camera does not exist rather than that nobody has moved it.
+function cameraRow() {
+  const comp = composition();
+  if (!comp) return null;
+  const lens = comp.width * 50 / 36;
+  const camera = comp.camera || {
+    position: { base: [comp.width / 2, comp.height / 2] },
+    depth: { base: -lens },
+    zoom: { base: lens },
+  };
+  // `propOf` looks for the five in `transform` and a depth beside it, so the camera's three are
+  // handed over in the two places that reader already knows about.
+  return {
+    id: CAMERA_ROW,
+    name: 'Camera',
+    locked: false,
+    transform: { position: camera.position, zoom: camera.zoom },
+    depth: camera.depth,
+  };
+}
+
+// Who a property request is about. Every request that changes a property says this, and the
+// camera is not a layer, so it is named as what it is instead of being given an id it has not
+// got. Document 24 line 91 is the reason one word is all that differs.
+const whose = (layer) => (layer.id === CAMERA_ROW
+  ? 'target=camera'
+  : 'layer=' + encodeURIComponent(layer.id));
 
 // W-17: keys moved together by one distance, sent as one request so they are one entry to undo.
 // Keys on a locked layer stay where they are. A chosen key stays chosen where it lands.
@@ -1956,6 +1999,35 @@ function savePrefs() {
   try { localStorage.setItem('prefs', JSON.stringify(prefs)); } catch (e) { /* kept for this run only */ }
 }
 
+// B-13e: the camera's own group, at the top of the timeline and above the layers.
+//
+// The owner chose to key the camera where it is, so it is not a layer in the list; it is a
+// fixed group of its own, always at the top, holding the same property rows a layer's twirl
+// opens. Closed to begin with, because a composition nobody has moved a camera in should not
+// spend three rows saying so.
+let cameraOpen = false;
+function cameraGroup(comp) {
+  const camera = cameraRow();
+  if (!camera) return [];
+  const li = document.createElement('li');
+  li.className = 'prop camera';
+  const head = document.createElement('div');
+  head.className = 'rowhead';
+  const twirl = iconButton(cameraOpen ? '\u25be' : '\u25b8',
+    (cameraOpen ? 'Hide' : 'Show') + " the camera's properties",
+    () => { cameraOpen = !cameraOpen; drawLayers(); });
+  twirl.className = 'twirl';
+  twirl.setAttribute('aria-expanded', String(cameraOpen));
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = 'Camera';
+  name.title = "The composition's camera. Its place, its depth and its lens key like a layer's "
+    + 'properties.';
+  head.append(twirl, name);
+  li.append(head);
+  return [li, ...(cameraOpen ? CAMERA_PROPS.map((prop) => propTrack(comp, camera, prop)) : [])];
+}
+
 function drawLayers() {
   // A number on one of these rows is dragged or typed into like any other, and rebuilding the
   // list under the hand would take the element it is holding away mid-gesture. The inspector
@@ -1967,7 +2039,7 @@ function drawLayers() {
   // Reversed: the last layer in composition order is drawn last and so is in front.
   const list = $('layers');
   $('shyswitch').setAttribute('aria-pressed', String(prefs.hideShy));
-  list.replaceChildren(...all.slice().reverse().filter((layer) => !(prefs.hideShy && layer.shy)).flatMap((layer) => {
+  list.replaceChildren(...cameraGroup(comp), ...all.slice().reverse().filter((layer) => !(prefs.hideShy && layer.shy)).flatMap((layer) => {
     const eye = iconButton(layer.enabled ? '●' : '○',
       layer.enabled ? 'Hide ' + layer.name : 'Show ' + layer.name,
       () => command('/layer.toggle_visibility?layer=' + encodeURIComponent(layer.id)));
@@ -2662,8 +2734,8 @@ function propTrack(comp, layer, prop) {
     const keys = keysOf(layer, prop);
     keyMenu(e.clientX, e.clientY, [
       ['Paste keys at frame ' + at, 'Ctrl+V', () => pasteKeys(at, layer.id), clip === 'keys' && copied.length > 0],
-      ['Add a ' + prop + ' key at frame ' + at, '', () => command('/keyframe.add_remove?layer='
-        + encodeURIComponent(layer.id) + '&prop=' + prop + '&frame=' + at),
+      ['Add a ' + prop + ' key at frame ' + at, '', () => command('/keyframe.add_remove?'
+        + whose(layer) + '&prop=' + prop + '&frame=' + at),
         !layer.locked && !keys.some((k) => k.frame === at)],
       ['Choose every ' + prop + ' key', '', () => {
         pickedKeys.clear();
@@ -3487,10 +3559,11 @@ function field(into, term, value) {
 
 // How far one pixel of drag moves each property, in the units this panel shows. Every one of
 // them is one for one: pixels, percent and degrees are all things a person counts in ones.
-const STEP = { anchor: 1, position: 1, scale: 1, rotation: 1, opacity: 1, depth: 1 };
+const STEP = { anchor: 1, position: 1, scale: 1, rotation: 1, opacity: 1, depth: 1,
+  zoom: 1 };
 
 // What a property's numbers are counted in, where the unit is not pixels.
-const SUFFIX = { rotation: '\u00b0', opacity: '%', depth: ' px' };
+const SUFFIX = { rotation: '\u00b0', opacity: '%', depth: ' px', zoom: ' mm' };
 
 // A number as the file holds it, without exponent notation or a trailing string of zeros from
 // the arithmetic a drag does.
@@ -3729,7 +3802,7 @@ function keyButton(layer, prop) {
       command('/keyframe.add_remove?' + keys.map((k) => 'key=' + encodeURIComponent(keyId(layer, prop, k.frame))).join('&'));
       return;
     }
-    command('/keyframe.add_remove?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop + '&frame=' + frame);
+    command('/keyframe.add_remove?' + whose(layer) + '&prop=' + prop + '&frame=' + frame);
   };
   return button;
 }
@@ -3759,7 +3832,7 @@ function easeButton(layer, prop) {
     + '. This is the segment after this keyframe, not the one before it.';
   button.setAttribute('aria-label', button.title);
   button.setAttribute('aria-pressed', mode === 'ease');
-  button.onclick = () => command('/keyframe.set_interp?layer=' + encodeURIComponent(layer.id)
+  button.onclick = () => command('/keyframe.set_interp?' + whose(layer)
     + '&prop=' + prop + '&frame=' + frame + '&mode=' + next);
   return button;
 }
@@ -3791,11 +3864,18 @@ function linkButton() {
 }
 
 function propScrubs(layer, prop) {
-  const per = prop === 'opacity' ? 100 : 1;
+  // D-22's boundary, where this window has always put it: the file keeps an opacity as nought
+  // to one and a lens in pixels, and nobody says a layer is 0.65 opaque or that a lens is 2666
+  // long. Both are turned over here and turned back on the way out, so what reaches the command
+  // is the number the file wants. The lens's factor is the composition's own width, because a
+  // 50 mm lens is 50 mm of a 36 mm back however wide the picture is.
+  const per = prop === 'opacity' ? 100
+    : prop === 'zoom' ? 36 / composition().width
+      : 1;
   const held = transformValue(layer, prop).map((v) => v * per);
   // The frame goes with every value since W-10: on a keyframed property the window makes the
   // value a key on that frame, and on any other it sets the base as it always has.
-  const send = (id, values) => command('/' + id + '?layer=' + encodeURIComponent(layer.id)
+  const send = (id, values) => command('/' + id + '?' + whose(layer)
     + '&prop=' + prop + '&value='
     + encodeURIComponent(values.map((v) => number(v / per)).join(',')) + '&frame=' + frame);
   return held.map((v, i) => {
@@ -3969,73 +4049,33 @@ function drawCamera() {
       { className: 'empty', textContent: 'No composition is open.' }));
     return;
   }
-  const zoomPx = comp.camera ? comp.camera.zoom.base : comp.width * 50 / 36;
-  const camera = comp.camera || {
-    position: { base: [comp.width / 2, comp.height / 2] },
-    depth: { base: -zoomPx },
-  };
-  // Not named `send`: the window's own contract test scans this file for `send('` to find
-  // every command identifier the page asks for, and a local helper of that name would offer it
-  // three arguments that are not commands at all.
-  const put = (property, value, tail) => command('/camera.set_property?property=' + property
-    + '&value=' + encodeURIComponent(value) + (tail || ''));
+  // B-13e: the three boxes send what every other number in this window sends.
+  //
+  // They used to send `camera.set_property`, which sets a base. Once the camera could be keyed
+  // that became a trap: on a camera with keys the box would have moved a base nothing is drawn
+  // from and looked like it had done nothing, while the same number on the timeline row wrote a
+  // key. The older depth command was left behind the same way in B-13d, for the same reason.
+  //
+  // So these rows are the shared ones: `keyButton` gives each the diamond, `easeButton` the
+  // curve where there is a key under the playhead to put one on, and `propScrubs` the blue
+  // numbers, the drag, the arrow keys and the millimetres.
+  const camera = cameraRow();
   const dl = document.createElement('dl');
-  const row = (term, hint) => {
+  const row = (prop, term, hint) => {
     const dt = document.createElement('dt');
-    dt.textContent = term;
+    const ease = easeButton(camera, prop);
+    dt.append(keyButton(camera, prop), ...(ease ? [ease] : []), ' ', term);
     dt.title = hint;
     const dd = document.createElement('dd');
     dd.className = 'numbers';
+    dd.append(...propScrubs(camera, prop).flatMap((s, i) => (i ? [', ', s] : [s])));
     dl.append(dt, dd);
-    return dd;
   };
-  // One of the window's blue numbers, wired to the camera instead of to a layer's transform.
-  // `of` gives back the property and the text to send, because the place is two numbers in one
-  // request and the other two are one each.
-  const dial = ({ label, value, suffix, step, title, of }) => scrubValue({
-    value,
-    suffix,
-    step,
-    label,
-    title,
-    live: (x) => put(...of(x), '&drag=1'),
-    done: (cancelled) => command(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
-    commit: (x) => put(...of(x), ''),
-  });
-  // Where the camera is, across and down. Both numbers travel in one request because the core
-  // takes the pair as one value, exactly as a position does.
-  const place = row('Place', 'Where the camera is, across and down the composition, in pixels.');
-  const pair = [0, 1].map((at) => dial({
-    label: at ? 'Camera down' : 'Camera across',
-    value: camera.position.base[at],
-    step: 1,
-    title: 'Drag to move the camera, press to type it, or use the arrow keys',
-    // The other number is read off its own control rather than remembered, so what arrives is
-    // the pair the panel is showing. Only one of the two is ever being dragged.
-    of: (x) => ['position',
-      at ? pair[0].value + ',' + number(x) : number(x) + ',' + pair[1].value],
-  }));
-  place.append(pair[0], ' ', pair[1]);
-  row('Depth', 'How far back the camera is, in pixels. A layer nearer than this is not drawn.')
-    .append(dial({
-      label: 'Camera depth',
-      value: camera.depth.base,
-      suffix: ' px',
-      step: 1,
-      title: 'Drag to move the camera back and forward, press to type it, or use the arrow keys',
-      of: (x) => ['depth', number(x)],
-    }));
-  // Still millimetres on the way out: the handler converts once, which is D-22's rule about
-  // where a unit is turned into the one the file keeps.
-  row('Lens', 'The lens, in millimetres on a 36 mm back. A longer lens flattens the parallax.')
-    .append(dial({
-      label: 'Camera lens in millimetres',
-      value: zoomPx * 36 / comp.width,
-      suffix: ' mm',
-      step: 1,
-      title: 'Drag to change the lens, press to type it, or use the arrow keys',
-      of: (x) => ['zoom', number(x)],
-    }));
+  row('position', 'Place', 'Where the camera is, across and down the composition, in pixels.');
+  row('depth', 'Depth',
+    'How far back the camera is, in pixels. A layer nearer than this is not drawn.');
+  row('zoom', 'Lens',
+    'The lens, in millimetres on a 36 mm back. A longer lens flattens the parallax.');
   into.replaceChildren(dl);
 }
 

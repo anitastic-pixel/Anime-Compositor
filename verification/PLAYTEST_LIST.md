@@ -72,9 +72,9 @@ depth means and every program that has it works that way, but it is worth knowin
 happens rather than after.
 
 The largest gap when this was written was that nothing in the window keyed a depth or a camera.
-**The owner played this on 2026-09-15 and asked for the depth half of it**, which B-13d built on
-2026-09-16; it is number 5 below. The camera half is still open: a camera move cannot be
-animated from the window even though the renderer follows a keyed camera.
+**The owner played this on 2026-09-15 and asked for both halves of it.** B-13d built the depth
+on 2026-09-16 and B-13e built the camera the same day; they are numbers 5 and 6 below. A camera
+move can be animated from the window now, which it could not be when this walk was written.
 
 ## 5. A depth that keys, which is what the last playtest asked for
 
@@ -95,9 +95,34 @@ keys on it. The keys must travel with the bar. They did not until this build - t
 moved a layer moved its five transform tracks and left the depth behind - and a fix nobody
 checks is a fix nobody knows about.
 
-What is still not built, and is named on the sheet: the camera does not key from the window.
-The owner chose the shape for it - key it where it is, the camera staying a property of the
-composition with its own row group at the top of the timeline - and that is the next unit.
+The sheet ends by saying the camera does not key from the window. That was true when it was
+written and stopped being true the same day: B-13e built it in the shape the owner chose, and it
+is number 6 below. Step 9 of the sheet, which asks a person to confirm the camera has no
+diamonds, is the one step of it that is now out of date.
+
+## 6. A camera that keys, which is the rest of what that playtest asked for
+
+`verification/B-13e_camera_keys_playtest.md`, ten steps by hand.
+
+The other half of number 5, built the same day. The owner asked whether the camera's values
+could be changed through keyframes, *"though a camera layer maybe? unsure if that's how AE can
+do it or if that's a good idea"*, and chose the answer when asked: key it where it is. The
+camera stays a property of the composition, its three rows gain the same diamonds every other
+number in the window has, and it gets a group of its own at the top of the timeline. A camera
+that is a layer was deferred rather than refused, and the sheet says what that would have meant.
+
+**The one to watch for**: step 6, the camera move itself. Two or three layers at different
+depths, the camera keyed across them, and the near one should cross the frame faster than the
+far one from that single move rather than from a key on every layer. That is the whole reason
+D-58 exists and it is the first time in this project it can be animated.
+
+**The other one to watch for**: step 10, where the camera should be absent from everything that
+belongs to layers - the parent chooser, the matte chooser, Select All, and Delete. That is the
+edge of the deferred camera-as-layer, and the camera appearing in any of those is a bug.
+
+The thing to know before starting: the Camera block's three boxes are no longer special. They
+send what every other number in the window sends, which is what made keying them possible. If
+anything about them behaves differently from the rest of the Inspector, that is worth saying.
 
 ## Not on this list
 

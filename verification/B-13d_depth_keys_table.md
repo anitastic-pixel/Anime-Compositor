@@ -21,7 +21,7 @@ Easing a depth key. F9 and the graph editor reach a depth because it is a proper
 
 Whether animating a depth is comfortable. No table can say that, which is what `verification/B-13d_depth_keys_playtest.md` is for.
 
-The camera, which does not key from the window at all. That is the remaining half of D-58 and the next unit.
+The camera, which was the remaining half of D-58 when this was written and was built the same day: B-13e gave its three properties the same diamonds, and `verification/B-13e_camera_keys_table.md` is where they are checked.
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
