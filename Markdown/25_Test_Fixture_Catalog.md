@@ -187,7 +187,7 @@ FX-PARENT-008: deleting a parent. From FX-PARENT-005's result, deleting P leaves
 
 ## Camera and depth fixtures
 
-Proposed on 2026-09-15 by D-58, awaiting the owner. Every case is a composition 1920 by 1080, so
+Specified on 2026-09-15 by D-58, accepted by the owner the same day and built by B-13c. Every case is a composition 1920 by 1080, so
 the centre of the frame is (960, 540). Layer transforms are document 21's, with no keys unless
 the case says otherwise, and no depth unless the case gives one.
 

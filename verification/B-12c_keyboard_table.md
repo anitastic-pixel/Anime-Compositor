@@ -37,6 +37,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
 | the keys the window answers with nothing focused are the ones written down here | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, R, S, Space, T, U, V, Z, [, ] | pass |
 | `boxes` can be asked for without a mouse | yes | yes | pass |
+| `camera.set_property` can be asked for without a mouse | yes | yes | pass |
 | `cancel-export` can be asked for without a mouse | yes | yes | pass |
 | `composition.create` can be asked for without a mouse | yes | yes | pass |
 | `composition.delete` can be asked for without a mouse | yes | yes | pass |
@@ -69,6 +70,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.paste` can be asked for without a mouse | yes | yes | pass |
 | `layer.rename` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_blend_mode` can be asked for without a mouse | yes | yes | pass |
+| `layer.set_depth` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_label` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_matte` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_parent` can be asked for without a mouse | yes | yes | pass |
@@ -127,4 +129,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | right clicking a chosen key is not the only way to open its menu of key speed, ease, hold, copy, paste and delete | true | true | pass |
 | right clicking an empty place on the timeline is not the only way to paste keys or layers there, add a key, a layer or a marker, or open the settings | true | true | pass |
 
-**97 of 97 checks pass.**
+**99 of 99 checks pass.**

@@ -12,7 +12,7 @@ Rules: ownership is explicit; references use IDs rather than object pointers in 
 
 Project owns: schema version, project ID, project settings, assets, compositions, color settings and application metadata. A project may contain multiple compositions even though G1 UI may focus on one at a time.
 
-Composition owns: ID, name, width, height, pixel aspect ratio, frame-rate numerator/denominator, start frame, duration frames, work area, an ordered layer ID list and, proposed by D-58 on 2026-09-15, an optional `camera` of three animatable properties - position, depth and zoom. An absent camera means the default camera of document 21, not the absence of one. G1 accepts square pixels only; other ratios produce an unsupported-feature diagnostic.
+Composition owns: ID, name, width, height, pixel aspect ratio, frame-rate numerator/denominator, start frame, duration frames, work area, an ordered layer ID list and, by D-58 which the owner accepted on 2026-09-15 and B-13c built, an optional `camera` of three animatable properties - position, depth and zoom. An absent camera means the default camera of document 21, not the absence of one. G1 accepts square pixels only; other ratios produce an unsupported-feature diagnostic.
 
 Asset records media identity and interpretation. G1 asset kinds are `still` and `image_sequence`. Sequence assets store a numeric pattern and a frame-number-to-file map so missing numbers remain missing rather than being silently compacted.
 
@@ -22,7 +22,7 @@ G1 layer kind is `raster`. A raster layer stores ID, name, asset ID, enabled/loc
 
 Accepted by D-57 on 2026-09-15: an optional `parent`, the ID of another layer in the same composition whose transform is applied after this layer's own (document 21). Absent or null means no parent, and the file carries the field only when it is set. A parent that names no layer is preserved and diagnosed as `PARENT_REFERENCE_MISSING`.
 
-Proposed by D-58 on 2026-09-15: an optional `depth`, a scalar property in pixels, absent meaning 0, giving the plane the layer sits on (document 21). It is written only when set, and when written it carries a base and keyframes like every other animatable property. A parented layer's depth is measured from its parent's plane and adds to it up the chain, as its position is a point in its parent's space.
+By D-58, accepted by the owner on 2026-09-15 and built by B-13c: an optional `depth`, a scalar property in pixels, absent meaning 0, giving the plane the layer sits on (document 21). It is written only when set, and when written it carries a base and keyframes like every other animatable property. A parented layer's depth is measured from its parent's plane and adds to it up the chain, as its position is a point in its parent's space.
 
 Layer order is composition order. Index is not identity. Reordering must not rewrite layer IDs or references.
 

@@ -4,12 +4,16 @@ The things in this build that a test cannot judge, gathered in one place on 2026
 owner's request. Every one of them needs a person at the window, because what each one asks is
 whether the thing is usable, not whether it is correct. The tables already say it is correct.
 
-They are in the order worth doing them in. The first three are ready now. The fourth is not
-ready and is here so the list is honest about what is coming.
+They are in the order worth doing them in. The owner performed the first three on 2026-09-15
+and all three passed; what they reported is written under each. The fourth was not ready when
+this list was written and is ready now, because D-58 was accepted the same day and B-13c was
+built against it.
 
 ## 1. Parenting, which was built yesterday and has never been used
 
 `verification/B-13b_parent_playtest.md`, nine steps by hand.
+
+**PASSED on 2026-09-15**: the owner reports that the parenting works.
 
 52 checks say the arithmetic is right and 27 say the chooser in the window reaches it. What
 none of them can say is whether the pick list is a thing an artist can use: whether the layer
@@ -32,6 +36,8 @@ did not behave the way a hand expected, and new features are new places for that
 
 Nothing to prepare: open a shot and try to work in it for twenty minutes.
 
+**PASSED on 2026-09-15**: the owner reports that the habits work out well.
+
 ## 3. W-01 with the network actually off
 
 `verification/T-10_adapter_off_checklist.md`, written today and never performed.
@@ -41,18 +47,34 @@ because it requires the machine to be disconnected. Ten rows, one pass through t
 shot. Read the "Before you start" section first: the order matters, because the program has to
 be started for the first time **after** the adapter is already off.
 
-## 4. W-04, which is not ready
+**PASSED on 2026-09-15**: the owner reports that it works with no network on. That was the last
+thing standing between T-10 and a clean result, and document 11 now records T-10 as run and
+passing.
 
-The camera walk. Not yet: the contract is D-58, written today and **awaiting the owner's
-acceptance**, and nothing is built against it. Once it is accepted, B-13c builds it and this
-becomes the next playtest - a background, a middle ground and a foreground, and a camera
-tracked sideways across them, which is the shot the whole entry exists for.
+## 4. W-04, the camera walk, which is ready now
 
-The thing to know before accepting D-58, because it is the one consequence a person meets
-without asking for it: **depth overrides the layer stack.** Once two layers are at different
-depths, dragging one to the top of the layer list will not bring it in front of the other. That
-is what depth means and every program that has it works that way, but it is worth knowing
-before it happens rather than after.
+`verification/B-13c_camera_playtest.md`, nine steps by hand.
+
+The owner accepted D-58 on 2026-09-15 and B-13c was built against it the same day, so this is
+no longer waiting on anything: a background, a middle ground and a foreground, and a camera
+tracked sideways across them, which is the shot the whole entry exists for. 105 checks say the
+projection is right and 28 say the controls reach it. What none of them can say is whether the
+parallax looks like parallax and whether a person can set the shot up without being told how.
+
+**The one to watch for**: step 4, where the camera tracks two hundred pixels. The foreground
+should slide a long way, the middle less and the background least. If all three move together,
+the depths did not take.
+
+The thing to know before starting, because it is the one consequence a person meets without
+asking for it: **depth overrides the layer stack.** Once two layers are at different depths,
+dragging one to the top of the layer list will not bring it in front of the other. That is what
+depth means and every program that has it works that way, but it is worth knowing before it
+happens rather than after.
+
+The largest gap, which the sheet repeats: **nothing in the window keys a depth or a camera
+yet.** The boxes set a value and that is all, so a camera move cannot be animated from the
+window even though the renderer follows a keyed camera. That is the obvious thing to ask for
+next, and the playtest is the right place to decide how much it matters.
 
 ## Not on this list
 

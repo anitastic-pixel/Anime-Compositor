@@ -688,6 +688,10 @@
         <div id="exposures"><p class="empty">No layer is selected.</p></div>
         <button id="addexposure">Add an exposure</button>
       </details>
+      <!-- D-58. The composition's, not the selected layer's, which is why it sits under its own
+           heading rather than among the layer's fields. -->
+      <h2>Camera</h2>
+      <div id="camera"><p class="empty">No composition is open.</p></div>
       <h2>Effects</h2>
       <div id="effects"><p class="empty">No layer is selected.</p></div>
       <select id="addeffect" aria-label="Add an effect to the selected layer">
@@ -3873,6 +3877,30 @@ function parentRow(into, layer) {
   into.append(dt, dd);
 }
 
+// D-58: which plane this layer sits on, in pixels from its parent's plane, or from the plane
+// the composition is drawn at when it has no parent. A layer that has never been given one is
+// shown as 0, which is what having none means.
+//
+// A typed box and not a scrub. The other five rows scrub because they are document 19's
+// transform properties and the core takes each of them by name; a depth is not one of them and
+// nothing in this build can key one, so a control that dragged would be promising an animation
+// that cannot be written. `verification/B-13c_camera_table.md` says the same thing in prose.
+function depthRow(into, layer) {
+  const dt = document.createElement('dt');
+  dt.textContent = 'Depth';
+  dt.title = 'Which plane this layer sits on, in pixels. 0 is the plane the composition is drawn at.';
+  const dd = document.createElement('dd');
+  const box = document.createElement('input');
+  box.type = 'number';
+  box.step = 'any';
+  box.setAttribute('aria-label', 'Depth for ' + layer.name);
+  box.value = number(layer.depth ? layer.depth.base : 0);
+  box.onchange = () => command('/layer.set_depth?layer=' + encodeURIComponent(layer.id)
+    + '&depth=' + encodeURIComponent(box.value));
+  dd.append(box, ' px');
+  into.append(dt, dd);
+}
+
 function drawInspector() {
   // Rebuilding these fields under a pointer that is holding one of them would take the drag's
   // own element away mid-gesture, and the value would stop following the mouse with nothing on
@@ -3911,6 +3939,74 @@ function drawInspector() {
   field(dl, 'Mask', layer.mask ? layer.mask.vertices.length + ' points' : 'none');
   matteRow(dl, layer);
   parentRow(dl, layer);
+  depthRow(dl, layer);
+  into.replaceChildren(dl);
+}
+
+// D-58's camera, which belongs to the composition and not to the layer that happens to be
+// selected. It is in this panel because this is where the numbers of a shot are read, and it
+// is drawn whether or not a layer is selected.
+//
+// A composition that has never been given a camera is shown the default rather than blanks:
+// document 25's 50 mm lens on a 36 mm back, placed in the middle of the frame and pulled back
+// by its own zoom. That is what the renderer would use, so it is what the panel says. Nothing
+// is written until one of the three is changed, which is why opening and saving a project made
+// before the camera existed still does not put a camera into it.
+//
+// The lens is in millimetres here and in pixels in the file. D-22 puts a conversion at the two
+// boundaries and this is one of them: a person says 50 because that is what a lens is called.
+function drawCamera() {
+  const comp = composition();
+  const into = $('camera');
+  if (!comp) {
+    into.replaceChildren(Object.assign(document.createElement('p'),
+      { className: 'empty', textContent: 'No composition is open.' }));
+    return;
+  }
+  const zoomPx = comp.camera ? comp.camera.zoom.base : comp.width * 50 / 36;
+  const camera = comp.camera || {
+    position: { base: [comp.width / 2, comp.height / 2] },
+    depth: { base: -zoomPx },
+  };
+  // Not named `send`: the window's own contract test scans this file for `send('` to find
+  // every command identifier the page asks for, and a local helper of that name would offer it
+  // three arguments that are not commands at all.
+  const put = (property, value) => command('/camera.set_property?property=' + property
+    + '&value=' + encodeURIComponent(value));
+  const dl = document.createElement('dl');
+  const row = (term, hint) => {
+    const dt = document.createElement('dt');
+    dt.textContent = term;
+    dt.title = hint;
+    const dd = document.createElement('dd');
+    dd.className = 'numbers';
+    dl.append(dt, dd);
+    return dd;
+  };
+  const numberBox = (label, value, suffix, onset) => {
+    const box = document.createElement('input');
+    box.type = 'number';
+    box.step = 'any';
+    box.value = number(value);
+    box.setAttribute('aria-label', label);
+    box.onchange = () => onset(box.value);
+    return suffix ? [box, suffix] : [box];
+  };
+  // Where the camera is, across and down. Both numbers travel in one request because the core
+  // takes the pair as one value, exactly as a position does.
+  const place = row('Place', 'Where the camera is, across and down the composition, in pixels.');
+  const pair = [0, 1].map((at) => numberBox(
+    at ? 'Camera down' : 'Camera across',
+    camera.position.base[at],
+    null,
+    () => put('position', pair[0][0].value + ',' + pair[1][0].value),
+  ));
+  place.append(...pair[0], ' ', ...pair[1]);
+  row('Depth', 'How far back the camera is, in pixels. A layer nearer than this is not drawn.')
+    .append(...numberBox('Camera depth', camera.depth.base, ' px', (v) => put('depth', v)));
+  row('Lens', 'The lens, in millimetres on a 36 mm back. A longer lens flattens the parallax.')
+    .append(...numberBox('Camera lens in millimetres', zoomPx * 36 / comp.width, ' mm',
+      (v) => put('zoom', v)));
   into.replaceChildren(dl);
 }
 
@@ -4828,6 +4924,7 @@ function drawPanels() {
   drawLayers();
   movePlayhead();
   drawInspector();
+  drawCamera();
   drawExposures();
   drawEffects();
   askForCurve();

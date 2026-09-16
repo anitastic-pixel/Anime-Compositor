@@ -1564,6 +1564,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
 /// `verification/B-12b_page_table.md` checks that everything the page sends is in this list, and
 /// `verification/B-12b_command_map_table.md` checks that nothing outside it is answered.
 const ANSWERS: &[&str] = &[
+    "camera.set_property",
     "composition.create",
     "composition.delete",
     "composition.duplicate",
@@ -1593,6 +1594,7 @@ const ANSWERS: &[&str] = &[
     "layer.paste",
     "layer.rename",
     "layer.set_blend_mode",
+    "layer.set_depth",
     "layer.set_label",
     "layer.set_matte",
     "layer.set_parent",
@@ -1802,6 +1804,81 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // The clock is rebuilt from the new rate and length, as opening the composition does.
             show(viewer, &comp.id);
             return Some(said);
+        }
+        // D-58's camera. One command for three properties, as document 24 has it: the
+        // place is a pair of numbers and the depth and the zoom are one each.
+        //
+        // The zoom is sent as a lens in millimetres and stored in pixels. That is D-22's
+        // rule about where a unit is converted, applied to a second number: a person says
+        // 50 mm because that is what a lens is called, and the file keeps the pixels the
+        // arithmetic actually uses, converted once, here.
+        "camera.set_property" => {
+            let comp = {
+                let held = viewer.lock().expect("the viewer lock was poisoned");
+                match held.document.project().composition(&held.composition) {
+                    Some(comp) => comp.clone(),
+                    None => {
+                        return Some("There is no composition on screen to change.".to_string())
+                    }
+                }
+            };
+            let Some(name) = parameter(query, "property") else {
+                return Some(
+                    "Which of the camera's properties? Its position, its depth or its zoom."
+                        .to_string(),
+                );
+            };
+            let Some(prop) = anime_compositor::model::CameraProp::from_str(&name) else {
+                return Some(format!(
+                    "\"{name}\" is not one of the camera's properties. They are position, \
+                     depth and zoom."
+                ));
+            };
+            let mut numbers: Vec<f64> = Vec::new();
+            if let Some(text) = parameter(query, "value") {
+                for part in text.split(',') {
+                    match part.trim().parse::<f64>() {
+                        Ok(number) => numbers.push(number),
+                        Err(_) => {
+                            return Some(format!("\"{}\" is not a number.", part.trim()))
+                        }
+                    }
+                }
+            }
+            use anime_compositor::model::{CameraProp, Value};
+            let value = match (prop, numbers.as_slice()) {
+                (CameraProp::Position, [x, y]) => Value::Vec2(*x, *y),
+                (CameraProp::Depth, [d]) => Value::Scalar(*d),
+                (CameraProp::Zoom, [mm]) => Value::Scalar(comp.width as f64 * mm / 36.0),
+                (CameraProp::Position, _) => {
+                    return Some(
+                        "The camera's position is two numbers, across and down: \
+                         value=960,540."
+                            .to_string(),
+                    )
+                }
+                (CameraProp::Depth, _) => {
+                    return Some(
+                        "The camera's depth is one number, in pixels: value=-2666.67."
+                            .to_string(),
+                    )
+                }
+                (CameraProp::Zoom, _) => {
+                    return Some(
+                        "The camera's zoom is one number, a lens in millimetres on a 36 mm \
+                         back: value=50."
+                            .to_string(),
+                    )
+                }
+            };
+            return Some(edit(
+                viewer,
+                Command::SetCameraProperty {
+                    composition: comp.id.clone(),
+                    prop,
+                    value,
+                },
+            ));
         }
         // W-25: Ctrl+C on layers. The layers are kept as they are, keys, effects and all, in the
         // window rather than the file, and nothing is added to the history.
@@ -2798,6 +2875,30 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         parent,
                         frame,
                         keep_place: true,
+                    }
+                }
+                // D-58's depth: which plane the layer sits on, in pixels from its
+                // parent's plane, or from the depth-0 plane when it has no parent. A
+                // number of pixels and not a lens: this is the distance the parallax is
+                // worked out from, and 0 is the plane the composition is drawn at.
+                "layer.set_depth" => {
+                    let Some(text) = parameter(query, "depth") else {
+                        return Some(
+                            "How far back? A depth is a number of pixels, and 0 is the \
+                             plane the composition is drawn at."
+                                .to_string(),
+                        );
+                    };
+                    let Ok(value) = text.trim().parse::<f64>() else {
+                        return Some(format!(
+                            "\"{}\" is not a depth. A depth is a number of pixels.",
+                            text.trim()
+                        ));
+                    };
+                    Command::SetDepth {
+                        composition,
+                        layer_id,
+                        value,
                     }
                 }
                 // Document 24's `exposure.set_span`, which assigns one span. The core takes the
@@ -6538,6 +6639,311 @@ mod editing {
          parenting does not imply it.",
     ];
 
+    /// D-58's depth on one layer, as the panels are given it: the base, or `null` where the
+    /// layer has never been given one and sits on the plane the composition is drawn at.
+    fn depth_of(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["id"] == layer_id)
+            .map(|l| match l.get("depth") {
+                None | Some(serde_json::Value::Null) => "null".to_string(),
+                Some(depth) => depth["base"].to_string(),
+            })
+            .unwrap_or_else(|| "(no such layer)".to_string())
+    }
+
+    /// One of the camera's three properties as the panels are given it, or `null` where the
+    /// composition has no camera at all -- which is what every composition says until one of
+    /// the three is touched.
+    fn camera_of(viewer: &Mutex<Viewer>, prop: &str) -> String {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        match answer["project"]["compositions"][0].get("camera") {
+            None | Some(serde_json::Value::Null) => "null".to_string(),
+            Some(camera) => camera[prop]["base"].to_string(),
+        }
+    }
+
+    /// The lens the panel would show back, in millimetres, from the pixels the file holds.
+    /// This is the conversion of `drawCamera` worked the other way, and it is the round trip
+    /// that matters: a person types 50 and has to be shown 50 again.
+    fn lens_mm(viewer: &Mutex<Viewer>, width: f64) -> String {
+        match camera_of(viewer, "zoom").parse::<f64>() {
+            Ok(pixels) => format!("{}", pixels * 36.0 / width),
+            Err(_) => "no camera".to_string(),
+        }
+    }
+
+    #[test]
+    fn the_inspector_sets_a_depth_and_places_the_camera() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        // ---- what a project without a camera says ------------------------------------------------
+        report.check(
+            "the fixture's layer sits on the plane the composition is drawn at",
+            "null",
+            depth_of(&viewer, "layer-cel"),
+        );
+        report.check(
+            "and the composition has no camera at all until one is touched",
+            "null",
+            camera_of(&viewer, "zoom"),
+        );
+
+        // ---- a depth ---------------------------------------------------------------------------
+        report.check(
+            "setting a depth says which plane the layer was put on",
+            "Set depth to 640",
+            run(&viewer, "layer.set_depth?layer=layer-cel&depth=640"),
+        );
+        report.check(
+            "and the panels are given it back",
+            "640",
+            depth_of(&viewer, "layer-cel"),
+        );
+        report.check(
+            "a depth in front of the composition's plane is a negative number, not a refusal",
+            "-200",
+            {
+                run(&viewer, "layer.set_depth?layer=layer-cel&depth=-200");
+                depth_of(&viewer, "layer-cel")
+            },
+        );
+        report.check(
+            "undo puts back the depth that was replaced",
+            "640",
+            {
+                undo(&viewer);
+                depth_of(&viewer, "layer-cel")
+            },
+        );
+        report.check(
+            "and undoing the first one puts the layer back on the composition's own plane",
+            "null",
+            {
+                undo(&viewer);
+                depth_of(&viewer, "layer-cel")
+            },
+        );
+
+        // ---- what a depth refuses ----------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a request with no depth in it is asked for one rather than given a default",
+            "How far back? A depth is a number of pixels, and 0 is the plane the composition \
+             is drawn at.",
+            run(&viewer, "layer.set_depth?layer=layer-cel"),
+        );
+        report.check(
+            "words are not a depth, and are quoted back",
+            "\"six hundred\" is not a depth. A depth is a number of pixels.",
+            run(&viewer, "layer.set_depth?layer=layer-cel&depth=six hundred"),
+        );
+        report.check(
+            "no layer named at all is asked for",
+            "Which layer? Choose one in the layer list.",
+            run(&viewer, "layer.set_depth?depth=640"),
+        );
+        report.check(
+            "none of those three refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- a locked layer -----------------------------------------------------------------------
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a locked layer refuses a depth, and says which rule stopped it",
+            "The layer \"Cel\" is locked, so it was not changed. Unlock the layer to edit it.",
+            run(&viewer, "layer.set_depth?layer=layer-cel&depth=640"),
+        );
+        report.check(
+            "which changed nothing",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+        run(&viewer, "layer.toggle_lock?layer=layer-cel");
+
+        // ---- the camera ---------------------------------------------------------------------------
+        report.check(
+            "touching the lens says which of the camera's properties was set",
+            "Set the camera's zoom",
+            run(&viewer, "camera.set_property?property=zoom&value=50"),
+        );
+        // D-22: the millimetres are converted once, at this boundary. What the file holds is
+        // the pixels the arithmetic uses, which for a 1920-wide composition is 1920 * 50 / 36.
+        report.check(
+            "the file holds the lens in pixels, not in millimetres",
+            "2666.6666666666665",
+            camera_of(&viewer, "zoom"),
+        );
+        report.check(
+            "and the panel shows back the 50 mm that was typed",
+            "50",
+            lens_mm(&viewer, 1920.0),
+        );
+        report.check(
+            "a camera that was not there is created by touching it, with the rest at its default",
+            "[960,540]",
+            camera_of(&viewer, "position"),
+        );
+        report.check(
+            "including the depth, which is the default lens's own zoom, behind the frame",
+            "-2666.6666666666665",
+            camera_of(&viewer, "depth"),
+        );
+        report.check(
+            "placing the camera takes both numbers in one request",
+            "[760,540]",
+            {
+                run(&viewer, "camera.set_property?property=position&value=760,540");
+                camera_of(&viewer, "position")
+            },
+        );
+        report.check(
+            "and its depth is one",
+            "-1920",
+            {
+                run(&viewer, "camera.set_property?property=depth&value=-1920");
+                camera_of(&viewer, "depth")
+            },
+        );
+        report.check(
+            "undo takes back the camera one property at a time",
+            "[960,540]",
+            {
+                undo(&viewer);
+                undo(&viewer);
+                camera_of(&viewer, "position")
+            },
+        );
+
+        // ---- what the camera refuses ---------------------------------------------------------------
+        let depth = held(&viewer).document.undo_depth();
+        report.check(
+            "a request naming no property is asked which one",
+            "Which of the camera's properties? Its position, its depth or its zoom.",
+            run(&viewer, "camera.set_property?value=50"),
+        );
+        report.check(
+            "a property the camera does not have is named back with the three it does",
+            "\"tilt\" is not one of the camera's properties. They are position, depth and zoom.",
+            run(&viewer, "camera.set_property?property=tilt&value=50"),
+        );
+        report.check(
+            "a place needs both numbers, and says so with an example",
+            "The camera's position is two numbers, across and down: value=960,540.",
+            run(&viewer, "camera.set_property?property=position&value=960"),
+        );
+        report.check(
+            "a lens is one number, and says what it is measured on",
+            "The camera's zoom is one number, a lens in millimetres on a 36 mm back: value=50.",
+            run(&viewer, "camera.set_property?property=zoom&value=50,50"),
+        );
+        report.check(
+            "words are not a number, and are quoted back",
+            "\"wide\" is not a number.",
+            run(&viewer, "camera.set_property?property=zoom&value=wide"),
+        );
+        report.check(
+            "none of those five refusals put anything in the history",
+            depth,
+            held(&viewer).document.undo_depth(),
+        );
+
+        // ---- back to the file -----------------------------------------------------------------------
+        while held(&viewer).document.undo_depth() > 0 {
+            undo(&viewer);
+        }
+        let held = held(&viewer);
+        let opened = std::fs::read_to_string(&source)
+            .expect("read the fixture")
+            .replace("\r\n", "\n");
+        let now = persist::to_json(held.document.project(), &held.preserved);
+        let same = "identical, with no camera and no depth anywhere in it";
+        report.check(
+            "undoing everything gives back the file that was opened",
+            same,
+            if opened == now {
+                same
+            } else {
+                "what a save would write is no longer what was opened"
+            },
+        );
+        drop(held);
+
+        write_artifact(
+            &report,
+            "verification/B-13c_panel_table.md",
+            "B-13c: what the depth row and the camera block do",
+            CAMERA_INTRO,
+            CAMERA_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const CAMERA_INTRO: &[&str] = &[
+        "D-58 gives a composition a camera and a layer a depth, so that a pan across layers set \
+         at different distances parts the way it does under a rostrum: the near layer crosses \
+         the frame faster than the far one, from one camera move rather than a key on every \
+         layer. That the arithmetic is D-58's - one scale per layer, folded into document 21's \
+         step 4 so the picture is still resampled once - is checked against independently \
+         generated numbers in `verification/B-13c_camera_table.md` and is not repeated here. \
+         What is checked here is the part between the controls and that arithmetic: that the \
+         number typed is the number stored, that the millimetres a person reads are the pixels \
+         the file holds, and that a composition nobody has pointed a camera at still saves \
+         without one.",
+        "Two commands carry it. `layer.set_depth` puts a layer on a plane, and \
+         `camera.set_property` carries all three of the camera's properties, which is how \
+         document 24 registers them.",
+    ];
+
+    const CAMERA_NOTES: &[&str] = &[
+        "## What to look at\n\n- **A composition with no camera is shown the default, not \
+         blanks.** The panel fills the three boxes with the 50 mm lens on a 36 mm back that \
+         D-58 takes from After Effects, placed in the middle and pulled back by its own zoom, \
+         because that is what the renderer would use. Nothing is written until one of them is \
+         changed - the last row checks that undoing everything gives back a file with no \
+         camera in it at all, which is why a project made before the camera existed opens and \
+         saves unchanged.\n- **The lens is millimetres here and pixels in the file.** D-22 puts \
+         a unit conversion at the boundary rather than in the middle, and this is a second \
+         boundary of the same kind: 50 mm on a 1920-wide composition is stored as 2666.67 \
+         pixels, and the panel converts it back so the person is shown the 50 they typed.\n- \
+         **The depth is a typed box and not a scrub.** The five transform rows scrub because \
+         each is a property the core takes by name and can key; a depth is neither, so a \
+         control that dragged would be promising an animation this build cannot write. The gap \
+         is named in `verification/B-13c_camera_table.md` rather than papered over.\n- **A \
+         depth in front of the composition's plane is a negative number**, not a refusal. The \
+         plane the composition is drawn at is 0 and a layer may sit either side of it; what is \
+         refused is a layer at or behind the camera, which is `CAMERA_PLANE_BEHIND` and is \
+         shown in the other table.\n- **A locked layer refuses a depth like any other edit**, \
+         in the same sentence, naming the rule.",
+        "## What this does not cover\n\nThe numbers. These rows check what the controls do to \
+         the project; where a layer at a depth actually lands is FX-CAM-001 to 011 in \
+         `verification/B-13c_camera_table.md`, worked from D-58 by a generator that never \
+         builds a matrix.\n\nAnimating either of them. Nothing in this window keys a depth or a \
+         camera property: the boxes set the base and that is all. The camera fixture is keyed, \
+         and the renderer follows a keyed camera, so what is missing is the gesture and not the \
+         arithmetic.\n\nDragging the camera in the picture. The camera is placed by typing, not \
+         by pulling it about in the viewer; W-04 asks for a camera move and not for a handle to \
+         make it with.",
+    ];
+
     const MATTE_INTRO: &[&str] = &[
         "W-01 asks the artist to apply a matte: one layer shaping another, which is how a cel is \
          held inside a shape rather than being cut with a pair of scissors. That the matte is \
@@ -9305,6 +9711,7 @@ mod contract {
     /// Pinned rather than counted: a new `send` of an identifier nobody listed is a change to
     /// what the window can do, and it should have to be written down here as well as there.
     const SENT: &[&str] = &[
+        "camera.set_property",
         "composition.create",
         "composition.delete",
         "composition.duplicate",
@@ -9334,6 +9741,7 @@ mod contract {
         "layer.paste",
         "layer.rename",
         "layer.set_blend_mode",
+        "layer.set_depth",
         "layer.set_label",
         "layer.set_matte",
         "layer.set_parent",
@@ -9633,11 +10041,11 @@ mod contract {
         ("layer.toggle_lock", "a command the window answers"),
         ("layer.set_matte", "a command the window answers"),
         ("layer.set_parent", "a command the window answers"),
-        // D-58 is written and awaiting the owner, so document 24 names these two and nothing
-        // carries them out. The row saying so is the point: an identifier a document promises
-        // and no build reaches looks exactly like one nobody has noticed is missing.
-        ("layer.set_depth", "nothing yet"),
-        ("camera.set_property", "nothing yet"),
+        // D-58, accepted by the owner on 2026-09-15 and built by B-13c. The inspector's
+        // depth row sends one and its camera block sends the other, so both are in SENT as
+        // well; this column measures the window answering them, which it did first.
+        ("layer.set_depth", "a command the window answers"),
+        ("camera.set_property", "a command the window answers"),
         ("layer.shift", "a command the window answers"),
         ("layer.trim", "a command the window answers"),
         ("layer.move", "a command the window answers"),
@@ -10402,12 +10810,17 @@ mod contract {
         // W-24: a work area, a marker and a label are written only when there is one, so the
         // ruler and the label colours are given one each the same way. W-26: and a shy layer.
         // B-13b: and a parent, which D-57 writes only when the layer rides on something.
+        // B-13c: and a depth and a camera, which D-58 writes only where one has been set. The
+        // inspector reads both through a default, so their absence is not what this test is
+        // about; that the two names are spelled the way the answer spells them is.
         for edit in [
             "timeline.set_work_start?frame=1",
             "timeline.set_markers?marker=2|hit",
             "layer.set_label?layer=layer-3&label=2",
             "layer.toggle_shy?layer=layer-3",
             "layer.set_parent?layer=layer-3&parent=layer-2&frame=0",
+            "layer.set_depth?layer=layer-3&depth=640",
+            "camera.set_property?property=zoom&value=50",
         ] {
             run(&viewer, edit);
         }

@@ -34,6 +34,7 @@ One row per identifier this build can print, and the table where a person can re
 | `EXPORT_WRITE_FAILED` | yes | `verification/T-08_export_table.md` |
 | `EXPORT_CANCELLED` | yes | `verification/T-08_export_table.md` |
 | `EXPORT_BLOCKED_MISSING_MEDIA` | **no — added by a decision** | `verification/T-08_export_table.md` |
+| `CAMERA_PLANE_BEHIND` | yes | `verification/B-13c_camera_table.md` |
 
 ## What the catalogue promises and the build does not have
 
@@ -44,7 +45,6 @@ One row per identifier this build can print, and the table where a person can re
 | `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |
 | `GPU_OUT_OF_MEMORY` | There is no GPU path; every frame is composited on the processor. |
 | `INVALID_PATH` | Paths reach this build through Windows file dialogs and are read, not normalised; a path that cannot be read is reported by the identifier for what failed to read it. |
-| `CAMERA_PLANE_BEHIND` | D-58, the camera and depth, is written and awaiting the owner; no layer has a depth and no composition has a camera, so nothing in this build can be behind one. |
 | `DEPENDENCY_LICENSE_UNRESOLVED` | A distribution-time check rather than a running one: tools/archive_licenses.py and docs/DEPENDENCIES.md flag the unresolved entries and CI blocks on them. |
 
 ## What the build says that the catalogue does not list
@@ -144,12 +144,15 @@ One row per identifier this build can print, and the table where a person can re
 | EXPORT_BLOCKED_MISSING_MEDIA: the enum spells it the way the catalogue does | EXPORT_BLOCKED_MISSING_MEDIA | EXPORT_BLOCKED_MISSING_MEDIA | pass |
 | EXPORT_BLOCKED_MISSING_MEDIA: says truthfully whether document 28 lists it | false | false | pass |
 | EXPORT_BLOCKED_MISSING_MEDIA: a table somewhere shows a person this sentence | named in T-08_export_table.md | named in T-08_export_table.md | pass |
+| CAMERA_PLANE_BEHIND: the enum spells it the way the catalogue does | CAMERA_PLANE_BEHIND | CAMERA_PLANE_BEHIND | pass |
+| CAMERA_PLANE_BEHIND: says truthfully whether document 28 lists it | true | true | pass |
+| CAMERA_PLANE_BEHIND: a table somewhere shows a person this sentence | named in B-13c_camera_table.md | named in B-13c_camera_table.md | pass |
 | PROJECT_FEATURE_UNSUPPORTED is kept but raised by nothing | no source file raises it | no source file raises it | pass |
 | every catalogue entry is either built or written down as not built | none unaccounted for | none unaccounted for | pass |
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**83 of 83 checks pass.**
+**86 of 86 checks pass.**
 
 ## What this cannot cover
 

@@ -50,8 +50,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `layer.toggle_lock` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.set_matte` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.set_parent` is reached by | a command the window answers | a command the window answers | pass |
-| `layer.set_depth` is reached by | nothing yet | nothing yet | pass |
-| `camera.set_property` is reached by | nothing yet | nothing yet | pass |
+| `layer.set_depth` is reached by | a command the window answers | a command the window answers | pass |
+| `camera.set_property` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.shift` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.trim` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.move` is reached by | a command the window answers | a command the window answers | pass |

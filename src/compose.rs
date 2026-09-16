@@ -169,7 +169,9 @@ pub fn plan_frame_cached(
     }
     cache.prewarm(&wanted);
 
-    let mut layers = Vec::new();
+    // D-58: each drawn layer with the plane it ends up on, so the vector can be put in draw
+    // order once every layer is resolved.
+    let mut layers: Vec<(f64, LayerDraw)> = Vec::new();
     // Step 3: composition order, bottom of the stack first, which is `FramePlan.layers`' order.
     for layer in comp.layers_in_order() {
         if !layer.enabled || matte_only.contains(&&layer.id) {
@@ -229,20 +231,32 @@ pub fn plan_frame_cached(
             },
         };
 
-        layers.push(LayerDraw {
-            id: layer.id.clone(),
-            source: resolved.source,
-            transform: resolved.transform,
-            opacity: resolved.opacity,
-            matte,
-            blend: layer.blend_mode,
-        });
+        layers.push((
+            world_depth(comp, &layer.id, frame),
+            LayerDraw {
+                id: layer.id.clone(),
+                source: resolved.source,
+                transform: resolved.transform,
+                opacity: resolved.opacity,
+                matte,
+                blend: layer.blend_mode,
+            },
+        ));
     }
+
+    // D-58: far to near, and layers at equal depth keep composition order. A **stable** sort is
+    // what gives that second half for free, so `layer_order` stays the authority for ties
+    // without a word of code saying so.
+    //
+    // Sorted at every frame rather than once when the project opens, because a depth is an
+    // animatable property: two planes can cross mid-shot and what is in front of what changes
+    // with them. FX-CAM-010 is the case that fails if this moves anywhere cheaper.
+    layers.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
     Ok(FramePlan {
         width: comp.width as usize,
         height: comp.height as usize,
-        layers,
+        layers: layers.into_iter().map(|(_, draw)| draw).collect(),
     })
 }
 
@@ -355,6 +369,98 @@ pub(crate) fn parent_chain_at(
     chain_of(&comp.parent_chain(layer_id), frame)
 }
 
+/// D-58's camera at one frame: where it is, how far back it sits, and its zoom.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct CameraAt {
+    pub position: (f64, f64),
+    pub depth: f64,
+    pub zoom: f64,
+}
+
+/// The camera a composition is seen through at `frame`, which is the default one when the file
+/// carries none (D-58).
+///
+/// `None` means a camera property holds the wrong kind of value, which persistence refuses, so
+/// it can only come from a project built in memory. The caller reports it rather than guessing,
+/// exactly as a layer's transform does.
+pub fn camera_at(comp: &crate::model::Composition, frame: i32) -> Option<CameraAt> {
+    let default;
+    let camera = match &comp.camera {
+        Some(camera) => camera,
+        None => {
+            default = crate::model::Camera::default_for(comp.width, comp.height);
+            &default
+        }
+    };
+    Some(CameraAt {
+        position: camera.position.value_at(frame).as_vec2()?,
+        depth: camera.depth.value_at(frame).as_scalar()?,
+        zoom: camera.zoom.value_at(frame).as_scalar()?,
+    })
+}
+
+/// D-58's `world_depth(L) = depth(L) + world_depth(parent(L))`: the plane a layer ends up on,
+/// its own depth plus every plane it rides on.
+///
+/// Absent means 0, and a depth holding the wrong kind of value contributes 0 rather than
+/// stopping the walk: the layer's own transform is what reports a bad property, and a depth that
+/// cannot be read leaves the layer on the plane it would have had without one.
+pub fn world_depth(
+    comp: &crate::model::Composition,
+    layer_id: &crate::model::Id,
+    frame: i32,
+) -> f64 {
+    let own = |layer: &crate::model::Layer| {
+        layer
+            .depth
+            .as_ref()
+            .and_then(|d| d.value_at(frame).as_scalar())
+            .unwrap_or(0.0)
+    };
+    let mut total = comp.layer(layer_id).map_or(0.0, own);
+    for parent in comp.parent_chain(layer_id) {
+        total += own(parent);
+    }
+    total
+}
+
+/// What the camera does to a plane at `world_depth`.
+///
+/// Three outcomes and not two, because D-58 distinguishes the projection that is the identity
+/// from the one that merely lands within a tolerance of it.
+pub(crate) enum Projection {
+    /// Leave it out. **Not** an identity matrix to multiply through**:** `960 + (x - 960) * 1.0`
+    /// is not bitwise `x`, so applying one would put every fixture written before D-58 within a
+    /// tolerance of its expected value instead of exactly on it. FX-CAM-001 is that case.
+    Identity,
+    Scaled(Affine),
+    /// Level with the camera or behind it: no size, not drawn, `CAMERA_PLANE_BEHIND`.
+    Behind,
+}
+
+/// D-58's two lines: `s = zoom / (world_depth - camera_depth)`, and
+/// `screen = centre + (p_comp - camera_position) * s`.
+///
+/// A uniform scale about a point followed by a shift, which is affine on purpose: it composes
+/// into the one matrix document 21 step 4 already samples through, so a far plane is minified
+/// once by the bilinear filter rather than twice.
+pub(crate) fn projection(cam: CameraAt, centre: (f64, f64), world_depth: f64) -> Projection {
+    let ahead = world_depth - cam.depth;
+    if ahead <= 0.0 {
+        return Projection::Behind;
+    }
+    let s = cam.zoom / ahead;
+    if s == 1.0 && cam.position == centre {
+        return Projection::Identity;
+    }
+    Projection::Scaled(
+        Affine::scaling(s, s).then(Affine::translation(
+            centre.0 - cam.position.0 * s,
+            centre.1 - cam.position.1 * s,
+        )),
+    )
+}
+
 /// D-57's `M_world(L)`: the layer's own transform and then everything above it.
 pub(crate) fn world_at(
     comp: &crate::model::Composition,
@@ -381,6 +487,27 @@ pub fn world_transform(
     frame: i32,
 ) -> Affine {
     world_at(comp, layer_id, frame).matrix
+}
+
+/// D-58's `M_world(L)` carried on to the screen: where a layer's own pixels land in the
+/// rendered frame at `frame`, its parent chain and the composition's camera included.
+///
+/// `None` when the layer is level with the camera or behind it, which is the frame in which it
+/// is not drawn at all. A projection that is the identity is left out rather than applied, so a
+/// composition with the default camera and no depths gives exactly [`world_transform`].
+pub fn screen_transform(
+    comp: &crate::model::Composition,
+    layer_id: &crate::model::Id,
+    frame: i32,
+) -> Option<Affine> {
+    let world = world_transform(comp, layer_id, frame);
+    let cam = camera_at(comp, frame)?;
+    let centre = (comp.width as f64 / 2.0, comp.height as f64 / 2.0);
+    match projection(cam, centre, world_depth(comp, layer_id, frame)) {
+        Projection::Identity => Some(world),
+        Projection::Scaled(p) => Some(world.then(p)),
+        Projection::Behind => None,
+    }
 }
 
 fn resolve_layer(
@@ -626,6 +753,49 @@ fn resolve_layer(
         return None;
     };
 
+    // D-58. Resolved here rather than once per frame because a matte is projected at its own
+    // depth too, and a matte reaches this function by its own call.
+    let Some(cam) = camera_at(comp, frame) else {
+        log.record(
+            frame,
+            layer.name.clone(),
+            schema_invalid(format!(
+                "The camera of {} holds a value of the wrong kind at frame {frame}.",
+                comp.name
+            )),
+        );
+        return None;
+    };
+    let centre = (comp.width as f64 / 2.0, comp.height as f64 / 2.0);
+    let camera = projection(cam, centre, world_depth(comp, &layer.id, frame));
+    if let Projection::Behind = camera {
+        // Document 28: the record is untouched and nothing is clamped into a working value. A
+        // plane one pixel in front of the camera is not this case and is drawn enormous.
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::CameraPlaneBehind,
+                Severity::Warning,
+                format!(
+                    "Layer {} is level with the camera or behind it, so it has no size.",
+                    layer.name
+                ),
+                format!(
+                    "Its plane is at depth {} and the camera is at {} at frame {frame}. The \
+                     layer is left out of this frame and the project is unchanged.",
+                    world_depth(comp, &layer.id, frame),
+                    cam.depth
+                ),
+            )
+            .with_remediation(
+                "Move the layer in front of the camera, or move the camera back, to see it \
+                 again.",
+            ),
+        );
+        return None;
+    }
+
     Some(ResolvedLayer {
         source,
         // Document 21 step 4. Scale is a unit factor in the model (D-22); the divide by 100
@@ -641,9 +811,18 @@ fn resolve_layer(
         // leaves an identity here, so the layer draws where it would with no parent rather than
         // vanishing. There is no second report per frame: nothing can lose a parent while the
         // program runs, because deleting one lets its children go in place.
+        //
+        // D-58 closes it with the camera. The projection is the last thing multiplied in, so a
+        // far plane is minified by the same single resampling as everything else. An identity
+        // projection is left out rather than applied, which is what keeps every fixture written
+        // before D-58 landing exactly on its number instead of within a tolerance.
         transform: Affine::translation(-(offset.0 as f64), -(offset.1 as f64))
             .then(Affine::from_transform(anchor, position, scale, rotation))
-            .then(parent_chain_at(comp, &layer.id, frame).matrix),
+            .then(parent_chain_at(comp, &layer.id, frame).matrix)
+            .then(match camera {
+                Projection::Scaled(p) => p,
+                _ => Affine::IDENTITY,
+            }),
         // Document 21 step 6. Opacity is normalized 0..1 in the model (document 19).
         opacity: opacity as f32,
     })

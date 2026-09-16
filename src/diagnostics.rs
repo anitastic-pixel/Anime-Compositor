@@ -96,6 +96,12 @@ pub enum DiagnosticId {
     /// Document 28, added by D-57: a parent chain that loops back on itself. Refused the way
     /// `MatteCycle` is, by both the command and the loader.
     ParentCycle,
+    /// Document 28, added by D-58: a layer level with the camera or behind it, which has no
+    /// size because `world_depth - camera_depth` is zero or negative. WARNING: the layer is not
+    /// drawn for that frame, its record is untouched, and nothing is clamped into a working
+    /// value. One pixel in front of the camera is not this case and is drawn enormous, which is
+    /// correct.
+    CameraPlaneBehind,
     /// Document 28, added by D-43: a mask outline this build refuses to draw -- fewer than
     /// three corners, or an outline that crosses itself. ERROR when a command would create
     /// one, WARNING when a project already on disk holds one, in which case the record is
@@ -142,6 +148,7 @@ impl DiagnosticId {
             DiagnosticId::MatteCycle => "MATTE_CYCLE",
             DiagnosticId::ParentReferenceMissing => "PARENT_REFERENCE_MISSING",
             DiagnosticId::ParentCycle => "PARENT_CYCLE",
+            DiagnosticId::CameraPlaneBehind => "CAMERA_PLANE_BEHIND",
             DiagnosticId::MaskInvalidOutline => "MASK_INVALID_OUTLINE",
             DiagnosticId::CommandTargetMissing => "COMMAND_TARGET_MISSING",
             DiagnosticId::CommandInvalidValue => "COMMAND_INVALID_VALUE",
@@ -173,6 +180,7 @@ impl DiagnosticId {
                 | DiagnosticId::MatteCycle
                 | DiagnosticId::ParentReferenceMissing
                 | DiagnosticId::ParentCycle
+                | DiagnosticId::CameraPlaneBehind
                 | DiagnosticId::MaskInvalidOutline
                 | DiagnosticId::ExportWriteFailed
                 | DiagnosticId::ExportCancelled

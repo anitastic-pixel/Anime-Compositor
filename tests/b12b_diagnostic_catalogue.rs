@@ -8,7 +8,7 @@
 //! that nothing in this build has ever been seen to say?
 //!
 //! Both answers are yes, and both are already decided rather than accidental -- D-19, D-21,
-//! D-24 and D-28 registered the eight identifiers this build adds, and the six catalogue
+//! D-24 and D-28 registered the eight identifiers this build adds, and the five catalogue
 //! entries with no code behind them belong to features that do not exist. This test is what
 //! stops either list drifting without a decision, and what writes them out where the owner can
 //! read them.
@@ -161,6 +161,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "EXPORT_BLOCKED_MISSING_MEDIA",
         "T-08_export_table.md",
     ),
+    (
+        DiagnosticId::CameraPlaneBehind,
+        "CAMERA_PLANE_BEHIND",
+        "B-13c_camera_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
@@ -186,11 +191,6 @@ const NOT_BUILT: &[(&str, &str)] = &[
         "INVALID_PATH",
         "Paths reach this build through Windows file dialogs and are read, not normalised; \
          a path that cannot be read is reported by the identifier for what failed to read it.",
-    ),
-    (
-        "CAMERA_PLANE_BEHIND",
-        "D-58, the camera and depth, is written and awaiting the owner; no layer has a depth \
-         and no composition has a camera, so nothing in this build can be behind one.",
     ),
     (
         "DEPENDENCY_LICENSE_UNRESOLVED",

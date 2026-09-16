@@ -11,7 +11,7 @@
 //! code under test. ADR-009: "Tests are built from independent fixtures, never from snapshots
 //! of the implementation under test."
 //!
-//! The strongest check here is the first one. `Fixtures/projects/` holds five project files
+//! The strongest check here is the first one. `Fixtures/projects/` holds seven project files
 //! that were written by hand before any persistence code existed. Opening one and saving it
 //! again must reproduce the file **byte for byte**. That single equality covers key order,
 //! indentation, number formatting, Unicode, and — because the fixtures contain records this
@@ -139,7 +139,7 @@ fn opening(text: &str) -> String {
     }
 }
 
-const FIXTURES: [&str; 6] = [
+const FIXTURES: [&str; 7] = [
     "minimal_project",
     "cel_holds_project",
     "missing_media_project",
@@ -149,6 +149,9 @@ const FIXTURES: [&str; 6] = [
     // check that a layer without one does not gain the key, and that the parent of a layer
     // whose parent is gone survives being opened and saved.
     "parenting_project",
+    // FX-CAM-008. D-58 writes a camera only where one has been touched and a depth only where
+    // it is set, so this file is also the check that neither key appears where it was not.
+    "camera_project",
 ];
 
 // ---------------------------------------------------------------------------------------
@@ -1243,7 +1246,7 @@ fn write_report(report: &Report) {
          project reopen is empty\".\n\n\
          ## What to look at first\n\n\
          The five rows at the top of the table are the important ones. `Fixtures/projects/` \
-         holds five project files that were written by hand, before any of this code existed. \
+         holds seven project files that were written by hand, before any of this code existed. \
          Each row opens one of them and saves it again, and requires the result to be the same \
          file **byte for byte**.\n\n\
          That one equality is worth more than the rest of the table together. Passing it means \

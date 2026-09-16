@@ -47,7 +47,7 @@ For each raster layer, the G1 order is:
 1. Decode the selected source drawing into tagged linear premultiplied RGBA.
 2. Apply the layer polygon mask in layer/source space.
 3. Evaluate ordered layer effects in layer space.
-4. Transform the resulting image into composition space, and project it to the screen through the composition camera (see Camera and depth below, proposed by D-58).
+4. Transform the resulting image into composition space, and project it to the screen through the composition camera (see Camera and depth below, D-58).
 5. Apply the referenced alpha matte in composition space.
 6. Multiply by animated layer opacity.
 7. Composite with the accumulated background using the layer blend mode.
@@ -56,7 +56,7 @@ The matte layer is evaluated through its own source, mask, effects and transform
 
 ## Camera and depth
 
-Proposed by D-58 on 2026-09-15, awaiting the owner. Every layer sits on a plane parallel to the
+Specified by D-58, accepted by the owner on 2026-09-15 and built by B-13c. Every layer sits on a plane parallel to the
 screen at a depth `d` - a scalar property read at the frame being drawn, absent meaning 0 - and a
 parented layer's depth adds to its parent's up the
 chain: `world_depth(L) = depth(L) + world_depth(parent(L))`.
@@ -143,7 +143,7 @@ Viewer checkerboard, alpha-only display, overlays, selection outlines and draft-
 
 ## Deferred rendering questions
 
-Intersecting transparent planes, motion blur, depth of field, HDR display transforms and higher-order resampling are separate contracts. They must not be implied by this G1 specification. G2 camera projection was one of them until D-58 proposed it on 2026-09-15; it is specified under Camera and depth above, and it deliberately specifies none of the rest - in particular a camera that tilts or turns, which would need a perspective transform rather than the affine one written there.
+Intersecting transparent planes, motion blur, depth of field, HDR display transforms and higher-order resampling are separate contracts. They must not be implied by this G1 specification. G2 camera projection was one of them until D-58, which the owner accepted on 2026-09-15 and B-13c built; it is specified under Camera and depth above, and it deliberately specifies none of the rest - in particular a camera that tilts or turns, which would need a perspective transform rather than the affine one written there.
 
 Related documents: 08, 18, 20, 25 and 27.
 

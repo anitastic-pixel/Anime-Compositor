@@ -44,6 +44,6 @@ These are validation targets, not measured capabilities. A 1080p RGBA float32 fr
 
 ## G2 addition
 
-Specify camera coordinates, transform order, depth ordering and shutter sampling before adding 2.5D. Keep camera motion sampling independent of held cel selection. Proposed by D-58 on 2026-09-15 and awaiting the owner: coordinates and transform order are in document 21 under Camera and depth, depth ordering is far to near with composition order breaking a tie, and there is no shutter - the camera is read once at the frame being drawn, which is the independence this paragraph asks for. Related documents: 06, 07, 09 and 11.
+Specify camera coordinates, transform order, depth ordering and shutter sampling before adding 2.5D. Keep camera motion sampling independent of held cel selection. Specified by D-58, accepted by the owner on 2026-09-15 and built by B-13c: coordinates and transform order are in document 21 under Camera and depth, depth ordering is far to near with composition order breaking a tie, and there is no shutter - the camera is read once at the frame being drawn, which is the independence this paragraph asks for. Related documents: 06, 07, 09 and 11.
 
 Exact rendering math, coordinate conventions, blend formulas, Gaussian definition and sampling rules are authoritative in 21. Independent numeric tolerances and fixtures are in 25.

@@ -141,6 +141,7 @@ const KEY_ORDER: &[&str] = &[
     "duration_frames",
     "work_area",
     "end_frame_exclusive",
+    "camera",
     "layer_order",
     "layers",
     "asset_id",
@@ -171,9 +172,11 @@ const KEY_ORDER: &[&str] = &[
     "blend_mode",
     "effects",
     "parent",
+    "depth",
     "instance_id",
     "type_id",
     "parameters",
+    "zoom",
 ];
 
 /// An effect record is the one place a flat list is not enough: it spells `enabled` after
@@ -547,6 +550,17 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         }
         None => {}
     }
+    // D-58's depth, written the same way and for the same reason.
+    match &layer.depth {
+        Some(depth) => owned.push((
+            "depth",
+            property_json(base.and_then(|b| b.get("depth")), depth, 1.0),
+        )),
+        None if base.is_some_and(|b| b.get("depth").is_some()) => {
+            owned.push(("depth", J::Null))
+        }
+        None => {}
+    }
     if layer.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
         owned.push(("label", J::from(layer.label)));
     }
@@ -648,6 +662,29 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
         area.insert("start_frame".into(), J::from(start));
         area.insert("end_frame_exclusive".into(), J::from(end));
         owned.push(("work_area", J::Object(area)));
+    }
+    // D-58: written only when the composition names a camera of its own. A file that says
+    // nothing is drawn through the default lens the build knows and is written back still
+    // saying nothing, so opening and saving a project made before the camera existed does
+    // not put a camera into it.
+    if let Some(camera) = &composition.camera {
+        let held = base.and_then(|b| b.get("camera"));
+        let mut props: Vec<(&str, J)> = Vec::new();
+        for prop in [
+            crate::model::CameraProp::Position,
+            crate::model::CameraProp::Depth,
+            crate::model::CameraProp::Zoom,
+        ] {
+            props.push((
+                prop.as_str(),
+                property_json(
+                    held.and_then(|c| c.get(prop.as_str())),
+                    camera.get(prop),
+                    1.0,
+                ),
+            ));
+        }
+        owned.push(("camera", merge(held, props)));
     }
     if !composition.markers.is_empty() || base.is_some_and(|b| b.get("markers").is_some()) {
         let markers = composition
@@ -833,8 +870,17 @@ fn parse_value(v: &J, pointer: &str, kind: &str, factor: f64) -> Result<Value, D
     }
 }
 
-fn parse_property(v: &J, pointer: &str, prop: Prop, factor: f64) -> Result<Property, Diagnostic> {
-    let kind = prop.kind();
+/// `kind` is the value shape document 19 gives the property and `spatial_allowed` whether
+/// D-53 lets a keyframe of it carry a motion path. Two arguments rather than a `Prop`,
+/// because `Prop` is the layer transform's five and D-58 adds properties that are not
+/// among them: a layer's depth, and the camera's place, depth and zoom.
+fn parse_property(
+    v: &J,
+    pointer: &str,
+    kind: &'static str,
+    spatial_allowed: bool,
+    factor: f64,
+) -> Result<Property, Diagnostic> {
     as_object(v, pointer)?;
     let mut property = Property::constant(parse_value(
         field(v, pointer, "base")?,
@@ -881,7 +927,7 @@ fn parse_property(v: &J, pointer: &str, prop: Prop, factor: f64) -> Result<Prope
             None => None,
             Some(handles) => {
                 let at = format!("{at}/spatial");
-                if prop != Prop::Position {
+                if !spatial_allowed {
                     return Err(invalid(
                         &at,
                         "no spatial: the motion path belongs to position keyframes and to no \
@@ -1044,7 +1090,8 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         *transform.get_mut(prop) = parse_property(
             field(transform_json, &transform_at, prop.as_str())?,
             &at,
-            prop,
+            prop.kind(),
+            prop == Prop::Position,
             factor,
         )?;
     }
@@ -1081,6 +1128,21 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     let parent = match v.get("parent") {
         None | Some(J::Null) => None,
         Some(p) => Some(as_id(p, &format!("{pointer}/parent"))?),
+    };
+
+    // D-58. Absent means the layer sits on the depth-0 plane, which is what every project
+    // written before the camera existed means and why those files still open unchanged. A
+    // property and not a plain number, because a depth is keyed like any other number: a
+    // plane that pushes in is an ordinary shot.
+    let depth = match v.get("depth") {
+        None | Some(J::Null) => None,
+        Some(d) => Some(parse_property(
+            d,
+            &format!("{pointer}/depth"),
+            "scalar",
+            false,
+            1.0,
+        )?),
     };
 
     let matte = match v.get("matte") {
@@ -1304,6 +1366,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         mask,
         matte,
         parent,
+        depth,
         effects,
         shy: match v.get("shy") {
             None => false,
@@ -1419,6 +1482,41 @@ fn parse_composition(
             ));
         }
         composition.work_area = Some((start, end));
+    }
+
+    // D-58. Read into the default camera rather than over a blank one, so a file naming
+    // only a zoom keeps the default's place and depth instead of being given nought for
+    // both -- a file that says less means less, not worse.
+    if let Some(cam) = v.get("camera") {
+        let at = format!("{pointer}/camera");
+        as_object(cam, &at)?;
+        let mut camera = crate::model::Camera::default_for(width, height);
+        for prop in [
+            crate::model::CameraProp::Position,
+            crate::model::CameraProp::Depth,
+            crate::model::CameraProp::Zoom,
+        ] {
+            if let Some(value) = cam.get(prop.as_str()) {
+                let here = format!("{at}/{}", prop.as_str());
+                *camera.get_mut(prop) =
+                    parse_property(value, &here, prop.kind(), false, 1.0)?;
+            }
+        }
+        // D-58 refuses a zoom that is not more than nought, at every frame it is keyed
+        // to: such a camera has nothing in front of it, so there is no picture to be had
+        // and nothing sensible to draw instead of one.
+        for value in std::iter::once(camera.zoom.base())
+            .chain(camera.zoom.keyframes().iter().map(|k| k.value))
+        {
+            if !value.as_scalar().is_some_and(|z| z > 0.0) {
+                return Err(invalid(
+                    &format!("{at}/zoom"),
+                    "a zoom of more than nought; a camera without one has nothing in \
+                     front of it to draw",
+                ));
+            }
+        }
+        composition.camera = Some(camera);
     }
     if let Some(markers) = v.get("markers") {
         let at = format!("{pointer}/markers");

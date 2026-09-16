@@ -209,6 +209,26 @@ pub enum Command {
         /// values must not be touched: a copy pasted beside the layer it was copied from.
         keep_place: bool,
     },
+    /// D-58's depth: which plane a layer sits on, in pixels from its parent's plane.
+    ///
+    /// Its own command rather than a sixth `Prop`, because `Prop` is the five the layer
+    /// transform has and feeds `Transform::get`; and document 24 names it separately for
+    /// the keep-place conversion it carries when a layer gains or loses a parent.
+    SetDepth {
+        composition: Id,
+        layer_id: Id,
+        value: f64,
+    },
+    /// D-58's camera, which belongs to the composition and not to a layer, so names none.
+    ///
+    /// A composition with no camera of its own gets the default lens written into it by
+    /// the first of these, because a change to the camera a shot is drawn through has to
+    /// be a change to something.
+    SetCameraProperty {
+        composition: Id,
+        prop: crate::model::CameraProp,
+        value: Value,
+    },
     /// Document 24's `exposure.set_span`. B-12a.
     ///
     /// The whole ordered list is the unit of change, for the reason [`Command::SetMask`] gives.
@@ -320,6 +340,8 @@ impl Command {
             Command::MoveKeyframe { .. } => "MOVE_KEYFRAME",
             Command::SetMatte { .. } => "SET_MATTE",
             Command::SetParent { .. } => "SET_PARENT",
+            Command::SetDepth { .. } => "SET_DEPTH",
+            Command::SetCameraProperty { .. } => "SET_CAMERA_PROPERTY",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
             Command::SetMask { .. } => "SET_MASK",
             Command::AddEffect { .. } => "ADD_EFFECT",
@@ -410,6 +432,10 @@ impl Command {
                 Some(id) => format!("Set parent to {id}"),
                 None => "Clear parent".to_string(),
             },
+            Command::SetDepth { value, .. } => format!("Set depth to {value}"),
+            Command::SetCameraProperty { prop, .. } => {
+                format!("Set the camera's {}", prop.as_str())
+            }
             Command::SetExposureSpans { spans, .. } => match spans.len() {
                 0 => "Clear the exposures".to_string(),
                 1 => "Set one exposure".to_string(),
@@ -469,6 +495,8 @@ impl Command {
             | Command::MoveKeyframe { composition, .. }
             | Command::SetMatte { composition, .. }
             | Command::SetParent { composition, .. }
+            | Command::SetDepth { composition, .. }
+            | Command::SetCameraProperty { composition, .. }
             | Command::SetExposureSpans { composition, .. }
             | Command::SetMask { composition, .. }
             | Command::AddEffect { composition, .. }
@@ -529,6 +557,9 @@ impl Command {
                 ids.push(layer_id.clone());
                 ids.extend(parent.clone());
             }
+            Command::SetDepth { layer_id, .. } => ids.push(layer_id.clone()),
+            // The camera is the composition's, and the composition is already in the list.
+            Command::SetCameraProperty { .. } => {}
         }
         ids
     }
@@ -560,6 +591,12 @@ impl Command {
                     ..
                 },
             ) if mine != theirs || at != other_at => return false,
+            // D-58: the camera's place, its depth and its zoom are three controls and not
+            // one, so a drag on the zoom does not swallow the track that came before it.
+            (
+                Command::SetCameraProperty { prop: mine, .. },
+                Command::SetCameraProperty { prop: theirs, .. },
+            ) if mine != theirs => return false,
             _ => {}
         }
         self.command_id() == other.command_id() && self.affected() == other.affected()
@@ -579,6 +616,8 @@ impl Command {
                 | Command::RelinkAsset { .. }
                 | Command::AddComposition { .. }
                 | Command::AddLayer { .. }
+                // The camera belongs to the composition; a locked layer has no say in it.
+                | Command::SetCameraProperty { .. }
         )
     }
 
@@ -600,6 +639,7 @@ impl Command {
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
             | Command::SetParent { layer_id, .. }
+            | Command::SetDepth { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
             | Command::AddEffect { layer_id, .. }
@@ -1489,6 +1529,32 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 .with_remediation("Choose a layer that is not already riding on this one."));
             }
         }
+        Command::SetDepth {
+            layer_id, value, ..
+        } => {
+            if !value.is_finite() {
+                return Err(reject(
+                    &format!("A depth cannot be set to {value}."),
+                    "D-58: a depth is a number of pixels from the parent's plane.",
+                ));
+            }
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            match &mut layer.depth {
+                Some(depth) => depth.set_base(Value::Scalar(*value)),
+                none => {
+                    *none = Some(crate::model::Property::constant(Value::Scalar(*value)))
+                }
+            }
+        }
+        Command::SetCameraProperty { prop, value, .. } => {
+            let value = check_camera_value(*prop, *value)?;
+            let comp = comp_mut(project, &comp_id)?;
+            let (width, height) = (comp.width, comp.height);
+            comp.camera
+                .get_or_insert_with(|| crate::model::Camera::default_for(width, height))
+                .get_mut(*prop)
+                .set_base(value);
+        }
         Command::SetExposureSpans {
             layer_id, spans, ..
         } => {
@@ -1749,6 +1815,39 @@ fn check_value(prop: Prop, value: Value) -> Result<Value, Diagnostic> {
     })
 }
 
+/// D-58's camera, checked as `check_value` checks a layer's property, plus the one rule a
+/// layer has no equivalent of: a zoom of nought or less has nothing in front of it.
+fn check_camera_value(
+    prop: crate::model::CameraProp,
+    value: Value,
+) -> Result<Value, Diagnostic> {
+    if value.kind() != prop.kind() {
+        return Err(reject(
+            &format!(
+                "The camera's {} takes a {} value, not a {}.",
+                prop.as_str(),
+                prop.kind(),
+                value.kind()
+            ),
+            "D-58: the camera's place is a vec2; its depth and its zoom are scalars.",
+        ));
+    }
+    if !finite(value) {
+        return Err(reject(
+            &format!("The camera's {} cannot be set to {value}.", prop.as_str()),
+            "Property values must be finite numbers.",
+        ));
+    }
+    if prop == crate::model::CameraProp::Zoom && !matches!(value, Value::Scalar(z) if z > 0.0)
+    {
+        return Err(reject(
+            "A camera's zoom must be more than nought.",
+            "D-58: a zoom of nought or less puts nothing in front of the camera to draw.",
+        ));
+    }
+    Ok(value)
+}
+
 fn finite(value: Value) -> bool {
     match value {
         Value::Scalar(v) => v.is_finite(),
@@ -1769,6 +1868,10 @@ struct KeepPlace {
     map: crate::render::Affine,
     rotation: f64,
     scale: (f64, f64),
+    /// D-58: what to add to the layer's own depth so that its distance from the camera
+    /// does not change. A depth rides the chain by addition, so this conversion is always
+    /// exact whatever `exact` says about the position, scale and rotation one.
+    depth: f64,
     /// Document 21's exactness rule: true when every chain scales equally in x and y, or when
     /// neither the layer nor any layer in either chain is turned. False means the exact answer
     /// is a skew this transform cannot hold -- the anchor lands where it was and the rest may
@@ -1805,10 +1908,19 @@ fn keep_place(
         .layer(layer_id)
         .and_then(|l| l.transform.rotation.value_at(frame).as_scalar())
         .is_some_and(|r| r != 0.0);
+    // D-58: the chain's depth, which the layer's own is added to. Leaving the old chain
+    // takes that chain's depth off the layer, and joining the new one puts the new
+    // chain's on, so the layer stays the distance from the camera it was.
+    let chain_depth = |id: Option<&Id>| match id {
+        Some(id) => crate::compose::world_depth(comp, id, frame),
+        None => 0.0,
+    };
+    let held = comp.layer(layer_id).and_then(|l| l.parent.as_ref());
     Ok(KeepPlace {
         map: old.matrix.then(inverse),
         rotation: old.rotation - new.rotation,
         scale: (old.scale.0 / new.scale.0, old.scale.1 / new.scale.1),
+        depth: chain_depth(held) - chain_depth(parent),
         exact: (old.uniform && new.uniform) || (!turned && old.unrotated && new.unrotated),
     })
 }
@@ -1871,6 +1983,21 @@ fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
         },
         &handle,
     );
+    // D-58. Guarded, so that a layer with no depth in a project with no camera does not
+    // gain one by being parented: nothing to keep means nothing to write.
+    if by.depth != 0.0 {
+        let depth = layer
+            .depth
+            .get_or_insert_with(|| Property::constant(Value::Scalar(0.0)));
+        convert(
+            depth,
+            |v| match v.as_scalar() {
+                Some(d) => Value::Scalar(d + by.depth),
+                None => v,
+            },
+            &handle,
+        );
+    }
 }
 
 /// Whether parenting `layer_id` to `parent` at `frame` can keep every point of the layer where

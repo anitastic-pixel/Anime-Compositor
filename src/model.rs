@@ -438,6 +438,92 @@ impl Transform {
     }
 }
 
+/// D-58's camera: a composition is seen from somewhere.
+///
+/// Three animatable properties and no more. It is deliberately **not** a layer, which is where
+/// this parts company with After Effects: a camera layer would buy several cameras in one
+/// composition, in and out points and the null-object rig, at the cost of a layer kind with no
+/// drawing and a rule for which camera is live on which frame. One camera per composition is the
+/// multiplane rig this project is for, and D-58 names that cost rather than hiding it.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Camera {
+    /// Where the camera is in composition pixels.
+    pub position: Property,
+    /// Its own place on the same axis a layer's `depth` measures.
+    pub depth: Property,
+    /// A length in pixels. After Effects stores it this way too; the window shows it in
+    /// millimetres, which is D-22's rule about where a unit is converted.
+    pub zoom: Property,
+}
+
+impl Camera {
+    /// The camera a composition has when its file carries none.
+    ///
+    /// After Effects names a camera by the focal length of a lens on a 36 mm film back and
+    /// defaults to 50 mm, so the zoom is `width * 50 / 36` and the camera sits that far back. A
+    /// plane at depth 0 is therefore drawn at 1:1 whatever the lens, which is what let D-58
+    /// change the default after the fact without moving one number in any earlier fixture.
+    pub fn default_for(width: u32, height: u32) -> Self {
+        let zoom = width as f64 * 50.0 / 36.0;
+        Camera {
+            position: Property::constant(Value::Vec2(width as f64 / 2.0, height as f64 / 2.0)),
+            depth: Property::constant(Value::Scalar(-zoom)),
+            zoom: Property::constant(Value::Scalar(zoom)),
+        }
+    }
+
+    pub fn get(&self, prop: CameraProp) -> &Property {
+        match prop {
+            CameraProp::Position => &self.position,
+            CameraProp::Depth => &self.depth,
+            CameraProp::Zoom => &self.zoom,
+        }
+    }
+
+    pub(crate) fn get_mut(&mut self, prop: CameraProp) -> &mut Property {
+        match prop {
+            CameraProp::Position => &mut self.position,
+            CameraProp::Depth => &mut self.depth,
+            CameraProp::Zoom => &mut self.zoom,
+        }
+    }
+}
+
+/// Which camera property a command addresses, for [`Prop`]'s reason.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CameraProp {
+    Position,
+    Depth,
+    Zoom,
+}
+
+impl CameraProp {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CameraProp::Position => "position",
+            CameraProp::Depth => "depth",
+            CameraProp::Zoom => "zoom",
+        }
+    }
+
+    /// D-58: the place is a point, the other two are lengths.
+    pub fn kind(self) -> &'static str {
+        match self {
+            CameraProp::Position => "vec2",
+            CameraProp::Depth | CameraProp::Zoom => "scalar",
+        }
+    }
+
+    pub fn from_str(name: &str) -> Option<Self> {
+        match name {
+            "position" => Some(CameraProp::Position),
+            "depth" => Some(CameraProp::Depth),
+            "zoom" => Some(CameraProp::Zoom),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BlendMode {
     Normal,
@@ -507,6 +593,17 @@ pub struct Layer {
     pub label: u8,
     /// W-26: After Effects' shy switch. Saved as `shy` only when set, as the label is.
     pub shy: bool,
+    /// D-58: the plane this layer sits on, in pixels, or `None` for depth 0.
+    ///
+    /// A property rather than a plain number because After Effects keyframes Z constantly and a
+    /// plane that pushes in is an ordinary shot. The consequence is that what is in front of
+    /// what is a question with a different answer on different frames, which is why the draw
+    /// order is sorted per frame and not once - FX-CAM-010 is the case that says so.
+    ///
+    /// A parented layer's depth adds to its parent's up the chain, so a mouth cel parented to a
+    /// head plane is on the head's plane without anybody saying so twice. Saved as `depth` only
+    /// when it is set, as `parent` and `label` are.
+    pub depth: Option<Property>,
 }
 
 impl Layer {
@@ -536,6 +633,7 @@ impl Layer {
             blend_mode: BlendMode::Normal,
             label: 0,
             shy: false,
+            depth: None,
         }
     }
 
@@ -573,6 +671,12 @@ pub struct Composition {
     /// W-24: composition markers, a frame and a name each, in frame order. Saved as `markers`
     /// only when there are some or the file already had the key.
     pub markers: Vec<Marker>,
+    /// D-58's camera, or `None` for the default one.
+    ///
+    /// **`None` is not a composition without a camera.** It is a composition seen through
+    /// [`Camera::default_for`], which is what makes a layer start working in depth the moment it
+    /// is given one, without anybody adding a camera first. Saved as `camera` only when set.
+    pub camera: Option<Camera>,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
 }
@@ -603,6 +707,7 @@ impl Composition {
             duration_frames,
             work_area: None,
             markers: Vec::new(),
+            camera: None,
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }
