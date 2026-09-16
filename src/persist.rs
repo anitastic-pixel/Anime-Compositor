@@ -2146,6 +2146,23 @@ pub fn stored_path(project_dir: &Path, file: &Path) -> String {
     relative.to_string_lossy().replace('\\', "/")
 }
 
+/// The same project with every media path rewritten for a file in `to` rather than in `from`.
+///
+/// Stored paths are relative to the project file, so a project written into another directory
+/// keeps pointing at the same drawings only if its paths are rewritten on the way. Each one is
+/// resolved against `from` and stored again by [`stored_path`]: relative where the drawing is
+/// under `to`, whole where it is not. The owner's B-13e playtest found the cost of not doing
+/// this: Save As into another folder reopened on a blank canvas.
+pub fn rebased(project: &Project, from: &Path, to: &Path) -> Project {
+    let mut project = project.clone();
+    let moved = |stored: &mut String| *stored = stored_path(to, &from.join(stored.as_str()));
+    for asset in &mut project.assets {
+        asset.path.iter_mut().for_each(moved);
+        asset.frames.values_mut().for_each(moved);
+    }
+    project
+}
+
 /// Work out what relinking `asset_id` to `files` would produce.
 ///
 /// The files are the user's selection, never a directory this scanned on its own. Document 07:

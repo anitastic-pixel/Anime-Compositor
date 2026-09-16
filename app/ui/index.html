@@ -1520,7 +1520,11 @@ function copyKeys() {
 }
 function pasteKeys(start = frame, target = null) {
   const first = Math.min(...copied.map((c) => c.key.frame));
-  const onto = new Set(copied.map((c) => c.layer)).size === 1
+  // Owner playtest of B-13e, 2026-09-16: keys copied from the camera go back to the camera. A
+  // layer left selected while a camera key was picked took them, and a camera value means
+  // nothing on a layer.
+  const from = new Set(copied.map((c) => c.layer));
+  const onto = from.size === 1 && !from.has(CAMERA_ROW)
     ? target || (selected() ? selected().id : null) : null;
   // W-25 fix: a value sent to a property with no keys only changes its one value, so a property
   // pasted onto that has none is given its first key before the copied values arrive.

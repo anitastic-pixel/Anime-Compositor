@@ -896,10 +896,15 @@ fn save(viewer: &Mutex<Viewer>) -> String {
 /// directory may no longer find its cels. Loading the file back means the window shows what
 /// somebody opening it tomorrow would see, warnings and all, instead of a picture that only
 /// works because the old media root is still in memory.
+///
+/// The paths are rewritten for the new directory first, on a copy, so the reopened project finds
+/// the same drawings; a failed write leaves the open project exactly as it was.
 fn save_as(viewer: &Mutex<Viewer>, path: &Path) -> String {
     {
-        let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
-        if let Err(diagnostic) = write(viewer, path) {
+        let viewer = &*viewer.lock().expect("the viewer lock was poisoned");
+        let to = path.parent().unwrap_or(Path::new("."));
+        let mut copy = Document::new(persist::rebased(viewer.document.project(), &viewer.root, to));
+        if let Err(diagnostic) = persist::save(path, &mut copy, &viewer.preserved) {
             return sentence(&diagnostic);
         }
     }
@@ -4288,7 +4293,7 @@ mod saving {
 
     impl Report {
         fn check(&mut self, check: &str, expected: impl ToString, actual: impl ToString) {
-            let short = |text: String| text.replace(&self.scratch, "<a temporary directory>");
+            let short = |text: String| bare(&text).replace(&self.scratch, "<a temporary directory>");
             self.rows.push((
                 check.to_string(),
                 short(expected.to_string()),
@@ -4302,6 +4307,14 @@ mod saving {
             .parent()
             .expect("the app crate has a parent directory")
             .join(rel)
+    }
+
+    /// `text` with this checkout's own directory taken out. Save As writes a drawing outside the
+    /// new folder as a whole path, which is correct and names wherever the repository happens to
+    /// be, so a committed artifact has to say it some other way.
+    fn bare(text: &str) -> String {
+        let root = repo("").display().to_string().replace('\\', "/");
+        text.replace(root.trim_end_matches('/'), "<the repository>")
     }
 
     /// A scratch directory of this test's own, emptied first so a previous run cannot make a
@@ -4378,8 +4391,8 @@ mod saving {
         let reopened = persist::load(&elsewhere).expect("reopen what was written");
         report.check(
             "reopening the saved file and saving it again would write the same bytes",
-            written.len(),
-            persist::to_json(reopened.document.project(), &reopened.preserved).len(),
+            bare(&written).len(),
+            bare(&persist::to_json(reopened.document.project(), &reopened.preserved)).len(),
         );
         report.check(
             "and the same text, not merely the same length",
@@ -4552,7 +4565,9 @@ mod saving {
              Ctrl+S save of a project that already had a file, which is the one path a script can \
              drive from end to end.\n\nWhere a row says *a temporary directory*, \
              the real value was this machine's scratch directory, which is different on every \
-             machine and on every run. The destination is shown rather than hidden — a save that \
+             machine and on every run; *the repository* is this checkout's own directory, which \
+             Save As writes whole for a drawing that is not under the folder the project moved \
+             to. The destination is shown rather than hidden — a save that \
              reports the wrong one is exactly the failure worth seeing — but the machine-specific \
              part of it is not, because this file is committed and checked.\n",
         );

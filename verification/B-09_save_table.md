@@ -9,7 +9,7 @@ Every row here is about one promise: **what comes back off the disk is the proje
 | Save As says where the project went | Saved to <a temporary directory>\saved_elsewhere.json | Saved to <a temporary directory>\saved_elsewhere.json | pass |
 | the file the person chose is now on disk | true | true | pass |
 | the effect this build does not have is still in the saved file | true | true | pass |
-| reopening the saved file and saving it again would write the same bytes | 2653 | 2653 | pass |
+| reopening the saved file and saving it again would write the same bytes | 2723 | 2723 | pass |
 | and the same text, not merely the same length | true | true | pass |
 | after Save As the window is showing the file that was written | <a temporary directory>\saved_elsewhere.json | <a temporary directory>\saved_elsewhere.json | pass |
 | and calls it by its new name | saved_elsewhere.json | saved_elsewhere.json | pass |
@@ -30,8 +30,8 @@ Every row here is about one promise: **what comes back off the disk is the proje
       "name": "Cel",
       "pattern": "cel_####.png",
       "frames": {
-        "1": "media/cel_0001.png",
-        "2": "media/cel_0002.png"
+        "1": "<the repository>/Fixtures/projects/media/cel_0001.png",
+        "2": "<the repository>/Fixtures/projects/media/cel_0002.png"
       },
       "interpretation": {
         "color_space": "srgb",
@@ -148,8 +148,8 @@ Every row here is about one promise: **what comes back off the disk is the proje
       "name": "Cel",
       "pattern": "cel_####.png",
       "frames": {
-        "1": "media/cel_0001.png",
-        "2": "media/cel_0002.png"
+        "1": "<the repository>/Fixtures/projects/media/cel_0001.png",
+        "2": "<the repository>/Fixtures/projects/media/cel_0002.png"
       },
       "interpretation": {
         "color_space": "srgb",
@@ -270,8 +270,8 @@ Every row here is about one promise: **what comes back off the disk is the proje
       "name": "Cel",
       "pattern": "cel_####.png",
       "frames": {
-        "1": "media/cel_0001.png",
-        "2": "media/cel_0002.png"
+        "1": "<the repository>/Fixtures/projects/media/cel_0001.png",
+        "2": "<the repository>/Fixtures/projects/media/cel_0002.png"
       },
       "interpretation": {
         "color_space": "srgb",
@@ -388,8 +388,8 @@ Every row here is about one promise: **what comes back off the disk is the proje
       "name": "Cel",
       "pattern": "cel_####.png",
       "frames": {
-        "1": "media/cel_0001.png",
-        "2": "media/cel_0002.png"
+        "1": "<the repository>/Fixtures/projects/media/cel_0001.png",
+        "2": "<the repository>/Fixtures/projects/media/cel_0002.png"
       },
       "interpretation": {
         "color_space": "srgb",
@@ -502,4 +502,4 @@ Every row here is about one promise: **what comes back off the disk is the proje
 
 The dialogs. A file dialog belongs to the operating system and a test has no hands to answer one, so what is checked here begins at the path the person chose. Choosing a file, and the Open and Save As dialogs that do the choosing, are still unphotographed; the two photographs beside this table show a Ctrl+S save of a project that already had a file, which is the one path a script can drive from end to end.
 
-Where a row says *a temporary directory*, the real value was this machine's scratch directory, which is different on every machine and on every run. The destination is shown rather than hidden — a save that reports the wrong one is exactly the failure worth seeing — but the machine-specific part of it is not, because this file is committed and checked.
+Where a row says *a temporary directory*, the real value was this machine's scratch directory, which is different on every machine and on every run; *the repository* is this checkout's own directory, which Save As writes whole for a drawing that is not under the folder the project moved to. The destination is shown rather than hidden — a save that reports the wrong one is exactly the failure worth seeing — but the machine-specific part of it is not, because this file is committed and checked.
