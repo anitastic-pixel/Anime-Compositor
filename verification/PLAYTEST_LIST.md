@@ -9,6 +9,11 @@ and all three passed; what they reported is written under each. The fourth was n
 this list was written and is ready now, because D-58 was accepted the same day and B-13c was
 built against it.
 
+**Outstanding on 2026-09-16: numbers 5, 6 and 7.** The first four have been performed - number 4
+on 2026-09-15, which is the playtest that asked for 5 and 6 and is why they exist. Numbers 5 and
+6 were built on 2026-09-16 and nobody has walked either. Number 7 was written on 2026-09-16 and
+is the last piece of T-06 that no test can reach.
+
 ## 1. Parenting, which was built yesterday and has never been used
 
 `verification/B-13b_parent_playtest.md`, nine steps by hand.
@@ -131,6 +136,31 @@ whether or not it is listed here.
 The thing to know before starting: the Camera block's three boxes are no longer special. They
 send what every other number in the window sends, which is what made keying them possible. If
 anything about them behaves differently from the rest of the Inspector, that is worth saying.
+
+## 7. The viewer's own memory, which no test can watch
+
+`verification/T-06_window_memory_playtest.md`, nine steps, and a hundred seconds of deliberately
+leaving a window alone.
+
+This one is not a feature and nothing was built for it. `Markdown/11_Verification_Plan.md` says
+the one thing T-06 asks for that nothing measures is the viewer's own memory across ten loops of
+a window left playing, "which still needs a harness nobody has written" - and a person with Task
+Manager is that harness. Everything else T-06 asks for has a number against it already, in
+`verification/T-06_performance_envelope.md` and `verification/T-06_declared_fixture.md`; both
+measure ten loops, and both do it headless, in a process with no window in it.
+
+Nothing to prepare beyond starting the release build and opening the reference shot. Playback
+loops by itself - there is no loop button to look for - so the walk is: read the memory, press
+space, read it after one loop, leave it alone for a hundred seconds, read it again, subtract.
+
+**The one to watch for**: a figure that climbs loop after loop without levelling off. The total
+will be over a gigabyte and that is the cel cache at its 1 GiB default doing its job; the
+difference is the measurement, and headless it is 2.3 MiB across 1,920 renders against a bound
+of one cel.
+
+**What it deliberately does not settle**: two of T-06's targets are missed on the ten-layer
+fixture - 24 fps warm playback and the 100 ms seek - and both are decisions rather than
+measurements. The sheet says so at the bottom and leaves them where they belong.
 
 ## Not on this list
 
