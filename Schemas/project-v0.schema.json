@@ -80,6 +80,9 @@
           "items": {
             "$ref": "#/$defs/keyScalar"
           }
+        },
+        "expression": {
+          "$ref": "#/$defs/expression"
         }
       },
       "additionalProperties": false
@@ -99,6 +102,9 @@
           "items": {
             "$ref": "#/$defs/keyVec2"
           }
+        },
+        "expression": {
+          "$ref": "#/$defs/expression"
         }
       },
       "additionalProperties": false
@@ -529,6 +535,22 @@
         }
       },
       "additionalProperties": true
+    },
+    "expression": {
+      "type": "object",
+      "required": [
+        "text",
+        "enabled"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

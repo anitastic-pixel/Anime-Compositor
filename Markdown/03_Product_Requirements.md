@@ -46,7 +46,7 @@ R-06b / R / Bounded preview cache: cache reusable results with correct invalidat
 
 R-12 / N / 2.5D: one perspective camera, flat planes, parent transforms and documented transparency ordering. A reference parallax shot reproduces after reopening. T-11; B-13.
 
-R-13 / N / Expressions: a documented native property-expression subset with deterministic time and seeded randomness, bounded evaluation and cycle errors. T-12; B-14. Runtime undecided per D-10.
+R-13 / N / Expressions: a documented native property-expression subset with deterministic time and seeded randomness, bounded evaluation and cycle errors. T-12; B-14. Runtime undecided per D-10; D-59, proposed on 2026-09-16, answers it with a language document 09 specifies and this project evaluates itself.
 
 R-14 / L / Packaging: collect permitted media with hashes and usage information, and verify reopening from a new path. T-13; B-15.
 

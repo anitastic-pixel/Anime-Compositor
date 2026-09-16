@@ -10932,6 +10932,9 @@ mod contract {
         ("keyframe.move", "a command the window answers"),
         ("keyframe.set_interp", "a command the window answers"),
         ("keyframe.set_path", "a command the window answers"),
+        // D-59 is written and awaiting the owner, so document 24 names this and nothing
+        // carries it out yet.
+        ("property.set_expression", "nothing yet"),
         ("effect.add", "a command the window answers"),
         ("effect.delete", "a command the window answers"),
         ("effect.toggle_bypass", "a command the window answers"),

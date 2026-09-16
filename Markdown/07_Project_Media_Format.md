@@ -8,6 +8,8 @@ Use a versioned, inspectable structured format for G1; JSON is the initial candi
 
 A composition stores stable ID, pixel dimensions, pixel aspect ratio, frame-rate numerator/denominator, start frame, duration and an optional camera (D-58). G1 supports square pixels only and rejects unsupported ratios explicitly. A layer references an asset and stores order, timing, transforms, visibility, masks, matte references, an optional parent reference (D-57), an optional depth (D-58) and effect instances.
 
+An animatable property may carry an optional expression, its text and whether it is enabled (D-59, proposed). A project with none is unchanged.
+
 An effect instance stores stable instance ID, effect type, contract version, enabled state and typed parameters. References must use IDs rather than display names. Unknown effect records are preserved and surfaced as unsupported.
 
 ## Exact time model

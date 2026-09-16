@@ -379,6 +379,178 @@ or out of a tutorial written for one, parallaxes here by the amount it does ther
 view does not depend on the composition's width, which is the check that the default is a lens
 and not a number of pixels that happens to suit one size of picture.
 
+## Expression fixtures
+
+PROPOSED on 2026-09-16 by D-59, awaiting the owner. Every case is `Fixtures/projects/expression_project.json` or that file with one property's expression replaced, as the case says: one composition, 1920 by 1080 at 24 frames a second, 49 frames long, nine layers named after what they do. Their IDs and names are `layer-spin` Spin, `layer-follow` Follow, `layer-shake` Shake, `layer-shake-twos` Shake on threes, `layer-lead` Lead, `layer-trail` Trail, `layer-loop` Loop, `layer-fade` Fade and `layer-off` Switched off. Every layer is at (960, 540) with rotation 0 and opacity 1 unless the case says otherwise.
+
+**Every number below is produced by `tools/expression_reference.py`**, which reads and evaluates document 09's language in Python and shares nothing with the build. Tolerance 1e-9, except that the noise behind `wiggle` and `random` is specified to the operation and a build must match FX-EXPR-002, 003, 004, 013 and 014 to 1e-12. A diagnostic column is the identifier the property must report at that frame, and `none` means it must report nothing.
+
+`python tools/expression_reference.py --check` confirms that the project file is still what the generator writes. B-14b must open that file and save it byte for byte.
+
+FX-EXPR-001: time, and one layer reading another. Spin's rotation is `time * 90`. Follow's is `thisComp.layer("layer-spin").transform.rotation * -1`, so it turns the other way at the same speed. Neither has keys.
+
+| frame | Spin rotation | Follow rotation |
+| --- | --- | --- |
+| 0 | 0 | 0 |
+| 6 | 22.5 | -22.5 |
+| 12 | 45 | -45 |
+| 24 | 90 | -90 |
+| 36 | 135 | -135 |
+| 48 | 180 | -180 |
+
+FX-EXPR-002: `wiggle(2, 30)` on Shake's position, base (960, 540). Every number here is the noise of document 09 worked to the operation, so a build that differs in the last digit has a different noise, not a rounding difference. Frame 6 is exactly halfway between frames 0 and 12, and frame 18 between 12 and 24, because at 2 wiggles a second those frames fall on the half-way point between two lattice values, where the fade is exactly one half.
+
+| frame | Shake position |
+| --- | --- |
+| 0 | (939.2579552997871, 548.2812330411965) |
+| 6 | (941.545853571091, 544.3187500385676) |
+| 12 | (943.8337518423949, 540.3562670359387) |
+| 18 | (957.0113563546388, 535.4764003540593) |
+| 24 | (970.1889608668827, 530.5965336721797) |
+| 48 | (966.906188209151, 529.5843168112989) |
+
+FX-EXPR-003: `posterizeTime(8)` then `wiggle(2, 30)`, on a layer with a different ID from Shake's, so a different wiggle. At 24 frames a second the value holds for three frames and then moves.
+
+| frame | Shake on threes position |
+| --- | --- |
+| 0 | (954.7511202122558, 555.917263510788) |
+| 1 | (954.7511202122558, 555.917263510788) |
+| 2 | (954.7511202122558, 555.917263510788) |
+| 3 | (955.3280386609665, 554.9464196445025) |
+| 4 | (955.3280386609665, 554.9464196445025) |
+| 5 | (955.3280386609665, 554.9464196445025) |
+| 6 | (957.5377451720659, 551.2279044585414) |
+
+FX-EXPR-004: the same expression is the same number every time, and a different seed or a different property is a different number. The first row equals FX-EXPR-002 at frame 12. The third row is the same text on a different property and does not move with Shake.
+
+| case | value at frame 12 |
+| --- | --- |
+| Shake's own expression, evaluated a second time | (943.8337518423949, 540.3562670359387) |
+| Shake with seedRandom(5) first | (958.3765471180127, 545.6703353848442) |
+| wiggle(2, 30) on Spin's rotation | 24.35692893913322 |
+
+FX-EXPR-005: `valueAtTime`. Lead's position is keyed linearly from (0, 540) at frame 0 to (1920, 540) at frame 48. Trail's expression, which starts with a comment line, is `thisComp.layer("layer-lead").position.valueAtTime(time - 0.25)`: six frames behind. Before frame 6 it reads the held first key.
+
+| frame | Lead position | Trail position |
+| --- | --- | --- |
+| 0 | (0, 540) | (0, 540) |
+| 6 | (240, 540) | (0, 540) |
+| 12 | (480, 540) | (240, 540) |
+| 24 | (960, 540) | (720, 540) |
+| 48 | (1920, 540) | (1680, 540) |
+
+FX-EXPR-006: the four loops. Loop's rotation is keyed linearly 0 at frame 0, 90 at frame 12 and 30 at frame 24, and its expression is `loopOut(kind)`. Up to frame 24 all four are the keys. Continue carries on at the slope of the final frame, which is -5 degrees a frame.
+
+| frame | cycle | pingpong | offset | continue |
+| --- | --- | --- | --- | --- |
+| 0 | 0 | 0 | 0 | 0 |
+| 12 | 90 | 90 | 90 | 90 |
+| 24 | 30 | 30 | 30 | 30 |
+| 30 | 45 | 60 | 75 | 0 |
+| 36 | 90 | 90 | 120 | -30 |
+| 42 | 60 | 45 | 90 | -60 |
+| 48 | 0 | 0 | 60 | -90 |
+
+FX-EXPR-007: opacity is a percentage inside an expression. Fade's expression is `linear(time, 0, 1, 0, 100)` and the second column replaces `linear` with `ease`. The numbers are what the file-units property holds, 0 to 1.
+
+| frame | linear, in the file | ease, in the file |
+| --- | --- | --- |
+| 0 | 0 | 0 |
+| 6 | 0.25 | 0.15625 |
+| 12 | 0.5 | 0.5 |
+| 24 | 1 | 1 |
+| 48 | 1 | 1 |
+
+FX-EXPR-008: wrong types and wrong shapes. Each row is one expression put on the named property of the fixture project, evaluated at frame 12. A failed expression leaves the property at its keyed value, which is the third column. Opacity 250 is not an error: it is limited to 100, which is 1 in the file. A camera zoom of -10 is an error and is not limited.
+
+| property | expression | value at frame 12 | diagnostic |
+| --- | --- | --- | --- |
+| rotation | `[1, 2]` | 0 | EXPRESSION_TYPE |
+| position | `5` | (960, 540) | EXPRESSION_TYPE |
+| position | `value + 5` | (960, 540) | EXPRESSION_TYPE |
+| rotation | `1 / 0` | 0 | EXPRESSION_TYPE |
+| rotation | `"ninety"` | 0 | EXPRESSION_TYPE |
+| rotation | `value[0]` | 0 | EXPRESSION_TYPE |
+| position | `[1, 2] * [3, 4]` | (960, 540) | EXPRESSION_TYPE |
+| rotation | `posterizeTime(8)` | 0 | EXPRESSION_TYPE |
+| opacity | `250` | 1 | none |
+| zoom | `-10` | 1920 | EXPRESSION_TYPE |
+| rotation | `wiggle(2, 30, 40)` | 0 | EXPRESSION_TYPE |
+
+FX-EXPR-009: references survive a rename and fail visibly on a delete. Follow reads Spin by ID.
+
+| case | Follow rotation at frame 12 | diagnostic |
+| --- | --- | --- |
+| as written | -45 | none |
+| Spin renamed | -45 | none |
+| Spin deleted | 0 | EXPRESSION_REFERENCE_MISSING |
+
+FX-EXPR-010: cycles. In the first two rows Spin's expression is replaced with `thisComp.layer("layer-follow").rotation`, while Follow still reads Spin. The third is `thisLayer.rotation + 1` on Spin, and the fourth `thisProperty.valueAtTime(time - 1) + value`, which reads Spin's keys and is not a cycle. After Effects would give the third row a number; this language gives a diagnostic.
+
+| case | property | value at frame 12 | diagnostic |
+| --- | --- | --- | --- |
+| Spin follows Follow, which follows Spin | Spin rotation | 0 | EXPRESSION_CYCLE |
+| the same | Follow rotation | 0 | EXPRESSION_CYCLE |
+| Spin reads its own finished value | Spin rotation | 0 | EXPRESSION_CYCLE |
+| Spin reads its own keys through thisProperty | Spin rotation | 0 | none |
+
+FX-EXPR-011: runaway work stops, and stops the same way every time. In the first two rows Spin is `thisComp.layer("layer-follow").rotation.valueAtTime(time - 1/24) + 1` and Follow is `thisComp.layer("layer-spin").rotation.valueAtTime(time) + 1`, so each reads the other at an ever earlier frame and neither ever meets itself at the same frame. The depth limit of 16 stops it. The second row starts at frame 3 to show that passing frame 0 does not stop it, because the held first key goes on for ever. The third row is too long to read.
+
+| case | value at frame 40 | diagnostic |
+| --- | --- | --- |
+| Spin and Follow each read the other a frame earlier, forever | 0 | EXPRESSION_TIMEOUT |
+| the same at frame 3, which runs out of frames before it runs out of depth | 0 | EXPRESSION_TIMEOUT |
+| `1 + 1 + ...`, 4401 bytes | 0 | EXPRESSION_SYNTAX |
+
+FX-EXPR-012: there is no way out. Each is Spin's expression. None of them is evaluated: each is refused when the text is read, or on the first word the language does not have.
+
+| expression | value at frame 12 | diagnostic |
+| --- | --- | --- |
+| `require("fs")` | 0 | EXPRESSION_SYNTAX |
+| `eval("1")` | 0 | EXPRESSION_SYNTAX |
+| `system.callSystem("calc")` | 0 | EXPRESSION_SYNTAX |
+| `$.sleep(100000)` | 0 | EXPRESSION_SYNTAX |
+| `fetch("http://example.com")` | 0 | EXPRESSION_SYNTAX |
+| `while (1) {}` | 0 | EXPRESSION_SYNTAX |
+| `function f() { return 1 }` | 0 | EXPRESSION_SYNTAX |
+| `thisComp.layer("layer-spin").sourceText` | 0 | EXPRESSION_SYNTAX |
+
+FX-EXPR-013: `random`. Each column is Spin's whole expression. The first three are the same call and differ only in range. The fourth is timeless and gives the same number on every frame.
+
+| frame | random() | random(10) | random(5, 10) | seedRandom(3, 1) then random() |
+| --- | --- | --- | --- | --- |
+| 0 | 0.577284866174014 | 5.77284866174014 | 7.88642433087007 | 0.734884388919881 |
+| 1 | 0.15815400784099987 | 1.5815400784099987 | 5.790770039204999 | 0.734884388919881 |
+| 12 | 0.6487858604973431 | 6.487858604973431 | 8.243929302486716 | 0.734884388919881 |
+| 48 | 0.1420645882663093 | 1.420645882663093 | 5.710322941331547 | 0.734884388919881 |
+
+FX-EXPR-014: the camera. The fixture's camera position is `wiggle(1, 10)` on base (960, 540), with depth -1920 and zoom 1920. The third column is Spin with `thisComp.activeCamera.zoom / 100`.
+
+| frame | camera position | Spin rotation from the camera's zoom |
+| --- | --- | --- |
+| 0 | (969.4336249008326, 547.6315259802685) | 19.2 |
+| 12 | (966.7653177123977, 548.3560595722439) | 19.2 |
+| 24 | (964.097010523963, 549.0805931642192) | 19.2 |
+| 48 | (967.4231219378125, 530.3694238295922) | 19.2 |
+
+FX-EXPR-015: local names and Math. Shake's expression replaced with `bob = Math.sin(time * Math.PI * 2) * 20` and, on the next line, `value + [0, bob]`: one bob a second, 20 pixels.
+
+| frame | Shake position |
+| --- | --- |
+| 0 | (960, 540) |
+| 6 | (960, 560) |
+| 12 | (960, 540) |
+| 18 | (960, 520) |
+| 24 | (960, 540) |
+
+FX-EXPR-016: a switched-off expression, and opacity read by another expression. Switched off's opacity is 1 in the file and carries the expression `50` with `enabled` false. The second and third rows are Spin with `thisComp.layer("layer-off").opacity` and `thisComp.layer("layer-fade").opacity`. Both are percentages, whether or not the opacity read has a working expression of its own.
+
+| property | value at frame 12 | diagnostic |
+| --- | --- | --- |
+| Switched off opacity | 1 | none |
+| Spin rotation reading Switched off's opacity | 100 | none |
+| Spin rotation reading Fade's opacity | 50 | none |
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

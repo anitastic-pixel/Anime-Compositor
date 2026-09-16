@@ -172,6 +172,18 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
 /// a claim about scope that a reader can check against the requirement it names.
 const NOT_BUILT: &[(&str, &str)] = &[
     (
+        "EXPRESSION_SYNTAX",
+        "D-59, the expression language, is written and awaiting the owner; no expression evaluator exists.",
+    ),
+    (
+        "EXPRESSION_TYPE",
+        "D-59, the expression language, is written and awaiting the owner; no expression evaluator exists.",
+    ),
+    (
+        "EXPRESSION_REFERENCE_MISSING",
+        "D-59, the expression language, is written and awaiting the owner; no expression evaluator exists.",
+    ),
+    (
         "EXPRESSION_CYCLE",
         "R-13, expressions, is G2 work and no expression evaluator exists.",
     ),
@@ -243,7 +255,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "24 identifiers",
+        "27 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

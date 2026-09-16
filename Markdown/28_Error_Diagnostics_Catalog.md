@@ -28,8 +28,11 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | PARENT_CYCLE | ERROR | Parent chain loops back on itself (D-57) | reject command/load render graph, as MATTE_CYCLE |
 | CAMERA_PLANE_BEHIND | WARNING | Layer sits level with the camera or behind it (D-58) | preserve the record; draw nothing for the layer; report once per frame, rate-limited |
 | MASK_INVALID_OUTLINE | ERROR on a command, WARNING on a load | Mask outline crosses itself, or has fewer than three corners | reject the command; on load preserve the record exactly, draw the layer unmasked, and report fidelity incomplete |
-| EXPRESSION_CYCLE | ERROR | Expression dependency cycle | stop affected property evaluation |
-| EXPRESSION_TIMEOUT | ERROR | Bounded evaluator limit exceeded | terminate expression deterministically |
+| EXPRESSION_SYNTAX | ERROR | Expression text cannot be read, or asks for a word the language does not have (D-59) | preserve the text; draw the property at its keyed value; show the error on the property; refuse an export that meets it |
+| EXPRESSION_TYPE | ERROR | Expression gives or uses a value of the wrong kind, shape or range (D-59) | as EXPRESSION_SYNTAX |
+| EXPRESSION_REFERENCE_MISSING | ERROR | Expression names a layer ID that does not exist (D-59) | preserve the text; as EXPRESSION_SYNTAX |
+| EXPRESSION_CYCLE | ERROR | Expression dependency cycle | stop affected property evaluation; as EXPRESSION_SYNTAX (D-59) |
+| EXPRESSION_TIMEOUT | ERROR | Bounded evaluator limit exceeded | terminate expression deterministically, by counted depth and steps and never by a clock; as EXPRESSION_SYNTAX (D-59) |
 | GPU_BACKEND_FAILED | ERROR | Production GPU path failed | use approved fallback only if explicitly supported; never silently change pixels |
 | GPU_OUT_OF_MEMORY | ERROR | GPU allocation failed | cancel request, free transient resources, advise lower preview scale |
 | EXPORT_WRITE_FAILED | ERROR | Output file could not be written | report completed frames and failing path |

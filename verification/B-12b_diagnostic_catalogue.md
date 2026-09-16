@@ -40,6 +40,9 @@ One row per identifier this build can print, and the table where a person can re
 
 | Identifier | Why there is no code for it |
 |---|---|
+| `EXPRESSION_SYNTAX` | D-59, the expression language, is written and awaiting the owner; no expression evaluator exists. |
+| `EXPRESSION_TYPE` | D-59, the expression language, is written and awaiting the owner; no expression evaluator exists. |
+| `EXPRESSION_REFERENCE_MISSING` | D-59, the expression language, is written and awaiting the owner; no expression evaluator exists. |
 | `EXPRESSION_CYCLE` | R-13, expressions, is G2 work and no expression evaluator exists. |
 | `EXPRESSION_TIMEOUT` | R-13, expressions, is G2 work and no expression evaluator exists. |
 | `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |
@@ -65,7 +68,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 24 identifiers | 24 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 27 identifiers | 27 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
