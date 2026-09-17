@@ -274,12 +274,17 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
     );
 
     // Everything the core links, listed, because it is short enough to read and because a project
-    // that never touches a socket is easier to believe when you can see the whole list.
+    // that never touches a socket is easier to believe when you can see the whole list. D-62's
+    // `exr` added the crates from `bit_field` to `zune-inflate`; `proc-macro2`, `quote` and `syn`
+    // come with them to build `zerocopy-derive` and `paste`, and run only while compiling.
     report.check(
         "and that part's whole dependency list is small enough to read",
-        "adler2, bitflags, cfg-if, crc32fast, crossbeam-deque, crossbeam-epoch, crossbeam-utils, \
-         either, fdeflate, flate2, itoa, memchr, miniz_oxide, png, rayon, rayon-core, serde_core, \
-         serde_json, simd-adler32, zlib-rs, zmij",
+        "adler2, bit_field, bitflags, bytemuck, cfg-if, crc32fast, crossbeam-deque, \
+         crossbeam-epoch, crossbeam-utils, either, exr, fdeflate, flate2, half, itoa, lebe, libm, \
+         memchr, miniz_oxide, num-complex, num-traits, paste, png, proc-macro2, pulp, \
+         pulp-wasm-simd-flag, quote, raw-cpuid, rayon, rayon-core, reborrow, serde_core, \
+         serde_json, simd-adler32, smallvec, syn, unicode-ident, zerocopy, zerocopy-derive, \
+         zlib-rs, zmij, zune-inflate",
         joined(&in_core),
     );
 

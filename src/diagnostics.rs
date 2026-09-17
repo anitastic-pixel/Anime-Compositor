@@ -75,6 +75,9 @@ pub enum DiagnosticId {
     MediaUnsupportedFormat,
     /// Document 28: supported decoder failed on file.
     MediaDecodeFailed,
+    /// Document 28, added by D-62: an EXR file was drawn, but not exactly as stored. One reason
+    /// per thing done, such as channels left unused or samples that were not numbers.
+    MediaExrAdjusted,
     /// **Proposed (D-19).** Files in one sequence disagree on pixel dimensions.
     MediaSequenceDimensionMismatch,
     /// **Proposed (D-19).** Two files in one selection claim the same frame number.
@@ -165,6 +168,7 @@ impl DiagnosticId {
             DiagnosticId::MediaSequenceGap => "MEDIA_SEQUENCE_GAP",
             DiagnosticId::MediaUnsupportedFormat => "MEDIA_UNSUPPORTED_FORMAT",
             DiagnosticId::MediaDecodeFailed => "MEDIA_DECODE_FAILED",
+            DiagnosticId::MediaExrAdjusted => "MEDIA_EXR_ADJUSTED",
             DiagnosticId::MediaSequenceDimensionMismatch => "MEDIA_SEQUENCE_DIMENSION_MISMATCH",
             DiagnosticId::MediaSequenceDuplicateNumber => "MEDIA_SEQUENCE_DUPLICATE_NUMBER",
             DiagnosticId::MediaSequenceUnnumbered => "MEDIA_SEQUENCE_UNNUMBERED",
@@ -212,6 +216,7 @@ impl DiagnosticId {
                 | DiagnosticId::MediaSequenceGap
                 | DiagnosticId::MediaUnsupportedFormat
                 | DiagnosticId::MediaDecodeFailed
+                | DiagnosticId::MediaExrAdjusted
                 | DiagnosticId::MatteReferenceMissing
                 | DiagnosticId::MatteCycle
                 | DiagnosticId::ParentReferenceMissing

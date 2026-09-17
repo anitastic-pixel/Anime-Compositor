@@ -53,7 +53,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
 use anime_compositor::command::{Command, Document, Target};
-use anime_compositor::export::{export_sequence, ExportRequest, MissingSource};
+use anime_compositor::export::{export_sequence, ExportRequest, MissingSource, OutputFormat};
 use anime_compositor::media::import_sequence;
 use anime_compositor::model::{Asset, AssetKind, Composition, Id, Layer, Project, Prop, Value};
 use anime_compositor::time::{ExposureMap, ExposureSpan, FrameRate};
@@ -408,6 +408,7 @@ fn export_one(
         alpha,
         tile_size: 128,
         missing: MissingSource::Block,
+        format: OutputFormat::Png,
     };
     let report = export_sequence(project, &root(), &request, &AtomicBool::new(false));
     assert!(

@@ -2266,6 +2266,15 @@ pub fn relink_candidate(
         ));
     };
 
+    // D-62: relinking to files of the other format takes that format's interpretation, since
+    // an EXR and a PNG cannot share one; otherwise the record's own carries over.
+    let old_file = existing.files().first().map(|f| f.to_string()).unwrap_or_default();
+    let interpretation =
+        if crate::exr_io::is_exr(sequence.pattern()) == crate::exr_io::is_exr(&old_file) {
+            existing.interpretation
+        } else {
+            Interpretation::for_file(sequence.pattern())
+        };
     let frames: BTreeMap<u32, String> = sequence
         .frames()
         .iter()
@@ -2282,7 +2291,7 @@ pub fn relink_candidate(
         // media the user chose, not of the record being replaced, but nothing in the new files
         // states it, so the record's own interpretation carries over rather than being reset
         // to a default that would silently change how the pixels are read.
-        interpretation: existing.interpretation,
+        interpretation,
         redistribute: existing.redistribute,
     };
 
@@ -2293,7 +2302,7 @@ pub fn relink_candidate(
         missing: sequence.missing(),
         width: sequence.width(),
         height: sequence.height(),
-        interpretation: existing.interpretation,
+        interpretation,
         diagnostics: result.diagnostics,
         asset,
     })

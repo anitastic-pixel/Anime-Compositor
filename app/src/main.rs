@@ -47,7 +47,9 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR, TINT};
-use anime_compositor::export::{self, ExportReport, ExportRequest, ExportStatus, MissingSource};
+use anime_compositor::export::{
+    self, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
+};
 use anime_compositor::media;
 use anime_compositor::model::{
     Asset, BlendMode, Composition, Expression, Id, Interp, Layer, Marker, Project, Prop, Value,
@@ -3694,6 +3696,7 @@ fn export_job(
             alpha: WINDOW_ALPHA,
             tile_size: DEFAULT_TILE_SIZE,
             missing,
+            format: OutputFormat::Png,
         },
     )
 }

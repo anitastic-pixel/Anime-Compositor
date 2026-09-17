@@ -948,6 +948,21 @@ impl Default for Interpretation {
     }
 }
 
+impl Interpretation {
+    /// What a new asset for this file is read as. D-62: an EXR is linear light, premultiplied,
+    /// decided by its extension and never guessed from its contents; anything else is PNG's.
+    pub fn for_file(name: &str) -> Self {
+        if crate::exr_io::is_exr(name) {
+            Interpretation {
+                color_space: crate::ColorSpace::LinearLight,
+                alpha: crate::AlphaMode::Premultiplied,
+            }
+        } else {
+            Interpretation::default()
+        }
+    }
+}
+
 /// Document 19's asset record. Document 07 names what it stores: "media type, normalized
 /// relative path where possible, original sequence pattern, explicit frame list, dimensions,
 /// input color interpretation and straight/premultiplied alpha."
@@ -986,28 +1001,30 @@ pub struct Asset {
 impl Asset {
     /// An image sequence with no frames yet.
     pub fn sequence(id: Id, name: impl Into<String>, pattern: impl Into<String>) -> Self {
+        let pattern = pattern.into();
         Asset {
             id,
             kind: AssetKind::ImageSequence,
             name: name.into(),
             path: None,
-            pattern: Some(pattern.into()),
+            interpretation: Interpretation::for_file(&pattern),
+            pattern: Some(pattern),
             frames: BTreeMap::new(),
-            interpretation: Interpretation::default(),
             redistribute: true,
         }
     }
 
     /// A single still image.
     pub fn still(id: Id, name: impl Into<String>, path: impl Into<String>) -> Self {
+        let path = path.into();
         Asset {
             id,
             kind: AssetKind::Still,
             name: name.into(),
-            path: Some(path.into()),
+            interpretation: Interpretation::for_file(&path),
+            path: Some(path),
             pattern: None,
             frames: BTreeMap::new(),
-            interpretation: Interpretation::default(),
             redistribute: true,
         }
     }

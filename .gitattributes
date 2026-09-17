@@ -34,3 +34,4 @@ verification/**/*.py text eol=lf
 # The EXR fixtures are exact bytes, and one of them, refused/not_exr.exr, is text on purpose.
 # Git would guess it is text and convert its line ending, so every EXR fixture is marked binary.
 Fixtures/exr/**/*.exr -text
+verification/B-16b[[:space:]]export/*.exr -text

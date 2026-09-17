@@ -32,7 +32,7 @@
 //!
 //! # Where the expected values come from
 //!
-//! The workspace manifests, which are written by hand and name six dependencies: `png`, `rayon`
+//! The workspace manifests, which are written by hand and name seven dependencies: `exr`, `png`, `rayon`
 //! and `serde_json` for the core, `tauri` and `tauri-plugin-dialog` for the shell, with
 //! `tauri-build` as its build-time half. Everything else in the graph arrived underneath one of
 //! those. The count is not a
@@ -359,7 +359,8 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
     // The workspace manifests are written by hand and name exactly these. `tauri-build` is
     // `tauri`'s build-time half and is asked for by name in `app/Cargo.toml`, so it counts as
     // direct even though nothing links it. `tauri-plugin-dialog` arrived with B-09's Open and
-    // Save dialogs, and this line is how a dependency added quietly stops being quiet.
+    // Save dialogs, `exr` with D-62, and this line is how a dependency added quietly stops being
+    // quiet.
     let mut direct: Vec<String> = record
         .cells
         .iter()
@@ -372,7 +373,7 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
     direct.dedup();
     report.check(
         "the record marks as direct exactly the dependencies the manifests ask for",
-        "png, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog",
+        "exr, png, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog",
         joined(&direct),
     );
 

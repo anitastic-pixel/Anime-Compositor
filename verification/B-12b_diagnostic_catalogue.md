@@ -46,12 +46,12 @@ One row per identifier this build can print, and the table where a person can re
 | `PACKAGE_FILE_CHANGED` | yes | `verification/B-15b_package_table.md` |
 | `PACKAGE_MEDIA_EXCLUDED` | yes | `verification/B-15b_package_table.md` |
 | `PACKAGE_FILE_UNVERIFIED` | yes | `verification/B-15b_package_table.md` |
+| `MEDIA_EXR_ADJUSTED` | yes | `verification/B-16b_exr_table.md` |
 
 ## What the catalogue promises and the build does not have
 
 | Identifier | Why there is no code for it |
 |---|---|
-| `MEDIA_EXR_ADJUSTED` | D-62, EXR in and out, is written and awaiting the owner; no EXR file is read yet. |
 | `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |
 | `GPU_OUT_OF_MEMORY` | There is no GPU path; every frame is composited on the processor. |
 | `INVALID_PATH` | Paths reach this build through Windows file dialogs and are read, not normalised; a path that cannot be read is reported by the identifier for what failed to read it. |
@@ -190,12 +190,15 @@ One row per identifier this build can print, and the table where a person can re
 | PACKAGE_FILE_UNVERIFIED: the enum spells it the way the catalogue does | PACKAGE_FILE_UNVERIFIED | PACKAGE_FILE_UNVERIFIED | pass |
 | PACKAGE_FILE_UNVERIFIED: says truthfully whether document 28 lists it | true | true | pass |
 | PACKAGE_FILE_UNVERIFIED: a table somewhere shows a person this sentence | named in B-15b_package_table.md | named in B-15b_package_table.md | pass |
+| MEDIA_EXR_ADJUSTED: the enum spells it the way the catalogue does | MEDIA_EXR_ADJUSTED | MEDIA_EXR_ADJUSTED | pass |
+| MEDIA_EXR_ADJUSTED: says truthfully whether document 28 lists it | true | true | pass |
+| MEDIA_EXR_ADJUSTED: a table somewhere shows a person this sentence | named in B-16b_exr_table.md | named in B-16b_exr_table.md | pass |
 | PROJECT_FEATURE_UNSUPPORTED is kept but raised by nothing | no source file raises it | no source file raises it | pass |
 | every catalogue entry is either built or written down as not built | none unaccounted for | none unaccounted for | pass |
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**119 of 119 checks pass.**
+**122 of 122 checks pass.**
 
 ## What this cannot cover
 

@@ -57,7 +57,7 @@ use std::time::Duration;
 
 use anime_compositor::compose::{self, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
-use anime_compositor::export::{export_sequence, ExportRequest, MissingSource};
+use anime_compositor::export::{export_sequence, ExportRequest, MissingSource, OutputFormat};
 use anime_compositor::media;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::persist;
@@ -166,6 +166,7 @@ fn exported(project: &Project) -> Result<Vec<u8>, String> {
         alpha: OutputAlpha::Straight,
         tile_size: DEFAULT_TILE_SIZE,
         missing: MissingSource::Block,
+        format: OutputFormat::Png,
     };
     let report = export_sequence(project, &root(), &request, &AtomicBool::new(false));
     if !report.succeeded() {

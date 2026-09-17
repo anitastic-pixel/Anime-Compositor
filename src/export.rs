@@ -30,6 +30,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use crate::compose;
 use crate::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use crate::model::{Id, Project};
+use crate::exr_io::{self, ExrSamples};
 use crate::png_out;
 use crate::{OutputAlpha, OutputDepth};
 
@@ -42,6 +43,16 @@ pub enum MissingSource {
     /// anyway. Never silent - every affected frame is in the report, and the files carry a
     /// `Fidelity` tag saying so.
     RenderTransparent,
+}
+
+/// Which kind of file each frame becomes. D-62 added EXR beside PNG.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum OutputFormat {
+    /// `depth` and `alpha` apply.
+    Png,
+    /// D-62's file, with half or float samples. `depth` and `alpha` do not apply: an EXR holds
+    /// the working buffer as it is, premultiplied.
+    Exr(ExrSamples),
 }
 
 /// How a job ended. There is no variant that means "finished, with problems hidden".
@@ -73,6 +84,7 @@ pub struct ExportRequest {
     pub alpha: OutputAlpha,
     pub tile_size: usize,
     pub missing: MissingSource,
+    pub format: OutputFormat,
 }
 
 /// What a job did. Everything a person needs to know without opening the folder.
@@ -322,15 +334,27 @@ pub fn export_sequence_counting(
                 "incomplete: a layer carried something this build could not draw".to_string(),
             ));
         }
-        let samples = buffer.encode(request.depth, request.alpha);
-        if let Err(e) = png_out::write_rgba(
-            &path,
-            buffer.width(),
-            buffer.height(),
-            request.depth,
-            &tags,
-            &samples,
-        ) {
+        let written = match request.format {
+            OutputFormat::Png => png_out::write_rgba(
+                &path,
+                buffer.width(),
+                buffer.height(),
+                request.depth,
+                &tags,
+                &buffer.encode(request.depth, request.alpha),
+            )
+            .map_err(|e| e.to_string()),
+            // D-62 writes no attribute beyond its list, so the tags above, the fidelity mark
+            // included, are not in an EXR; the report's `fidelity_incomplete` still says it.
+            OutputFormat::Exr(samples) => {
+                let rate = project
+                    .composition(&request.composition)
+                    .map(|c| c.frame_rate)
+                    .ok_or_else(|| "the composition is not in the project".to_string());
+                rate.and_then(|rate| exr_io::write(&path, &buffer, samples, rate))
+            }
+        };
+        if let Err(e) = written {
             report.status = ExportStatus::Failed;
             report.diagnostics.push(
                 Diagnostic::new(

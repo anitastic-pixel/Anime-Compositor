@@ -22,7 +22,7 @@ use std::sync::atomic::AtomicBool;
 
 use anime_compositor::compose::plan_frame;
 use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
-use anime_compositor::export::{export_sequence, ExportRequest, ExportStatus, MissingSource};
+use anime_compositor::export::{export_sequence, ExportRequest, ExportStatus, MissingSource, OutputFormat};
 use anime_compositor::expr::{evaluate, Target};
 use anime_compositor::model::{Id, Project, Prop, Value};
 use anime_compositor::persist;
@@ -502,6 +502,7 @@ fn preview_and_export(data: &J, out: &mut String) -> bool {
             alpha: OutputAlpha::Straight,
             tile_size: 256,
             missing: policy,
+            format: OutputFormat::Png,
         };
         let report = export_sequence(&project, &root, &request, &AtomicBool::new(false));
         line(
@@ -550,6 +551,7 @@ fn preview_and_export(data: &J, out: &mut String) -> bool {
         alpha: OutputAlpha::Straight,
         tile_size: 256,
         missing: MissingSource::Block,
+        format: OutputFormat::Png,
     };
     let report = export_sequence(&project, &root, &request, &AtomicBool::new(false));
     line(

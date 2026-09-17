@@ -121,7 +121,7 @@ impl SequenceAsset {
     /// is absent. Document 28 is explicit: "do not substitute adjacent frame."
     pub fn decode(&self, number: u32) -> Result<ImageBuffer, Diagnostic> {
         match self.frames.get(&number) {
-            Some(path) => decode_png(path),
+            Some(path) => decode(path),
             None => Err(Diagnostic::new(
                 DiagnosticId::MediaSequenceGap,
                 Severity::Warning,
@@ -275,7 +275,7 @@ pub fn import_sequence(files: &[PathBuf]) -> ImportResult {
     let mut sizes: BTreeMap<(u32, u32), Vec<u32>> = BTreeMap::new();
     let mut unreadable = Vec::new();
     for (number, path) in &asset.frames {
-        match png_size(path) {
+        match file_size(path, &mut diagnostics) {
             Ok(size) => sizes.entry(size).or_default().push(*number),
             Err(d) => {
                 unreadable.push(*number);
@@ -379,6 +379,31 @@ pub fn import_sequence(files: &[PathBuf]) -> ImportResult {
     ImportResult {
         asset: Some(asset),
         diagnostics,
+    }
+}
+
+/// Width and height of a PNG or EXR drawing, read as the file's extension says.
+///
+/// An EXR is read whole, because its `MEDIA_EXR_ADJUSTED` reasons (D-62) include counts of
+/// samples, and import is where a person should hear them.
+fn file_size(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> Result<(u32, u32), Diagnostic> {
+    if !crate::exr_io::is_exr(&path.to_string_lossy()) {
+        return png_size(path);
+    }
+    let picture = crate::exr_io::read(path)?;
+    diagnostics.extend(picture.diagnostic(path));
+    Ok((picture.image.width() as u32, picture.image.height() as u32))
+}
+
+/// Decode a PNG or an EXR drawing, as the file's extension says (D-62).
+///
+/// An EXR comes back linear light and premultiplied; its adjustment reasons were reported at
+/// import and are not repeated for every frame that shows it.
+pub fn decode(path: &Path) -> Result<ImageBuffer, Diagnostic> {
+    if crate::exr_io::is_exr(&path.to_string_lossy()) {
+        crate::exr_io::read(path).map(|picture| picture.image)
+    } else {
+        decode_png(path)
     }
 }
 

@@ -295,7 +295,7 @@ impl CelCache {
             .map(|at| self.pending.remove(at).1);
         let buffer = match ready {
             Some(buffer) => buffer,
-            None => Arc::new(retag(media::decode_png(path)?, interpretation).into_working()),
+            None => Arc::new(retag(media::decode(path)?, interpretation).into_working()),
         };
         if let Some(key) = key {
             crate::perf::time(crate::perf::Stage::CacheStore, || {
@@ -364,7 +364,7 @@ impl CelCache {
                         // counters the frame's wall-clock is measured against would make the
                         // stage table sum to more than the frame.
                         let buffer = crate::perf::untimed(|| {
-                            let decoded = media::decode_png(&key.path).ok()?;
+                            let decoded = media::decode(&key.path).ok()?;
                             Some(retag(decoded, key.interpretation).into_working())
                         })?;
                         Some((key, Arc::new(buffer)))

@@ -144,13 +144,18 @@ PROSE_TAIL = """
 
 ## Purpose — why each direct dependency is here
 
-The workspace names four dependencies by hand. Everything else in the table above arrived
+The workspace names five dependencies by hand. Everything else in the table above arrived
 underneath one of them.
 
 - **`png`** decodes the cel images the compositor reads and encodes the frames it exports. PNG is
   the format the reference shot is drawn in and the format document 21 names for export. Writing a
   PNG encoder that is correct about bit depth, alpha and interlacing is not work this project has
   any reason to do.
+- **`exr`** reads and writes OpenEXR files, by D-62 (accepted on 2026-09-17), with its default
+  features off. OpenEXR's compressions - ZIP, PIZ, PXR24, B44, DWA - are each a codec of their own,
+  and renders from other programs use all of them. It brought fifteen crates underneath it, among
+  them `half` for 16-bit floats and `zune-inflate` for ZIP. `tests/b16b_exr.rs` holds it to
+  OpenEXR's own library, pixel for pixel.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the

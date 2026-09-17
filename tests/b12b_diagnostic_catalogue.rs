@@ -221,15 +221,16 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "PACKAGE_FILE_UNVERIFIED",
         "B-15b_package_table.md",
     ),
+    (
+        DiagnosticId::MediaExrAdjusted,
+        "MEDIA_EXR_ADJUSTED",
+        "B-16b_exr_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
 /// a claim about scope that a reader can check against the requirement it names.
 const NOT_BUILT: &[(&str, &str)] = &[
-    (
-        "MEDIA_EXR_ADJUSTED",
-        "D-62, EXR in and out, is written and awaiting the owner; no EXR file is read yet.",
-    ),
     (
         "GPU_BACKEND_FAILED",
         "There is no GPU path; every frame is composited on the processor.",

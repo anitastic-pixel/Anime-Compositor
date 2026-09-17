@@ -62,7 +62,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
-use anime_compositor::export::{export_sequence, ExportReport, ExportRequest, MissingSource};
+use anime_compositor::export::{export_sequence, ExportReport, ExportRequest, MissingSource, OutputFormat};
 use anime_compositor::media::import_sequence;
 use anime_compositor::model::{Asset, AssetKind, Composition, Id, Layer, Project, Prop, Value};
 use anime_compositor::persist;
@@ -408,6 +408,7 @@ fn request(composition: &str, first: i32, last: i32, dir: &Path, naming: &str) -
         alpha: OutputAlpha::Straight,
         tile_size: DEFAULT_TILE_SIZE,
         missing: MissingSource::Block,
+        format: OutputFormat::Png,
     }
 }
 

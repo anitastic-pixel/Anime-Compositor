@@ -38,12 +38,14 @@ stays visible. Several other crates now do the same for the same reason.
 | `base64` | 0.22.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/marshallpierce/rust-base64 | `72b3254f16251a83…` |
 | `bit-set` | 0.8.0 | Apache-2.0 OR MIT | transitive | linked | https://github.com/contain-rs/bit-set | `08807e080ed7f9d5…` |
 | `bit-vec` | 0.8.0 | Apache-2.0 OR MIT | transitive | linked | https://github.com/contain-rs/bit-vec | `5e764a1d40d510da…` |
+| `bit_field` | 0.10.3 | Apache-2.0/MIT | transitive | linked | https://github.com/phil-opp/rust-bit-field | `1e4b40c7323adcfc…` |
 | `bitflags` | 1.3.2 | MIT/Apache-2.0 | transitive | linked | https://github.com/bitflags/bitflags | `bef38d45163c2f1d…` |
 | `bitflags` | 2.13.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/bitflags/bitflags | `b588b76d00fde796…` |
 | `block-buffer` | 0.10.4 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/RustCrypto/utils | `3078c7629b62d3f0…` |
 | `brotli` | 8.0.4 | BSD-3-Clause AND MIT | transitive | linked | https://github.com/dropbox/rust-brotli | `5cc91aac060a7a1e…` |
 | `brotli-decompressor` | 5.0.3 | BSD-3-Clause/MIT | transitive | linked | https://github.com/dropbox/rust-brotli-decompressor | `3a32acac15fe1967…` |
 | `bs58` | 0.5.1 | MIT/Apache-2.0 | transitive | linked | https://github.com/Nullus157/bs58-rs | `bf88ba1141d185c3…` |
+| `bytemuck` | 1.25.2 | Zlib OR Apache-2.0 OR MIT | transitive | linked | https://github.com/Lokathor/bytemuck | `95832e849adfb211…` |
 | `byteorder` | 1.5.0 | Unlicense OR MIT | transitive | linked | https://github.com/BurntSushi/byteorder | `1fd0f2584146f6f2…` |
 | `bytes` | 1.12.1 | MIT | transitive | linked | https://github.com/tokio-rs/bytes | `fc652a48c352aef3…` |
 | `camino` | 1.2.5 | MIT OR Apache-2.0 | transitive | linked | https://github.com/camino-rs/camino | `bb1307f12aa967b5…` |
@@ -91,6 +93,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `embed-resource` | 3.0.11 | MIT | transitive | build-time only | https://github.com/nabijaczleweli/rust-embed-resource | `fbfdaacccebec3b2…` |
 | `equivalent` | 1.0.2 | Apache-2.0 OR MIT | transitive | linked | https://github.com/indexmap-rs/equivalent | `877a4ace8713b0bc…` |
 | `erased-serde` | 0.4.10 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/erased-serde | `d2add8a07dd6a8d9…` |
+| `exr` | 1.74.2 | BSD-3-Clause | direct | linked | https://github.com/johannesvollmer/exrs | `711fe42c9964295e…` |
 | `fastrand` | 2.5.0 | Apache-2.0 OR MIT | transitive | build-time only | https://github.com/smol-rs/fastrand | `da7c62ceae207dd3…` |
 | `fdeflate` | 0.3.7 | MIT OR Apache-2.0 | transitive | linked | https://github.com/image-rs/fdeflate | `1e6853b52649d4ac…` |
 | `find-msvc-tools` | 0.1.12 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/rust-lang/cc-rs | `3e0f1c7c3a72c66f…` |
@@ -102,6 +105,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `getrandom` | 0.3.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-random/getrandom | `899def5c37c4fd7b…` |
 | `getrandom` | 0.4.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-random/getrandom | `300e883d756b2e4e…` |
 | `glob` | 0.3.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/glob | `e4eba85ea1d0a966…` |
+| `half` | 2.7.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/VoidStarKat/half-rs | `6ea2d84b969582b4…` |
 | `hashbrown` | 0.12.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/hashbrown | `8a9ee70c43aaf417…` |
 | `hashbrown` | 0.17.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/hashbrown | `ed5909b6e89a2db4…` |
 | `heck` | 0.5.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/withoutboats/heck | `2304e00983f87ffb…` |
@@ -130,7 +134,9 @@ stays visible. Several other crates now do the same for the same reason.
 | `json-patch` | 3.0.1 | MIT/Apache-2.0 | transitive | linked | https://github.com/idubrov/json-patch | `863726d7afb6bc25…` |
 | `jsonptr` | 0.6.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/chanced/jsonptr | `5dea2b27dd239b25…` |
 | `keyboard-types` | 0.7.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/pyfisch/keyboard-types | `b750dcadc39a09db…` |
+| `lebe` | 0.5.3 | BSD-3-Clause | transitive | linked | https://github.com/johannesvollmer/lebe | `7a79a3332a660948…` |
 | `libc` | 0.2.189 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/libc | `3eaf3ede3fee6db1…` |
+| `libm` | 0.2.16 | MIT | transitive | linked | https://github.com/rust-lang/compiler-builtins | `b6d2cec3eae94f9f…` |
 | `litemap` | 0.8.3 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `47d9d19d1d6efa01…` |
 | `lock_api` | 0.4.14 | MIT OR Apache-2.0 | transitive | linked | https://github.com/Amanieu/parking_lot | `224399e74b87b5f3…` |
 | `log` | 0.4.34 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/log | `f9f8bd3e56ce4dfc…` |
@@ -142,12 +148,14 @@ stays visible. Several other crates now do the same for the same reason.
 | `mio` | 1.2.3 | MIT | transitive | linked | https://github.com/tokio-rs/mio | `4b18443e9c262bfe…` |
 | `muda` | 0.19.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/muda | `1dd04e60bc0b0743…` |
 | `new_debug_unreachable` | 1.0.6 | MIT | transitive | linked | https://github.com/mbrubeck/rust-debug-unreachable | `650eef8c711430f1…` |
+| `num-complex` | 0.4.6 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-num/num-complex | `73f88a1307638156…` |
 | `num-conv` | 0.2.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/jhpratt/num-conv | `521739c6d2bac4aa…` |
 | `num-traits` | 0.2.19 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-num/num-traits | `071dfc062690e90b…` |
 | `once_cell` | 1.21.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/matklad/once_cell | `9f7c3e4beb33f85d…` |
 | `option-ext` | 0.2.0 | MPL-2.0 | transitive | linked | https://github.com/soc/option-ext.git | `04744f49eae99ab7…` |
 | `parking_lot` | 0.12.5 | MIT OR Apache-2.0 | transitive | linked | https://github.com/Amanieu/parking_lot | `93857453250e3077…` |
 | `parking_lot_core` | 0.9.12 | MIT OR Apache-2.0 | transitive | linked | https://github.com/Amanieu/parking_lot | `2621685985a2ebf1…` |
+| `paste` | 1.0.15 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/paste | `57c0d7b74b563b49…` |
 | `percent-encoding` | 2.3.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/rust-url/ | `9b4f627cb1b25917…` |
 | `phf` | 0.13.1 | MIT | transitive | linked | https://github.com/rust-phf/rust-phf | `c1562dc717473dba…` |
 | `phf_codegen` | 0.13.1 | MIT | transitive | build-time only | https://github.com/rust-phf/rust-phf | `49aa7f9d80421bca…` |
@@ -162,11 +170,15 @@ stays visible. Several other crates now do the same for the same reason.
 | `powerfmt` | 0.2.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/jhpratt/powerfmt | `439ee305def115ba…` |
 | `precomputed-hash` | 0.1.1 | MIT | transitive | linked | https://github.com/emilio/precomputed-hash | `925383efa3467304…` |
 | `proc-macro2` | 1.0.107 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/proc-macro2 | `985e7ec9bb745e6c…` |
+| `pulp` | 0.22.3 | MIT | transitive | linked | https://github.com/sarah-quinones/pulp/ | `046aa45b989642ec…` |
+| `pulp-wasm-simd-flag` | 0.1.1 | MIT | transitive | linked | https://github.com/sarah-quinones/pulp/ | `1d8f70e07b9c3962…` |
 | `quick-xml` | 0.41.0 | MIT | transitive | linked | https://github.com/tafia/quick-xml | `e660451e55124f79…` |
 | `quote` | 1.0.47 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/quote | `1fbf4db142a473a8…` |
+| `raw-cpuid` | 11.6.0 | MIT | transitive | linked | https://github.com/gz/rust-cpuid | `498cd0dc59d73224…` |
 | `raw-window-handle` | 0.6.2 | MIT OR Apache-2.0 OR Zlib | transitive | linked | https://github.com/rust-windowing/raw-window-handle | `20675572f6f24e9e…` |
 | `rayon` | 1.12.0 | MIT OR Apache-2.0 | direct | linked | https://github.com/rayon-rs/rayon | `fb39b166781f92d4…` |
 | `rayon-core` | 1.13.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rayon-rs/rayon | `22e18b0f0062d30d…` |
+| `reborrow` | 0.5.5 | MIT | transitive | linked | https://github.com/sarah-ek/reborrow/ | `03251193000f4bd3…` |
 | `ref-cast` | 1.0.27 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/ref-cast | `7e440fb4e4b41472…` |
 | `ref-cast-impl` | 1.0.27 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/ref-cast | `92ecd8964f845372…` |
 | `regex` | 1.13.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `f020237b6c8eed93…` |
@@ -293,6 +305,8 @@ stays visible. Several other crates now do the same for the same reason.
 | `wry` | 0.55.1 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/wry | `186f9871daa55fd9…` |
 | `yoke` | 0.8.3 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `709fe23a0424b6a4…` |
 | `yoke-derive` | 0.8.2 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `de844c262c884881…` |
+| `zerocopy` | 0.8.57 | BSD-2-Clause OR Apache-2.0 OR MIT | transitive | linked | https://github.com/google/zerocopy | `d35102a9f36d089c…` |
+| `zerocopy-derive` | 0.8.57 | BSD-2-Clause OR Apache-2.0 OR MIT | transitive | linked | https://github.com/google/zerocopy | `146c01f5ab44258d…` |
 | `zerofrom` | 0.1.8 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `0ec05a11813ea801…` |
 | `zerofrom-derive` | 0.1.7 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `11532158c46691ca…` |
 | `zerotrie` | 0.2.5 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `4ea269c3bd32f0a3…` |
@@ -300,16 +314,22 @@ stays visible. Several other crates now do the same for the same reason.
 | `zerovec-derive` | 0.11.6 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `34df6fc39dbd26dd…` |
 | `zlib-rs` | 0.6.7 | Zlib | transitive | linked | https://github.com/trifectatechfoundation/zlib-rs | `34b31d188d9d685a…` |
 | `zmij` | 1.0.23 | MIT | transitive | linked | https://github.com/dtolnay/zmij | `29666d0abbfad1e3…` |
+| `zune-inflate` | 0.2.54 | MIT OR Apache-2.0 OR Zlib | transitive | linked |  | `73ab332fe2f66800…` |
 
 ## Purpose — why each direct dependency is here
 
-The workspace names four dependencies by hand. Everything else in the table above arrived
+The workspace names five dependencies by hand. Everything else in the table above arrived
 underneath one of them.
 
 - **`png`** decodes the cel images the compositor reads and encodes the frames it exports. PNG is
   the format the reference shot is drawn in and the format document 21 names for export. Writing a
   PNG encoder that is correct about bit depth, alpha and interlacing is not work this project has
   any reason to do.
+- **`exr`** reads and writes OpenEXR files, by D-62 (accepted on 2026-09-17), with its default
+  features off. OpenEXR's compressions - ZIP, PIZ, PXR24, B44, DWA - are each a codec of their own,
+  and renders from other programs use all of them. It brought fifteen crates underneath it, among
+  them `half` for 16-bit floats and `zune-inflate` for ZIP. `tests/b16b_exr.rs` holds it to
+  OpenEXR's own library, pixel for pixel.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the
@@ -323,7 +343,7 @@ underneath one of them.
 ## What the shell cost, in crates
 
 This is the honest number and it is worth stating plainly. Before the window, this record held
-**28** crates. With it, **271**. One dependency brought in roughly two hundred and thirty
+**28** crates. With it, **286**. One dependency brought in roughly two hundred and thirty
 others, which is what a browser engine, an async runtime, a CSS selector engine and a bundler
 amount to once they are counted rather than assumed.
 

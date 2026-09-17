@@ -22,6 +22,9 @@ opt-level = 3
 [dependencies]
 png = "0.18.1"
 rayon = "1.12.0"
+# D-62, accepted on 2026-09-17: OpenEXR in and out. Default features off, which drops the
+# crate's own thread pool; it reads every compression in `Fixtures/exr` and writes ZIP.
+exr = { version = "1.74.2", default-features = false }
 # B-09 reads and writes the project document as JSON values rather than through derive
 # macros, deliberately: ADR-008 requires unknown additive data to survive a load and save,
 # and a derived struct drops what it has no field for. Only `serde_json` is used.
