@@ -29,8 +29,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::compose;
 use crate::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
-use crate::model::{Id, Project};
 use crate::exr_io::{self, ExrSamples};
+use crate::model::{Id, Project};
 use crate::png_out;
 use crate::{OutputAlpha, OutputDepth};
 

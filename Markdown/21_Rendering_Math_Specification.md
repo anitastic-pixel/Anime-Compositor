@@ -97,7 +97,7 @@ against the layer it shapes.
 
 ## Adjustment layers
 
-Proposed on 2026-09-17 by D-66. An adjustment layer has no drawing. Its shape is an opaque rectangle the size of the composition in its own layer space, taken through steps 2, 4 and 5 above - mask, transform with parent and camera, matte - so its coverage at a pixel is that rectangle's alpha there. Where it comes in the draw order, the frame drawn so far is one picture `B` the size of the frame. Its enabled effects run on `B` in order, as defined under G1 effects below, with samples outside the frame transparent black and anything grown past the frame cut off, giving `E(B)`. Then, with `c` the coverage times the layer's opacity:
+D-66, accepted on 2026-09-17 and built in B-17b. An adjustment layer has no drawing. Its shape is an opaque rectangle the size of the composition in its own layer space, taken through steps 2, 4 and 5 above - mask, transform with parent and camera, matte - so its coverage at a pixel is that rectangle's alpha there. Where it comes in the draw order, the frame drawn so far is one picture `B` the size of the frame. Its enabled effects run on `B` in order, as defined under G1 effects below, with samples outside the frame transparent black and anything grown past the frame cut off, giving `E(B)`. Then, with `c` the coverage times the layer's opacity:
 
 `out = B + c*(E(B) - B)`, for all four premultiplied channels.
 

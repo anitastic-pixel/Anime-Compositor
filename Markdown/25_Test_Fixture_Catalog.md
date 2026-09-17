@@ -659,7 +659,7 @@ The check prints a table with one row per item, 15 for each of the four files, 6
 
 ## Adjustment layer fixtures
 
-Proposed on 2026-09-17 by D-66. Every case is a composition 6 by 2 at 24 fps, three frames long, drawn from the projects and drawings in `Fixtures/adjust/`: `bg` is opaque, red on the top row and sRGB grey 128 on the bottom; `dot` is one opaque white pixel at (2, 0); `half` is green at alpha 128 everywhere; `matte` is white on the left three columns and empty on the right three. Layers are listed bottom first. Every layer's transform is the identity unless the case moves it. Each cell is R G B A of the finished frame, linear and premultiplied.
+D-66, accepted on 2026-09-17; B-17b's `verification/B-17b_adjust_table.md` walks every case. Every case is a composition 6 by 2 at 24 fps, three frames long, drawn from the projects and drawings in `Fixtures/adjust/`: `bg` is opaque, red on the top row and sRGB grey 128 on the bottom; `dot` is one opaque white pixel at (2, 0); `half` is green at alpha 128 everywhere; `matte` is white on the left three columns and empty on the right three. Layers are listed bottom first. Every layer's transform is the identity unless the case moves it. Each cell is R G B A of the finished frame, linear and premultiplied.
 
 **Every number below is produced by `tools/adjust_reference.py`**, which renders each pixel from document 21 and blurs with the two-dimensional kernel summed directly; the build runs two one-dimensional passes. The same numbers are in `Fixtures/adjust/expected_adjust.json`. Tolerance 1e-6, because the build works in 32-bit floats.
 

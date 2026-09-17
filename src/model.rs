@@ -614,11 +614,32 @@ pub struct MatteReference {
     pub matte_only: bool,
 }
 
-/// Document 19's raster layer, minus the parts G1-core has not reached.
+/// Document 19's layer kind: `raster` shows a drawing, `adjustment` (D-66) has none.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum LayerKind {
+    Raster,
+    Adjustment,
+}
+
+impl LayerKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            LayerKind::Raster => "raster",
+            LayerKind::Adjustment => "adjustment",
+        }
+    }
+}
+
+/// Document 19's raster layer, minus the parts G1-core has not reached, and D-66's adjustment
+/// layer, which is the same record with no drawing.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Layer {
     pub id: Id,
     pub name: String,
+    pub kind: LayerKind,
+    /// The drawing a raster layer shows. An adjustment layer has none (D-66) and holds the
+    /// empty ID here, which no asset record ever carries; everything that looks an asset up
+    /// checks the kind first.
     pub asset_id: Id,
     pub enabled: bool,
     pub locked: bool,
@@ -672,6 +693,7 @@ impl Layer {
         Layer {
             id,
             name: name.into(),
+            kind: LayerKind::Raster,
             asset_id,
             enabled: true,
             locked: false,
@@ -689,6 +711,29 @@ impl Layer {
             shy: false,
             depth: None,
         }
+    }
+
+    /// D-66: a layer with no drawing whose effects apply to everything drawn beneath it. Its
+    /// anchor and position sit at the centre of a `width` by `height` composition, so its
+    /// opaque, composition-sized shape covers the frame exactly.
+    pub fn adjustment(
+        id: Id,
+        name: impl Into<String>,
+        width: u32,
+        height: u32,
+        in_frame: i32,
+        out_frame: i32,
+    ) -> Self {
+        let mut layer = Layer::new(id, name, Id::new(""), in_frame, out_frame);
+        layer.kind = LayerKind::Adjustment;
+        let centre = Value::Vec2(width as f64 / 2.0, height as f64 / 2.0);
+        layer.transform.anchor = Property::constant(centre);
+        layer.transform.position = Property::constant(centre);
+        layer
+    }
+
+    pub fn is_adjustment(&self) -> bool {
+        self.kind == LayerKind::Adjustment
     }
 
     /// Document 19's layer invariant.

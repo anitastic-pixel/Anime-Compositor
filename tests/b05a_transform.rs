@@ -99,6 +99,7 @@ fn one_layer(source: WorkingBuffer, transform: Affine) -> Vec<LayerDraw> {
         opacity: 1.0,
         matte: None,
         blend: BlendMode::Normal,
+        adjust: None,
     }]
 }
 
@@ -473,6 +474,7 @@ fn b05a_transform_fixtures() {
                 opacity: 0.5,
                 matte: None,
                 blend: BlendMode::Normal,
+                adjust: None,
             }],
         ),
         5,
@@ -497,6 +499,7 @@ fn b05a_transform_fixtures() {
                     opacity: 0.0,
                     matte: None,
                     blend: BlendMode::Normal,
+                    adjust: None,
                 }],
             ),
             5,
@@ -631,6 +634,7 @@ fn reference_plan(width: usize, height: usize) -> FramePlan {
             opacity: 1.0,
             matte: None,
             blend: BlendMode::Normal,
+            adjust: None,
         });
     }
     plan(width, height, layers)

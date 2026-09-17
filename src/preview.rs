@@ -122,6 +122,14 @@ pub fn scale_plan(plan: FramePlan, quality: PreviewQuality) -> FramePlan {
             .into_iter()
             .map(|mut layer| {
                 layer.transform = layer.transform.then(Affine::scaling(s, s));
+                // D-66: an adjustment layer's blur runs on the smaller frame, so its sigma is
+                // smaller by the same factor.
+                for instance in layer.adjust.iter_mut().flatten() {
+                    if let crate::effects::Effect::GaussianBlur { sigma_px } = &mut instance.effect
+                    {
+                        *sigma_px *= s;
+                    }
+                }
                 layer
             })
             .collect(),

@@ -45,7 +45,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.toggle_solo | Show only the soloed layers in the preview | none | no |
 | layer.set_label | Set a layer's label colour | none | yes |
 | layer.set_blend_mode | Set a layer's blend mode | none | yes |
-| layer.add_adjustment | Add an adjustment layer above the selected layer, covering the frame (D-66, proposed) | Ctrl+Alt+Y | yes |
+| layer.add_adjustment | Add an adjustment layer above the selected layer, covering the frame (D-66, accepted; the window in B-17c) | Ctrl+Alt+Y | yes |
 | layer.copy | Copy the selected layers, with their keys and effects | Ctrl+C | no |
 | layer.paste | Paste the copied layers in front | Ctrl+V | yes |
 | layer.toggle_shy | Mark a layer shy, so the timeline can leave it out | none | yes |

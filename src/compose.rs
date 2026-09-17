@@ -173,7 +173,11 @@ pub fn plan_frame_cached(
     // order once every layer is resolved.
     let mut layers: Vec<(f64, LayerDraw)> = Vec::new();
     for (prop, e) in camera_expression_failures(comp, frame) {
-        log.record(frame, format!("camera/{prop}"), e.diagnostic("the camera", prop, frame));
+        log.record(
+            frame,
+            format!("camera/{prop}"),
+            e.diagnostic("the camera", prop, frame),
+        );
     }
     // Step 3: composition order, bottom of the stack first, which is `FramePlan.layers`' order.
     for layer in comp.layers_in_order() {
@@ -243,6 +247,7 @@ pub fn plan_frame_cached(
                 opacity: resolved.opacity,
                 matte,
                 blend: layer.blend_mode,
+                adjust: layer.is_adjustment().then(|| layer.effects.clone()),
             },
         ));
     }
@@ -349,7 +354,10 @@ fn chain_of(
         // D-59: a parent is inherited after its expressions. A failing one is reported by the
         // parent's own frame, not again by every child.
         let at = |prop| {
-            let property = layer.transform.get(prop).expect("the four are transform properties");
+            let property = layer
+                .transform
+                .get(prop)
+                .expect("the four are transform properties");
             let owner = || crate::expr::Target::Layer(layer.id.clone());
             crate::expr::resolve(comp, property, owner, prop, frame).0
         };
@@ -491,12 +499,10 @@ pub(crate) fn projection(cam: CameraAt, centre: (f64, f64), world_depth: f64) ->
     if s == 1.0 && cam.position == centre {
         return Projection::Identity;
     }
-    Projection::Scaled(
-        Affine::scaling(s, s).then(Affine::translation(
-            centre.0 - cam.position.0 * s,
-            centre.1 - cam.position.1 * s,
-        )),
-    )
+    Projection::Scaled(Affine::scaling(s, s).then(Affine::translation(
+        centre.0 - cam.position.0 * s,
+        centre.1 - cam.position.1 * s,
+    )))
 }
 
 /// D-57's `M_world(L)`: the layer's own transform and then everything above it.
@@ -557,6 +563,34 @@ fn resolve_layer(
     cache: &mut CelCache,
     log: &mut FrameLog,
 ) -> Option<ResolvedLayer> {
+    // D-66: an adjustment layer has no drawing. Its shape is an opaque rectangle the size of
+    // the composition in its own layer space, and from the mask on it goes the way a drawn layer
+    // goes.
+    let (source, cel) = if layer.is_adjustment() {
+        layer.timing().local_frame(frame)?;
+        let shape = WorkingBuffer::opaque(comp.width as usize, comp.height as usize);
+        (std::sync::Arc::new(shape), None)
+    } else {
+        let (source, cel) = decode_cel(project, layer, frame, root, cache, log)?;
+        (source, Some(cel))
+    };
+    resolve_rest(comp, layer, frame, cache, log, source, cel)
+}
+
+/// Document 21 step 1 for a drawn layer: which file it shows at `frame`, decoded, or `None`
+/// with the reason logged. The path and interpretation come back with the pixels because the
+/// effect cache is keyed by them.
+fn decode_cel(
+    project: &Project,
+    layer: &crate::model::Layer,
+    frame: i32,
+    root: &Path,
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) -> Option<(
+    std::sync::Arc<WorkingBuffer>,
+    (PathBuf, crate::model::Interpretation),
+)> {
     let Some(asset) = project.assets.iter().find(|a| a.id == layer.asset_id) else {
         log.record(
             frame,
@@ -608,14 +642,27 @@ fn resolve_layer(
     // sRGB, straight — and the asset record is what overrides it, so a project that says a
     // sequence was rendered premultiplied is believed here and nowhere else. All three of
     // those steps happen inside the cache, because all three are what a hit skips.
-    let mut source = match cache.decoded(&path, asset.interpretation) {
+    let source = match cache.decoded(&path, asset.interpretation) {
         Ok(buffer) => buffer,
         Err(d) => {
             log.record(frame, layer.name.clone(), d);
             return None;
         }
     };
+    Some((source, (path, asset.interpretation)))
+}
 
+/// Document 21 from step 2 for one layer, given its decoded cel or, for an adjustment layer
+/// (`cel` is `None`), its shape.
+fn resolve_rest(
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    frame: i32,
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+    mut source: std::sync::Arc<WorkingBuffer>,
+    cel: Option<(PathBuf, crate::model::Interpretation)>,
+) -> Option<ResolvedLayer> {
     // Document 21 step 2: the polygon mask, in layer/source space, before the transform.
     //
     // `CelCache::decoded` hands back a *shared* buffer since P-03(a), so writing on it directly
@@ -728,44 +775,65 @@ fn resolve_layer(
     // the two cases where nothing was written.
     let drawn_mask = layer.mask.as_ref().filter(|m| m.is_renderable());
 
-    let offset = if layer.effects.is_empty() {
-        (0, 0)
-    } else if let Some(hit) =
-        cache.effect_result(&path, asset.interpretation, drawn_mask, &layer.effects)
-    {
-        // P-11. ADR-017 fixes an evaluation's whole input to the cel, the mask and the stack, all
-        // three of which are in the key, so this buffer is the one `apply_stack` would have
-        // produced. It is handed back shared: the cache holds it too, so the transform below,
-        // which only reads, never copies it, and anything that did write would copy through
-        // `Arc::make_mut` exactly as it does for a cel.
-        for (index, why) in &hit.bypassed {
-            report(&layer.effects[*index], *why);
+    let offset = match &cel {
+        // D-66: an adjustment layer's stack runs on the frame beneath it, in the renderer. What
+        // that run would have reported is reported here instead, so a bypassed effect reaches
+        // the log from the plan, where every other diagnostic of a frame comes from.
+        None => {
+            for instance in layer.effects.iter().filter(|i| i.enabled) {
+                match &instance.effect {
+                    crate::effects::Effect::Unsupported { .. } => {
+                        report(instance, crate::effects::Bypassed::NotImplemented)
+                    }
+                    e if !e.is_valid() => {
+                        report(instance, crate::effects::Bypassed::InvalidParameter)
+                    }
+                    _ => {}
+                }
+            }
+            (0, 0)
         }
-        source = hit.buffer;
-        hit.offset
-    } else {
-        // The copy is timed on its own and the effects are timed one kind at a time inside
-        // `apply_stack` (P-11), so nothing here wraps anything that is timed below it.
-        let pixels = crate::perf::time(crate::perf::Stage::EffectCopy, || {
-            std::sync::Arc::make_mut(&mut source)
-        });
-        let mut bypassed: Vec<(usize, crate::effects::Bypassed)> = Vec::new();
-        let offset = crate::effects::apply_stack(pixels, &layer.effects, |at, instance, why| {
-            bypassed.push((at, why));
-            report(instance, why);
-        });
-        cache.store_effect(
-            &path,
-            asset.interpretation,
-            drawn_mask,
-            &layer.effects,
-            crate::cache::EffectResult {
-                buffer: std::sync::Arc::clone(&source),
-                offset,
-                bypassed,
-            },
-        );
-        offset
+        Some(_) if layer.effects.is_empty() => (0, 0),
+        Some((path, interpretation)) => {
+            if let Some(hit) =
+                cache.effect_result(path, *interpretation, drawn_mask, &layer.effects)
+            {
+                // P-11. ADR-017 fixes an evaluation's whole input to the cel, the mask and the stack, all
+                // three of which are in the key, so this buffer is the one `apply_stack` would have
+                // produced. It is handed back shared: the cache holds it too, so the transform below,
+                // which only reads, never copies it, and anything that did write would copy through
+                // `Arc::make_mut` exactly as it does for a cel.
+                for (index, why) in &hit.bypassed {
+                    report(&layer.effects[*index], *why);
+                }
+                source = hit.buffer;
+                hit.offset
+            } else {
+                // The copy is timed on its own and the effects are timed one kind at a time inside
+                // `apply_stack` (P-11), so nothing here wraps anything that is timed below it.
+                let pixels = crate::perf::time(crate::perf::Stage::EffectCopy, || {
+                    std::sync::Arc::make_mut(&mut source)
+                });
+                let mut bypassed: Vec<(usize, crate::effects::Bypassed)> = Vec::new();
+                let offset =
+                    crate::effects::apply_stack(pixels, &layer.effects, |at, instance, why| {
+                        bypassed.push((at, why));
+                        report(instance, why);
+                    });
+                cache.store_effect(
+                    path,
+                    *interpretation,
+                    drawn_mask,
+                    &layer.effects,
+                    crate::cache::EffectResult {
+                        buffer: std::sync::Arc::clone(&source),
+                        offset,
+                        bypassed,
+                    },
+                );
+                offset
+            }
+        }
     };
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of
@@ -775,7 +843,10 @@ fn resolve_layer(
     let mut at = |prop: Prop| {
         let property = match prop {
             Prop::Depth => layer.depth.as_ref()?,
-            _ => layer.transform.get(prop).expect("the five are transform properties"),
+            _ => layer
+                .transform
+                .get(prop)
+                .expect("the five are transform properties"),
         };
         let owner = || crate::expr::Target::Layer(layer.id.clone());
         let (value, failed) = crate::expr::resolve(comp, property, owner, prop, frame);

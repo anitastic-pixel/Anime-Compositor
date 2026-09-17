@@ -61,7 +61,7 @@ What the discipline bought is visible in the answer's shape. The cache that was 
 | Native bounded expressions | G2 | Should-next | 4 | 5 | 5 | R-13 |
 | GPU render path | G2+ | Trigger-gated | 4 | 4 | 4 | ADR-006 |
 | Precompositions | G3 | Next after B-17 (D-65) | 5 | 5 | 5 | - |
-| Adjustment layers | G3 | B-17, specified in D-66 | 4 | 4 | 4 | - |
+| Adjustment layers | G3 | B-17, D-66 accepted, core built in B-17b, window next | 4 | 4 | 4 | - |
 | Curve and graph editor | G3 | Mostly built (D-52); gaps as B-19 | 3 | 4 | 3 | - |
 | EXR import and export | G3 | Validate | 4 | 4 | 4 | R-15 |
 | WAV reference audio | G3 | Validate | 3 | 3 | 2 | R-15 |

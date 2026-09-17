@@ -17,8 +17,8 @@ pub mod composite;
 pub mod diagnostics;
 pub mod effects;
 pub mod export;
-pub mod exr_io;
 pub mod expr;
+pub mod exr_io;
 pub mod mask;
 pub mod media;
 pub mod model;
@@ -232,6 +232,13 @@ impl WorkingBuffer {
             ColorSpace::LinearLight,
             AlphaMode::Premultiplied,
         ))
+    }
+
+    /// Opaque white everywhere: D-66's adjustment layer shape before its mask.
+    pub fn opaque(width: usize, height: usize) -> Self {
+        let mut buffer = Self::transparent(width, height);
+        buffer.data_mut().fill(1.0);
+        buffer
     }
 
     pub fn as_image(&self) -> &ImageBuffer {

@@ -1237,7 +1237,8 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             unreachable!("handled above")
         }
         Command::AddLayer { layer, index, .. } => {
-            let asset_known = project.assets.iter().any(|a| a.id == layer.asset_id);
+            let asset_known =
+                layer.is_adjustment() || project.assets.iter().any(|a| a.id == layer.asset_id);
             let comp = comp_mut(project, &comp_id)?;
             if comp.layer(&layer.id).is_some() {
                 return Err(reject(
@@ -1363,7 +1364,20 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             comp.markers = markers;
         }
         Command::SetBlendMode { layer_id, mode, .. } => {
-            layer_mut(project, &comp_id, layer_id)?.blend_mode = *mode;
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            // D-66: an adjustment layer mixes its adjusted frame back in; it has no blend mode
+            // but normal, and the window does not offer the list for one.
+            if layer.is_adjustment() && *mode != BlendMode::Normal {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" is an adjustment layer, which has no blend mode but normal.",
+                        layer.name
+                    ),
+                    "D-66: an adjustment layer's result is mixed into the frame by its coverage, \
+                     not blended.",
+                ));
+            }
+            layer.blend_mode = *mode;
         }
         Command::SetCompositionSettings {
             name,
@@ -1501,11 +1515,11 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             property_mut(project, &comp_id, target, *prop)?.set_keyframe(Keyframe {
-                    frame: *frame,
-                    value,
-                    interp: *interp,
-                    spatial: *spatial,
-                });
+                frame: *frame,
+                value,
+                interp: *interp,
+                spatial: *spatial,
+            });
         }
         Command::RemoveKeyframe {
             target,
@@ -1513,8 +1527,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             frame,
             ..
         } => {
-            let removed =
-                property_mut(project, &comp_id, target, *prop)?.remove_keyframe(*frame);
+            let removed = property_mut(project, &comp_id, target, *prop)?.remove_keyframe(*frame);
             if removed.is_none() {
                 return Err(missing(
                     format!("There is no {prop} keyframe at frame {frame} to remove."),
@@ -1653,9 +1666,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             let layer = layer_mut(project, &comp_id, layer_id)?;
             match &mut layer.depth {
                 Some(depth) => depth.set_base(Value::Scalar(*value)),
-                none => {
-                    *none = Some(crate::model::Property::constant(Value::Scalar(*value)))
-                }
+                none => *none = Some(crate::model::Property::constant(Value::Scalar(*value))),
             }
         }
         Command::SetCameraProperty { prop, value, .. } => {
@@ -2009,10 +2020,7 @@ fn check_value(prop: Prop, value: Value) -> Result<Value, Diagnostic> {
 
 /// D-58's camera, checked as `check_value` checks a layer's property, plus the one rule a
 /// layer has no equivalent of: a zoom of nought or less has nothing in front of it.
-fn check_camera_value(
-    prop: crate::model::CameraProp,
-    value: Value,
-) -> Result<Value, Diagnostic> {
+fn check_camera_value(prop: crate::model::CameraProp, value: Value) -> Result<Value, Diagnostic> {
     if value.kind() != prop.kind() {
         return Err(reject(
             &format!(
@@ -2030,8 +2038,7 @@ fn check_camera_value(
             "Property values must be finite numbers.",
         ));
     }
-    if prop == crate::model::CameraProp::Zoom && !matches!(value, Value::Scalar(z) if z > 0.0)
-    {
+    if prop == crate::model::CameraProp::Zoom && !matches!(value, Value::Scalar(z) if z > 0.0) {
         return Err(reject(
             "A camera's zoom must be more than nought.",
             "D-58: a zoom of nought or less puts nothing in front of the camera to draw.",

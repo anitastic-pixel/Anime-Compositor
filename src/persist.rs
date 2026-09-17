@@ -61,8 +61,7 @@ use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::media::{self, SequenceAsset};
 use crate::model::{
     Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Keyframe,
-    Layer,
-    MatteReference, Project, Prop, Property, Value,
+    Layer, LayerKind, MatteReference, Project, Prop, Property, Value,
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
 use crate::{AlphaMode, ColorSpace};
@@ -549,7 +548,7 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     };
     let mut owned = vec![
         ("id", J::from(layer.id.as_str())),
-        ("kind", J::from("raster")),
+        ("kind", J::from(layer.kind.as_str())),
         ("name", J::from(layer.name.as_str())),
         ("asset_id", J::from(layer.asset_id.as_str())),
         ("enabled", J::from(layer.enabled)),
@@ -566,6 +565,12 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         ("matte", matte),
         ("blend_mode", J::from(layer.blend_mode.as_str())),
     ];
+    // D-66: an adjustment layer has no drawing, so the three keys about one are not written.
+    if layer.is_adjustment() {
+        owned.retain(|(key, _)| {
+            !matches!(*key, "asset_id" | "source_offset_frames" | "exposure_spans")
+        });
+    }
     let effects: Vec<J> = layer
         .effects
         .iter()
@@ -577,9 +582,7 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     // overrides the record the file held; leaving the pair out would merge the old one back in.
     match &layer.parent {
         Some(parent) => owned.push(("parent", J::from(parent.as_str()))),
-        None if base.is_some_and(|b| b.get("parent").is_some()) => {
-            owned.push(("parent", J::Null))
-        }
+        None if base.is_some_and(|b| b.get("parent").is_some()) => owned.push(("parent", J::Null)),
         None => {}
     }
     // D-58's depth, written the same way and for the same reason.
@@ -588,9 +591,7 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
             "depth",
             property_json(base.and_then(|b| b.get("depth")), depth, 1.0),
         )),
-        None if base.is_some_and(|b| b.get("depth").is_some()) => {
-            owned.push(("depth", J::Null))
-        }
+        None if base.is_some_and(|b| b.get("depth").is_some()) => owned.push(("depth", J::Null)),
         None => {}
     }
     if layer.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
@@ -1111,12 +1112,38 @@ fn parse_asset(v: &J, pointer: &str) -> Result<Asset, Diagnostic> {
 
 fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<Layer, Diagnostic> {
     as_object(v, pointer)?;
-    as_enum(
+    let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["raster"],
-    )?;
+        &["raster", "adjustment"],
+    )? {
+        "adjustment" => LayerKind::Adjustment,
+        _ => LayerKind::Raster,
+    };
     let id = as_id(field(v, pointer, "id")?, &format!("{pointer}/id"))?;
+    // D-66: an adjustment layer has no drawing. A file that gives one an asset is not a file
+    // this build can read faithfully, so it is refused rather than drawn with the asset ignored.
+    let asset_id = if kind == LayerKind::Adjustment {
+        if v.get("asset_id").is_some() {
+            return Err(invalid(
+                &format!("{pointer}/asset_id"),
+                "no asset_id on an adjustment layer, which has no drawing (D-66)",
+            ));
+        }
+        Id::new("")
+    } else {
+        as_id(
+            field(v, pointer, "asset_id")?,
+            &format!("{pointer}/asset_id"),
+        )?
+    };
+    let source_offset_frames = match v.get("source_offset_frames") {
+        None if kind == LayerKind::Adjustment => 0,
+        _ => as_i32(
+            field(v, pointer, "source_offset_frames")?,
+            &format!("{pointer}/source_offset_frames"),
+        )?,
+    };
     let name = as_str(field(v, pointer, "name")?, &format!("{pointer}/name"))?.to_string();
     let in_frame = as_i32(
         field(v, pointer, "in_frame")?,
@@ -1411,21 +1438,33 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         }
     }
 
+    let blend_mode = match as_enum(
+        field(v, pointer, "blend_mode")?,
+        &format!("{pointer}/blend_mode"),
+        &["normal", "multiply", "screen", "add"],
+    )? {
+        "multiply" => BlendMode::Multiply,
+        "screen" => BlendMode::Screen,
+        "add" => BlendMode::Add,
+        _ => BlendMode::Normal,
+    };
+    if kind == LayerKind::Adjustment && blend_mode != BlendMode::Normal {
+        return Err(invalid(
+            &format!("{pointer}/blend_mode"),
+            "normal, the one blend mode an adjustment layer has (D-66)",
+        ));
+    }
+
     Ok(Layer {
         id,
         name,
-        asset_id: as_id(
-            field(v, pointer, "asset_id")?,
-            &format!("{pointer}/asset_id"),
-        )?,
+        kind,
+        asset_id,
         enabled: as_bool(field(v, pointer, "enabled")?, &format!("{pointer}/enabled"))?,
         locked: as_bool(field(v, pointer, "locked")?, &format!("{pointer}/locked"))?,
         in_frame,
         out_frame,
-        source_offset_frames: as_i32(
-            field(v, pointer, "source_offset_frames")?,
-            &format!("{pointer}/source_offset_frames"),
-        )?,
+        source_offset_frames,
         transform,
         exposure_spans,
         mask,
@@ -1449,16 +1488,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 }
             },
         },
-        blend_mode: match as_enum(
-            field(v, pointer, "blend_mode")?,
-            &format!("{pointer}/blend_mode"),
-            &["normal", "multiply", "screen", "add"],
-        )? {
-            "multiply" => BlendMode::Multiply,
-            "screen" => BlendMode::Screen,
-            "add" => BlendMode::Add,
-            _ => BlendMode::Normal,
-        },
+        blend_mode,
     })
 }
 
@@ -1563,8 +1593,7 @@ fn parse_composition(
         ] {
             if let Some(value) = cam.get(prop.as_str()) {
                 let here = format!("{at}/{}", prop.as_str());
-                *camera.get_mut(prop) =
-                    parse_property(value, &here, prop.kind(), false, 1.0)?;
+                *camera.get_mut(prop) = parse_property(value, &here, prop.kind(), false, 1.0)?;
             }
         }
         // D-58 refuses a zoom that is not more than nought, at every frame it is keyed
@@ -1843,7 +1872,7 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
     // reference, not a missing file, and no amount of relinking fixes it.
     for composition in &project.compositions {
         for layer in composition.layers_in_order() {
-            if !project.assets.iter().any(|a| a.id == layer.asset_id) {
+            if !layer.is_adjustment() && !project.assets.iter().any(|a| a.id == layer.asset_id) {
                 return Err(invalid(
                     &format!("/compositions/{}/layers", composition.id),
                     &format!(
@@ -2268,7 +2297,11 @@ pub fn relink_candidate(
 
     // D-62: relinking to files of the other format takes that format's interpretation, since
     // an EXR and a PNG cannot share one; otherwise the record's own carries over.
-    let old_file = existing.files().first().map(|f| f.to_string()).unwrap_or_default();
+    let old_file = existing
+        .files()
+        .first()
+        .map(|f| f.to_string())
+        .unwrap_or_default();
     let interpretation =
         if crate::exr_io::is_exr(sequence.pattern()) == crate::exr_io::is_exr(&old_file) {
             existing.interpretation

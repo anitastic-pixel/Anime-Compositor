@@ -12067,6 +12067,8 @@ mod contract {
         ("layer.toggle_solo", "a command the window answers"),
         ("layer.set_label", "a command the window answers"),
         ("layer.set_blend_mode", "a command the window answers"),
+        // D-66, accepted on 2026-09-17; B-17c puts the button in the window.
+        ("layer.add_adjustment", "nothing yet"),
         ("layer.copy", "a command the window answers"),
         ("layer.paste", "a command the window answers"),
         ("layer.toggle_shy", "a command the window answers"),

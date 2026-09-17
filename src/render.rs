@@ -202,6 +202,11 @@ pub struct LayerDraw {
     pub matte: Option<Box<MatteDraw>>,
     /// Document 21's step 7. Applied after opacity, against whatever is already accumulated.
     pub blend: crate::model::BlendMode,
+    /// D-66: `Some` makes this an adjustment layer. `source` is then its shape, an opaque
+    /// composition-sized rectangle with its mask cut out, and the stack runs on the frame drawn
+    /// so far rather than on `source`; where the shape's coverage `c` reaches, the frame becomes
+    /// `B + c*(E(B) - B)`. `blend` is normal and is not read.
+    pub adjust: Option<Vec<crate::effects::EffectInstance>>,
 }
 
 /// The matte layer as the renderer needs it: a source in the working space and the map from its
@@ -336,20 +341,90 @@ pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuff
 }
 
 fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> WorkingBuffer {
-    let tiles = tiles(plan.width, plan.height, tile_size);
-    let boxes: Option<Vec<(f64, f64, f64, f64)>> =
-        cull.then(|| plan.layers.iter().map(bounds).collect());
     let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
+    // D-66: the frame is drawn in segments, each ending at an adjustment layer, whose stack
+    // runs on the whole frame drawn so far before the next segment is drawn onto it.
+    let mut from = 0;
+    for (index, layer) in plan.layers.iter().enumerate() {
+        if let Some(stack) = &layer.adjust {
+            render_layers(&plan.layers[from..index], &mut frame, tile_size, cull);
+            adjust_frame(layer, stack, &mut frame);
+            from = index + 1;
+        }
+    }
+    render_layers(&plan.layers[from..], &mut frame, tile_size, cull);
+    frame
+}
+
+/// D-66: `frame = B + c*(E(B) - B)`, with `B` the frame as drawn so far, `E(B)` its pixels
+/// through the adjustment layer's stack, and `c` the layer's coverage at the pixel times its
+/// opacity. The stack runs on the whole frame, as a layer's stack runs on the whole layer
+/// (ADR-017); the mix is per pixel, one row at a time in parallel.
+///
+/// The bypasses `apply_stack` reports were already reported when the plan was made
+/// (`compose::resolve_layer`), so the callback here is deliberately empty.
+fn adjust_frame(
+    layer: &LayerDraw,
+    stack: &[crate::effects::EffectInstance],
+    frame: &mut WorkingBuffer,
+) {
+    let Some(inverse) = layer.transform.invert() else {
+        return;
+    };
+    let matte = match &layer.matte {
+        None => None,
+        Some(m) => match m.transform.invert() {
+            Some(inv) => Some((m, inv)),
+            None => return,
+        },
+    };
+    let mut effected = frame.clone();
+    // A blur grows the buffer; `(ox, oy)` is where the frame's origin ended up inside it, and
+    // the growth past the frame is what D-66 cuts off.
+    let (ox, oy) = crate::effects::apply_stack(&mut effected, stack, |_, _, _| {});
+    let width = frame.width();
+    frame
+        .data_mut()
+        .par_chunks_mut(width * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for x in 0..width {
+                let (dx, dy) = (x as f64 + 0.5, y as f64 + 0.5);
+                let (sx, sy) = inverse.apply(dx, dy);
+                let mut c = sample_bilinear(&layer.source, sx, sy)[3] * layer.opacity;
+                if let Some((m, matte_inverse)) = &matte {
+                    let (mx, my) = matte_inverse.apply(dx, dy);
+                    c *= sample_bilinear(&m.source, mx, my)[3];
+                }
+                if c == 0.0 {
+                    continue;
+                }
+                let e = effected.pixel(x + ox, y + oy);
+                let i = x * 4;
+                for k in 0..4 {
+                    let b = row[i + k];
+                    row[i + k] = b + c * (e[k] - b);
+                }
+            }
+        });
+}
+
+/// One segment of the stack, bottom to top, onto `frame` as it stands.
+fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usize, cull: bool) {
+    let (width, height) = (frame.width(), frame.height());
+    let tiles = tiles(width, height, tile_size);
+    let boxes: Option<Vec<(f64, f64, f64, f64)>> =
+        cull.then(|| layers.iter().map(bounds).collect());
 
     // The carve-up is what is left of the assembly step, and it is where every destination is
     // decided. It is serial on purpose: it hands out borrows, it does not touch a pixel.
     let mut rows_for: Vec<Vec<&mut [f32]>> =
         crate::perf::time(crate::perf::Stage::FrameAssembly, || {
-            let stride = plan.width * 4;
+            let stride = width * 4;
             let mut rows_for: Vec<Vec<&mut [f32]>> =
                 tiles.iter().map(|t| Vec::with_capacity(t.height)).collect();
             let mut rest: &mut [f32] = frame.data_mut();
-            for y in 0..plan.height {
+            for y in 0..height {
                 let (row, tail) = rest.split_at_mut(stride);
                 rest = tail;
                 let mut row_rest = row;
@@ -370,10 +445,8 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
         rows_for
             .par_drain(..)
             .zip(tiles.par_iter())
-            .for_each(|(rows, &tile)| render_tile(plan, tile, rows, boxes.as_deref()));
+            .for_each(|(rows, &tile)| render_tile(layers, tile, rows, boxes.as_deref()));
     });
-
-    frame
 }
 
 /// One tile of the frame: the whole layer stack, bottom to top, over the frame's own pixels.
@@ -383,12 +456,12 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
 /// initialised to, and every layer blends onto what the layers below it left, in the same order
 /// and with the same arithmetic as when the tile owned that memory.
 fn render_tile(
-    plan: &FramePlan,
+    layers: &[LayerDraw],
     tile: Tile,
     mut rows: Vec<&mut [f32]>,
     boxes: Option<&[(f64, f64, f64, f64)]>,
 ) {
-    for (index, layer) in plan.layers.iter().enumerate() {
+    for (index, layer) in layers.iter().enumerate() {
         let Some(inverse) = layer.transform.invert() else {
             continue;
         };

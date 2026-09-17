@@ -433,6 +433,7 @@ fn matte(report: &mut Report) {
                 transform: Affine::IDENTITY,
             })),
             blend: BlendMode::Normal,
+            adjust: None,
         }],
     };
     let out = render(&plan, 2);
@@ -459,6 +460,7 @@ fn matte(report: &mut Report) {
                 transform: Affine::IDENTITY,
             })),
             blend: BlendMode::Normal,
+            adjust: None,
         }],
     };
     let out_bright = render(&plan, 2);
@@ -494,6 +496,7 @@ fn matte(report: &mut Report) {
                     transform: Affine::IDENTITY,
                 })),
                 blend: BlendMode::Normal,
+                adjust: None,
             }],
         };
         report.check(name, q(expected), q(pixel(&render(&plan, 2), 1, 1)));
@@ -525,6 +528,7 @@ fn matte(report: &mut Report) {
                 transform: Affine::translation(2.0, 0.0),
             })),
             blend: BlendMode::Normal,
+            adjust: None,
         }],
     };
     let shifted = render(&plan, 2);

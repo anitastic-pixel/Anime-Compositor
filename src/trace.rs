@@ -157,12 +157,15 @@ pub fn render_traced(
             &layer.source,
         )?;
 
-        // Step 4. One layer alone, through its transform, at full opacity.
+        // Step 4. One layer alone, through its transform, at full opacity. An adjustment layer
+        // (D-66) alone adjusts nothing, so these two stages show its shape instead: where its
+        // coverage is, which is what its `composite` stage mixed by.
         let transform_only = FramePlan {
             width: plan.width,
             height: plan.height,
             layers: vec![LayerDraw {
                 opacity: 1.0,
+                adjust: None,
                 ..layer.clone()
             }],
         };
@@ -180,7 +183,10 @@ pub fn render_traced(
         let with_opacity = FramePlan {
             width: plan.width,
             height: plan.height,
-            layers: vec![layer.clone()],
+            layers: vec![LayerDraw {
+                adjust: None,
+                ..layer.clone()
+            }],
         };
         let faded = render(&with_opacity, tile_size);
         write_stage(&dir, &mut written, index, layer, Stage::Opacity, &faded)?;
@@ -332,7 +338,10 @@ fn manifest(plan: &FramePlan, request: &TraceRequest, written: &[TracedImage]) -
          converted from the linear-light premultiplied float32 buffer the renderer actually \
          holds. The conversion is the same one export uses. Each file repeats that in its own \
          PNG text chunks, so a file separated from this manifest still says what it is.\n\n\
-         `decode` is at the layer's own size; every later stage is at the composition size.\n\n",
+         `decode` is at the layer's own size; every later stage is at the composition size. \
+         An adjustment layer (D-66) has no drawing: its `decode`, `transform` and `opacity` \
+         images are its shape, and its `composite` image is the frame beneath it after its \
+         effects, mixed in by that shape.\n\n",
     );
 
     s.push_str("## Files\n\n| File | Layer | Layer ID | Stage | Document 21 step | Size |\n");
@@ -343,13 +352,16 @@ fn manifest(plan: &FramePlan, request: &TraceRequest, written: &[TracedImage]) -
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
+        let adjusted =
+            plan.layers[image.layer_index].adjust.is_some() && image.stage == Stage::Composite;
         let _ = writeln!(
             s,
-            "| `{}` | {} | `{}` | {} | {} | {}x{} |",
+            "| `{}` | {} | `{}` | {}{} | {} | {}x{} |",
             name,
             image.layer_index,
             image.layer_id,
             image.stage.tag(),
+            if adjusted { ", the adjusted frame" } else { "" },
             image.stage.document_21_step(),
             image.width,
             image.height

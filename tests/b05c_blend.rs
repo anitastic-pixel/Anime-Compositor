@@ -108,6 +108,7 @@ fn draw(source: WorkingBuffer, opacity: f32, blend: BlendMode) -> LayerDraw {
         opacity,
         matte: None,
         blend,
+        adjust: None,
     }
 }
 

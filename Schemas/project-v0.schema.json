@@ -273,22 +273,48 @@
         "id",
         "kind",
         "name",
-        "asset_id",
         "enabled",
         "locked",
         "in_frame",
         "out_frame",
-        "source_offset_frames",
         "transform",
         "blend_mode",
         "effects"
       ],
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "raster"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "asset_id",
+          "source_offset_frames"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "asset_id"
+          ]
+        },
+        "properties": {
+          "blend_mode": {
+            "const": "normal"
+          }
+        }
+      },
       "properties": {
         "id": {
           "type": "string"
         },
         "kind": {
-          "const": "raster"
+          "enum": [
+            "raster",
+            "adjustment"
+          ]
         },
         "name": {
           "type": "string"
