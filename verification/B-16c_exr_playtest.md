@@ -43,8 +43,12 @@ the copy. The EXR test files are in `Fixtures/exr`. Nothing below changes them.
 8. **The format list.** Beside **Export...** is a list: "PNG, 8-bit", "EXR, half float",
    "EXR, full float". It starts on PNG, and exporting on PNG works as before.
 9. **EXR half.** Choose "EXR, half float", click **Export...** and pick an empty folder. The
-   status line says "Exporting N frames as EXR, half float, into ...". When it is done, the folder
-   holds files ending in `.exr`, numbered like the PNG ones.
+   green line says "Exporting N frames as EXR, half float, into ...". The result appears in the
+   line below it, starting "Exported N frames into ...". The folder now holds files ending in
+   `.exr`, numbered like the PNG ones. If the project has a missing drawing (the B-15c package
+   does, on purpose), the result instead starts "Nothing was exported" and nothing is written,
+   as for PNG: tick **Write frames whose drawing is missing** first, or use a project whose
+   drawings are all present.
 10. **EXR full float.** The same with "EXR, full float", into another empty folder. The status
     line says "as EXR, full float,". The files are larger than the half ones.
 11. **They open elsewhere.** Open one exported file in a program that reads EXR (for example
