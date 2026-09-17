@@ -50,9 +50,11 @@ use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR,
 use anime_compositor::export::{
     self, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
 };
+use anime_compositor::exr_io::{self, ExrSamples};
 use anime_compositor::media;
 use anime_compositor::model::{
-    Asset, BlendMode, Composition, Expression, Id, Interp, Layer, Marker, Project, Prop, Value,
+    Asset, BlendMode, Composition, Expression, Id, Interp, Interpretation, Layer, Marker, Project,
+    Prop, Value,
 };
 use anime_compositor::package::{self, Answer};
 use anime_compositor::persist::{self, Preserved};
@@ -1452,9 +1454,21 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
     // B-12 fix: one file chosen on its own is a still, as After Effects imports one, shown on
     // every frame of a layer made from it. Grouped as a sequence it was drawing N of a sequence
     // of one, and a layer showed it on no frame or one.
+    let exr = |f: &PathBuf| exr_io::is_exr(&f.to_string_lossy());
     let png = |f: &PathBuf| f.extension().is_some_and(|e| e.eq_ignore_ascii_case("png"));
     if let [file] = files {
-        if png(file) {
+        if png(file) || exr(file) {
+            // D-62: an EXR still is read before it is added, so a file this build refuses is
+            // not added at all, and what was adjusted is told once, here, as for a sequence.
+            let mut told = Vec::new();
+            if exr(file) {
+                match exr_io::read(file) {
+                    Ok(picture) => told.extend(picture.diagnostic(file)),
+                    Err(refused) => {
+                        return format!("Nothing was imported. {}", sentence(&refused));
+                    }
+                }
+            }
             let asset = {
                 let held = viewer.lock().expect("the viewer lock was poisoned");
                 let name = file.file_name().map_or_else(
@@ -1467,7 +1481,14 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
                     persist::stored_path(&held.root, file),
                 )
             };
+            let id = asset.id.clone();
             let said = edit(viewer, Command::AddAsset { asset });
+            {
+                let mut held = viewer.lock().expect("the viewer lock was poisoned");
+                if held.document.project().assets.iter().any(|a| a.id == id) {
+                    held.notes.extend(told.iter().map(note));
+                }
+            }
             return format!(
                 "{said}: a still picture, shown on every frame of a layer made from it. To import \
              a sequence, choose all of its files."
@@ -1557,7 +1578,7 @@ fn size_now(root: &Path, asset: &Asset) -> Option<(usize, usize)> {
     asset
         .frames
         .values()
-        .find_map(|relative| media::decode_png(&root.join(relative)).ok())
+        .find_map(|relative| media::decode(&root.join(relative)).ok())
         .map(|image| (image.width(), image.height()))
 }
 
@@ -1611,18 +1632,36 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
             candidate.width, candidate.height
         ),
     };
-    let interpretation = format!(
-        "The colour is read as {} with {} alpha, which is what this project already recorded: a \
-         PNG does not state either, so relinking does not change how the pixels are read.",
-        match candidate.interpretation.color_space {
-            ColorSpace::Srgb => "sRGB",
-            ColorSpace::LinearLight => "linear light",
-        },
-        match candidate.interpretation.alpha {
-            AlphaMode::Straight => "straight",
-            AlphaMode::Premultiplied => "premultiplied",
-        }
-    );
+    let read_as = |i: &Interpretation| {
+        format!(
+            "{} with {} alpha",
+            match i.color_space {
+                ColorSpace::Srgb => "sRGB",
+                ColorSpace::LinearLight => "linear light",
+            },
+            match i.alpha {
+                AlphaMode::Straight => "straight",
+                AlphaMode::Premultiplied => "premultiplied",
+            }
+        )
+    };
+    // D-62: an EXR is always linear light with premultiplied alpha, so relinking between PNG and
+    // EXR changes how the pixels are read, and W-02 asks for that to be said first.
+    let now = read_as(&candidate.interpretation);
+    let interpretation = if candidate.interpretation != existing.interpretation {
+        format!(
+            "The colour will be read as {now}, where it is read as {} now: an EXR file is \
+             always linear light with premultiplied alpha, and a PNG is not.",
+            read_as(&existing.interpretation)
+        )
+    } else if exr_io::is_exr(&candidate.pattern) {
+        format!("The colour is read as {now}, as it is now: an EXR file is always read that way.")
+    } else {
+        format!(
+            "The colour is read as {now}, which is what this project already recorded: a PNG \
+             does not state either, so relinking does not change how the pixels are read."
+        )
+    };
     let mut said = format!(
         "Relinking \"{}\" to {} would give it {numbered}{gaps}. {size} {interpretation} The \
          layers using it keep their stacking, transforms, exposures, masks and effects. Nothing \
@@ -3657,6 +3696,20 @@ struct Export {
 const WINDOW_DEPTH: OutputDepth = OutputDepth::Eight;
 const WINDOW_ALPHA: OutputAlpha = OutputAlpha::Straight;
 
+/// The file each exported frame becomes, as the page's format list names it (D-62). No choice
+/// is PNG, which is what the window wrote before it had the list.
+fn output_format(query: Option<&str>) -> Result<OutputFormat, String> {
+    match parameter(query, "format").as_deref() {
+        None | Some("png") => Ok(OutputFormat::Png),
+        Some("exr-half") => Ok(OutputFormat::Exr(ExrSamples::Half)),
+        Some("exr-float") => Ok(OutputFormat::Exr(ExrSamples::Float)),
+        Some(other) => Err(format!(
+            "Nothing was exported: \"{other}\" is not a format this window writes. Choose PNG, \
+             EXR half or EXR float."
+        )),
+    }
+}
+
 /// Everything a job needs, taken from the viewer under one lock and owned from then on.
 ///
 /// This is B-10's immutable export snapshot, and it is a `clone` rather than a lock held for four
@@ -3669,6 +3722,7 @@ fn export_job(
     viewer: &Viewer,
     into: &Path,
     missing: MissingSource,
+    format: OutputFormat,
 ) -> (Project, PathBuf, ExportRequest) {
     // W-24: the work area, as After Effects renders it; the whole composition when there is none.
     let (first, last) = viewer
@@ -3691,12 +3745,15 @@ fn export_job(
             first_frame: first,
             last_frame: last,
             output_dir: into.to_path_buf(),
-            naming: format!("{stem}_%04d.png"),
+            naming: match format {
+                OutputFormat::Png => format!("{stem}_%04d.png"),
+                OutputFormat::Exr(_) => format!("{stem}_%04d.exr"),
+            },
             depth: WINDOW_DEPTH,
             alpha: WINDOW_ALPHA,
             tile_size: DEFAULT_TILE_SIZE,
             missing,
-            format: OutputFormat::Png,
+            format,
         },
     )
 }
@@ -3754,7 +3811,12 @@ fn what_the_export_did(report: &ExportReport, into: &Path) -> String {
 }
 
 /// Start an export into `into`, or say why not. Returns what the status line should say now.
-fn start_export(app: &AppHandle, into: &Path, missing: MissingSource) -> String {
+fn start_export(
+    app: &AppHandle,
+    into: &Path,
+    missing: MissingSource,
+    format: OutputFormat,
+) -> String {
     let state = app.state::<Mutex<Export>>();
     if state
         .lock()
@@ -3767,11 +3829,16 @@ fn start_export(app: &AppHandle, into: &Path, missing: MissingSource) -> String 
     let (project, root, request) = {
         let viewer = app.state::<Mutex<Viewer>>();
         let viewer = viewer.lock().expect("the viewer lock was poisoned");
-        export_job(&viewer, into, missing)
+        export_job(&viewer, into, missing, format)
     };
     let said = format!(
-        "Exporting {} frames into {}. The window stays usable while it writes.",
+        "Exporting {} frames{} into {}. The window stays usable while it writes.",
         request.last_frame - request.first_frame + 1,
+        match format {
+            OutputFormat::Png => "",
+            OutputFormat::Exr(ExrSamples::Half) => " as EXR, half float,",
+            OutputFormat::Exr(ExrSamples::Float) => " as EXR, full float,",
+        },
         into.display()
     );
     let cancel = Arc::new(AtomicBool::new(false));
@@ -3802,7 +3869,7 @@ fn start_export(app: &AppHandle, into: &Path, missing: MissingSource) -> String 
 }
 
 /// Ask the operating system which folder the frames go in, then start writing them there.
-fn ask_where_to_export(app: &AppHandle, missing: MissingSource) {
+fn ask_where_to_export(app: &AppHandle, missing: MissingSource, format: OutputFormat) {
     let handle = app.clone();
     app.dialog()
         .file()
@@ -3811,7 +3878,7 @@ fn ask_where_to_export(app: &AppHandle, missing: MissingSource) {
             let Some(into) = chosen.and_then(|c| c.into_path().ok()) else {
                 return;
             };
-            let said = start_export(&handle, &into, missing);
+            let said = start_export(&handle, &into, missing, format);
             announce(&handle.state::<Mutex<Viewer>>(), said);
             refresh(&handle);
         });
@@ -4169,14 +4236,15 @@ fn ask_to_open(app: &AppHandle) {
 /// Ask the operating system which drawings to import, then import them.
 ///
 /// The dialog takes many files at once, because a sequence is a selection and B-03 groups the
-/// files it is given. It filters to PNG, which is the format G1 reads; a person who selects
-/// something else is told by the importer rather than by a dialog that will not let them.
+/// files it is given. It filters to PNG and EXR, the formats this build reads (D-62); a person
+/// who selects something else is told by the importer rather than by a dialog that will not
+/// let them.
 fn ask_what_to_import(app: &AppHandle) {
     let handle = app.clone();
     app.dialog()
         .file()
         .set_title("Import drawings")
-        .add_filter("PNG drawings", &["png"])
+        .add_filter("PNG and EXR drawings", &["png", "exr"])
         .pick_files(move |chosen| {
             let files: Vec<PathBuf> = chosen
                 .unwrap_or_default()
@@ -4202,7 +4270,7 @@ fn ask_what_to_relink_to(app: &AppHandle, asset: Id) {
     app.dialog()
         .file()
         .set_title("Relink to these drawings")
-        .add_filter("PNG drawings", &["png"])
+        .add_filter("PNG and EXR drawings", &["png", "exr"])
         .pick_files(move |chosen| {
             let files: Vec<PathBuf> = chosen
                 .unwrap_or_default()
@@ -4368,10 +4436,15 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
         // Document 07's default is that a missing drawing blocks a final export. `?missing=write`
         // is the person overriding it in front of the checkbox that says what it does, which is
         // document 28's recorded override rather than a silent fallback.
-        "export" => {
-            ask_where_to_export(app, missing_source(query));
-            String::new()
-        }
+        // D-62: `?format=` is the page's format list; a value it does not offer is refused
+        // before any folder is asked for.
+        "export" => match output_format(query) {
+            Ok(format) => {
+                ask_where_to_export(app, missing_source(query), format);
+                String::new()
+            }
+            Err(refused) => refused,
+        },
         "cancel-export" => cancel_export(app),
         "collect" => {
             ask_where_to_collect(app);
@@ -9578,6 +9651,280 @@ mod editing {
          expect them, and whether the package opens on another computer. That is \
          `verification/B-15c_package_playtest.md`, for a person.",
     ];
+
+    /// The newest asset in the project, as `id "name" N drawings, read as ...`.
+    fn newest(viewer: &Mutex<Viewer>) -> String {
+        let held = held(viewer);
+        let asset = held
+            .document
+            .project()
+            .assets
+            .last()
+            .expect("the project has an asset");
+        format!(
+            "{} drawings, read as {}",
+            asset.frames.len().max(asset.path.iter().count()),
+            read_as(&asset.interpretation)
+        )
+    }
+
+    fn read_as(i: &Interpretation) -> String {
+        format!("{:?}, {:?}", i.color_space, i.alpha)
+    }
+
+    fn asset_count(viewer: &Mutex<Viewer>) -> usize {
+        held(viewer).document.project().assets.len()
+    }
+
+    /// B-16c: EXR drawings imported and relinked from the window, and EXR frames exported from
+    /// it, on D-62's fixture files. The order is the playtest sheet's.
+    #[test]
+    fn exr_drawings_come_in_and_exr_frames_go_out_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let exr = |rel: &str| repo(&format!("Fixtures/exr/{rel}"));
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        // ---- import -------------------------------------------------------------------------
+        let said = run(&viewer, &import_of(&[exr("compression/zip_half.exr")]));
+        report.check(
+            "one EXR file imports as a still picture",
+            "Import zip_half.exr: a still picture",
+            said.split(", shown").next().unwrap_or_default(),
+        );
+        report.check(
+            "read as linear light with premultiplied alpha, as D-62 says",
+            "1 drawings, read as LinearLight, Premultiplied",
+            newest(&viewer),
+        );
+        report.check(
+            "a file drawn exactly as stored leaves no note",
+            false,
+            notes_mention(&viewer, "MEDIA_EXR_ADJUSTED"),
+        );
+        let before = asset_count(&viewer);
+        report.check(
+            "a file drawn with changes says which, in the notes",
+            "MEDIA_EXR_ADJUSTED non_finite: 4 alpha_clamped: 2",
+            {
+                run(&viewer, &import_of(&[exr("values/specials.exr")]));
+                held(&viewer)
+                    .notes
+                    .iter()
+                    .filter_map(|n| n.split_once('\t').map(|(_, code)| code.to_string()))
+                    .find(|code| code.starts_with("MEDIA_EXR_ADJUSTED"))
+                    .unwrap_or_else(|| "(no such note)".to_string())
+            },
+        );
+        report.check(
+            "and the file is still added",
+            before + 1,
+            asset_count(&viewer),
+        );
+        let before = asset_count(&viewer);
+        report.check(
+            "a file this build refuses is not added, and the reason is given",
+            "Nothing was imported. multipart.exr is an EXR file this build does not draw. \
+             Re-export it as a single-part RGBA EXR. The file is left untouched and the asset \
+             record is kept.; 0 added",
+            {
+                let said = run(&viewer, &import_of(&[exr("refused/multipart.exr")]));
+                format!("{said}; {} added", asset_count(&viewer) - before)
+            },
+        );
+        let sequence: Vec<PathBuf> = ["0001", "0002", "0003", "0005"]
+            .iter()
+            .map(|n| exr(&format!("sequence/render_{n}.exr")))
+            .collect();
+        report.check(
+            "an EXR sequence imports with its gap, as a PNG one does",
+            "Import render_%04d.exr: 4 drawings, numbered 1 to 5, and drawing 4 is missing.",
+            run(&viewer, &import_of(&sequence)),
+        );
+        report.check(
+            "and is read as linear light with premultiplied alpha",
+            "4 drawings, read as LinearLight, Premultiplied",
+            newest(&viewer),
+        );
+        let exr_sequence = held(&viewer)
+            .document
+            .project()
+            .assets
+            .last()
+            .map(|a| a.id.to_string())
+            .expect("the sequence just imported");
+
+        // ---- relink -------------------------------------------------------------------------
+        let said = run(&viewer, &relink_of("asset-cel", &sequence));
+        report.check(
+            "relinking PNG drawings to EXR ones says the reading changes, before it happens",
+            "The colour will be read as linear light with premultiplied alpha, where it is read \
+             as sRGB with straight alpha now: an EXR file is always linear light with \
+             premultiplied alpha, and a PNG is not.",
+            {
+                let phrase = "The colour will be read as linear light with premultiplied alpha, \
+                              where it is read as sRGB with straight alpha now: an EXR file is \
+                              always linear light with premultiplied alpha, and a PNG is not.";
+                if said.contains(phrase) {
+                    phrase.to_string()
+                } else {
+                    said
+                }
+            },
+        );
+        let cel = |viewer: &Mutex<Viewer>| {
+            let held = held(viewer);
+            let asset = held
+                .document
+                .project()
+                .assets
+                .iter()
+                .find(|a| a.id == Id::new("asset-cel"))
+                .cloned()
+                .expect("the cel asset");
+            format!(
+                "{}; {}",
+                asset.frames.values().next().cloned().unwrap_or_default(),
+                read_as(&asset.interpretation)
+            )
+        };
+        report.check(
+            "nothing has changed yet",
+            "cel_0001.png; Srgb, Straight",
+            cel(&viewer).rsplit(['/', '\\']).next().unwrap_or_default(),
+        );
+        run(&viewer, "media.relink?asset=asset-cel&apply=1");
+        report.check(
+            "agreeing points the cels at the EXR files and reads them as EXR",
+            "render_0001.exr; LinearLight, Premultiplied",
+            cel(&viewer).rsplit(['/', '\\']).next().unwrap_or_default(),
+        );
+        undo(&viewer);
+        report.check(
+            "undo puts both back",
+            "cel_0001.png; Srgb, Straight",
+            cel(&viewer).rsplit(['/', '\\']).next().unwrap_or_default(),
+        );
+        report.check(
+            "relinking EXR drawings to EXR ones says the reading stays",
+            true,
+            run(&viewer, &relink_of(&exr_sequence, &sequence)).contains(
+                "The colour is read as linear light with premultiplied alpha, as it is now: an \
+                 EXR file is always read that way.",
+            ),
+        );
+        run(
+            &viewer,
+            &format!("media.relink?asset={exr_sequence}&cancel=1"),
+        );
+
+        // ---- export -------------------------------------------------------------------------
+        let formats = ["png", "exr-half", "exr-float", "tiff"]
+            .map(
+                |f| match output_format(Some(&format!("format=x&format={f}")[9..])) {
+                    Ok(format) => format!("{format:?}"),
+                    Err(refused) => refused,
+                },
+            )
+            .join("; ");
+        report.check(
+            "the format list's three choices are the three files, and anything else is refused",
+            "Png; Exr(Half); Exr(Float); Nothing was exported: \"tiff\" is not a format this \
+             window writes. Choose PNG, EXR half or EXR float.",
+            formats,
+        );
+        report.check(
+            "no choice at all is PNG, as before the list",
+            "Png",
+            format!("{:?}", output_format(None).expect("no choice is a format")),
+        );
+        let into = std::env::temp_dir().join("anime_compositor_b16c_export");
+        let _ = std::fs::remove_dir_all(&into);
+        std::fs::create_dir_all(&into).expect("the export folder");
+        let (snapshot, root, mut request) = export_job(
+            &held(&viewer),
+            &into,
+            MissingSource::RenderTransparent,
+            OutputFormat::Exr(ExrSamples::Half),
+        );
+        report.check(
+            "an EXR export names its files .exr",
+            "cel_holds_project_%04d.exr",
+            &request.naming,
+        );
+        request.last_frame = request.first_frame + 1;
+        let done = export::export_sequence(&snapshot, &root, &request, &AtomicBool::new(false));
+        let files: Vec<String> = done
+            .written
+            .iter()
+            .map(|f| {
+                f.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        report.check(
+            "and writes them",
+            "cel_holds_project_0000.exr, cel_holds_project_0001.exr",
+            files.join(", "),
+        );
+        report.check(
+            "each reads back as a picture the composition's size, with nothing adjusted",
+            {
+                let comp = snapshot
+                    .composition(&request.composition)
+                    .expect("the exported composition");
+                format!("{}x{}, 0 reasons", comp.width, comp.height)
+            },
+            match done.written.first().map(|f| exr_io::read(f)) {
+                Some(Ok(picture)) => format!(
+                    "{}x{}, {} reasons",
+                    picture.image.width(),
+                    picture.image.height(),
+                    picture.adjusted.len()
+                ),
+                Some(Err(refused)) => sentence(&refused),
+                None => "(nothing written)".to_string(),
+            },
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-16c_panel_table.md",
+            "B-16c: EXR in the window",
+            EXR_PANEL_INTRO,
+            EXR_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const EXR_PANEL_INTRO: &[&str] = &[
+        "D-62 decided how an EXR file becomes a drawing and how frames become EXR files, and \
+         B-16b built it, checked against OpenEXR's own numbers in \
+         `verification/B-16b_exr_table.md`. This is the window's half: Import and Relink \
+         accept `.exr` files beside `.png` ones, and a list beside Export chooses PNG, EXR half \
+         float or EXR full float.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json` \
+         and the files in `Fixtures/exr/`, and reads back what the page is given. The file and \
+         folder pickers are the one step skipped: no test can answer a Windows dialog, so the \
+         rows start with the files already chosen.",
+    ];
+
+    const EXR_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhether the pictures look right on screen, and whether \
+         the exported files open in another program. That is \
+         `verification/B-16c_exr_playtest.md`, for a person. Whether the pixels are right is \
+         B-16b's table, against OpenEXR itself.",
+    ];
 }
 
 /// What the autosave timer and the recovery path do, checked without a window.
@@ -10566,11 +10913,21 @@ mod serving {
         // rather than a claim about what an export ought to contain. Byte for byte, or the view
         // reached the file.
         let ordinary = scratch("anime_compositor_b12a_export_plain");
-        let (p, root, request) = export_job(&held(&viewer), &ordinary, MissingSource::Block);
+        let (p, root, request) = export_job(
+            &held(&viewer),
+            &ordinary,
+            MissingSource::Block,
+            OutputFormat::Png,
+        );
         run_export(&p, &root, &request, &AtomicBool::new(false));
         run(&viewer, "viewer.toggle_alpha");
         let inspecting = scratch("anime_compositor_b12a_export_alpha");
-        let (p, root, request) = export_job(&held(&viewer), &inspecting, MissingSource::Block);
+        let (p, root, request) = export_job(
+            &held(&viewer),
+            &inspecting,
+            MissingSource::Block,
+            OutputFormat::Png,
+        );
         run_export(&p, &root, &request, &AtomicBool::new(false));
         let read = |dir: &Path| {
             let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
@@ -10801,7 +11158,8 @@ mod exporting {
         let into = scratch("anime_compositor_b10_export");
 
         // ---- what the window asks for -----------------------------------------------------------
-        let (snapshot, root, request) = export_job(&viewer, &into, MissingSource::Block);
+        let (snapshot, root, request) =
+            export_job(&viewer, &into, MissingSource::Block, OutputFormat::Png);
         check(
             "the range offered is the work area, first to last frame inclusive",
             &"0 to 239",
@@ -10860,7 +11218,7 @@ mod exporting {
         // whole shot does is `B-10_full_shot_table.md`. Frames 14 and 15 are the two the gap
         // falls on.
         let short = |missing| {
-            let (_, _, mut request) = export_job(&viewer, &into, missing);
+            let (_, _, mut request) = export_job(&viewer, &into, missing, OutputFormat::Png);
             request.first_frame = 14;
             request.last_frame = 15;
             request
@@ -14084,7 +14442,7 @@ mod acceptance {
         let into = workspace("frames");
         let (snapshot, root, request) = {
             let held = held(&viewer);
-            export_job(&held, &into, MissingSource::Block)
+            export_job(&held, &into, MissingSource::Block, OutputFormat::Png)
         };
         report.check(
             "step 13: the range offered is the whole composition, first to last inclusive",

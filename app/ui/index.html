@@ -606,6 +606,11 @@
   <button id="redo">Redo</button>
   <span class="sep"></span>
   <button id="export">Export&hellip;</button>
+  <select id="exportformat" title="What each exported frame is written as">
+    <option value="png">PNG, 8-bit</option>
+    <option value="exr-half">EXR, half float</option>
+    <option value="exr-float">EXR, full float</option>
+  </select>
   <button id="cancelexport" hidden>Cancel export</button>
   <progress id="exportbar" hidden></progress><span id="exportleft"></span>
   <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
@@ -5493,8 +5498,11 @@ $('checkpackage').onclick = () => command('/check-package');
 // The checkbox travels with the command rather than being remembered anywhere: document 07's
 // default is that a missing drawing blocks the export, and an override has to be a thing the
 // person did this time, in front of the words that say what it does.
+// D-62: the format list travels the same way. EXR has no depth or straight-alpha choice: it is
+// written as the working buffer holds it, linear light with premultiplied alpha.
 $('export').onclick = () =>
-  command('/export' + ($('anyway').checked ? '?missing=write' : ''));
+  command('/export?format=' + $('exportformat').value
+    + ($('anyway').checked ? '&missing=write' : ''));
 $('cancelexport').onclick = () => command('/cancel-export');
 $('recent').onchange = (e) => {
   const chosen = e.target.value;
