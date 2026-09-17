@@ -18,7 +18,7 @@ Asset records media identity and interpretation. G1 asset kinds are `still` and 
 
 ## Layer model
 
-G1 layer kind is `raster`. A raster layer stores ID, name, asset ID, enabled/locked state, in/out frames, source offset, transform, optional exposure map, optional polygon mask, optional matte reference, blend mode and ordered effect instances.
+G1 layer kind is `raster`. D-66, proposed on 2026-09-17, adds `adjustment`: a layer with no drawing, so no `asset_id`, `exposure_spans` or `source_offset_frames`, and blend mode `normal` only; its effects apply to what is drawn beneath it (document 21). An adjustment layer carrying an asset or another blend mode is `PROJECT_SCHEMA_INVALID`. A raster layer stores ID, name, asset ID, enabled/locked state, in/out frames, source offset, transform, optional exposure map, optional polygon mask, optional matte reference, blend mode and ordered effect instances.
 
 Accepted by D-57 on 2026-09-15: an optional `parent`, the ID of another layer in the same composition whose transform is applied after this layer's own (document 21). Absent or null means no parent, and the file carries the field only when it is set. A parent that names no layer is preserved and diagnosed as `PARENT_REFERENCE_MISSING`.
 

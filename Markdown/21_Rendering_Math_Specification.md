@@ -95,6 +95,14 @@ every frame rather than once, because a depth can be animated and two planes can
 projected at its own depth before its alpha is sampled, so a matte on another plane slides
 against the layer it shapes.
 
+## Adjustment layers
+
+Proposed on 2026-09-17 by D-66. An adjustment layer has no drawing. Its shape is an opaque rectangle the size of the composition in its own layer space, taken through steps 2, 4 and 5 above - mask, transform with parent and camera, matte - so its coverage at a pixel is that rectangle's alpha there. Where it comes in the draw order, the frame drawn so far is one picture `B` the size of the frame. Its enabled effects run on `B` in order, as defined under G1 effects below, with samples outside the frame transparent black and anything grown past the frame cut off, giving `E(B)`. Then, with `c` the coverage times the layer's opacity:
+
+`out = B + c*(E(B) - B)`, for all four premultiplied channels.
+
+Blend mode is normal only. A layer with no enabled effects, outside its in and out frames or switched off leaves the frame exactly as it was, bit for bit. The draw order is unchanged: far to near, the stack breaking ties. The effect stack runs on the whole frame; the mix is per pixel. At draft preview size the blur's sigma is divided by the draft divisor. FX-ADJ-001 to 013 in document 25 are the cases.
+
 ## Mask and matte math
 
 Mask coverage `m` in 0..1 multiplies both premultiplied RGB and alpha. G1 polygon edges use the same deterministic rasterization rule in CPU reference and production backend; multisample details must be fixture-tested before claiming subpixel equivalence.
