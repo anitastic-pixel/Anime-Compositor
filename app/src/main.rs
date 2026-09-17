@@ -3854,19 +3854,36 @@ fn start_export(
     // A thread, so the window keeps answering for frames while a shot is being written: an
     // export of the reference shot takes minutes, and a viewer frozen for minutes is a viewer
     // that looks broken.
+    // Said here, before the thread starts, so an export that ends at once cannot finish before
+    // the status line says it began.
+    announce(&app.state::<Mutex<Viewer>>(), said.clone());
     let handle = app.clone();
+    let started = said.clone();
     std::thread::spawn(move || {
         let done = what_the_export_did(
             &export::export_sequence_counting(&project, &root, &request, &cancel, &done),
             &request.output_dir,
         );
-        let state = handle.state::<Mutex<Export>>();
-        let mut export = state.lock().expect("the export lock was poisoned");
-        export.cancel = None;
-        export.said = done;
+        {
+            let state = handle.state::<Mutex<Export>>();
+            let mut export = state.lock().expect("the export lock was poisoned");
+            export.cancel = None;
+            export.said = done;
+        }
+        // The owner's B-16c playtest: "Exporting..." stayed on the status line after the export
+        // had ended. Replaced only if nothing has been said since, so a later command's answer
+        // is never taken away.
+        let viewer = handle.state::<Mutex<Viewer>>();
+        let mut viewer = viewer.lock().expect("the viewer lock was poisoned");
+        if viewer.status == started {
+            viewer.status = EXPORT_ENDED.to_string();
+        }
     });
     said
 }
+
+/// The status line once an export has ended, whatever happened: the line below it says what.
+const EXPORT_ENDED: &str = "The export has ended. What it wrote, or why it did not, is below.";
 
 /// Ask the operating system which folder the frames go in, then start writing them there.
 fn ask_where_to_export(app: &AppHandle, missing: MissingSource, format: OutputFormat) {
@@ -13443,7 +13460,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 45] = [
+    const CONTROLS: [&str; 46] = [
         "addeffect",
         "addexposure",
         "addlayer",
@@ -13461,6 +13478,7 @@ mod contract {
         "dellayer",
         "down",
         "export",
+        "exportformat",
         "fit",
         "fit100",
         "fwd",

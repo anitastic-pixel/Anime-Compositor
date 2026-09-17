@@ -5500,9 +5500,20 @@ $('checkpackage').onclick = () => command('/check-package');
 // person did this time, in front of the words that say what it does.
 // D-62: the format list travels the same way. EXR has no depth or straight-alpha choice: it is
 // written as the working buffer holds it, linear light with premultiplied alpha.
+// Unlike the tick, the format is kept for the rest of the sitting: starting an export reloads the
+// page, and the owner's B-16c playtest found the list back on PNG afterwards.
 $('export').onclick = () =>
   command('/export?format=' + $('exportformat').value
     + ($('anyway').checked ? '&missing=write' : ''));
+try {
+  const kept = sessionStorage.getItem('exportformat');
+  if (kept && [...$('exportformat').options].some((o) => o.value === kept)) {
+    $('exportformat').value = kept;
+  }
+} catch (e) { /* no storage: the list starts on PNG */ }
+$('exportformat').onchange = (e) => {
+  try { sessionStorage.setItem('exportformat', e.target.value); } catch (err) { /* as above */ }
+};
 $('cancelexport').onclick = () => command('/cancel-export');
 $('recent').onchange = (e) => {
   const chosen = e.target.value;

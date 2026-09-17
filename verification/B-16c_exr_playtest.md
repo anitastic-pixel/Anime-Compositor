@@ -44,7 +44,8 @@ the copy. The EXR test files are in `Fixtures/exr`. Nothing below changes them.
    "EXR, full float". It starts on PNG, and exporting on PNG works as before.
 9. **EXR half.** Choose "EXR, half float", click **Export...** and pick an empty folder. The
    green line says "Exporting N frames as EXR, half float, into ...". The result appears in the
-   line below it, starting "Exported N frames into ...". The folder now holds files ending in
+   line below it, starting "Exported N frames into ...", and the green line then says "The
+   export has ended." The list still reads "EXR, half float" afterwards. The folder now holds files ending in
    `.exr`, numbered like the PNG ones. If the project has a missing drawing (the B-15c package
    does, on purpose), the result instead starts "Nothing was exported" and nothing is written,
    as for PNG: tick **Write frames whose drawing is missing** first, or use a project whose
@@ -56,14 +57,18 @@ the copy. The EXR test files are in `Fixtures/exr`. Nothing below changes them.
     than in this window if that program shows linear light without converting it; the shapes and
     edges are what to judge.
 12. **They come back in.** Import the exported files from step 9 into this window as a sequence
-    and make a layer from it. It looks the same as the frames you exported.
+    and make a layer from it. A new layer from any sequence, PNG too, starts with no exposures
+    and so shows nothing (document 20). With the layer chosen, press **Add an exposure** a few
+    times: each press shows the next drawing on the next frame, and they look the same as the
+    frames you exported.
 
 ## Known limits
 
 - Audio (WAV) is deferred by the owner on 2026-09-17 ("we can defer audio for much later").
 - EXR has no bit-depth or straight-alpha choice: it is written as the window holds it, linear
   light with premultiplied alpha (D-62). The PNG choice is still 8-bit only.
-- The format list is not remembered between sessions; it starts on PNG.
+- The format list is kept until the window closes; a new window starts on PNG. The "Write frames
+  whose drawing is missing" tick is not kept, on purpose (document 07).
 - Files with several parts or layers, deep files and the other files in `Fixtures/exr/refused`
   are refused with a reason rather than drawn (D-62).
 
