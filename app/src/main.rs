@@ -975,16 +975,19 @@ fn is_drawing(path: &Path) -> bool {
 /// A file that cannot be opened leaves the project that was open exactly as it was and adds the
 /// reason to what the window is saying. Closing a working project because the next one was
 /// unreadable would lose the person their place to punish them for a bad drop.
-fn take(viewer: &Mutex<Viewer>, path: &Path) {
+/// True if it opened; only then does it belong on the recent list.
+fn take(viewer: &Mutex<Viewer>, path: &Path) -> bool {
     let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
     match open(path) {
         Ok(opened) => {
             *viewer = opened;
             viewer.status = format!("Opened {}", path.display());
+            true
         }
         Err(diagnostic) => {
             viewer.notes = vec![note(&diagnostic)];
             viewer.status = format!("{} could not be opened.", path.display());
+            false
         }
     }
 }
@@ -4251,8 +4254,9 @@ fn ask_to_open(app: &AppHandle) {
             let Some(path) = chosen.and_then(|c| c.into_path().ok()) else {
                 return;
             };
-            take(&handle.state::<Mutex<Viewer>>(), &path);
-            remember(&handle, &path);
+            if take(&handle.state::<Mutex<Viewer>>(), &path) {
+                remember(&handle, &path);
+            }
             refresh(&handle);
         });
 }
@@ -4404,8 +4408,9 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
         "open" => match parameter(query, "path") {
             Some(chosen) => {
                 let chosen = PathBuf::from(chosen);
-                take(&viewer, &chosen);
-                remember(app, &chosen);
+                if take(&viewer, &chosen) {
+                    remember(app, &chosen);
+                }
                 viewer
                     .lock()
                     .expect("the viewer lock was poisoned")
@@ -4578,8 +4583,9 @@ fn main() {
                 refresh(window.app_handle());
                 return;
             }
-            take(&viewer, path);
-            remember(window.app_handle(), path);
+            if take(&viewer, path) {
+                remember(window.app_handle(), path);
+            }
             refresh(window.app_handle());
         })
         .register_uri_scheme_protocol("project", |ctx, request: Request<Vec<u8>>| {
