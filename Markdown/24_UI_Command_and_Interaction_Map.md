@@ -73,7 +73,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | viewer.toggle_checkerboard | Toggle transparency grid | none | no |
 | viewer.toggle_alpha | Toggle alpha-only inspection | none | no |
 | render.preview_current | Render current frame | none | no |
-| export.sequence | Open PNG-sequence export | Ctrl+M | no |
+| export.sequence | Open image-sequence export: PNG, or EXR by D-62 (proposed) | Ctrl+M | no |
 | app.command_palette | Search commands | Ctrl+Shift+P | no |
 
 Shortcuts are proposed defaults and must be tested for OS/framework conflicts. Users may remap commands later; command IDs remain stable.
@@ -107,6 +107,8 @@ Still deferred rather than refused: a camera that is a layer, which the owner ra
 `composition.create` was added on 2026-09-08 by B-12d, and it is not a correction of an omission like the two above: no command existed in the core either, so this is a new capability and the owner may cut it. The reason it is here is that W-01 lists "creates a composition" third of its thirteen steps and nothing in this build could take that step — `project.new` above makes an empty project, and an empty project has nothing to make an empty project *into*. `verification/B-12_acceptance_run.md` recorded step 3 as **not built** for that reason. One ID covers name, size, frame rate and length because document 19 line 15 makes all four properties of the composition record, and a composition that existed before its size did would be a state no file can hold.
 
 `composition.open` was added on 2026-09-08, the same day, and for a reason the owner found rather than a reason a document named: `composition.create` moves the window into what it made, this table had no ID for moving it anywhere else, and nothing in the window listed the compositions a project holds. Making a composition was therefore a one-way door out of the shot somebody was working on. It is not undoable and it is not an edit — nothing about the project changes, the window looks somewhere else — which puts it with `viewer.toggle_alpha` and `viewer.toggle_checkerboard` rather than with the commands above it. No shortcut: the compositions are a list in the project panel, reachable by Tab like the drawings beside them, and this table promises Ctrl+N and Ctrl+Shift+N to two other things already. Like `composition.create`, it is a new capability and the owner may cut it; cutting it means cutting that one as well, or restoring the one-way door.
+
+D-62, proposed on 2026-09-17 by B-16a, adds no command ID. `media.import` and `media.relink` accept `.exr` files beside `.png`, and `export.sequence` gains a format choice, PNG or EXR, and for EXR a sample choice, half or float, with no straight-alpha choice, because EXR is premultiplied.
 
 `asset.set_redistribute`, `project.collect` and `package.check` were proposed on 2026-09-16 by B-15a, with D-61, and accepted by the owner the same day. B-15b built what they do and B-15c put them in the window on 2026-09-16: the tick is on each drawing in the Project panel, and Collect Files... and Check Package are buttons beside Save As, since the window has no menu bar. The owner's playtest passed on 2026-09-17. They are a new capability, R-14, entered by the owner's decision D-60. Collecting changes nothing in the window, so, like saving, it makes no history item; the tick is an ordinary undoable change to the asset. No shortcut is proposed: After Effects gives Collect Files none.
 

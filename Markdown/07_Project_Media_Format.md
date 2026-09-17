@@ -42,7 +42,7 @@ Default missing-frame behavior is an explicit error placeholder in preview and a
 
 ## Interchange contract
 
-G1: PNG stills and sequences in/out, with explicit output color and alpha handling. Initial project handoff uses the project plus a preserved relative media tree. Automated collection, EXR, WAV and layered artwork are later features with separate fixture requirements. Automated collection is D-61 (B-15), accepted on 2026-09-16: a folder holding the project, a `media` folder and `package-manifest.json`. An asset may carry `"redistribute": false`, written only when false, and such an asset's drawings are listed but not copied.
+G1: PNG stills and sequences in/out, with explicit output color and alpha handling. Initial project handoff uses the project plus a preserved relative media tree. Automated collection, EXR, WAV and layered artwork are later features with separate fixture requirements. Automated collection is D-61 (B-15), accepted on 2026-09-16: a folder holding the project, a `media` folder and `package-manifest.json`. An asset may carry `"redistribute": false`, written only when false, and such an asset's drawings are listed but not copied. EXR stills and sequences in and out are proposed by D-62 (B-16): an EXR drawing is `linear-srgb`, premultiplied, its extension chooses the reader, and it needs no new field.
 
 A future AE importer or translator must retain an unsupported-feature report and never advertise a lossless conversion without evidence. Do not conflate native project portability with proprietary project compatibility.
 

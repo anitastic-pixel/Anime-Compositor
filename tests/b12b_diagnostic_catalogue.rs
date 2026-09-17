@@ -227,6 +227,10 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
 /// a claim about scope that a reader can check against the requirement it names.
 const NOT_BUILT: &[(&str, &str)] = &[
     (
+        "MEDIA_EXR_ADJUSTED",
+        "D-62, EXR in and out, is written and awaiting the owner; no EXR file is read yet.",
+    ),
+    (
         "GPU_BACKEND_FAILED",
         "There is no GPU path; every frame is composited on the processor.",
     ),
@@ -290,7 +294,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "33 identifiers",
+        "34 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

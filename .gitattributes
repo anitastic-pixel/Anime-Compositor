@@ -30,3 +30,7 @@ verification/**/*.py text eol=lf
 # hypothetical: the blanket form was written here first and CI caught it rewriting eighteen
 # images. Anything binary added under verification/ needs no rule; the absence of one is what
 # keeps it intact.
+
+# The EXR fixtures are exact bytes, and one of them, refused/not_exr.exr, is text on purpose.
+# Git would guess it is text and convert its line ending, so every EXR fixture is marked binary.
+Fixtures/exr/**/*.exr -text

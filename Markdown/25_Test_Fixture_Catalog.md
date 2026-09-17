@@ -591,6 +591,72 @@ FX-PACK-006: nothing in the window changes. After collecting, the open project, 
 
 The build's SHA-256 must also give FIPS 180-4's published digests for the empty message, `abc`, the 448-bit message `abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq`, and a million `a`s.
 
+## EXR fixtures
+
+Proposed on 2026-09-17 by D-62, for B-16b. Every file is in `Fixtures/exr/` and was written by OpenEXR's own library, version 3.4.15. **Every expected value is produced by `tools/exr_reference.py`**, which reads each file back with that library and applies D-62 in Python, sharing nothing with the build. `Fixtures/exr/expected_exr.json` holds, for each file, the answer and, for a drawn file, its size, every pixel as it must reach the working buffer and every reason `MEDIA_EXR_ADJUSTED` must give. **A build must match every pixel exactly**; no tolerance applies (D-62 records the measurement behind that). A file with no reason listed below must be drawn with no report.
+
+Most files hold the same test picture: 8 by 6, premultiplied, with colour below 0 and above 1 (up to 1000), alpha of 1, 0.75, 0.5, 0.25, 0.125 and 0, and one pixel that has colour but no alpha at all, which must come in unchanged.
+
+FX-EXR-001: compression. The test picture in each of the ten compressions a build must read - none, RLE, ZIPS, ZIP, PIZ, PXR24, B44, B44A, DWAA and DWAB - once with half samples and once with float, twenty files in `compression/`. All are drawn, with no report. The lossy ones (PXR24 for float, B44, DWA) must give what OpenEXR's library gives, which is the expected value, not the picture that was written.
+
+FX-EXR-002: sample types.
+
+| File | Answer | Reported |
+|---|---|---|
+| `types/uint.exr`: whole-number samples, alpha 0, 1 and 2 | drawn, the numbers as floats | `alpha_clamped` 6 |
+| `types/mixed.exr`: half and float channels in one file | drawn | none |
+
+FX-EXR-003: channels, matched with capitals.
+
+| File | Answer | Reported |
+|---|---|---|
+| `channels/rgb.exr`: no alpha | drawn, alpha 1 | none |
+| `channels/y.exr`: luminance only | drawn, R = G = B = Y, alpha 1 | none |
+| `channels/ya.exr`: luminance and alpha | drawn, R = G = B = Y | none |
+| `channels/r_only.exr`: red only | drawn, G and B 0, alpha 1 | none |
+| `channels/extra.exr`: RGBA with `Z`, `diffuse.G` and `diffuse.R` | drawn from RGBA | `channels_ignored` Z, diffuse.G, diffuse.R |
+| `channels/rgb_and_y.exr`: RGBA and `Y` | drawn from RGBA | `channels_ignored` Y |
+| `channels/lowercase.exr`: `r`, `g`, `b`, `a` | refused, `MEDIA_UNSUPPORTED_FORMAT`, `no_colour_channels` | |
+
+FX-EXR-004: windows and layout. Every one is drawn 8 by 6.
+
+| File | What it holds | Reported |
+|---|---|---|
+| `windows/inset.exr` | data window (2,1)-(5,3) inside display window (0,0)-(7,5): the rest is transparent black | none |
+| `windows/overscan.exr` | data window two pixels wider and one taller on every side, filled with 9 there | `outside_display_window` 48 |
+| `windows/offset.exr` | both windows at (10,20)-(17,25): drawn as if at the origin | none |
+| `windows/disjoint.exr` | data window (20,20)-(21,21), wholly outside: all transparent black | `outside_display_window` 4 |
+| `windows/decreasing_y.exr` | lines stored bottom to top: drawn the right way up | none |
+| `windows/tiled.exr` | 3 by 3 tiles, one level, PIZ | none |
+| `windows/aspect.exr` | pixel aspect ratio 2: drawn with square pixels | `pixel_aspect` 2.0 |
+
+FX-EXR-005: values. `values/specials.exr`, float: a NaN in red, +infinity in green and -infinity in blue on three pixels, 1e30 in red and -70000 in green on two others, and alpha of 1.5, -0.25 and NaN on three more. Drawn with the four non-finite samples as 0, the two alphas clamped to 1 and 0 (the NaN alpha became 0 first and is not counted again), and 1e30 and -70000 kept. Reported: `non_finite` 4, `alpha_clamped` 2.
+
+FX-EXR-006: primaries. `colour/rec709.exr` states Rec. 709 and is drawn with no report. `colour/acescg.exr` states ACEScg's primaries and white; it is drawn with the same numbers, and `primaries` is reported with the eight stated values.
+
+FX-EXR-007: refused. Each keeps its asset and draws nothing.
+
+| File | Identifier | Reason |
+|---|---|---|
+| `refused/multipart.exr`: two parts | `MEDIA_UNSUPPORTED_FORMAT` | `multipart` |
+| `refused/deep.exr`: deep data | `MEDIA_UNSUPPORTED_FORMAT` | `deep` |
+| `refused/htj2k.exr`: HTJ2K compression | `MEDIA_UNSUPPORTED_FORMAT` | `htj2k` |
+| `refused/layers_only.exr`: colour only as `beauty.R` and so on | `MEDIA_UNSUPPORTED_FORMAT` | `no_colour_channels` |
+| `refused/luminance_chroma.exr`: `Y`, `RY`, `BY` | `MEDIA_UNSUPPORTED_FORMAT` | `luminance_chroma` |
+| `refused/truncated.exr`: the first half of a good file | `MEDIA_DECODE_FAILED` | `unreadable` |
+| `refused/empty.exr`: no bytes | `MEDIA_DECODE_FAILED` | `unreadable` |
+| `refused/not_exr.exr`: a line of text | `MEDIA_DECODE_FAILED` | `unreadable` |
+
+`refused/htj2k.exr` is small enough that OpenEXR stored its pixels uncompressed, and the `exr` crate reads it; it must be refused anyway, from its header. No file tests `subsampled`: OpenEXR's Python library cannot write one, so that refusal is specified and not fixture-tested.
+
+FX-EXR-008: a sequence. `sequence/render_0001.exr`, `_0002`, `_0003` and `_0005`, each a flat red of 0.1 times its number, imported as one sequence of pattern `render_%04d.exr`. Drawings 1, 2, 3 and 5 are there; drawing 4 is `MEDIA_SEQUENCE_GAP`, exactly as for PNG.
+
+FX-EXR-009: export, the plain picture. A composition 8 by 6, one frame, numbered 0, holding `compression/none_float.exr` at identity over transparent black, so the working buffer is the drawing (D-58). Exported as `none_float_as_float` (float, 24 frames a second) and `none_float_as_half` (half, 24). `tools/exr_reference.py check <folder>` reads both with OpenEXR's library and checks one part, scanlines, ZIP, channels A, B, G, R, the sample type, both windows (0,0)-(7,5), increasing Y, pixel aspect 1, screen window (0,0) and 1, Rec. 709 primaries, the frame rate as a fraction, no other attribute but `chunkCount`, and every sample against `export` in the expected file. Float is the drawing exactly; half is each value rounded to the nearest half.
+
+FX-EXR-010: export, the extreme picture. The same with `values/specials.exr`, at 24000/1001 frames a second, as `specials_as_float` and `specials_as_half`. The float file holds the working buffer, 1e30 included. In the half file, 1e30 is 65504 and -70000 is -65504.
+
+The check prints a table with one row per item, 15 for each of the four files, 60 in all, and must say 60 of 60.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

@@ -20,6 +20,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | MEDIA_SEQUENCE_GAP | WARNING | Requested drawing number absent | do not substitute adjacent frame |
 | MEDIA_UNSUPPORTED_FORMAT | ERROR | Decoder not supported | preserve asset record; report format |
 | MEDIA_DECODE_FAILED | ERROR | Supported decoder failed on file | identify file/frame; continue other frames where safe |
+| MEDIA_EXR_ADJUSTED | WARNING | An EXR drawing was drawn, but not exactly as stored (D-62) | draw it; name the file and each reason: channels ignored, pixels outside the display window, samples not finite, alpha clamped, pixel aspect, primaries |
 | EFFECT_UNSUPPORTED | WARNING | Effect type not installed/implemented | preserve serialized record; bypass with visible warning |
 | EFFECT_PARAMETER_INVALID | ERROR on a command, WARNING on a load and per frame | Effect parameter violates contract | reject the command; on load preserve the record exactly and unrepaired, bypass that one effect while the rest of the stack still runs, warn once per frame it happens, and report fidelity incomplete |
 | MATTE_REFERENCE_MISSING | WARNING | Matte ID unresolved | preserve reference; render defined fallback with warning |

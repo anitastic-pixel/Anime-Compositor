@@ -40,6 +40,12 @@ For G1 PNG input, alpha is interpreted as straight/unassociated unless the decod
 
 PNG output converts the linear working RGB to the declared output encoding, then writes straight alpha unless the chosen encoder/format contract explicitly differs. Display transforms are never baked into export unless selected as the output transform.
 
+## EXR interpretation
+
+Proposed by D-62 on 2026-09-17. EXR input is linear light and premultiplied, the working buffer's own convention, so samples are used without conversion. The drawing is the display window; data outside it is cut off, and display pixels the data window does not cover are transparent black. Colour below 0 and above 1 is kept. A non-finite sample becomes 0, then alpha is clamped to 0..1. Which channels are used, and what is reported, are D-62's.
+
+EXR output writes the working buffer unchanged and premultiplied. Float output is exact. Half output clamps each sample to -65504..65504 and rounds it to the nearest half, ties to even; that is its declared encoding step. No tolerance applies in either direction: the `exr` crate was measured against OpenEXR's own library and matched to the bit (D-62).
+
 ## Layer render order
 
 For each raster layer, the G1 order is:

@@ -50,7 +50,7 @@ The tile contract in ADR-011 exists so that adding a GPU path later is a dispatc
 
 ## ADR-007 - Image and color dependencies
 
-Status: ACCEPTED for G1-core. PNG decoding and encoding via a maintained permissive Rust crate that preserves the metadata required by document 21. OpenColorIO, OpenImageIO and OpenEXR are not adopted; their format coverage is not needed by G1-core and their dependency weight is not justified. Revisit only when a specific requirement, such as EXR handoff, actually arrives.
+Status: ACCEPTED for G1-core. PNG decoding and encoding via a maintained permissive Rust crate that preserves the metadata required by document 21. OpenColorIO, OpenImageIO and OpenEXR are not adopted; their format coverage is not needed by G1-core and their dependency weight is not justified. Revisit only when a specific requirement, such as EXR handoff, actually arrives. EXR handoff arrived with D-60; D-62 proposes the `exr` crate for it, a Rust reader and writer, rather than OpenEXR or OpenImageIO.
 
 The internal contract is linear-light premultiplied float32 as specified in document 21, independent of any library choice.
 
