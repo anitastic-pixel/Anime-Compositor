@@ -963,6 +963,13 @@ fn save_as(viewer: &Mutex<Viewer>, path: &Path) -> String {
     said
 }
 
+/// A file the importer reads: PNG, or EXR by D-62.
+fn is_drawing(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("png"))
+        || exr_io::is_exr(&path.to_string_lossy())
+}
+
 /// Load a dropped or named file into the viewer, or report why it could not be.
 ///
 /// A file that cannot be opened leaves the project that was open exactly as it was and adds the
@@ -4562,7 +4569,16 @@ fn main() {
                 return;
             };
             let Some(path) = paths.first() else { return };
-            take(&window.state::<Mutex<Viewer>>(), path);
+            let viewer = window.state::<Mutex<Viewer>>();
+            // The owner's B-16c playtest: drawings dropped on the window are imported, as Import
+            // drawings... would, and one file on its own is a still there too.
+            if paths.iter().all(|p| is_drawing(p)) {
+                let said = import(&viewer, paths);
+                announce(&viewer, said);
+                refresh(window.app_handle());
+                return;
+            }
+            take(&viewer, path);
             remember(window.app_handle(), path);
             refresh(window.app_handle());
         })

@@ -61,6 +61,10 @@ the copy. The EXR test files are in `Fixtures/exr`. Nothing below changes them.
     and so shows nothing (document 20). With the layer chosen, press **Add an exposure** a few
     times: each press shows the next drawing on the next frame, and they look the same as the
     frames you exported.
+13. **Dropping drawings.** Select several of the exported `.exr` files in File Explorer and drag
+    them onto the window. They are imported as a sequence, with the same status line as step 12.
+    One file dropped on its own is a still. A project `.json` dropped on the window still opens
+    it, as before.
 
 ## Known limits
 
