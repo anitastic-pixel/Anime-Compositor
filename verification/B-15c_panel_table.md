@@ -29,6 +29,7 @@ Whether the tick and the two buttons are where you expect them, and whether the 
 | and lists the two that are not ok, by path, in the notes | media/asset-licensed/sheet.png, media/asset-gone/gone_0001.png | media/asset-licensed/sheet.png, media/asset-gone/gone_0001.png | pass |
 | a cel changed by one byte is reported changed | Checked 12 files against the package manifest: 9 ok, 1 changed, 1 missing, 1 excluded. | Checked 12 files against the package manifest: 9 ok, 1 changed, 1 missing, 1 excluded. | pass |
 | with its code in the note | true | true | pass |
+| after Save As, the package beside the saved file is the one checked | Checked 12 files against the package manifest: 9 ok, 1 changed, 1 missing, 1 excluded. | Checked 12 files against the package manifest: 9 ok, 1 changed, 1 missing, 1 excluded. | pass |
 | a project with no file has nothing beside it to check | This project has no file yet, so there is no package beside it to check. Open the project inside a collected folder first. | This project has no file yet, so there is no package beside it to check. Open the project inside a collected folder first. | pass |
 
-**18 of 18 checks pass.**
+**19 of 19 checks pass.**

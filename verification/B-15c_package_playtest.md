@@ -2,7 +2,7 @@
 
 Built on 2026-09-16 against D-61, which the owner accepted the same day ("accept d-61").
 
-The generated half is `verification/B-15c_panel_table.md`, 18 of 18. It calls what the window
+The generated half is `verification/B-15c_panel_table.md`, 19 of 19. It calls what the window
 calls and checks what comes back, starting from a folder already chosen, because no test can
 answer a Windows folder picker. This sheet covers what a table cannot judge: where the tick and
 the two buttons are, the folder picker itself, and whether a package really opens somewhere else.

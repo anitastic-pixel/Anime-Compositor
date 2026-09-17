@@ -3887,12 +3887,14 @@ fn were(n: usize) -> String {
 /// status line gives the count of each answer.
 fn check_package(viewer: &Mutex<Viewer>) -> String {
     let mut held = viewer.lock().expect("the viewer lock was poisoned");
-    if held.path.is_none() {
+    // The saved file itself, not `project_file`: after Save As the media root stays behind in the
+    // old folder, and the manifest is beside the file.
+    let Some(path) = held.path.clone() else {
         return "This project has no file yet, so there is no package beside it to check. \
                 Open the project inside a collected folder first."
             .to_string();
-    }
-    let rows = match package::check(&project_file(&held)) {
+    };
+    let rows = match package::check(&path) {
         Ok(rows) => rows,
         Err(diagnostic) => {
             held.notes = vec![note(&diagnostic)];
@@ -9523,6 +9525,15 @@ mod editing {
                 n.starts_with("media/asset-cel/cel_0001.png: ")
                     && n.contains("PACKAGE_FILE_CHANGED")
             }),
+        );
+        // Save As moves the file but leaves the media root in the old folder; the manifest is
+        // still looked for beside the file.
+        held(&viewer).root = source.parent().expect("the fixture folder").to_path_buf();
+        report.check(
+            "after Save As, the package beside the saved file is the one checked",
+            "Checked 12 files against the package manifest: 9 ok, 1 changed, 1 missing, 1 \
+             excluded.",
+            check_package(&viewer),
         );
         held(&viewer).path = None;
         report.check(
