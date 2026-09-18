@@ -122,7 +122,7 @@ B-17a / adjustment layer specification and fixtures before code. D-66 in documen
 
 B-17b / the adjustment layer in the core, built against D-66: the kind read and written, the frame drawn in segments, the trace naming the adjusted frame. Artifact: a generated table walking FX-ADJ-001 to 013, including a tiled render against an untiled one. Not in scope: the window. **Built on 2026-09-17:** `verification/B-17b_adjust_table.md`, 44 of 44, from `tests/b17b_adjust.rs`: all thirteen cases within 1e-6 of `Fixtures/adjust/expected_adjust.json`, tiled and untiled byte-identical, the file, the commands, the draft preview and the trace.
 
-B-17c / the adjustment layer in the window: the button, Ctrl+Alt+Y, its row on the timeline and its effects in the inspector. Artifact: a panel table and a playtest sheet, the owner's to perform.
+B-17c / the adjustment layer in the window: the button, Ctrl+Alt+Y, its row on the timeline and its effects in the inspector. Artifact: a panel table and a playtest sheet, the owner's to perform. **BUILT on 2026-09-17.** The panel table is `verification/B-17c_panel_table.md`, 11 of 11: New adjustment layer needs no drawing chosen, lands above the chosen layer or else at the front, covers the frame and runs the whole composition, takes an effect, refuses a blend mode with the reason, and comes back on Undo as an adjustment layer with its effect. The playtest sheet is `verification/B-17c_adjust_playtest.md`, waiting on the owner.
 
 B-18 / precompositions, after B-17 (D-65). Its specification and fixtures come first, as B-18a.
 

@@ -1803,6 +1803,7 @@ const ANSWERS: &[&str] = &[
     "keyframe.move",
     "keyframe.set_interp",
     "keyframe.set_path",
+    "layer.add_adjustment",
     "layer.copy",
     "layer.create",
     "layer.delete",
@@ -2722,6 +2723,24 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // The end of the order is the front of the picture -- `layers_in_order` is bottom
             // first -- and the front is where somebody who has just added a layer looks for it.
             // W-22: a drawing dropped on the layer list says where in the stack it landed.
+            Command::AddLayer {
+                composition,
+                layer: Box::new(layer),
+                index: parameter(query, "to")
+                    .and_then(|to| to.parse::<usize>().ok())
+                    .unwrap_or(comp.len()),
+            }
+        } else if id == "layer.add_adjustment" {
+            // B-17c: D-66's layer with no drawing, so it names none. It lands where the page
+            // says (`to`, above the chosen layer) or else at the front, where a new layer goes.
+            let layer = Layer::adjustment(
+                unused_layer_id(project),
+                parameter(query, "name").unwrap_or_else(|| "Adjustment layer".to_string()),
+                comp.width,
+                comp.height,
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
             Command::AddLayer {
                 composition,
                 layer: Box::new(layer),
@@ -9964,6 +9983,152 @@ mod editing {
          `verification/B-16c_exr_playtest.md`, for a person. Whether the pixels are right is \
          B-16b's table, against OpenEXR itself.",
     ];
+
+    /// One layer of the composition on screen, by name, as the page is given it.
+    fn shown_layer(viewer: &Mutex<Viewer>, name: &str) -> serde_json::Value {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("a composition has layers")
+            .iter()
+            .find(|l| l["name"] == name)
+            .cloned()
+            .unwrap_or(serde_json::Value::Null)
+    }
+
+    /// B-17c: the adjustment layer from the window, on D-66. The order is the playtest sheet's.
+    #[test]
+    fn an_adjustment_layer_is_added_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+
+        let before = names(&viewer);
+        run(&viewer, "layer.add_adjustment");
+        report.check(
+            "New adjustment layer needs no drawing chosen and adds one at the front",
+            format!("{before}, Adjustment layer"),
+            names(&viewer),
+        );
+        let layer = shown_layer(&viewer, "Adjustment layer");
+        report.check(
+            "the page is told its kind, and it has no drawing",
+            "adjustment, no asset_id",
+            format!(
+                "{}, {}",
+                layer["kind"].as_str().unwrap_or("(no kind)"),
+                if layer.get("asset_id").is_none() { "no asset_id" } else { "an asset_id" }
+            ),
+        );
+        report.check(
+            "it covers the composition: anchor and position at the centre of 1920 by 1080",
+            "[960,540] and [960,540]",
+            format!(
+                "{} and {}",
+                layer["transform"]["anchor"]["base"], layer["transform"]["position"]["base"]
+            ),
+        );
+        report.check(
+            "and it runs the whole composition",
+            "frames 0 to 5",
+            format!("frames {} to {}", layer["in_frame"], layer["out_frame"]),
+        );
+        report.check(
+            "Undo says what it would take back",
+            "Add layer Adjustment layer",
+            held(&viewer)
+                .document
+                .undo_labels()
+                .last()
+                .cloned()
+                .unwrap_or_default(),
+        );
+
+        // With a layer chosen, the page sends `to`: the index above it.
+        run(&viewer, "layer.add_adjustment?to=1&name=Grade");
+        report.check(
+            "with a layer chosen, the new one lands just above it",
+            "Cel, Grade, Adjustment layer",
+            names(&viewer),
+        );
+        let id = shown_layer(&viewer, "Grade")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+
+        run(&viewer, &format!("effect.add?layer={id}&type=core.exposure"));
+        report.check(
+            "an effect is added to it as to any layer",
+            "1 effect(s): core.exposure",
+            {
+                let stack = shown_layer(&viewer, "Grade")["effects"].clone();
+                format!(
+                    "{} effect(s): {}",
+                    stack.as_array().map_or(0, |a| a.len()),
+                    stack[0]["type_id"].as_str().unwrap_or("(none)")
+                )
+            },
+        );
+        report.check(
+            "a blend mode other than normal is refused, with the reason",
+            "\"Grade\" is an adjustment layer, which has no blend mode but normal.",
+            run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply")),
+        );
+        report.check(
+            "and the layer still reads normal",
+            "normal",
+            shown_layer(&viewer, "Grade")["blend_mode"].as_str().unwrap_or("(none)"),
+        );
+
+        run(&viewer, &format!("layer.delete?layer={id}&frame=0"));
+        report.check("Delete layer takes it out", "Cel, Adjustment layer", names(&viewer));
+        run(&viewer, "edit.undo");
+        report.check(
+            "and Undo brings it back as an adjustment layer, effect and all",
+            "Cel, Grade, Adjustment layer; adjustment with 1 effect(s)",
+            format!(
+                "{}; {} with {} effect(s)",
+                names(&viewer),
+                shown_layer(&viewer, "Grade")["kind"].as_str().unwrap_or("(no kind)"),
+                shown_layer(&viewer, "Grade")["effects"].as_array().map_or(0, |a| a.len())
+            ),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-17c_panel_table.md",
+            "B-17c: adjustment layers in the window",
+            ADJUST_PANEL_INTRO,
+            ADJUST_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const ADJUST_PANEL_INTRO: &[&str] = &[
+        "D-66 decided what an adjustment layer is and B-17b built it in the core, checked pixel \
+         by pixel in `verification/B-17b_adjust_table.md`. This is the window's half: the New \
+         adjustment layer button and Ctrl+Alt+Y send `layer.add_adjustment`, which needs no \
+         drawing chosen, and the layer then takes effects as any layer does and refuses a blend \
+         mode.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
+         and reads back what the page is given.",
+    ];
+
+    const ADJUST_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhat the layer looks like on the timeline and in the \
+         panels, and whether the picture changes as it should when its effects change. That is \
+         `verification/B-17c_adjust_playtest.md`, for a person. Whether the pixels are right is \
+         B-17b's table.",
+    ];
 }
 
 /// What the autosave timer and the recovery path do, checked without a window.
@@ -11733,6 +11898,7 @@ mod contract {
         "keyframe.move",
         "keyframe.set_interp",
         "keyframe.set_path",
+        "layer.add_adjustment",
         "layer.copy",
         "layer.create",
         "layer.delete",
@@ -12067,8 +12233,8 @@ mod contract {
         ("layer.toggle_solo", "a command the window answers"),
         ("layer.set_label", "a command the window answers"),
         ("layer.set_blend_mode", "a command the window answers"),
-        // D-66, accepted on 2026-09-17; B-17c puts the button in the window.
-        ("layer.add_adjustment", "nothing yet"),
+        // D-66, accepted on 2026-09-17; B-17c put the button in the window the same day.
+        ("layer.add_adjustment", "a command the window answers"),
         ("layer.copy", "a command the window answers"),
         ("layer.paste", "a command the window answers"),
         ("layer.toggle_shy", "a command the window answers"),
@@ -12120,6 +12286,7 @@ mod contract {
         ("edit.redo", "Ctrl+Shift+Z", "e.shiftKey ? $('redo')"),
         ("media.import", "Ctrl+I", "e.key === 'i'"),
         ("layer.create", "Ctrl+Alt+L", "e.altKey && (e.key === 'l'"),
+        ("layer.add_adjustment", "Ctrl+Alt+Y", "e.altKey && (e.key === 'y'"),
         ("layer.delete", "Delete", "e.key === 'Delete'"),
         ("layer.rename", "F2", "e.key === 'F2'"),
         ("layer.move_up", "Ctrl+]", "e.key === ']'"),
@@ -12170,6 +12337,7 @@ mod contract {
         ("Ctrl+I", "e.key === 'i'", "$('import')"),
         ("Ctrl+Shift+N", "e.key === 'n'", "$('newcomp')"),
         ("Ctrl+Alt+L", "e.key === 'l'", "$('addlayer')"),
+        ("Ctrl+Alt+Y", "e.key === 'y'", "$('addadjust')"),
         ("Ctrl+]", "e.key === ']'", "$('up')"),
         ("Ctrl+[", "e.key === '['", "$('down')"),
         ("Delete", "e.key === 'Delete'", "$('dellayer')"),
@@ -13484,7 +13652,8 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 46] = [
+    const CONTROLS: [&str; 47] = [
+        "addadjust",
         "addeffect",
         "addexposure",
         "addlayer",
@@ -13535,7 +13704,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 44] = [
+    const KEYS: [&str; 45] = [
         "*",
         ",",
         "-",
@@ -13577,6 +13746,7 @@ mod contract {
         "T",
         "U",
         "V",
+        "Y",
         "Z",
         "[",
         "]",

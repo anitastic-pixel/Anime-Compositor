@@ -343,6 +343,9 @@
     position: absolute; top: 9px; bottom: 2px;
     border: 1px dashed #46587a; border-radius: 2px;
   }
+  /* B-17c: an adjustment layer (D-66) has no drawings, so its bar is hatched rather than hollow:
+     hollow already means "every frame shows the drawing of its own number". */
+  .track.adjust .life { background: repeating-linear-gradient(135deg, #2f3d55 0 6px, #46587a 6px 8px); }
   /* W-10: a keyframe, on the frame it is on, over the bar. On the layer's own bar a press
      lands on the bar underneath and does what the bar does; on a property's row, W-11 below
      makes the same mark something to take hold of. */
@@ -743,6 +746,8 @@
       <button id="shyswitch" class="sheettab" aria-pressed="false"
         title="Leave shy layers off the timeline. The picture still draws them.">Hide shy layers</button>
       <button id="addlayer">Add layer</button>
+      <button id="addadjust"
+        title="A layer with no drawing whose effects apply to everything drawn beneath it">New adjustment layer</button>
       <button id="dellayer">Delete layer</button>
       <button id="up">Forward</button>
       <button id="down">Back</button>
@@ -1688,6 +1693,12 @@ function track(comp, layer, drawings) {
     + '. Pull the middle to move it, either end to trim it, and the line between two exposures '
     + 'to retime them.';
   const spans = layer.exposure_spans || [];
+  if (layer.kind === 'adjustment') {
+    box.classList.add('adjust');
+    lifeBar.title = layer.name + ' is an adjustment layer: its effects apply to everything drawn '
+      + 'beneath it, from frame ' + layer.in_frame + ' up to frame ' + layer.out_frame + '.';
+    return box;
+  }
   if (!spans.length) {
     bar('free', layer.in_frame, layer.out_frame).title =
       'No exposures. Each frame shows the drawing of the same number.';
@@ -1957,6 +1968,7 @@ sheet.addEventListener('contextmenu', (e) => {
     ['Paste layers', 'Ctrl+V', pasteLayers, clip === 'layers'],
     ['Paste keys at frame ' + at, 'Ctrl+V', () => pasteKeys(at), clip === 'keys' && copied.length > 0],
     ['Add layer', 'Ctrl+Alt+L', () => $('addlayer').click()],
+    ['New adjustment layer', 'Ctrl+Alt+Y', () => $('addadjust').click()],
     ['Add a marker at frame ' + at, '*', () => addMarker(at)],
     ['Composition settings', 'Ctrl+K', compSettings],
   ]);
@@ -2128,11 +2140,12 @@ function drawLayers() {
     // and Ctrl-clicks can be seen.
     li.setAttribute('aria-selected', String(selection.includes(layer.id)));
     // Colour is not the only carrier: a layer that is off, soloed, locked or shy says so in words.
-    if (!layer.enabled || layer.locked || soloed || layer.shy) {
+    const adjust = layer.kind === 'adjustment';
+    if (!layer.enabled || layer.locked || soloed || layer.shy || adjust) {
       const mark = document.createElement('span');
       mark.className = 'mark';
-      mark.textContent = [!layer.enabled ? 'hidden' : null, soloed ? 'soloed' : null, layer.locked ? 'locked' : null,
-        layer.shy ? 'shy' : null]
+      mark.textContent = [adjust ? 'adjustment' : null, !layer.enabled ? 'hidden' : null, soloed ? 'soloed' : null,
+        layer.locked ? 'locked' : null, layer.shy ? 'shy' : null]
         .filter(Boolean).join(', ');
       li.append(mark);
       if (!layer.enabled) li.querySelector('.name').className = 'name off';
@@ -2158,7 +2171,8 @@ function drawLayers() {
       if (!selection.includes(layer.id)) select(layer.id, false);
       blendLayers(mode);
     };
-    head.append(blend);
+    // B-17c: an adjustment layer has normal and no list to choose from (D-66).
+    if (!adjust) head.append(blend);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     grabRow(li, head, all, layer);
@@ -2457,6 +2471,7 @@ function palette() {
     ['Undo', 'Ctrl+Z', { key: 'z', ctrlKey: true }],
     ['Redo', 'Ctrl+Shift+Z', { key: 'Z', ctrlKey: true, shiftKey: true }],
     ['Add layer', 'Ctrl+Alt+L', { key: 'l', ctrlKey: true, altKey: true }],
+    ['New adjustment layer', 'Ctrl+Alt+Y', { key: 'y', ctrlKey: true, altKey: true }],
     ['Rename layer', 'F2', { key: 'F2' }],
     ['Delete layer or keys', 'Delete', { key: 'Delete' }],
     ['Duplicate layers', 'Ctrl+D', { key: 'd', code: 'KeyD', ctrlKey: true }],
@@ -4179,7 +4194,7 @@ function drawInspector() {
   const dl = document.createElement('dl');
   field(dl, 'Name', layer.name);
   field(dl, 'Identifier', layer.id);
-  field(dl, 'Drawing', layer.asset_id);
+  field(dl, 'Drawing', layer.kind === 'adjustment' ? 'none: an adjustment layer' : layer.asset_id);
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive'
     + (layer.source_offset_frames ? ', drawings offset by ' + layer.source_offset_frames : ''));
   // Document 19's five transform properties, in its order. What they are counted in and the
@@ -4189,14 +4204,17 @@ function drawInspector() {
   propRow(dl, layer, 'scale');
   propRow(dl, layer, 'rotation');
   propRow(dl, layer, 'opacity');
-  // W-25: the blend mode, which the owner asked to change, from a list.
-  field(dl, 'Blend', '');
-  const blend = document.createElement('select');
-  blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
-  blend.append(...BLENDS.map((mode) => new Option(mode, mode)));
-  blend.value = layer.blend_mode;
-  blend.onchange = () => blendLayers(blend.value);
-  dl.lastChild.append(blend);
+  // W-25: the blend mode, which the owner asked to change, from a list. B-17c: not offered on
+  // an adjustment layer, which has normal only (D-66).
+  if (layer.kind !== 'adjustment') {
+    field(dl, 'Blend', '');
+    const blend = document.createElement('select');
+    blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
+    blend.append(...BLENDS.map((mode) => new Option(mode, mode)));
+    blend.value = layer.blend_mode;
+    blend.onchange = () => blendLayers(blend.value);
+    dl.lastChild.append(blend);
+  }
   // What is on this layer that this panel cannot yet change is still said, because a person
   // deciding whether a layer is the one they want needs to know it carries a mask.
   field(dl, 'Mask', layer.mask ? layer.mask.vertices.length + ' points' : 'none');
@@ -4363,10 +4381,15 @@ function exposureRow(layer, span, drawings) {
 function drawExposures() {
   const layer = selected();
   const into = $('exposures');
-  $('addexposure').disabled = !layer;
+  $('addexposure').disabled = !layer || layer.kind === 'adjustment';
   if (!layer) {
     into.replaceChildren(Object.assign(document.createElement('p'),
       { className: 'empty', textContent: 'No layer is selected.' }));
+    return;
+  }
+  if (layer.kind === 'adjustment') {
+    into.replaceChildren(Object.assign(document.createElement('p'),
+      { className: 'empty', textContent: 'An adjustment layer has no drawings to expose.' }));
     return;
   }
   const spans = layer.exposure_spans || [];
@@ -5219,6 +5242,7 @@ function drawPanels() {
       + comp.duration_frames + ' frames'
     : 'No composition is open.';
   $('addlayer').disabled = !selectedAsset;
+  $('addadjust').disabled = !comp;
   $('relink').disabled = !selectedAsset;
   // Document 26 requires a label on every history record, and this is where it earns its keep:
   // a person who has been away from the window cannot otherwise know what Undo is about to
@@ -5346,6 +5370,13 @@ $('addlayer').onclick = () => {
 $('dellayer').onclick = () => {
   if (!selectedLayer) return;
   command('/layer.delete?layer=' + encodeURIComponent(selectedLayer) + '&frame=' + frame);
+};
+// B-17c: D-66's adjustment layer, above the chosen layer as After Effects puts it, or else at
+// the front. The core needs no drawing for it, so nothing has to be chosen under Drawings.
+$('addadjust').onclick = () => {
+  if (!composition()) return;
+  const at = layers().findIndex((l) => l.id === selectedLayer);
+  command('/layer.add_adjustment' + (at < 0 ? '' : '?to=' + (at + 1)));
 };
 // B-12 fix: Forward and Back move every chosen layer a step, as one entry to undo. The chosen
 // layer nearest the end it is going to moves first; one already against that end, or against a
@@ -5608,6 +5639,11 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && e.altKey && (e.key === 'l' || e.key === 'L')) {
     e.preventDefault();
     $('addlayer').click();
+  }
+  // B-17c: After Effects' Ctrl+Alt+Y.
+  else if (e.ctrlKey && e.altKey && (e.key === 'y' || e.key === 'Y')) {
+    e.preventDefault();
+    $('addadjust').click();
   }
   // W-23: with Shift as well, the very front or the very back. Named by the key's place, because
   // Shift changes the letter the bracket keys report.
