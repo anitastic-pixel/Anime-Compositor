@@ -38,7 +38,7 @@ Exposure edit: invalidate affected layer and downstream composition frames only 
 
 Transform/opacity/blend change: preserve decoded/source-effect cache where independent; invalidate transformed/composition results for affected frames.
 
-Effect parameter/order change: invalidate that effect stage and downstream results for affected frames.
+Effect parameter/order change: invalidate that effect stage and downstream results for affected frames. D-68, proposed on 2026-09-18: the effect parameters in a cache key are their values at the frame, not their keys, so an edit to one key affects only the frames whose value it changes.
 
 Mask edit: invalidate mask-dependent layer/effect stages according to the render order in 21.
 

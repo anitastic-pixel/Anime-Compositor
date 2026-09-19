@@ -147,6 +147,8 @@ Solid-color tint: parameter color is linear RGB and amount `t` in 0..1. Recover 
 
 Gaussian blur: parameter `sigma_px >= 0`. Use separable normalized Gaussian weights with kernel radius `ceil(3*sigma_px)`. Sigma zero is identity. Samples outside the image are transparent black. Blur operates on premultiplied RGB and alpha together to avoid dark/bright fringe artifacts. Bounds expand by the kernel radius.
 
+D-68, proposed on 2026-09-18: each parameter above is its value at the composition frame (document 20), so the arithmetic is unchanged and the blur's radius and bounds are that frame's. FX-FXK-001 to 009 pin it.
+
 ## Evaluation bounds and ROI
 
 Every effect declares input bounds expansion. Transform/mask/matte operations declare the region they can affect. Cache keys include all parameters that alter pixels or bounds. An optimization may skip pixels outside ROI only if output equals full-frame reference math within test tolerance.

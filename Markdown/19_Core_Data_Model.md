@@ -76,6 +76,8 @@ MatteReference stores another layer ID and mode `alpha`. A matte dependency must
 
 EffectInstance stores stable instance ID, effect type ID, enabled flag and a typed parameter map. Unknown effect records must survive project load/save where feasible but render as unsupported with an explicit warning; they may not be silently discarded.
 
+D-68, proposed on 2026-09-18 and not yet accepted: a value in an effect's parameter map is either a plain number (for a colour, three), which is constant, or a property record `{"base", "keyframes"}` as a transform property is written above, its keys carrying `frame`, `value`, `interp` and `ease` and never `spatial`. A setting with no keys is written plain, so older files are unchanged. A `base` or key `value` outside the setting's range (`sigma_px` 0 or more, `amount` within 0 and 1) is `PROJECT_SCHEMA_INVALID`. An unknown effect's parameter map is kept as written.
+
 ## Validation invariants
 
 - Every referenced ID exists or is retained as an unresolved reference with diagnostics.
