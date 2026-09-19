@@ -758,13 +758,127 @@ FX-ADJ-013: Only between its in and out frames (frame 1 only).
 | 2, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
 | 2, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
 
+## Precomposition fixtures
+
+D-67, proposed on 2026-09-18 as B-18a and waiting on the owner. Every case is a project of compositions 6 by 2 at 24 fps, three frames long, drawn from the projects and drawings in `Fixtures/precomp/`; the frames shown are the composition Main's, which holds a layer of Inner, itself a composition of the project. The drawings are the adjustment fixtures' - `bg`, `dot`, `half`, `matte` - and `small`, opaque blue 2 by 2, for the case whose Inner is 2 by 2. Layers are listed bottom first. Every layer's transform is the identity unless the case moves it, and a composition layer's anchor is the centre of Inner and its position the centre of Main. Each cell is R G B A of the finished frame, linear and premultiplied.
+
+**Every number below is produced by `tools/precomp_reference.py`**, which renders each pixel from document 21 and nests by plain recursion, reusing `tools/adjust_reference.py` for the drawings and effects. The same numbers are in `Fixtures/precomp/expected_precomp.json`. Tolerance 1e-6. FX-PRE-014 also expects the warning `COMPOSITION_REFERENCE_MISSING`, once; FX-PRE-015 has no frames and expects the file to be refused with `COMPOSITION_CYCLE`.
+
+FX-PRE-001: A composition layer shows the inner composition's frame.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-PRE-002: A blur on the composition layer blurs the inner picture as one, not each drawing on its own.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.315693136 0.0580983763 0.0580983763 0.44845613 | 0.424923201 0.145777498 0.145777498 0.603622291 | 0.449295723 0.211255578 0.211255578 0.638244542 | 0.449295723 0.148599077 0.148599077 0.638244542 | 0.424923201 0.0707438161 0.0707438161 0.603622291 | 0.315693136 0.0383164426 0.0383164426 0.44845613 |
+| 0, 1 | 0.229566958 0.0733278386 0.0733278386 0.44845613 | 0.3089973 0.139686873 0.139686873 0.603622291 | 0.326720605 0.182341959 0.182341959 0.638244542 | 0.326720605 0.14433887 0.14433887 0.638244542 | 0.3089973 0.094176644 0.094176644 0.603622291 | 0.229566958 0.0613294892 0.0613294892 0.44845613 |
+
+FX-PRE-003: Half opacity on the composition layer: the inner picture at half.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 |
+| 0, 1 | 0.10793025 0.10793025 0.10793025 0.5 | 0.10793025 0.10793025 0.10793025 0.5 | 0.10793025 0.10793025 0.10793025 0.5 | 0.10793025 0.10793025 0.10793025 0.5 | 0.10793025 0.10793025 0.10793025 0.5 | 0.10793025 0.10793025 0.10793025 0.5 |
+
+FX-PRE-004: Moved two pixels right: the inner picture moves as one drawing.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 |
+
+FX-PRE-005: A two-by-two inner composition lands centred, at its own size.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 0 0 1 1 | 0 0 1 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 1 1 | 0 0 1 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-PRE-006: The inner composition's own time: a source offset of one frame, and nothing past its end.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+| 1, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 1, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 2, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 2, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-PRE-007: Only between the composition layer's own in and out frames (frame 1 only).
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 1, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 1, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+| 2, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 2, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-PRE-008: Two levels deep: each level's own opacity and effects.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 0.5 | 1 0 0 0.5 | 1 0 0 0.5 | 1 0 0 0.5 | 1 0 0 0.5 | 1 0 0 0.5 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 0.5 | 0.2158605 0.2158605 0.2158605 0.5 | 0.2158605 0.2158605 0.2158605 0.5 | 0.2158605 0.2158605 0.2158605 0.5 | 0.2158605 0.2158605 0.2158605 0.5 | 0.2158605 0.2158605 0.2158605 0.5 |
+
+FX-PRE-009: An adjustment layer inside stays inside: the layer above the composition layer is not adjusted.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.996078431 0.501960784 0 1 | 0.996078431 0.501960784 0 1 | 0.996078431 0.501960784 0 1 | 0.996078431 0.501960784 0 1 | 0.996078431 0.501960784 0 1 | 0.996078431 0.501960784 0 1 |
+| 0, 1 | 0.215013988 0.716974773 0.215013988 1 | 0.215013988 0.716974773 0.215013988 1 | 0.215013988 0.716974773 0.215013988 1 | 0.215013988 0.716974773 0.215013988 1 | 0.215013988 0.716974773 0.215013988 1 | 0.215013988 0.716974773 0.215013988 1 |
+
+FX-PRE-010: An adjustment layer above a composition layer adjusts it like any layer.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 2 0 0 1 | 2 0 0 1 | 2 0 0 1 | 2 0 0 1 | 2 0 0 1 | 2 0 0 1 |
+| 0, 1 | 0.431721 0.431721 0.431721 1 | 0.431721 0.431721 0.431721 1 | 0.431721 0.431721 0.431721 1 | 0.431721 0.431721 0.431721 1 | 0.431721 0.431721 0.431721 1 | 0.431721 0.431721 0.431721 1 |
+
+FX-PRE-011: A mask on the composition layer: only the left three columns.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-PRE-012: A matte-only layer shapes the composition layer: only the left three columns.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-PRE-013: The same composition twice, the second moved three right: two layers.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0.501960784 0 0.501960784 | 0 0.501960784 0 0.501960784 | 0 0.501960784 0 0.501960784 | 0 0.75195694 0 0.75195694 | 0 0.75195694 0 0.75195694 | 0 0.75195694 0 0.75195694 |
+| 0, 1 | 0 0.501960784 0 0.501960784 | 0 0.501960784 0 0.501960784 | 0 0.501960784 0 0.501960784 | 0 0.75195694 0 0.75195694 | 0 0.75195694 0 0.75195694 | 0 0.75195694 0 0.75195694 |
+
+FX-PRE-014: A composition that does not exist: drawn as nothing, with COMPOSITION_REFERENCE_MISSING.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-PRE-015: Main holds a layer of Inner and Inner a layer of Main: the file is refused.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
 
 ## Failure fixtures
 
-FX-IO-001 interrupted replacement retains last valid project. FX-IO-002 disk-full/write failure reports `PROJECT_SAVE_FAILED` and does not truncate the previous valid save. FX-MATTE-001 creates A->B and B->A matte references and must be rejected with `MATTE_CYCLE`. FX-PARENT-004, above, does the same for a parent loop with `PARENT_CYCLE`.
+FX-IO-001 interrupted replacement retains last valid project. FX-IO-002 disk-full/write failure reports `PROJECT_SAVE_FAILED` and does not truncate the previous valid save. FX-MATTE-001 creates A->B and B->A matte references and must be rejected with `MATTE_CYCLE`. FX-PARENT-004, above, does the same for a parent loop with `PARENT_CYCLE`, and FX-PRE-015 for a composition that holds a layer of itself, with `COMPOSITION_CYCLE` (D-67).
 
 ## Image/filter fixtures
 

@@ -44,6 +44,8 @@ Mask edit: invalidate mask-dependent layer/effect stages according to the render
 
 Matte edit or referenced layer change: invalidate dependent layer results and downstream composition frames transitively.
 
+Any edit inside a composition another holds a layer of (D-67): a composition layer's source is the inner composition's frame, keyed as that frame is, so the edit invalidates the composition-frame results of every composition holding a layer of it, at any depth, for the affected frames.
+
 Layer reorder/visibility: preserve source/layer caches where possible; invalidate composition-frame results for affected frames.
 
 Color interpretation/working-space change: conservatively invalidate all pixel caches.
