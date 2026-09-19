@@ -1,0 +1,248 @@
+{
+  "cases": {
+    "FX-FMT-001": {
+      "says": "A 24-bit BMP.",
+      "file": "media/bmp24.bmp",
+      "same_picture_as": "media/bmp24.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 0
+    },
+    "FX-FMT-002": {
+      "says": "A 24-bit TGA, not compressed.",
+      "file": "media/tga24.tga",
+      "same_picture_as": "media/tga24.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 0
+    },
+    "FX-FMT-003": {
+      "says": "A 32-bit TGA with its alpha, which is how cels leave most Japanese paint software.",
+      "file": "media/tga32.tga",
+      "same_picture_as": "media/tga32.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 0
+    },
+    "FX-FMT-004": {
+      "says": "The same, run-length compressed.",
+      "file": "media/tga32_rle.tga",
+      "same_picture_as": "media/tga32_rle.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 0
+    },
+    "FX-FMT-005": {
+      "says": "An 8-bit TIFF with alpha, not compressed.",
+      "file": "media/tiff_rgba.tif",
+      "same_picture_as": "media/tiff_rgba.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 0
+    },
+    "FX-FMT-006": {
+      "says": "The same, LZW compressed.",
+      "file": "media/tiff_lzw.tif",
+      "same_picture_as": "media/tiff_lzw.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 0
+    },
+    "FX-FMT-007": {
+      "says": "A lossless WebP with alpha.",
+      "file": "media/webp_lossless.webp",
+      "same_picture_as": "media/webp_lossless.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 0
+    },
+    "FX-FMT-008": {
+      "says": "A JPEG. It has no alpha, so it is opaque.",
+      "file": "media/jpeg_q95.jpg",
+      "same_picture_as": "media/jpeg_q95.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 3
+    },
+    "FX-FMT-009": {
+      "says": "A greyscale JPEG: the one value is red, green and blue.",
+      "file": "media/jpeg_grey.jpg",
+      "same_picture_as": "media/jpeg_grey.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 3
+    },
+    "FX-FMT-010": {
+      "says": "A lossy WebP.",
+      "file": "media/webp_lossy.webp",
+      "same_picture_as": "media/webp_lossy.twin.png",
+      "width": 16,
+      "height": 12,
+      "tolerance_of_255": 3
+    },
+    "FX-FMT-020": {
+      "says": "24 frames a second: 4.1667 hundredths to a frame, so every sixth delay is 5.",
+      "frame_rate": [
+        24,
+        1
+      ],
+      "frames": 24,
+      "delays_hundredths": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5
+      ],
+      "total_hundredths": 100
+    },
+    "FX-FMT-021": {
+      "says": "12 frames a second: 8.33 hundredths.",
+      "frame_rate": [
+        12,
+        1
+      ],
+      "frames": 12,
+      "delays_hundredths": [
+        8,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8,
+        8,
+        9,
+        8,
+        8,
+        9
+      ],
+      "total_hundredths": 100
+    },
+    "FX-FMT-022": {
+      "says": "24000/1001 frames a second.",
+      "frame_rate": [
+        24000,
+        1001
+      ],
+      "frames": 24,
+      "delays_hundredths": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5
+      ],
+      "total_hundredths": 100
+    },
+    "FX-FMT-023": {
+      "says": "25 frames a second divides exactly: every delay is 4.",
+      "frame_rate": [
+        25,
+        1
+      ],
+      "frames": 25,
+      "delays_hundredths": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "total_hundredths": 100
+    },
+    "FX-FMT-030": {
+      "says": "An MP4 counts time in the frame rate's numerator and every frame lasts the denominator, so 24000/1001 is exact and no frame is dropped or doubled.",
+      "rows": [
+        {
+          "frame_rate": [
+            24,
+            1
+          ],
+          "timescale": 24,
+          "frame_duration": 1,
+          "frames": 48,
+          "duration": 48
+        },
+        {
+          "frame_rate": [
+            24000,
+            1001
+          ],
+          "timescale": 24000,
+          "frame_duration": 1001,
+          "frames": 48,
+          "duration": 48048
+        },
+        {
+          "frame_rate": [
+            30,
+            1
+          ],
+          "timescale": 30,
+          "frame_duration": 1,
+          "frames": 1,
+          "duration": 1
+        }
+      ]
+    }
+  }
+}

@@ -1394,6 +1394,55 @@ FX-AUD-034: A level above +12 dB. Refused, `PROJECT_SCHEMA_INVALID`.
 
 FX-AUD-035: A level that is not a number. Refused, `PROJECT_SCHEMA_INVALID`.
 
+## Format fixtures
+
+D-72, proposed on 2026-09-19; nothing is built against these yet. `tools/formats_reference.py` writes `Fixtures/formats/` and prints what follows. The drawings are one 16 by 12 picture of smooth ramps, saved by Pillow in each format, and each twin is Pillow's own reading of that file.
+
+| case | file | says | its PNG twin | match |
+| --- | --- | --- | --- | --- |
+| FX-FMT-001 | `bmp24.bmp` | A 24-bit BMP. | `bmp24.twin.png` | exact |
+| FX-FMT-002 | `tga24.tga` | A 24-bit TGA, not compressed. | `tga24.twin.png` | exact |
+| FX-FMT-003 | `tga32.tga` | A 32-bit TGA with its alpha, which is how cels leave most Japanese paint software. | `tga32.twin.png` | exact |
+| FX-FMT-004 | `tga32_rle.tga` | The same, run-length compressed. | `tga32_rle.twin.png` | exact |
+| FX-FMT-005 | `tiff_rgba.tif` | An 8-bit TIFF with alpha, not compressed. | `tiff_rgba.twin.png` | exact |
+| FX-FMT-006 | `tiff_lzw.tif` | The same, LZW compressed. | `tiff_lzw.twin.png` | exact |
+| FX-FMT-007 | `webp_lossless.webp` | A lossless WebP with alpha. | `webp_lossless.twin.png` | exact |
+| FX-FMT-008 | `jpeg_q95.jpg` | A JPEG. It has no alpha, so it is opaque. | `jpeg_q95.twin.png` | within 3 of 255 |
+| FX-FMT-009 | `jpeg_grey.jpg` | A greyscale JPEG: the one value is red, green and blue. | `jpeg_grey.twin.png` | within 3 of 255 |
+| FX-FMT-010 | `webp_lossy.webp` | A lossy WebP. | `webp_lossy.twin.png` | within 3 of 255 |
+
+FX-FMT-020: 24 frames a second: 4.1667 hundredths to a frame, so every sixth delay is 5.
+
+| frames | delays, in hundredths of a second | total |
+| --- | --- | --- |
+| 24 | 4 4 4 4 4 5 4 4 4 4 4 5 4 4 4 4 4 5 4 4 4 4 4 5 | 100 |
+
+FX-FMT-021: 12 frames a second: 8.33 hundredths.
+
+| frames | delays, in hundredths of a second | total |
+| --- | --- | --- |
+| 12 | 8 8 9 8 8 9 8 8 9 8 8 9 | 100 |
+
+FX-FMT-022: 24000/1001 frames a second.
+
+| frames | delays, in hundredths of a second | total |
+| --- | --- | --- |
+| 24 | 4 4 4 4 4 5 4 4 4 4 4 5 4 4 4 4 4 5 4 4 4 4 4 5 | 100 |
+
+FX-FMT-023: 25 frames a second divides exactly: every delay is 4.
+
+| frames | delays, in hundredths of a second | total |
+| --- | --- | --- |
+| 25 | 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 | 100 |
+
+FX-FMT-030: An MP4 counts time in the frame rate's numerator and every frame lasts the denominator, so 24000/1001 is exact and no frame is dropped or doubled.
+
+| frame rate | timescale | each frame lasts | frames | the film lasts |
+| --- | --- | --- | --- | --- |
+| 24/1 | 24 | 1 | 48 | 48 |
+| 24000/1001 | 24000 | 1001 | 48 | 48048 |
+| 30/1 | 30 | 1 | 1 | 1 |
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
