@@ -92,6 +92,8 @@ impl EffectInstance {
                     value: Value::Scalar(key.value[c]),
                     interp: key.interp,
                     spatial: None,
+                    kind: Default::default(),
+                    roving: false,
                 });
             }
         }

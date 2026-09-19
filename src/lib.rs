@@ -18,6 +18,7 @@ pub mod diagnostics;
 pub mod effects;
 pub mod export;
 pub mod expr;
+pub mod keykind;
 pub mod exr_io;
 pub mod mask;
 pub mod media;

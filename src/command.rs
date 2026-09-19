@@ -15,8 +15,9 @@
 //! ask for ("undo/redo after project reopen is empty").
 
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
+use crate::keykind::{self, Side};
 use crate::model::{
-    Asset, BlendMode, Composition, Expression, Id, Interp, Keyframe, Layer, MatteReference,
+    Asset, BlendMode, Composition, Expression, Id, Interp, Keyframe, Kind, Layer, MatteReference,
     Project, Prop, Value,
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
@@ -243,6 +244,29 @@ pub enum Command {
         from_frame: i32,
         to_frame: i32,
     },
+    /// D-69's `keyframe.set_kind`: every key named becomes plain, continuous or auto, and the
+    /// eases either side are made to agree with it, as one entry to undo.
+    SetKeyKind {
+        composition: Id,
+        target: Target,
+        prop: Prop,
+        frames: Vec<i32>,
+        kind: crate::model::Kind,
+    },
+    /// D-69's `keyframe.set_roving`, on position keys that are neither first nor last.
+    SetKeyRoving {
+        composition: Id,
+        target: Target,
+        prop: Prop,
+        frames: Vec<i32>,
+        roving: bool,
+    },
+    /// D-69's `property.separate`: a layer's position taken apart into X and Y, or joined.
+    SeparatePosition {
+        composition: Id,
+        layer_id: Id,
+        separate: bool,
+    },
     SetMatte {
         composition: Id,
         layer_id: Id,
@@ -405,6 +429,9 @@ impl Command {
             Command::SetKeyframe { .. } => "SET_KEYFRAME",
             Command::RemoveKeyframe { .. } => "REMOVE_KEYFRAME",
             Command::MoveKeyframe { .. } => "MOVE_KEYFRAME",
+            Command::SetKeyKind { .. } => "SET_KEY_KIND",
+            Command::SetKeyRoving { .. } => "SET_KEY_ROVING",
+            Command::SeparatePosition { .. } => "SEPARATE_POSITION",
             Command::SetMatte { .. } => "SET_MATTE",
             Command::SetParent { .. } => "SET_PARENT",
             Command::SetDepth { .. } => "SET_DEPTH",
@@ -503,6 +530,17 @@ impl Command {
                 to_frame,
                 ..
             } => format!("Move {prop} keyframe from frame {from_frame} to frame {to_frame}"),
+            Command::SetKeyKind { prop, kind, .. } => {
+                format!("Make {prop} keyframes {}", kind.as_str())
+            }
+            Command::SetKeyRoving { roving, .. } => match roving {
+                true => "Rove position keyframes across time".to_string(),
+                false => "Stop position keyframes roving".to_string(),
+            },
+            Command::SeparatePosition { separate, .. } => match separate {
+                true => "Separate position into X and Y".to_string(),
+                false => "Join position's X and Y".to_string(),
+            },
             Command::SetMatte {
                 matte, matte_only, ..
             } => match matte {
@@ -578,6 +616,9 @@ impl Command {
             | Command::SetKeyframe { composition, .. }
             | Command::RemoveKeyframe { composition, .. }
             | Command::MoveKeyframe { composition, .. }
+            | Command::SetKeyKind { composition, .. }
+            | Command::SetKeyRoving { composition, .. }
+            | Command::SeparatePosition { composition, .. }
             | Command::SetMatte { composition, .. }
             | Command::SetParent { composition, .. }
             | Command::SetDepth { composition, .. }
@@ -630,7 +671,10 @@ impl Command {
             | Command::SetExpression { target, .. }
             | Command::SetKeyframe { target, .. }
             | Command::RemoveKeyframe { target, .. }
-            | Command::MoveKeyframe { target, .. } => ids.extend(target.layer().cloned()),
+            | Command::MoveKeyframe { target, .. }
+            | Command::SetKeyKind { target, .. }
+            | Command::SetKeyRoving { target, .. } => ids.extend(target.layer().cloned()),
+            Command::SeparatePosition { layer_id, .. } => ids.push(layer_id.clone()),
             Command::AddEffect {
                 layer_id, effect, ..
             } => {
@@ -749,6 +793,7 @@ impl Command {
             | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
             | Command::SetEffectParameters { layer_id, .. }
+            | Command::SeparatePosition { layer_id, .. }
             | Command::SetEffectKeys { layer_id, .. } => Some(layer_id),
             // B-13e: a property command on a layer is still blocked by that layer's lock. On
             // the camera it is not, for the reason `blocked_by_lock` already gives
@@ -758,7 +803,9 @@ impl Command {
             | Command::SetExpression { target, .. }
             | Command::SetKeyframe { target, .. }
             | Command::RemoveKeyframe { target, .. }
-            | Command::MoveKeyframe { target, .. } => target.layer(),
+            | Command::MoveKeyframe { target, .. }
+            | Command::SetKeyKind { target, .. }
+            | Command::SetKeyRoving { target, .. } => target.layer(),
             _ => None,
         }
     }
@@ -1701,12 +1748,36 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "Document 19: spatial is four offsets in composition pixels.",
                 ));
             }
-            property_mut(project, &comp_id, target, *prop)?.set_keyframe(Keyframe {
+            let property = property_mut(project, &comp_id, target, *prop)?;
+            // D-69: a key set where one is keeps that key's kind and roving. Where the edit
+            // changed a handle of the ease, that side was pulled by hand: an auto key beside
+            // it becomes continuous, as After Effects does, and its other side follows.
+            let old = property.keyframe_at(*frame).copied();
+            let key = Keyframe {
                 frame: *frame,
                 value,
                 interp: *interp,
                 spatial: *spatial,
-            });
+                kind: old.map_or(Kind::Bezier, |k| k.kind),
+                roving: old.is_some_and(|k| k.roving),
+            };
+            let mut touched = Vec::new();
+            if let Some(old) = old {
+                let (was, is) = (keykind::curve(&old), keykind::curve(&key));
+                let at = property
+                    .keyframes()
+                    .iter()
+                    .position(|k| k.frame == *frame)
+                    .expect("the key was found");
+                if old.interp != key.interp && was[..2] != is[..2] {
+                    touched.push((at, Side::Out));
+                }
+                if old.interp != key.interp && was[2..] != is[2..] {
+                    touched.push((at + 1, Side::In));
+                }
+            }
+            property.set_keyframe(key);
+            keep_kinds(property, &touched)?;
         }
         Command::RemoveKeyframe {
             target,
@@ -1714,7 +1785,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             frame,
             ..
         } => {
-            let removed = property_mut(project, &comp_id, target, *prop)?.remove_keyframe(*frame);
+            let property = property_mut(project, &comp_id, target, *prop)?;
+            let removed = property.remove_keyframe(*frame);
+            keep_kinds(property, &[])?;
             if removed.is_none() {
                 return Err(missing(
                     format!("There is no {prop} keyframe at frame {frame} to remove."),
@@ -1757,10 +1830,109 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     ),
                 ));
             };
+            // D-69: a roving key dragged in time by hand stops roving, as After Effects does.
             property.set_keyframe(Keyframe {
                 frame: *to_frame,
+                roving: false,
                 ..key
             });
+            keep_kinds(property, &[])?;
+        }
+        Command::SetKeyKind {
+            target,
+            prop,
+            frames,
+            kind,
+            ..
+        } => {
+            let property = property_mut(project, &comp_id, target, *prop)?;
+            let mut keys = property.keyframes().to_vec();
+            for frame in frames {
+                let Some(key) = keys.iter_mut().find(|k| k.frame == *frame) else {
+                    return Err(missing(
+                        format!("There is no {prop} keyframe at frame {frame}."),
+                        format!(
+                            "{} has no {prop} keyframe at frame {frame}.",
+                            target.named()
+                        ),
+                    ));
+                };
+                key.kind = *kind;
+            }
+            property.set_keys(keys);
+            keep_kinds(property, &[])?;
+        }
+        Command::SetKeyRoving {
+            target,
+            prop,
+            frames,
+            roving,
+            ..
+        } => {
+            if *prop != Prop::Position {
+                return Err(reject(
+                    &format!("{prop} keyframes cannot rove."),
+                    "D-69: roving is a position key's, along its path.",
+                ));
+            }
+            let property = property_mut(project, &comp_id, target, *prop)?;
+            let mut keys = property.keyframes().to_vec();
+            let last = keys.len().saturating_sub(1);
+            for frame in frames {
+                let Some(at) = keys.iter().position(|k| k.frame == *frame) else {
+                    return Err(missing(
+                        format!("There is no position keyframe at frame {frame}."),
+                        format!(
+                            "{} has no position keyframe at frame {frame}.",
+                            target.named()
+                        ),
+                    ));
+                };
+                if *roving && (at == 0 || at == last) {
+                    return Err(reject(
+                        "The first and last keyframes cannot rove.",
+                        "D-69: a roving key sits between two keys that are not.",
+                    ));
+                }
+                keys[at].roving = *roving;
+            }
+            property.set_keys(keys);
+            keep_kinds(property, &[])?;
+        }
+        Command::SeparatePosition {
+            layer_id, separate, ..
+        } => {
+            let position = &mut layer_mut(project, &comp_id, layer_id)?.transform.position;
+            let halves = position.split().cloned();
+            match (*separate, halves) {
+                (true, Some(_)) | (false, None) => {
+                    return Err(reject(
+                        "The position is already that way.",
+                        "D-69: separating a separated position, or joining a joined one, is not an edit.",
+                    ));
+                }
+                (true, None) => {
+                    if position.expression().is_some() {
+                        return Err(reject(
+                            "Remove the position's expression before separating it.",
+                            "D-69: property.separate is refused while the position has an expression.",
+                        ));
+                    }
+                    let (x, y) = keykind::separate(position);
+                    let mut whole = crate::model::Property::constant(position.base());
+                    whole.set_split(Some((x, y)));
+                    *position = whole;
+                }
+                (false, Some((x, y))) => {
+                    if x.expression().is_some() || y.expression().is_some() {
+                        return Err(reject(
+                            "Remove the expressions on X and Y before joining them.",
+                            "D-69: one position has one expression, and two cannot be made into it.",
+                        ));
+                    }
+                    *position = keykind::join(&x, &y);
+                }
+            }
         }
         Command::SetMatte {
             layer_id,
@@ -1817,6 +1989,17 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 }
             }
             // Worked before the write, because it reads the chain the layer is in now.
+            if *keeping
+                && comp
+                    .layer(layer_id)
+                    .is_some_and(|l| l.transform.position.split().is_some())
+            {
+                // ponytail: the conversion turns pairs, and X and Y apart are not pairs.
+                return Err(reject(
+                    "Join the position's X and Y before changing the parent in place.",
+                    "D-69: keep-place converts a position's keys as pairs.",
+                ));
+            }
             let conversion = match keeping {
                 true => Some(keep_place(comp, layer_id, parent.as_ref(), *frame)?),
                 false => None,
@@ -2186,6 +2369,12 @@ fn property_mut<'a>(
         }
     };
     let layer = layer_mut(project, comp_id, layer_id)?;
+    if prop == Prop::Position && layer.transform.position.split().is_some() {
+        return Err(reject(
+            "This position is separated: change its X or its Y.",
+            "D-69: a separated position is reached as position_x and position_y.",
+        ));
+    }
     match prop {
         Prop::Depth => Ok(layer
             .depth
@@ -2206,8 +2395,37 @@ fn camera_prop(prop: Prop) -> Option<crate::model::CameraProp> {
         Prop::Position => Some(crate::model::CameraProp::Position),
         Prop::Depth => Some(crate::model::CameraProp::Depth),
         Prop::Zoom => Some(crate::model::CameraProp::Zoom),
-        Prop::Anchor | Prop::Scale | Prop::Rotation | Prop::Opacity => None,
+        Prop::Anchor
+        | Prop::Scale
+        | Prop::Rotation
+        | Prop::Opacity
+        | Prop::PositionX
+        | Prop::PositionY => None,
     }
+}
+
+/// D-69: after an edit to a property's keys, put every roving key on its frame and make every
+/// auto and continuous key true again. A property with neither is left exactly as it was.
+fn keep_kinds(
+    property: &mut crate::model::Property,
+    touched: &[(usize, Side)],
+) -> Result<(), Diagnostic> {
+    let mut keys = property.keyframes().to_vec();
+    // A handle pulled by hand on an auto key makes it continuous, as After Effects does.
+    for (i, _) in touched {
+        if keys.get(*i).is_some_and(|k| k.kind == Kind::Auto) {
+            keys[*i].kind = Kind::Continuous;
+        }
+    }
+    if !keykind::rove(&mut keys) {
+        return Err(reject(
+            "There are not enough frames there for the roving keyframes.",
+            "D-69: a run needs a frame for each roving key between two keys that do not rove.",
+        ));
+    }
+    keykind::settle(&mut keys, touched);
+    property.set_keys(keys);
+    Ok(())
 }
 
 /// The value check for whichever of the two a property command is addressing.

@@ -118,7 +118,11 @@ pub fn resolve(
     prop: Prop,
     frame: i32,
 ) -> (Value, Option<ExprError>) {
-    if property.live_expression().is_none() {
+    // D-69: a separated position has no expression of its own, and X and Y may each have one.
+    let halves = property
+        .split()
+        .is_some_and(|(x, y)| x.live_expression().is_some() || y.live_expression().is_some());
+    if property.live_expression().is_none() && !halves {
         return (property.value_at(frame), None);
     }
     match evaluate(comp, &target(), prop, frame) {
@@ -157,7 +161,9 @@ pub fn owner_name(comp: &Composition, target: &Target) -> String {
     }
 }
 
-const LAYER_PROPS: [Prop; 6] = [
+const LAYER_PROPS: [Prop; 8] = [
+    Prop::PositionX,
+    Prop::PositionY,
     Prop::Anchor,
     Prop::Position,
     Prop::Scale,
@@ -607,6 +613,17 @@ impl<'a> Run<'a> {
     /// A property after its expression, in expression units.
     fn finished(&mut self, target: &Target, prop: Prop, frame: i32) -> R<V> {
         let record = property(self.comp, target, prop)?;
+        // D-69: a separated position is X and Y, each after its own expression.
+        if prop == Prop::Position && record.split().is_some() {
+            let x = self.finished(target, Prop::PositionX, frame)?;
+            let y = self.finished(target, Prop::PositionY, frame)?;
+            return match (x, y) {
+                (V::Num(x), V::Num(y)) => Ok(V::List(vec![x, y])),
+                _ => Err(syntax(
+                    "position_x and position_y are one number each".to_string(),
+                )),
+            };
+        }
         let Some(text) = record.live_expression() else {
             return self.keyed(target, prop, frame);
         };

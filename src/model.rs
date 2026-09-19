@@ -203,6 +203,37 @@ pub struct Keyframe {
     /// `[in_x, in_y, out_x, out_y]`. `None` is the straight line. Only a position key carries
     /// one; the command and the file reader refuse it anywhere else, so nothing here checks.
     pub spatial: Option<[f64; 4]>,
+    /// D-69: what an edit must keep true of the eases either side of this key. It changes no
+    /// frame: the eases in the file are the ones rendered.
+    pub kind: Kind,
+    /// D-69: a position key whose frame is worked out from the path's length. Only a position
+    /// key that is neither first nor last carries it.
+    pub roving: bool,
+}
+
+/// D-69's three kinds of key. `Bezier` is every key before D-69 and is not written.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Kind {
+    #[default]
+    Bezier,
+    Continuous,
+    Auto,
+}
+
+impl Kind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Kind::Bezier => "bezier",
+            Kind::Continuous => "continuous",
+            Kind::Auto => "auto",
+        }
+    }
+
+    pub fn named(name: &str) -> Option<Self> {
+        [Kind::Bezier, Kind::Continuous, Kind::Auto]
+            .into_iter()
+            .find(|k| k.as_str() == name)
+    }
 }
 
 /// Document 20's `B(t) = (1-t)^3 P0 + 3(1-t)^2 t P1 + 3(1-t) t^2 P2 + t^3 P3`, one component at
@@ -229,6 +260,9 @@ pub struct Property {
     base: Value,
     keyframes: Vec<Keyframe>,
     expression: Option<Expression>,
+    /// D-69: a position taken apart into X and Y, two properties of one number each. While
+    /// it is `Some`, the value is theirs and this property's own keys are empty.
+    split: Option<Box<(Property, Property)>>,
 }
 
 impl Property {
@@ -237,7 +271,26 @@ impl Property {
             base,
             keyframes: Vec::new(),
             expression: None,
+            split: None,
         }
+    }
+
+    /// D-69's X and Y, when the position is separated.
+    pub fn split(&self) -> Option<&(Property, Property)> {
+        self.split.as_deref()
+    }
+
+    pub(crate) fn split_mut(&mut self) -> Option<&mut (Property, Property)> {
+        self.split.as_deref_mut()
+    }
+
+    pub(crate) fn set_split(&mut self, split: Option<(Property, Property)>) {
+        self.split = split.map(Box::new);
+    }
+
+    /// Every key replaced at once. The caller keeps them sorted and unique in frame.
+    pub(crate) fn set_keys(&mut self, keys: Vec<Keyframe>) {
+        self.keyframes = keys;
     }
 
     /// D-59's expression, switched on or off, or `None`.
@@ -265,6 +318,9 @@ impl Property {
     }
     pub fn is_animated(&self) -> bool {
         !self.keyframes.is_empty()
+            || self
+                .split()
+                .is_some_and(|(x, y)| x.is_animated() || y.is_animated())
     }
 
     pub(crate) fn set_base(&mut self, value: Value) {
@@ -288,6 +344,10 @@ impl Property {
     pub(crate) fn shift_keyframes(&mut self, by: i32) {
         for key in &mut self.keyframes {
             key.frame += by;
+        }
+        if let Some((x, y)) = self.split_mut() {
+            x.shift_keyframes(by);
+            y.shift_keyframes(by);
         }
     }
 
@@ -323,6 +383,11 @@ impl Property {
     ///   the fraction its curve gives (D-52), and a position segment with handles puts that
     ///   fraction on its curve through space rather than on the straight line (D-53).
     pub fn value_at(&self, frame: i32) -> Value {
+        // D-69: a separated position is X at the frame and Y at the frame.
+        if let Some((x, y)) = self.split() {
+            let n = |p: &Property| p.value_at(frame).as_scalar().unwrap_or(0.0);
+            return Value::Vec2(n(x), n(y));
+        }
         let keys = &self.keyframes;
         let Some(first) = keys.first() else {
             return self.base;
@@ -396,6 +461,10 @@ pub enum Prop {
     /// depth, so a layer asked for a zoom is refused at the one lookup rather than by every
     /// caller in turn.
     Zoom,
+    /// D-69: the two halves of a separated position. A layer holds them only while its
+    /// position is separated; [`Transform::get`] answers `None` otherwise.
+    PositionX,
+    PositionY,
 }
 
 impl Prop {
@@ -408,6 +477,8 @@ impl Prop {
             Prop::Opacity => "opacity",
             Prop::Depth => "depth",
             Prop::Zoom => "zoom",
+            Prop::PositionX => "position_x",
+            Prop::PositionY => "position_y",
         }
     }
 
@@ -415,7 +486,12 @@ impl Prop {
     pub fn kind(self) -> &'static str {
         match self {
             Prop::Anchor | Prop::Position | Prop::Scale => "vec2",
-            Prop::Rotation | Prop::Opacity | Prop::Depth | Prop::Zoom => "scalar",
+            Prop::Rotation
+            | Prop::Opacity
+            | Prop::Depth
+            | Prop::Zoom
+            | Prop::PositionX
+            | Prop::PositionY => "scalar",
         }
     }
 }
@@ -465,6 +541,8 @@ impl Transform {
             Prop::Scale => Some(&self.scale),
             Prop::Rotation => Some(&self.rotation),
             Prop::Opacity => Some(&self.opacity),
+            Prop::PositionX => self.position.split().map(|s| &s.0),
+            Prop::PositionY => self.position.split().map(|s| &s.1),
             Prop::Depth | Prop::Zoom => None,
         }
     }
@@ -476,6 +554,8 @@ impl Transform {
             Prop::Scale => Some(&mut self.scale),
             Prop::Rotation => Some(&mut self.rotation),
             Prop::Opacity => Some(&mut self.opacity),
+            Prop::PositionX => self.position.split_mut().map(|s| &mut s.0),
+            Prop::PositionY => self.position.split_mut().map(|s| &mut s.1),
             Prop::Depth | Prop::Zoom => None,
         }
     }

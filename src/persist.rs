@@ -349,6 +349,14 @@ fn value_json(value: Value, factor: f64) -> J {
 }
 
 fn property_json(base: Option<&J>, property: &Property, factor: f64) -> J {
+    // D-69: a separated position is written as its X and its Y and nothing else.
+    // ponytail: unknown fields inside x and y are not carried; nothing writes any today.
+    if let Some((x, y)) = property.split() {
+        let mut m = Map::new();
+        m.insert("x".into(), property_json(None, x, factor));
+        m.insert("y".into(), property_json(None, y, factor));
+        return J::Object(m);
+    }
     let keyframes: Vec<J> = property
         .keyframes()
         .iter()
@@ -370,6 +378,13 @@ fn property_json(base: Option<&J>, property: &Property, factor: f64) -> J {
                     "spatial".into(),
                     J::Array(handles.iter().map(|n| num(*n)).collect()),
                 );
+            }
+            // D-69: a plain key writes neither, so a file from before D-69 saves as it was.
+            if k.kind != crate::model::Kind::Bezier {
+                m.insert("kind".into(), J::from(k.kind.as_str()));
+            }
+            if k.roving {
+                m.insert("roving".into(), J::from(true));
             }
             J::Object(m)
         })
@@ -949,6 +964,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
                 &at,
                 "scalar",
                 false,
+                false,
                 1.0,
             )?);
         }
@@ -1009,9 +1025,32 @@ fn parse_property(
     pointer: &str,
     kind: &'static str,
     spatial_allowed: bool,
+    separable: bool,
     factor: f64,
 ) -> Result<Property, Diagnostic> {
     as_object(v, pointer)?;
+    // D-69: `{"x", "y"}` in place of `{"base", "keyframes"}`, on a layer's position only. Each
+    // half is a number's property, so path handles, roving or a pair inside one is refused by
+    // the same reading that refuses them on a rotation.
+    if spatial_allowed && separable && v.get("x").is_some() {
+        let half = |name: &str| {
+            parse_property(
+                field(v, pointer, name)?,
+                &format!("{pointer}/{name}"),
+                "scalar",
+                false,
+                false,
+                factor,
+            )
+        };
+        let (x, y) = (half("x")?, half("y")?);
+        let mut property = Property::constant(Value::Vec2(
+            x.base().as_scalar().unwrap_or(0.0),
+            y.base().as_scalar().unwrap_or(0.0),
+        ));
+        property.set_split(Some((x, y)));
+        return Ok(property);
+    }
     let mut property = Property::constant(parse_value(
         field(v, pointer, "base")?,
         &format!("{pointer}/base"),
@@ -1067,11 +1106,36 @@ fn parse_property(
                 Some(four_numbers(handles, &at, "in_x in_y out_x out_y")?)
             }
         };
+        let key_kind = match key.get("kind") {
+            None => crate::model::Kind::Bezier,
+            Some(k) => crate::model::Kind::named(as_enum(
+                k,
+                &format!("{at}/kind"),
+                &["bezier", "continuous", "auto"],
+            )?)
+            .expect("one of the three"),
+        };
+        let roving = match key.get("roving") {
+            None => false,
+            Some(r) => {
+                let at = format!("{at}/roving");
+                let on = r.as_bool().ok_or_else(|| invalid(&at, "true or false"))?;
+                if on && (!spatial_allowed || i == 0 || i + 1 == keys.len()) {
+                    return Err(invalid(
+                        &at,
+                        "no roving: only a position key that is neither first nor last roves",
+                    ));
+                }
+                on
+            }
+        };
         property.set_keyframe(Keyframe {
             frame,
             value,
             interp,
             spatial,
+            kind: key_kind,
+            roving,
         });
     }
     if let Some(e) = v.get("expression") {
@@ -1303,6 +1367,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             &at,
             prop.kind(),
             prop == Prop::Position,
+            true,
             factor,
         )?;
     }
@@ -1351,6 +1416,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             d,
             &format!("{pointer}/depth"),
             "scalar",
+            false,
             false,
             1.0,
         )?),
@@ -1731,7 +1797,8 @@ fn parse_composition(
         ] {
             if let Some(value) = cam.get(prop.as_str()) {
                 let here = format!("{at}/{}", prop.as_str());
-                *camera.get_mut(prop) = parse_property(value, &here, prop.kind(), false, 1.0)?;
+                *camera.get_mut(prop) =
+                    parse_property(value, &here, prop.kind(), false, false, 1.0)?;
             }
         }
         // D-58 refuses a zoom that is not more than nought, at every frame it is keyed
