@@ -262,6 +262,7 @@
   #graph text { fill: #909096; font-size: 10px; font-variant-numeric: tabular-nums; }
   #graph .tick { stroke: #2e2e32; stroke-width: 1; }
   #graph text.mode { fill: #c8c8cc; }
+  #graph .band { fill: rgba(110, 168, 254, 0.15); stroke: #6ea8fe; stroke-width: 1; }
   #timezoom { width: 90px; }
   /* The bar starts exactly at the gutter, with no gap or padding before it and none after, so a
      frame on a bar is under the same frame on the ruler, the playhead and the graph; the space
@@ -745,6 +746,8 @@
       <select id="graphprop" aria-label="Which property the graph draws" hidden></select>
       <button id="graphmode" class="sheettab" aria-pressed="false" hidden
         title="Draw how fast the property changes, as After Effects' speed graph does">Speed</button>
+      <button id="graphfit" class="sheettab" hidden
+        title="Fit the graph to the chosen keys, or to the whole curve when none is chosen. The mouse wheel zooms the values; drag with the middle button to slide them.">Fit</button>
       <button id="shyswitch" class="sheettab" aria-pressed="false"
         title="Leave shy layers off the timeline. The picture still draws them.">Hide shy layers</button>
       <button id="addlayer">Add layer</button>
@@ -1450,6 +1453,8 @@ function timeWheel(e) {
     e.preventDefault();
     const d = e.shiftKey ? e.deltaY || e.deltaX : e.deltaX;
     panTime(Math.sign(d) * Math.max(1, viewOf(comp).len / 20));
+  } else if (graphing && e.deltaY) {
+    graphWheel(e);
   }
 }
 $('sheet').addEventListener('wheel', timeWheel, { passive: false });
@@ -1536,10 +1541,18 @@ const whose = (layer) => whoseId(layer.id);
 
 // W-17: keys moved together by one distance, sent as one request so they are one entry to undo.
 // Keys on a locked layer stay where they are. A chosen key stays chosen where it lands.
-function moveKeys(ids, by) {
+// B-19a: `values`, when given, is what each key holds where it lands - a key dragged up or down
+// in the graph, or typed. Every key moving is sent a value then, its own for one not changed.
+function moveKeys(ids, by, values) {
   const moving = ids.filter((id) => { const [layer] = keyParts(id); return layer && !layer.locked; });
-  if (!by || !moving.length) return;
-  command('/keyframe.move?by=' + by + moving.map((id) => '&key=' + encodeURIComponent(id)).join(''));
+  if ((!by && !values) || !moving.length) return;
+  const held = (id) => {
+    const [layer, prop, at] = keyParts(id);
+    const key = keysOf(layer, prop).find((k) => k.frame === at);
+    return '&value=' + encodeURIComponent([].concat(values.get(id) || (key ? key.value : 0)).join(','));
+  };
+  command('/keyframe.move?by=' + by
+    + moving.map((id) => '&key=' + encodeURIComponent(id) + (values ? held(id) : '')).join(''));
   for (const id of moving) {
     if (!pickedKeys.delete(id)) continue;
     const [layer, prop, at] = keyParts(id);
@@ -2672,6 +2685,7 @@ function keyMenu(x, y, first = []) {
   const some = pickedKeys.size > 0;
   popMenu(x, y, [
     ...first,
+    ['Key value and frame\u2026', '', () => keyValueDialog(), some],
     ['Key speed and influence\u2026', '', velocityDialog, some],
     ['Easy ease', 'F9', () => easeKeys('both'), some],
     ['Easy ease in', 'Shift+F9', () => easeKeys('in'), some],
@@ -4617,6 +4631,65 @@ let plotted = null;      // the last answer from `/curve`, or null
 let pulling = null;      // the handle under the pointer, while it is being pulled
 
 let speedGraph = false;  // After Effects' speed graph is showing rather than its value graph
+// B-19a: the values in view once somebody has zoomed or slid them, as `{ of, low, high }`, and
+// null while the graph fits itself to the whole curve. `of` is what it was set for: another
+// layer, property or kind of graph has other numbers, and starts fitted.
+let graphRange = null;
+
+// A point on screen in the graph's own coordinates, which are its viewBox's.
+function inGraph(svg, clientX, clientY) {
+  const box = svg.getBoundingClientRect();
+  return [(clientX - box.left) / box.width * svg.viewBox.baseVal.width,
+    (clientY - box.top) / box.height * svg.viewBox.baseVal.height];
+}
+
+// The wheel zooms the values about the one under the pointer, as Alt with it zooms time.
+function graphWheel(e) {
+  const svg = $('graph').querySelector('svg');
+  if (!svg || !svg.__plot) return;
+  e.preventDefault();
+  const { space, of } = svg.__plot;
+  const about = space.valueAt(inGraph(svg, e.clientX, e.clientY)[1]);
+  const k = e.deltaY < 0 ? 0.8 : 1.25;
+  graphRange = { of, low: about - (about - space.low) * k, high: about + (space.high - about) * k };
+  drawGraph();
+}
+
+// Fit: to the chosen keys of the property drawn, in value and in time, with a little room; to
+// the whole curve, as it opens, when none of them is chosen.
+function fitGraph() {
+  const pick = graphLayer();
+  const comp = composition();
+  const svg = $('graph').querySelector('svg');
+  graphRange = null;
+  const keys = pick && !speedGraph ? keysOf(pick.layer, pick.prop)
+    .filter((k) => pickedKeys.has(keyId(pick.layer, pick.prop, k.frame))) : [];
+  if (keys.length && svg && svg.__plot) {
+    const values = keys.flatMap((k) => [].concat(k.value));
+    const [low, high] = [Math.min(...values), Math.max(...values)];
+    const room = (high - low || 1) * 0.15;
+    graphRange = { of: svg.__plot.of, low: low - room, high: high + room };
+    const [first, last] = [keys[0].frame, keys[keys.length - 1].frame];
+    const len = Math.max(MIN_VIEW, Math.ceil((last - first + 1) * 1.3));
+    timeView = len >= comp.duration_frames ? null
+      : { from: first - (len - (last - first + 1)) / 2, len };
+    redrawTime();
+    return;
+  }
+  drawGraph();
+}
+
+// Round numbers for the lines across the graph: 1, 2 or 5 times a power of ten, about five.
+function valueSteps(low, high) {
+  const raw = (high - low) / 5;
+  const ten = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((m) => m * ten).find((m) => m >= raw);
+  const lines = [];
+  for (let n = Math.ceil(low / step); n * step <= high && lines.length < 50; n += 1) {
+    lines.push(Math.round(n * step * 1e9) / 1e9);
+  }
+  return lines;
+}
 
 // Since 2026-09-13 the graph is drawn on the timeline's own scale: the same frames in view, the
 // same column, the gutter on the left where the layer names are on the sheet. Switching tabs
@@ -4779,6 +4852,60 @@ function easeFromSpeed(arm, infl, speed) {
 
 // W-25: After Effects' Keyframe Velocity, from a chosen key's right-click menu. The speed and influence the chosen keys
 // arrive and leave at, typed, and written back as the same ease curve the speed handles pull.
+// B-19a: a key's frame and value, typed. One key: the one double-clicked, or the first chosen.
+// Opacity is typed as the percentage the inspector shows.
+function keyValueDialog(id) {
+  if (document.querySelector('.palette')) return;
+  id = id || [...pickedKeys][0];
+  const [layer, prop, at] = id ? keyParts(id) : [];
+  const key = layer && keysOf(layer, prop).find((k) => k.frame === at);
+  if (!key || layer.locked) { $('status').textContent = 'Choose a key on a layer that is not locked first.'; return; }
+  const per = prop === 'opacity' ? 100 : 1;
+  const box = document.createElement('div');
+  box.className = 'menu palette';
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-label', 'Key value and frame');
+  const old = [].concat(key.value);
+  const make = (label, value) => {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = 'any';
+    input.value = number(Math.round(value * 1e4) / 1e4);
+    input.setAttribute('aria-label', label);
+    const row = document.createElement('label');
+    row.append(label + ' ', input);
+    box.append(row);
+    return input;
+  };
+  const frameBox = make('Frame', at);
+  frameBox.step = '1';
+  const valueBoxes = old.map((v, c) => make(prop + (old.length > 1 ? ' ' + 'XY'[c] : ''), v * per));
+  const ok = Object.assign(document.createElement('button'), { type: 'button', textContent: 'OK' });
+  const cancel = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Cancel' });
+  box.append(ok, cancel);
+  const away = (p) => { if (!box.contains(p.target)) close(); };
+  const close = () => { box.remove(); removeEventListener('pointerdown', away, true); };
+  const apply = () => {
+    close();
+    const to = Math.round(Number(frameBox.value));
+    const value = valueBoxes.map((input, c) => (input.value === '' ? old[c] : Number(input.value) / per));
+    if (!Number.isFinite(to + value[0] + (value[1] || 0))) return;
+    const same = value.every((v, c) => v === old[c]);
+    moveKeys([id], to - at, same ? undefined : new Map([[id, value]]));
+  };
+  ok.onclick = apply;
+  cancel.onclick = close;
+  box.onkeydown = (k) => {
+    k.stopPropagation();
+    if (k.key === 'Escape') close();
+    else if (k.key === 'Enter') { k.preventDefault(); apply(); }
+  };
+  document.body.append(box);
+  addEventListener('pointerdown', away, true);
+  valueBoxes[0].focus();
+  valueBoxes[0].select();
+}
+
 function velocityDialog() {
   if (document.querySelector('.palette')) return;
   const comp = composition();
@@ -4873,6 +5000,7 @@ function drawGraph() {
   chooser.hidden = !graphing || !pick;
   $('graphmode').hidden = !graphing || !pick;
   $('graphmode').setAttribute('aria-pressed', String(speedGraph));
+  $('graphfit').hidden = !graphing || !pick;
   if (pick) {
     chooser.replaceChildren(...pick.withKeys.map((prop) => Object.assign(
       document.createElement('option'),
@@ -4907,6 +5035,12 @@ function drawGraph() {
   svg.onpointermove = grabMove;
   svg.onpointerup = grabUp;
   svg.onkeydown = grabKeys;
+  svg.ondblclick = (e) => {
+    const id = e.target.dataset && e.target.dataset.key;
+    if (!id) return;
+    if (!pickedKeys.has(id)) pickKey(id, false);
+    keyValueDialog(id);
+  };
   svg.oncontextmenu = (e) => {
     const id = e.target.dataset && e.target.dataset.key;
     if (!id) return;
@@ -4954,6 +5088,9 @@ function drawGraph() {
     for (const arm of arms) { low = Math.min(low, arm.value); high = Math.max(high, arm.value); }
   }
   arms = arms.filter(seen);
+  const of = pick.layer.id + '|' + pick.prop + '|' + speedGraph;
+  if (graphRange && graphRange.of !== of) graphRange = null;
+  if (graphRange) ({ low, high } = graphRange);
   const space = graphSpace(box, low, high);
 
   // The frame numbers the ruler on the sheet has, at the same places.
@@ -4964,13 +5101,18 @@ function drawGraph() {
   const clip = el('clipPath', { id: 'graphclip' });
   el('rect', { x: space.gutter, y: 0, width: space.w, height: box.height }, clip);
   const plot = el('g', { 'clip-path': 'url(#graphclip)' });
-  if (speedGraph) {
-    el('line', { class: 'tick', x1: space.gutter, y1: space.y(0), x2: box.width, y2: space.y(0) }, plot);
+  // B-19a: numbered lines across, at round values, in place of the two numbers at the ends.
+  const axis = (val) => String(Math.round(val * 100) / 100) + (speedGraph ? ' /s' : '');
+  for (const val of valueSteps(space.low, space.high)) {
+    const y = space.y(val);
+    if (y < GRAPH_TOP + 4 || y > box.height - 2) continue;
+    el('line', { class: 'tick', x1: space.gutter, y1: y, x2: box.width, y2: y }, plot);
+    el('text', { x: 4, y: y + 3 }).textContent = axis(val);
   }
   const polylines = lines.map((points, c) => el('polyline', {
     class: 'plot' + (c ? ' second' : ''), points: pointsOf(points, space, v),
   }, plot));
-  svg.__plot = { polylines, space, v, fps };
+  svg.__plot = { polylines, space, v, fps, of };
   // The value at a frame comes out of the answer rather than out of the keyframe, so that a
   // keyframe drawn on this line is drawn where the renderer puts it. Every part of the property,
   // because a position has two lines and a keyframe is on both of them. The handles stay on the
@@ -4986,7 +5128,7 @@ function drawGraph() {
           class: 'keydot' + (pickedKeys.has(id) ? ' selected' : ''), 'data-key': id,
           cx: space.x(key.frame + 0.5), cy: space.y(part(key.frame, c)), r: 4,
         }, plot);
-        dot.__key = { key, space };
+        dot.__key = { key, space, c, value: part(key.frame, c) };
         // W-20: what the timeline's key marks say when hovered, to hundredths.
         el('title', {}, dot).textContent = pick.prop + ' at frame ' + key.frame + ': '
           + [].concat(key.value).map((n) => number(Math.round(n * 100) / 100)).join(', ');
@@ -5020,12 +5162,7 @@ function drawGraph() {
       class: 'at', x1: space.x(frame + 0.5), y1: 4, x2: space.x(frame + 0.5), y2: box.height - 4,
     });
   }
-  // Rounded because these two are read at a glance and `120.045139` is not a glance. The number
-  // itself is untouched - this is the label on the axis, not the value of anything.
-  const axis = (val) => String(Math.round(val * 100) / 100) + (speedGraph ? ' /s' : '');
-  el('text', { x: 4, y: GRAPH_TOP + 8 }).textContent = axis(space.high);
-  el('text', { x: 4, y: box.height - GRAPH_FOOT }).textContent = axis(space.low);
-  el('text', { x: 4, y: GRAPH_TOP + 22, class: 'mode' }).textContent =
+  el('text', { x: space.gutter + 6, y: GRAPH_TOP + 10, class: 'mode' }).textContent =
     pick.prop + (speedGraph ? ' speed' : ' value');
   into.replaceChildren(svg);
   if (refocus) refocus.focus();
@@ -5113,6 +5250,23 @@ function sendCurve(arm, x, y) {
 }
 
 function grabDown(e) {
+  // B-19a: the middle button slides the values up and down. The graph is drawn again as it
+  // goes, which replaces the node a capture would be on, so the page listens until release.
+  if (e.button === 1 && e.currentTarget.__plot) {
+    e.preventDefault();
+    const { space, of } = e.currentTarget.__plot;
+    const [from, scale] = [e.clientY, (space.high - space.low)
+      / (e.currentTarget.getBoundingClientRect().height - GRAPH_TOP - GRAPH_FOOT)];
+    const slide = (m) => {
+      const by = (m.clientY - from) * scale;
+      graphRange = { of, low: space.low + by, high: space.high + by };
+      drawGraph();
+    };
+    const done = () => { removeEventListener('pointermove', slide); removeEventListener('pointerup', done); };
+    addEventListener('pointermove', slide);
+    addEventListener('pointerup', done);
+    return;
+  }
   if (e.button !== 0) return;
   const what = e.target.__arm;
   e.preventDefault();
@@ -5123,10 +5277,20 @@ function grabDown(e) {
     const id = e.target.dataset.key;
     const add = e.shiftKey || e.ctrlKey;
     if (add || !pickedKeys.has(id)) pickKey(id, add);
-    pulling = { dot, id, to: dot.key.frame, group: pickedKeys.has(id) ? [...pickedKeys] : [id] };
+    pulling = {
+      dot, id, to: dot.key.frame, by: 0, group: pickedKeys.has(id) ? [...pickedKeys] : [id],
+      from: [e.clientX, e.clientY], moved: false,
+    };
     return;
   }
-  // Anywhere else on the graph puts the playhead there, as the ruler does on the sheet.
+  // B-19a: a press on the open graph begins a box around keys, and a click that goes nowhere
+  // puts the playhead there as it always has. Dragging the playhead is the strip of frame
+  // numbers along the top, as the ruler is on the sheet.
+  const [px, py] = inGraph(e.currentTarget, e.clientX, e.clientY);
+  if (!what && py > GRAPH_TOP) {
+    pulling = { band: null, from: [px, py], add: e.shiftKey || e.ctrlKey, svg: e.currentTarget, click: e.clientX };
+    return;
+  }
   if (!what) {
     pulling = { scrub: true };
     const to = frameUnder(e.clientX);
@@ -5143,16 +5307,68 @@ function grabMove(e) {
     if (to !== null && to !== wanted) seek(to);
     return;
   }
-  if (pulling.dot) {
-    const to = frameUnder(e.clientX);
-    if (to === null || to === pulling.to || selected().locked) return;
-    pulling.to = to;
-    const going = new Set(pulling.group);
-    const by = to - pulling.dot.key.frame;
-    for (const node of $('graph').querySelectorAll('.keydot')) {
-      if (!going.has(node.dataset.key)) continue;
-      node.setAttribute('cx', pulling.dot.space.x(keyParts(node.dataset.key)[2] + by + 0.5));
+  if (pulling.band !== undefined) {
+    const [x, y] = inGraph(pulling.svg, e.clientX, e.clientY);
+    const [x0, y0] = pulling.from;
+    if (!pulling.band && Math.hypot(x - x0, y - y0) < 4) return;
+    if (!pulling.band) {
+      pulling.band = document.createElementNS(pulling.svg.namespaceURI, 'rect');
+      pulling.band.setAttribute('class', 'band');
+      pulling.svg.append(pulling.band);
     }
+    const sides = { x: Math.min(x, x0), y: Math.min(y, y0), width: Math.abs(x - x0), height: Math.abs(y - y0) };
+    for (const [name, value] of Object.entries(sides)) pulling.band.setAttribute(name, value);
+    pulling.sides = sides;
+    return;
+  }
+  if (pulling.dot) {
+    // B-19a: a key goes up and down as well as along. Shift holds it to whichever way it has
+    // gone furthest; it is drawn to the playhead and to the other keys, in time and in value,
+    // when it comes within a few pixels of one, and Ctrl lets it past them.
+    const { dot } = pulling;
+    const layer = graphLayer().layer;
+    const [dx, dy] = [e.clientX - pulling.from[0], e.clientY - pulling.from[1]];
+    if (layer.locked || (!pulling.moved && Math.hypot(dx, dy) < 4)) return;
+    pulling.moved = true;
+    const svg = $('graph').querySelector('svg');
+    const [px, py] = inGraph(svg, e.clientX, e.clientY);
+    const going = new Set(pulling.group);
+    const others = [...svg.querySelectorAll('.keydot')].filter((n) => !going.has(n.dataset.key));
+    const NEAR = 7;
+    // A few pixels sideways while going up is a hand that is not steady, not a move in time.
+    const along = Math.abs(dx) >= 4 && (!e.shiftKey || Math.abs(dx) >= Math.abs(dy));
+    const upDown = !e.shiftKey || Math.abs(dy) > Math.abs(dx);
+    let to = along ? frameUnder(e.clientX) : dot.key.frame;
+    if (to === null) to = pulling.to;
+    if (along && !e.ctrlKey) {
+      // The keys of the layer's other properties: two keys of one property cannot share a frame.
+      const marks = [frame, ...(layer.id === CAMERA_ROW ? CAMERA_PROPS : PROPS)
+        .filter((prop) => prop !== graphLayer().prop)
+        .flatMap((prop) => keysOf(layer, prop)
+          .filter((k) => !going.has(keyId(layer, prop, k.frame))).map((k) => k.frame))];
+      const near = marks.map((f) => [Math.abs(dot.space.x(f + 0.5) - px), f]).sort((a, b) => a[0] - b[0])[0];
+      if (near && near[0] <= NEAR) to = near[1];
+    }
+    let dv = upDown ? dot.space.valueAt(py) - dot.space.valueAt(py - dy
+      * svg.viewBox.baseVal.height / svg.getBoundingClientRect().height) : 0;
+    if (upDown && !e.ctrlKey) {
+      const near = others.filter((n) => n.__key.c === dot.c)
+        .map((n) => [Math.abs(dot.space.y(n.__key.value) - dot.space.y(dot.value + dv)), n.__key.value])
+        .sort((a, b) => a[0] - b[0])[0];
+      if (near && near[0] <= NEAR) dv = near[1] - dot.value;
+    }
+    pulling.to = to;
+    pulling.dv = dv;
+    const by = to - dot.key.frame;
+    // ponytail: the dots follow the pointer and the line waits for release, when the window
+    // answers with the real curve; preview it as `previewCurve` does if that reads as lag.
+    for (const node of svg.querySelectorAll('.keydot')) {
+      if (!going.has(node.dataset.key)) continue;
+      node.setAttribute('cx', dot.space.x(keyParts(node.dataset.key)[2] + by + 0.5));
+      if (node.__key.c === dot.c) node.setAttribute('cy', dot.space.y(node.__key.value + dv));
+    }
+    $('status').textContent = graphLayer().prop + ': frame ' + to + ', '
+      + number(Math.round((dot.value + dv) * 100) / 100);
     return;
   }
   // W-18: Ctrl pulls the handle a tenth as far as the pointer goes, for fine changes, as it does
@@ -5170,10 +5386,44 @@ function grabUp() {
   if (!pulling) return;
   const held = pulling;
   pulling = null;
+  if (held.band !== undefined) {
+    // A click: the playhead goes there and, without Shift or Ctrl, no key is chosen any more.
+    if (!held.band) {
+      const to = frameUnder(held.click);
+      if (to !== null) seek(to);
+      if (!held.add) pickKey(null, false);
+      return;
+    }
+    held.band.remove();
+    if (!held.add) pickedKeys.clear();
+    const { x, y, width, height } = held.sides;
+    for (const node of held.svg.querySelectorAll('.keydot')) {
+      const [cx, cy] = [Number(node.getAttribute('cx')), Number(node.getAttribute('cy'))];
+      if (cx >= x && cx <= x + width && cy >= y && cy <= y + height) pickedKeys.add(node.dataset.key);
+    }
+    pickKey(null, true);
+    return;
+  }
   if (held.dot) {
     const from = held.dot.key.frame;
-    if (held.to === from) { seek(from); return; }
-    moveKeys(held.group, held.to - from);
+    if (!held.moved) { seek(from); return; }
+    if (!held.dv) {
+      if (held.to === from) drawGraph(); else moveKeys(held.group, held.to - from);
+      return;
+    }
+    // The part of the property that was taken hold of changes, on every chosen key of it.
+    const pick = graphLayer();
+    const values = new Map();
+    for (const id of held.group) {
+      const [layer, prop, at] = keyParts(id);
+      const key = layer && layer.id === pick.layer.id && prop === pick.prop
+        && keysOf(layer, prop).find((k) => k.frame === at);
+      if (!key) continue;
+      const value = [].concat(key.value);
+      value[held.dot.c] += held.dv;
+      values.set(id, value);
+    }
+    moveKeys(held.group, held.to - from, values);
     return;
   }
   if (!held.scrub && held.x !== null) sendCurve(held.what.arm, held.x, held.y);
@@ -5248,6 +5498,7 @@ $('tabsheet').onclick = () => showSheet('sheet');
 $('tabgraph').onclick = () => showSheet('graph');
 $('graphprop').onchange = (e) => { graphProp = e.target.value; askForCurve(); };
 $('graphmode').onclick = () => { speedGraph = !speedGraph; drawGraph(); };
+$('graphfit').onclick = fitGraph;
 // The plot is stretched to the panel's width, so a resize leaves the curve right and the round
 // handles as ovals. Drawing it again at the new width is the whole of the fix.
 addEventListener('resize', () => { if (graphing && plotted) drawGraph(); });

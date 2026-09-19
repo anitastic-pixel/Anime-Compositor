@@ -2589,9 +2589,61 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 Ok(by) => by,
                 Err(said) => return Some(said),
             };
+            // B-19a: a key dragged in the graph goes up and down as well as along, and one drag
+            // is one entry to undo. `value=` is repeated once for each `key=`, in the same order,
+            // and is what that key holds where it lands; its ease and its path handles go with
+            // it. `by=0` is a key whose value changed and whose frame did not.
+            let values = parameters(query, "value");
+            if !values.is_empty() && values.len() != keys.len() {
+                return Some(format!(
+                    "{} keys were named and {} values: a value is given for every key or for none.",
+                    keys.len(),
+                    values.len()
+                ));
+            }
+            let mut sets = Vec::new();
+            if let Some(comp) = held.document.project().composition(&composition) {
+                for ((target, prop, at), text) in keys.iter().zip(&values) {
+                    let property = match target {
+                        Target::Camera => {
+                            let which = match prop {
+                                Prop::Depth => anime_compositor::model::CameraProp::Depth,
+                                Prop::Zoom => anime_compositor::model::CameraProp::Zoom,
+                                _ => anime_compositor::model::CameraProp::Position,
+                            };
+                            comp.camera
+                                .clone()
+                                .unwrap_or_else(|| anime_compositor::model::Camera::default_for(comp.width, comp.height))
+                                .get(which)
+                                .clone()
+                        }
+                        Target::Layer(id) => match comp.layer(id) {
+                            Some(layer) => property_of(layer, *prop),
+                            None => return Some(format!("There is no layer {id} here.")),
+                        },
+                    };
+                    let (Some(key), Some(value)) =
+                        (property.keyframe_at(*at), property_value(*prop, text))
+                    else {
+                        return Some(format!(
+                            "{prop} has no key at frame {at}, or \"{text}\" is not a value for it."
+                        ));
+                    };
+                    sets.push(Command::SetKeyframe {
+                        composition: composition.clone(),
+                        target: target.clone(),
+                        prop: *prop,
+                        frame: at + by,
+                        value,
+                        interp: key.interp,
+                        spatial: key.spatial,
+                    });
+                }
+            }
             keys.sort_by_key(|key| if by > 0 { -key.2 } else { key.2 });
-            let commands = keys
+            let commands: Vec<Command> = keys
                 .into_iter()
+                .filter(|_| by != 0)
                 .map(|(target, prop, from_frame)| Command::MoveKeyframe {
                     composition: composition.clone(),
                     target,
@@ -2599,7 +2651,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     from_frame,
                     to_frame: from_frame + by,
                 })
+                .chain(sets)
                 .collect();
+            if commands.is_empty() {
+                return Some("Nothing moved.".to_string());
+            }
             return Some(match held.document.apply_all(commands) {
                 Ok(record) => record.label.clone(),
                 Err(diagnostic) => sentence(&diagnostic),
@@ -10316,6 +10372,160 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-19a: a key dragged in the graph, or typed, on D-52. The order is the playtest sheet's.
+    #[test]
+    fn a_key_is_dragged_and_typed_in_the_graph() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        // What the page reads: each key of a property as `frame: value, interp`.
+        let keys = |viewer: &Mutex<Viewer>, prop: &str| {
+            shown_layer(viewer, "Cel")["transform"][prop]["keyframes"]
+                .as_array()
+                .map(|all| {
+                    all.iter()
+                        .map(|k| format!("{}: {} {}", k["frame"], k["value"], k["interp"]))
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                })
+                .unwrap_or_default()
+                .replace('"', "")
+        };
+        let depth = |viewer: &Mutex<Viewer>| held(viewer).document.undo_depth();
+        for edit in [
+            format!("property.set_base?layer={cel}&prop=position&value=100,100"),
+            format!("keyframe.add_remove?layer={cel}&prop=position&frame=0"),
+            format!("property.set_base?layer={cel}&prop=position&frame=10&value=300,200"),
+            format!("keyframe.set_interp?layer={cel}&prop=position&frame=0&mode=ease&curve=0.4,0,0.6,1"),
+            format!("property.set_base?layer={cel}&prop=scale&value=100,100"),
+            format!("keyframe.add_remove?layer={cel}&prop=scale&frame=0"),
+        ] {
+            run(&viewer, &edit);
+        }
+        report.check(
+            "two position keys to begin with, the first eased",
+            "0: [100,100] ease; 10: [300,200] linear",
+            keys(&viewer, "position"),
+        );
+        let before = depth(&viewer);
+        run(
+            &viewer,
+            &format!("keyframe.move?by=0&key={cel}|position|10&value=300,260"),
+        );
+        report.check(
+            "a key dragged straight up: its Y changes and its frame does not",
+            "0: [100,100] ease; 10: [300,260] linear",
+            keys(&viewer, "position"),
+        );
+        run(
+            &viewer,
+            &format!("keyframe.move?by=2&key={cel}|position|0&value=100,140"),
+        );
+        report.check(
+            "a key dragged along and up in one go lands with its new value, and keeps its ease",
+            "2: [100,140] ease; 10: [300,260] linear",
+            keys(&viewer, "position"),
+        );
+        report.check(
+            "which was one entry to undo each",
+            (before + 2).to_string(),
+            depth(&viewer).to_string(),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "Undo puts the frame and the value back together",
+            "0: [100,100] ease; 10: [300,260] linear",
+            keys(&viewer, "position"),
+        );
+        run(&viewer, "edit.redo");
+        run(
+            &viewer,
+            &format!(
+                "keyframe.move?by=3&key={cel}|position|2&value=100,150&key={cel}|position|10&value=300,270\
+                 &key={cel}|scale|0&value=100,100"
+            ),
+        );
+        report.check(
+            "two chosen keys dragged together both move and both change",
+            "5: [100,150] ease; 13: [300,270] linear",
+            keys(&viewer, "position"),
+        );
+        report.check(
+            "and a chosen key of another property goes along in time with its value kept, as a percentage",
+            "3: [100,100] linear",
+            keys(&viewer, "scale"),
+        );
+        report.check(
+            "a value for one key and not the other is refused",
+            "2 keys were named and 1 values: a value is given for every key or for none.",
+            run(
+                &viewer,
+                &format!("keyframe.move?by=1&key={cel}|position|5&key={cel}|position|13&value=1,1"),
+            ),
+        );
+        report.check(
+            "text that is not a value is refused",
+            "position has no key at frame 5, or \"high\" is not a value for it.",
+            run(&viewer, &format!("keyframe.move?by=1&key={cel}|position|5&value=high")),
+        );
+        report.check(
+            "a key dragged onto a frame another key holds is refused by the core, and nothing changes",
+            "5: [100,150] ease; 13: [300,270] linear",
+            {
+                run(&viewer, &format!("keyframe.move?by=8&key={cel}|position|5&value=0,0"));
+                keys(&viewer, "position")
+            },
+        );
+        let body = curve(
+            &viewer,
+            Some(&format!("layer={cel}&prop=position&from=13&to=13")),
+        )
+        .into_body();
+        let answer: serde_json::Value =
+            serde_json::from_slice(&body).expect("the curve answer is JSON");
+        report.check(
+            "the curve the graph draws passes through the key where it was put",
+            "[300.0,270.0]",
+            answer["samples"][0].to_string(),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-19a_panel_table.md",
+            "B-19a: a key dragged and typed in the graph",
+            GRAPH_KEY_INTRO,
+            GRAPH_KEY_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const GRAPH_KEY_INTRO: &[&str] = &[
+        "B-19a lets a key in the graph editor be dragged up and down as well as along, and lets \
+         its frame and value be typed. Both send `keyframe.move` with a `value=` beside each \
+         `key=`: the keys move, and each then holds the value given, as one entry to undo. \
+         Nothing in the file format or in how a curve is worked out changes.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
+         and reads back what the page is given.",
+    ];
+
+    const GRAPH_KEY_NOTES: &[&str] = &[
+        "## What this does not cover\n\nThe dragging itself, the box drawn around keys, the \
+         snapping, the numbered lines, and the zoom and Fit of the values are all in the page \
+         and change nothing here. They are `verification/B-19a_graph_playtest.md`, for a person.",
+    ];
+
     const PRECOMP_PANEL_INTRO: &[&str] = &[
         "D-67 decided what a composition layer is and B-18b built it in the core, checked pixel \
          by pixel in `verification/B-18b_precomp_table.md`. This is the window's half: \
@@ -13893,7 +14103,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 47] = [
+    const CONTROLS: [&str; 48] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -13916,6 +14126,7 @@ mod contract {
         "fit",
         "fit100",
         "fwd",
+        "graphfit",
         "graphmode",
         "graphprop",
         "import",
