@@ -21,7 +21,7 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the identifiers the page sends are the ones written down here | asset.set_redistribute, composition.create, composition.delete, composition.duplicate, composition.open, composition.set_settings, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_kind, keyframe.set_path, keyframe.set_roving, layer.add_adjustment, layer.add_composition, layer.copy, layer.create, layer.delete, layer.duplicate, layer.move, layer.move_down, layer.move_up, layer.paste, layer.precompose, layer.rename, layer.set_blend_mode, layer.set_gain, layer.set_label, layer.set_matte, layer.set_parent, layer.shift, layer.split, layer.toggle_lock, layer.toggle_shy, layer.toggle_solo, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.separate, property.set_base, property.set_expression, timeline.set_markers, timeline.set_work_end, timeline.set_work_start, viewer.toggle_alpha, viewer.toggle_checkerboard | asset.set_redistribute, composition.create, composition.delete, composition.duplicate, composition.open, composition.set_settings, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_kind, keyframe.set_path, keyframe.set_roving, layer.add_adjustment, layer.add_composition, layer.copy, layer.create, layer.delete, layer.duplicate, layer.move, layer.move_down, layer.move_up, layer.paste, layer.precompose, layer.rename, layer.set_blend_mode, layer.set_gain, layer.set_label, layer.set_matte, layer.set_parent, layer.shift, layer.split, layer.toggle_lock, layer.toggle_shy, layer.toggle_solo, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.separate, property.set_base, property.set_expression, timeline.set_markers, timeline.set_work_end, timeline.set_work_start, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
+| the identifiers the page sends are the ones written down here | asset.set_redistribute, composition.create, composition.delete, composition.duplicate, composition.open, composition.set_settings, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_kind, keyframe.set_path, keyframe.set_roving, layer.add_adjustment, layer.add_composition, layer.add_solid, layer.copy, layer.create, layer.delete, layer.duplicate, layer.move, layer.move_down, layer.move_up, layer.paste, layer.precompose, layer.rename, layer.set_blend_mode, layer.set_gain, layer.set_label, layer.set_matte, layer.set_parent, layer.shift, layer.split, layer.toggle_lock, layer.toggle_shy, layer.toggle_solo, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.separate, property.set_base, property.set_expression, solid.set, timeline.set_markers, timeline.set_work_end, timeline.set_work_start, viewer.toggle_alpha, viewer.toggle_checkerboard | asset.set_redistribute, composition.create, composition.delete, composition.duplicate, composition.open, composition.set_settings, edit.redo, edit.undo, effect.add, effect.delete, effect.move, effect.move_down, effect.move_up, effect.set_parameters, effect.toggle_bypass, exposure.set_span, keyframe.add_remove, keyframe.move, keyframe.set_interp, keyframe.set_kind, keyframe.set_path, keyframe.set_roving, layer.add_adjustment, layer.add_composition, layer.add_solid, layer.copy, layer.create, layer.delete, layer.duplicate, layer.move, layer.move_down, layer.move_up, layer.paste, layer.precompose, layer.rename, layer.set_blend_mode, layer.set_gain, layer.set_label, layer.set_matte, layer.set_parent, layer.shift, layer.split, layer.toggle_lock, layer.toggle_shy, layer.toggle_solo, layer.toggle_visibility, layer.trim, media.import, media.relink, property.drag_cancel, property.drag_end, property.drag_update, property.separate, property.set_base, property.set_expression, solid.set, timeline.set_markers, timeline.set_work_end, timeline.set_work_start, viewer.toggle_alpha, viewer.toggle_checkerboard | pass |
 | the routes the page asks for that are not commands are the ones written down here | at, boxes, cancel-export, check-package, collect, curve, export, frame, new, open, play, recent, recover, save, save-as, sound, state | at, boxes, cancel-export, check-package, collect, curve, export, frame, new, open, play, recent, recover, save, save-as, sound, state | pass |
 | the window answers `asset.set_redistribute` | a sentence | a sentence | pass |
 | the window answers `composition.create` | a sentence | a sentence | pass |
@@ -47,6 +47,7 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the window answers `keyframe.set_roving` | a sentence | a sentence | pass |
 | the window answers `layer.add_adjustment` | a sentence | a sentence | pass |
 | the window answers `layer.add_composition` | a sentence | a sentence | pass |
+| the window answers `layer.add_solid` | a sentence | a sentence | pass |
 | the window answers `layer.copy` | a sentence | a sentence | pass |
 | the window answers `layer.create` | a sentence | a sentence | pass |
 | the window answers `layer.delete` | a sentence | a sentence | pass |
@@ -77,6 +78,7 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the window answers `property.separate` | a sentence | a sentence | pass |
 | the window answers `property.set_base` | a sentence | a sentence | pass |
 | the window answers `property.set_expression` | a sentence | a sentence | pass |
+| the window answers `solid.set` | a sentence | a sentence | pass |
 | the window answers `timeline.set_markers` | a sentence | a sentence | pass |
 | the window answers `timeline.set_work_end` | a sentence | a sentence | pass |
 | the window answers `timeline.set_work_start` | a sentence | a sentence | pass |
@@ -94,6 +96,8 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the window's shell answers `/save-as` | true | true | pass |
 | the window's shell answers `/state` | true | true | pass |
 | the Level control sends `layer.set_gain` | true | true | pass |
+| the New solid control sends `layer.add_solid` | true | true | pass |
+| the Colour, Width and Height of a solid control sends `solid.set` | true | true | pass |
 | the Can be passed on control sends `asset.set_redistribute` | true | true | pass |
 | the Delete layer control sends `layer.delete` | true | true | pass |
 | the Forward control sends `layer.move_up` | true | true | pass |
@@ -111,4 +115,4 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the Leave it as it is control sends `media.relink` | true | true | pass |
 | every control the script reaches for is one the markup defines | none missing | none missing | pass |
 
-**89 of 89 checks pass.**
+**93 of 93 checks pass.**

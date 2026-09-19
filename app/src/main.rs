@@ -58,7 +58,7 @@ use anime_compositor::audio;
 use anime_compositor::media;
 use anime_compositor::model::{
     Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Layer, LayerKind, Marker, Project,
-    Prop, Value,
+    Prop, Solid, Value,
 };
 use anime_compositor::package::{self, Answer};
 use anime_compositor::persist::{self, Preserved};
@@ -2062,6 +2062,7 @@ const ANSWERS: &[&str] = &[
     "keyframe.set_roving",
     "layer.add_adjustment",
     "layer.add_composition",
+    "layer.add_solid",
     "layer.copy",
     "layer.create",
     "layer.delete",
@@ -2093,6 +2094,7 @@ const ANSWERS: &[&str] = &[
     "property.separate",
     "property.set_base",
     "property.set_expression",
+    "solid.set",
     "timeline.set_markers",
     "timeline.set_work_end",
     "timeline.set_work_start",
@@ -3303,6 +3305,42 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .and_then(|to| to.parse::<usize>().ok())
                     .unwrap_or(comp.len()),
             }
+        } else if id == "layer.add_solid" {
+            // B-23c: D-74's solid, the composition's size and covering it, named with the
+            // smallest `Solid N` this composition does not have yet. Above the chosen layer
+            // (`to`) or else at the front. The core refuses a value outside D-74's ranges.
+            let grey = anime_compositor::color::srgb_to_linear(128.0 / 255.0) as f64;
+            let solid = match solid_from(
+                query,
+                Solid {
+                    color: [grey; 3],
+                    width: comp.width,
+                    height: comp.height,
+                },
+            ) {
+                Ok(solid) => solid,
+                Err(sentence) => return Some(sentence),
+            };
+            let name = (1..)
+                .map(|n| format!("Solid {n}"))
+                .find(|name| comp.layers_in_order().all(|l| &l.name != name))
+                .expect("a name not yet taken");
+            let layer = Layer::solid(
+                unused_layer_id(project),
+                parameter(query, "name").unwrap_or(name),
+                solid,
+                comp.width,
+                comp.height,
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            Command::AddLayer {
+                composition,
+                layer: Box::new(layer),
+                index: parameter(query, "to")
+                    .and_then(|to| to.parse::<usize>().ok())
+                    .unwrap_or(comp.len()),
+            }
         } else if id == "layer.add_composition" {
             // B-18c: D-67's layer of another composition, centred, above the chosen layer
             // (`to`) or else at the front. A cycle is the core's to refuse.
@@ -3605,6 +3643,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         composition,
                         layer_id,
                         value,
+                    }
+                }
+                // B-23c: D-74's colour and size from the layer's panel. What is not sent stays as
+                // it is; a layer that is not a solid is the core's to refuse.
+                "solid.set" => {
+                    let now = layer.solid.clone().unwrap_or(Solid {
+                        color: [0.0; 3],
+                        width: 1,
+                        height: 1,
+                    });
+                    match solid_from(query, now) {
+                        Ok(solid) => Command::SetSolid {
+                            composition,
+                            layer_id,
+                            solid,
+                        },
+                        Err(sentence) => return Some(sentence),
                     }
                 }
                 // W-26: the shy switch, read from the document as the other toggles are.
@@ -4858,6 +4913,33 @@ fn missing_source(query: Option<&str>) -> MissingSource {
         Some("write") => MissingSource::RenderTransparent,
         _ => MissingSource::Block,
     }
+}
+
+/// B-23c: a solid's `color` (three linear numbers, as `r,g,b`), `width` and `height` from the
+/// query, each kept from `solid` when it is not sent. Only what is not a number at all is
+/// refused here; a number outside D-74's ranges is the core's to refuse, in its own sentence.
+fn solid_from(query: Option<&str>, mut solid: Solid) -> Result<Solid, String> {
+    if let Some(text) = parameter(query, "color") {
+        let numbers: Vec<f64> = text
+            .split(',')
+            .filter_map(|n| n.trim().parse::<f64>().ok())
+            .collect();
+        solid.color = <[f64; 3]>::try_from(numbers).map_err(|_| {
+            format!("\"{text}\" is not a colour. A colour is three numbers from 0 to 1, red, green and blue.")
+        })?;
+    }
+    for (name, side) in [("width", &mut solid.width), ("height", &mut solid.height)] {
+        if let Some(text) = parameter(query, name) {
+            *side = text.trim().parse::<u32>().map_err(|_| {
+                format!(
+                    "\"{}\" is not a {name}. A {name} is a whole number of pixels, from 1 to {}.",
+                    text.trim(),
+                    Solid::MAX_SIDE
+                )
+            })?;
+        }
+    }
+    Ok(solid)
 }
 
 fn parameter(query: Option<&str>, name: &str) -> Option<String> {
@@ -11126,6 +11208,163 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-23c: the solid from the window, on D-74. The order is the playtest sheet's.
+    #[test]
+    fn a_solid_is_added_and_set_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let solid_of = |viewer: &Mutex<Viewer>, name: &str| {
+            let layer = shown_layer(viewer, name);
+            format!(
+                "{} {}x{}, anchor {}",
+                layer["solid"]["color"], layer["solid"]["width"], layer["solid"]["height"],
+                layer["transform"]["anchor"]["base"]
+            )
+        };
+
+        let before = names(&viewer);
+        run(&viewer, "layer.add_solid");
+        report.check(
+            "New solid (Ctrl+Y) needs no drawing chosen and adds Solid 1 at the front",
+            format!("{before}, Solid 1"),
+            names(&viewer),
+        );
+        let layer = shown_layer(&viewer, "Solid 1");
+        report.check(
+            "the page is told its kind and its solid record, and it has no drawing",
+            "solid, no asset_id, no exposure_spans",
+            format!(
+                "{}, {}, {}",
+                layer["kind"].as_str().unwrap_or("(no kind)"),
+                if layer.get("asset_id").is_none() { "no asset_id" } else { "an asset_id" },
+                if layer.get("exposure_spans").is_none() { "no exposure_spans" } else { "exposure_spans" }
+            ),
+        );
+        report.check(
+            "it is the composition's size, mid grey (the picker's #808080, stored linear)",
+            "0.215861 x3, 1920 by 1080",
+            format!(
+                "{:.6} x{}, {} by {}",
+                layer["solid"]["color"][0].as_f64().unwrap_or(-1.0),
+                layer["solid"]["color"]
+                    .as_array()
+                    .map_or(0, |c| c.iter().filter(|v| *v == &layer["solid"]["color"][0]).count()),
+                layer["solid"]["width"], layer["solid"]["height"]
+            ),
+        );
+        report.check(
+            "it covers the composition: anchor and position at the centre of 1920 by 1080",
+            "[960,540] and [960,540]",
+            format!(
+                "{} and {}",
+                layer["transform"]["anchor"]["base"], layer["transform"]["position"]["base"]
+            ),
+        );
+        report.check(
+            "and it runs the whole composition",
+            "frames 0 to 5",
+            format!("frames {} to {}", layer["in_frame"], layer["out_frame"]),
+        );
+        report.check(
+            "Undo says what it would take back",
+            "Add layer Solid 1",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+
+        // With a layer chosen, the page sends `to`: the index above it.
+        run(&viewer, "layer.add_solid?to=1");
+        report.check(
+            "a second one is Solid 2, and with a layer chosen it lands just above it",
+            "Cel, Solid 2, Solid 1",
+            names(&viewer),
+        );
+        let id = shown_layer(&viewer, "Solid 2")["id"].as_str().unwrap_or_default().to_string();
+
+        // The picker's #ff0000 is what `linearOf` sends as 1,0,0.
+        run(&viewer, &format!("solid.set?layer={id}&color=1,0,0"));
+        report.check(
+            "the colour picker sets the colour, and the size stays",
+            "[1,0,0] 1920x1080, anchor [960,540]",
+            solid_of(&viewer, "Solid 2"),
+        );
+        run(&viewer, &format!("solid.set?layer={id}&width=960"));
+        report.check(
+            "Width 960 halves it, and the anchor stays at its middle",
+            "[1,0,0] 960x1080, anchor [480,540]",
+            solid_of(&viewer, "Solid 2"),
+        );
+        report.check(
+            "a width of 0 is refused, with the reason",
+            "That solid cannot be made: it needs a width and height from 1 to 8192, not 0.",
+            run(&viewer, &format!("solid.set?layer={id}&width=0")),
+        );
+        report.check(
+            "a width that is not a number is refused, with the reason",
+            "\"wide\" is not a width. A width is a whole number of pixels, from 1 to 8192.",
+            run(&viewer, &format!("solid.set?layer={id}&width=wide")),
+        );
+        report.check(
+            "a colour outside 0 to 1 is refused, with the reason",
+            "That solid cannot be made: it needs a colour of three numbers from 0 to 1, not 2.",
+            run(&viewer, &format!("solid.set?layer={id}&color=2,0,0")),
+        );
+        report.check(
+            "and after the three refusals it is as it was",
+            "[1,0,0] 960x1080, anchor [480,540]",
+            solid_of(&viewer, "Solid 2"),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "one Undo takes back the width, anchor and all",
+            "[1,0,0] 1920x1080, anchor [960,540]",
+            solid_of(&viewer, "Solid 2"),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"].as_str().unwrap_or_default().to_string();
+        report.check(
+            "a drawing's layer has no colour to set, and says so",
+            "\"Cel\" is not a solid, so it has no colour and size.",
+            run(&viewer, &format!("solid.set?layer={cel}&color=1,0,0")),
+        );
+        run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply"));
+        report.check(
+            "unlike an adjustment layer, a solid takes any blend mode",
+            "multiply",
+            shown_layer(&viewer, "Solid 2")["blend_mode"].as_str().unwrap_or("(none)"),
+        );
+
+        run(&viewer, &format!("layer.delete?layer={id}&frame=0"));
+        report.check("Delete layer takes it out", "Cel, Solid 1", names(&viewer));
+        run(&viewer, "edit.undo");
+        report.check(
+            "and Undo brings it back as the same solid",
+            "Cel, Solid 2, Solid 1; solid [1,0,0] 1920x1080, anchor [960,540]",
+            format!(
+                "{}; {} {}",
+                names(&viewer),
+                shown_layer(&viewer, "Solid 2")["kind"].as_str().unwrap_or("(no kind)"),
+                solid_of(&viewer, "Solid 2")
+            ),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-23c_panel_table.md",
+            "B-23c: solid layers in the window",
+            SOLID_PANEL_INTRO,
+            SOLID_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     /// B-18c: the precomposition from the window, on D-67. The order is the playtest sheet's.
     #[test]
     fn layers_are_precomposed_from_the_window() {
@@ -12168,6 +12407,25 @@ mod editing {
          mode.",
         "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
          and reads back what the page is given.",
+    ];
+
+    const SOLID_PANEL_INTRO: &[&str] = &[
+        "D-74 decided what a solid is and B-23b built it in the core, checked pixel by pixel in \
+         `verification/B-23b_solid_table.md`. This is the window's half: the New solid button, \
+         its line in the timeline's right-click menu and the command palette, and Ctrl+Y send \
+         `layer.add_solid`; the layer's panel shows a colour picker and a width and a height, \
+         each of which sends `solid.set` on its own.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
+         and reads back what the page is given. The picker speaks the screen's 256 levels; the \
+         page turns its choice into linear by document 21's curve before sending it, so a \
+         picked #ff0000 arrives as 1,0,0 and #808080 as 0.215861.",
+    ];
+
+    const SOLID_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhat the solid looks like in the viewer, on the timeline \
+         and in the panels, and whether the picker opens and shows the colour. That is \
+         `verification/B-23c_solid_playtest.md`, for a person. Whether the pixels are right is \
+         B-23b's table.",
     ];
 
     const ADJUST_PANEL_NOTES: &[&str] = &[
@@ -13949,6 +14207,7 @@ mod contract {
         "keyframe.set_roving",
         "layer.add_adjustment",
         "layer.add_composition",
+        "layer.add_solid",
         "layer.copy",
         "layer.create",
         "layer.delete",
@@ -13979,6 +14238,7 @@ mod contract {
         "property.separate",
         "property.set_base",
         "property.set_expression",
+        "solid.set",
         "timeline.set_markers",
         "timeline.set_work_end",
         "timeline.set_work_start",
@@ -14026,6 +14286,16 @@ mod contract {
             "Level",
             "layer.set_gain",
             "level.onchange = () => command('/layer.set_gain?layer=' + encodeURIComponent(layer.id)",
+        ),
+        (
+            "New solid",
+            "layer.add_solid",
+            "command('/layer.add_solid' + (at < 0 ? '' : '?to=' + (at + 1)))",
+        ),
+        (
+            "Colour, Width and Height of a solid",
+            "solid.set",
+            "command('/solid.set?layer=' + encodeURIComponent(layer.id) + '&' + what)",
         ),
         (
             "Can be passed on",
@@ -14303,6 +14573,10 @@ mod contract {
         ("layer.copy", "a command the window answers"),
         ("layer.paste", "a command the window answers"),
         ("layer.toggle_shy", "a command the window answers"),
+        // D-74, accepted on 2026-09-19 and built in the core by B-23b; B-23c put both in the
+        // window.
+        ("layer.add_solid", "a command the window answers"),
+        ("solid.set", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -14356,6 +14630,7 @@ mod contract {
         ("media.import", "Ctrl+I", "e.key === 'i'"),
         ("layer.create", "Ctrl+Alt+L", "e.altKey && (e.key === 'l'"),
         ("layer.add_adjustment", "Ctrl+Alt+Y", "e.altKey && (e.key === 'y'"),
+        ("layer.add_solid", "Ctrl+Y", "$('addsolid').click();"),
         (
             "layer.precompose",
             "Ctrl+Shift+C",
@@ -15159,11 +15434,18 @@ mod contract {
             .unwrap_or_default()
             .to_string();
         run(&viewer, &format!("layer.set_gain?layer={sound_id}&value=-6"));
+        // B-23c: and a solid, the only kind that carries `solid`.
+        run(&viewer, "layer.add_solid");
         let answer: serde_json::Value =
             serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
         let sound = answer["project"]["compositions"][0]["layers"]
             .as_array()
             .and_then(|all| all.iter().find(|l| l["kind"] == "audio"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let solid = answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .and_then(|all| all.iter().find(|l| l["kind"] == "solid"))
             .cloned()
             .unwrap_or(serde_json::Value::Null);
         let layer = layer_of(&answer, "layer-3");
@@ -15218,6 +15500,7 @@ mod contract {
                     match holds.get(&field).or_else(|| match field.as_str() {
                         "composition_id" => precomp.get(&field),
                         "gain_db" => sound.get(&field),
+                        "solid" => solid.get(&field),
                         _ => None,
                     }) {
                         Some(_) => "present".to_string(),
@@ -15766,11 +16049,12 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 51] = [
+    const CONTROLS: [&str; 52] = [
         "addadjust",
         "addeffect",
         "addexposure",
         "addlayer",
+        "addsolid",
         "alpha",
         "anyway",
         "applyrelink",

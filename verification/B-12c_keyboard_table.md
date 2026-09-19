@@ -29,7 +29,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addadjust, addeffect, addexposure, addlayer, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
+| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addadjust, addeffect, addexposure, addlayer, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
@@ -66,6 +66,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `keyframe.set_roving` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_adjustment` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_composition` can be asked for without a mouse | yes | yes | pass |
+| `layer.add_solid` can be asked for without a mouse | yes | yes | pass |
 | `layer.copy` can be asked for without a mouse | yes | yes | pass |
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
@@ -103,6 +104,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `recover` can be asked for without a mouse | yes | yes | pass |
 | `save` can be asked for without a mouse | yes | yes | pass |
 | `save-as` can be asked for without a mouse | yes | yes | pass |
+| `solid.set` can be asked for without a mouse | yes | yes | pass |
 | `sound` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_markers` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_work_end` can be asked for without a mouse | yes | yes | pass |
@@ -139,4 +141,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | right clicking a chosen key is not the only way to open its menu of key speed, ease, hold, copy, paste and delete | true | true | pass |
 | right clicking an empty place on the timeline is not the only way to paste keys or layers there, add a key, a layer or a marker, or open the settings | true | true | pass |
 
-**109 of 109 checks pass.**
+**111 of 111 checks pass.**
