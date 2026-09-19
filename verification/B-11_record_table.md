@@ -4,7 +4,7 @@ The artifact is `docs/DEPENDENCIES.md` and the archived licence texts under `Lic
 
 The build currently resolves **286 dependencies** beneath the six the workspace manifests name. `Cargo.lock` lists more, because it covers every platform cargo could resolve for; the count here is what compiles on `x86_64-pc-windows-msvc`.
 
-This check reads no licence and decides nothing about one. Document 10 reserves that for a reviewer, and there has not been one.
+This check reads no licence and decides nothing about one. Document 10 reserves that for a reviewer; the review of 2026-09-18 is in `docs/DEPENDENCIES.md`.
 
 ## Checks
 

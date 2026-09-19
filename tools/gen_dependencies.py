@@ -122,8 +122,9 @@ materials "generated from the final build inputs rather than a guessed list". Th
 are written by hand.
 
 Distribution form: statically linked, open source (ADR-010, D-03), under `MIT OR Apache-2.0`
-(D-31, decided 2026-09-05). No dependency is modified. No non-default build flags are set. Reviewer: none. Date reviewed: none. Both are blank on purpose;
-see the last section.
+(D-31, decided 2026-09-05). No dependency is modified. No non-default build flags are set. Reviewer: the agent, Claude,
+by the owner's delegation (D-70). Date reviewed: 2026-09-18. An engineering review and not a legal
+opinion; see "The review of 2026-09-18".
 
 ## Bill of materials
 
@@ -198,9 +199,10 @@ with the shell and it should be read first.
   possible position to be in, but easy is not the same as reviewed — and the previous version of
   this record said "nothing in the graph is copyleft". That sentence was true of twenty-eight
   crates and is not true of two hundred and sixty-four.
-- **Eleven crates ship no licence text at all.** `alloc-stdlib`, `defmt-parser`, `selectors`, the
-  five `unic-*` crates and the three `webview2-com*` crates declare terms in their manifests and
-  publish no file carrying them. `selectors` is the one to look at twice: it is the MPL-2.0 crate,
+- **Fourteen crates ship no licence text at all.** `alloc-stdlib`, `defmt-parser`,
+  `pulp-wasm-simd-flag`, `selectors`, `tauri-plugin`, `zune-inflate`, the five `unic-*` crates and
+  the three `webview2-com*` crates declare terms in their manifests and publish no file carrying
+  them. This said eleven until the review of 2026-09-18 counted the archive; the graph had grown. `selectors` is the one to look at twice: it is the MPL-2.0 crate,
   and MPL-2.0 is the licence in this graph with the most to say about notices. Their archive
   directories hold a generated `NO-LICENCE-TEXT-SHIPPED.md` recording the absence, because an empty
   directory cannot state a fact and git does not keep one anyway.
@@ -213,7 +215,7 @@ with the shell and it should be read first.
 - **`unicode-ident` 1.0.24** — `(MIT OR Apache-2.0) AND Unicode-3.0`. The `AND` is the point: this
   is not a choice of one licence, both sets of terms apply. It is build-time only, which likely
   changes the answer, but "likely" is not a review.
-- **Conjunctive terms elsewhere.** `brotli` is `BSD-3-Clause AND MIT` and `ryu` is
+- **Conjunctive terms elsewhere.** `brotli` is `BSD-3-Clause AND MIT` and `dpi` is
   `Apache-2.0 AND MIT`. Both mean both, not either.
 - **Crates offering no MIT or Apache option at all.** `tao` 0.35.3 is `Apache-2.0` only and is the
   windowing layer, so it is unavoidable for as long as there is a window. `zlib-rs` 0.6.7 and
@@ -242,11 +244,44 @@ confirms a directory exists for every crate at its resolved version, and
 is the set of files that crate actually ships. The second is the one a hand-maintained archive
 fails quietly, because a missing file looks exactly like a crate that never had one.
 
+## The review of 2026-09-18
+
+The owner delegated the review to the agent on 2026-09-18 (D-70). It is a review by an engineer
+who read the record and the archive, not by a lawyer, and it is not a legal opinion. It can be
+replaced by a professional one at any time without changing anything else here.
+
+**Result: confirmed. Nothing in this graph prevents distributing this project under
+`MIT OR Apache-2.0`, on the two conditions below.** What was looked at:
+
+- `tools/archive_licenses.py --check`: 286 crates resolved, none disagrees with `Licenses/`.
+- Every licence expression in the table was read. Each is MIT, Apache-2.0, BSD, Zlib, 0BSD, CC0,
+  Unlicense, Unicode-3.0 or MPL-2.0, alone or combined. No GPL, LGPL or AGPL, no crate with no
+  declared licence, and no crate from outside crates.io.
+- **MPL-2.0.** The five crates are used unmodified. MPL-2.0 section 3.2 asks a binary distribution
+  to say where their source can be had and leaves the larger work under its own licence. The
+  table above names each one's version and repository, which is that statement.
+- **Unicode-3.0, Zlib, BSD and Apache-2.0 alone.** Permissive. Each asks that its text and
+  copyright notices travel with a distribution. `Licenses/` holds them.
+- **The conjunctive terms.** `brotli`, `dpi` and `unicode-ident` need both of their texts carried.
+  Their archive directories hold both. The record named `ryu` here; `ryu` has left the build
+  and `dpi` is the crate with those terms now.
+- **Unlicense OR MIT.** Each of those crates offers MIT, so the Unlicense's standing in any one
+  jurisdiction need not be relied on.
+- **NOTICE files.** No crate in the graph ships one, so Apache-2.0 section 4(d) asks for nothing.
+
+The conditions, which fall due at the first distribution of a binary and not before:
+
+1. `Licenses/` and this file travel with the binary. The package already copies the archive whole.
+2. The fourteen crates that ship no text get the standard text of the licence they declare placed
+   beside their `NO-LICENCE-TEXT-SHIPPED.md`. `selectors` takes the MPL-2.0 text `cssparser`
+   ships. Not done here: it is part of the release packet, T-16.
+
+The name on the copyright line was settled by D-34.
+
 ## What this record does not yet contain
 
-- **A reviewer and a date.** There has been no legal reviewer. Inventing a sign-off would be worse
-  than leaving it blank. The MPL-2.0 entry above is the first thing in this project that genuinely
-  wants one.
+- **A professional legal review.** The review above is an engineer's. Document 10's release packet
+  may still want a lawyer's, and the jurisdictions of distribution are still open there.
 - **NOTICE files.** Document 10 lists them separately from licence texts. That is read off the
   crate sources themselves rather than off the archive — `tools/archive_licenses.py` looks for
   `NOTICE` alongside the licence names and reports every crate shipping no text at all — but it is
@@ -254,11 +289,11 @@ fails quietly, because a missing file looks exactly like a crate that never had 
 - **A distribution.** T-16 stays NOT RUN because there is no distributable build to check. Nothing
   here has been shipped to anyone, so no obligation in it has come due. `bundle.active` is `false`
   in `app/tauri.conf.json` for that reason.
-- **A signed-off review.** D-31 is now closed — the project is `MIT OR Apache-2.0`, `Cargo.toml`
+- **The licence and the name on it.** D-31 is now closed — the project is `MIT OR Apache-2.0`, `Cargo.toml`
   declares it and `LICENSE-MIT` and `LICENSE-APACHE` are in the repository root — but that is the
-  owner choosing a licence, not a reviewer confirming that this graph may be redistributed under
-  it. The copyright line in `LICENSE-MIT` names the GitHub identity that owns the repository; the
-  owner should replace it with whatever name belongs on the notice.
+  owner choosing a licence. The review above is what confirms this graph may be redistributed under
+  it. The copyright line in `LICENSE-MIT` names the GitHub identity that owns the repository, and
+  D-34 decided that it stays.
 """
 
 if __name__ == '__main__':

@@ -454,7 +454,7 @@ fn write_report(report: &Report, build: &BTreeMap<String, BTreeSet<String>>) {
     ));
     out.push_str(
         "This check reads no licence and decides nothing about one. Document 10 reserves that \
-         for a reviewer, and there has not been one.\n\n",
+         for a reviewer; the review of 2026-09-18 is in `docs/DEPENDENCIES.md`.\n\n",
     );
     out.push_str("## Checks\n\n| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
     for row in &report.rows {
