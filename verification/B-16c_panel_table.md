@@ -25,7 +25,7 @@ Whether the pictures look right on screen, and whether the exported files open i
 | agreeing points the cels at the EXR files and reads them as EXR | render_0001.exr; LinearLight, Premultiplied | render_0001.exr; LinearLight, Premultiplied | pass |
 | undo puts both back | cel_0001.png; Srgb, Straight | cel_0001.png; Srgb, Straight | pass |
 | relinking EXR drawings to EXR ones says the reading stays | true | true | pass |
-| the format list's three choices are the three files, and anything else is refused | Png; Exr(Half); Exr(Float); Nothing was exported: "tiff" is not a format this window writes. Choose PNG, EXR half or EXR float. | Png; Exr(Half); Exr(Float); Nothing was exported: "tiff" is not a format this window writes. Choose PNG, EXR half or EXR float. | pass |
+| the format list's three choices are the three files, and anything else is refused | Png; Exr(Half); Exr(Float); Nothing was exported: "psd" is not a format this window writes. Choose PNG, EXR half, EXR float, GIF or animated PNG. | Png; Exr(Half); Exr(Float); Nothing was exported: "psd" is not a format this window writes. Choose PNG, EXR half, EXR float, GIF or animated PNG. | pass |
 | no choice at all is PNG, as before the list | Png | Png | pass |
 | an EXR export names its files .exr | cel_holds_project_%04d.exr | cel_holds_project_%04d.exr | pass |
 | and writes them | cel_holds_project_0000.exr, cel_holds_project_0001.exr | cel_holds_project_0000.exr, cel_holds_project_0001.exr | pass |

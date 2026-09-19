@@ -30,6 +30,7 @@ exr = { version = "1.74.2", default-features = false }
 # and a derived struct drops what it has no field for. Only `serde_json` is used.
 serde_json = "1.0.151"
 image = { version = "0.25.10", default-features = false, features = ["bmp", "tga", "tiff", "webp", "jpeg"] }
+gif = "0.14.2"
 
 [dev-dependencies]
 # `tests/b11_dependency_record.rs` asks cargo what the build resolves and reads the answer.

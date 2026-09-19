@@ -58,6 +58,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `cfb` | 0.7.3 | MIT | transitive | linked | https://github.com/mdsteele/rust-cfb | `d38f2da7a0a2c4cc…` |
 | `cfg-if` | 1.0.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/cfg-if | `9330f8b2ff13f345…` |
 | `chrono` | 0.4.45 | MIT OR Apache-2.0 | transitive | linked | https://github.com/chronotope/chrono | `1aa79e62e7697b8e…` |
+| `color_quant` | 1.1.0 | MIT | transitive | linked | https://github.com/image-rs/color_quant.git | `3d7b894f5411737b…` |
 | `cookie` | 0.18.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/SergioBenitez/cookie-rs | `1a373e3602691c3c…` |
 | `cpufeatures` | 0.2.17 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/RustCrypto/utils | `59ed5838eebb26a2…` |
 | `crc32fast` | 1.5.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/srijs/rust-crc32fast | `8498c871161e1742…` |
@@ -107,6 +108,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `generic-array` | 0.14.7 | MIT | transitive | build-time only | https://github.com/fizyk20/generic-array.git | `85649ca51fd72272…` |
 | `getrandom` | 0.3.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-random/getrandom | `899def5c37c4fd7b…` |
 | `getrandom` | 0.4.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-random/getrandom | `300e883d756b2e4e…` |
+| `gif` | 0.14.2 | MIT OR Apache-2.0 | direct | linked | https://github.com/image-rs/image-gif | `ee8cfcc411d9adbb…` |
 | `glob` | 0.3.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/glob | `e4eba85ea1d0a966…` |
 | `half` | 2.7.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/VoidStarKat/half-rs | `6ea2d84b969582b4…` |
 | `hashbrown` | 0.12.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/hashbrown | `8a9ee70c43aaf417…` |
@@ -345,6 +347,9 @@ underneath one of them.
 - **`image`** reads BMP, TGA, TIFF, WebP and JPEG drawings, by D-72 (accepted on 2026-09-19), with
   its default features off and only those five on. It brought eleven crates underneath it.
   `tests/b21b_formats.rs` holds each format to a PNG twin written by Pillow.
+- **`gif`** writes the GIF export, by D-72. It brought `color_quant`, which picks each frame's 256
+  colours. `tests/b21c_films.rs` reads the file back and holds its delays to FX-FMT-020 to 023.
+  The animated PNG needed nothing new: `png` writes it.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the
@@ -358,7 +363,7 @@ underneath one of them.
 ## What the shell cost, in crates
 
 This is the honest number and it is worth stating plainly. Before the window, this record held
-**28** crates. With it, **297**. One dependency brought in roughly two hundred and thirty
+**28** crates. With it, **299**. One dependency brought in roughly two hundred and thirty
 others, which is what a browser engine, an async runtime, a CSS selector engine and a bundler
 amount to once they are counted rather than assumed.
 

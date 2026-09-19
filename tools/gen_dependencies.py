@@ -160,6 +160,9 @@ underneath one of them.
 - **`image`** reads BMP, TGA, TIFF, WebP and JPEG drawings, by D-72 (accepted on 2026-09-19), with
   its default features off and only those five on. It brought eleven crates underneath it.
   `tests/b21b_formats.rs` holds each format to a PNG twin written by Pillow.
+- **`gif`** writes the GIF export, by D-72. It brought `color_quant`, which picks each frame's 256
+  colours. `tests/b21c_films.rs` reads the file back and holds its delays to FX-FMT-020 to 023.
+  The animated PNG needed nothing new: `png` writes it.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the

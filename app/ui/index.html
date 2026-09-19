@@ -621,10 +621,12 @@
   <button id="redo">Redo</button>
   <span class="sep"></span>
   <button id="export">Export&hellip;</button>
-  <select id="exportformat" title="What each exported frame is written as">
+  <select id="exportformat" title="What the export is written as: a file a frame, or one animated file">
     <option value="png">PNG, 8-bit</option>
     <option value="exr-half">EXR, half float</option>
     <option value="exr-float">EXR, full float</option>
+    <option value="apng">Animated PNG, 8-bit</option>
+    <option value="gif">GIF, a preview: 256 colours</option>
   </select>
   <button id="cancelexport" hidden>Cancel export</button>
   <progress id="exportbar" hidden></progress><span id="exportleft"></span>

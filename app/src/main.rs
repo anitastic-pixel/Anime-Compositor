@@ -4346,9 +4346,11 @@ fn output_format(query: Option<&str>) -> Result<OutputFormat, String> {
         None | Some("png") => Ok(OutputFormat::Png),
         Some("exr-half") => Ok(OutputFormat::Exr(ExrSamples::Half)),
         Some("exr-float") => Ok(OutputFormat::Exr(ExrSamples::Float)),
+        Some("gif") => Ok(OutputFormat::Gif),
+        Some("apng") => Ok(OutputFormat::Apng),
         Some(other) => Err(format!(
             "Nothing was exported: \"{other}\" is not a format this window writes. Choose PNG, \
-             EXR half or EXR float."
+             EXR half, EXR float, GIF or animated PNG."
         )),
     }
 }
@@ -4391,6 +4393,10 @@ fn export_job(
             naming: match format {
                 OutputFormat::Png => format!("{stem}_%04d.png"),
                 OutputFormat::Exr(_) => format!("{stem}_%04d.exr"),
+                // D-72: one file for the whole job. `_animated` keeps it from looking like a
+                // still, and from landing on a frame of a PNG sequence in the same folder.
+                OutputFormat::Gif => format!("{stem}.gif"),
+                OutputFormat::Apng => format!("{stem}_animated.png"),
             },
             depth: WINDOW_DEPTH,
             alpha: WINDOW_ALPHA,
@@ -4422,12 +4428,21 @@ fn run_export(
 /// deciding what the person is allowed to know about their own render.
 fn what_the_export_did(report: &ExportReport, into: &Path) -> String {
     let mut lines = vec![match report.status {
+        // D-72: a GIF or an animated PNG is one file however many frames it holds.
+        ExportStatus::Completed if report.files_expected != report.frames_requested => format!(
+            "Exported {} frames as one file, {}.",
+            report.frames_requested,
+            report.written.first().unwrap_or(&into.to_path_buf()).display()
+        ),
         ExportStatus::Completed => format!(
             "Exported {} frames into {}.",
             report.written.len(),
             into.display()
         ),
         ExportStatus::Blocked => "Nothing was exported.".to_string(),
+        ExportStatus::Cancelled if report.files_expected != report.frames_requested => {
+            "Nothing was exported.".to_string()
+        }
         ExportStatus::Cancelled => format!(
             "The {} frames that finished are in {}.",
             report.written.len(),
@@ -4481,6 +4496,8 @@ fn start_export(
             OutputFormat::Png => "",
             OutputFormat::Exr(ExrSamples::Half) => " as EXR, half float,",
             OutputFormat::Exr(ExrSamples::Float) => " as EXR, full float,",
+            OutputFormat::Gif => " as one GIF, a preview of 256 colours a frame,",
+            OutputFormat::Apng => " as one animated PNG,",
         },
         into.display()
     );
@@ -10498,7 +10515,7 @@ mod editing {
         );
 
         // ---- export -------------------------------------------------------------------------
-        let formats = ["png", "exr-half", "exr-float", "tiff"]
+        let formats = ["png", "exr-half", "exr-float", "psd"]
             .map(
                 |f| match output_format(Some(&format!("format=x&format={f}")[9..])) {
                     Ok(format) => format!("{format:?}"),
@@ -10508,8 +10525,8 @@ mod editing {
             .join("; ");
         report.check(
             "the format list's three choices are the three files, and anything else is refused",
-            "Png; Exr(Half); Exr(Float); Nothing was exported: \"tiff\" is not a format this \
-             window writes. Choose PNG, EXR half or EXR float.",
+            "Png; Exr(Half); Exr(Float); Nothing was exported: \"psd\" is not a format this \
+             window writes. Choose PNG, EXR half, EXR float, GIF or animated PNG.",
             formats,
         );
         report.check(
@@ -10625,6 +10642,101 @@ mod editing {
             "verification/B-21b_panel_table.md",
             "B-21b: the new drawing formats in the window",
             &["D-72 added BMP, TGA, TIFF, WebP and JPEG as drawings, and                `verification/B-21b_formats_table.md` checks each picture against its PNG twin.                This is the window's half: Import and Relink list the new extensions, and a chosen                file comes in as a drawing. The file picker itself is skipped, as in every panel                table: no test can answer a Windows dialog."],
+            &[],
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// B-21c: a GIF and an animated PNG from the window (D-72).
+    #[test]
+    fn a_gif_and_an_animated_png_go_out_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let page = std::fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"),
+        )
+        .expect("the page");
+        report.check(
+            "the list beside Export offers a GIF, and says it is a preview",
+            true,
+            page.contains("<option value=\"gif\">GIF, a preview: 256 colours</option>"),
+        );
+        report.check(
+            "and an animated PNG",
+            true,
+            page.contains("<option value=\"apng\">Animated PNG, 8-bit</option>"),
+        );
+        let into = std::env::temp_dir().join("anime_compositor_b21c_export");
+        let _ = std::fs::remove_dir_all(&into);
+        std::fs::create_dir_all(&into).expect("the export folder");
+        for (choice, file) in [
+            ("gif", "cel_holds_project.gif"),
+            ("apng", "cel_holds_project_animated.png"),
+        ] {
+            let format = output_format(Some(&format!("format={choice}"))).expect("a listed format");
+            // The fixture's drawings are not on the disk, so the frames are written without
+            // them, as the window's own tick box asks; what is checked here is the file.
+            let (snapshot, root, mut request) =
+                export_job(&held(&viewer), &into, MissingSource::RenderTransparent, format);
+            report.check(&format!("{choice}: the file is named"), file, &request.naming);
+            request.last_frame = request.first_frame + 2;
+            let said = run_export(&snapshot, &root, &request, &AtomicBool::new(false));
+            report.check(
+                &format!("{choice}: three frames are one file, and the window says so"),
+                format!("Exported 3 frames as one file, the chosen folder's {file}."),
+                said.replace(&format!("{}{}", into.display(), std::path::MAIN_SEPARATOR), "the chosen folder's ")
+                    .split_inclusive('.')
+                    .take(2)
+                    .collect::<String>(),
+            );
+        }
+        let mut files: Vec<String> = std::fs::read_dir(&into)
+            .expect("the export folder")
+            .map(|f| f.expect("a file").file_name().to_string_lossy().into_owned())
+            .collect();
+        files.sort();
+        report.check(
+            "the folder holds those two files and nothing else",
+            "cel_holds_project.gif, cel_holds_project_animated.png",
+            files.join(", "),
+        );
+        let (snapshot, root, request) = export_job(
+            &held(&viewer),
+            &into,
+            MissingSource::RenderTransparent,
+            OutputFormat::Gif,
+        );
+        let _ = std::fs::remove_file(into.join("cel_holds_project.gif"));
+        let said = run_export(&snapshot, &root, &request, &AtomicBool::new(true));
+        report.check(
+            "a cancelled GIF leaves no half-made file, and the window says so",
+            "Nothing was exported. Export stopped at your request. An animated file is whole or \
+             it is nothing, so no file was left.; file there: false",
+            format!(
+                "{}; file there: {}",
+                said,
+                into.join("cel_holds_project.gif").exists()
+            ),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-21c_panel_table.md",
+            "B-21c: GIF and animated PNG out of the window",
+            &["D-72 added a GIF and an animated PNG as things an export can be, and \
+               `verification/B-21c_films_table.md` reads both files back frame by frame. This \
+               is the window's half: the list beside Export offers them, the job names one file \
+               rather than one a frame, and the status line says so. The folder picker is \
+               skipped, as in every panel table: no test can answer a Windows dialog."],
             &[],
         );
         let failed: Vec<&String> = report

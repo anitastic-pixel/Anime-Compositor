@@ -30,6 +30,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use crate::compose;
 use crate::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use crate::exr_io::{self, ExrSamples};
+use crate::film_out::Film;
 use crate::model::{Id, Project};
 use crate::png_out;
 use crate::{OutputAlpha, OutputDepth};
@@ -53,6 +54,19 @@ pub enum OutputFormat {
     /// D-62's file, with half or float samples. `depth` and `alpha` do not apply: an EXR holds
     /// the working buffer as it is, premultiplied.
     Exr(ExrSamples),
+    /// D-72: one GIF holding every frame. A preview format: 256 colours a frame, alpha on or
+    /// off. `naming` is the file's name as it stands and carries no frame number.
+    Gif,
+    /// D-72: one animated PNG holding every frame, from the samples a PNG frame would hold.
+    /// `depth` and `alpha` apply. `naming` is the file's name as it stands.
+    Apng,
+}
+
+impl OutputFormat {
+    /// True when the whole job is one file rather than a file a frame.
+    pub fn is_one_file(self) -> bool {
+        matches!(self, OutputFormat::Gif | OutputFormat::Apng)
+    }
 }
 
 /// How a job ended. There is no variant that means "finished, with problems hidden".
@@ -93,6 +107,8 @@ pub struct ExportReport {
     pub status: ExportStatus,
     /// How many files the request asked for: `last - first + 1`.
     pub frames_requested: usize,
+    /// How many files that is: one a frame, or one in all for a GIF or an animated PNG (D-72).
+    pub files_expected: usize,
     /// The files written, in the order they were written.
     pub written: Vec<PathBuf>,
     /// Document 28: output produced while a parked feature was bypassed must say so.
@@ -105,7 +121,7 @@ impl ExportReport {
     /// [`ExportStatus::Completed`], and false while any file is missing, so a job cannot be
     /// called successful by a caller that forgot to look at the count.
     pub fn succeeded(&self) -> bool {
-        self.status == ExportStatus::Completed && self.written.len() == self.frames_requested
+        self.status == ExportStatus::Completed && self.written.len() == self.files_expected
     }
 }
 
@@ -135,6 +151,7 @@ pub fn export_sequence_counting(
     let mut report = ExportReport {
         status: ExportStatus::Completed,
         frames_requested: 0,
+        files_expected: 0,
         written: Vec::new(),
         fidelity_incomplete: false,
         diagnostics: Vec::new(),
@@ -152,8 +169,23 @@ pub fn export_sequence_counting(
     }
     let frames: Vec<i32> = (request.first_frame..=request.last_frame).collect();
     report.frames_requested = frames.len();
+    let one_file = request.format.is_one_file();
+    report.files_expected = if one_file { 1 } else { frames.len() };
+    let film_path = request.output_dir.join(&request.naming);
+    let mut film: Option<Film> = None;
 
-    if !request.naming.contains("%0") || !request.naming.contains('d') {
+    if request.format == OutputFormat::Apng {
+        let refusal = project
+            .composition(&request.composition)
+            .and_then(|c| Film::apng_refusal(c.frame_rate));
+        if let Some(why) = refusal {
+            report.status = ExportStatus::Failed;
+            report.diagnostics.push(invalid(why));
+            return report;
+        }
+    }
+
+    if !one_file && (!request.naming.contains("%0") || !request.naming.contains('d')) {
         report.status = ExportStatus::Failed;
         report.diagnostics.push(invalid(format!(
             "The output naming {} contains no frame number, so every frame would be written to \
@@ -259,16 +291,33 @@ pub fn export_sequence_counting(
             report.diagnostics.push(Diagnostic::new(
                 DiagnosticId::ExportCancelled,
                 Severity::Info,
-                format!(
-                    "Export stopped at your request after {} of {} frames.",
-                    report.written.len(),
-                    frames.len()
-                ),
-                format!(
-                    "Frame {frame} had not been written when the request arrived. The frames \
-                     already written are complete files and were left in place."
-                ),
+                if one_file {
+                    "Export stopped at your request. An animated file is whole or it is nothing, \
+                     so no file was left."
+                        .to_string()
+                } else {
+                    format!(
+                        "Export stopped at your request after {} of {} frames.",
+                        report.written.len(),
+                        frames.len()
+                    )
+                },
+                if one_file {
+                    format!(
+                        "Frame {frame} had not been written when the request arrived. An animated \
+                         file is whole or it is nothing, so {} was removed.",
+                        film_path.display()
+                    )
+                } else {
+                    format!(
+                        "Frame {frame} had not been written when the request arrived. The frames \
+                         already written are complete files and were left in place."
+                    )
+                },
             ));
+            if film.take().is_some() {
+                let _ = std::fs::remove_file(&film_path);
+            }
             report.diagnostics.extend(log.finish());
             return report;
         }
@@ -300,7 +349,11 @@ pub fn export_sequence_counting(
             || ids.contains(&DiagnosticId::EffectParameterInvalid);
         report.fidelity_incomplete |= bypassed;
 
-        let path = request.output_dir.join(expand(&request.naming, frame));
+        let path = if one_file {
+            film_path.clone()
+        } else {
+            request.output_dir.join(expand(&request.naming, frame))
+        };
         let mut tags = vec![
             ("Software", "anime_compositor export (R-09)".to_string()),
             (
@@ -334,7 +387,44 @@ pub fn export_sequence_counting(
                 "incomplete: a layer carried something this build could not draw".to_string(),
             ));
         }
+        if one_file && film.is_none() {
+            let rate = project
+                .composition(&request.composition)
+                .map(|c| c.frame_rate)
+                .ok_or_else(|| "the composition is not in the project".to_string());
+            let (w, h) = (buffer.width(), buffer.height());
+            let opened = rate.and_then(|rate| match request.format {
+                OutputFormat::Gif => match Film::gif_refusal(w, h) {
+                    Some(why) => Err(why),
+                    None => Film::gif(&path, w, h, rate),
+                },
+                // The header is written once, so it carries no `Frame` tag, and its `Fidelity`
+                // tag speaks for the first frame only; the report speaks for them all.
+                _ => {
+                    let header: Vec<(&str, String)> =
+                        tags.iter().filter(|(k, _)| *k != "Frame").cloned().collect();
+                    Film::apng(&path, w, h, request.depth, rate, frames.len() as u32, &header)
+                }
+            });
+            match opened {
+                Ok(opened) => film = Some(opened),
+                Err(why) => {
+                    report.status = ExportStatus::Failed;
+                    report.diagnostics.push(invalid(why));
+                    return report;
+                }
+            }
+        }
         let written = match request.format {
+            OutputFormat::Gif | OutputFormat::Apng => film
+                .as_mut()
+                .expect("the film was opened above")
+                .push(
+                    buffer.width(),
+                    buffer.height(),
+                    &buffer.encode(OutputDepth::Eight, OutputAlpha::Straight),
+                    &buffer.encode(request.depth, request.alpha),
+                ),
             OutputFormat::Png => png_out::write_rgba(
                 &path,
                 buffer.width(),
@@ -373,11 +463,29 @@ pub fn export_sequence_counting(
                      frames that are missing.",
                 ),
             );
+            if film.take().is_some() {
+                let _ = std::fs::remove_file(&film_path);
+            }
             report.diagnostics.extend(log.finish());
             return report;
         }
-        report.written.push(path);
+        if !one_file {
+            report.written.push(path);
+        }
         done.fetch_add(1, Ordering::SeqCst);
+    }
+    if let Some(film) = film {
+        match film.finish() {
+            Ok(()) => report.written.push(film_path),
+            Err(e) => {
+                report.status = ExportStatus::Failed;
+                report.diagnostics.push(invalid(format!(
+                    "{} could not be finished: {e}.",
+                    film_path.display()
+                )));
+                let _ = std::fs::remove_file(&film_path);
+            }
+        }
     }
 
     report.diagnostics.extend(log.finish());

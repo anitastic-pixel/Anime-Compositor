@@ -278,12 +278,13 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
     // `exr` added the crates from `bit_field` to `zune-inflate`; `proc-macro2`, `quote` and `syn`
     // come with them to build `zerocopy-derive` and `paste`, and run only while compiling.
     // D-72's `image` added `byteorder-lite`, `fax`, `image`, `image-webp`, `moxcms`, `pxfm`,
-    // `quick-error`, `tiff`, `weezl`, `zune-core` and `zune-jpeg`.
+    // `quick-error`, `tiff`, `weezl`, `zune-core` and `zune-jpeg`. D-72's `gif` added
+    // `color_quant` and `gif`; `weezl`, its LZW, was already here.
     report.check(
         "and that part's whole dependency list is small enough to read",
-        "adler2, bit_field, bitflags, bytemuck, byteorder-lite, cfg-if, crc32fast, \
+        "adler2, bit_field, bitflags, bytemuck, byteorder-lite, cfg-if, color_quant, crc32fast, \
          crossbeam-deque, crossbeam-epoch, crossbeam-utils, either, exr, fax, fdeflate, flate2, \
-         half, image, image-webp, itoa, lebe, libm, memchr, miniz_oxide, moxcms, num-complex, \
+         gif, half, image, image-webp, itoa, lebe, libm, memchr, miniz_oxide, moxcms, num-complex, \
          num-traits, paste, png, proc-macro2, pulp, pulp-wasm-simd-flag, pxfm, quick-error, \
          quote, raw-cpuid, rayon, rayon-core, reborrow, serde_core, serde_json, simd-adler32, \
          smallvec, syn, tiff, unicode-ident, weezl, zerocopy, zerocopy-derive, zlib-rs, zmij, \
