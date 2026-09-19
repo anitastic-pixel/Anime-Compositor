@@ -614,11 +614,13 @@ pub struct MatteReference {
     pub matte_only: bool,
 }
 
-/// Document 19's layer kind: `raster` shows a drawing, `adjustment` (D-66) has none.
+/// Document 19's layer kind: `raster` shows a drawing, `adjustment` (D-66) has none, and
+/// `composition` (D-67) shows another composition of the same project.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LayerKind {
     Raster,
     Adjustment,
+    Composition,
 }
 
 impl LayerKind {
@@ -626,6 +628,7 @@ impl LayerKind {
         match self {
             LayerKind::Raster => "raster",
             LayerKind::Adjustment => "adjustment",
+            LayerKind::Composition => "composition",
         }
     }
 }
@@ -641,6 +644,9 @@ pub struct Layer {
     /// empty ID here, which no asset record ever carries; everything that looks an asset up
     /// checks the kind first.
     pub asset_id: Id,
+    /// D-67: the composition a `composition` layer shows, and `None` on every other kind. Such
+    /// a layer has no drawing either and holds the empty asset ID, as an adjustment layer does.
+    pub composition_id: Option<Id>,
     pub enabled: bool,
     pub locked: bool,
     pub in_frame: i32,
@@ -695,6 +701,7 @@ impl Layer {
             name: name.into(),
             kind: LayerKind::Raster,
             asset_id,
+            composition_id: None,
             enabled: true,
             locked: false,
             in_frame,
@@ -734,6 +741,35 @@ impl Layer {
 
     pub fn is_adjustment(&self) -> bool {
         self.kind == LayerKind::Adjustment
+    }
+
+    /// D-67: a layer whose picture is `inner`, rendered at the layer's local frame. Its anchor
+    /// is the centre of `inner` and its position the centre of the `width` by `height`
+    /// composition it goes into, so it lands centred whatever the two sizes are.
+    pub fn composition(
+        id: Id,
+        name: impl Into<String>,
+        inner: &Composition,
+        width: u32,
+        height: u32,
+        in_frame: i32,
+        out_frame: i32,
+    ) -> Self {
+        let mut layer = Layer::new(id, name, Id::new(""), in_frame, out_frame);
+        layer.kind = LayerKind::Composition;
+        layer.composition_id = Some(inner.id.clone());
+        layer.transform.anchor = Property::constant(Value::Vec2(
+            inner.width as f64 / 2.0,
+            inner.height as f64 / 2.0,
+        ));
+        layer.transform.position =
+            Property::constant(Value::Vec2(width as f64 / 2.0, height as f64 / 2.0));
+        layer
+    }
+
+    /// True of the two kinds that show no drawing: nothing looks an asset up for them.
+    pub fn has_no_drawing(&self) -> bool {
+        self.kind != LayerKind::Raster
     }
 
     /// Document 19's layer invariant.
@@ -1112,6 +1148,39 @@ impl Project {
 
     pub fn composition(&self, id: &Id) -> Option<&Composition> {
         self.compositions.iter().find(|c| &c.id == id)
+    }
+
+    /// D-67: whether `to` is `from` or is shown somewhere inside it, at any depth. A composition
+    /// layer showing `from` inside `to` would therefore close a loop. A reference to a
+    /// composition the project does not have leads nowhere.
+    pub fn composition_reaches(&self, from: &Id, to: &Id) -> bool {
+        let mut seen: Vec<&Id> = Vec::new();
+        let mut open = vec![from];
+        while let Some(at) = open.pop() {
+            if at == to {
+                return true;
+            }
+            if seen.contains(&at) {
+                continue;
+            }
+            seen.push(at);
+            if let Some(comp) = self.composition(at) {
+                open.extend(
+                    comp.layers_in_order()
+                        .filter_map(|l| l.composition_id.as_ref()),
+                );
+            }
+        }
+        false
+    }
+
+    /// D-67: the first composition that holds a layer showing `id`, which is what stops `id`
+    /// being deleted.
+    pub fn composition_user(&self, id: &Id) -> Option<&Composition> {
+        self.compositions.iter().find(|c| {
+            c.layers_in_order()
+                .any(|l| l.composition_id.as_ref() == Some(id))
+        })
     }
 
     pub(crate) fn composition_mut(&mut self, id: &Id) -> Option<&mut Composition> {

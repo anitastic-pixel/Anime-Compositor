@@ -27,6 +27,8 @@ One row per identifier this build can print, and the table where a person can re
 | `PARENT_REFERENCE_MISSING` | yes | `verification/B-13b_parenting_table.md` |
 | `PARENT_CYCLE` | yes | `verification/B-13b_parenting_table.md` |
 | `MATTE_CYCLE` | yes | `verification/B-05_model_table.md` |
+| `COMPOSITION_REFERENCE_MISSING` | yes | `verification/B-18b_precomp_table.md` |
+| `COMPOSITION_CYCLE` | yes | `verification/B-18b_precomp_table.md` |
 | `MASK_INVALID_OUTLINE` | yes | `verification/B-06_mask_table.md` |
 | `COMMAND_TARGET_MISSING` | **no — added by a decision** | `verification/B-05_model_table.md` |
 | `COMMAND_INVALID_VALUE` | **no — added by a decision** | `verification/B-05_model_table.md` |
@@ -75,7 +77,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 34 identifiers | 34 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 36 identifiers | 36 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
@@ -133,6 +135,12 @@ One row per identifier this build can print, and the table where a person can re
 | MATTE_CYCLE: the enum spells it the way the catalogue does | MATTE_CYCLE | MATTE_CYCLE | pass |
 | MATTE_CYCLE: says truthfully whether document 28 lists it | true | true | pass |
 | MATTE_CYCLE: a table somewhere shows a person this sentence | named in B-05_model_table.md | named in B-05_model_table.md | pass |
+| COMPOSITION_REFERENCE_MISSING: the enum spells it the way the catalogue does | COMPOSITION_REFERENCE_MISSING | COMPOSITION_REFERENCE_MISSING | pass |
+| COMPOSITION_REFERENCE_MISSING: says truthfully whether document 28 lists it | true | true | pass |
+| COMPOSITION_REFERENCE_MISSING: a table somewhere shows a person this sentence | named in B-18b_precomp_table.md | named in B-18b_precomp_table.md | pass |
+| COMPOSITION_CYCLE: the enum spells it the way the catalogue does | COMPOSITION_CYCLE | COMPOSITION_CYCLE | pass |
+| COMPOSITION_CYCLE: says truthfully whether document 28 lists it | true | true | pass |
+| COMPOSITION_CYCLE: a table somewhere shows a person this sentence | named in B-18b_precomp_table.md | named in B-18b_precomp_table.md | pass |
 | MASK_INVALID_OUTLINE: the enum spells it the way the catalogue does | MASK_INVALID_OUTLINE | MASK_INVALID_OUTLINE | pass |
 | MASK_INVALID_OUTLINE: says truthfully whether document 28 lists it | true | true | pass |
 | MASK_INVALID_OUTLINE: a table somewhere shows a person this sentence | named in B-06_mask_table.md | named in B-06_mask_table.md | pass |
@@ -198,7 +206,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**122 of 122 checks pass.**
+**128 of 128 checks pass.**
 
 ## What this cannot cover
 

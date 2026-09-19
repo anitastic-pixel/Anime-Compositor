@@ -207,6 +207,9 @@ pub struct LayerDraw {
     /// so far rather than on `source`; where the shape's coverage `c` reaches, the frame becomes
     /// `B + c*(E(B) - B)`. `blend` is normal and is not read.
     pub adjust: Option<Vec<crate::effects::EffectInstance>>,
+    /// D-67: `Some` for a composition layer: the composition `source` is a render of, and the
+    /// frame of it. The renderer does not read it; the trace names it.
+    pub nested: Option<(crate::model::Id, i32)>,
 }
 
 /// The matte layer as the renderer needs it: a source in the working space and the map from its

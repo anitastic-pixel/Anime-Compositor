@@ -30,6 +30,7 @@ use std::path::{Path, PathBuf};
 use crate::cache::CelCache;
 use crate::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use crate::model::{AssetKind, Id, Project, Prop, Value};
+use crate::preview::PreviewQuality;
 use crate::render::{self, Affine, FramePlan, LayerDraw};
 use crate::time::{self, ExposureMap, LayerTiming, SourceAt};
 use crate::{ImageBuffer, WorkingBuffer};
@@ -102,6 +103,58 @@ pub fn plan_frame_cached(
     root: &Path,
     log: &mut FrameLog,
     cache: &mut CelCache,
+) -> Result<FramePlan, Diagnostic> {
+    plan_frame_at(
+        project,
+        composition_id,
+        frame,
+        root,
+        PreviewQuality::Full,
+        log,
+        cache,
+    )
+}
+
+/// [`plan_frame_cached`], told what the plan is for (D-67).
+///
+/// The plan itself is always at full size and [`crate::preview::scale_plan`] makes it a draft.
+/// What `quality` changes is a composition layer's picture: D-67 renders the inner composition
+/// at the draft divisor too, so a draft frame never pays for a full-size frame inside it. At
+/// `Full` this is `plan_frame_cached` exactly.
+pub fn plan_frame_at(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
+) -> Result<FramePlan, Diagnostic> {
+    plan_inside(
+        project,
+        composition_id,
+        frame,
+        root,
+        quality,
+        log,
+        cache,
+        &mut Vec::new(),
+    )
+}
+
+/// `above` is the compositions this frame is being drawn inside of, outermost first. The
+/// loader and the commands refuse a composition cycle (D-67), so it is only ever a guard: a
+/// cycle reached some other way ends the render instead of hanging it.
+#[allow(clippy::too_many_arguments)]
+fn plan_inside(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
+    above: &mut Vec<Id>,
 ) -> Result<FramePlan, Diagnostic> {
     let Some(comp) = project.composition(composition_id) else {
         return Err(Diagnostic::new(
@@ -184,7 +237,9 @@ pub fn plan_frame_cached(
         if !layer.enabled || matte_only.contains(&&layer.id) {
             continue;
         }
-        let Some(resolved) = resolve_layer(project, comp, layer, frame, root, cache, log) else {
+        let Some(resolved) = resolve_layer(
+            project, comp, layer, frame, root, quality, cache, log, above,
+        ) else {
             continue;
         };
 
@@ -199,7 +254,18 @@ pub fn plan_frame_cached(
                     // layer "through its own source, mask, effects and transform", which does
                     // not include its own matte. A matte's matte is not a chain, so there is
                     // nothing here to recurse into and no cycle to guard against.
-                    resolve_layer(project, comp, matte_layer, frame, root, cache, log).map(|m| {
+                    resolve_layer(
+                        project,
+                        comp,
+                        matte_layer,
+                        frame,
+                        root,
+                        quality,
+                        cache,
+                        log,
+                        above,
+                    )
+                    .map(|m| {
                         Box::new(render::MatteDraw {
                             source: m.source,
                             transform: m.transform,
@@ -248,6 +314,7 @@ pub fn plan_frame_cached(
                 matte,
                 blend: layer.blend_mode,
                 adjust: layer.is_adjustment().then(|| layer.effects.clone()),
+                nested: resolved.nested,
             },
         ));
     }
@@ -273,6 +340,8 @@ struct ResolvedLayer {
     source: std::sync::Arc<WorkingBuffer>,
     transform: Affine,
     opacity: f32,
+    /// D-67: the composition and the frame of it that `source` is, for a composition layer.
+    nested: Option<(Id, i32)>,
 }
 
 /// Steps 1 through 6 of document 21 for one layer: find its drawing at this frame, decode it,
@@ -554,15 +623,110 @@ pub fn screen_transform(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn resolve_layer(
     project: &Project,
     comp: &crate::model::Composition,
     layer: &crate::model::Layer,
     frame: i32,
     root: &Path,
+    quality: PreviewQuality,
     cache: &mut CelCache,
     log: &mut FrameLog,
+    above: &mut Vec<Id>,
 ) -> Option<ResolvedLayer> {
+    // D-67: a composition layer's drawing is the inner composition, rendered at the layer's
+    // local frame, at its own size, through its own camera. From the mask on it is a drawing.
+    if let Some(inner_id) = &layer.composition_id {
+        let local = layer.timing().local_frame(frame)?;
+        let Some(inner) = project.composition(inner_id) else {
+            log.record(
+                frame,
+                layer.name.clone(),
+                Diagnostic::new(
+                    DiagnosticId::CompositionReferenceMissing,
+                    Severity::Warning,
+                    format!(
+                        "Layer {} shows composition {}, which is not in this project.",
+                        layer.name,
+                        inner_id.as_str()
+                    ),
+                    "The reference is preserved in the project and the layer draws nothing."
+                        .to_string(),
+                )
+                .with_remediation(
+                    "Delete the layer, or put the composition it shows back in the project.",
+                ),
+            );
+            return None;
+        };
+        // Outside the inner composition's own frames there is nothing to show, which is not a
+        // fault: D-67 has the layer transparent there, as a drawn layer is where it exposes
+        // nothing.
+        if local < inner.start_frame || local >= inner.start_frame + inner.duration_frames as i32 {
+            return None;
+        }
+        if above.contains(inner_id) || &comp.id == inner_id {
+            log.record(
+                frame,
+                layer.name.clone(),
+                Diagnostic::new(
+                    DiagnosticId::CompositionCycle,
+                    Severity::Error,
+                    format!("Layer {} shows a composition it is inside of.", layer.name),
+                    format!(
+                        "Composition {} leads back to itself. The layer draws nothing.",
+                        inner_id.as_str()
+                    ),
+                ),
+            );
+            return None;
+        }
+        above.push(comp.id.clone());
+        let mut inside = FrameLog::new(usize::MAX);
+        let plan = plan_inside(
+            project,
+            inner_id,
+            local,
+            root,
+            quality,
+            &mut inside,
+            cache,
+            above,
+        );
+        above.pop();
+        // What went wrong inside belongs to the frame that was asked for, not to the inner
+        // frame's number: an export decides what to block by the frame it is writing.
+        log.absorb(inside, frame, &layer.name);
+        let plan = match plan {
+            Ok(plan) => crate::preview::scale_plan(plan, quality),
+            Err(d) => {
+                log.record(frame, layer.name.clone(), d);
+                return None;
+            }
+        };
+        // ponytail: the inner frame is rendered here every time it is asked for, so a
+        // composition shown twice in one frame renders twice and a held inner frame renders
+        // again on the next outer frame. A cache of inner frames keyed by composition, frame
+        // and quality is the upgrade, with D-67's invalidation rule (document 27).
+        let tile = match quality {
+            PreviewQuality::Full => DEFAULT_TILE_SIZE,
+            PreviewQuality::Draft => DRAFT_TILE_SIZE,
+        };
+        let picture = std::sync::Arc::new(render::render(&plan, tile));
+        let mut resolved = resolve_rest(
+            comp,
+            layer,
+            frame,
+            cache,
+            log,
+            picture,
+            None,
+            quality.divisor() as f64,
+        )?;
+        resolved.nested = Some((inner_id.clone(), local));
+        return Some(resolved);
+    }
     // D-66: an adjustment layer has no drawing. Its shape is an opaque rectangle the size of
     // the composition in its own layer space, and from the mask on it goes the way a drawn layer
     // goes.
@@ -574,7 +738,7 @@ fn resolve_layer(
         let (source, cel) = decode_cel(project, layer, frame, root, cache, log)?;
         (source, Some(cel))
     };
-    resolve_rest(comp, layer, frame, cache, log, source, cel)
+    resolve_rest(comp, layer, frame, cache, log, source, cel, 1.0)
 }
 
 /// Document 21 step 1 for a drawn layer: which file it shows at `frame`, decoded, or `None`
@@ -652,8 +816,14 @@ fn decode_cel(
     Some((source, (path, asset.interpretation)))
 }
 
-/// Document 21 from step 2 for one layer, given its decoded cel or, for an adjustment layer
-/// (`cel` is `None`), its shape.
+/// Document 21 from step 2 for one layer, given its decoded cel or, with `cel` `None`, an
+/// adjustment layer's shape or a composition layer's picture.
+///
+/// `pre` is how many layer-space pixels one pixel of `source` covers. It is 1 except for a
+/// composition layer in a draft preview, whose picture was rendered at the draft divisor
+/// (D-67): the mask and a blur's sigma are divided by it and the transform multiplies it back.
+/// At 1 none of that is entered, so a full-size frame is computed exactly as it was before.
+#[allow(clippy::too_many_arguments)]
 fn resolve_rest(
     comp: &crate::model::Composition,
     layer: &crate::model::Layer,
@@ -662,7 +832,15 @@ fn resolve_rest(
     log: &mut FrameLog,
     mut source: std::sync::Arc<WorkingBuffer>,
     cel: Option<(PathBuf, crate::model::Interpretation)>,
+    pre: f64,
 ) -> Option<ResolvedLayer> {
+    let draft_mask = layer.mask.as_ref().filter(|_| pre != 1.0).map(|m| {
+        let mut m = m.clone();
+        for v in &mut m.vertices {
+            *v = (v.0 / pre, v.1 / pre);
+        }
+        m
+    });
     // Document 21 step 2: the polygon mask, in layer/source space, before the transform.
     //
     // `CelCache::decoded` hands back a *shared* buffer since P-03(a), so writing on it directly
@@ -675,7 +853,7 @@ fn resolve_rest(
     // The two `make_mut` calls below are the only writes to a cel in the whole render, which is
     // why the copy P-01 measured at up to 55.6% of a warm frame could be removed at all: a layer
     // with neither a mask nor an effect never writes, and now never copies.
-    if let Some(mask) = &layer.mask {
+    if let Some(mask) = draft_mask.as_ref().or(layer.mask.as_ref()) {
         // A mask that is switched on but cannot be drawn -- fewer than three corners, or an
         // outline that crosses itself -- is a feature bypassed, not a shape to guess at.
         // Saying so per frame is what puts the incomplete-fidelity mark on an export; leaving
@@ -779,7 +957,7 @@ fn resolve_rest(
         // D-66: an adjustment layer's stack runs on the frame beneath it, in the renderer. What
         // that run would have reported is reported here instead, so a bypassed effect reaches
         // the log from the plan, where every other diagnostic of a frame comes from.
-        None => {
+        None if layer.is_adjustment() => {
             for instance in layer.effects.iter().filter(|i| i.enabled) {
                 match &instance.effect {
                     crate::effects::Effect::Unsupported { .. } => {
@@ -793,7 +971,25 @@ fn resolve_rest(
             }
             (0, 0)
         }
-        Some(_) if layer.effects.is_empty() => (0, 0),
+        _ if layer.effects.is_empty() => (0, 0),
+        // D-67: a composition layer's stack runs on the inner picture as one. The effect cache
+        // is keyed by a cel's file, and this picture has none, so it is not asked.
+        None => {
+            let mut stack = layer.effects.clone();
+            if pre != 1.0 {
+                for instance in &mut stack {
+                    if let crate::effects::Effect::GaussianBlur { sigma_px } = &mut instance.effect
+                    {
+                        *sigma_px /= pre;
+                    }
+                }
+            }
+            crate::effects::apply_stack(
+                std::sync::Arc::make_mut(&mut source),
+                &stack,
+                |_, instance, why| report(instance, why),
+            )
+        }
         Some((path, interpretation)) => {
             if let Some(hit) =
                 cache.effect_result(path, *interpretation, drawn_mask, &layer.effects)
@@ -944,6 +1140,11 @@ fn resolve_rest(
         // projection is left out rather than applied, which is what keeps every fixture written
         // before D-58 landing exactly on its number instead of within a tolerance.
         transform: Affine::translation(-(offset.0 as f64), -(offset.1 as f64))
+            .then(if pre == 1.0 {
+                Affine::IDENTITY
+            } else {
+                Affine::scaling(pre, pre)
+            })
             .then(Affine::from_transform(anchor, position, scale, rotation))
             .then(parent_chain_at(comp, &layer.id, frame).matrix)
             .then(match camera {
@@ -952,6 +1153,7 @@ fn resolve_rest(
             }),
         // Document 21 step 6. Opacity is normalized 0..1 in the model (document 19).
         opacity: opacity as f32,
+        nested: None,
     })
 }
 

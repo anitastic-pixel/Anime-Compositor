@@ -30,7 +30,7 @@ A layer is active on `[in_frame, out_frame)`. Its integer local frame is:
 
 Frames outside the active interval produce transparent output and do not request media. Moving a layer changes `in_frame/out_frame` and moves every keyframe on the layer by the same number of frames (owner decision, 2026-09-13); trimming and changing source offset are distinct commands.
 
-A composition layer (D-67, proposed on 2026-09-18) shows its composition at `local_frame`, by the same formula; outside that composition's own `[start_frame, start_frame + duration_frames)` the layer's picture is transparent (FX-PRE-006, FX-PRE-007). Frame numbers pass between the two, not seconds: the two compositions' rates are not compared, and time remapping is not proposed.
+A composition layer (D-67, accepted on 2026-09-18) shows its composition at `local_frame`, by the same formula; outside that composition's own `[start_frame, start_frame + duration_frames)` the layer's picture is transparent (FX-PRE-006, FX-PRE-007). Frame numbers pass between the two, not seconds: the two compositions' rates are not compared, and time remapping is not proposed.
 
 ## Exposure evaluation
 

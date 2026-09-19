@@ -341,7 +341,9 @@ fn manifest(plan: &FramePlan, request: &TraceRequest, written: &[TracedImage]) -
          `decode` is at the layer's own size; every later stage is at the composition size. \
          An adjustment layer (D-66) has no drawing: its `decode`, `transform` and `opacity` \
          images are its shape, and its `composite` image is the frame beneath it after its \
-         effects, mixed in by that shape.\n\n",
+         effects, mixed in by that shape. A composition layer (D-67) has no drawing either: \
+         its `decode` image is the composition it shows, rendered at the frame named beside \
+         it, with the layer's own mask and effects applied.\n\n",
     );
 
     s.push_str("## Files\n\n| File | Layer | Layer ID | Stage | Document 21 step | Size |\n");
@@ -354,14 +356,21 @@ fn manifest(plan: &FramePlan, request: &TraceRequest, written: &[TracedImage]) -
             .unwrap_or_default();
         let adjusted =
             plan.layers[image.layer_index].adjust.is_some() && image.stage == Stage::Composite;
+        let nested = match &plan.layers[image.layer_index].nested {
+            Some((inner, at)) if image.stage == Stage::Decode => {
+                format!(", frame {at} of composition `{inner}`")
+            }
+            _ => String::new(),
+        };
         let _ = writeln!(
             s,
-            "| `{}` | {} | `{}` | {}{} | {} | {}x{} |",
+            "| `{}` | {} | `{}` | {}{}{} | {} | {}x{} |",
             name,
             image.layer_index,
             image.layer_id,
             image.stage.tag(),
             if adjusted { ", the adjusted frame" } else { "" },
+            nested,
             image.stage.document_21_step(),
             image.width,
             image.height

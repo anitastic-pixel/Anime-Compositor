@@ -181,7 +181,7 @@ pub fn preview_frame_cached(
     log: &mut FrameLog,
     cache: &mut CelCache,
 ) -> Result<WorkingBuffer, Diagnostic> {
-    let plan = compose::plan_frame_cached(project, composition_id, frame, root, log, cache)?;
+    let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
     // `tile_size` is the size an export renders in, measured on an export's extent. A draft
     // frame is a quarter of that extent and is cut by its own measured size instead (P-03(f)):
     // at `Full` the caller's size is used exactly, so a full-resolution preview and an export

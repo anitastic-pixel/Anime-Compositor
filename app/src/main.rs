@@ -287,11 +287,14 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
         }
     };
     let mut log = FrameLog::new(0);
-    let plan = match anime_compositor::compose::plan_frame_cached(
+    // B-18b: planned at the viewer's quality, so that a composition layer's picture (D-67) is
+    // not rendered at full size to outline a draft frame.
+    let plan = match anime_compositor::compose::plan_frame_at(
         &taken.project,
         &taken.composition,
         taken.frame,
         &taken.root,
+        taken.quality,
         &mut log,
         &mut taken.cache.lock().expect("the cel cache lock was poisoned"),
     ) {
@@ -12235,6 +12238,10 @@ mod contract {
         ("layer.set_blend_mode", "a command the window answers"),
         // D-66, accepted on 2026-09-17; B-17c put the button in the window the same day.
         ("layer.add_adjustment", "a command the window answers"),
+        // D-67, accepted on 2026-09-18 and built in the core by B-18b; B-18c puts both in the
+        // window.
+        ("layer.add_composition", "nothing yet"),
+        ("layer.precompose", "nothing yet"),
         ("layer.copy", "a command the window answers"),
         ("layer.paste", "a command the window answers"),
         ("layer.toggle_shy", "a command the window answers"),
@@ -12287,6 +12294,7 @@ mod contract {
         ("media.import", "Ctrl+I", "e.key === 'i'"),
         ("layer.create", "Ctrl+Alt+L", "e.altKey && (e.key === 'l'"),
         ("layer.add_adjustment", "Ctrl+Alt+Y", "e.altKey && (e.key === 'y'"),
+        ("layer.precompose", "Ctrl+Shift+C", ""),
         ("layer.delete", "Delete", "e.key === 'Delete'"),
         ("layer.rename", "F2", "e.key === 'F2'"),
         ("layer.move_up", "Ctrl+]", "e.key === ']'"),

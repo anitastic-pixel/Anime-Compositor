@@ -138,6 +138,7 @@ fn a_layer_smaller_than_the_frame() -> (usize, usize, usize) {
             matte: None,
             blend: BlendMode::Normal,
             adjust: None,
+            nested: None,
         }],
     };
     let tile = tile_size(PreviewQuality::Full);

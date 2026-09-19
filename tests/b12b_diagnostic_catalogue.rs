@@ -127,6 +127,16 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "B-05_model_table.md",
     ),
     (
+        DiagnosticId::CompositionReferenceMissing,
+        "COMPOSITION_REFERENCE_MISSING",
+        "B-18b_precomp_table.md",
+    ),
+    (
+        DiagnosticId::CompositionCycle,
+        "COMPOSITION_CYCLE",
+        "B-18b_precomp_table.md",
+    ),
+    (
         DiagnosticId::MaskInvalidOutline,
         "MASK_INVALID_OUTLINE",
         "B-06_mask_table.md",
@@ -295,7 +305,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "34 identifiers",
+        "36 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

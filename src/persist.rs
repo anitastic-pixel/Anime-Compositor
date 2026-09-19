@@ -146,6 +146,7 @@ const KEY_ORDER: &[&str] = &[
     "layer_order",
     "layers",
     "asset_id",
+    "composition_id",
     "enabled",
     "locked",
     "in_frame",
@@ -551,6 +552,10 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         ("kind", J::from(layer.kind.as_str())),
         ("name", J::from(layer.name.as_str())),
         ("asset_id", J::from(layer.asset_id.as_str())),
+        (
+            "composition_id",
+            J::from(layer.composition_id.as_ref().map_or("", |c| c.as_str())),
+        ),
         ("enabled", J::from(layer.enabled)),
         ("locked", J::from(layer.locked)),
         ("in_frame", J::from(layer.in_frame)),
@@ -570,6 +575,13 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         owned.retain(|(key, _)| {
             !matches!(*key, "asset_id" | "source_offset_frames" | "exposure_spans")
         });
+    }
+    // D-67: a composition layer names a composition where a drawn layer names an asset, and
+    // keeps its source offset, which is where in the inner composition it starts.
+    if layer.kind == LayerKind::Composition {
+        owned.retain(|(key, _)| !matches!(*key, "asset_id" | "exposure_spans"));
+    } else {
+        owned.retain(|(key, _)| *key != "composition_id");
     }
     let effects: Vec<J> = layer
         .effects
@@ -1115,19 +1127,21 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["raster", "adjustment"],
+        &["raster", "adjustment", "composition"],
     )? {
         "adjustment" => LayerKind::Adjustment,
+        "composition" => LayerKind::Composition,
         _ => LayerKind::Raster,
     };
     let id = as_id(field(v, pointer, "id")?, &format!("{pointer}/id"))?;
     // D-66: an adjustment layer has no drawing. A file that gives one an asset is not a file
     // this build can read faithfully, so it is refused rather than drawn with the asset ignored.
-    let asset_id = if kind == LayerKind::Adjustment {
+    let asset_id = if kind != LayerKind::Raster {
         if v.get("asset_id").is_some() {
             return Err(invalid(
                 &format!("{pointer}/asset_id"),
-                "no asset_id on an adjustment layer, which has no drawing (D-66)",
+                "no asset_id on an adjustment or composition layer, which has no drawing \
+                 (D-66, D-67)",
             ));
         }
         Id::new("")
@@ -1136,6 +1150,26 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             field(v, pointer, "asset_id")?,
             &format!("{pointer}/asset_id"),
         )?
+    };
+    // D-67: a composition layer names its composition, and no other kind names one.
+    let composition_id = if kind == LayerKind::Composition {
+        if v.get("exposure_spans").is_some() {
+            return Err(invalid(
+                &format!("{pointer}/exposure_spans"),
+                "no exposure_spans on a composition layer, which has no drawings (D-67)",
+            ));
+        }
+        Some(as_id(
+            field(v, pointer, "composition_id")?,
+            &format!("{pointer}/composition_id"),
+        )?)
+    } else if v.get("composition_id").is_some() {
+        return Err(invalid(
+            &format!("{pointer}/composition_id"),
+            "no composition_id on a layer whose kind is not composition (D-67)",
+        ));
+    } else {
+        None
     };
     let source_offset_frames = match v.get("source_offset_frames") {
         None if kind == LayerKind::Adjustment => 0,
@@ -1460,6 +1494,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         name,
         kind,
         asset_id,
+        composition_id,
         enabled: as_bool(field(v, pointer, "enabled")?, &format!("{pointer}/enabled"))?,
         locked: as_bool(field(v, pointer, "locked")?, &format!("{pointer}/locked"))?,
         in_frame,
@@ -1872,7 +1907,7 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
     // reference, not a missing file, and no amount of relinking fixes it.
     for composition in &project.compositions {
         for layer in composition.layers_in_order() {
-            if !layer.is_adjustment() && !project.assets.iter().any(|a| a.id == layer.asset_id) {
+            if !layer.has_no_drawing() && !project.assets.iter().any(|a| a.id == layer.asset_id) {
                 return Err(invalid(
                     &format!("/compositions/{}/layers", composition.id),
                     &format!(
@@ -1881,6 +1916,53 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
                         layer.id, layer.asset_id
                     ),
                 ));
+            }
+        }
+    }
+
+    // D-67: the composition graph is acyclic, and a composition layer naming a composition
+    // that is not here keeps its reference and draws nothing.
+    for composition in &project.compositions {
+        for layer in composition.layers_in_order() {
+            let Some(inner) = &layer.composition_id else {
+                continue;
+            };
+            if project.composition_reaches(inner, &composition.id) {
+                return Err(Diagnostic::new(
+                    DiagnosticId::CompositionCycle,
+                    Severity::Error,
+                    "This project cannot be opened, because a composition is shown inside itself.",
+                    format!(
+                        "Layer {} of composition {} shows composition {inner}, which leads back \
+                         to {}. D-67 requires the composition graph to be acyclic.",
+                        layer.id, composition.id, composition.id
+                    ),
+                )
+                .with_remediation(
+                    "The project was not opened and nothing on disk was changed. One of the \
+                     composition layers has to be removed before it can open.",
+                ));
+            }
+            if project.composition(inner).is_none() {
+                warnings.push(
+                    Diagnostic::new(
+                        DiagnosticId::CompositionReferenceMissing,
+                        Severity::Warning,
+                        format!(
+                            "The layer \"{}\" shows a composition that is not in this project.",
+                            layer.name
+                        ),
+                        format!(
+                            "Layer {} of composition {} names composition {inner}, which no \
+                             composition matches. The reference is kept and the layer draws \
+                             nothing.",
+                            layer.id, composition.id
+                        ),
+                    )
+                    .with_remediation(
+                        "Delete the layer, or put the composition it shows back in the project.",
+                    ),
+                );
             }
         }
     }

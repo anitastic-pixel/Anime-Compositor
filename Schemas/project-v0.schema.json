@@ -281,31 +281,88 @@
         "blend_mode",
         "effects"
       ],
-      "if": {
-        "properties": {
-          "kind": {
-            "const": "raster"
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "raster"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "asset_id",
+              "source_offset_frames"
+            ],
+            "not": {
+              "required": [
+                "composition_id"
+              ]
+            }
           }
-        }
-      },
-      "then": {
-        "required": [
-          "asset_id",
-          "source_offset_frames"
-        ]
-      },
-      "else": {
-        "not": {
-          "required": [
-            "asset_id"
-          ]
         },
-        "properties": {
-          "blend_mode": {
-            "const": "normal"
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "adjustment"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "asset_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "composition_id"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "blend_mode": {
+                "const": "normal"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "composition"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "composition_id",
+              "source_offset_frames"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "asset_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "exposure_spans"
+                  ]
+                }
+              ]
+            }
           }
         }
-      },
+      ],
       "properties": {
         "id": {
           "type": "string"
@@ -313,13 +370,17 @@
         "kind": {
           "enum": [
             "raster",
-            "adjustment"
+            "adjustment",
+            "composition"
           ]
         },
         "name": {
           "type": "string"
         },
         "asset_id": {
+          "type": "string"
+        },
+        "composition_id": {
           "type": "string"
         },
         "enabled": {
@@ -393,8 +454,7 @@
             "$ref": "#/$defs/effect"
           }
         }
-      },
-      "additionalProperties": true
+      }
     },
     "composition": {
       "type": "object",

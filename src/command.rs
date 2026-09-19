@@ -1015,6 +1015,104 @@ impl Document {
     }
 }
 
+/// D-67's `layer.precompose` as the commands that make it up, for [`Document::apply_all`] to
+/// run as one undo record: a new composition of the same size, rate, start and length holding
+/// `chosen` in their order, those layers taken out, and one composition layer where the
+/// frontmost of them was.
+///
+/// Refused unless the choice is closed under parent and matte references, in both directions:
+/// a moved layer whose parent stayed behind would stop following it, and saying so is better
+/// than doing it.
+// ponytail: an expression that names a moved layer from outside, or the other way round, is
+// not checked here; it fails afterwards as EXPRESSION_REFERENCE_MISSING, which is said on the
+// property. Add it to the closure check if that turns out to surprise anybody.
+pub fn precompose(
+    project: &Project,
+    composition: &Id,
+    chosen: &[Id],
+    new_composition: Id,
+    new_layer: Id,
+    name: &str,
+) -> Result<Vec<Command>, Diagnostic> {
+    let Some(comp) = project.composition(composition) else {
+        return Err(missing(
+            format!("The composition {composition} is not in this project."),
+            "Pre-compose names the composition its layers are in.".to_string(),
+        ));
+    };
+    let moved: Vec<&Layer> = comp
+        .layers_in_order()
+        .filter(|l| chosen.contains(&l.id))
+        .collect();
+    if moved.is_empty() || moved.len() != chosen.len() {
+        return Err(missing(
+            "Pre-compose needs at least one layer of this composition chosen.".to_string(),
+            format!(
+                "{} chosen, {} found in {composition}.",
+                chosen.len(),
+                moved.len()
+            ),
+        ));
+    }
+    for layer in comp.layers_in_order() {
+        let inside = chosen.contains(&layer.id);
+        let refs = [
+            layer.parent.as_ref(),
+            layer.matte.as_ref().map(|m| &m.layer_id),
+        ];
+        for other in refs.into_iter().flatten() {
+            if comp.layer(other).is_some() && chosen.contains(other) != inside {
+                let other = comp.layer(other).expect("checked");
+                return Err(reject(
+                    &format!(
+                        "\"{}\" and \"{}\" are tied by a parent or a matte, so they are \
+                         pre-composed together or not at all. Choose both.",
+                        layer.name, other.name
+                    ),
+                    "D-67: the selection must be closed under parent and matte references.",
+                ));
+            }
+        }
+    }
+
+    let mut inner = Composition::new(
+        new_composition,
+        name,
+        comp.width,
+        comp.height,
+        comp.frame_rate,
+        comp.start_frame,
+        comp.duration_frames,
+    );
+    for layer in &moved {
+        inner.insert_layer((*layer).clone(), inner.len());
+    }
+    let front = moved.last().expect("not empty");
+    let index = comp.index_of(&front.id).expect("it is in order") + 1 - moved.len();
+    let shown = Layer::composition(
+        new_layer,
+        name,
+        &inner,
+        comp.width,
+        comp.height,
+        comp.start_frame,
+        comp.start_frame + comp.duration_frames as i32,
+    );
+    let mut commands = vec![Command::AddComposition {
+        composition: Box::new(inner),
+    }];
+    commands.extend(moved.iter().map(|l| Command::RemoveLayer {
+        composition: composition.clone(),
+        layer_id: l.id.clone(),
+    }));
+    commands.push(Command::AddLayer {
+        composition: composition.clone(),
+        layer: Box::new(shown),
+        index,
+    });
+    Ok(commands)
+}
+
 fn reject(message: &str, detail: &str) -> Diagnostic {
     Diagnostic::new(
         DiagnosticId::CommandInvalidValue,
@@ -1181,6 +1279,16 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 "W-26: a project keeps at least one composition for the window to show.",
             ));
         }
+        if let Some(user) = project.composition_user(composition) {
+            return Err(reject(
+                &format!(
+                    "This composition is shown by a layer of \"{}\", so it stays. Delete that \
+                     layer first if this one should go.",
+                    user.name
+                ),
+                "D-67: a composition is not deleted while a composition layer uses it.",
+            ));
+        }
         project.compositions.retain(|c| &c.id != composition);
         return Ok(());
     }
@@ -1238,7 +1346,53 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         }
         Command::AddLayer { layer, index, .. } => {
             let asset_known =
-                layer.is_adjustment() || project.assets.iter().any(|a| a.id == layer.asset_id);
+                layer.has_no_drawing() || project.assets.iter().any(|a| a.id == layer.asset_id);
+            // D-67: a composition layer names a composition this project has, and not one
+            // that leads back to the composition it is going into.
+            if layer.kind == crate::model::LayerKind::Composition {
+                let Some(inner) = layer
+                    .composition_id
+                    .as_ref()
+                    .and_then(|id| project.composition(id))
+                else {
+                    return Err(missing(
+                        format!(
+                            "The composition for layer \"{}\" is not in this project.",
+                            layer.name
+                        ),
+                        format!(
+                            "Layer {} names a composition no composition record matches.",
+                            layer.id
+                        ),
+                    ));
+                };
+                if project.composition_reaches(&inner.id, &comp_id) {
+                    return Err(Diagnostic::new(
+                        DiagnosticId::CompositionCycle,
+                        Severity::Error,
+                        format!(
+                            "\"{}\" cannot be shown here, because it would end up inside itself.",
+                            inner.name
+                        ),
+                        format!(
+                            "Composition {} already shows composition {comp_id}, directly or \
+                             through others. D-67 requires the composition graph to be acyclic.",
+                            inner.id
+                        ),
+                    )
+                    .with_remediation(
+                        "The edit was not applied. Nothing in the project changed.",
+                    ));
+                }
+            } else if layer.composition_id.is_some() {
+                return Err(reject(
+                    &format!(
+                        "Layer \"{}\" names a composition but is not a composition layer.",
+                        layer.name
+                    ),
+                    "D-67: only a layer of kind composition has a composition_id.",
+                ));
+            }
             let comp = comp_mut(project, &comp_id)?;
             if comp.layer(&layer.id).is_some() {
                 return Err(reject(

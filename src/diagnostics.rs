@@ -99,6 +99,12 @@ pub enum DiagnosticId {
     /// Document 28, added by D-57: a parent chain that loops back on itself. Refused the way
     /// `MatteCycle` is, by both the command and the loader.
     ParentCycle,
+    /// Document 28, added by D-67: a composition layer naming a composition the project does
+    /// not have. WARNING: the reference is kept and the layer draws nothing.
+    CompositionReferenceMissing,
+    /// Document 28, added by D-67: a composition that would show itself, directly or through
+    /// others. Refused the way `MatteCycle` is, by both the command and the loader.
+    CompositionCycle,
     /// Document 28, added by D-58: a layer level with the camera or behind it, which has no
     /// size because `world_depth - camera_depth` is zero or negative. WARNING: the layer is not
     /// drawn for that frame, its record is untouched, and nothing is clamped into a working
@@ -176,6 +182,8 @@ impl DiagnosticId {
             DiagnosticId::MatteReferenceMissing => "MATTE_REFERENCE_MISSING",
             DiagnosticId::MatteCycle => "MATTE_CYCLE",
             DiagnosticId::ParentReferenceMissing => "PARENT_REFERENCE_MISSING",
+            DiagnosticId::CompositionReferenceMissing => "COMPOSITION_REFERENCE_MISSING",
+            DiagnosticId::CompositionCycle => "COMPOSITION_CYCLE",
             DiagnosticId::ParentCycle => "PARENT_CYCLE",
             DiagnosticId::CameraPlaneBehind => "CAMERA_PLANE_BEHIND",
             DiagnosticId::MaskInvalidOutline => "MASK_INVALID_OUTLINE",
@@ -221,6 +229,8 @@ impl DiagnosticId {
                 | DiagnosticId::MatteCycle
                 | DiagnosticId::ParentReferenceMissing
                 | DiagnosticId::ParentCycle
+                | DiagnosticId::CompositionReferenceMissing
+                | DiagnosticId::CompositionCycle
                 | DiagnosticId::CameraPlaneBehind
                 | DiagnosticId::MaskInvalidOutline
                 | DiagnosticId::ExportWriteFailed
@@ -369,6 +379,20 @@ impl FrameLog {
             self.logged.push(diagnostic);
         }
         group.frames.push(frame);
+    }
+
+    /// D-67: take in what a composition layer's inner frame logged, as having happened at
+    /// `frame` of the composition that was asked for, under `layer`'s name.
+    pub fn absorb(&mut self, inner: FrameLog, frame: i32, layer: &str) {
+        for group in inner.groups {
+            for _ in &group.frames {
+                self.record(
+                    frame,
+                    format!("{layer}/{}", group.subject),
+                    group.first.clone(),
+                );
+            }
+        }
     }
 
     /// Every identifier recorded against `frame`, **including suppressed occurrences**.
