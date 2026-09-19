@@ -740,6 +740,14 @@ fn resolve_layer(
         layer.timing().local_frame(frame)?;
         let shape = WorkingBuffer::opaque(comp.width as usize, comp.height as usize);
         (std::sync::Arc::new(shape), None)
+    } else if let Some(solid) = &layer.solid {
+        // D-74: a solid's step 1 is its record, `width` by `height` of its colour, opaque.
+        layer.timing().local_frame(frame)?;
+        let mut shape = WorkingBuffer::opaque(solid.width as usize, solid.height as usize);
+        for px in shape.data_mut().chunks_exact_mut(4) {
+            px[..3].copy_from_slice(&solid.color.map(|c| c as f32));
+        }
+        (std::sync::Arc::new(shape), None)
     } else {
         let (source, cel) = decode_cel(project, layer, frame, root, cache, log)?;
         (source, Some(cel))

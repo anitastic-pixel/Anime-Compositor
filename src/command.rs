@@ -155,6 +155,12 @@ pub enum Command {
         layer_id: Id,
         mode: BlendMode,
     },
+    /// D-74's `solid.set`: one solid's colour, width and height, one step of history.
+    SetSolid {
+        composition: Id,
+        layer_id: Id,
+        solid: crate::model::Solid,
+    },
     /// W-25: After Effects' Composition Settings, Ctrl+K. A work area or a marker the new length
     /// leaves outside is cut back or dropped in the same entry to undo.
     SetCompositionSettings {
@@ -426,6 +432,7 @@ impl Command {
             Command::SetWorkArea { .. } => "SET_WORK_AREA",
             Command::SetMarkers { .. } => "SET_MARKERS",
             Command::SetBlendMode { .. } => "SET_BLEND_MODE",
+            Command::SetSolid { .. } => "SET_SOLID",
             Command::SetCompositionSettings { .. } => "SET_COMPOSITION_SETTINGS",
             Command::ReorderLayer { .. } => "REORDER_LAYER",
             Command::ShiftLayer { .. } => "SHIFT_LAYER",
@@ -505,6 +512,7 @@ impl Command {
             Command::SetBlendMode { mode, .. } => {
                 format!("Set the blend mode to {}", mode.as_str())
             }
+            Command::SetSolid { .. } => "Set the solid's colour and size".to_string(),
             Command::SetCompositionSettings { name, .. } => {
                 format!("Change the settings of {name}")
             }
@@ -615,6 +623,7 @@ impl Command {
             | Command::SetWorkArea { composition, .. }
             | Command::SetMarkers { composition, .. }
             | Command::SetBlendMode { composition, .. }
+            | Command::SetSolid { composition, .. }
             | Command::SetCompositionSettings { composition, .. }
             | Command::ReorderLayer { composition, .. }
             | Command::ShiftLayer { composition, .. }
@@ -659,6 +668,7 @@ impl Command {
             Command::RemoveLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
+            | Command::SetSolid { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
             | Command::RenameLayer { layer_id, .. }
             | Command::SetLayerEnabled { layer_id, .. }
@@ -787,6 +797,7 @@ impl Command {
         matches!(
             self,
             Command::SetBlendMode { .. }
+                | Command::SetSolid { .. }
                 | Command::SetMatte { .. }
                 | Command::SetParent { .. }
                 | Command::SetDepth { .. }
@@ -815,6 +826,7 @@ impl Command {
             | Command::TrimLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
+            | Command::SetSolid { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
             | Command::SetParent { layer_id, .. }
@@ -1496,6 +1508,23 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             unreachable!("handled above")
         }
         Command::AddLayer { layer, index, .. } => {
+            // D-74: a solid layer carries its record, inside the ranges, and no other kind does.
+            let is_solid = layer.kind == crate::model::LayerKind::Solid;
+            if is_solid != layer.solid.is_some() {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" needs a colour and size if, and only if, it is a solid.",
+                        layer.name
+                    ),
+                    "D-74: a solid layer's drawing is its solid record.",
+                ));
+            }
+            if let Some(p) = layer.solid.as_ref().and_then(|s| s.problem()) {
+                return Err(reject(
+                    &format!("That solid cannot be made: it needs {p}."),
+                    "D-74.",
+                ));
+            }
             let asset_known =
                 layer.has_no_drawing() || project.assets.iter().any(|a| a.id == layer.asset_id);
             // D-71: a sound is heard and a drawing is seen (FX-AUD-033).
@@ -1697,6 +1726,47 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             layer.blend_mode = *mode;
+        }
+        Command::SetSolid {
+            layer_id, solid, ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let Some(old) = layer.solid else {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" is not a solid, so it has no colour and size.",
+                        layer.name
+                    ),
+                    "D-74: only a solid layer carries a solid record.",
+                ));
+            };
+            if let Some(p) = solid.problem() {
+                return Err(reject(
+                    &format!("That solid cannot be made: it needs {p}."),
+                    "D-74.",
+                ));
+            }
+            // D-74: the anchor stays at the same fraction of the width and height, keys too.
+            let (sx, sy) = (
+                solid.width as f64 / old.width as f64,
+                solid.height as f64 / old.height as f64,
+            );
+            let scale = |v: crate::model::Value| match v {
+                crate::model::Value::Vec2(x, y) => crate::model::Value::Vec2(x * sx, y * sy),
+                v => v,
+            };
+            let anchor = &mut layer.transform.anchor;
+            anchor.set_base(scale(anchor.base()));
+            let keys = anchor
+                .keyframes()
+                .iter()
+                .map(|k| crate::model::Keyframe {
+                    value: scale(k.value),
+                    ..*k
+                })
+                .collect();
+            anchor.set_keys(keys);
+            layer.solid = Some(*solid);
         }
         Command::SetCompositionSettings {
             name,
@@ -2153,6 +2223,12 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         } => {
             // Document 20's rule, checked by the same constructor the renderer and the loader
             // use rather than by a second copy of it written here.
+            if layer_mut(project, &comp_id, layer_id)?.solid.is_some() {
+                return Err(reject(
+                    "A solid has one drawing, so it has no exposures.",
+                    "D-74: a solid layer has no exposure_spans.",
+                ));
+            }
             ExposureMap::new(spans.clone()).map_err(|e| {
                 reject(
                     &format!("Those exposures cannot be used: {e}."),

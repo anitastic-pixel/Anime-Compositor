@@ -125,6 +125,8 @@ const KEY_ORDER: &[&str] = &[
     "id",
     "kind",
     "name",
+    "solid",
+    "color",
     "path",
     "pattern",
     "redistribute",
@@ -612,7 +614,8 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         ("blend_mode", J::from(layer.blend_mode.as_str())),
     ];
     // D-66: an adjustment layer has no drawing, so the three keys about one are not written.
-    if layer.is_adjustment() {
+    // D-74: nor are they for a solid, whose drawing is its `solid` record.
+    if layer.is_adjustment() || layer.solid.is_some() {
         owned.retain(|(key, _)| {
             !matches!(*key, "asset_id" | "source_offset_frames" | "exposure_spans")
         });
@@ -629,6 +632,17 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         .iter()
         .map(|e| effect_json(effect_base(base, e.instance_id.as_str()), e))
         .collect();
+    if let Some(s) = &layer.solid {
+        let mut map = base
+            .and_then(|b| b.get("solid"))
+            .and_then(J::as_object)
+            .cloned()
+            .unwrap_or_default();
+        map.insert("color".into(), J::from(s.color.to_vec()));
+        map.insert("width".into(), J::from(s.width));
+        map.insert("height".into(), J::from(s.height));
+        owned.push(("solid", J::Object(map)));
+    }
     owned.push(("effects", J::Array(effects)));
     // D-57: written only when the layer has a parent, so a project that never had one is
     // written back without the key. A parent that was cleared writes null, because that is what
@@ -1311,8 +1325,9 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["raster", "adjustment", "composition", "audio"],
+        &["raster", "adjustment", "composition", "audio", "solid"],
     )? {
+        "solid" => LayerKind::Solid,
         "audio" => LayerKind::Audio,
         "adjustment" => LayerKind::Adjustment,
         "composition" => LayerKind::Composition,
@@ -1328,8 +1343,8 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         if v.get("asset_id").is_some() {
             return Err(invalid(
                 &format!("{pointer}/asset_id"),
-                "no asset_id on an adjustment or composition layer, which has no drawing \
-                 (D-66, D-67)",
+                "no asset_id on an adjustment, composition or solid layer, which has no drawing \
+                 (D-66, D-67, D-74)",
             ));
         }
         Id::new("")
@@ -1359,8 +1374,32 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     } else {
         None
     };
+    // D-74: a solid's drawing is its `solid` record, and it has no exposures or source offset.
+    let solid = if kind == LayerKind::Solid {
+        for key in ["exposure_spans", "source_offset_frames"] {
+            if v.get(key).is_some() {
+                return Err(invalid(
+                    &format!("{pointer}/{key}"),
+                    &format!(
+                        "no {key} on a solid layer, which has one drawing of one colour (D-74)"
+                    ),
+                ));
+            }
+        }
+        Some(parse_solid(
+            field(v, pointer, "solid")?,
+            &format!("{pointer}/solid"),
+        )?)
+    } else if v.get("solid").is_some() {
+        return Err(invalid(
+            &format!("{pointer}/solid"),
+            "no solid record on a layer whose kind is not solid (D-74)",
+        ));
+    } else {
+        None
+    };
     let source_offset_frames = match v.get("source_offset_frames") {
-        None if kind == LayerKind::Adjustment => 0,
+        None if matches!(kind, LayerKind::Adjustment | LayerKind::Solid) => 0,
         _ => as_i32(
             field(v, pointer, "source_offset_frames")?,
             &format!("{pointer}/source_offset_frames"),
@@ -1722,7 +1761,32 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         label: parse_label(v, pointer)?,
         blend_mode,
         gain_db: 0.0,
+        solid,
     })
+}
+
+/// D-74's `solid` record: a colour of three numbers from 0 to 1, and a whole width and height
+/// from 1 to 8192. Anything else refuses the file (FX-SOL-023 to 028).
+fn parse_solid(v: &J, pointer: &str) -> Result<crate::model::Solid, Diagnostic> {
+    as_object(v, pointer)?;
+    let at = format!("{pointer}/color");
+    let color = as_array(field(v, pointer, "color")?, &at)?;
+    if color.len() != 3 {
+        return Err(invalid(&at, "three numbers from 0 to 1 (D-74)"));
+    }
+    let mut rgb = [0.0; 3];
+    for (i, c) in color.iter().enumerate() {
+        rgb[i] = as_f64(c, &format!("{at}/{i}"))?;
+    }
+    let solid = crate::model::Solid {
+        color: rgb,
+        width: as_u32(field(v, pointer, "width")?, &format!("{pointer}/width"))?,
+        height: as_u32(field(v, pointer, "height")?, &format!("{pointer}/height"))?,
+    };
+    match solid.problem() {
+        Some(p) => Err(invalid(pointer, &p)),
+        None => Ok(solid),
+    }
 }
 
 fn parse_label(v: &J, pointer: &str) -> Result<u8, Diagnostic> {

@@ -703,6 +703,8 @@ pub enum LayerKind {
     Composition,
     /// D-71: a sound file heard in step with the frames. It draws nothing.
     Audio,
+    /// D-74: a rectangle of one colour, held in [`Layer::solid`].
+    Solid,
 }
 
 impl LayerKind {
@@ -712,7 +714,33 @@ impl LayerKind {
             LayerKind::Adjustment => "adjustment",
             LayerKind::Composition => "composition",
             LayerKind::Audio => "audio",
+            LayerKind::Solid => "solid",
         }
+    }
+}
+
+/// D-74: a solid layer's drawing, `width` by `height` pixels all of `color`, opaque. The colour
+/// is linear working-space RGB, as the tint effect's is. Neither is animated.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Solid {
+    pub color: [f64; 3],
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Solid {
+    /// D-74's largest side: twice a 4K frame each way.
+    pub const MAX_SIDE: u32 = 8192;
+
+    /// What is outside D-74's ranges, as a sentence, or `None` for a solid that may exist.
+    pub fn problem(&self) -> Option<String> {
+        if let Some(c) = self.color.iter().find(|c| !(0.0..=1.0).contains(*c)) {
+            return Some(format!("a colour of three numbers from 0 to 1, not {c}"));
+        }
+        [self.width, self.height]
+            .iter()
+            .find(|s| !(1..=Self::MAX_SIDE).contains(*s))
+            .map(|s| format!("a width and height from 1 to {}, not {s}", Self::MAX_SIDE))
     }
 }
 
@@ -771,6 +799,8 @@ pub struct Layer {
     /// D-71: an audio layer's level in decibels, -96 to +12, and 0 on every other kind.
     // ponytail: one number, not keyed. Make it a Property when a fade is asked for.
     pub gain_db: f64,
+    /// D-74: a solid layer's colour and size, and `None` on every other kind.
+    pub solid: Option<Solid>,
 }
 
 impl Layer {
@@ -804,6 +834,7 @@ impl Layer {
             shy: false,
             depth: None,
             gain_db: 0.0,
+            solid: None,
         }
     }
 
@@ -868,9 +899,35 @@ impl Layer {
         layer
     }
 
-    /// True of the two kinds that show no drawing: nothing looks an asset up for them.
+    /// D-74: a rectangle of one colour. Its anchor is its own centre and its position the
+    /// centre of the `width` by `height` composition it goes into.
+    pub fn solid(
+        id: Id,
+        name: impl Into<String>,
+        solid: Solid,
+        width: u32,
+        height: u32,
+        in_frame: i32,
+        out_frame: i32,
+    ) -> Self {
+        let mut layer = Layer::new(id, name, Id::new(""), in_frame, out_frame);
+        layer.kind = LayerKind::Solid;
+        layer.solid = Some(solid);
+        layer.transform.anchor = Property::constant(Value::Vec2(
+            solid.width as f64 / 2.0,
+            solid.height as f64 / 2.0,
+        ));
+        layer.transform.position =
+            Property::constant(Value::Vec2(width as f64 / 2.0, height as f64 / 2.0));
+        layer
+    }
+
+    /// True of the kinds that name no asset: nothing looks an asset up for them.
     pub fn has_no_drawing(&self) -> bool {
-        matches!(self.kind, LayerKind::Adjustment | LayerKind::Composition)
+        matches!(
+            self.kind,
+            LayerKind::Adjustment | LayerKind::Composition | LayerKind::Solid
+        )
     }
 
     /// Document 19's layer invariant.

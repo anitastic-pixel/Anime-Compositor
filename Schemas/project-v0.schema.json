@@ -434,6 +434,51 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "solid"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "solid"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "asset_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "composition_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "exposure_spans"
+                  ]
+                },
+                {
+                  "required": [
+                    "source_offset_frames"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "solid"
+              ]
+            }
+          }
         }
       ],
       "properties": {
@@ -445,11 +490,44 @@
             "raster",
             "adjustment",
             "composition",
-            "audio"
+            "audio",
+            "solid"
           ]
         },
         "name": {
           "type": "string"
+        },
+        "solid": {
+          "type": "object",
+          "description": "D-74: a solid layer's drawing, width by height pixels of one colour, opaque.",
+          "required": [
+            "color",
+            "width",
+            "height"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "color": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            }
+          }
         },
         "asset_id": {
           "type": "string"

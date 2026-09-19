@@ -105,7 +105,7 @@ Blend mode is normal only. A layer with no enabled effects, outside its in and o
 
 ## Solid layers
 
-D-74, proposed on 2026-09-19 and not yet accepted. A solid layer's step 1 is not a decode: its source is `width` by `height` pixels, every one premultiplied `(r, g, b, 1)` for its colour, in its own layer space with (0, 0) at its top left. Steps 2 to 7 then run on it exactly as on a decoded drawing, so a solid and an opaque drawing of the same colour and size give the same frame. The colour is in the working space and is not converted. FX-SOL-001 to 008 in document 25 are the cases.
+D-74, accepted by the owner on 2026-09-19 ("accept D-74, proceed with B-23b") and built in B-23b. A solid layer's step 1 is not a decode: its source is `width` by `height` pixels, every one premultiplied `(r, g, b, 1)` for its colour, in its own layer space with (0, 0) at its top left. Steps 2 to 7 then run on it exactly as on a decoded drawing, so a solid and an opaque drawing of the same colour and size give the same frame. The colour is in the working space and is not converted. FX-SOL-001 to 008 in document 25 are the cases.
 
 ## Precompositions
 

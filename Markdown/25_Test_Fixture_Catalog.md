@@ -874,7 +874,7 @@ FX-PRE-015: Main holds a layer of Inner and Inner a layer of Main: the file is r
 
 ## Solid layer fixtures
 
-**D-74, PROPOSED on 2026-09-19; nothing is built against these yet.** Every case is a composition 6 by 2 at 24 fps, three frames long, from the projects in `Fixtures/solid/`. The one drawing, `bg`, is the adjustment fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom. The solid's colour is linear `0.2 0.5 0.8` unless a case says otherwise, and a solid is the size of the frame and centred unless a case says otherwise. Layers are listed bottom first. Each cell is R G B A of the finished frame, linear and premultiplied.
+**D-74, proposed and accepted on 2026-09-19; B-23b answers to these, `verification/B-23b_solid_table.md`.** Every case is a composition 6 by 2 at 24 fps, three frames long, from the projects in `Fixtures/solid/`. The one drawing, `bg`, is the adjustment fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom. The solid's colour is linear `0.2 0.5 0.8` unless a case says otherwise, and a solid is the size of the frame and centred unless a case says otherwise. Layers are listed bottom first. Each cell is R G B A of the finished frame, linear and premultiplied.
 
 **Every number below is produced by `tools/solid_reference.py`**, which renders each pixel from document 21 and moves only by whole pixels, so nothing is resampled. The same numbers are in `Fixtures/solid/expected_solid.json`. Tolerance 1e-6. FX-SOL-020 to 029 have no frames: each is FX-SOL-001's file with one change, and a build must refuse it whole.
 

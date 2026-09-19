@@ -180,9 +180,9 @@ Named by the owner on 2026-09-19, after B-22d: a first build on macOS or Linux i
 
 B-23 / solid layers, asked for by the owner on 2026-09-19, split as B-17 was.
 
-B-23a / the rule and its fixtures before code: D-74 in document 14, FX-SOL-001 to 008 and 020 to 029 in document 25, from `tools/solid_reference.py` into `Fixtures/solid/`; every expected frame drawn large, with its sentence, in `verification/B-23a proposal/solid_cases.png`. **WRITTEN on 2026-09-19 at the owner's word; awaits the owner's acceptance, nothing built.**
+B-23a / the rule and its fixtures before code: D-74 in document 14, FX-SOL-001 to 008 and 020 to 029 in document 25, from `tools/solid_reference.py` into `Fixtures/solid/`; every expected frame drawn large, with its sentence, in `verification/B-23a proposal/solid_cases.png`. **WRITTEN on 2026-09-19 at the owner's word; D-74 ACCEPTED the same day ("accept D-74, proceed with B-23b").**
 
-B-23b / the core: the `solid` kind in the model and the file, its picture as step 1, the ten refusals, `layer.add_solid` and `solid.set` with their history. Artifact: a table that walks FX-SOL-001 to 029. After B-23a is accepted.
+B-23b / the core: the `solid` kind in the model and the file, its picture as step 1, the ten refusals, `layer.add_solid` and `solid.set` with their history. Artifact: a table that walks FX-SOL-001 to 029. **BUILT on 2026-09-19: `verification/B-23b_solid_table.md` is 34 of 34 - the eight frames within 1e-6 and the same in tiles of one pixel, the ten files refused with where and why, the file written back in the fixture's order and opened again equal, and the two commands with their refusals and one undo. Nothing in the window yet; B-23c is next.**
 
 B-23c / the window: New Solid in the Layer menu (Ctrl+Y), the colour picker and the width and height in the layer's panel, the two commands in document 24's table. Artifact: a panel table and a playtest sheet. After B-23b.
 
