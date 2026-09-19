@@ -1,7 +1,8 @@
 //! B-22b, D-73: the export choices in the core. Three MP4 qualities, GIF dithering, and the MP4
 //! that says what its colour is.
 //!
-//! Walks FX-FMT-040 to 060 from `Fixtures/formats/expected_formats.json`, then exports the
+//! Walks FX-FMT-040 to 060 (the dithering by D-73a's FX-FMT-053 to 055, which retired 050 to
+//! 052) from `Fixtures/formats/expected_formats.json`, then exports the
 //! reference shot (`verification/B-08a_project.json`) each way for the owner to look at.
 //!
 //! Writes `verification/B-22b_choices_table.md` and the films in `verification/B-22 films/`.
@@ -105,8 +106,9 @@ fn the_export_choices_do_what_d73_says() {
         );
     }
 
-    // ---- FX-FMT-050 to 052 ---------------------------------------------------------------------
-    for fx in ["FX-FMT-050", "FX-FMT-051", "FX-FMT-052"] {
+    // ---- FX-FMT-053 to 055 (D-73a; 050 to 052 are retired) -------------------------------------
+    for fx in ["FX-FMT-053", "FX-FMT-054", "FX-FMT-055"] {
+        assert_eq!(cases[fx]["limit"], 16, "the build's limit is D-73a's");
         let case = &cases[fx];
         let bytes = |v: &serde_json::Value| -> Vec<u8> {
             v.as_array().unwrap().iter().map(|x| x.as_u64().unwrap() as u8).collect()

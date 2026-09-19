@@ -400,6 +400,7 @@
     },
     "FX-FMT-050": {
       "says": "A flat mid grey with only black and white to spend becomes a checker of the two.",
+      "retired_by": "D-73a",
       "width": 4,
       "pixels_rgba": [
         [
@@ -532,6 +533,7 @@
     },
     "FX-FMT-051": {
       "says": "A grey ramp, black to white, in black, mid grey and white.",
+      "retired_by": "D-73a",
       "width": 8,
       "pixels_rgba": [
         [
@@ -669,6 +671,7 @@
     },
     "FX-FMT-052": {
       "says": "Orange with red and yellow to spend, and a see-through pixel in the way: it gets no colour and carries no error.",
+      "retired_by": "D-73a",
       "width": 4,
       "pixels_rgba": [
         [

@@ -147,6 +147,10 @@ impl Film {
 /// under half alpha gets no colour, takes no error and passes none on. `not` is a palette place
 /// that is not a colour (the GIF's see-through one).
 ///
+/// D-73a: the pixel plus its carried error is held within 0 to 255, and the difference within
+/// plus and minus 16, before it is shared out (FX-FMT-053 to 055). That ended the coloured
+/// specks; it gives up mixing a few far-apart colours, which a palette of 256 never asks for.
+///
 /// ponytail: the nearest colour is a plain search of the palette, remembered for each value
 /// met. Flat cel colour meets few; a frame of photographic noise is slow. A k-d tree if it bites.
 pub fn dither_indices(rgba: &[u8], width: usize, palette: &[[u8; 3]], not: Option<u8>) -> Vec<Option<u8>> {
@@ -159,7 +163,7 @@ pub fn dither_indices(rgba: &[u8], width: usize, palette: &[[u8; 3]], not: Optio
             out.push(None);
             continue;
         }
-        let want = [0, 1, 2].map(|c| p[c] as i32 + carried[i][c]);
+        let want = [0, 1, 2].map(|c| (p[c] as i32 + carried[i][c]).clamp(0, 255));
         let pick = *met.entry(want).or_insert_with(|| {
             let far = |q: &[u8; 3]| (0..3).map(|c| (want[c] - q[c] as i32).pow(2)).sum::<i32>();
             // `min_by_key` keeps the first of equals, which is the tie rule.
@@ -176,7 +180,7 @@ pub fn dither_indices(rgba: &[u8], width: usize, palette: &[[u8; 3]], not: Optio
                 for c in 0..3 {
                     // `>> 4` on a signed number floors, as the rule says.
                     carried[(y + dy) * width + to as usize][c] +=
-                        ((want[c] - palette[pick][c] as i32) * part) >> 4;
+                        ((want[c] - palette[pick][c] as i32).clamp(-16, 16) * part) >> 4;
                 }
             }
         }

@@ -82,7 +82,7 @@ def bitrate(w, h, num, den, thousandths):
     return min(max(w * h * num * thousandths // (den * 1000), 1_000_000), 100_000_000)
 
 
-LIMIT = 16  # D-73a, proposed: the most of a difference, in each of red, green and blue, passed on
+LIMIT = 16  # D-73a: the most of a difference, in each of red, green and blue, passed on
 
 
 def dither(pixels, width, palette, limit=None):
@@ -94,7 +94,7 @@ def dither(pixels, width, palette, limit=None):
     first one on a tie), and the difference goes 7 sixteenths right, 3 below left, 5 below and 1
     below right, each floored (toward minus infinity).
 
-    D-73a, proposed (`limit` given): the pixel plus its carried error is first held within 0 to
+    D-73a (`limit` given): the pixel plus its carried error is first held within 0 to
     255, and the difference is held within plus and minus `limit` before it is shared out. One
     pixel the palette has nothing near cannot then tint its neighbours.
     """
@@ -137,7 +137,7 @@ DITHER = {
 }
 
 
-# D-73a, proposed: the same, with the passed-on difference held within LIMIT. The palettes are
+# D-73a: the same, with the passed-on difference held within LIMIT. The palettes are
 # close together, as the 256 colours picked from a picture are; FX-FMT-050 to 052 spend two or
 # three far-apart colours, which is the case the limit gives up.
 DITHER_LIMITED = {
@@ -214,8 +214,9 @@ def main():
 
     for fx, (says, width, pixels, palette) in DITHER.items():
         picked = dither(pixels, width, palette)
-        cases[fx] = {"says": says, "width": width, "pixels_rgba": pixels, "palette_rgb": palette,
-                     "palette_index_or_null": picked}
+        # D-73a, accepted: kept as the record of D-73's first rule; no build answers to them.
+        cases[fx] = {"says": says, "retired_by": "D-73a", "width": width, "pixels_rgba": pixels,
+                     "palette_rgb": palette, "palette_index_or_null": picked}
         grid = ["".join("." if p is None else str(p) for p in picked[i:i + width])
                 for i in range(0, len(picked), width)]
         print(f"{fx}: {says}\n\nPalette: " + ", ".join(f"{i} is {c}" for i, c in enumerate(palette))
@@ -223,7 +224,7 @@ def main():
 
     grids = lambda picked, width: ["".join("." if p is None else str(p) for p in picked[i:i + width])
                                    for i in range(0, len(picked), width)]
-    print(f"D-73a, proposed: the difference passed on is held within {LIMIT}.\n")
+    print(f"D-73a: the difference passed on is held within {LIMIT}.\n")
     for fx, (says, width, pixels, palette) in DITHER_LIMITED.items():
         picked = dither(pixels, width, palette, LIMIT)
         cases[fx] = {"says": says, "width": width, "pixels_rgba": pixels, "palette_rgb": palette,

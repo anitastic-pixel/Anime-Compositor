@@ -1492,9 +1492,9 @@ Palette: 0 is (255, 0, 0), 1 is (255, 255, 0). A dot is see-through.
 1010
 ```
 
-**D-73a, PROPOSED on 2026-09-19; nothing is built against FX-FMT-053 to 055 yet.** FX-FMT-050 to 052 above are unchanged and are what the build answers to today. If D-73a is accepted they are retired, not rewritten: they spend two or three far-apart colours, which is the case the limit gives up.
+**D-73a, proposed and accepted on 2026-09-19.** FX-FMT-050 to 052 above are retired by it, marked `retired_by` in the file with their values unchanged, and no build answers to them: they spend two or three far-apart colours, which is the case the limit gives up.
 
-D-73a, proposed: the difference passed on is held within 16.
+D-73a: the difference passed on is held within 16.
 
 FX-FMT-053: A flat grey of 100 between greys of 96 and 104 becomes a mix of the two.
 
