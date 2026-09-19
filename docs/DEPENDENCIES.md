@@ -48,6 +48,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `bs58` | 0.5.1 | MIT/Apache-2.0 | transitive | linked | https://github.com/Nullus157/bs58-rs | `bf88ba1141d185c3…` |
 | `bytemuck` | 1.25.2 | Zlib OR Apache-2.0 OR MIT | transitive | linked | https://github.com/Lokathor/bytemuck | `95832e849adfb211…` |
 | `byteorder` | 1.5.0 | Unlicense OR MIT | transitive | linked | https://github.com/BurntSushi/byteorder | `1fd0f2584146f6f2…` |
+| `byteorder-lite` | 0.1.0 | Unlicense OR MIT | transitive | linked | https://github.com/image-rs/byteorder-lite | `8f1fe948ff07f4bd…` |
 | `bytes` | 1.12.1 | MIT | transitive | linked | https://github.com/tokio-rs/bytes | `fc652a48c352aef3…` |
 | `camino` | 1.2.5 | MIT OR Apache-2.0 | transitive | linked | https://github.com/camino-rs/camino | `bb1307f12aa967b5…` |
 | `cargo-platform` | 0.1.9 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/cargo | `e35af189006b9c0f…` |
@@ -96,6 +97,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `erased-serde` | 0.4.10 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/erased-serde | `d2add8a07dd6a8d9…` |
 | `exr` | 1.74.2 | BSD-3-Clause | direct | linked | https://github.com/johannesvollmer/exrs | `711fe42c9964295e…` |
 | `fastrand` | 2.5.0 | Apache-2.0 OR MIT | transitive | build-time only | https://github.com/smol-rs/fastrand | `da7c62ceae207dd3…` |
+| `fax` | 0.2.7 | MIT | transitive | linked | https://github.com/pdf-rs/fax | `caf1079563223d5d…` |
 | `fdeflate` | 0.3.7 | MIT OR Apache-2.0 | transitive | linked | https://github.com/image-rs/fdeflate | `1e6853b52649d4ac…` |
 | `find-msvc-tools` | 0.1.12 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/rust-lang/cc-rs | `3e0f1c7c3a72c66f…` |
 | `flate2` | 1.1.10 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/flate2-rs | `6e634e2e0ebac1ee…` |
@@ -124,6 +126,8 @@ stays visible. Several other crates now do the same for the same reason.
 | `ident_case` | 1.0.1 | MIT/Apache-2.0 | transitive | build-time only | https://github.com/TedDriggs/ident_case | `b9e0384b61958566…` |
 | `idna` | 1.1.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/rust-url/ | `3b0875f23caa0389…` |
 | `idna_adapter` | 1.2.2 | Apache-2.0 OR MIT | transitive | linked | https://github.com/hsivonen/idna_adapter | `cb68373c0d6620ef…` |
+| `image` | 0.25.10 | MIT OR Apache-2.0 | direct | linked | https://github.com/image-rs/image | `85ab80394333c02f…` |
+| `image-webp` | 0.2.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/image-rs/image-webp | `525e9ff3e1a4be2f…` |
 | `indexmap` | 1.9.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/bluss/indexmap | `bd070e393353796e…` |
 | `indexmap` | 2.14.2 | Apache-2.0 OR MIT | transitive | linked | https://github.com/indexmap-rs/indexmap | `cc4e190f5d26ca70…` |
 | `infer` | 0.19.0 | MIT | transitive | linked | https://github.com/bojand/infer | `a588916bfdfd92e7…` |
@@ -147,6 +151,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `miniz_oxide` | 0.8.9 | MIT OR Zlib OR Apache-2.0 | transitive | linked | https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide | `1fa76a2c86f704bd…` |
 | `miniz_oxide` | 0.9.1 | MIT OR Zlib OR Apache-2.0 | transitive | linked | https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide | `b63fbc4a50860e98…` |
 | `mio` | 1.2.3 | MIT | transitive | linked | https://github.com/tokio-rs/mio | `4b18443e9c262bfe…` |
+| `moxcms` | 0.8.1 | BSD-3-Clause OR Apache-2.0 | transitive | linked | https://github.com/awxkee/moxcms.git | `bb85c154ba489f01…` |
 | `muda` | 0.19.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/muda | `1dd04e60bc0b0743…` |
 | `new_debug_unreachable` | 1.0.6 | MIT | transitive | linked | https://github.com/mbrubeck/rust-debug-unreachable | `650eef8c711430f1…` |
 | `num-complex` | 0.4.6 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-num/num-complex | `73f88a1307638156…` |
@@ -173,6 +178,8 @@ stays visible. Several other crates now do the same for the same reason.
 | `proc-macro2` | 1.0.107 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/proc-macro2 | `985e7ec9bb745e6c…` |
 | `pulp` | 0.22.3 | MIT | transitive | linked | https://github.com/sarah-quinones/pulp/ | `046aa45b989642ec…` |
 | `pulp-wasm-simd-flag` | 0.1.1 | MIT | transitive | linked | https://github.com/sarah-quinones/pulp/ | `1d8f70e07b9c3962…` |
+| `pxfm` | 0.1.30 | BSD-3-Clause OR Apache-2.0 | transitive | linked | https://github.com/awxkee/pxfm | `d55d956fa96f5ec0…` |
+| `quick-error` | 2.0.1 | MIT/Apache-2.0 | transitive | linked | http://github.com/tailhook/quick-error | `a993555f31e5a609…` |
 | `quick-xml` | 0.41.0 | MIT | transitive | linked | https://github.com/tafia/quick-xml | `e660451e55124f79…` |
 | `quote` | 1.0.47 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/quote | `1fbf4db142a473a8…` |
 | `raw-cpuid` | 11.6.0 | MIT | transitive | linked | https://github.com/gz/rust-cpuid | `498cd0dc59d73224…` |
@@ -240,6 +247,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `thiserror` | 2.0.20 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/thiserror | `ec86235f5fcc2a73…` |
 | `thiserror-impl` | 1.0.69 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/thiserror | `4fee6c4efc90059e…` |
 | `thiserror-impl` | 2.0.20 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/thiserror | `bc04cd3e1236dd4a…` |
+| `tiff` | 0.11.3 | MIT | transitive | linked | https://github.com/image-rs/image-tiff | `b63feaf3343d35b6…` |
 | `time` | 0.3.55 | MIT OR Apache-2.0 | transitive | linked | https://github.com/time-rs/time | `cdb87b95ec50ddfa…` |
 | `time-core` | 0.1.9 | MIT OR Apache-2.0 | transitive | linked | https://github.com/time-rs/time | `9e1c906769ad99c8…` |
 | `time-macros` | 0.2.32 | MIT OR Apache-2.0 | transitive | linked | https://github.com/time-rs/time | `7e689342a48d2ea9…` |
@@ -277,6 +285,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `webview2-com` | 0.38.2 | MIT | transitive | linked | https://github.com/wravery/webview2-rs | `7130243a7a5b33c5…` |
 | `webview2-com-macros` | 0.8.1 | MIT | transitive | linked | https://github.com/wravery/webview2-rs | `67a921c1b6914c36…` |
 | `webview2-com-sys` | 0.38.2 | MIT | transitive | linked | https://github.com/wravery/webview2-rs | `381336cfffd77237…` |
+| `weezl` | 0.1.12 | MIT OR Apache-2.0 | transitive | linked | https://github.com/image-rs/weezl | `a28ac98ddc8b9274…` |
 | `winapi-util` | 0.1.11 | Unlicense OR MIT | transitive | linked | https://github.com/BurntSushi/winapi-util | `c2a7b1c03c876122…` |
 | `window-vibrancy` | 0.6.0 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/tauri-plugin-vibrancy | `d9bec5a31f3f9362…` |
 | `windows` | 0.61.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `9babd3a767a4c1ae…` |
@@ -315,7 +324,9 @@ stays visible. Several other crates now do the same for the same reason.
 | `zerovec-derive` | 0.11.6 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `34df6fc39dbd26dd…` |
 | `zlib-rs` | 0.6.7 | Zlib | transitive | linked | https://github.com/trifectatechfoundation/zlib-rs | `34b31d188d9d685a…` |
 | `zmij` | 1.0.23 | MIT | transitive | linked | https://github.com/dtolnay/zmij | `29666d0abbfad1e3…` |
+| `zune-core` | 0.5.3 | MIT OR Apache-2.0 OR Zlib | transitive | linked | https://github.com/etemesi254/zune-image | `d56377fd46368984…` |
 | `zune-inflate` | 0.2.54 | MIT OR Apache-2.0 OR Zlib | transitive | linked |  | `73ab332fe2f66800…` |
+| `zune-jpeg` | 0.5.15 | MIT OR Apache-2.0 OR Zlib | transitive | linked | https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg | `27bc9d5b815bc103…` |
 
 ## Purpose — why each direct dependency is here
 
@@ -331,6 +342,9 @@ underneath one of them.
   and renders from other programs use all of them. It brought fifteen crates underneath it, among
   them `half` for 16-bit floats and `zune-inflate` for ZIP. `tests/b16b_exr.rs` holds it to
   OpenEXR's own library, pixel for pixel.
+- **`image`** reads BMP, TGA, TIFF, WebP and JPEG drawings, by D-72 (accepted on 2026-09-19), with
+  its default features off and only those five on. It brought eleven crates underneath it.
+  `tests/b21b_formats.rs` holds each format to a PNG twin written by Pillow.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the
@@ -344,7 +358,7 @@ underneath one of them.
 ## What the shell cost, in crates
 
 This is the honest number and it is worth stating plainly. Before the window, this record held
-**28** crates. With it, **286**. One dependency brought in roughly two hundred and thirty
+**28** crates. With it, **297**. One dependency brought in roughly two hundred and thirty
 others, which is what a browser engine, an async runtime, a CSS selector engine and a bundler
 amount to once they are counted rather than assumed.
 

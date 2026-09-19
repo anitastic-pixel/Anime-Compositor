@@ -387,6 +387,9 @@ pub fn import_sequence(files: &[PathBuf]) -> ImportResult {
 /// An EXR is read whole, because its `MEDIA_EXR_ADJUSTED` reasons (D-62) include counts of
 /// samples, and import is where a person should hear them.
 fn file_size(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> Result<(u32, u32), Diagnostic> {
+    if is_other_format(path) {
+        return open_other(path).map(|picture| (picture.width(), picture.height()));
+    }
     if !crate::exr_io::is_exr(&path.to_string_lossy()) {
         return png_size(path);
     }
@@ -402,9 +405,43 @@ fn file_size(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> Result<(u32, u32
 pub fn decode(path: &Path) -> Result<ImageBuffer, Diagnostic> {
     if crate::exr_io::is_exr(&path.to_string_lossy()) {
         crate::exr_io::read(path).map(|picture| picture.image)
+    } else if is_other_format(path) {
+        let rgba = crate::perf::time(crate::perf::Stage::FileRead, || open_other(path))?.to_rgba8();
+        let (w, h) = (rgba.width() as usize, rgba.height() as usize);
+        ImageBuffer::from_srgb8_straight(w, h, rgba.as_raw()).map_err(|e: BufferError| {
+            decode_failed(path, &format!("{e} while building a {w}x{h} buffer"))
+        })
     } else {
         decode_png(path)
     }
+}
+
+/// D-72: the drawing formats beside PNG and EXR, by extension. Each is read as a PNG is: 8-bit
+/// sRGB with straight alpha, opaque where the format has no alpha, grey in all three channels.
+pub const OTHER_FORMATS: [&str; 7] = ["bmp", "tga", "tif", "tiff", "webp", "jpg", "jpeg"];
+
+pub fn is_other_format(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| OTHER_FORMATS.iter().any(|o| e.eq_ignore_ascii_case(o)))
+}
+
+/// Anything deeper than 8 bits is refused as a 16-bit PNG is, by [`check_format`]'s reasoning:
+/// reading it down would change the picture without anyone being told.
+fn open_other(path: &Path) -> Result<image::DynamicImage, Diagnostic> {
+    use image::DynamicImage::{ImageLuma8, ImageLumaA8, ImageRgb8, ImageRgba8};
+    let picture = image::open(path).map_err(|e| decode_failed(path, &e.to_string()))?;
+    if matches!(picture, ImageLuma8(_) | ImageLumaA8(_) | ImageRgb8(_) | ImageRgba8(_)) {
+        return Ok(picture);
+    }
+    Err(Diagnostic::new(
+        DiagnosticId::MediaUnsupportedFormat,
+        Severity::Error,
+        format!("{} uses a format this build cannot read.", display(path)),
+        format!("Found {:?}. Supported: 8 bits per channel.", picture.color()),
+    )
+    .with_remediation(
+        "Re-export at 8 bits per channel. The file is left untouched and the asset record is kept.",
+    ))
 }
 
 /// Read width, height and format from a PNG header without decoding pixels.

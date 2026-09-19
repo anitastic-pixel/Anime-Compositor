@@ -999,11 +999,12 @@ fn save_as(viewer: &Mutex<Viewer>, path: &Path) -> String {
     said
 }
 
-/// A file the importer reads: PNG, or EXR by D-62.
+/// A file the importer reads: PNG, EXR by D-62, or one of D-72's formats.
 fn is_drawing(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("png"))
         || exr_io::is_exr(&path.to_string_lossy())
+        || media::is_other_format(path)
 }
 
 /// Load a dropped or named file into the viewer, or report why it could not be.
@@ -1615,9 +1616,8 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
     // every frame of a layer made from it. Grouped as a sequence it was drawing N of a sequence
     // of one, and a layer showed it on no frame or one.
     let exr = |f: &PathBuf| exr_io::is_exr(&f.to_string_lossy());
-    let png = |f: &PathBuf| f.extension().is_some_and(|e| e.eq_ignore_ascii_case("png"));
     if let [file] = files {
-        if png(file) || exr(file) {
+        if is_drawing(file) {
             // D-62: an EXR still is read before it is added, so a file this build refuses is
             // not added at all, and what was adjusted is told once, here, as for a sequence.
             let mut told = Vec::new();
@@ -1719,7 +1719,10 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
 /// D-71: the sound files the window offers. The core measures a WAV; every format here is played
 /// by the page's own decoder, so the list is what WebView2 decodes.
 const SOUNDS: [&str; 7] = ["wav", "mp3", "ogg", "opus", "flac", "m4a", "aac"];
-const DRAWINGS_AND_SOUND: [&str; 9] = ["png", "exr", "wav", "mp3", "ogg", "opus", "flac", "m4a", "aac"];
+const DRAWINGS_AND_SOUND: [&str; 16] = [
+    "png", "exr", "bmp", "tga", "tif", "tiff", "webp", "jpg", "jpeg", "wav", "mp3", "ogg", "opus",
+    "flac", "m4a", "aac",
+];
 
 fn is_sound(file: &Path) -> bool {
     file.extension()
@@ -10571,6 +10574,58 @@ mod editing {
             "B-16c: EXR in the window",
             EXR_PANEL_INTRO,
             EXR_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// B-21b: D-72's drawing formats imported from the window, on its fixture files.
+    #[test]
+    fn the_new_drawing_formats_come_in_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        for name in [
+            "bmp24.bmp",
+            "tga32.tga",
+            "tga32_rle.tga",
+            "tiff_lzw.tif",
+            "webp_lossless.webp",
+            "jpeg_q95.jpg",
+        ] {
+            let said = run(&viewer, &import_of(&[repo(&format!("Fixtures/formats/media/{name}"))]));
+            report.check(
+                &format!("{name} imports as a still picture"),
+                format!("Import {name}: a still picture"),
+                said.split(", shown").next().unwrap_or_default(),
+            );
+            report.check(
+                "and is read as a PNG is",
+                "1 drawings, read as Srgb, Straight",
+                newest(&viewer),
+            );
+        }
+        let before = asset_count(&viewer);
+        let said = run(&viewer, &import_of(&[repo("Fixtures/formats/expected_formats.json")]));
+        report.check(
+            "a file that is not a drawing is still not imported",
+            format!("true, {before} assets"),
+            format!("{}, {} assets", said.contains("othing was imported"), asset_count(&viewer)),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-21b_panel_table.md",
+            "B-21b: the new drawing formats in the window",
+            &["D-72 added BMP, TGA, TIFF, WebP and JPEG as drawings, and                `verification/B-21b_formats_table.md` checks each picture against its PNG twin.                This is the window's half: Import and Relink list the new extensions, and a chosen                file comes in as a drawing. The file picker itself is skipped, as in every panel                table: no test can answer a Windows dialog."],
+            &[],
         );
         let failed: Vec<&String> = report
             .rows

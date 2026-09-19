@@ -157,6 +157,9 @@ underneath one of them.
   and renders from other programs use all of them. It brought fifteen crates underneath it, among
   them `half` for 16-bit floats and `zune-inflate` for ZIP. `tests/b16b_exr.rs` holds it to
   OpenEXR's own library, pixel for pixel.
+- **`image`** reads BMP, TGA, TIFF, WebP and JPEG drawings, by D-72 (accepted on 2026-09-19), with
+  its default features off and only those five on. It brought eleven crates underneath it.
+  `tests/b21b_formats.rs` holds each format to a PNG twin written by Pillow.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the

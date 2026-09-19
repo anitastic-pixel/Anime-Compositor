@@ -277,14 +277,17 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
     // that never touches a socket is easier to believe when you can see the whole list. D-62's
     // `exr` added the crates from `bit_field` to `zune-inflate`; `proc-macro2`, `quote` and `syn`
     // come with them to build `zerocopy-derive` and `paste`, and run only while compiling.
+    // D-72's `image` added `byteorder-lite`, `fax`, `image`, `image-webp`, `moxcms`, `pxfm`,
+    // `quick-error`, `tiff`, `weezl`, `zune-core` and `zune-jpeg`.
     report.check(
         "and that part's whole dependency list is small enough to read",
-        "adler2, bit_field, bitflags, bytemuck, cfg-if, crc32fast, crossbeam-deque, \
-         crossbeam-epoch, crossbeam-utils, either, exr, fdeflate, flate2, half, itoa, lebe, libm, \
-         memchr, miniz_oxide, num-complex, num-traits, paste, png, proc-macro2, pulp, \
-         pulp-wasm-simd-flag, quote, raw-cpuid, rayon, rayon-core, reborrow, serde_core, \
-         serde_json, simd-adler32, smallvec, syn, unicode-ident, zerocopy, zerocopy-derive, \
-         zlib-rs, zmij, zune-inflate",
+        "adler2, bit_field, bitflags, bytemuck, byteorder-lite, cfg-if, crc32fast, \
+         crossbeam-deque, crossbeam-epoch, crossbeam-utils, either, exr, fax, fdeflate, flate2, \
+         half, image, image-webp, itoa, lebe, libm, memchr, miniz_oxide, moxcms, num-complex, \
+         num-traits, paste, png, proc-macro2, pulp, pulp-wasm-simd-flag, pxfm, quick-error, \
+         quote, raw-cpuid, rayon, rayon-core, reborrow, serde_core, serde_json, simd-adler32, \
+         smallvec, syn, tiff, unicode-ident, weezl, zerocopy, zerocopy-derive, zlib-rs, zmij, \
+         zune-core, zune-inflate, zune-jpeg",
         joined(&in_core),
     );
 
