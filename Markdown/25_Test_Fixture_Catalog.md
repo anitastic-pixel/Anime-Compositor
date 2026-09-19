@@ -1443,6 +1443,61 @@ FX-FMT-030: An MP4 counts time in the frame rate's numerator and every frame las
 | 24000/1001 | 24000 | 1001 | 48 | 48048 |
 | 30/1 | 30 | 1 | 1 | 1 |
 
+**D-73, proposed on 2026-09-19; nothing is built against FX-FMT-040 to 060 yet.** The same script prints what follows. FX-FMT-040 is the number asked of the encoder, not the size of the file: an encoder spends fewer bits on a simple picture. FX-FMT-050 to 052 are small enough to check by eye.
+
+FX-FMT-040: An MP4's quality level is thousandths of a bit for every pixel of every frame: preview 100, standard 200, high 500. The bitrate asked of the encoder is floored to whole bits a second and kept between 1 and 100 megabits.
+
+| size | frame rate | level | bits a second asked for |
+| --- | --- | --- | --- |
+| 1920x1080 | 24/1 | preview | 4976640 |
+| 1920x1080 | 24/1 | standard | 9953280 |
+| 1920x1080 | 24/1 | high | 24883200 |
+| 1280x720 | 24000/1001 | preview | 2209630 |
+| 1280x720 | 24000/1001 | standard | 4419260 |
+| 1280x720 | 24000/1001 | high | 11048151 |
+| 64x64 | 24/1 | preview | 1000000 |
+| 64x64 | 24/1 | standard | 1000000 |
+| 64x64 | 24/1 | high | 1000000 |
+| 3840x2160 | 60/1 | preview | 49766400 |
+| 3840x2160 | 60/1 | standard | 99532800 |
+| 3840x2160 | 60/1 | high | 100000000 |
+
+FX-FMT-050: A flat mid grey with only black and white to spend becomes a checker of the two.
+
+Palette: 0 is (0, 0, 0), 1 is (255, 255, 255). A dot is see-through.
+
+```
+1010
+0101
+1010
+0101
+```
+
+FX-FMT-051: A grey ramp, black to white, in black, mid grey and white.
+
+Palette: 0 is (0, 0, 0), 1 is (128, 128, 128), 2 is (255, 255, 255). A dot is see-through.
+
+```
+00111122
+00111212
+```
+
+FX-FMT-052: Orange with red and yellow to spend, and a see-through pixel in the way: it gets no colour and carries no error.
+
+Palette: 0 is (255, 0, 0), 1 is (255, 255, 0). A dot is see-through.
+
+```
+1010
+0.01
+1010
+```
+
+FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matrix, video range. Read back from the file, from the H.264 header or the container's colour box, whichever the file carries.
+
+| primaries | transfer | matrix | full range |
+| --- | --- | --- | --- |
+| 1 | 1 | 1 | no |
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

@@ -168,6 +168,12 @@ B-21d / MP4 out. **BUILT on 2026-09-19 on the road D-72 recommends, and DONE the
 
 B-21e / MP4 out on macOS and Linux, through an ffmpeg the user has installed: D-30's second road, chosen by the agent on the owner's word ("choose what is recommended and proceed with road along with road 1 as well"). Nothing is shipped and there is no new dependency: the program starts `ffmpeg` and hands it the same BT.709 frames. **BUILT on 2026-09-19.** `verification/B-21d_mp4_table.md` is 19 of 19: the three rows of FX-FMT-030 again, written through ffmpeg and read back, 24000/1001 exact. The file carries the BT.709 label, which the Windows road's does not. **What cannot be shown: the rows ran on Windows, where the tests run. This program has never been built or run on macOS or Linux, by anyone, and nothing here says it would start there.** With no ffmpeg found, the export is refused with a sentence that says to install it. Ceiling: it asks ffmpeg for `libx264` by name, which the usual macOS and Linux builds have.
 
+B-22a / export choices, the rule and its fixtures before code: D-73 in document 14, FX-FMT-040 to 060 in document 25, from `tools/formats_reference.py`. **WRITTEN on 2026-09-19 at the owner's word ("write D-73"); awaits the owner's acceptance, nothing built.**
+
+B-22b / the core: the three MP4 qualities on both roads, GIF dithering, the BT.709 label. Artifact: a table that walks FX-FMT-040 to 060, the label read back from the written file. After D-73 is accepted.
+
+B-22c / the window: the quality list and the dither tick box, shown only beside the format they belong to; the list says which entries are lossless. Artifact: a panel table and a playtest sheet with a High and a Preview film of the same shot side by side. After B-22b.
+
 A GPU render path is not a backlog item. It is trigger-gated on a stopwatch reading per ADR-006.
 
 ## Performance, proposed on 2026-09-09 and not yet accepted

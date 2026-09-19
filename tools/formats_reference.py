@@ -70,6 +70,60 @@ GIF = {
     "FX-FMT-023": ("25 frames a second divides exactly: every delay is 4.", 25, 25, 1),
 }
 
+# D-73. An MP4's quality is a named level, and a level is thousandths of a bit for every pixel of
+# every frame. The bitrate asked of the encoder is whole bits a second, floored, and never below
+# 1 or above 100 megabits.
+LEVELS = {"preview": 100, "standard": 200, "high": 500}
+# width, height, numerator, denominator
+SIZES = ((1920, 1080, 24, 1), (1280, 720, 24000, 1001), (64, 64, 24, 1), (3840, 2160, 60, 1))
+
+
+def bitrate(w, h, num, den, thousandths):
+    return min(max(w * h * num * thousandths // (den * 1000), 1_000_000), 100_000_000)
+
+
+def dither(pixels, width, palette):
+    """D-73's GIF dithering, Floyd and Steinberg's, in whole numbers so two programs agree.
+
+    Pixels are (r, g, b, a) rows left to right, top to bottom. A pixel under half alpha is
+    see-through: it gets no colour (None), takes no error and passes none on. Otherwise the pixel
+    plus the error carried to it goes to the nearest palette colour (least squared distance, the
+    first one on a tie), and the difference goes 7 sixteenths right, 3 below left, 5 below and 1
+    below right, each floored (toward minus infinity).
+    """
+    height = len(pixels) // width
+    carried = [[0, 0, 0] for _ in pixels]
+    out = []
+    for i, (r, g, b, a) in enumerate(pixels):
+        if a < 128:
+            out.append(None)
+            continue
+        want = [v + c for v, c in zip((r, g, b), carried[i])]
+        pick = min(range(len(palette)),
+                   key=lambda p: (sum((x - y) ** 2 for x, y in zip(want, palette[p])), p))
+        out.append(pick)
+        x, y = i % width, i // width
+        for dx, dy, part in ((1, 0, 7), (-1, 1, 3), (0, 1, 5), (1, 1, 1)):
+            if 0 <= x + dx < width and y + dy < height:
+                for c in range(3):
+                    carried[(y + dy) * width + x + dx][c] += (want[c] - palette[pick][c]) * part >> 4
+    return out
+
+
+GREY = lambda v: (v, v, v, 255)
+# says, width, pixels, palette
+DITHER = {
+    "FX-FMT-050": ("A flat mid grey with only black and white to spend becomes a checker of the two.",
+                   4, [GREY(128)] * 16, [(0, 0, 0), (255, 255, 255)]),
+    "FX-FMT-051": ("A grey ramp, black to white, in black, mid grey and white.",
+                   8, [GREY(x * 255 // 7) for x in range(8)] * 2,
+                   [(0, 0, 0), (128, 128, 128), (255, 255, 255)]),
+    "FX-FMT-052": ("Orange with red and yellow to spend, and a see-through pixel in the way: "
+                   "it gets no colour and carries no error.",
+                   4, [(255, 128, 0, 255)] * 5 + [(255, 128, 0, 0)] + [(255, 128, 0, 255)] * 6,
+                   [(255, 0, 0), (255, 255, 0)]),
+}
+
 
 def main():
     (OUT / "media").mkdir(parents=True, exist_ok=True)
@@ -112,6 +166,39 @@ def main():
         print(f"| {r['frame_rate'][0]}/{r['frame_rate'][1]} | {r['timescale']} | "
               f"{r['frame_duration']} | {r['frames']} | {r['duration']} |")
     print()
+
+    rows = [{"size": [w, h], "frame_rate": [n, d], "level": level,
+             "bits_a_second": bitrate(w, h, n, d, t)}
+            for w, h, n, d in SIZES for level, t in LEVELS.items()]
+    cases["FX-FMT-040"] = {
+        "says": "An MP4's quality level is thousandths of a bit for every pixel of every frame: "
+                "preview 100, standard 200, high 500. The bitrate asked of the encoder is floored "
+                "to whole bits a second and kept between 1 and 100 megabits.",
+        "thousandths_of_a_bit": LEVELS, "rows": rows}
+    print("FX-FMT-040: " + cases["FX-FMT-040"]["says"] + "\n\n| size | frame rate | level | "
+          "bits a second asked for |\n| --- | --- | --- | --- |")
+    for r in rows:
+        print(f"| {r['size'][0]}x{r['size'][1]} | {r['frame_rate'][0]}/{r['frame_rate'][1]} | "
+              f"{r['level']} | {r['bits_a_second']} |")
+    print()
+
+    for fx, (says, width, pixels, palette) in DITHER.items():
+        picked = dither(pixels, width, palette)
+        cases[fx] = {"says": says, "width": width, "pixels_rgba": pixels, "palette_rgb": palette,
+                     "palette_index_or_null": picked}
+        grid = ["".join("." if p is None else str(p) for p in picked[i:i + width])
+                for i in range(0, len(picked), width)]
+        print(f"{fx}: {says}\n\nPalette: " + ", ".join(f"{i} is {c}" for i, c in enumerate(palette))
+              + ". A dot is see-through.\n\n```\n" + "\n".join(grid) + "\n```\n")
+
+    cases["FX-FMT-060"] = {
+        "says": "An MP4 says what its colour is: BT.709 primaries, transfer and matrix, video "
+                "range. Read back from the file, from the H.264 header or the container's colour "
+                "box, whichever the file carries.",
+        "colour_primaries": 1, "transfer_characteristics": 1, "matrix_coefficients": 1,
+        "full_range": False}
+    print("FX-FMT-060: " + cases["FX-FMT-060"]["says"] + "\n\n| primaries | transfer | matrix | "
+          "full range |\n| --- | --- | --- | --- |\n| 1 | 1 | 1 | no |\n")
 
     (OUT / "expected_formats.json").write_text(json.dumps({"cases": cases}, indent=2) + "\n",
                                                encoding="utf-8")
