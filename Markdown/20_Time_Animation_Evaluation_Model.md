@@ -91,7 +91,7 @@ Opacity is clamped to 0..1 at command validation. Scale may be negative to permi
 3. Resolve composition layer order and dependency graph.
 4. For each required layer, derive layer-local frame.
 5. Resolve exposure/source drawing.
-6. Evaluate animated properties/effect parameters at the composition frame. D-68, proposed on 2026-09-18: an effect parameter with keys is evaluated exactly as a transform property is, a colour's three numbers at the same fraction in linear light, and the result is then held inside the parameter's range, because an ease may overshoot. D-69, proposed on 2026-09-18: a position written as X and Y apart is `[x at the frame, y at the frame]`, each evaluated as any number is; a key's `kind` and `roving` are not read by evaluation at all.
+6. Evaluate animated properties/effect parameters at the composition frame. D-68, accepted on 2026-09-18: an effect parameter with keys is evaluated exactly as a transform property is, a colour's three numbers at the same fraction in linear light, and the result is then held inside the parameter's range, because an ease may overshoot. D-69, accepted on 2026-09-18: a position written as X and Y apart is `[x at the frame, y at the frame]`, each evaluated as any number is; a key's `kind` and `roving` are not read by evaluation at all.
 7. Evaluate source, mask, effects, transform and matte using 21.
 8. Composite the ordered result.
 9. Apply output/display transform only for the requested destination.

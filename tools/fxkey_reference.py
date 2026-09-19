@@ -169,7 +169,8 @@ CASES = {
                    [2]),
 }
 
-# FX-FXK-009 is a file and not a frame: a tint amount keyed to 1.5 is outside its range.
+# FX-FXK-009: a tint amount keyed to 1.5 is outside its range. D-46: the file is read, the
+# effect is kept as written and bypassed on every frame, with EFFECT_PARAMETER_INVALID.
 INVALID = {"layers": [BG, adjustment(("tint", (0, 0, 1), keyed((0, 0), (4, 1.5))))]}
 
 
@@ -195,11 +196,14 @@ def main():
                 print(f"| {f}, {y} | " + " | ".join(cells) + " |")
         print()
 
-    says = "A tint amount keyed to 1.5, outside 0 to 1: the file is refused."
+    says = ("A tint amount keyed to 1.5, outside 0 to 1: the file is read, the effect is kept as "
+            "written and left out of every frame, with a warning.")
+    below = adj.render({"layers": [BG]})
     (OUT / "fx_fxk_009.json").write_text(json.dumps(project_json("FX-FXK-009", INVALID), indent=2)
                                          + "\n", encoding="utf-8")
     expected["cases"]["FX-FXK-009"] = {"says": says, "project": "fx_fxk_009.json",
-                                       "rejected": "PROJECT_SCHEMA_INVALID"}
+                                       "frames": {"0": below, "4": below},
+                                       "warning": "EFFECT_PARAMETER_INVALID"}
     print(f"FX-FXK-009: {says}\n")
 
     (OUT / "expected_fxkey.json").write_text(json.dumps(expected, indent=1) + "\n",

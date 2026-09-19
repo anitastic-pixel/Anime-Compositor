@@ -874,9 +874,9 @@ FX-PRE-015: Main holds a layer of Inner and Inner a layer of Main: the file is r
 
 ## Keyframed effect setting fixtures
 
-D-68, proposed on 2026-09-18 and waiting on the owner; nothing is built against these yet. Every case is a project of one composition 6 by 2 at 24 fps, five frames long, in `Fixtures/fxkey/`. The drawings are the adjustment fixtures' `bg`, `half` and `dot`. An effect's setting is written in the file as a property record with keys, where the adjustment fixtures write a plain number.
+D-68, accepted on 2026-09-18. Every case is a project of one composition 6 by 2 at 24 fps, five frames long, in `Fixtures/fxkey/`. The drawings are the adjustment fixtures' `bg`, `half` and `dot`. An effect's setting is written in the file as a property record with keys, where the adjustment fixtures write a plain number.
 
-**Every number below is produced by `tools/fxkey_reference.py`**, which works each setting's value at the frame from document 20, holds it inside its range, and renders each pixel from document 21 through `tools/adjust_reference.py`; an ease is solved by `tools/ease_reference.py`'s bisection. The same numbers are in `Fixtures/fxkey/expected_fxkey.json`. Tolerance 1e-6. The overshooting curve is `[0.3, 1.6, 0.7, 1.6]`. FX-FXK-009 has no frames and expects the file to be refused with `PROJECT_SCHEMA_INVALID`.
+**Every number below is produced by `tools/fxkey_reference.py`**, which works each setting's value at the frame from document 20, holds it inside its range, and renders each pixel from document 21 through `tools/adjust_reference.py`; an ease is solved by `tools/ease_reference.py`'s bisection. The same numbers are in `Fixtures/fxkey/expected_fxkey.json`. Tolerance 1e-6. The overshooting curve is `[0.3, 1.6, 0.7, 1.6]`. FX-FXK-009 holds a key outside its setting's range: the file is read, the effect is kept as written, and every frame is the frame without it, with the warning `EFFECT_PARAMETER_INVALID` (D-46).
 
 FX-FXK-001: Exposure keyed from 0 stops at frame 1 to 2 stops at frame 3, linear: the first key's value before it, the last key's after it, one stop between.
 
@@ -956,11 +956,11 @@ FX-FXK-008: Two settings of one effect keyed at once, and a second effect left p
 | 2, 0 | 1 0.5 0.5 1 | 1 0.5 0.5 1 | 1 0.5 0.5 1 | 1 0.5 0.5 1 | 1 0.5 0.5 1 | 1 0.5 0.5 1 |
 | 2, 1 | 0.2158605 0.7158605 0.7158605 1 | 0.2158605 0.7158605 0.7158605 1 | 0.2158605 0.7158605 0.7158605 1 | 0.2158605 0.7158605 0.7158605 1 | 0.2158605 0.7158605 0.7158605 1 | 0.2158605 0.7158605 0.7158605 1 |
 
-FX-FXK-009: A tint amount keyed to 1.5, outside 0 to 1: the file is refused.
+FX-FXK-009: A tint amount keyed to 1.5, outside 0 to 1: the file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are FX-FXK-001's frame 0.
 
 ## Separate dimension and key kind fixtures
 
-D-69, proposed on 2026-09-18 and waiting on the owner; nothing is built against these yet. FX-SEP-001 and 002 are projects in `Fixtures/keykind/` whose layer's position is written as X and Y apart, and pin the position at each of five frames. Every other case is an edit: the keys before, what is done, and the keys that must be there after, since a key's kind and roving change what an edit leaves in the file and never how a frame is worked out from it.
+D-69, accepted on 2026-09-18; nothing is built against these yet. FX-SEP-001 and 002 are projects in `Fixtures/keykind/` whose layer's position is written as X and Y apart, and pin the position at each of five frames. Every other case is an edit: the keys before, what is done, and the keys that must be there after, since a key's kind and roving change what an edit leaves in the file and never how a frame is worked out from it.
 
 **Every number below is produced by `tools/keykind_reference.py`** from D-69's formulas, each checked there against a value worked by hand; an ease is solved by `tools/ease_reference.py`'s bisection. The same cases are in `Fixtures/keykind/expected_keykind.json`. Tolerance 1e-9. "To the next key" is the key's `interp`, and for an ease its four numbers.
 
