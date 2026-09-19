@@ -54,4 +54,4 @@ made again on every run, so they are not kept in git.
 
 ## Result
 
-(the owner's words go here)
+The owner, on 2026-09-19: "exporting worked very well"; "b-21c and b-21d can be passed for playtest".
