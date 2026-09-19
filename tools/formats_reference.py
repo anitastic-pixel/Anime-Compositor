@@ -82,7 +82,10 @@ def bitrate(w, h, num, den, thousandths):
     return min(max(w * h * num * thousandths // (den * 1000), 1_000_000), 100_000_000)
 
 
-def dither(pixels, width, palette):
+LIMIT = 16  # D-73a, proposed: the most of a difference, in each of red, green and blue, passed on
+
+
+def dither(pixels, width, palette, limit=None):
     """D-73's GIF dithering, Floyd and Steinberg's, in whole numbers so two programs agree.
 
     Pixels are (r, g, b, a) rows left to right, top to bottom. A pixel under half alpha is
@@ -90,6 +93,10 @@ def dither(pixels, width, palette):
     plus the error carried to it goes to the nearest palette colour (least squared distance, the
     first one on a tie), and the difference goes 7 sixteenths right, 3 below left, 5 below and 1
     below right, each floored (toward minus infinity).
+
+    D-73a, proposed (`limit` given): the pixel plus its carried error is first held within 0 to
+    255, and the difference is held within plus and minus `limit` before it is shared out. One
+    pixel the palette has nothing near cannot then tint its neighbours.
     """
     height = len(pixels) // width
     carried = [[0, 0, 0] for _ in pixels]
@@ -99,6 +106,8 @@ def dither(pixels, width, palette):
             out.append(None)
             continue
         want = [v + c for v, c in zip((r, g, b), carried[i])]
+        if limit is not None:
+            want = [max(0, min(255, v)) for v in want]
         pick = min(range(len(palette)),
                    key=lambda p: (sum((x - y) ** 2 for x, y in zip(want, palette[p])), p))
         out.append(pick)
@@ -106,7 +115,10 @@ def dither(pixels, width, palette):
         for dx, dy, part in ((1, 0, 7), (-1, 1, 3), (0, 1, 5), (1, 1, 1)):
             if 0 <= x + dx < width and y + dy < height:
                 for c in range(3):
-                    carried[(y + dy) * width + x + dx][c] += (want[c] - palette[pick][c]) * part >> 4
+                    e = want[c] - palette[pick][c]
+                    if limit is not None:
+                        e = max(-limit, min(limit, e))
+                    carried[(y + dy) * width + x + dx][c] += e * part >> 4
     return out
 
 
@@ -122,6 +134,24 @@ DITHER = {
                    "it gets no colour and carries no error.",
                    4, [(255, 128, 0, 255)] * 5 + [(255, 128, 0, 0)] + [(255, 128, 0, 255)] * 6,
                    [(255, 0, 0), (255, 255, 0)]),
+}
+
+
+# D-73a, proposed: the same, with the passed-on difference held within LIMIT. The palettes are
+# close together, as the 256 colours picked from a picture are; FX-FMT-050 to 052 spend two or
+# three far-apart colours, which is the case the limit gives up.
+DITHER_LIMITED = {
+    "FX-FMT-053": ("A flat grey of 100 between greys of 96 and 104 becomes a mix of the two.",
+                   4, [GREY(100)] * 16, [(96, 96, 96), (104, 104, 104)]),
+    "FX-FMT-054": ("A soft grey ramp, 90 to 118, in greys of 88, 104 and 120, with a see-through "
+                   "pixel in the way: it gets no colour and carries no error.",
+                   8, [GREY(90 + 4 * x) for x in range(8)] + [GREY(90 + 4 * x) for x in range(3)]
+                   + [(102, 102, 102, 0)] + [GREY(90 + 4 * x) for x in range(4, 8)],
+                   [(88, 88, 88), (104, 104, 104), (120, 120, 120)]),
+    "FX-FMT-055": ("The specks: a field of dull red the palette has nothing near, with two greys "
+                   "and a bright red to spend. It becomes the nearer grey, with no bright red dots.",
+                   6, [(140, 100, 100, 255)] * 24,
+                   [(96, 96, 96), (104, 104, 104), (255, 40, 40)]),
 }
 
 
@@ -190,6 +220,22 @@ def main():
                 for i in range(0, len(picked), width)]
         print(f"{fx}: {says}\n\nPalette: " + ", ".join(f"{i} is {c}" for i, c in enumerate(palette))
               + ". A dot is see-through.\n\n```\n" + "\n".join(grid) + "\n```\n")
+
+    grids = lambda picked, width: ["".join("." if p is None else str(p) for p in picked[i:i + width])
+                                   for i in range(0, len(picked), width)]
+    print(f"D-73a, proposed: the difference passed on is held within {LIMIT}.\n")
+    for fx, (says, width, pixels, palette) in DITHER_LIMITED.items():
+        picked = dither(pixels, width, palette, LIMIT)
+        cases[fx] = {"says": says, "width": width, "pixels_rgba": pixels, "palette_rgb": palette,
+                     "limit": LIMIT, "palette_index_or_null": picked}
+        print(f"{fx}: {says}\n\nPalette: " + ", ".join(f"{i} is {c}" for i, c in enumerate(palette))
+              + ". A dot is see-through.\n\n```\n" + "\n".join(grids(picked, width)) + "\n```\n")
+    # What D-73 as accepted makes of the speck, so the two can be told apart.
+    _, width, pixels, palette = DITHER_LIMITED["FX-FMT-055"]
+    before = dither(pixels, width, palette)
+    assert before.count(2) > 1 and dither(pixels, width, palette, LIMIT).count(2) == 0
+    print("The same picture under D-73 as accepted, for comparison, not a fixture:\n\n```\n"
+          + "\n".join(grids(before, width)) + "\n```\n")
 
     cases["FX-FMT-060"] = {
         "says": "An MP4 says what its colour is: BT.709 primaries, transfer and matrix, video "

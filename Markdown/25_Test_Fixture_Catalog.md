@@ -1492,6 +1492,50 @@ Palette: 0 is (255, 0, 0), 1 is (255, 255, 0). A dot is see-through.
 1010
 ```
 
+**D-73a, PROPOSED on 2026-09-19; nothing is built against FX-FMT-053 to 055 yet.** FX-FMT-050 to 052 above are unchanged and are what the build answers to today. If D-73a is accepted they are retired, not rewritten: they spend two or three far-apart colours, which is the case the limit gives up.
+
+D-73a, proposed: the difference passed on is held within 16.
+
+FX-FMT-053: A flat grey of 100 between greys of 96 and 104 becomes a mix of the two.
+
+Palette: 0 is (96, 96, 96), 1 is (104, 104, 104). A dot is see-through.
+
+```
+0100
+0001
+1010
+0000
+```
+
+FX-FMT-054: A soft grey ramp, 90 to 118, in greys of 88, 104 and 120, with a see-through pixel in the way: it gets no colour and carries no error.
+
+Palette: 0 is (88, 88, 88), 1 is (104, 104, 104), 2 is (120, 120, 120). A dot is see-through.
+
+```
+00111122
+001.1121
+```
+
+FX-FMT-055: The specks: a field of dull red the palette has nothing near, with two greys and a bright red to spend. It becomes the nearer grey, with no bright red dots.
+
+Palette: 0 is (96, 96, 96), 1 is (104, 104, 104), 2 is (255, 40, 40). A dot is see-through.
+
+```
+111111
+111111
+111111
+111111
+```
+
+The same picture under D-73 as accepted, for comparison, not a fixture:
+
+```
+111111
+112112
+111111
+121211
+```
+
 FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matrix, video range. Read back from the file, from the H.264 header or the container's colour box, whichever the file carries.
 
 | primaries | transfer | matrix | full range |

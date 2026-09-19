@@ -70,4 +70,4 @@ kept in git; about five minutes to make). The side-by-side pictures in
 
 ## Result
 
-(for the owner)
+**Passed on 2026-09-19.** The owner: "B-22c playtest passes; write the D-73 amendment for the specks". The amendment is D-73a in document 14, proposed.
