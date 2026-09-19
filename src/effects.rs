@@ -29,7 +29,9 @@
 
 use rayon::prelude::*;
 
-use crate::model::Id;
+use std::collections::BTreeMap;
+
+use crate::model::{Id, Interp, Keyframe, Property, Value};
 use crate::WorkingBuffer;
 
 /// One entry in a layer's ordered effect stack.
@@ -40,7 +42,12 @@ use crate::WorkingBuffer;
 pub struct EffectInstance {
     pub instance_id: Id,
     pub enabled: bool,
+    /// Every setting's constant value, which is what a setting with no keys is.
     pub effect: Effect,
+    /// D-68: the keys of each setting that has any, by the setting's name in the file. One
+    /// property of one number for a number, three for a colour, which share their frames and
+    /// eases. A property's base is not read; the constant lives in `effect`.
+    pub tracks: BTreeMap<String, Vec<Property>>,
 }
 
 impl EffectInstance {
@@ -49,6 +56,99 @@ impl EffectInstance {
             instance_id,
             enabled: true,
             effect,
+            tracks: BTreeMap::new(),
+        }
+    }
+
+    /// D-68: every key of the setting `name`, as a command would give them back.
+    pub fn keys(&self, name: &str) -> Vec<EffectKey> {
+        let Some(track) = self.tracks.get(name) else {
+            return Vec::new();
+        };
+        (0..track[0].keyframes().len())
+            .map(|i| EffectKey {
+                frame: track[0].keyframes()[i].frame,
+                value: key_numbers(track, i),
+                interp: track[0].keyframes()[i].interp,
+            })
+            .collect()
+    }
+
+    /// Replace every key of the setting `name`. None is a setting that is constant again. The
+    /// command has checked the keys; a name this effect does not have changes nothing.
+    pub(crate) fn set_keys(&mut self, name: &str, keys: &[EffectKey]) {
+        let Some(count) = self.effect.arity(name) else {
+            return;
+        };
+        if keys.is_empty() {
+            self.tracks.remove(name);
+            return;
+        }
+        let mut track = vec![Property::constant(Value::Scalar(0.0)); count];
+        for key in keys {
+            for (c, property) in track.iter_mut().enumerate() {
+                property.set_keyframe(Keyframe {
+                    frame: key.frame,
+                    value: Value::Scalar(key.value[c]),
+                    interp: key.interp,
+                    spatial: None,
+                });
+            }
+        }
+        self.tracks.insert(name.to_string(), track);
+    }
+
+    /// Every key of every setting `by` frames later, as a layer's other keys go with it.
+    pub(crate) fn shift_keys(&mut self, by: i32) {
+        for property in self.tracks.values_mut().flatten() {
+            property.shift_keyframes(by);
+        }
+    }
+
+    /// D-68 and D-46: the effect with the first constant or key value that is outside its
+    /// range, when there is one. The whole effect is then bypassed on every frame.
+    pub fn invalid(&self) -> Option<Effect> {
+        if !self.effect.is_valid() {
+            return Some(self.effect.clone());
+        }
+        for (name, track) in &self.tracks {
+            for i in 0..track[0].keyframes().len() {
+                let mut e = self.effect.clone();
+                e.set(name, &key_numbers(track, i));
+                if !e.is_valid() {
+                    return Some(e);
+                }
+            }
+        }
+        None
+    }
+
+    /// D-68: this instance as it is at a composition frame, with no keys left in it. Each keyed
+    /// setting is document 20's value, then held inside the setting's range, because an ease
+    /// between two keys that are in range may overshoot it.
+    pub fn at(&self, frame: i32) -> EffectInstance {
+        let mut effect = self.effect.clone();
+        if let Some(bad) = self.invalid() {
+            effect = bad;
+        } else {
+            for (name, track) in &self.tracks {
+                let v: Vec<f64> = track
+                    .iter()
+                    .map(|p| p.value_at(frame).as_scalar().unwrap_or(0.0))
+                    .collect();
+                effect.set(name, &v);
+            }
+            match &mut effect {
+                Effect::GaussianBlur { sigma_px } => *sigma_px = sigma_px.max(0.0),
+                Effect::Tint { amount, .. } => *amount = amount.clamp(0.0, 1.0),
+                _ => {}
+            }
+        }
+        EffectInstance {
+            instance_id: self.instance_id.clone(),
+            enabled: self.enabled,
+            effect,
+            tracks: BTreeMap::new(),
         }
     }
 
@@ -86,7 +186,55 @@ pub const EXPOSURE: &str = "core.exposure";
 pub const GAUSSIAN_BLUR: &str = "core.gaussian_blur";
 pub const TINT: &str = "core.tint";
 
+/// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
+/// colour's three.
+#[derive(Clone, PartialEq, Debug)]
+pub struct EffectKey {
+    pub frame: i32,
+    pub value: Vec<f64>,
+    pub interp: Interp,
+}
+
+/// The numbers of key `i` of a setting's track: one, or a colour's three.
+fn key_numbers(track: &[Property], i: usize) -> Vec<f64> {
+    track
+        .iter()
+        .map(|p| p.keyframes()[i].value.as_scalar().unwrap_or(0.0))
+        .collect()
+}
+
 impl Effect {
+    /// How many numbers the setting of this name holds, or `None` when this effect has no such
+    /// setting.
+    pub fn arity(&self, name: &str) -> Option<usize> {
+        match (self, name) {
+            (Effect::Exposure { .. }, "stops")
+            | (Effect::GaussianBlur { .. }, "sigma_px")
+            | (Effect::Tint { .. }, "amount") => Some(1),
+            (Effect::Tint { .. }, "color") => Some(3),
+            _ => None,
+        }
+    }
+
+    /// Put `v` in the setting of this name. A name or a count that does not fit changes nothing.
+    pub fn set(&mut self, name: &str, v: &[f64]) {
+        if self.arity(name) != Some(v.len()) {
+            return;
+        }
+        match self {
+            Effect::Exposure { stops } => *stops = v[0],
+            Effect::GaussianBlur { sigma_px } => *sigma_px = v[0],
+            Effect::Tint { color, amount } => {
+                if v.len() == 3 {
+                    color.copy_from_slice(v)
+                } else {
+                    *amount = v[0]
+                }
+            }
+            Effect::Unsupported { .. } => {}
+        }
+    }
+
     pub fn type_id(&self) -> &str {
         match self {
             Effect::Exposure { .. } => EXPOSURE,

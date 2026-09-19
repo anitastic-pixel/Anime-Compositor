@@ -660,6 +660,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         }
         Effect::Unsupported { .. } => {}
     }
+    // D-68: a setting with keys is a property record whose base is the plain value just
+    // written; a setting without any stays that plain value.
+    for (name, track) in &instance.tracks {
+        let Some(plain) = params.get(name).cloned() else {
+            continue;
+        };
+        let mut channels: Vec<J> = track.iter().map(|p| property_json(None, p, 1.0)).collect();
+        let mut record = channels.remove(0);
+        if let Some(keys) = record["keyframes"].as_array_mut() {
+            for (i, key) in keys.iter_mut().enumerate() {
+                if !channels.is_empty() {
+                    let mut three = vec![key["value"].clone()];
+                    three.extend(channels.iter().map(|c| c["keyframes"][i]["value"].clone()));
+                    key["value"] = J::Array(three);
+                }
+            }
+        }
+        record["base"] = plain;
+        params.insert(name.clone(), record);
+    }
     if !matches!(instance.effect, Effect::Unsupported { .. }) || base.is_some() {
         owned.push(("parameters", J::Object(params)));
     }
@@ -873,6 +893,71 @@ fn effect_color(params: Option<&J>, at: &str) -> Result<[f64; 3], Diagnostic> {
         as_f64(&color[1], &format!("{at}/1"))?,
         as_f64(&color[2], &format!("{at}/2"))?,
     ])
+}
+
+/// D-68: a setting written as a property record, `{"base", "keyframes"}`, in place of a plain
+/// value. Handed back are the parameters with every such record replaced by its base, which is
+/// what the readers above take, and the keys of each setting that has any. A colour's record
+/// holds three numbers wherever a number's holds one, and is read as three properties of one
+/// number that share their frames and eases.
+type Tracks = std::collections::BTreeMap<String, Vec<Property>>;
+fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Diagnostic> {
+    let mut tracks = Tracks::new();
+    let Some(J::Object(map)) = params else {
+        return Ok((None, tracks));
+    };
+    let mut plain = map.clone();
+    for name in ["stops", "sigma_px", "color", "amount"] {
+        let Some(record) = map.get(name).filter(|v| v.is_object()) else {
+            continue;
+        };
+        let at = format!("{at}/parameters/{name}");
+        if record.get("expression").is_some() {
+            return Err(invalid(
+                &at,
+                "no expression: an effect's setting takes keys only",
+            ));
+        }
+        let base = field(record, &at, "base")?;
+        let keys = as_array(field(record, &at, "keyframes")?, &format!("{at}/keyframes"))?;
+        let count = if name == "color" { 3 } else { 1 };
+        let mut track = Vec::new();
+        for c in 0..count {
+            // One channel's record: the same keys, each holding that channel's number.
+            let pick = |v: &J, at: &str| -> Result<J, Diagnostic> {
+                if count == 1 {
+                    return Ok(v.clone());
+                }
+                match v.as_array() {
+                    Some(three) if three.len() == 3 => Ok(three[c].clone()),
+                    _ => Err(invalid(at, "a linear RGB triple")),
+                }
+            };
+            let mut channel_keys = Vec::new();
+            for (i, key) in keys.iter().enumerate() {
+                let at = format!("{at}/keyframes/{i}");
+                as_object(key, &at)?;
+                let mut channel_key = key.clone();
+                channel_key["value"] = pick(field(key, &at, "value")?, &at)?;
+                channel_keys.push(channel_key);
+            }
+            let mut channel = Map::new();
+            channel.insert("base".into(), pick(base, &format!("{at}/base"))?);
+            channel.insert("keyframes".into(), J::Array(channel_keys));
+            track.push(parse_property(
+                &J::Object(channel),
+                &at,
+                "scalar",
+                false,
+                1.0,
+            )?);
+        }
+        plain.insert(name.into(), base.clone());
+        if track[0].is_animated() {
+            tracks.insert(name.into(), track);
+        }
+    }
+    Ok((Some(J::Object(plain)), tracks))
 }
 
 fn effect_params<'a>(params: Option<&'a J>, at: &str) -> Result<&'a J, Diagnostic> {
@@ -1402,7 +1487,18 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 None | Some(J::Null) => true,
                 Some(b) => as_bool(b, &format!("{at}/enabled"))?,
             };
-            let params = effect.get("parameters");
+            let known = [
+                crate::effects::EXPOSURE,
+                crate::effects::GAUSSIAN_BLUR,
+                crate::effects::TINT,
+            ]
+            .contains(&type_id.as_str());
+            let (plain, tracks) = if known {
+                effect_tracks(effect.get("parameters"), &at)?
+            } else {
+                (None, std::collections::BTreeMap::new())
+            };
+            let params = plain.as_ref().or(effect.get("parameters"));
             let parsed = match type_id.as_str() {
                 crate::effects::EXPOSURE => Some(crate::effects::Effect::Exposure {
                     stops: effect_number(params, "stops", &at)?,
@@ -1421,7 +1517,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     // Document 28: a parameter outside its contract is reported, and the record
                     // is kept as written. It is not repaired here -- a repaired file would open
                     // clean the next time and quietly render something nobody chose.
-                    if !e.is_valid() {
+                    let whole = crate::effects::EffectInstance {
+                        instance_id: instance_id.clone(),
+                        enabled,
+                        effect: e.clone(),
+                        tracks: tracks.clone(),
+                    };
+                    if let Some(bad) = whole.invalid() {
                         warnings.push(
                             Diagnostic::new(
                                 DiagnosticId::EffectParameterInvalid,
@@ -1430,7 +1532,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                                     "The layer \"{name}\" has a {type_id} whose settings this \
                                      build cannot use."
                                 ),
-                                format!("{} The effect is kept and bypassed.", e.why_invalid()),
+                                format!("{} The effect is kept and bypassed.", bad.why_invalid()),
                             )
                             .with_remediation(
                                 "Set the parameter to a value inside its range, or remove the \
@@ -1468,6 +1570,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 instance_id: instance_id.clone(),
                 enabled,
                 effect: effect_value,
+                tracks,
             });
         }
     }

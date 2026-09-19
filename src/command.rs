@@ -364,6 +364,17 @@ pub enum Command {
         instance_id: Id,
         effect: crate::effects::Effect,
     },
+    /// D-68: every key of one setting of one effect, replaced as one. No keys is the setting
+    /// made constant again. The whole list is the unit for the reason `SetEffectParameters`
+    /// gives, and because undo is a snapshot, adding, moving, easing and removing a key are all
+    /// this.
+    SetEffectKeys {
+        composition: Id,
+        layer_id: Id,
+        instance_id: Id,
+        setting: String,
+        keys: Vec<crate::effects::EffectKey>,
+    },
 }
 
 impl Command {
@@ -405,6 +416,7 @@ impl Command {
             Command::ReorderEffect { .. } => "REORDER_EFFECT",
             Command::SetEffectEnabled { .. } => "SET_EFFECT_ENABLED",
             Command::SetEffectParameters { .. } => "SET_EFFECT_PARAMETERS",
+            Command::SetEffectKeys { .. } => "SET_EFFECT_KEYS",
         }
     }
 
@@ -536,6 +548,7 @@ impl Command {
             Command::SetEffectParameters { effect, .. } => {
                 format!("Change {} settings", effect.type_id())
             }
+            Command::SetEffectKeys { setting, .. } => format!("Change the keys of {setting}"),
         }
     }
 
@@ -575,7 +588,8 @@ impl Command {
             | Command::RemoveEffect { composition, .. }
             | Command::ReorderEffect { composition, .. }
             | Command::SetEffectEnabled { composition, .. }
-            | Command::SetEffectParameters { composition, .. } => Some(composition),
+            | Command::SetEffectParameters { composition, .. }
+            | Command::SetEffectKeys { composition, .. } => Some(composition),
         }
     }
 
@@ -607,7 +621,8 @@ impl Command {
             | Command::RemoveEffect { layer_id, .. }
             | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
-            | Command::SetEffectParameters { layer_id, .. } => ids.push(layer_id.clone()),
+            | Command::SetEffectParameters { layer_id, .. }
+            | Command::SetEffectKeys { layer_id, .. } => ids.push(layer_id.clone()),
             // B-13e: these four name a target. A layer goes in the affected list as it always
             // did; the camera adds nothing, because it belongs to the composition and the
             // composition is in the list already.
@@ -720,7 +735,8 @@ impl Command {
             | Command::RemoveEffect { layer_id, .. }
             | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
-            | Command::SetEffectParameters { layer_id, .. } => Some(layer_id),
+            | Command::SetEffectParameters { layer_id, .. }
+            | Command::SetEffectKeys { layer_id, .. } => Some(layer_id),
             // B-13e: a property command on a layer is still blocked by that layer's lock. On
             // the camera it is not, for the reason `blocked_by_lock` already gives
             // `SetCameraProperty`: the camera belongs to the composition and a locked layer has
@@ -1605,6 +1621,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             if let Some(depth) = &mut layer.depth {
                 depth.shift_keyframes(by);
             }
+            // D-68: and the keys of its effects' settings, for the same reason.
+            for instance in &mut layer.effects {
+                instance.shift_keys(by);
+            }
         }
         Command::TrimLayer {
             layer_id,
@@ -2015,6 +2035,56 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 .with_remediation("Remove the effect and add the one you want."));
             }
             existing.effect = effect.clone();
+        }
+        Command::SetEffectKeys {
+            layer_id,
+            instance_id,
+            setting,
+            keys,
+            ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let Some(existing) = layer
+                .effects
+                .iter_mut()
+                .find(|e| &e.instance_id == instance_id)
+            else {
+                return Err(missing_effect(layer_id, instance_id));
+            };
+            let Some(count) = existing.effect.arity(setting) else {
+                return Err(reject(
+                    &format!("A {} has no setting called {setting}.", existing.type_id()),
+                    "",
+                ));
+            };
+            for (i, key) in keys.iter().enumerate() {
+                let ease_fits = match key.interp {
+                    Interp::Ease { x1, y1, x2, y2 } => {
+                        (0.0..=1.0).contains(&x1)
+                            && (0.0..=1.0).contains(&x2)
+                            && y1.is_finite()
+                            && y2.is_finite()
+                    }
+                    _ => true,
+                };
+                if key.value.len() != count
+                    || !ease_fits
+                    || (i > 0 && keys[i - 1].frame >= key.frame)
+                {
+                    return Err(reject(
+                        &format!("The keys of {setting} cannot be used."),
+                        "Each key needs the setting's count of numbers, a frame after the key \
+                         before it, and an ease whose two times are from 0 to 1.",
+                    ));
+                }
+                // D-46: a value outside the setting's range is refused, never clamped.
+                let mut tried = existing.effect.clone();
+                tried.set(setting, &key.value);
+                if !tried.is_valid() {
+                    return Err(invalid_effect(&tried));
+                }
+            }
+            existing.set_keys(setting, keys);
         }
     }
     Ok(())

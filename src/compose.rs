@@ -313,7 +313,9 @@ fn plan_inside(
                 opacity: resolved.opacity,
                 matte,
                 blend: layer.blend_mode,
-                adjust: layer.is_adjustment().then(|| layer.effects.clone()),
+                adjust: layer
+                    .is_adjustment()
+                    .then(|| layer.effects.iter().map(|i| i.at(frame)).collect()),
                 nested: resolved.nested,
             },
         ));
@@ -834,6 +836,10 @@ fn resolve_rest(
     cel: Option<(PathBuf, crate::model::Interpretation)>,
     pre: f64,
 ) -> Option<ResolvedLayer> {
+    // D-68: every setting is its value at this composition frame, so the stack below, its
+    // bounds and the effect cache's key all hold plain numbers.
+    let effects: Vec<crate::effects::EffectInstance> =
+        layer.effects.iter().map(|i| i.at(frame)).collect();
     let draft_mask = layer.mask.as_ref().filter(|_| pre != 1.0).map(|m| {
         let mut m = m.clone();
         for v in &mut m.vertices {
@@ -958,7 +964,7 @@ fn resolve_rest(
         // that run would have reported is reported here instead, so a bypassed effect reaches
         // the log from the plan, where every other diagnostic of a frame comes from.
         None if layer.is_adjustment() => {
-            for instance in layer.effects.iter().filter(|i| i.enabled) {
+            for instance in effects.iter().filter(|i| i.enabled) {
                 match &instance.effect {
                     crate::effects::Effect::Unsupported { .. } => {
                         report(instance, crate::effects::Bypassed::NotImplemented)
@@ -971,11 +977,11 @@ fn resolve_rest(
             }
             (0, 0)
         }
-        _ if layer.effects.is_empty() => (0, 0),
+        _ if effects.is_empty() => (0, 0),
         // D-67: a composition layer's stack runs on the inner picture as one. The effect cache
         // is keyed by a cel's file, and this picture has none, so it is not asked.
         None => {
-            let mut stack = layer.effects.clone();
+            let mut stack = effects.clone();
             if pre != 1.0 {
                 for instance in &mut stack {
                     if let crate::effects::Effect::GaussianBlur { sigma_px } = &mut instance.effect
@@ -991,16 +997,14 @@ fn resolve_rest(
             )
         }
         Some((path, interpretation)) => {
-            if let Some(hit) =
-                cache.effect_result(path, *interpretation, drawn_mask, &layer.effects)
-            {
+            if let Some(hit) = cache.effect_result(path, *interpretation, drawn_mask, &effects) {
                 // P-11. ADR-017 fixes an evaluation's whole input to the cel, the mask and the stack, all
                 // three of which are in the key, so this buffer is the one `apply_stack` would have
                 // produced. It is handed back shared: the cache holds it too, so the transform below,
                 // which only reads, never copies it, and anything that did write would copy through
                 // `Arc::make_mut` exactly as it does for a cel.
                 for (index, why) in &hit.bypassed {
-                    report(&layer.effects[*index], *why);
+                    report(&effects[*index], *why);
                 }
                 source = hit.buffer;
                 hit.offset
@@ -1011,16 +1015,15 @@ fn resolve_rest(
                     std::sync::Arc::make_mut(&mut source)
                 });
                 let mut bypassed: Vec<(usize, crate::effects::Bypassed)> = Vec::new();
-                let offset =
-                    crate::effects::apply_stack(pixels, &layer.effects, |at, instance, why| {
-                        bypassed.push((at, why));
-                        report(instance, why);
-                    });
+                let offset = crate::effects::apply_stack(pixels, &effects, |at, instance, why| {
+                    bypassed.push((at, why));
+                    report(instance, why);
+                });
                 cache.store_effect(
                     path,
                     *interpretation,
                     drawn_mask,
-                    &layer.effects,
+                    &effects,
                     crate::cache::EffectResult {
                         buffer: std::sync::Arc::clone(&source),
                         offset,
