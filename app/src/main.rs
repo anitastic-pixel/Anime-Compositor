@@ -366,12 +366,11 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                         .transform
                         .value_at(frame)
                         .into_iter()
-                        .map(|(prop, value)| {
+                        .map(|(prop, _)| {
                             let property = layer.transform.get(prop).expect("one of the five");
-                            let (value, e) = match property.live_expression() {
-                                None => (value, None),
-                                Some(_) => expr::resolve(comp, property, target, prop, frame),
-                            };
+                            // B-19g: `resolve` costs a read of the keys where there is no
+                            // expression, and knows a separated position's halves may have one.
+                            let (value, e) = expr::resolve(comp, property, target, prop, frame);
                             failed(layer.id.as_str(), prop, e);
                             // D-22: the file holds a scale as a percentage, and a whole
                             // number as a whole number, so the panel reads 100 and not 100.0.
@@ -393,6 +392,13 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                     // keyed is not its base on any frame but the first, and the inspector would
                     // otherwise have gone on showing the number the animation started from.
                     let mut at = at;
+                    // B-19g: D-69's two halves under their own names, for their own rows.
+                    if layer.transform.position.split().is_some() {
+                        if let Some(pair) = at.get("position").and_then(|p| p.as_array()).cloned() {
+                            at.insert("position_x".to_string(), pair[0].clone());
+                            at.insert("position_y".to_string(), pair[1].clone());
+                        }
+                    }
                     let plane = layer.depth.as_ref().map_or(0.0, |d| {
                         let (v, e) = expr::resolve(comp, d, target, Prop::Depth, frame);
                         failed(layer.id.as_str(), Prop::Depth, e);
@@ -1271,6 +1277,10 @@ fn property(name: &str) -> Option<Prop> {
         // B-13d: document 24 line 91. A depth is named here with the five, and every route
         // below that takes a property reaches it without another word being written.
         Prop::Depth,
+        // B-19g: D-69's two halves of a separated position. A layer whose position is whole
+        // has neither, and the core says so.
+        Prop::PositionX,
+        Prop::PositionY,
     ]
     .into_iter()
     .find(|p| p.as_str() == name)
@@ -1936,7 +1946,9 @@ const ANSWERS: &[&str] = &[
     "keyframe.add_remove",
     "keyframe.move",
     "keyframe.set_interp",
+    "keyframe.set_kind",
     "keyframe.set_path",
+    "keyframe.set_roving",
     "layer.add_adjustment",
     "layer.add_composition",
     "layer.copy",
@@ -1966,6 +1978,7 @@ const ANSWERS: &[&str] = &[
     "property.drag_cancel",
     "property.drag_end",
     "property.drag_update",
+    "property.separate",
     "property.set_base",
     "property.set_expression",
     "timeline.set_markers",
@@ -1975,11 +1988,146 @@ const ANSWERS: &[&str] = &[
     "viewer.toggle_checkerboard",
 ];
 
+/// B-19g: whether the layer a request names has its position apart as X and Y (D-69).
+fn separated(viewer: &Mutex<Viewer>, query: Option<&str>) -> bool {
+    let held = viewer.lock().expect("the viewer lock was poisoned");
+    held.document
+        .project()
+        .composition(&held.composition)
+        .zip(parameter(query, "layer"))
+        .and_then(|(comp, layer)| comp.layer(&Id::new(layer)))
+        .is_some_and(|layer| layer.transform.position.split().is_some())
+}
+
 fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option<String> {
     if !ANSWERS.contains(&id) {
         return None;
     }
+    // B-19g: a separated position (D-69) is still one thing to drag in the viewer and one pair
+    // to type, so `position` sent to a layer whose position is apart is sent on as its X and
+    // its Y, inside one drag, which makes it one entry to undo.
+    if matches!(id, "property.set_base" | "property.drag_update")
+        && parameter(query, "prop").as_deref() == Some("position")
+        && separated(viewer, query)
+    {
+        if let Some((x, y)) = parameter(query, "value")
+            .as_deref()
+            .and_then(|v| v.split_once(','))
+        {
+            let rest: Vec<&str> = query
+                .unwrap_or("")
+                .split('&')
+                .filter(|piece| !piece.starts_with("prop=") && !piece.starts_with("value="))
+                .collect();
+            let half = |prop: &str, value: &str| {
+                let query = format!("{}&prop={prop}&value={}&drag=1", rest.join("&"), value.trim());
+                edit_command(viewer, id, Some(&query)).unwrap_or_default()
+            };
+            let said = half("position_x", x);
+            let said = if said == "Dragging." { half("position_y", y) } else { said };
+            let dragging = id == "property.drag_update" || parameter(query, "drag").is_some();
+            return Some(match (dragging, said == "Dragging.") {
+                (false, true) => end_drag(viewer),
+                (false, false) => {
+                    cancel_drag(viewer);
+                    said
+                }
+                _ => said,
+            });
+        }
+    }
     match id {
+        // B-19g: D-69's Separate Dimensions, which is a toggle like the others: which way it
+        // goes is read from the document rather than sent by the page.
+        "property.separate" => {
+            let Some(layer_id) = parameter(query, "layer").map(Id::new) else {
+                return Some("Which layer? Choose one in the layer list.".to_string());
+            };
+            let separate = !separated(viewer, query);
+            let composition = viewer
+                .lock()
+                .expect("the viewer lock was poisoned")
+                .composition
+                .clone();
+            return Some(edit(
+                viewer,
+                Command::SeparatePosition {
+                    composition,
+                    layer_id,
+                    separate,
+                },
+            ));
+        }
+        // B-19g: D-69's key kinds and roving, on every chosen key as one entry to undo. The
+        // keys are named `layer|prop|frame` as `keyframe.move` names them.
+        "keyframe.set_kind" | "keyframe.set_roving" => {
+            let kind = parameter(query, "kind").unwrap_or_default();
+            let kind = match kind.as_str() {
+                "bezier" => Some(anime_compositor::model::Kind::Bezier),
+                other => anime_compositor::model::Kind::named(other),
+            };
+            if id == "keyframe.set_kind" && kind.is_none() {
+                return Some("Which kind? Say bezier, continuous or auto.".to_string());
+            }
+            let roving = match parameter(query, "roving").as_deref() {
+                Some("true") => true,
+                Some("false") => false,
+                _ if id == "keyframe.set_roving" => {
+                    return Some("Roving is true or false.".to_string())
+                }
+                _ => false,
+            };
+            let mut chosen: std::collections::BTreeMap<(String, String), Vec<i32>> =
+                Default::default();
+            for named in parameters(query, "key") {
+                let mut parts = named.rsplitn(3, '|');
+                match (parts.next().map(str::parse::<i32>), parts.next(), parts.next()) {
+                    (Some(Ok(at)), Some(prop), Some(layer)) => chosen
+                        .entry((layer.to_string(), prop.to_string()))
+                        .or_default()
+                        .push(at),
+                    _ => return Some(format!("A key is layer|property|frame. Not \"{named}\".")),
+                }
+            }
+            if chosen.is_empty() {
+                return Some("Which keys? Choose some on the timeline.".to_string());
+            }
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            let composition = held.composition.clone();
+            let mut commands = Vec::new();
+            for ((layer, prop), frames) in chosen {
+                // ponytail: a layer's keys only. The camera's and an effect setting's keys keep
+                // plain bezier handles until somebody asks for the kinds there; D-69 names
+                // neither.
+                let Some(prop) = property(&prop).filter(|_| layer != CAMERA_ROW) else {
+                    return Some(
+                        "Only a layer's own properties have these kinds of key.".to_string(),
+                    );
+                };
+                let target = Target::Layer(Id::new(layer));
+                let composition = composition.clone();
+                commands.push(match kind {
+                    Some(kind) if id == "keyframe.set_kind" => Command::SetKeyKind {
+                        composition,
+                        target,
+                        prop,
+                        frames,
+                        kind,
+                    },
+                    _ => Command::SetKeyRoving {
+                        composition,
+                        target,
+                        prop,
+                        frames,
+                        roving,
+                    },
+                });
+            }
+            return Some(match held.document.apply_all(commands) {
+                Ok(record) => record.label.clone(),
+                Err(diagnostic) => sentence(&diagnostic),
+            });
+        }
         "edit.undo" => return Some(undo(viewer)),
         "edit.redo" => return Some(redo(viewer)),
         // The two ends of an interaction transaction. Neither names a layer: the drag already
@@ -11003,6 +11151,244 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-19g: D-69 from the window. The order is the playtest sheet's.
+    #[test]
+    fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        // What the page reads: a property as the file writes it, a plain value or its keys.
+        let written = |held: &serde_json::Value| match held["keyframes"].as_array() {
+            Some(all) if !all.is_empty() => all
+                .iter()
+                .map(|k| {
+                    let ease = k["ease"].as_array().map_or(String::new(), |e| {
+                        let e: Vec<String> = e
+                            .iter()
+                            .map(|v| format!("{:.4}", v.as_f64().unwrap_or(f64::NAN)))
+                            .collect();
+                        format!(" [{}]", e.join(","))
+                    });
+                    let kind = k["kind"].as_str().map_or(String::new(), |k| format!(" {k}"));
+                    let roving = if k["roving"] == true { " roving" } else { "" };
+                    format!("{}: {} {}{ease}{kind}{roving}", k["frame"], k["value"], k["interp"])
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+                .replace('"', ""),
+            _ => format!("plain {}", held["base"]),
+        };
+        let prop = |viewer: &Mutex<Viewer>, name: &str| {
+            let t = shown_layer(viewer, "Cel")["transform"].clone();
+            match name {
+                "position_x" => written(&t["position"]["x"]),
+                "position_y" => written(&t["position"]["y"]),
+                _ => written(&t[name]),
+            }
+        };
+        let depth = |viewer: &Mutex<Viewer>| held(viewer).document.undo_depth();
+        let on_frame = |viewer: &Mutex<Viewer>, frame: i32, prop: &str| {
+            let answer: serde_json::Value =
+                serde_json::from_slice(boxes(viewer, frame, None).body()).expect("boxes is JSON");
+            answer["values"][&cel][prop].to_string()
+        };
+
+        run(&viewer, &format!("property.set_base?layer={cel}&prop=position&value=100,50"));
+        let before = depth(&viewer);
+        report.check(
+            "Separate Dimensions on a layer at 100, 50",
+            "Separate position into X and Y",
+            run(&viewer, &format!("property.separate?layer={cel}")),
+        );
+        report.check("X position is 100", "plain 100", prop(&viewer, "position_x"));
+        report.check("Y position is 50", "plain 50", prop(&viewer, "position_y"));
+        report.check(
+            "as one entry to undo",
+            (before + 1).to_string(),
+            depth(&viewer).to_string(),
+        );
+        run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=position_x&frame=0"));
+        run(
+            &viewer,
+            &format!("property.set_base?layer={cel}&prop=position_x&frame=10&value=300"),
+        );
+        report.check(
+            "X is keyed from 100 to 300 over ten frames, by the stopwatch and a typed value",
+            "0: 100 linear; 10: 300 linear",
+            prop(&viewer, "position_x"),
+        );
+        report.check("and Y has no keys", "plain 50", prop(&viewer, "position_y"));
+        report.check(
+            "half way the panel is told X is 200",
+            "200",
+            on_frame(&viewer, 5, "position_x"),
+        );
+        report.check(
+            "and the position the viewer's handles start from is 200, 50",
+            "[200,50]",
+            on_frame(&viewer, 5, "position"),
+        );
+        report.check(
+            "a key on the whole position is refused while it is apart",
+            "This position is separated: change its X or its Y.",
+            run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=position&frame=3")),
+        );
+        let before = depth(&viewer);
+        run(
+            &viewer,
+            &format!("property.drag_update?layer={cel}&prop=position&frame=10&value=350,70"),
+        );
+        run(
+            &viewer,
+            &format!("property.drag_update?layer={cel}&prop=position&frame=10&value=400,90"),
+        );
+        run(&viewer, "property.drag_end");
+        report.check(
+            "the layer dragged in the viewer on frame 10, to 400, 90: X's key there takes the 400",
+            "0: 100 linear; 10: 400 linear",
+            prop(&viewer, "position_x"),
+        );
+        report.check("and Y, which has no keys, is 90", "plain 90", prop(&viewer, "position_y"));
+        report.check(
+            "the whole drag is one entry to undo",
+            (before + 1).to_string(),
+            depth(&viewer).to_string(),
+        );
+        let before = depth(&viewer);
+        run(
+            &viewer,
+            &format!("property.set_base?layer={cel}&prop=position&frame=10&value=400,95"),
+        );
+        report.check(
+            "a pair typed for the whole position is one entry to undo as well",
+            format!("{} and plain 95", before + 1),
+            format!("{} and {}", depth(&viewer), prop(&viewer, "position_y")),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "pressing the button again joins them: one position, a key wherever X or Y had one",
+            "0: [100,90] linear; 10: [400,90] linear",
+            {
+                run(&viewer, &format!("property.separate?layer={cel}"));
+                prop(&viewer, "position")
+            },
+        );
+
+        // The kinds of key, on rotation: 0 at frame 0, 10 at frame 10, 40 at frame 20.
+        for (frame, value) in [(0, 0), (10, 10), (20, 40)] {
+            run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=rotation&frame={frame}"));
+            run(
+                &viewer,
+                &format!("property.set_base?layer={cel}&prop=rotation&frame={frame}&value={value}"),
+            );
+        }
+        let before = depth(&viewer);
+        run(&viewer, &format!("keyframe.set_kind?kind=auto&key={cel}|rotation|10"));
+        report.check(
+            "Auto bezier on the middle key: 1 a frame in and 3 a frame out become 2 a frame both \
+             ways, which is 40 degrees over the 20 frames either side, on handles a third long",
+            "0: 0 ease [0.3333,0.3333,0.6667,0.3333]; 10: 10 ease [0.3333,0.2222,0.6667,0.6667] auto; 20: 40 linear",
+            prop(&viewer, "rotation"),
+        );
+        report.check(
+            "as one entry to undo",
+            (before + 1).to_string(),
+            depth(&viewer).to_string(),
+        );
+        run(&viewer, &format!("keyframe.set_kind?kind=bezier&key={cel}|rotation|10"));
+        report.check(
+            "Bezier puts the key back in the person's hands: the handles stay and the word goes",
+            "0: 0 ease [0.3333,0.3333,0.6667,0.3333]; 10: 10 ease [0.3333,0.2222,0.6667,0.6667]; 20: 40 linear",
+            prop(&viewer, "rotation"),
+        );
+        report.check(
+            "a kind that is not one of the three is asked about",
+            "Which kind? Say bezier, continuous or auto.",
+            run(&viewer, &format!("keyframe.set_kind?kind=smooth&key={cel}|rotation|10")),
+        );
+
+        // Roving, on the joined position: 100 to 400 to 1000 along X, keyed on 0, 10 and 20.
+        run(&viewer, &format!("property.set_base?layer={cel}&prop=position&frame=20&value=1000,90"));
+        let before = depth(&viewer);
+        run(&viewer, &format!("keyframe.set_roving?roving=true&key={cel}|position|10"));
+        report.check(
+            "Rove Across Time on the middle key: a third of the way along the path is a third of \
+             the way through the 20 frames, so it goes to frame 7",
+            "0: [100,90] linear; 7: [400,90] linear roving; 20: [1000,90] linear",
+            prop(&viewer, "position"),
+        );
+        report.check(
+            "as one entry to undo",
+            (before + 1).to_string(),
+            depth(&viewer).to_string(),
+        );
+        report.check(
+            "the first key cannot rove",
+            "The first and last keyframes cannot rove.",
+            run(&viewer, &format!("keyframe.set_roving?roving=true&key={cel}|position|0")),
+        );
+        run(&viewer, &format!("keyframe.set_roving?roving=false&key={cel}|position|7"));
+        report.check(
+            "roving switched off leaves the key on the frame it had reached",
+            "0: [100,90] linear; 7: [400,90] linear; 20: [1000,90] linear",
+            prop(&viewer, "position"),
+        );
+        run(&viewer, &format!("keyframe.set_roving?roving=true&key={cel}|position|7"));
+        run(&viewer, &format!("property.separate?layer={cel}"));
+        report.check(
+            "Separate Dimensions while a key roves: X and Y cannot rove (D-69), so the key \
+             stays on its frame and stops roving",
+            "0: 100 linear; 7: 400 linear; 20: 1000 linear",
+            prop(&viewer, "position_x"),
+        );
+        let saved = persist::to_json(held(&viewer).document.project(), &Preserved::default());
+        let again = persist::load_str(&saved).map(|l| persist::to_json(l.document.project(), &l.preserved));
+        report.check(
+            "what a save would write opens again and saves the same",
+            "the same",
+            if again.as_deref().ok() == Some(saved.as_str()) { "the same" } else { "differs" },
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-19g_panel_table.md",
+            "B-19g: a separated position and the kinds of key, from the window",
+            KEY_KIND_INTRO,
+            KEY_KIND_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const KEY_KIND_INTRO: &[&str] = &[
+        "D-69 gave a position its X and Y as properties of their own, and a key its kind and \
+         its roving, and B-19f built them in the core, checked against the fixtures in \
+         `verification/B-19f_keykind_table.md`. This is the window's half: `property.separate`, \
+         `keyframe.set_kind` and `keyframe.set_roving`, the names `position_x` and `position_y` \
+         wherever a property is named, and `position` still answered on a separated layer, so \
+         the viewer's handles and the arrow keys move it as they always did.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
+         and reads back what the page is given.",
+    ];
+
+    const KEY_KIND_NOTES: &[&str] = &[
+        "## What this does not cover\n\nThe rows, the round keys, the menu and the button as \
+         they look, and the two halves in the graph, are in the page. They are \
+         `verification/B-19g_keykind_playtest.md`, for a person. Whether the numbers are D-69's \
+         is B-19f's table.",
+    ];
+
     const FX_KEY_INTRO: &[&str] = &[
         "D-68 gave an effect's setting keys and B-19c built them in the core, checked pixel by \
          pixel in `verification/B-19c_fxkey_table.md`. This is the window's half. The page names \
@@ -12821,7 +13207,9 @@ mod contract {
         "keyframe.add_remove",
         "keyframe.move",
         "keyframe.set_interp",
+        "keyframe.set_kind",
         "keyframe.set_path",
+        "keyframe.set_roving",
         "layer.add_adjustment",
         "layer.add_composition",
         "layer.copy",
@@ -12850,6 +13238,7 @@ mod contract {
         "property.drag_cancel",
         "property.drag_end",
         "property.drag_update",
+        "property.separate",
         "property.set_base",
         "property.set_expression",
         "timeline.set_markers",
@@ -13180,6 +13569,10 @@ mod contract {
         ("keyframe.move", "a command the window answers"),
         ("keyframe.set_interp", "a command the window answers"),
         ("keyframe.set_path", "a command the window answers"),
+        // D-69, accepted by the owner on 2026-09-18; B-19g carries it out.
+        ("keyframe.set_kind", "a command the window answers"),
+        ("keyframe.set_roving", "a command the window answers"),
+        ("property.separate", "a command the window answers"),
         // D-59, accepted by the owner on 2026-09-16; B-14c carries it out.
         ("property.set_expression", "a command the window answers"),
         ("effect.add", "a command the window answers"),

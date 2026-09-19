@@ -63,6 +63,9 @@ Every state-changing UI action invokes a stable command ID through the command l
 | keyframe.move | Move a keyframe to another frame | none | yes |
 | keyframe.set_interp | Set the interpolation of the segment starting at a keyframe | F9 | yes |
 | keyframe.set_path | Set the two motion-path handles of a position keyframe | none | yes |
+| keyframe.set_kind | Make the chosen keyframes bezier, continuous bezier or auto bezier | none | yes |
+| keyframe.set_roving | Make the chosen position keyframes rove across time, or stop | none | yes |
+| property.separate | Separate a layer's position into X and Y, or join them | none | yes |
 | property.set_expression | Set, change, switch off or clear a property's expression | Alt-click the property's diamond; Alt+Shift+= on it | yes |
 | effect.add | Add effect instance | none | yes |
 | effect.delete | Remove selected effect | Delete when effect-focused | yes |
@@ -184,6 +187,8 @@ Required dialogs/panels: new/open/save, import sequence interpretation, missing-
 ## Error interaction
 
 Inline validation is preferred for correctable property input. Blocking project/media failures use a dialog with a stable diagnostic code from 28 and a concrete next action. Background render/export failures remain visible after the transient notification disappears.
+
+`keyframe.set_kind`, `keyframe.set_roving` and `property.separate` were added on 2026-09-18 by B-19g, with D-69, which the owner accepted the same day. The first two name their keys `layer|property|frame`, repeated, as `keyframe.move` does, and every key named is one entry to undo; `keyframe.set_kind` takes `kind=bezier`, `continuous` or `auto`, and `keyframe.set_roving` takes `roving=true` or `false`. `property.separate` names a layer and is a toggle, read from the document like the others. They are in the key's right-click menu and on a button beside Position, each reachable by keyboard. A separated position's halves are named `position_x` and `position_y` in every property command, and `position` sent to such a layer is sent on as the two.
 
 ## Accessibility baseline
 

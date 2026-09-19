@@ -61,7 +61,9 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `keyframe.add_remove` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.move` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_interp` can be asked for without a mouse | yes | yes | pass |
+| `keyframe.set_kind` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_path` can be asked for without a mouse | yes | yes | pass |
+| `keyframe.set_roving` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_adjustment` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_composition` can be asked for without a mouse | yes | yes | pass |
 | `layer.copy` can be asked for without a mouse | yes | yes | pass |
@@ -93,6 +95,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `property.drag_cancel` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_end` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_update` can be asked for without a mouse | yes | yes | pass |
+| `property.separate` can be asked for without a mouse | yes | yes | pass |
 | `property.set_base` can be asked for without a mouse | yes | yes | pass |
 | `property.set_expression` can be asked for without a mouse | yes | yes | pass |
 | `recent` can be asked for without a mouse | yes | yes | pass |
@@ -134,4 +137,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | right clicking a chosen key is not the only way to open its menu of key speed, ease, hold, copy, paste and delete | true | true | pass |
 | right clicking an empty place on the timeline is not the only way to paste keys or layers there, add a key, a layer or a marker, or open the settings | true | true | pass |
 
-**104 of 104 checks pass.**
+**107 of 107 checks pass.**

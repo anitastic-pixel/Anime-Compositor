@@ -1682,6 +1682,9 @@ const KEY_RIGHT = {
 function keyShape(keys, i) {
   const before = keys[i - 1];
   const key = keys[i];
+  // B-19g: After Effects' two round keys: a small dot roves across time, a full one is auto bezier.
+  if (key.roving) return 'circle(28%)';
+  if (key.kind === 'auto') return 'circle(50%)';
   const bent = (a, b) => Math.abs(a - b) > 1e-3;
   const into = before && before.interp === 'ease' && bent(easeOf(before)[2], easeOf(before)[3])
     ? 'ease' : 'linear';
@@ -2245,7 +2248,9 @@ function drawLayers() {
     li.ondblclick = () => (precomp
       ? command('/composition.open?composition=' + encodeURIComponent(layer.composition_id))
       : beginRename());
-    return [li, ...propsOf(layer).filter((prop) => open.has(prop)).flatMap((prop) => propTrack(comp, layer, prop))];
+    const isOpen = (prop) => open.has(prop) || (prop.startsWith('position') && ['position', 'position_x', 'position_y']
+      .some((p) => p !== prop && (p === 'position' || prop === 'position') && open.has(p)));
+    return [li, ...propsOf(layer).filter(isOpen).flatMap((prop) => propTrack(comp, layer, prop))];
   }));
 }
 
@@ -2685,6 +2690,21 @@ function layerMenu(x, y, first = []) {
 // W-25 fix: the menu a right click on a chosen key opens, for the chosen keys. Key speed lives
 // here rather than on a shortcut, because Ctrl+Shift+K and Ctrl+Alt+K both belong to other
 // programs on the owner's machine.
+// B-19g: D-69's kinds of key, and roving, on every chosen key as one entry to undo. No kind
+// named is roving: on, or off if every chosen key roves already. A roving key's frame is the
+// window's to work out, so the choice is dropped rather than left naming frames that have gone.
+function kindKeys(kind) {
+  const keys = [...pickedKeys].filter((id) => { const [layer] = keyParts(id); return layer && !layer.locked; });
+  if (!keys.length) return;
+  const roving = !keys.every((id) => {
+    const [layer, prop, at] = keyParts(id);
+    return (keysOf(layer, prop).find((k) => k.frame === at) || {}).roving;
+  });
+  command((kind ? '/keyframe.set_kind?kind=' + kind : '/keyframe.set_roving?roving=' + roving)
+    + keys.map((id) => '&key=' + encodeURIComponent(id)).join(''));
+  if (!kind) pickKey(null, false);
+}
+
 function keyMenu(x, y, first = []) {
   const some = pickedKeys.size > 0;
   popMenu(x, y, [
@@ -2696,6 +2716,10 @@ function keyMenu(x, y, first = []) {
     ['Easy ease out', 'Ctrl+F9', () => easeKeys('out'), some],
     ['Linear', '', () => holdKeys('linear'), some],
     ['Hold or release', 'Ctrl+Alt+G', () => holdKeys(), some],
+    ['Bezier: each handle on its own', '', () => kindKeys('bezier'), some],
+    ['Continuous bezier: one speed through the key', '', () => kindKeys('continuous'), some],
+    ['Auto bezier: smoothed for me', '', () => kindKeys('auto'), some],
+    ['Rove across time, or stop', '', () => kindKeys(), some],
     ['Copy', 'Ctrl+C', copyKeys, some],
     ...(!first.length && clip === 'keys' && copied.length ? [['Paste', 'Ctrl+V', () => pasteKeys()]] : []),
     ['Delete', 'Delete', removeKeys, some],
@@ -2838,7 +2862,8 @@ function propTrack(comp, layer, prop) {
   const value = document.createElement('span');
   value.className = 'value';
   value.append(...propScrubs(layer, prop).flatMap((s, i) => (i ? [', ', s] : [s])));
-  head.append(keyButton(layer, prop), name, ...(prop === 'scale' ? [linkButton()] : []), value);
+  head.append(keyButton(layer, prop), name, ...(prop === 'scale' ? [linkButton()] : []),
+    ...(prop.startsWith('position') && layer.id !== CAMERA_ROW ? [splitButton(layer)] : []), value);
   li.append(head);
   const box = document.createElement('div');
   box.className = 'track';
@@ -2852,7 +2877,8 @@ function propTrack(comp, layer, prop) {
       mark.className = 'key' + (pickedKeys.has(mark.dataset.key) ? ' selected' : '');
       mark.style.clipPath = keyShape(keys, i);
       mark.style.left = percent(atFrame(comp, key.frame + 0.5));
-      mark.title = propLabel(layer, prop) + ' at frame ' + key.frame + ': ' + [].concat(key.value).join(', ');
+      mark.title = propLabel(layer, prop) + ' at frame ' + key.frame + ': ' + [].concat(key.value).join(', ')
+        + (key.kind ? ', ' + key.kind + ' bezier' : '') + (key.roving ? ', roving across time' : '');
       mark.setAttribute('aria-label', prop + ' keyframe at frame ' + key.frame
         + '. Press to choose it for F9, drag it, or move it with the left and right arrow keys.');
       grabKey(comp, layer, prop, key, mark);
@@ -3720,7 +3746,7 @@ function field(into, term, value) {
 
 // How far one pixel of drag moves each property, in the units this panel shows. Every one of
 // them is one for one: pixels, percent and degrees are all things a person counts in ones.
-const STEP = { anchor: 1, position: 1, scale: 1, rotation: 1, opacity: 1, depth: 1,
+const STEP = { anchor: 1, position: 1, position_x: 1, position_y: 1, scale: 1, rotation: 1, opacity: 1, depth: 1,
   zoom: 1 };
 
 // What a property's numbers are counted in, where the unit is not pixels.
@@ -3881,7 +3907,27 @@ const PROPS = ['anchor', 'position', 'scale', 'rotation', 'opacity', 'depth'];
 // to show rather than a blank.
 const propOf = (layer, prop) => (isFx(prop) ? fxOf(layer, prop) : prop === 'depth'
   ? (layer.depth || { base: 0 })
-  : ((layer.transform || {})[prop] || {}));
+  : halfOf(layer, prop));
+// B-19g: D-69's separated position. The file writes it as `{x, y}`, two properties named
+// `position_x` and `position_y` wherever a property is named. `position` is still asked for by
+// the viewer's handles and the arrow keys, and answers with the pair the window works out.
+const isSplit = (layer) => !!((layer.transform || {}).position || {}).x;
+function halfOf(layer, prop) {
+  const t = layer.transform || {};
+  if (prop === 'position_x' || prop === 'position_y') return (t.position || {})[prop.slice(-1)] || {};
+  if (prop === 'position' && isSplit(layer)) return { base: [t.position.x.base, t.position.y.base] };
+  return t[prop] || {};
+}
+function splitButton(layer) {
+  const on = isSplit(layer);
+  const b = iconButton('\u2194', on ? 'Join X and Y into one position again'
+    : 'Separate dimensions: X position and Y position as properties of their own',
+  () => command('/property.separate?layer=' + encodeURIComponent(layer.id)));
+  b.className = 'key link';
+  b.style.opacity = on ? 1 : 0.35;
+  b.setAttribute('aria-pressed', String(on));
+  return b;
+}
 // B-19d: an effect's setting is named `fx:<instance>:<setting>` wherever a property is named, so
 // the diamond, the rows of the timeline, the graph, F9 and copy and paste reach D-68's keys by
 // the way they reach a transform's. The file writes a keyed setting as a property's record and
@@ -3902,11 +3948,12 @@ function fxOf(layer, prop) {
 }
 // A layer's properties: the six, and each setting of its effects that has keys.
 const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
-  : PROPS.concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {})
+  : PROPS.flatMap((prop) => (prop === 'position' && isSplit(layer) ? ['position_x', 'position_y'] : [prop]))
+    .concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {})
     .filter((name) => keysOf(layer, fxName(fx, name)).length).map((name) => fxName(fx, name)))));
 // What a property is called on screen: its own name, or the effect's and the setting's words.
 function propLabel(layer, prop) {
-  if (!isFx(prop)) return prop;
+  if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
   return (fx ? (EFFECT_NAMES[fx.type_id] || fx.type_id) + ' ' : '') + (known ? known[1] : name);
@@ -3923,7 +3970,7 @@ const shownOf = (id) => shown.get(id) || new Set();
 
 // W-25: document 19's identity transform, in the file's units, which a right click on a
 // property's name puts back: on the playhead's frame as a key if the property is animated.
-const DEFAULTS = { anchor: [0, 0], position: [0, 0], scale: [100, 100], rotation: [0], opacity: [1], depth: [0] };
+const DEFAULTS = { anchor: [0, 0], position: [0, 0], position_x: [0], position_y: [0], scale: [100, 100], rotation: [0], opacity: [1], depth: [0] };
 const changed = (layer, prop) => keysOf(layer, prop).length
   || [].concat(propOf(layer, prop).base).join(',') !== DEFAULTS[prop].join(',');
 function resetProp(prop, only) {
@@ -3967,7 +4014,8 @@ function showProps(props, add) {
 // answer arrives the base is shown, which is wrong for a moment rather than blank.
 function transformValue(layer, prop) {
   const at = (values[layer.id] || {})[prop];
-  const held = (keysOf(layer, prop).length || exprOf(layer, prop)) && at !== undefined
+  const held = (keysOf(layer, prop).length || exprOf(layer, prop)
+    || (prop === 'position' && isSplit(layer))) && at !== undefined
     ? at : propOf(layer, prop).base;
   return Array.isArray(held) ? held.slice() : [held];
 }
@@ -4195,7 +4243,8 @@ function propRow(into, layer, prop) {
   const dt = document.createElement('dt');
   const ease = easeButton(layer, prop);
   dt.append(keyButton(layer, prop), ...(ease ? [ease] : []), ' ',
-    prop[0].toUpperCase() + prop.slice(1), ...(prop === 'scale' ? [' ', linkButton()] : []));
+    propLabel(layer, prop).replace(/^./, (c) => c.toUpperCase()), ...(prop === 'scale' ? [' ', linkButton()] : []),
+    ...(prop.startsWith('position') ? [' ', splitButton(layer)] : []));
   dt.title = 'Right-click to put ' + prop + ' back to its default';
   dt.oncontextmenu = (e) => { e.preventDefault(); resetProp(prop, layer); };
   const dd = document.createElement('dd');
@@ -4287,7 +4336,7 @@ function drawInspector() {
   // Document 19's five transform properties, in its order. What they are counted in and the
   // one conversion this panel makes are in `propScrubs`, which the timeline shares.
   propRow(dl, layer, 'anchor');
-  propRow(dl, layer, 'position');
+  for (const prop of isSplit(layer) ? ['position_x', 'position_y'] : ['position']) propRow(dl, layer, prop);
   propRow(dl, layer, 'scale');
   propRow(dl, layer, 'rotation');
   propRow(dl, layer, 'opacity');
