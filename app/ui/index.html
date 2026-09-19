@@ -345,6 +345,8 @@
   }
   /* B-17c: an adjustment layer (D-66) has no drawings, so its bar is hatched rather than hollow:
      hollow already means "every frame shows the drawing of its own number". */
+  /* B-18c: a composition layer's bar carries the inner composition's name. */
+  .track.precomp .life { color: #cdd6e6; font-size: 11px; padding-left: 6px; overflow: hidden; white-space: nowrap; }
   .track.adjust .life { background: repeating-linear-gradient(135deg, #2f3d55 0 6px, #46587a 6px 8px); }
   /* W-10: a keyframe, on the frame it is on, over the bar. On the layer's own bar a press
      lands on the bar underneath and does what the bar does; on a property's row, W-11 below
@@ -1083,6 +1085,17 @@ function iconButton(text, title, onClick) {
 // Every composition the project holds, with the one on screen marked. Making a composition moves
 // the window into it, and until this list existed that was a one-way door: nothing named the
 // others and nothing could go back to one.
+function compName(id) {
+  const comp = doc && (doc.project.compositions || []).find((c) => c.id === id);
+  return comp ? comp.name : 'a composition that is not in this project';
+}
+
+// B-18c: D-67's Pre-compose, on every chosen layer, as one entry to undo.
+function precompose() {
+  if (!selection.length) return;
+  command('/layer.precompose?' + selection.map((id) => 'layer=' + encodeURIComponent(id)).join('&'));
+}
+
 function drawComps() {
   const all = doc ? (doc.project.compositions || []) : [];
   $('comps').replaceChildren(...all.map((comp) => {
@@ -1091,6 +1104,14 @@ function drawComps() {
     size.textContent = comp.width + '×' + comp.height;
     const li = row(doc.composition, comp.id, comp.name, []);
     // W-26: a copy of the composition, and deleting it, each one Ctrl+Z.
+    // B-18c: D-67's composition layer, above the chosen layer or else at the front. The
+    // composition on screen has no button: a composition cannot hold itself.
+    if (comp.id !== doc.composition) {
+      const at = layers().findIndex((l) => l.id === selectedLayer);
+      li.append(iconButton('\u2937', 'Add ' + comp.name + ' to this composition as a layer',
+        () => command('/layer.add_composition?of=' + encodeURIComponent(comp.id)
+          + (at < 0 ? '' : '&to=' + (at + 1)))));
+    }
     li.append(size,
       iconButton('\u29c9', 'Duplicate ' + comp.name,
         () => command('/composition.duplicate?composition=' + encodeURIComponent(comp.id))),
@@ -1699,6 +1720,16 @@ function track(comp, layer, drawings) {
       + 'beneath it, from frame ' + layer.in_frame + ' up to frame ' + layer.out_frame + '.';
     return box;
   }
+  // B-18c: a composition layer (D-67) has no drawings either; its bar carries the name of the
+  // composition it shows.
+  if (layer.kind === 'composition') {
+    box.classList.add('precomp');
+    lifeBar.textContent = compName(layer.composition_id);
+    lifeBar.title = layer.name + ' shows the composition ' + compName(layer.composition_id)
+      + ', from frame ' + layer.in_frame + ' up to frame ' + layer.out_frame
+      + '. Double-click the row to open it.';
+    return box;
+  }
   if (!spans.length) {
     bar('free', layer.in_frame, layer.out_frame).title =
       'No exposures. Each frame shows the drawing of the same number.';
@@ -2141,10 +2172,11 @@ function drawLayers() {
     li.setAttribute('aria-selected', String(selection.includes(layer.id)));
     // Colour is not the only carrier: a layer that is off, soloed, locked or shy says so in words.
     const adjust = layer.kind === 'adjustment';
-    if (!layer.enabled || layer.locked || soloed || layer.shy || adjust) {
+    const precomp = layer.kind === 'composition';
+    if (!layer.enabled || layer.locked || soloed || layer.shy || adjust || precomp) {
       const mark = document.createElement('span');
       mark.className = 'mark';
-      mark.textContent = [adjust ? 'adjustment' : null, !layer.enabled ? 'hidden' : null, soloed ? 'soloed' : null,
+      mark.textContent = [adjust ? 'adjustment' : null, precomp ? 'composition' : null, !layer.enabled ? 'hidden' : null, soloed ? 'soloed' : null,
         layer.locked ? 'locked' : null, layer.shy ? 'shy' : null]
         .filter(Boolean).join(', ');
       li.append(mark);
@@ -2191,7 +2223,11 @@ function drawLayers() {
       if (e.shiftKey && selectedLayer) selectRange(layer.id);
       else select(layer.id, e.ctrlKey);
     };
-    li.ondblclick = () => beginRename();
+    // B-18c: double-clicking a composition layer opens its composition, as After Effects does;
+    // F2 still renames it.
+    li.ondblclick = () => (precomp
+      ? command('/composition.open?composition=' + encodeURIComponent(layer.composition_id))
+      : beginRename());
     return [li, ...PROPS.filter((prop) => open.has(prop)).flatMap((prop) => propTrack(comp, layer, prop))];
   }));
 }
@@ -2472,6 +2508,7 @@ function palette() {
     ['Redo', 'Ctrl+Shift+Z', { key: 'Z', ctrlKey: true, shiftKey: true }],
     ['Add layer', 'Ctrl+Alt+L', { key: 'l', ctrlKey: true, altKey: true }],
     ['New adjustment layer', 'Ctrl+Alt+Y', { key: 'y', ctrlKey: true, altKey: true }],
+    ['Pre-compose', 'Ctrl+Shift+C', { key: 'C', code: 'KeyC', ctrlKey: true, shiftKey: true }],
     ['Rename layer', 'F2', { key: 'F2' }],
     ['Delete layer or keys', 'Delete', { key: 'Delete' }],
     ['Duplicate layers', 'Ctrl+D', { key: 'd', code: 'KeyD', ctrlKey: true }],
@@ -2602,6 +2639,7 @@ function layerMenu(x, y, first = []) {
     ['Rename', 'F2', beginRename],
     ['Duplicate', 'Ctrl+D', duplicateLayers],
     ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
+    ['Pre-compose', 'Ctrl+Shift+C', precompose],
     ['Sequence layers', '', sequenceLayers, selection.length > 1],
     ['Shy or not shy', '', () => toggleLayers('shy')],
     ['Bring to front', 'Ctrl+Shift+]', () => toEnd(true)],
@@ -4194,7 +4232,8 @@ function drawInspector() {
   const dl = document.createElement('dl');
   field(dl, 'Name', layer.name);
   field(dl, 'Identifier', layer.id);
-  field(dl, 'Drawing', layer.kind === 'adjustment' ? 'none: an adjustment layer' : layer.asset_id);
+  field(dl, 'Drawing', layer.kind === 'adjustment' ? 'none: an adjustment layer'
+    : layer.kind === 'composition' ? 'the composition ' + compName(layer.composition_id) : layer.asset_id);
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive'
     + (layer.source_offset_frames ? ', drawings offset by ' + layer.source_offset_frames : ''));
   // Document 19's five transform properties, in its order. What they are counted in and the
@@ -4381,15 +4420,16 @@ function exposureRow(layer, span, drawings) {
 function drawExposures() {
   const layer = selected();
   const into = $('exposures');
-  $('addexposure').disabled = !layer || layer.kind === 'adjustment';
+  $('addexposure').disabled = !layer || layer.kind !== 'raster';
   if (!layer) {
     into.replaceChildren(Object.assign(document.createElement('p'),
       { className: 'empty', textContent: 'No layer is selected.' }));
     return;
   }
-  if (layer.kind === 'adjustment') {
+  if (layer.kind !== 'raster') {
     into.replaceChildren(Object.assign(document.createElement('p'),
-      { className: 'empty', textContent: 'An adjustment layer has no drawings to expose.' }));
+      { className: 'empty', textContent: (layer.kind === 'composition' ? 'A composition layer'
+        : 'An adjustment layer') + ' has no drawings to expose.' }));
     return;
   }
   const spans = layer.exposure_spans || [];
@@ -5657,6 +5697,8 @@ addEventListener('keydown', (e) => {
   // W-20: After Effects' keys for keys and layers. Copy and paste stay out of a field being typed
   // in, where Ctrl+C and Ctrl+V mean the text.
   else if (e.ctrlKey && e.altKey && e.code === 'KeyG') { e.preventDefault(); holdKeys(); }
+  // B-18c: After Effects' Ctrl+Shift+C, ahead of Ctrl+C, which would otherwise take it.
+  else if (e.ctrlKey && e.shiftKey && !typing && e.code === 'KeyC') { e.preventDefault(); precompose(); }
   else if (e.ctrlKey && !typing && pickedKeys.size && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); }
   // W-25: with no keys chosen, Ctrl+C copies the selected layers, and Ctrl+V pastes whichever was
   // copied last. Ctrl+Alt+V hides and shows, Ctrl+L locks, Ctrl+K is the composition's settings

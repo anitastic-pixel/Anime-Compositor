@@ -64,8 +64,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `layer.set_label` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.set_blend_mode` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.add_adjustment` is reached by | a command the window answers | a command the window answers | pass |
-| `layer.add_composition` is reached by | nothing yet | nothing yet | pass |
-| `layer.precompose` is reached by | nothing yet | nothing yet | pass |
+| `layer.add_composition` is reached by | a command the window answers | a command the window answers | pass |
+| `layer.precompose` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.copy` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.paste` is reached by | a command the window answers | a command the window answers | pass |
 | `layer.toggle_shy` is reached by | a command the window answers | a command the window answers | pass |
@@ -117,7 +117,7 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | document 24 gives `layer.add_adjustment` the shortcut | Ctrl+Alt+Y | Ctrl+Alt+Y | pass |
 | and Ctrl+Alt+Y is bound | yes | yes | pass |
 | document 24 gives `layer.precompose` the shortcut | Ctrl+Shift+C | Ctrl+Shift+C | pass |
-| and Ctrl+Shift+C is bound | no, and the command is not built either | no, and the command is not built either | pass |
+| and Ctrl+Shift+C is bound | yes | yes | pass |
 | document 24 gives `layer.delete` the shortcut | Delete | Delete | pass |
 | and Delete is bound | yes | yes | pass |
 | document 24 gives `layer.rename` the shortcut | F2 | F2 | pass |

@@ -1188,9 +1188,12 @@ fn settle(viewer: &Mutex<Viewer>, touched: &[Id]) {
     let go = {
         let held = viewer.lock().expect("the viewer lock was poisoned");
         let project = held.document.project();
+        // B-18c: a record that touched the composition on screen stays there. Pre-compose
+        // names the new composition first, and redoing it should not walk the person into it.
         touched
             .iter()
-            .find(|id| project.composition(id).is_some())
+            .find(|id| **id == held.composition && project.composition(id).is_some())
+            .or_else(|| touched.iter().find(|id| project.composition(id).is_some()))
             .or_else(|| project.composition(&held.composition).map(|c| &c.id))
             .or_else(|| project.compositions.first().map(|c| &c.id))
             .cloned()
@@ -1807,6 +1810,7 @@ const ANSWERS: &[&str] = &[
     "keyframe.set_interp",
     "keyframe.set_path",
     "layer.add_adjustment",
+    "layer.add_composition",
     "layer.copy",
     "layer.create",
     "layer.delete",
@@ -1815,6 +1819,7 @@ const ANSWERS: &[&str] = &[
     "layer.move_down",
     "layer.move_up",
     "layer.paste",
+    "layer.precompose",
     "layer.rename",
     "layer.set_blend_mode",
     "layer.set_depth",
@@ -2600,6 +2605,39 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 Err(diagnostic) => sentence(&diagnostic),
             });
         }
+        // B-18c: D-67's Pre-compose. The core says what it is made of and refuses a choice that
+        // would cut a parent or a matte in two; the window picks the identifiers and the name,
+        // Precomp 1, Precomp 2 and so on, the first no composition has.
+        "layer.precompose" => {
+            let chosen: Vec<Id> = parameters(query, "layer")
+                .into_iter()
+                .map(Id::new)
+                .collect();
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            let project = held.document.project();
+            let name = (1..)
+                .map(|n| format!("Precomp {n}"))
+                .find(|name| project.compositions.iter().all(|c| &c.name != name))
+                .expect("the numbers do not run out");
+            let commands = match anime_compositor::command::precompose(
+                project,
+                &held.composition,
+                &chosen,
+                unused_composition_id(project),
+                unused_layer_id(project),
+                &name,
+            ) {
+                Ok(commands) => commands,
+                Err(diagnostic) => return Some(sentence(&diagnostic)),
+            };
+            return Some(match held.document.apply_all(commands) {
+                Ok(_) => format!(
+                    "{name} holds the chosen layers now, and one layer shows it here. \
+                     Double-click that layer to open it. Ctrl+Z puts them back."
+                ),
+                Err(diagnostic) => sentence(&diagnostic),
+            });
+        }
         _ => {}
     }
     // A drawing number an exposure names that its sequence has not got, filled in by the arm
@@ -2739,6 +2777,29 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             let layer = Layer::adjustment(
                 unused_layer_id(project),
                 parameter(query, "name").unwrap_or_else(|| "Adjustment layer".to_string()),
+                comp.width,
+                comp.height,
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            Command::AddLayer {
+                composition,
+                layer: Box::new(layer),
+                index: parameter(query, "to")
+                    .and_then(|to| to.parse::<usize>().ok())
+                    .unwrap_or(comp.len()),
+            }
+        } else if id == "layer.add_composition" {
+            // B-18c: D-67's layer of another composition, centred, above the chosen layer
+            // (`to`) or else at the front. A cycle is the core's to refuse.
+            let asked = parameter(query, "of").unwrap_or_default();
+            let Some(inner) = project.composition(&Id::new(&asked)) else {
+                return Some(format!("There is no composition {asked} in this project."));
+            };
+            let layer = Layer::composition(
+                unused_layer_id(project),
+                inner.name.clone(),
+                inner,
                 comp.width,
                 comp.height,
                 comp.start_frame,
@@ -10116,6 +10177,162 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-18c: the precomposition from the window, on D-67. The order is the playtest sheet's.
+    #[test]
+    fn layers_are_precomposed_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let comps = |viewer: &Mutex<Viewer>| {
+            held(viewer)
+                .document
+                .project()
+                .compositions
+                .iter()
+                .map(|c| c.name.clone())
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let main = held(&viewer).composition.as_str().to_string();
+        let main_name = comps(&viewer);
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+
+        report.check(
+            "Pre-compose with nothing chosen says so",
+            "Pre-compose needs at least one layer of this composition chosen. The edit was not applied. Nothing in the project changed.",
+            run(&viewer, "layer.precompose"),
+        );
+        run(&viewer, "layer.add_adjustment?name=Grade");
+        let grade = shown_layer(&viewer, "Grade")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        run(&viewer, &format!("layer.set_parent?layer={grade}&parent={cel}&frame=0"));
+        report.check(
+            "Pre-compose on a layer whose child is not chosen is refused, with the reason",
+            "\"Grade\" and \"Cel\" are tied by a parent or a matte, so they are pre-composed \
+             together or not at all. Choose both.",
+            run(&viewer, &format!("layer.precompose?layer={cel}")),
+        );
+        report.check("and nothing moved", "Cel, Grade", names(&viewer));
+
+        report.check(
+            "Pre-compose on both says what happened",
+            "Precomp 1 holds the chosen layers now, and one layer shows it here. Double-click \
+             that layer to open it. Ctrl+Z puts them back.",
+            run(&viewer, &format!("layer.precompose?layer={cel}&layer={grade}")),
+        );
+        report.check(
+            "one layer stands where the two were",
+            "Precomp 1",
+            names(&viewer),
+        );
+        report.check(
+            "and the project has the new composition",
+            format!("{main_name}, Precomp 1"),
+            comps(&viewer),
+        );
+        let layer = shown_layer(&viewer, "Precomp 1");
+        let inner = layer["composition_id"].as_str().unwrap_or("(none)").to_string();
+        report.check(
+            "the page is told its kind and its composition, and it has no drawing",
+            "composition, a composition_id, no asset_id",
+            format!(
+                "{}, {}, {}",
+                layer["kind"].as_str().unwrap_or("(no kind)"),
+                if layer.get("composition_id").is_some() { "a composition_id" } else { "no composition_id" },
+                if layer.get("asset_id").is_none() { "no asset_id" } else { "an asset_id" }
+            ),
+        );
+        report.check(
+            "it is centred: anchor and position at the centre of 1920 by 1080",
+            "[960,540] and [960,540]",
+            format!(
+                "{} and {}",
+                layer["transform"]["anchor"]["base"], layer["transform"]["position"]["base"]
+            ),
+        );
+
+        report.check(
+            "deleting Precomp 1 while the layer shows it is refused, naming who uses it",
+            format!(
+                "This composition is shown by a layer of \"{main_name}\", so it stays. Delete \
+                 that layer first if this one should go."
+            ),
+            run(&viewer, &format!("composition.delete?composition={inner}")),
+        );
+
+        run(&viewer, &format!("composition.open?composition={inner}"));
+        report.check(
+            "double-click opens Precomp 1, and the two layers are in it, in their order",
+            "Cel, Grade",
+            names(&viewer),
+        );
+        report.check(
+            "inside it, adding the outer composition as a layer is refused: it would hold itself",
+            format!("\"{main_name}\" cannot be shown here, because it would end up inside itself. The edit was not applied. Nothing in the project changed."),
+            run(&viewer, &format!("layer.add_composition?of={main}")),
+        );
+        run(&viewer, &format!("composition.open?composition={main}"));
+
+        run(&viewer, &format!("layer.add_composition?of={inner}"));
+        report.check(
+            "the Project panel's button adds a second layer of Precomp 1, at the front",
+            "Precomp 1, Precomp 1",
+            names(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        run(&viewer, "edit.undo");
+        report.check(
+            "Undo twice: the button's layer goes, then Pre-compose goes as one entry",
+            format!("Cel, Grade; {main_name}"),
+            format!("{}; {}", names(&viewer), comps(&viewer)),
+        );
+        run(&viewer, "edit.redo");
+        report.check(
+            "and Redo makes it again",
+            format!("Precomp 1; {main_name}, Precomp 1"),
+            format!("{}; {}", names(&viewer), comps(&viewer)),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-18c_panel_table.md",
+            "B-18c: precompositions in the window",
+            PRECOMP_PANEL_INTRO,
+            PRECOMP_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const PRECOMP_PANEL_INTRO: &[&str] = &[
+        "D-67 decided what a composition layer is and B-18b built it in the core, checked pixel \
+         by pixel in `verification/B-18b_precomp_table.md`. This is the window's half: \
+         Pre-compose and Ctrl+Shift+C send `layer.precompose` with the chosen layers, the button \
+         on a composition's row in the Project panel sends `layer.add_composition`, and \
+         double-clicking a composition layer sends `composition.open`.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
+         and reads back what the page is given.",
+    ];
+
+    const PRECOMP_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhat the layer looks like on the timeline and in the \
+         panels, and whether the picture stays the same when layers are pre-composed. That is \
+         `verification/B-18c_precomp_playtest.md`, for a person. Whether the pixels are right is \
+         B-18b's table.",
+    ];
+
     const ADJUST_PANEL_INTRO: &[&str] = &[
         "D-66 decided what an adjustment layer is and B-17b built it in the core, checked pixel \
          by pixel in `verification/B-17b_adjust_table.md`. This is the window's half: the New \
@@ -11902,6 +12119,7 @@ mod contract {
         "keyframe.set_interp",
         "keyframe.set_path",
         "layer.add_adjustment",
+        "layer.add_composition",
         "layer.copy",
         "layer.create",
         "layer.delete",
@@ -11910,6 +12128,7 @@ mod contract {
         "layer.move_down",
         "layer.move_up",
         "layer.paste",
+        "layer.precompose",
         "layer.rename",
         "layer.set_blend_mode",
         "layer.set_label",
@@ -12238,10 +12457,10 @@ mod contract {
         ("layer.set_blend_mode", "a command the window answers"),
         // D-66, accepted on 2026-09-17; B-17c put the button in the window the same day.
         ("layer.add_adjustment", "a command the window answers"),
-        // D-67, accepted on 2026-09-18 and built in the core by B-18b; B-18c puts both in the
+        // D-67, accepted on 2026-09-18 and built in the core by B-18b; B-18c put both in the
         // window.
-        ("layer.add_composition", "nothing yet"),
-        ("layer.precompose", "nothing yet"),
+        ("layer.add_composition", "a command the window answers"),
+        ("layer.precompose", "a command the window answers"),
         ("layer.copy", "a command the window answers"),
         ("layer.paste", "a command the window answers"),
         ("layer.toggle_shy", "a command the window answers"),
@@ -12294,7 +12513,11 @@ mod contract {
         ("media.import", "Ctrl+I", "e.key === 'i'"),
         ("layer.create", "Ctrl+Alt+L", "e.altKey && (e.key === 'l'"),
         ("layer.add_adjustment", "Ctrl+Alt+Y", "e.altKey && (e.key === 'y'"),
-        ("layer.precompose", "Ctrl+Shift+C", ""),
+        (
+            "layer.precompose",
+            "Ctrl+Shift+C",
+            "e.shiftKey && !typing && e.code === 'KeyC'",
+        ),
         ("layer.delete", "Delete", "e.key === 'Delete'"),
         ("layer.rename", "F2", "e.key === 'F2'"),
         ("layer.move_up", "Ctrl+]", "e.key === ']'"),
@@ -13064,12 +13287,19 @@ mod contract {
             "layer.set_parent?layer=layer-3&parent=layer-2&frame=0",
             "layer.set_depth?layer=layer-3&depth=640",
             "camera.set_property?property=zoom&value=50",
+            // B-18c: and a composition layer, the only kind that carries `composition_id`.
+            "layer.precompose?layer=layer-1",
         ] {
             run(&viewer, edit);
         }
         let answer: serde_json::Value =
             serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
         let layer = layer_of(&answer, "layer-3");
+        let precomp = answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .and_then(|all| all.iter().find(|l| l["kind"] == "composition"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
 
         let node = |var: &str| -> serde_json::Value {
             match var {
@@ -13113,7 +13343,10 @@ mod contract {
                 report.check(
                     &format!("`{var}.{field}` is in the answer"),
                     "present",
-                    match holds.get(&field) {
+                    match holds.get(&field).or_else(|| match field.as_str() {
+                        "composition_id" => precomp.get(&field),
+                        _ => None,
+                    }) {
                         Some(_) => "present".to_string(),
                         None => format!("missing - the panel would draw nothing for {field}"),
                     },
