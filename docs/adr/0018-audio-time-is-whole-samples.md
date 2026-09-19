@@ -1,6 +1,6 @@
 # ADR-018: Audio time is whole samples worked from whole frames, and the window's own decoder plays it
 
-Status: PROPOSED
+Status: ACCEPTED (the owner, 2026-09-19)
 Date: 2026-09-19
 Deciders: Andrew (owner)
 Relates to: D-71 (reference audio), D-63 (audio deferred, now taken up), document 20 line 121, R-11 (offline), R-15

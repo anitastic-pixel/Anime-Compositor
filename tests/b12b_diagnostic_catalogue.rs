@@ -236,6 +236,16 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "MEDIA_EXR_ADJUSTED",
         "B-16b_exr_table.md",
     ),
+    (
+        DiagnosticId::MediaAudioCutShort,
+        "MEDIA_AUDIO_CUT_SHORT",
+        "B-20b_audio_table.md",
+    ),
+    (
+        DiagnosticId::MediaAudioUnreadable,
+        "MEDIA_AUDIO_UNREADABLE",
+        "B-20b_audio_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
@@ -305,7 +315,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "36 identifiers",
+        "38 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

@@ -64,7 +64,8 @@ fn unique(name: &str, taken: &mut HashSet<String>) -> String {
 
 /// An asset's stored paths with the frame numbers each stands for, in first-frame order.
 fn stored_files(asset: &Asset) -> Vec<(&str, Vec<u32>)> {
-    if asset.kind == AssetKind::Still {
+    // A still and a sound file (D-71) are each one file at `path`.
+    if asset.kind != AssetKind::ImageSequence {
         return asset.path.iter().map(|p| (p.as_str(), vec![])).collect();
     }
     let mut out: Vec<(&str, Vec<u32>)> = Vec::new();

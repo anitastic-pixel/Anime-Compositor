@@ -78,6 +78,12 @@ pub enum DiagnosticId {
     /// Document 28, added by D-62: an EXR file was drawn, but not exactly as stored. One reason
     /// per thing done, such as channels left unused or samples that were not numbers.
     MediaExrAdjusted,
+    /// Document 28, added by D-71: a WAV file's data ends before its header says. What is
+    /// there plays.
+    MediaAudioCutShort,
+    /// Document 28, added by D-71: a sound file is not what its name claims. The layer is
+    /// kept and silent.
+    MediaAudioUnreadable,
     /// **Proposed (D-19).** Files in one sequence disagree on pixel dimensions.
     MediaSequenceDimensionMismatch,
     /// **Proposed (D-19).** Two files in one selection claim the same frame number.
@@ -175,6 +181,8 @@ impl DiagnosticId {
             DiagnosticId::MediaUnsupportedFormat => "MEDIA_UNSUPPORTED_FORMAT",
             DiagnosticId::MediaDecodeFailed => "MEDIA_DECODE_FAILED",
             DiagnosticId::MediaExrAdjusted => "MEDIA_EXR_ADJUSTED",
+            DiagnosticId::MediaAudioCutShort => "MEDIA_AUDIO_CUT_SHORT",
+            DiagnosticId::MediaAudioUnreadable => "MEDIA_AUDIO_UNREADABLE",
             DiagnosticId::MediaSequenceDimensionMismatch => "MEDIA_SEQUENCE_DIMENSION_MISMATCH",
             DiagnosticId::MediaSequenceDuplicateNumber => "MEDIA_SEQUENCE_DUPLICATE_NUMBER",
             DiagnosticId::MediaSequenceUnnumbered => "MEDIA_SEQUENCE_UNNUMBERED",
@@ -225,6 +233,8 @@ impl DiagnosticId {
                 | DiagnosticId::MediaUnsupportedFormat
                 | DiagnosticId::MediaDecodeFailed
                 | DiagnosticId::MediaExrAdjusted
+                | DiagnosticId::MediaAudioCutShort
+                | DiagnosticId::MediaAudioUnreadable
                 | DiagnosticId::MatteReferenceMissing
                 | DiagnosticId::MatteCycle
                 | DiagnosticId::ParentReferenceMissing

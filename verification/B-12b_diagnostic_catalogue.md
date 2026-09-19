@@ -49,6 +49,8 @@ One row per identifier this build can print, and the table where a person can re
 | `PACKAGE_MEDIA_EXCLUDED` | yes | `verification/B-15b_package_table.md` |
 | `PACKAGE_FILE_UNVERIFIED` | yes | `verification/B-15b_package_table.md` |
 | `MEDIA_EXR_ADJUSTED` | yes | `verification/B-16b_exr_table.md` |
+| `MEDIA_AUDIO_CUT_SHORT` | yes | `verification/B-20b_audio_table.md` |
+| `MEDIA_AUDIO_UNREADABLE` | yes | `verification/B-20b_audio_table.md` |
 
 ## What the catalogue promises and the build does not have
 
@@ -77,7 +79,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 36 identifiers | 36 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 38 identifiers | 38 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
@@ -201,12 +203,18 @@ One row per identifier this build can print, and the table where a person can re
 | MEDIA_EXR_ADJUSTED: the enum spells it the way the catalogue does | MEDIA_EXR_ADJUSTED | MEDIA_EXR_ADJUSTED | pass |
 | MEDIA_EXR_ADJUSTED: says truthfully whether document 28 lists it | true | true | pass |
 | MEDIA_EXR_ADJUSTED: a table somewhere shows a person this sentence | named in B-16b_exr_table.md | named in B-16b_exr_table.md | pass |
+| MEDIA_AUDIO_CUT_SHORT: the enum spells it the way the catalogue does | MEDIA_AUDIO_CUT_SHORT | MEDIA_AUDIO_CUT_SHORT | pass |
+| MEDIA_AUDIO_CUT_SHORT: says truthfully whether document 28 lists it | true | true | pass |
+| MEDIA_AUDIO_CUT_SHORT: a table somewhere shows a person this sentence | named in B-20b_audio_table.md | named in B-20b_audio_table.md | pass |
+| MEDIA_AUDIO_UNREADABLE: the enum spells it the way the catalogue does | MEDIA_AUDIO_UNREADABLE | MEDIA_AUDIO_UNREADABLE | pass |
+| MEDIA_AUDIO_UNREADABLE: says truthfully whether document 28 lists it | true | true | pass |
+| MEDIA_AUDIO_UNREADABLE: a table somewhere shows a person this sentence | named in B-20b_audio_table.md | named in B-20b_audio_table.md | pass |
 | PROJECT_FEATURE_UNSUPPORTED is kept but raised by nothing | no source file raises it | no source file raises it | pass |
 | every catalogue entry is either built or written down as not built | none unaccounted for | none unaccounted for | pass |
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**128 of 128 checks pass.**
+**134 of 134 checks pass.**
 
 ## What this cannot cover
 

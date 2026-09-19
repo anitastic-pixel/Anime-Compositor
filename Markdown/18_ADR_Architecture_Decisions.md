@@ -112,7 +112,7 @@ Built the same day. `verification/B-08b_cache_table.md` holds the correctness ha
 
 ## ADR-018 - Audio time is whole samples worked from whole frames, and the window's own decoder plays it
 
-Status: PROPOSED on 2026-09-19 with D-71. Document 20 asks for an ADR before audio sample time exists. Frame `n` of a sound file begins at sample `floor(n * rate * denominator / numerator)`, in whole numbers; an audio layer changes no picture; the WebView2 page's own decoder plays WAV, FLAC, MP3, AAC, Ogg and Opus offline, so no audio crate and no new licence enters the build; the core reads WAV headers only. The alternative, a decoder and an output in the core, is about forty crates and a real-time thread, and can replace the third choice later without touching the file format. Full record: `docs/adr/0018-audio-time-is-whole-samples.md`.
+Status: ACCEPTED by the owner on 2026-09-19 with D-71. Document 20 asks for an ADR before audio sample time exists. Frame `n` of a sound file begins at sample `floor(n * rate * denominator / numerator)`, in whole numbers; an audio layer changes no picture; the WebView2 page's own decoder plays WAV, FLAC, MP3, AAC, Ogg and Opus offline, so no audio crate and no new licence enters the build; the core reads WAV headers only. The alternative, a decoder and an output in the core, is about forty crates and a real-time thread, and can replace the third choice later without touching the file format. Full record: `docs/adr/0018-audio-time-is-whole-samples.md`.
 
 ## Decision gate
 

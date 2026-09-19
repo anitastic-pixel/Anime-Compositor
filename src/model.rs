@@ -701,6 +701,8 @@ pub enum LayerKind {
     Raster,
     Adjustment,
     Composition,
+    /// D-71: a sound file heard in step with the frames. It draws nothing.
+    Audio,
 }
 
 impl LayerKind {
@@ -709,6 +711,7 @@ impl LayerKind {
             LayerKind::Raster => "raster",
             LayerKind::Adjustment => "adjustment",
             LayerKind::Composition => "composition",
+            LayerKind::Audio => "audio",
         }
     }
 }
@@ -765,6 +768,9 @@ pub struct Layer {
     /// head plane is on the head's plane without anybody saying so twice. Saved as `depth` only
     /// when it is set, as `parent` and `label` are.
     pub depth: Option<Property>,
+    /// D-71: an audio layer's level in decibels, -96 to +12, and 0 on every other kind.
+    // ponytail: one number, not keyed. Make it a Property when a fade is asked for.
+    pub gain_db: f64,
 }
 
 impl Layer {
@@ -797,7 +803,22 @@ impl Layer {
             label: 0,
             shy: false,
             depth: None,
+            gain_db: 0.0,
         }
+    }
+
+    /// D-71: a layer that is heard and not seen. Nothing but its timing, switches and level
+    /// means anything on it.
+    pub fn audio(
+        id: Id,
+        name: impl Into<String>,
+        asset_id: Id,
+        in_frame: i32,
+        out_frame: i32,
+    ) -> Self {
+        let mut layer = Layer::new(id, name, asset_id, in_frame, out_frame);
+        layer.kind = LayerKind::Audio;
+        layer
     }
 
     /// D-66: a layer with no drawing whose effects apply to everything drawn beneath it. Its
@@ -849,7 +870,7 @@ impl Layer {
 
     /// True of the two kinds that show no drawing: nothing looks an asset up for them.
     pub fn has_no_drawing(&self) -> bool {
-        self.kind != LayerKind::Raster
+        matches!(self.kind, LayerKind::Adjustment | LayerKind::Composition)
     }
 
     /// Document 19's layer invariant.
@@ -1078,6 +1099,8 @@ impl Composition {
 pub enum AssetKind {
     Still,
     ImageSequence,
+    /// D-71: a sound file. It has a path and no interpretation that means anything.
+    Audio,
 }
 
 impl AssetKind {
@@ -1085,6 +1108,7 @@ impl AssetKind {
         match self {
             AssetKind::Still => "still",
             AssetKind::ImageSequence => "image_sequence",
+            AssetKind::Audio => "audio",
         }
     }
 }

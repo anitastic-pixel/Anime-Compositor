@@ -50,7 +50,7 @@ R-13 / N / Expressions: a documented native property-expression subset with dete
 
 R-14 / L / Packaging: collect permitted media with hashes and usage information, and verify reopening from a new path. T-13; B-15. Contract: D-61, accepted 2026-09-16.
 
-R-15 / L / Handoff: evaluate EXR and WAV first, then other formats, based on actual need. Each format needs its own conformance fixtures. T-14; B-16. Contract for EXR: D-62, accepted 2026-09-17. WAV was deferred by the owner on 2026-09-17 (D-63) and taken up on 2026-09-19: D-71, proposed, with other audio formats played by the window; B-20.
+R-15 / L / Handoff: evaluate EXR and WAV first, then other formats, based on actual need. Each format needs its own conformance fixtures. T-14; B-16. Contract for EXR: D-62, accepted 2026-09-17. WAV was deferred by the owner on 2026-09-17 (D-63) and taken up on 2026-09-19: D-71, accepted that day, with other audio formats played by the window; B-20.
 
 ## Quality requirements
 

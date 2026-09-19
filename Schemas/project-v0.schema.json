@@ -276,10 +276,7 @@
         "enabled",
         "locked",
         "in_frame",
-        "out_frame",
-        "transform",
-        "blend_mode",
-        "effects"
+        "out_frame"
       ],
       "additionalProperties": true,
       "allOf": [
@@ -361,6 +358,82 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "audio"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "asset_id",
+              "source_offset_frames"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "transform"
+                  ]
+                },
+                {
+                  "required": [
+                    "exposure_spans"
+                  ]
+                },
+                {
+                  "required": [
+                    "mask"
+                  ]
+                },
+                {
+                  "required": [
+                    "matte"
+                  ]
+                },
+                {
+                  "required": [
+                    "blend_mode"
+                  ]
+                },
+                {
+                  "required": [
+                    "effects"
+                  ]
+                },
+                {
+                  "required": [
+                    "parent"
+                  ]
+                },
+                {
+                  "required": [
+                    "depth"
+                  ]
+                },
+                {
+                  "required": [
+                    "composition_id"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "transform",
+              "blend_mode",
+              "effects"
+            ],
+            "not": {
+              "required": [
+                "gain_db"
+              ]
+            }
+          }
         }
       ],
       "properties": {
@@ -371,7 +444,8 @@
           "enum": [
             "raster",
             "adjustment",
-            "composition"
+            "composition",
+            "audio"
           ]
         },
         "name": {
@@ -453,6 +527,12 @@
           "items": {
             "$ref": "#/$defs/effect"
           }
+        },
+        "gain_db": {
+          "type": "number",
+          "minimum": -96,
+          "maximum": 12,
+          "description": "D-71: the level of an audio layer in decibels. 0 when absent."
         }
       }
     },
@@ -569,8 +649,7 @@
       "required": [
         "id",
         "kind",
-        "name",
-        "interpretation"
+        "name"
       ],
       "properties": {
         "id": {
@@ -579,7 +658,8 @@
         "kind": {
           "enum": [
             "still",
-            "image_sequence"
+            "image_sequence",
+            "audio"
           ]
         },
         "name": {
@@ -624,7 +704,28 @@
           "additionalProperties": true
         }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "audio"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "path"
+            ]
+          },
+          "else": {
+            "required": [
+              "interpretation"
+            ]
+          }
+        }
+      ]
     },
     "expression": {
       "type": "object",

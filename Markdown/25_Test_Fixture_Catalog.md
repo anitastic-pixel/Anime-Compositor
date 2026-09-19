@@ -1227,7 +1227,7 @@ After: join the position:
 
 ## Audio fixtures
 
-D-71 and ADR-018, proposed on 2026-09-19; nothing is built against these yet. An audio layer draws nothing, so these pin arithmetic and file reading: which samples of a file a frame is, what is heard on a layer, what a WAV header is read as, that a picture does not change, and what a file may not say.
+D-71 and ADR-018, accepted by the owner on 2026-09-19. `verification/B-20b_audio_table.md` walks them against the build. An audio layer draws nothing, so these pin arithmetic and file reading: which samples of a file a frame is, what is heard on a layer, what a WAV header is read as, that a picture does not change, and what a file may not say.
 
 **Every number below is produced by `tools/audio_reference.py`**, which reads WAV with `struct` and not with a sound library, and checks each claim against a value worked by hand. The same cases are in `Fixtures/audio/expected_audio.json`. The numbers are whole and the match is exact.
 

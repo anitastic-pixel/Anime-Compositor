@@ -152,6 +152,7 @@ const KEY_ORDER: &[&str] = &[
     "in_frame",
     "out_frame",
     "source_offset_frames",
+    "gain_db",
     "transform",
     "anchor",
     "position",
@@ -478,6 +479,9 @@ fn asset_json(base: Option<&J>, asset: &Asset) -> J {
             ),
         ),
     ];
+    if asset.kind == AssetKind::Audio {
+        owned.retain(|(key, _)| *key != "interpretation");
+    }
     match &asset.path {
         Some(p) => owned.push(("path", J::from(p.as_str()))),
         None => owned.push(("path", J::Null)),
@@ -512,6 +516,28 @@ fn asset_json(base: Option<&J>, asset: &Asset) -> J {
 }
 
 fn layer_json(base: Option<&J>, layer: &Layer) -> J {
+    // D-71: an audio layer is written as the few things it has.
+    if layer.kind == LayerKind::Audio {
+        let mut owned = vec![
+            ("id", J::from(layer.id.as_str())),
+            ("kind", J::from(layer.kind.as_str())),
+            ("name", J::from(layer.name.as_str())),
+            ("asset_id", J::from(layer.asset_id.as_str())),
+            ("enabled", J::from(layer.enabled)),
+            ("locked", J::from(layer.locked)),
+            ("in_frame", J::from(layer.in_frame)),
+            ("out_frame", J::from(layer.out_frame)),
+            ("source_offset_frames", J::from(layer.source_offset_frames)),
+            ("gain_db", J::from(layer.gain_db)),
+        ];
+        if layer.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
+            owned.push(("label", J::from(layer.label)));
+        }
+        if layer.shy || base.is_some_and(|b| b.get("shy").is_some()) {
+            owned.push(("shy", J::from(layer.shy)));
+        }
+        return merge(base, owned);
+    }
     let spans: Vec<J> = layer
         .exposure_spans
         .iter()
@@ -1232,9 +1258,10 @@ fn parse_asset(v: &J, pointer: &str) -> Result<Asset, Diagnostic> {
     let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["still", "image_sequence"],
+        &["still", "image_sequence", "audio"],
     )? {
         "still" => AssetKind::Still,
+        "audio" => AssetKind::Audio,
         _ => AssetKind::ImageSequence,
     };
     let mut frames = BTreeMap::new();
@@ -1260,10 +1287,18 @@ fn parse_asset(v: &J, pointer: &str) -> Result<Asset, Diagnostic> {
             None => None,
         },
         frames,
-        interpretation: parse_interpretation(
-            field(v, pointer, "interpretation")?,
-            &format!("{pointer}/interpretation"),
-        )?,
+        // D-71: a sound file has no colour to interpret, so none is asked for. The model
+        // holds the usual pair and nothing reads it.
+        interpretation: match v.get("interpretation") {
+            None if kind == AssetKind::Audio => Interpretation {
+                color_space: ColorSpace::Srgb,
+                alpha: AlphaMode::Straight,
+            },
+            _ => parse_interpretation(
+                field(v, pointer, "interpretation")?,
+                &format!("{pointer}/interpretation"),
+            )?,
+        },
         redistribute: match v.get("redistribute") {
             Some(r) => as_bool(r, &format!("{pointer}/redistribute"))?,
             None => true,
@@ -1276,13 +1311,17 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["raster", "adjustment", "composition"],
+        &["raster", "adjustment", "composition", "audio"],
     )? {
+        "audio" => LayerKind::Audio,
         "adjustment" => LayerKind::Adjustment,
         "composition" => LayerKind::Composition,
         _ => LayerKind::Raster,
     };
     let id = as_id(field(v, pointer, "id")?, &format!("{pointer}/id"))?;
+    if kind == LayerKind::Audio {
+        return parse_audio_layer(v, pointer, id);
+    }
     // D-66: an adjustment layer has no drawing. A file that gives one an asset is not a file
     // this build can read faithfully, so it is refused rather than drawn with the asset ignored.
     let asset_id = if kind != LayerKind::Raster {
@@ -1680,20 +1719,92 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             None => false,
             Some(shy) => as_bool(shy, &format!("{pointer}/shy"))?,
         },
-        label: match v.get("label") {
-            None => 0,
-            Some(label) => match as_u32(label, &format!("{pointer}/label"))? {
-                n @ 0..=8 => n as u8,
-                _ => {
-                    return Err(invalid(
-                        &format!("{pointer}/label"),
-                        "a label colour from 0, none, to 8",
-                    ))
-                }
-            },
-        },
+        label: parse_label(v, pointer)?,
         blend_mode,
+        gain_db: 0.0,
     })
+}
+
+fn parse_label(v: &J, pointer: &str) -> Result<u8, Diagnostic> {
+    match v.get("label") {
+        None => Ok(0),
+        Some(label) => match as_u32(label, &format!("{pointer}/label"))? {
+            n @ 0..=8 => Ok(n as u8),
+            _ => Err(invalid(
+                &format!("{pointer}/label"),
+                "a label colour from 0, none, to 8",
+            )),
+        },
+    }
+}
+
+/// D-71: an audio layer is heard and not seen. A file that gives it anything about a picture
+/// is not a file this build can read faithfully, so it is refused (FX-AUD-030 to 035).
+fn parse_audio_layer(v: &J, pointer: &str, id: Id) -> Result<Layer, Diagnostic> {
+    for key in [
+        "transform",
+        "exposure_spans",
+        "mask",
+        "matte",
+        "blend_mode",
+        "effects",
+        "parent",
+        "depth",
+        "composition_id",
+    ] {
+        if v.get(key).is_some() {
+            return Err(invalid(
+                &format!("{pointer}/{key}"),
+                &format!("no {key} on an audio layer, which draws nothing (D-71)"),
+            ));
+        }
+    }
+    let in_frame = as_i32(
+        field(v, pointer, "in_frame")?,
+        &format!("{pointer}/in_frame"),
+    )?;
+    let out_frame = as_i32(
+        field(v, pointer, "out_frame")?,
+        &format!("{pointer}/out_frame"),
+    )?;
+    if in_frame >= out_frame {
+        return Err(invalid(
+            pointer,
+            "in_frame to be before out_frame, which document 19 requires of every layer",
+        ));
+    }
+    let gain_db = match v.get("gain_db") {
+        None => 0.0,
+        Some(g) => as_f64(g, &format!("{pointer}/gain_db"))?,
+    };
+    if !(-96.0..=12.0).contains(&gain_db) {
+        return Err(invalid(
+            &format!("{pointer}/gain_db"),
+            "a level from -96 to +12 decibels (D-71)",
+        ));
+    }
+    let mut layer = Layer::audio(
+        id,
+        as_str(field(v, pointer, "name")?, &format!("{pointer}/name"))?,
+        as_id(
+            field(v, pointer, "asset_id")?,
+            &format!("{pointer}/asset_id"),
+        )?,
+        in_frame,
+        out_frame,
+    );
+    layer.enabled = as_bool(field(v, pointer, "enabled")?, &format!("{pointer}/enabled"))?;
+    layer.locked = as_bool(field(v, pointer, "locked")?, &format!("{pointer}/locked"))?;
+    layer.source_offset_frames = as_i32(
+        field(v, pointer, "source_offset_frames")?,
+        &format!("{pointer}/source_offset_frames"),
+    )?;
+    layer.gain_db = gain_db;
+    if let Some(shy) = v.get("shy") {
+        layer.shy = as_bool(shy, &format!("{pointer}/shy"))?;
+    }
+    layer.label = parse_label(v, pointer)?;
+    Ok(layer)
 }
 
 fn parse_composition(
@@ -2077,6 +2188,39 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
     // reference, not a missing file, and no amount of relinking fixes it.
     for composition in &project.compositions {
         for layer in composition.layers_in_order() {
+            // D-71: a sound is heard and a drawing is seen, and neither layer takes the other's
+            // file (FX-AUD-033). Nor does anything ride on, or cut out by, a layer with no place.
+            let asset = project.assets.iter().find(|a| a.id == layer.asset_id);
+            let is_sound = |a: &Asset| a.kind == AssetKind::Audio;
+            if asset.is_some_and(|a| is_sound(a) != (layer.kind == LayerKind::Audio)) {
+                return Err(invalid(
+                    &format!("/compositions/{}/layers", composition.id),
+                    &format!(
+                        "layer {} to name a sound file if it is an audio layer and a drawing if \
+                         it is not (D-71); it names {}",
+                        layer.id, layer.asset_id
+                    ),
+                ));
+            }
+            let rides = [
+                layer.parent.as_ref(),
+                layer.matte.as_ref().map(|m| &m.layer_id),
+            ];
+            for other in rides.into_iter().flatten() {
+                if composition
+                    .layer(other)
+                    .is_some_and(|l| l.kind == LayerKind::Audio)
+                {
+                    return Err(invalid(
+                        &format!("/compositions/{}/layers", composition.id),
+                        &format!(
+                            "layer {} not to have the audio layer {other} as its parent or matte \
+                             (D-71)",
+                            layer.id
+                        ),
+                    ));
+                }
+            }
             if !layer.has_no_drawing() && !project.assets.iter().any(|a| a.id == layer.asset_id) {
                 return Err(invalid(
                     &format!("/compositions/{}/layers", composition.id),

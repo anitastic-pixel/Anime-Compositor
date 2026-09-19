@@ -302,6 +302,12 @@ pub enum Command {
     /// A composition with no camera of its own gets the default lens written into it by
     /// the first of these, because a change to the camera a shot is drawn through has to
     /// be a change to something.
+    /// D-71: an audio layer's level, in decibels from -96 to +12.
+    SetAudioGain {
+        composition: Id,
+        layer_id: Id,
+        value: f64,
+    },
     SetCameraProperty {
         composition: Id,
         prop: crate::model::CameraProp,
@@ -435,6 +441,7 @@ impl Command {
             Command::SetMatte { .. } => "SET_MATTE",
             Command::SetParent { .. } => "SET_PARENT",
             Command::SetDepth { .. } => "SET_DEPTH",
+            Command::SetAudioGain { .. } => "SET_AUDIO_GAIN",
             Command::SetCameraProperty { .. } => "SET_CAMERA_PROPERTY",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
             Command::SetMask { .. } => "SET_MASK",
@@ -553,6 +560,7 @@ impl Command {
                 None => "Clear parent".to_string(),
             },
             Command::SetDepth { value, .. } => format!("Set depth to {value}"),
+            Command::SetAudioGain { value, .. } => format!("Set level to {value} dB"),
             Command::SetCameraProperty { prop, .. } => {
                 format!("Set the camera's {}", prop.as_str())
             }
@@ -622,6 +630,7 @@ impl Command {
             | Command::SetMatte { composition, .. }
             | Command::SetParent { composition, .. }
             | Command::SetDepth { composition, .. }
+            | Command::SetAudioGain { composition, .. }
             | Command::SetCameraProperty { composition, .. }
             | Command::SetExposureSpans { composition, .. }
             | Command::SetMask { composition, .. }
@@ -693,7 +702,9 @@ impl Command {
                 ids.push(layer_id.clone());
                 ids.extend(parent.clone());
             }
-            Command::SetDepth { layer_id, .. } => ids.push(layer_id.clone()),
+            Command::SetDepth { layer_id, .. } | Command::SetAudioGain { layer_id, .. } => {
+                ids.push(layer_id.clone())
+            }
             // The camera is the composition's, and the composition is already in the list.
             Command::SetCameraProperty { .. } => {}
         }
@@ -771,6 +782,28 @@ impl Command {
         )
     }
 
+    /// D-71: the commands that set what an audio layer does not have.
+    fn sets_a_picture(&self) -> bool {
+        matches!(
+            self,
+            Command::SetBlendMode { .. }
+                | Command::SetMatte { .. }
+                | Command::SetParent { .. }
+                | Command::SetDepth { .. }
+                | Command::SetExposureSpans { .. }
+                | Command::SetMask { .. }
+                | Command::AddEffect { .. }
+                | Command::SeparatePosition { .. }
+                | Command::SetPropertyBase { .. }
+                | Command::SetExpression { .. }
+                | Command::SetKeyframe { .. }
+                | Command::RemoveKeyframe { .. }
+                | Command::MoveKeyframe { .. }
+                | Command::SetKeyKind { .. }
+                | Command::SetKeyRoving { .. }
+        )
+    }
+
     fn layer_id(&self) -> Option<&Id> {
         match self {
             Command::RemoveLayer { layer_id, .. }
@@ -786,6 +819,7 @@ impl Command {
             | Command::SetMatte { layer_id, .. }
             | Command::SetParent { layer_id, .. }
             | Command::SetDepth { layer_id, .. }
+            | Command::SetAudioGain { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMask { layer_id, .. }
             | Command::AddEffect { layer_id, .. }
@@ -1409,6 +1443,47 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 )
                 .with_remediation("Unlock the layer to edit it."));
             }
+            // D-71: an audio layer is heard and not seen, and only it has a level.
+            let is_audio = layer.kind == crate::model::LayerKind::Audio;
+            if is_audio && command.sets_a_picture() {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" is an audio layer, which draws nothing, so there is nothing \
+                         there to set.",
+                        layer.name
+                    ),
+                    "D-71: an audio layer has no transform, mask, matte, blend mode, effects, \
+                     parent or depth.",
+                ));
+            }
+            if !is_audio && matches!(command, Command::SetAudioGain { .. }) {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" is not an audio layer, so it has no level.",
+                        layer.name
+                    ),
+                    "D-71: gain_db belongs to an audio layer.",
+                ));
+            }
+        }
+        // D-71: nothing rides on, or is cut out by, a layer that has no place and no picture.
+        let rides = match command {
+            Command::SetMatte { matte: Some(m), .. } => Some(m),
+            Command::SetParent {
+                parent: Some(p), ..
+            } => Some(p),
+            _ => None,
+        };
+        if let Some(other) = rides.and_then(|id| comp.layer(id)) {
+            if other.kind == crate::model::LayerKind::Audio {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" is an audio layer, so it cannot be a parent or a matte.",
+                        other.name
+                    ),
+                    "D-71: an audio layer has no place and no picture.",
+                ));
+            }
         }
     }
 
@@ -1423,6 +1498,20 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         Command::AddLayer { layer, index, .. } => {
             let asset_known =
                 layer.has_no_drawing() || project.assets.iter().any(|a| a.id == layer.asset_id);
+            // D-71: a sound is heard and a drawing is seen (FX-AUD-033).
+            let is_audio = layer.kind == crate::model::LayerKind::Audio;
+            if project.assets.iter().any(|a| {
+                a.id == layer.asset_id && (a.kind == crate::model::AssetKind::Audio) != is_audio
+            }) {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" cannot use that file: a sound goes on an audio layer and a \
+                         drawing on a picture layer.",
+                        layer.name
+                    ),
+                    "D-71: an audio layer names an audio asset, and no other layer does.",
+                ));
+            }
             // D-67: a composition layer names a composition this project has, and not one
             // that leads back to the composition it is going into.
             if layer.kind == crate::model::LayerKind::Composition {
@@ -2038,6 +2127,17 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 Some(depth) => depth.set_base(Value::Scalar(*value)),
                 none => *none = Some(crate::model::Property::constant(Value::Scalar(*value))),
             }
+        }
+        Command::SetAudioGain {
+            layer_id, value, ..
+        } => {
+            if !(-96.0..=12.0).contains(value) {
+                return Err(reject(
+                    &format!("A level cannot be set to {value} dB."),
+                    "D-71: a level is from -96 to +12 decibels.",
+                ));
+            }
+            layer_mut(project, &comp_id, layer_id)?.gain_db = *value;
         }
         Command::SetCameraProperty { prop, value, .. } => {
             let value = check_camera_value(*prop, *value)?;

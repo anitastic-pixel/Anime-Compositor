@@ -637,6 +637,10 @@ fn resolve_layer(
     log: &mut FrameLog,
     above: &mut Vec<Id>,
 ) -> Option<ResolvedLayer> {
+    // D-71: an audio layer draws nothing, so no frame is any different for it (FX-AUD-020).
+    if layer.kind == crate::model::LayerKind::Audio {
+        return None;
+    }
     // D-67: a composition layer's drawing is the inner composition, rendered at the layer's
     // local frame, at its own size, through its own camera. From the mask on it is a drawing.
     if let Some(inner_id) = &layer.composition_id {
@@ -1185,6 +1189,8 @@ fn source_at(
     frame: i32,
 ) -> Result<Option<PathBuf>, Diagnostic> {
     match asset.kind {
+        // D-71: a sound file is not a drawing.
+        AssetKind::Audio => Ok(None),
         AssetKind::Still => {
             if timing.local_frame(frame).is_none() {
                 return Ok(None);
