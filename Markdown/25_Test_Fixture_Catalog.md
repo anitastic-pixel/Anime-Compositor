@@ -1443,7 +1443,7 @@ FX-FMT-030: An MP4 counts time in the frame rate's numerator and every frame las
 | 24000/1001 | 24000 | 1001 | 48 | 48048 |
 | 30/1 | 30 | 1 | 1 | 1 |
 
-**D-73, proposed on 2026-09-19; nothing is built against FX-FMT-040 to 060 yet.** The same script prints what follows. FX-FMT-040 is the number asked of the encoder, not the size of the file: an encoder spends fewer bits on a simple picture. FX-FMT-050 to 052 are small enough to check by eye.
+**D-73, proposed and accepted on 2026-09-19.** The same script prints what follows. FX-FMT-040 is the number asked of the encoder, not the size of the file: an encoder spends fewer bits on a simple picture. FX-FMT-050 to 052 are small enough to check by eye.
 
 FX-FMT-040: An MP4's quality level is thousandths of a bit for every pixel of every frame: preview 100, standard 200, high 500. The bitrate asked of the encoder is floored to whole bits a second and kept between 1 and 100 megabits.
 

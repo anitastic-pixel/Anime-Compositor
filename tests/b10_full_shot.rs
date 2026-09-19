@@ -284,6 +284,7 @@ fn request(dir: &Path) -> ExportRequest {
         // D-28's recorded override. The default blocks, which is T-08's row.
         missing: MissingSource::RenderTransparent,
         format: OutputFormat::Png,
+        choices: Default::default(),
     }
 }
 

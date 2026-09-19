@@ -409,6 +409,7 @@ fn request(composition: &str, first: i32, last: i32, dir: &Path, naming: &str) -
         tile_size: DEFAULT_TILE_SIZE,
         missing: MissingSource::Block,
         format: OutputFormat::Png,
+        choices: Default::default(),
     }
 }
 

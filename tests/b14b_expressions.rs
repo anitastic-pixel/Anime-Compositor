@@ -503,6 +503,7 @@ fn preview_and_export(data: &J, out: &mut String) -> bool {
             tile_size: 256,
             missing: policy,
             format: OutputFormat::Png,
+            choices: Default::default(),
         };
         let report = export_sequence(&project, &root, &request, &AtomicBool::new(false));
         line(
@@ -552,6 +553,7 @@ fn preview_and_export(data: &J, out: &mut String) -> bool {
         tile_size: 256,
         missing: MissingSource::Block,
         format: OutputFormat::Png,
+        choices: Default::default(),
     };
     let report = export_sequence(&project, &root, &request, &AtomicBool::new(false));
     line(

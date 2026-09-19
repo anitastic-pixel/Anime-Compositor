@@ -4405,6 +4405,7 @@ fn export_job(
             tile_size: DEFAULT_TILE_SIZE,
             missing,
             format,
+            choices: Default::default(),
         },
     )
 }

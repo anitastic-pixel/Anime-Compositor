@@ -167,6 +167,7 @@ fn exported(project: &Project) -> Result<Vec<u8>, String> {
         tile_size: DEFAULT_TILE_SIZE,
         missing: MissingSource::Block,
         format: OutputFormat::Png,
+        choices: Default::default(),
     };
     let report = export_sequence(project, &root(), &request, &AtomicBool::new(false));
     if !report.succeeded() {

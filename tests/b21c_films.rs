@@ -108,6 +108,7 @@ fn a_gif_and_an_animated_png_hold_every_frame_for_the_right_time() {
         tile_size: anime_compositor::compose::DEFAULT_TILE_SIZE,
         missing: MissingSource::Block,
         format,
+        choices: Default::default(),
     };
     let go = |r: &ExportRequest| export_sequence(&project, &root, r, &AtomicBool::new(false));
 

@@ -409,6 +409,7 @@ fn export_one(
         tile_size: 128,
         missing: MissingSource::Block,
         format: OutputFormat::Png,
+        choices: Default::default(),
     };
     let report = export_sequence(project, &root(), &request, &AtomicBool::new(false));
     assert!(

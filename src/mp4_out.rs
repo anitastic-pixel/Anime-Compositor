@@ -9,6 +9,28 @@ use std::path::Path;
 
 use crate::time::FrameRate;
 
+/// D-73's three qualities: thousandths of a bit for every pixel of every frame.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Mp4Quality {
+    Preview,
+    #[default]
+    Standard,
+    High,
+}
+
+/// The bits a second asked of the encoder (FX-FMT-040): floored, and kept between 1 and 100
+/// megabits. What the file weighs depends on the picture.
+pub fn bitrate(width: usize, height: usize, rate: FrameRate, quality: Mp4Quality) -> u32 {
+    let thousandths = match quality {
+        Mp4Quality::Preview => 100,
+        Mp4Quality::Standard => 200,
+        Mp4Quality::High => 500,
+    };
+    let bits = (width * height) as u128 * rate.numerator() as u128 * thousandths
+        / (rate.denominator() as u128 * 1000);
+    bits.clamp(1_000_000, 100_000_000) as u32
+}
+
 /// Why this job cannot be an MP4, or `None`. Asked before any file is made. H.264 needs an even
 /// width and height; nothing is padded or cropped to get one (D-72).
 pub fn refusal(width: usize, height: usize) -> Option<String> {
@@ -196,20 +218,24 @@ pub mod through_ffmpeg {
     }
 
     impl Mp4 {
-        pub fn create(path: &Path, width: usize, height: usize, rate: FrameRate) -> Result<Self, String> {
+        pub fn create(path: &Path, width: usize, height: usize, rate: FrameRate, quality: Mp4Quality) -> Result<Self, String> {
             let (num, den) = (rate.numerator(), rate.denominator());
-            // The same bitrate rule as the Windows road.
-            let bits = ((width * height) as f64 * num as f64 / den as f64 * 0.2).clamp(1.0e6, 1.0e8) as u64;
+            let bits = bitrate(width, height, rate, quality);
             // ponytail: asks for libx264 by name; a build of ffmpeg without it fails with
             // ffmpeg's own sentence. Try the system's encoder (h264_videotoolbox on macOS) when
             // someone meets that.
             Command::new("ffmpeg")
                 .args(["-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "nv12"])
                 .args(["-s", &format!("{width}x{height}"), "-r", &format!("{num}/{den}"), "-i", "-"])
+                // Raw frames arrive saying nothing about their colour; without this the file
+                // names the matrix and leaves the primaries and the transfer unsaid (FX-FMT-060).
+                .args(["-vf", "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv"])
                 // No reordered frames, so the file's index is the plain one FX-FMT-030 reads.
                 .args(["-c:v", "libx264", "-bf", "0", "-b:v", &bits.to_string(), "-pix_fmt", "yuv420p"])
                 .args(["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"])
                 .args(["-color_range", "tv", "-video_track_timescale", &num.to_string()])
+                // The colour said in the container too, where Windows' road says it.
+                .args(["-movflags", "+write_colr"])
                 .arg(path)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::null())
@@ -302,7 +328,7 @@ mod on_windows {
     }
 
     impl Mp4 {
-        pub fn create(path: &Path, width: usize, height: usize, rate: FrameRate) -> Result<Self, String> {
+        pub fn create(path: &Path, width: usize, height: usize, rate: FrameRate, quality: Mp4Quality) -> Result<Self, String> {
             unsafe {
                 // Already initialised on this thread is an answer too, and not a failure.
                 let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -311,12 +337,12 @@ mod on_windows {
                     let writer =
                         MFCreateSinkWriterFromURL(&HSTRING::from(path.as_os_str()), None, None)?;
                     let out = video_type(&MFVideoFormat_H264, width, height, rate)?;
-                    // ponytail: one bitrate rule, 0.2 bits a pixel a frame (about 10 Mbit/s at
-                    // 1080p24), and no quality choice; add one when the owner asks for smaller
-                    // or cleaner files.
-                    let fps = rate.numerator() as f64 / rate.denominator() as f64;
-                    let bits = (width * height) as f64 * fps * 0.2;
-                    out.SetUINT32(&MF_MT_AVG_BITRATE, bits.clamp(1.0e6, 1.0e8) as u32)?;
+                    out.SetUINT32(&MF_MT_AVG_BITRATE, bitrate(width, height, rate, quality))?;
+                    // D-73: the file says what its colour is (FX-FMT-060).
+                    out.SetUINT32(&MF_MT_VIDEO_PRIMARIES, MFVideoPrimaries_BT709.0 as u32)?;
+                    out.SetUINT32(&MF_MT_TRANSFER_FUNCTION, MFVideoTransFunc_709.0 as u32)?;
+                    out.SetUINT32(&MF_MT_YUV_MATRIX, MFVideoTransferMatrix_BT709.0 as u32)?;
+                    out.SetUINT32(&MF_MT_VIDEO_NOMINAL_RANGE, MFNominalRange_16_235.0 as u32)?;
                     // ponytail: the encoder's default profile, Baseline. High packs smaller but
                     // reorders frames, which puts a `ctts` box in the file that `set_clock`
                     // refuses; teach `set_clock` that box before asking for High.

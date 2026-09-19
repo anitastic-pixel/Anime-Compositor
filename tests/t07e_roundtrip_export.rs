@@ -309,6 +309,7 @@ fn request(dir: &Path) -> ExportRequest {
         tile_size: DEFAULT_TILE_SIZE,
         missing: MissingSource::RenderTransparent,
         format: OutputFormat::Png,
+        choices: Default::default(),
     }
 }
 

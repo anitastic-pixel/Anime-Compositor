@@ -102,7 +102,7 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
         let rate = FrameRate::new(num as u32, den as u32).unwrap();
         let file = tmp.join(format!("row{i}.mp4"));
         let (w, h) = (64usize, 64usize);
-        let mut film = Mp4::create(&file, w, h, rate).unwrap_or_else(|e| panic!("{e}"));
+        let mut film = Mp4::create(&file, w, h, rate, Default::default()).unwrap_or_else(|e| panic!("{e}"));
         for f in 0..n("frames") {
             // A grey that climbs, so no two frames are the same picture.
             let frame: Vec<u8> = (0..w * h).flat_map(|_| [(f * 5) as u8, 128, 200, 255]).collect();
@@ -129,7 +129,7 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
             let rate = FrameRate::new(num as u32, den as u32).unwrap();
             let file = tmp.join(format!("ffmpeg_row{i}.mp4"));
             let (w, h) = (64usize, 64usize);
-            let mut film = mp4_out::through_ffmpeg::Mp4::create(&file, w, h, rate).unwrap_or_else(|e| panic!("{e}"));
+            let mut film = mp4_out::through_ffmpeg::Mp4::create(&file, w, h, rate, Default::default()).unwrap_or_else(|e| panic!("{e}"));
             for f in 0..n("frames") {
                 let frame: Vec<u8> = (0..w * h).flat_map(|_| [(f * 5) as u8, 128, 200, 255]).collect();
                 film.push(&frame).unwrap_or_else(|e| panic!("{e}"));
@@ -196,6 +196,7 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
         tile_size: anime_compositor::compose::DEFAULT_TILE_SIZE,
         missing: MissingSource::Block,
         format: OutputFormat::Mp4,
+        choices: Default::default(),
     };
     let root = repo("Fixtures/reference_shot");
     let report = export_sequence(&project, &root, &request(&out), &AtomicBool::new(false));

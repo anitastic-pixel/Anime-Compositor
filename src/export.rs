@@ -102,9 +102,18 @@ pub struct ExportRequest {
     pub tile_size: usize,
     pub missing: MissingSource,
     pub format: OutputFormat,
+    pub choices: ExportChoices,
 }
 
 /// What a job did. Everything a person needs to know without opening the folder.
+/// D-73's choices. Each belongs to one format and is ignored by the others.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ExportChoices {
+    pub mp4_quality: crate::mp4_out::Mp4Quality,
+    /// Floyd and Steinberg's dithering in a GIF. Off is what B-21c wrote.
+    pub gif_dither: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct ExportReport {
     pub status: ExportStatus,
@@ -399,11 +408,12 @@ pub fn export_sequence_counting(
             let opened = rate.and_then(|rate| match request.format {
                 OutputFormat::Gif => match Film::gif_refusal(w, h) {
                     Some(why) => Err(why),
-                    None => Film::gif(&path, w, h, rate),
+                    None => Film::gif(&path, w, h, rate, request.choices.gif_dither),
                 },
                 OutputFormat::Mp4 => match crate::mp4_out::refusal(w, h) {
                     Some(why) => Err(why),
-                    None => crate::mp4_out::Mp4::create(&path, w, h, rate).map(Film::Mp4),
+                    None => crate::mp4_out::Mp4::create(&path, w, h, rate, request.choices.mp4_quality)
+                        .map(Film::Mp4),
                 },
                 // The header is written once, so it carries no `Frame` tag, and its `Fidelity`
                 // tag speaks for the first frame only; the report speaks for them all.
