@@ -142,7 +142,7 @@ B-19c / keyframed effect settings in the core, against that decision. Artifact: 
 
 B-19d / keyframed effect settings in the window: the stopwatch on each setting, its keys on the timeline, and the setting in the graph (item 9), with several properties in the graph at once (item 6). Artifact: a panel table and a playtest sheet.
 
-B-19e / separate dimensions for position (item 7), and auto-bezier, continuous bezier and roving keys (item 10), specification and fixtures before code, since D-52 gives a key one ease for all its components and none of the three kinds exists in document 19. Then the core and the window, as B-19f and B-19g.
+B-19e / separate dimensions for position (item 7), and auto-bezier, continuous bezier and roving keys (item 10), specification and fixtures before code, since D-52 gives a key one ease for all its components and none of the three kinds exists in document 19. Then the core and the window, as B-19f and B-19g. **B-19e WRITTEN on 2026-09-18, waiting on the owner:** D-69 in document 14, and FX-SEP-001 to 004, FX-KIND-001 to 007 and FX-ROVE-001 to 004 in document 25 from `tools/keykind_reference.py`. Nothing is built against them until D-69 is accepted.
 
 A GPU render path is not a backlog item. It is trigger-gated on a stopwatch reading per ADR-006.
 

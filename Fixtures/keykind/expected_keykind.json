@@ -1,0 +1,830 @@
+{
+ "tolerance": 1e-09,
+ "cases": {
+  "FX-SEP-001": {
+   "says": "X goes 0 to 8 at a steady speed while Y goes 0 to 4 on the ease-in-out curve: each has its own ease.",
+   "project": "fx_sep_001.json",
+   "position": {
+    "0": [
+     0,
+     0
+    ],
+    "1": [
+     2.0,
+     0.5166477241892792
+    ],
+    "2": [
+     4.0,
+     2.0
+    ],
+    "3": [
+     6.0,
+     3.483352275810721
+    ],
+    "4": [
+     8,
+     4
+    ]
+   }
+  },
+  "FX-SEP-002": {
+   "says": "X and Y keyed on different frames, Y with a hold: neither needs a key where the other has one.",
+   "project": "fx_sep_002.json",
+   "position": {
+    "0": [
+     0,
+     2
+    ],
+    "1": [
+     2.0,
+     2
+    ],
+    "2": [
+     4.0,
+     2
+    ],
+    "3": [
+     6.0,
+     6
+    ],
+    "4": [
+     8,
+     6
+    ]
+   }
+  },
+  "FX-KIND-001": {
+   "says": "A key made auto: it passes through at the slope between its neighbours, 4 over 12 frames, with handles a third long.",
+   "before": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.9444444444444444
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": "linear"
+    },
+    {
+     "frame": 12,
+     "value": 4,
+     "interp": "linear"
+    }
+   ],
+   "edit": "make the key at frame 4 auto",
+   "after": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.9444444444444444
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": [
+      0.3333333333333333,
+      -0.2222222222222222,
+      0.6666666666666666,
+      0.6666666666666666
+     ],
+     "kind": "auto"
+    },
+    {
+     "frame": 12,
+     "value": 4,
+     "interp": "linear"
+    }
+   ]
+  },
+  "FX-KIND-002": {
+   "says": "Auto on the first and last keys: a straight line out and in.",
+   "before": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": "linear"
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": "linear"
+    }
+   ],
+   "edit": "make both keys auto",
+   "after": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.6666666666666666
+     ],
+     "kind": "auto"
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": "linear",
+     "kind": "auto"
+    }
+   ]
+  },
+  "FX-KIND-003": {
+   "says": "An auto key on a position: 5 pixels in and 12 out over 8 frames, so 17/8 of a pixel a frame on both sides.",
+   "before": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.43333333333333335
+     ]
+    },
+    {
+     "frame": 4,
+     "value": [
+      3,
+      4
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 8,
+     "value": [
+      3,
+      16
+     ],
+     "interp": "linear"
+    }
+   ],
+   "edit": "make the key at frame 4 auto",
+   "after": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.43333333333333335
+     ]
+    },
+    {
+     "frame": 4,
+     "value": [
+      3,
+      4
+     ],
+     "interp": [
+      0.3333333333333333,
+      0.23611111111111108,
+      0.6666666666666666,
+      0.6666666666666666
+     ],
+     "kind": "auto"
+    },
+    {
+     "frame": 8,
+     "value": [
+      3,
+      16
+     ],
+     "interp": "linear"
+    }
+   ]
+  },
+  "FX-KIND-004": {
+   "says": "An auto key follows its neighbours: the next key's value goes from 4 to 12 and the slope through the auto key becomes 1.",
+   "before": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.9444444444444444
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": [
+      0.3333333333333333,
+      -0.2222222222222222,
+      0.6666666666666666,
+      0.6666666666666666
+     ],
+     "kind": "auto"
+    },
+    {
+     "frame": 12,
+     "value": 4,
+     "interp": "linear"
+    }
+   ],
+   "edit": "set the value of the key at frame 12 to 12",
+   "after": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.8333333333333333
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": [
+      0.3333333333333333,
+      0.6666666666666666,
+      0.6666666666666666,
+      0.6666666666666666
+     ],
+     "kind": "auto"
+    },
+    {
+     "frame": 12,
+     "value": 12,
+     "interp": "linear"
+    }
+   ]
+  },
+  "FX-KIND-005": {
+   "says": "A corner made continuous: 2 a frame in and 1 a frame out become 1.5 on both sides, the handles keeping their lengths.",
+   "before": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.75
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": "linear"
+    },
+    {
+     "frame": 8,
+     "value": 12,
+     "interp": "linear"
+    }
+   ],
+   "edit": "make the key at frame 4 continuous",
+   "after": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.75
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": [
+      0.3333333333333333,
+      0.5,
+      0.6666666666666666,
+      0.6666666666666666
+     ],
+     "kind": "continuous"
+    },
+    {
+     "frame": 8,
+     "value": 12,
+     "interp": "linear"
+    }
+   ]
+  },
+  "FX-KIND-006": {
+   "says": "One handle of a continuous key pulled by hand: the other side follows it to the same speed, 2 a frame.",
+   "before": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.75
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": [
+      0.3333333333333333,
+      0.5,
+      0.6666666666666666,
+      0.6666666666666666
+     ],
+     "kind": "continuous"
+    },
+    {
+     "frame": 8,
+     "value": 12,
+     "interp": "linear"
+    }
+   ],
+   "edit": "set the ease of the key at frame 4 to [0.25, 0.5, 0.75, 1]",
+   "after": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.6666666666666666
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": [
+      0.25,
+      0.5,
+      0.75,
+      1.0
+     ],
+     "kind": "continuous"
+    },
+    {
+     "frame": 8,
+     "value": 12,
+     "interp": "linear"
+    }
+   ]
+  },
+  "FX-KIND-007": {
+   "says": "An auto key beside a segment that goes nowhere: that side has no speed to set and is left as it was.",
+   "before": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.8333333333333333
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": "linear"
+    },
+    {
+     "frame": 8,
+     "value": 8,
+     "interp": "linear"
+    }
+   ],
+   "edit": "make the key at frame 4 auto",
+   "after": [
+    {
+     "frame": 0,
+     "value": 0,
+     "interp": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.8333333333333333
+     ]
+    },
+    {
+     "frame": 4,
+     "value": 8,
+     "interp": "linear",
+     "kind": "auto"
+    },
+    {
+     "frame": 8,
+     "value": 8,
+     "interp": "linear"
+    }
+   ]
+  },
+  "FX-ROVE-001": {
+   "says": "A roving key: 50 pixels then 100, so it sits a third of the way through the ten frames, on frame 3.",
+   "before": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 2,
+     "value": [
+      30,
+      40
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 10,
+     "value": [
+      30,
+      140
+     ],
+     "interp": "linear"
+    }
+   ],
+   "edit": "make the key at frame 2 roving",
+   "after": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 3,
+     "value": [
+      30,
+      40
+     ],
+     "interp": "linear",
+     "roving": true
+    },
+    {
+     "frame": 10,
+     "value": [
+      30,
+      140
+     ],
+     "interp": "linear"
+    }
+   ]
+  },
+  "FX-ROVE-002": {
+   "says": "Two roving keys crowded at the start of a short run: each still gets a frame of its own.",
+   "before": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 1,
+     "value": [
+      1,
+      0
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 2,
+     "value": [
+      2,
+      0
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 3,
+     "value": [
+      102,
+      0
+     ],
+     "interp": "linear"
+    }
+   ],
+   "edit": "make the keys at frames 1 and 2 roving",
+   "after": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 1,
+     "value": [
+      1,
+      0
+     ],
+     "interp": "linear",
+     "roving": true
+    },
+    {
+     "frame": 2,
+     "value": [
+      2,
+      0
+     ],
+     "interp": "linear",
+     "roving": true
+    },
+    {
+     "frame": 3,
+     "value": [
+      102,
+      0
+     ],
+     "interp": "linear"
+    }
+   ]
+  },
+  "FX-ROVE-003": {
+   "says": "A run with fewer frames than roving keys is refused with COMMAND_INVALID_VALUE and nothing changes.",
+   "before": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 1,
+     "value": [
+      10,
+      0
+     ],
+     "interp": "linear",
+     "roving": true
+    },
+    {
+     "frame": 3,
+     "value": [
+      20,
+      0
+     ],
+     "interp": "linear",
+     "roving": true
+    },
+    {
+     "frame": 4,
+     "value": [
+      30,
+      0
+     ],
+     "interp": "linear"
+    }
+   ],
+   "edit": "move the key at frame 4 to frame 2",
+   "after": null
+  },
+  "FX-ROVE-004": {
+   "says": "A curved path counts at its own length, measured along 64 straight pieces: the arch is longer than the straight run after it.",
+   "before": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": "linear",
+     "spatial": [
+      0,
+      0,
+      0,
+      60
+     ]
+    },
+    {
+     "frame": 5,
+     "value": [
+      60,
+      0
+     ],
+     "interp": "linear",
+     "spatial": [
+      0,
+      60,
+      0,
+      0
+     ]
+    },
+    {
+     "frame": 10,
+     "value": [
+      120,
+      0
+     ],
+     "interp": "linear"
+    }
+   ],
+   "edit": "make the key at frame 5 roving",
+   "after": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": "linear",
+     "spatial": [
+      0,
+      0,
+      0,
+      60
+     ]
+    },
+    {
+     "frame": 7,
+     "value": [
+      60,
+      0
+     ],
+     "interp": "linear",
+     "spatial": [
+      0,
+      60,
+      0,
+      0
+     ],
+     "roving": true
+    },
+    {
+     "frame": 10,
+     "value": [
+      120,
+      0
+     ],
+     "interp": "linear"
+    }
+   ]
+  },
+  "FX-SEP-003": {
+   "says": "Separating a position: each key becomes a key of X and a key of Y with the same ease and kind; the path handles are dropped.",
+   "before": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      0
+     ],
+     "interp": [
+      0.42,
+      0.0,
+      0.58,
+      1.0
+     ],
+     "spatial": [
+      0,
+      0,
+      0,
+      20
+     ]
+    },
+    {
+     "frame": 4,
+     "value": [
+      8,
+      4
+     ],
+     "interp": "linear",
+     "kind": "auto"
+    }
+   ],
+   "edit": "separate the position",
+   "after": {
+    "x": [
+     {
+      "frame": 0,
+      "value": 0,
+      "interp": [
+       0.42,
+       0.0,
+       0.58,
+       1.0
+      ]
+     },
+     {
+      "frame": 4,
+      "value": 8,
+      "interp": "linear",
+      "kind": "auto"
+     }
+    ],
+    "y": [
+     {
+      "frame": 0,
+      "value": 0,
+      "interp": [
+       0.42,
+       0.0,
+       0.58,
+       1.0
+      ]
+     },
+     {
+      "frame": 4,
+      "value": 4,
+      "interp": "linear",
+      "kind": "auto"
+     }
+    ]
+   }
+  },
+  "FX-SEP-004": {
+   "says": "Joining FX-SEP-002 again: a key wherever either had one, holding the position at that frame, with X's ease where X had a key and else Y's.",
+   "before": {
+    "x": [
+     {
+      "frame": 0,
+      "value": 0,
+      "interp": "linear"
+     },
+     {
+      "frame": 4,
+      "value": 8,
+      "interp": "linear"
+     }
+    ],
+    "y": [
+     {
+      "frame": 1,
+      "value": 2,
+      "interp": "hold"
+     },
+     {
+      "frame": 3,
+      "value": 6,
+      "interp": "linear"
+     }
+    ]
+   },
+   "edit": "join the position",
+   "after": [
+    {
+     "frame": 0,
+     "value": [
+      0,
+      2
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 1,
+     "value": [
+      2.0,
+      2
+     ],
+     "interp": "hold"
+    },
+    {
+     "frame": 3,
+     "value": [
+      6.0,
+      6
+     ],
+     "interp": "linear"
+    },
+    {
+     "frame": 4,
+     "value": [
+      8,
+      6
+     ],
+     "interp": "linear"
+    }
+   ]
+  }
+ }
+}

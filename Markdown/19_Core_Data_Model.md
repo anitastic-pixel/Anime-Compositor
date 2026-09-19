@@ -78,6 +78,8 @@ EffectInstance stores stable instance ID, effect type ID, enabled flag and a typ
 
 D-68, proposed on 2026-09-18 and not yet accepted: a value in an effect's parameter map is either a plain number (for a colour, three), which is constant, or a property record `{"base", "keyframes"}` as a transform property is written above, its keys carrying `frame`, `value`, `interp` and `ease` and never `spatial`. A setting with no keys is written plain, so older files are unchanged. A `base` or key `value` outside the setting's range (`sigma_px` 0 or more, `amount` within 0 and 1) is `PROJECT_SCHEMA_INVALID`. An unknown effect's parameter map is kept as written.
 
+D-69, proposed on 2026-09-18 and not yet accepted: a layer's `position` may be written `{"x": property, "y": property}`, two properties of one number each, in place of `{"base", "keyframes"}`; no key inside it carries `spatial`. Any key may carry `"kind": "continuous"` or `"auto"`, and a position key that is neither first nor last may carry `"roving": true`. Neither changes how the file is evaluated: the `ease` and `frame` written are the ones used, and the two fields say what an edit keeps true of them.
+
 ## Validation invariants
 
 - Every referenced ID exists or is retained as an unresolved reference with diagnostics.

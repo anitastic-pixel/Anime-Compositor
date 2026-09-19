@@ -958,6 +958,273 @@ FX-FXK-008: Two settings of one effect keyed at once, and a second effect left p
 
 FX-FXK-009: A tint amount keyed to 1.5, outside 0 to 1: the file is refused.
 
+## Separate dimension and key kind fixtures
+
+D-69, proposed on 2026-09-18 and waiting on the owner; nothing is built against these yet. FX-SEP-001 and 002 are projects in `Fixtures/keykind/` whose layer's position is written as X and Y apart, and pin the position at each of five frames. Every other case is an edit: the keys before, what is done, and the keys that must be there after, since a key's kind and roving change what an edit leaves in the file and never how a frame is worked out from it.
+
+**Every number below is produced by `tools/keykind_reference.py`** from D-69's formulas, each checked there against a value worked by hand; an ease is solved by `tools/ease_reference.py`'s bisection. The same cases are in `Fixtures/keykind/expected_keykind.json`. Tolerance 1e-9. "To the next key" is the key's `interp`, and for an ease its four numbers.
+
+FX-SEP-001: X goes 0 to 8 at a steady speed while Y goes 0 to 4 on the ease-in-out curve: each has its own ease.
+
+| frame | X | Y |
+| --- | --- | --- |
+| 0 | 0 | 0 |
+| 1 | 2 | 0.516647724 |
+| 2 | 4 | 2 |
+| 3 | 6 | 3.48335228 |
+| 4 | 8 | 4 |
+
+FX-SEP-002: X and Y keyed on different frames, Y with a hold: neither needs a key where the other has one.
+
+| frame | X | Y |
+| --- | --- | --- |
+| 0 | 0 | 2 |
+| 1 | 2 | 2 |
+| 2 | 4 | 2 |
+| 3 | 6 | 6 |
+| 4 | 8 | 6 |
+
+FX-KIND-001: A key made auto: it passes through at the slope between its neighbours, 4 over 12 frames, with handles a third long.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.944444444] |
+| 4 | 8 | linear |
+| 12 | 4 | linear |
+
+After: make the key at frame 4 auto:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.944444444] |
+| 4 | 8 | ease [0.333333333, -0.222222222, 0.666666667, 0.666666667], auto |
+| 12 | 4 | linear |
+
+FX-KIND-002: Auto on the first and last keys: a straight line out and in.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | linear |
+| 4 | 8 | linear |
+
+After: make both keys auto:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.666666667], auto |
+| 4 | 8 | linear, auto |
+
+FX-KIND-003: An auto key on a position: 5 pixels in and 12 out over 8 frames, so 17/8 of a pixel a frame on both sides.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | ease [0.333333333, 0.333333333, 0.666666667, 0.433333333] |
+| 4 | [3, 4] | linear |
+| 8 | [3, 16] | linear |
+
+After: make the key at frame 4 auto:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | ease [0.333333333, 0.333333333, 0.666666667, 0.433333333] |
+| 4 | [3, 4] | ease [0.333333333, 0.236111111, 0.666666667, 0.666666667], auto |
+| 8 | [3, 16] | linear |
+
+FX-KIND-004: An auto key follows its neighbours: the next key's value goes from 4 to 12 and the slope through the auto key becomes 1.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.944444444] |
+| 4 | 8 | ease [0.333333333, -0.222222222, 0.666666667, 0.666666667], auto |
+| 12 | 4 | linear |
+
+After: set the value of the key at frame 12 to 12:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.833333333] |
+| 4 | 8 | ease [0.333333333, 0.666666667, 0.666666667, 0.666666667], auto |
+| 12 | 12 | linear |
+
+FX-KIND-005: A corner made continuous: 2 a frame in and 1 a frame out become 1.5 on both sides, the handles keeping their lengths.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.75] |
+| 4 | 8 | linear |
+| 8 | 12 | linear |
+
+After: make the key at frame 4 continuous:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.75] |
+| 4 | 8 | ease [0.333333333, 0.5, 0.666666667, 0.666666667], continuous |
+| 8 | 12 | linear |
+
+FX-KIND-006: One handle of a continuous key pulled by hand: the other side follows it to the same speed, 2 a frame.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.75] |
+| 4 | 8 | ease [0.333333333, 0.5, 0.666666667, 0.666666667], continuous |
+| 8 | 12 | linear |
+
+After: set the ease of the key at frame 4 to [0.25, 0.5, 0.75, 1]:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.666666667] |
+| 4 | 8 | ease [0.25, 0.5, 0.75, 1], continuous |
+| 8 | 12 | linear |
+
+FX-KIND-007: An auto key beside a segment that goes nowhere: that side has no speed to set and is left as it was.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.833333333] |
+| 4 | 8 | linear |
+| 8 | 8 | linear |
+
+After: make the key at frame 4 auto:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.333333333, 0.333333333, 0.666666667, 0.833333333] |
+| 4 | 8 | linear, auto |
+| 8 | 8 | linear |
+
+FX-ROVE-001: A roving key: 50 pixels then 100, so it sits a third of the way through the ten frames, on frame 3.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | linear |
+| 2 | [30, 40] | linear |
+| 10 | [30, 140] | linear |
+
+After: make the key at frame 2 roving:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | linear |
+| 3 | [30, 40] | linear, roving |
+| 10 | [30, 140] | linear |
+
+FX-ROVE-002: Two roving keys crowded at the start of a short run: each still gets a frame of its own.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | linear |
+| 1 | [1, 0] | linear |
+| 2 | [2, 0] | linear |
+| 3 | [102, 0] | linear |
+
+After: make the keys at frames 1 and 2 roving:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | linear |
+| 1 | [1, 0] | linear, roving |
+| 2 | [2, 0] | linear, roving |
+| 3 | [102, 0] | linear |
+
+FX-ROVE-003: A run with fewer frames than roving keys is refused with COMMAND_INVALID_VALUE and nothing changes.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | linear |
+| 1 | [10, 0] | linear, roving |
+| 3 | [20, 0] | linear, roving |
+| 4 | [30, 0] | linear |
+
+After: move the key at frame 4 to frame 2: refused.
+
+FX-ROVE-004: A curved path counts at its own length, measured along 64 straight pieces: the arch is longer than the straight run after it.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | linear, path handles [0, 0, 0, 60] |
+| 5 | [60, 0] | linear, path handles [0, 60, 0, 0] |
+| 10 | [120, 0] | linear |
+
+After: make the key at frame 5 roving:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | linear, path handles [0, 0, 0, 60] |
+| 7 | [60, 0] | linear, roving, path handles [0, 60, 0, 0] |
+| 10 | [120, 0] | linear |
+
+FX-SEP-003: Separating a position: each key becomes a key of X and a key of Y with the same ease and kind; the path handles are dropped.
+
+Before:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 0] | ease [0.42, 0, 0.58, 1], path handles [0, 0, 0, 20] |
+| 4 | [8, 4] | linear, auto |
+
+After: separate the position, X:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.42, 0, 0.58, 1] |
+| 4 | 8 | linear, auto |
+
+After: separate the position, Y:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | ease [0.42, 0, 0.58, 1] |
+| 4 | 4 | linear, auto |
+
+FX-SEP-004: Joining FX-SEP-002 again: a key wherever either had one, holding the position at that frame, with X's ease where X had a key and else Y's.
+
+Before, X:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | 0 | linear |
+| 4 | 8 | linear |
+
+Before, Y:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 1 | 2 | hold |
+| 3 | 6 | linear |
+
+After: join the position:
+
+| frame | value | to the next key |
+| --- | --- | --- |
+| 0 | [0, 2] | linear |
+| 1 | [2.0, 2] | hold |
+| 3 | [6.0, 6] | linear |
+| 4 | [8, 6] | linear |
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
