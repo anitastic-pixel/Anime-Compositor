@@ -77,3 +77,5 @@ it. Nothing below changes the fixtures.
 ## Verdict
 
 Works / does not work, with the number of any step that failed:
+
+**Works.** The owner, 2026-09-19: "B-19g playtest works".
