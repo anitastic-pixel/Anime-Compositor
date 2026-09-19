@@ -46,7 +46,9 @@ use anime_compositor::cache::CelCache;
 use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
-use anime_compositor::effects::{Effect, EffectInstance, EXPOSURE, GAUSSIAN_BLUR, TINT};
+use anime_compositor::effects::{
+    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, TINT,
+};
 use anime_compositor::export::{
     self, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
 };
@@ -229,6 +231,18 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
     let answer = (|| {
         let comp = viewer.document.project().composition(&viewer.composition)?;
         let name = parameter(query, "prop")?;
+        // B-19d: an effect's setting, as the frame is rendered with it: D-68's value held
+        // inside the setting's range.
+        if let Some((instance, setting)) = effect_setting(&name) {
+            let layer = comp.layer(&Id::new(&parameter(query, "layer")?))?;
+            let fx = layer.effects.iter().find(|e| e.instance_id == instance)?;
+            let (from, to) = (number("from", 0), number("to", 0));
+            let to = to.clamp(from, from.saturating_add(10_000));
+            let samples: Vec<serde_json::Value> = (from..=to)
+                .map(|f| serde_json::json!(fx.at(f).effect.get(&setting)))
+                .collect();
+            return Some(serde_json::json!({ "from": from, "to": to, "samples": samples }));
+        }
         // D-22: a scale is a percentage in the panels and a lens is millimetres, so the graph is
         // drawn in the numbers the inspector beside it shows.
         let (held, factor) = if parameter(query, "target").as_deref() == Some("camera") {
@@ -393,6 +407,18 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             w => serde_json::json!(w),
                         },
                     );
+                    // B-19d: and every keyed setting of its effects, under the name the page
+                    // gives it, for the reason the depth is here.
+                    for fx in &layer.effects {
+                        for name in fx.tracks.keys() {
+                            if let Some(v) = fx.at(frame).effect.get(name) {
+                                at.insert(
+                                    format!("fx:{}:{name}", fx.instance_id),
+                                    serde_json::json!(v),
+                                );
+                            }
+                        }
+                    }
                     (layer.id.as_str().to_string(), serde_json::Value::Object(at))
                 })
                 .collect();
@@ -1276,6 +1302,108 @@ fn property_of(layer: &Layer, prop: Prop) -> anime_compositor::model::Property {
 /// position is refused by the core's own rule about kinds instead of being quietly read as a
 /// scalar. Whether the number is in range is not decided here either - opacity clamps, and that
 /// is document 19's decision and is made in one place.
+/// B-19d: `fx:<instance>:<setting>` names an effect's setting wherever a request names a
+/// property, so that the diamond, the rows of the timeline, the graph, F9 and the key clipboard
+/// reach D-68's keys through the requests they already send.
+fn effect_setting(prop: &str) -> Option<(Id, String)> {
+    let (instance, setting) = prop.strip_prefix("fx:")?.rsplit_once(':')?;
+    Some((Id::new(instance), setting.to_string()))
+}
+
+/// The numbers of a setting as a request writes them, one or a colour's three.
+fn setting_value(setting: &str, count: usize, text: &str) -> Result<Vec<f64>, String> {
+    let value: Vec<f64> = text
+        .split(',')
+        .filter_map(|n| n.trim().parse().ok())
+        .collect();
+    if value.len() != count || text.split(',').count() != count {
+        return Err(format!(
+            "{setting} needs {}. Not \"{text}\".",
+            if count == 3 { "three numbers, like 1, 0.5, 0" } else { "a number" }
+        ));
+    }
+    Ok(value)
+}
+
+/// B-19d: what one keyframe request, or one value, does to an effect's setting. The core's
+/// command replaces every key of the setting as one, so the keys are read, changed and sent
+/// back; a value on a setting with no keys is `SET_EFFECT_PARAMETERS` as it always was.
+fn effect_key_command(
+    id: &str,
+    query: Option<&str>,
+    composition: Id,
+    layer: &Layer,
+    instance_id: Id,
+    setting: String,
+) -> Result<Command, String> {
+    let Some(existing) = layer.effects.iter().find(|e| e.instance_id == instance_id) else {
+        return Err(format!("{instance_id} is not an effect on this layer."));
+    };
+    let Some(count) = existing.effect.arity(&setting) else {
+        return Err(format!(
+            "A {} has no setting called {setting}.",
+            existing.type_id()
+        ));
+    };
+    let mut keys = existing.keys(&setting);
+    let value = match id {
+        "property.set_base" | "property.drag_update" => {
+            let Some(text) = parameter(query, "value") else {
+                return Err(format!("What should {setting} be set to?"));
+            };
+            let value = setting_value(&setting, count, &text)?;
+            if keys.is_empty() {
+                let mut effect = existing.effect.clone();
+                effect.set(&setting, &value);
+                return Ok(Command::SetEffectParameters {
+                    composition,
+                    layer_id: layer.id.clone(),
+                    instance_id,
+                    effect,
+                });
+            }
+            Some(value)
+        }
+        _ => None,
+    };
+    let frame = frame_parameter(query, if id == "keyframe.move" { "from" } else { "frame" })?;
+    let at = keys.iter().position(|k| k.frame == frame);
+    let missing = || format!("{setting} has no keyframe at frame {frame}.");
+    match (id, value) {
+        // W-10's rule for a layer's property: a value on a keyed setting is a key on that frame,
+        // keeping the ease a key already there was given.
+        (_, Some(value)) => match at {
+            Some(i) => keys[i].value = value,
+            None => keys.push(EffectKey {
+                frame,
+                value,
+                interp: Interp::Linear,
+            }),
+        },
+        // The diamond: a key holding what the setting already is on that frame, or the key gone.
+        ("keyframe.add_remove", _) => match at {
+            Some(i) => {
+                keys.remove(i);
+            }
+            None => keys.push(EffectKey {
+                frame,
+                value: existing.at(frame).effect.get(&setting).unwrap_or_default(),
+                interp: Interp::Linear,
+            }),
+        },
+        ("keyframe.move", _) => keys[at.ok_or_else(missing)?].frame = frame_parameter(query, "to")?,
+        _ => keys[at.ok_or_else(missing)?].interp = interp_parameter(query)?,
+    }
+    keys.sort_by_key(|k| k.frame);
+    Ok(Command::SetEffectKeys {
+        composition,
+        layer_id: layer.id.clone(),
+        instance_id,
+        setting,
+        keys,
+    })
+}
+
 fn property_value(prop: Prop, text: &str) -> Option<Value> {
     let number = |t: &str| t.trim().parse::<f64>().ok();
     // D-22: the file holds a scale as a percentage and the model holds the factor document 21
@@ -2539,13 +2667,28 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // landing on one that is not moving is refused by the core, and then none of them move.
         "keyframe.move" | "keyframe.add_remove" if !parameters(query, "key").is_empty() => {
             let mut keys = Vec::new();
-            for named in parameters(query, "key") {
+            // B-19d: the chosen keys that are an effect setting's, by layer, effect and setting,
+            // each with the frame it is on and the value sent with it. `key_values` is the
+            // values of the others, which `value=` no longer lines up with once these are out.
+            let mut fx: std::collections::BTreeMap<(String, String, String), Vec<(i32, Option<String>)>> =
+                Default::default();
+            let all_values = parameters(query, "value");
+            let mut key_values = Vec::new();
+            let named_count = parameters(query, "key").len();
+            for (i, named) in parameters(query, "key").into_iter().enumerate() {
                 let mut parts = named.rsplitn(3, '|');
                 let (Some(at), Some(prop), Some(layer)) =
                     (parts.next(), parts.next(), parts.next())
                 else {
                     return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
                 };
+                if let (Some((instance, setting)), Ok(at)) = (effect_setting(prop), at.parse()) {
+                    fx.entry((layer.to_string(), instance.as_str().to_string(), setting))
+                        .or_default()
+                        .push((at, all_values.get(i).cloned()));
+                    continue;
+                }
+                key_values.extend(all_values.get(i).cloned());
                 // B-13e: the camera's three rows carry keys on the timeline like a layer's,
                 // and the page names them with the same three parts. Only the first part tells
                 // them apart, and a camera has its own three property names rather than the six
@@ -2567,6 +2710,55 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             }
             let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
             let composition = held.composition.clone();
+            let by = if id == "keyframe.move" {
+                match frame_parameter(query, "by") {
+                    Ok(by) => by,
+                    Err(said) => return Some(said),
+                }
+            } else {
+                0
+            };
+            // B-19d: each setting's keys, with the chosen ones moved, given their values or
+            // taken out, as the one command the core has for them.
+            let mut fx_commands = Vec::new();
+            for ((layer, instance, setting), chosen) in fx {
+                let existing = held
+                    .document
+                    .project()
+                    .composition(&composition)
+                    .and_then(|c| c.layer(&Id::new(&layer)))
+                    .and_then(|l| l.effects.iter().find(|e| e.instance_id.as_str() == instance));
+                let Some(existing) = existing else {
+                    return Some(format!("{instance} is not an effect on {layer}."));
+                };
+                let original = existing.keys(&setting);
+                let mut list = original.clone();
+                for (at, text) in &chosen {
+                    let Some(i) = original.iter().position(|k| k.frame == *at) else {
+                        return Some(format!("{setting} has no key at frame {at}."));
+                    };
+                    list[i].frame += by;
+                    if let Some(text) = text {
+                        match setting_value(&setting, list[i].value.len(), text) {
+                            Ok(value) => list[i].value = value,
+                            Err(said) => return Some(said),
+                        }
+                    }
+                }
+                if id == "keyframe.add_remove" {
+                    list.retain(|k| !chosen.iter().any(|(at, _)| *at == k.frame));
+                } else if by == 0 && chosen.iter().all(|(_, text)| text.is_none()) {
+                    continue;
+                }
+                list.sort_by_key(|k| k.frame);
+                fx_commands.push(Command::SetEffectKeys {
+                    composition: composition.clone(),
+                    layer_id: Id::new(&layer),
+                    instance_id: Id::new(&instance),
+                    setting,
+                    keys: list,
+                });
+            }
             // W-19: the chosen keys named are removed, as one entry to undo. Only removed: a key
             // somebody chose is a key that is there, and one that has gone since is refused by
             // the core rather than put back.
@@ -2579,26 +2771,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         prop,
                         frame,
                     })
+                    .chain(fx_commands)
                     .collect();
                 return Some(match held.document.apply_all(commands) {
                     Ok(record) => record.label.clone(),
                     Err(diagnostic) => sentence(&diagnostic),
                 });
             }
-            let by = match frame_parameter(query, "by") {
-                Ok(by) => by,
-                Err(said) => return Some(said),
-            };
             // B-19a: a key dragged in the graph goes up and down as well as along, and one drag
             // is one entry to undo. `value=` is repeated once for each `key=`, in the same order,
             // and is what that key holds where it lands; its ease and its path handles go with
             // it. `by=0` is a key whose value changed and whose frame did not.
-            let values = parameters(query, "value");
-            if !values.is_empty() && values.len() != keys.len() {
+            let values = key_values;
+            if !all_values.is_empty() && all_values.len() != named_count {
                 return Some(format!(
                     "{} keys were named and {} values: a value is given for every key or for none.",
-                    keys.len(),
-                    values.len()
+                    named_count,
+                    all_values.len()
                 ));
             }
             let mut sets = Vec::new();
@@ -2652,6 +2841,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     to_frame: from_frame + by,
                 })
                 .chain(sets)
+                .chain(fx_commands)
                 .collect();
             if commands.is_empty() {
                 return Some("Nothing moved.".to_string());
@@ -3246,6 +3436,28 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 // one, that key is removed. Which of the two is read from the document, as the
                 // other toggles are, rather than sent by a page that may be describing a key
                 // that has since been undone.
+                // B-19d: the same five requests about an effect's setting, which the page names
+                // where it names a property.
+                "keyframe.add_remove"
+                | "keyframe.move"
+                | "keyframe.set_interp"
+                | "property.set_base"
+                | "property.drag_update"
+                    if parameter(query, "prop")
+                        .as_deref()
+                        .and_then(effect_setting)
+                        .is_some() =>
+                {
+                    let (instance_id, setting) = parameter(query, "prop")
+                        .as_deref()
+                        .and_then(effect_setting)
+                        .expect("the guard above");
+                    match effect_key_command(id, query, composition, layer, instance_id, setting)
+                    {
+                        Ok(command) => command,
+                        Err(said) => return Some(said),
+                    }
+                }
                 "keyframe.add_remove" => {
                     let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
                         return Some(
@@ -10526,6 +10738,288 @@ mod editing {
          and change nothing here. They are `verification/B-19a_graph_playtest.md`, for a person.",
     ];
 
+    /// B-19d: D-68's keys from the window. The order is the playtest sheet's.
+    #[test]
+    fn an_effects_setting_is_keyed_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        run(&viewer, &format!("effect.add?layer={cel}&type=core.exposure"));
+        let fx = shown_layer(&viewer, "Cel")["effects"][0]["instance_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let stops = format!("fx:{fx}:stops");
+        // What the page reads: the setting as the file writes it, a plain number or its keys.
+        let setting = |viewer: &Mutex<Viewer>, at: usize, name: &str| {
+            let held = shown_layer(viewer, "Cel")["effects"][at]["parameters"][name].clone();
+            match held["keyframes"].as_array() {
+                None => format!("plain {held}"),
+                Some(all) => all
+                    .iter()
+                    .map(|k| format!("{}: {} {}", k["frame"], k["value"], k["interp"]))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+                    .replace('"', ""),
+            }
+        };
+        let depth = |viewer: &Mutex<Viewer>| held(viewer).document.undo_depth();
+        let on_frame = |viewer: &Mutex<Viewer>, frame: i32, prop: &str| {
+            let answer: serde_json::Value =
+                serde_json::from_slice(boxes(viewer, frame, None).body()).expect("boxes is JSON");
+            answer["values"][&cel][prop].to_string()
+        };
+
+        run(
+            &viewer,
+            &format!("effect.set_parameters?layer={cel}&effect={fx}&stops=1"),
+        );
+        report.check(
+            "an exposure of one stop, with no keys, is a plain number as it always was",
+            "plain 1",
+            setting(&viewer, 0, "stops"),
+        );
+        run(
+            &viewer,
+            &format!("keyframe.add_remove?layer={cel}&prop={stops}&frame=0"),
+        );
+        report.check(
+            "the stopwatch on frame 0 makes a key holding what the setting already was",
+            "0: 1 linear",
+            setting(&viewer, 0, "stops"),
+        );
+        run(
+            &viewer,
+            &format!("property.set_base?layer={cel}&prop={stops}&frame=10&value=3"),
+        );
+        report.check(
+            "a value typed on frame 10 of a keyed setting is a second key, not a new constant",
+            "0: 1 linear; 10: 3 linear",
+            setting(&viewer, 0, "stops"),
+        );
+        report.check(
+            "half way between them the panel is told 2, the value the frame is drawn with",
+            "[2.0]",
+            on_frame(&viewer, 5, &stops),
+        );
+        let body = curve(
+            &viewer,
+            Some(&format!("layer={cel}&prop={stops}&from=5&to=5")),
+        )
+        .into_body();
+        let answer: serde_json::Value =
+            serde_json::from_slice(&body).expect("the curve answer is JSON");
+        report.check(
+            "and the graph is told the same",
+            "[2.0]",
+            answer["samples"][0].to_string(),
+        );
+        run(
+            &viewer,
+            &format!("effect.set_parameters?layer={cel}&effect={fx}&stops=1"),
+        );
+        report.check(
+            "the effect's other settings sent again, as the panel sends them, leave the keys alone",
+            "0: 1 linear; 10: 3 linear",
+            setting(&viewer, 0, "stops"),
+        );
+        run(
+            &viewer,
+            &format!("keyframe.set_interp?layer={cel}&prop={stops}&frame=0&mode=ease"),
+        );
+        run(
+            &viewer,
+            &format!("keyframe.move?layer={cel}&prop={stops}&from=10&to=12"),
+        );
+        report.check(
+            "F9 on the first key eases it, and the second dragged along the timeline moves",
+            "0: 1 ease; 12: 3 linear",
+            setting(&viewer, 0, "stops"),
+        );
+        run(&viewer, &format!("property.set_base?layer={cel}&prop=position&value=100,100"));
+        run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=position&frame=0"));
+        let before = depth(&viewer);
+        run(
+            &viewer,
+            &format!(
+                "keyframe.move?by=2&key={cel}|{stops}|0&value=1.5&key={cel}|position|0&value=100,120"
+            ),
+        );
+        report.check(
+            "a key of the setting and a key of position dragged together in the graph: the setting's \
+             moves, takes its value and keeps its ease",
+            "2: 1.5 ease; 12: 3 linear",
+            setting(&viewer, 0, "stops"),
+        );
+        report.check(
+            "and position's went with it",
+            "2: [100,120] linear",
+            shown_layer(&viewer, "Cel")["transform"]["position"]["keyframes"]
+                .as_array()
+                .map(|all| {
+                    all.iter()
+                        .map(|k| format!("{}: {} {}", k["frame"], k["value"], k["interp"]))
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                })
+                .unwrap_or_default()
+                .replace('"', ""),
+        );
+        report.check(
+            "as one entry to undo",
+            (before + 1).to_string(),
+            depth(&viewer).to_string(),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "which Undo takes back whole",
+            "0: 1 ease; 12: 3 linear",
+            setting(&viewer, 0, "stops"),
+        );
+        let before = depth(&viewer);
+        for value in ["2", "2.5"] {
+            run(
+                &viewer,
+                &format!("property.drag_update?layer={cel}&prop={stops}&frame=6&value={value}"),
+            );
+        }
+        run(&viewer, "property.drag_end");
+        report.check(
+            "the number scrubbed on frame 6, two values sent and let go, is one key",
+            "0: 1 ease; 6: 2.5 linear; 12: 3 linear",
+            setting(&viewer, 0, "stops"),
+        );
+        report.check(
+            "and one entry to undo",
+            (before + 1).to_string(),
+            depth(&viewer).to_string(),
+        );
+        report.check(
+            "a key moved onto a frame another key holds is refused, and nothing changes",
+            "0: 1 ease; 6: 2.5 linear; 12: 3 linear",
+            {
+                run(&viewer, &format!("keyframe.move?layer={cel}&prop={stops}&from=6&to=12"));
+                setting(&viewer, 0, "stops")
+            },
+        );
+
+        run(&viewer, &format!("effect.add?layer={cel}&type=core.gaussian_blur"));
+        let blur = shown_layer(&viewer, "Cel")["effects"][1]["instance_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let sigma = format!("fx:{blur}:sigma_px");
+        run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop={sigma}&frame=0"));
+        let said = run(
+            &viewer,
+            &format!("property.set_base?layer={cel}&prop={sigma}&frame=4&value=-1"),
+        );
+        report.check(
+            "a blur keyed below nought is refused by name (D-46), and no key is made",
+            "true, and the keys are 0: 0 linear",
+            format!(
+                "{}, and the keys are {}",
+                said.contains("EFFECT_PARAMETER_INVALID") || said.contains("sigma"),
+                setting(&viewer, 1, "sigma_px")
+            ),
+        );
+        report.check(
+            "a setting the effect does not have is refused in words",
+            "A core.gaussian_blur has no setting called stops.",
+            run(
+                &viewer,
+                &format!("keyframe.add_remove?layer={cel}&prop=fx:{blur}:stops&frame=0"),
+            ),
+        );
+
+        run(&viewer, &format!("effect.add?layer={cel}&type=core.tint"));
+        let tint = shown_layer(&viewer, "Cel")["effects"][2]["instance_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let color = format!("fx:{tint}:color");
+        run(
+            &viewer,
+            &format!("effect.set_parameters?layer={cel}&effect={tint}&color=0,0,1&amount=0.5"),
+        );
+        run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop={color}&frame=0"));
+        run(
+            &viewer,
+            &format!("property.set_base?layer={cel}&prop={color}&frame=10&value=1,0,0"),
+        );
+        report.check(
+            "a colour is keyed as its three numbers together",
+            "0: [0,0,1] linear; 10: [1,0,0] linear",
+            setting(&viewer, 2, "color"),
+        );
+        report.check(
+            "and half way it is half of each",
+            "[0.5,0.0,0.5]",
+            on_frame(&viewer, 5, &color),
+        );
+
+        let before = depth(&viewer);
+        run(
+            &viewer,
+            &format!("keyframe.add_remove?key={cel}|{stops}|0&key={cel}|{stops}|6&key={cel}|{stops}|12"),
+        );
+        report.check(
+            "every chosen key of the setting deleted at once: it is a plain number again",
+            "plain 1",
+            setting(&viewer, 0, "stops"),
+        );
+        report.check(
+            "as one entry to undo",
+            (before + 1).to_string(),
+            depth(&viewer).to_string(),
+        );
+        let saved = persist::to_json(held(&viewer).document.project(), &Preserved::default());
+        let again = persist::load_str(&saved).map(|l| persist::to_json(l.document.project(), &l.preserved));
+        report.check(
+            "what a save would write opens again and saves the same",
+            "the same",
+            if again.as_deref().ok() == Some(saved.as_str()) { "the same" } else { "differs" },
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-19d_panel_table.md",
+            "B-19d: an effect's setting keyed from the window",
+            FX_KEY_INTRO,
+            FX_KEY_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    const FX_KEY_INTRO: &[&str] = &[
+        "D-68 gave an effect's setting keys and B-19c built them in the core, checked pixel by \
+         pixel in `verification/B-19c_fxkey_table.md`. This is the window's half. The page names \
+         a setting `fx:<effect>:<setting>` wherever it names a property, so the stopwatch, the \
+         rows of the timeline, the graph, F9 and copy and paste send the requests they already \
+         send, and the window turns each into the core's one command for a setting's keys.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
+         and reads back what the page is given.",
+    ];
+
+    const FX_KEY_NOTES: &[&str] = &[
+        "## What this does not cover\n\nThe stopwatch and the rows as they look, the setting in \
+         the graph, and the All button that draws several properties at once are in the page. \
+         They are `verification/B-19d_fxkey_playtest.md`, for a person. Whether the pixels are \
+         right is B-19c's table.",
+    ];
+
     const PRECOMP_PANEL_INTRO: &[&str] = &[
         "D-67 decided what a composition layer is and B-18b built it in the core, checked pixel \
          by pixel in `verification/B-18b_precomp_table.md`. This is the window's half: \
@@ -13045,7 +13539,7 @@ mod contract {
             "an effect's settings are sent when the number is committed, by Enter or by leaving \
              the field",
             "effect.set_parameters",
-            "commit: () => sendParameters(),",
+            "commit: () => sendParameters('', name),",
         ),
         (
             "an exposure's frames are committed by Enter or by leaving the field",
@@ -13095,7 +13589,7 @@ mod contract {
             "what an effect's field sends per keystroke is inside a drag",
             true,
             page.contains(
-                "const live = () => { open = true; dragging = true; sendParameters('&drag=1'); };",
+                "const live = (changed) => { open = true; dragging = true; sendParameters('&drag=1', changed); };",
             ),
         );
         report.check(
@@ -14103,7 +14597,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 48] = [
+    const CONTROLS: [&str; 49] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -14126,6 +14620,7 @@ mod contract {
         "fit",
         "fit100",
         "fwd",
+        "graphall",
         "graphfit",
         "graphmode",
         "graphprop",

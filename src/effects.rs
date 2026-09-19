@@ -216,6 +216,17 @@ impl Effect {
         }
     }
 
+    /// The numbers the setting of this name holds, or `None` when this effect has no such setting.
+    pub fn get(&self, name: &str) -> Option<Vec<f64>> {
+        match (self, name) {
+            (Effect::Exposure { stops }, "stops") => Some(vec![*stops]),
+            (Effect::GaussianBlur { sigma_px }, "sigma_px") => Some(vec![*sigma_px]),
+            (Effect::Tint { amount, .. }, "amount") => Some(vec![*amount]),
+            (Effect::Tint { color, .. }, "color") => Some(color.to_vec()),
+            _ => None,
+        }
+    }
+
     /// Put `v` in the setting of this name. A name or a count that does not fit changes nothing.
     pub fn set(&mut self, name: &str, v: &[f64]) {
         if self.arity(name) != Some(v.len()) {

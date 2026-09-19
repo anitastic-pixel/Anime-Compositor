@@ -689,6 +689,19 @@ impl Command {
                 Command::SetCameraProperty { prop: mine, .. },
                 Command::SetCameraProperty { prop: theirs, .. },
             ) if mine != theirs => return false,
+            // D-68: the keys of one setting are one control, and another setting's are another.
+            (
+                Command::SetEffectKeys {
+                    instance_id: mine,
+                    setting: my_setting,
+                    ..
+                },
+                Command::SetEffectKeys {
+                    instance_id: theirs,
+                    setting: their_setting,
+                    ..
+                },
+            ) if mine != theirs || my_setting != their_setting => return false,
             _ => {}
         }
         self.command_id() == other.command_id() && self.affected() == other.affected()

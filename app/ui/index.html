@@ -253,6 +253,8 @@
   #graph svg { display: block; width: 100%; height: 170px; touch-action: none; }
   #graph .plot { fill: none; stroke: #6ea8fe; stroke-width: 1.5; }
   #graph .plot.second { stroke: #7bd88f; }
+  #graph .plot.other { stroke: #8a8f98; stroke-width: 1; stroke-dasharray: 4 3; pointer-events: stroke; cursor: pointer; }
+  #graph .otherdot { fill: #8a8f98; cursor: pointer; }
   #graph .keydot { fill: #e8b06a; cursor: grab; }
   #graph .keydot.selected { fill: #6ea8fe; }
   #graph .arm { stroke: #e8b06a; stroke-width: 1; stroke-dasharray: 3 2; }
@@ -746,6 +748,8 @@
       <select id="graphprop" aria-label="Which property the graph draws" hidden></select>
       <button id="graphmode" class="sheettab" aria-pressed="false" hidden
         title="Draw how fast the property changes, as After Effects' speed graph does">Speed</button>
+      <button id="graphall" class="sheettab" aria-pressed="false" hidden
+        title="Draw the layer's other keyed properties behind the one being edited. Press one of them to edit it instead.">All</button>
       <button id="graphfit" class="sheettab" hidden
         title="Fit the graph to the chosen keys, or to the whole curve when none is chosen. The mouse wheel zooms the values; drag with the middle button to slide them.">Fit</button>
       <button id="shyswitch" class="sheettab" aria-pressed="false"
@@ -1572,7 +1576,7 @@ function removeKeys() {
 // layers or on every layer when none is selected.
 function toKey(later) {
   const from = movable().length ? movable() : layers();
-  const frames = from.flatMap((layer) => PROPS.flatMap((prop) => keysOf(layer, prop).map((k) => k.frame)));
+  const frames = from.flatMap((layer) => propsOf(layer).flatMap((prop) => keysOf(layer, prop).map((k) => k.frame)));
   const next = later
     ? Math.min(...frames.filter((f) => f > frame))
     : Math.max(...frames.filter((f) => f < frame));
@@ -1707,9 +1711,9 @@ function track(comp, layer, drawings) {
   };
   // W-10: a mark at every frame any of the five properties has a key on. One mark per frame,
   // not one per property: the bar is the layer's time, and what is keyed there is in the panel.
-  for (const at of new Set(PROPS.flatMap((prop) => keysOf(layer, prop).map((k) => k.frame)))) {
+  for (const at of new Set(propsOf(layer).flatMap((prop) => keysOf(layer, prop).map((k) => k.frame)))) {
     if (!inView(comp, at + 0.5)) continue;
-    const keyed = PROPS.filter((prop) => keysOf(layer, prop).some((k) => k.frame === at));
+    const keyed = propsOf(layer).filter((prop) => keysOf(layer, prop).some((k) => k.frame === at));
     const mark = document.createElement('div');
     mark.className = 'key';
     mark.style.left = percent(atFrame(comp, at + 0.5));
@@ -2162,7 +2166,7 @@ function drawLayers() {
     const open = shownOf(layer.id);
     const twirl = iconButton(open.size ? '\u25be' : '\u25b8',
       (open.size ? 'Hide the properties of ' : 'Show the properties of ') + layer.name,
-      () => { shown.set(layer.id, open.size ? new Set() : new Set(PROPS)); drawLayers(); });
+      () => { shown.set(layer.id, open.size ? new Set() : new Set(propsOf(layer))); drawLayers(); });
     twirl.className = 'twirl';
     twirl.setAttribute('aria-expanded', String(open.size > 0));
     // W-24: After Effects' solo switch, which the preview obeys and the file never hears of, and
@@ -2241,7 +2245,7 @@ function drawLayers() {
     li.ondblclick = () => (precomp
       ? command('/composition.open?composition=' + encodeURIComponent(layer.composition_id))
       : beginRename());
-    return [li, ...PROPS.filter((prop) => open.has(prop)).flatMap((prop) => propTrack(comp, layer, prop))];
+    return [li, ...propsOf(layer).filter((prop) => open.has(prop)).flatMap((prop) => propTrack(comp, layer, prop))];
   }));
 }
 
@@ -2349,7 +2353,7 @@ function snapFrames() {
   // frame to snap to, because it belongs to the composition rather than sitting inside it.
   const camera = cameraRow();
   return layers().flatMap((l) => [l.in_frame, l.out_frame - 1,
-    ...PROPS.flatMap((p) => keysOf(l, p).map((k) => k.frame))])
+    ...propsOf(l).flatMap((p) => keysOf(l, p).map((k) => k.frame))])
     .concat(camera ? CAMERA_PROPS.flatMap((p) => keysOf(camera, p).map((k) => k.frame)) : []);
 }
 
@@ -2818,7 +2822,7 @@ function propTrack(comp, layer, prop) {
   head.className = 'rowhead';
   const name = document.createElement('span');
   name.className = 'name';
-  name.textContent = prop[0].toUpperCase() + prop.slice(1);
+  name.textContent = propLabel(layer, prop).replace(/^./, (c) => c.toUpperCase());
   // W-20: the property's name chooses every one of its keys, as After Effects' does; Shift adds
   // them to what is chosen.
   name.title = 'Press to choose all of this property\'s keys';
@@ -2848,7 +2852,7 @@ function propTrack(comp, layer, prop) {
       mark.className = 'key' + (pickedKeys.has(mark.dataset.key) ? ' selected' : '');
       mark.style.clipPath = keyShape(keys, i);
       mark.style.left = percent(atFrame(comp, key.frame + 0.5));
-      mark.title = prop + ' at frame ' + key.frame + ': ' + [].concat(key.value).join(', ');
+      mark.title = propLabel(layer, prop) + ' at frame ' + key.frame + ': ' + [].concat(key.value).join(', ');
       mark.setAttribute('aria-label', prop + ' keyframe at frame ' + key.frame
         + '. Press to choose it for F9, drag it, or move it with the left and right arrow keys.');
       grabKey(comp, layer, prop, key, mark);
@@ -2984,7 +2988,7 @@ async function askForBoxes() {
   // filled, so the panel follows the playhead for a layer that has keys. A layer with none
   // shows the same numbers on every frame and is left alone.
   // B-14c: and so do an expression's, and whether it is failing on this frame.
-  if (layer && PROPS.some((prop) => keysOf(layer, prop).length || exprOf(layer, prop))) {
+  if (layer && propsOf(layer).some((prop) => keysOf(layer, prop).length || exprOf(layer, prop))) {
     drawInspector();
   }
   const camera = cameraRow();
@@ -3875,9 +3879,38 @@ const PROPS = ['anchor', 'position', 'scale', 'rotation', 'opacity', 'depth'];
 // layer itself, beside its parent, because D-58 has it ride the parent chain additively and a
 // transform does not. A layer that has never been given one sits on plane 0, which is the value
 // to show rather than a blank.
-const propOf = (layer, prop) => (prop === 'depth'
+const propOf = (layer, prop) => (isFx(prop) ? fxOf(layer, prop) : prop === 'depth'
   ? (layer.depth || { base: 0 })
   : ((layer.transform || {})[prop] || {}));
+// B-19d: an effect's setting is named `fx:<instance>:<setting>` wherever a property is named, so
+// the diamond, the rows of the timeline, the graph, F9 and copy and paste reach D-68's keys by
+// the way they reach a transform's. The file writes a keyed setting as a property's record and
+// an unkeyed one as the plain value, which is a base here.
+const isFx = (prop) => prop.startsWith('fx:');
+const fxName = (fx, name) => 'fx:' + fx.instance_id + ':' + name;
+function fxParts(layer, prop) {
+  const bits = prop.split(':');
+  const name = bits.pop();
+  const id = bits.slice(1).join(':');
+  return [(layer.effects || []).find((e) => e.instance_id === id), name];
+}
+function fxOf(layer, prop) {
+  const [fx, name] = fxParts(layer, prop);
+  const held = fx && (fx.parameters || {})[name];
+  if (held === undefined) return {};
+  return held && held.keyframes ? held : { base: held };
+}
+// A layer's properties: the six, and each setting of its effects that has keys.
+const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
+  : PROPS.concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {})
+    .filter((name) => keysOf(layer, fxName(fx, name)).length).map((name) => fxName(fx, name)))));
+// What a property is called on screen: its own name, or the effect's and the setting's words.
+function propLabel(layer, prop) {
+  if (!isFx(prop)) return prop;
+  const [fx, name] = fxParts(layer, prop);
+  const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
+  return (fx ? (EFFECT_NAMES[fx.type_id] || fx.type_id) + ' ' : '') + (known ? known[1] : name);
+}
 const keysOf = (layer, prop) => (propOf(layer, prop).keyframes || []);
 // D-59's expression on a property, switched on or off, or null.
 const exprOf = (layer, prop) => propOf(layer, prop).expression || null;
@@ -3915,7 +3948,7 @@ function showProps(props, add) {
     const layer = layers().find((l) => l.id === id);
     const open = shownOf(id);
     const want = props === 'animated'
-      ? new Set(PROPS.filter((prop) => keysOf(layer, prop).length))
+      ? new Set(propsOf(layer).filter((prop) => keysOf(layer, prop).length))
       : props === 'changed' ? new Set(PROPS.filter((prop) => changed(layer, prop))) : new Set(props);
     const same = open.size === want.size && [...want].every((prop) => open.has(prop));
     let next;
@@ -3948,9 +3981,10 @@ function keyButton(layer, prop) {
   const button = document.createElement('button');
   button.className = 'key' + (keys.length ? ' animated' : '');
   button.textContent = on ? '◆' : '◇';
-  button.title = (on ? 'Remove the ' : 'Add a ') + prop + ' keyframe at frame ' + frame
+  button.title = (on ? 'Remove the ' : 'Add a ') + propLabel(layer, prop) + ' keyframe at frame ' + frame
     + (keys.length ? ' (' + keys.length + ' keyframe' + (keys.length === 1 ? '' : 's') + ')' : '');
-  button.title += exprOf(layer, prop)
+  // B-19d: D-68 gives an effect's setting keys and no expression.
+  if (!isFx(prop)) button.title += exprOf(layer, prop)
     ? '. Alt-click removes the expression' : '. Alt-click adds an expression';
   button.setAttribute('aria-label', button.title);
   button.setAttribute('aria-pressed', on);
@@ -3958,7 +3992,7 @@ function keyButton(layer, prop) {
     // B-14c: Alt with it adds an expression to the property, or takes it away, as Alt on
     // After Effects' stopwatch does. The owner asked for this on 2026-09-16. W-23 had Alt take
     // every key off; pressing the property's name and then Delete still does that.
-    if (e.altKey) {
+    if (e.altKey && !isFx(prop)) {
       toggleExpression(layer, prop, button.closest('#layers') ? 'track' : 'panel');
       return;
     }
@@ -3966,7 +4000,7 @@ function keyButton(layer, prop) {
   };
   // After Effects' Alt+Shift+= on the diamond that has the keyboard does the same.
   button.onkeydown = (e) => {
-    if (e.altKey && e.shiftKey && (e.key === '=' || e.key === '+')) {
+    if (e.altKey && e.shiftKey && (e.key === '=' || e.key === '+') && !isFx(prop)) {
       e.preventDefault();
       e.stopPropagation();
       toggleExpression(layer, prop, button.closest('#layers') ? 'track' : 'panel');
@@ -4540,10 +4574,20 @@ function effectRow(layer, fx, at, of) {
   const dl = document.createElement('dl');
   const fields = {};
   let pick = null;
-  const sendParameters = (extra = '') => {
-    const parts = known.map(([name]) => '&' + name + '='
-      + encodeURIComponent(fields[name].map((f) => f.value.trim()).join(',')));
+  // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
+  // that frame as it does for a transform's property (W-10). The others travel together as
+  // before, a keyed one among them as the base it already has.
+  const typed = (name) => fields[name].map((f) => f.value.trim()).join(',');
+  const keyed = (name) => keysOf(layer, fxName(fx, name)).length > 0;
+  const sendParameters = (extra = '', changed = null) => {
     if (pick) pick.value = hexOf(fields.color.map((f) => Number(f.value) || 0));
+    if (changed && keyed(changed)) {
+      command('/property.set_base?' + whose(layer) + '&prop=' + encodeURIComponent(fxName(fx, changed))
+        + '&value=' + encodeURIComponent(typed(changed)) + '&frame=' + frame + extra);
+      return;
+    }
+    const parts = known.map(([name]) => '&' + name + '=' + encodeURIComponent(keyed(name)
+      ? [].concat(propOf(layer, fxName(fx, name)).base).join(',') : typed(name)));
     command('/effect.set_parameters' + where + parts.join('') + extra);
   };
   // W-07: the fields are live. A keystroke, a pixel of drag on a handle and a move over the
@@ -4553,7 +4597,7 @@ function effectRow(layer, fx, at, of) {
   // now a setting was sent when its field lost focus and not before, which is finding 10 of the
   // second sitting: the effect "did not show" until a click somewhere else took the focus.
   let open = false;
-  const live = () => { open = true; dragging = true; sendParameters('&drag=1'); };
+  const live = (changed) => { open = true; dragging = true; sendParameters('&drag=1', changed); };
   const close = (cancelled) => {
     if (!open) return;
     open = false;
@@ -4562,10 +4606,12 @@ function effectRow(layer, fx, at, of) {
   };
   for (const [name, words, count, step] of known) {
     const dt = document.createElement('dt');
-    dt.textContent = words;
+    // B-19d: the stopwatch a transform's property has, and the ease of a key on this frame.
+    const ease = easeButton(layer, fxName(fx, name));
+    dt.append(keyButton(layer, fxName(fx, name)), ...(ease ? [ease] : []), ' ', words);
     const dd = document.createElement('dd');
-    const held = (fx.parameters || {})[name];
-    const values = Array.isArray(held) ? held : [Number(held) || 0];
+    // What the setting is on the frame on screen, which is a keyed one's interpolated value.
+    const values = transformValue(layer, fxName(fx, name)).map((v) => Number(v) || 0);
     fields[name] = [];
     if (count === 3) {
       pick = document.createElement('input');
@@ -4575,7 +4621,7 @@ function effectRow(layer, fx, at, of) {
       pick.setAttribute('aria-label', label + ' colour picker');
       pick.oninput = () => {
         linearOf(pick.value).forEach((v, i) => { fields[name][i].value = number(v); });
-        live();
+        live(name);
       };
       pick.onchange = () => close(false);
       pick.onblur = () => close(false);
@@ -4588,9 +4634,9 @@ function effectRow(layer, fx, at, of) {
         label: label + ' ' + words + (part ? ' ' + part : ''),
         title: 'Drag to change ' + words + ', press to type it, or use the arrow keys',
         step,
-        live: () => live(),
+        live: () => live(name),
         done: (cancelled) => close(cancelled),
-        commit: () => sendParameters(),
+        commit: () => sendParameters('', name),
       });
       if (i) dd.append(' ');
       dd.append(input);
@@ -4631,6 +4677,10 @@ let plotted = null;      // the last answer from `/curve`, or null
 let pulling = null;      // the handle under the pointer, while it is being pulled
 
 let speedGraph = false;  // After Effects' speed graph is showing rather than its value graph
+// B-19d: the layer's other keyed properties drawn behind the one being edited, on its scale.
+// `others` is the window's answer for each, as `plotted` is for the one in front.
+let graphAll = false;
+let others = [];
 // B-19a: the values in view once somebody has zoomed or slid them, as `{ of, low, high }`, and
 // null while the graph fits itself to the whole curve. `of` is what it was set for: another
 // layer, property or kind of graph has other numbers, and starts fitted.
@@ -4742,8 +4792,7 @@ const CAMERA_WORDS = { position: 'Place', depth: 'Depth', zoom: 'Lens' };
 function graphLayer() {
   const layer = cameraPicked || !selected() ? cameraRow() : selected();
   if (!layer) return null;
-  const withKeys = (layer.id === CAMERA_ROW ? CAMERA_PROPS : PROPS)
-    .filter((prop) => keysOf(layer, prop).length >= 2);
+  const withKeys = propsOf(layer).filter((prop) => keysOf(layer, prop).length >= 2);
   if (!withKeys.length) return null;
   const prop = withKeys.includes(graphProp) ? graphProp : withKeys[0];
   return { layer, prop, withKeys };
@@ -4762,6 +4811,12 @@ async function askForCurve() {
     const answer = await fetch(FRAMES + '/curve?' + whose(pick.layer)
       + '&prop=' + pick.prop + '&from=' + from + '&to=' + to);
     plotted = answer.ok ? await answer.json() : null;
+    others = [];
+    for (const prop of graphAll ? pick.withKeys.filter((q) => q !== pick.prop) : []) {
+      const more = await fetch(FRAMES + '/curve?' + whose(pick.layer)
+        + '&prop=' + encodeURIComponent(prop) + '&from=' + from + '&to=' + to);
+      if (more.ok) others.push({ prop, samples: (await more.json()).samples });
+    }
   } catch (e) {
     plotted = null;
   }
@@ -5001,13 +5056,16 @@ function drawGraph() {
   $('graphmode').hidden = !graphing || !pick;
   $('graphmode').setAttribute('aria-pressed', String(speedGraph));
   $('graphfit').hidden = !graphing || !pick;
+  $('graphall').hidden = !graphing || !pick || pick.withKeys.length < 2;
+  $('graphall').setAttribute('aria-pressed', String(graphAll));
   if (pick) {
     chooser.replaceChildren(...pick.withKeys.map((prop) => Object.assign(
       document.createElement('option'),
       {
         value: prop,
         textContent: pick.layer.id === CAMERA_ROW
-          ? 'Camera ' + CAMERA_WORDS[prop] : prop[0].toUpperCase() + prop.slice(1),
+          ? 'Camera ' + CAMERA_WORDS[prop]
+          : propLabel(pick.layer, prop).replace(/^./, (c) => c.toUpperCase()),
         selected: prop === pick.prop,
       }
     )));
@@ -5080,7 +5138,7 @@ function drawGraph() {
     low = Math.min(0, ...shown);
     high = Math.max(...shown);
   } else {
-    const shown = plotted.samples.flat();
+    const shown = plotted.samples.flat().concat(others.flatMap((o) => o.samples.flat()));
     low = Math.min(...shown);
     high = Math.max(...shown);
     const spare = (high > low ? high - low : 1) / 4;
@@ -5108,6 +5166,29 @@ function drawGraph() {
     if (y < GRAPH_TOP + 4 || y > box.height - 2) continue;
     el('line', { class: 'tick', x1: space.gutter, y1: y, x2: box.width, y2: y }, plot);
     el('text', { x: 4, y: y + 3 }).textContent = axis(val);
+  }
+  // B-19d: the other properties behind, each a press away from being the one in front.
+  if (!speedGraph) {
+    for (const other of others) {
+      const words = propLabel(pick.layer, other.prop);
+      for (let c = 0; c < (other.samples[0] || []).length; c += 1) {
+        const line = el('polyline', {
+          class: 'plot other', 'data-prop': other.prop,
+          points: pointsOf(other.samples.map((q, i) => [plotted.from + i + 0.5, q[c]]), space, v),
+        }, plot);
+        el('title', {}, line).textContent = words + '. Press to edit it.';
+      }
+      for (const key of keysOf(pick.layer, other.prop)) {
+        const sample = other.samples[key.frame - plotted.from];
+        for (const val of sample || []) {
+          const dot = el('circle', {
+            class: 'otherdot', 'data-prop': other.prop,
+            cx: space.x(key.frame + 0.5), cy: space.y(val), r: 3,
+          }, plot);
+          el('title', {}, dot).textContent = words + ' at frame ' + key.frame + '. Press to edit it.';
+        }
+      }
+    }
   }
   const polylines = lines.map((points, c) => el('polyline', {
     class: 'plot' + (c ? ' second' : ''), points: pointsOf(points, space, v),
@@ -5163,7 +5244,7 @@ function drawGraph() {
     });
   }
   el('text', { x: space.gutter + 6, y: GRAPH_TOP + 10, class: 'mode' }).textContent =
-    pick.prop + (speedGraph ? ' speed' : ' value');
+    propLabel(pick.layer, pick.prop) + (speedGraph ? ' speed' : ' value');
   into.replaceChildren(svg);
   if (refocus) refocus.focus();
 }
@@ -5268,6 +5349,12 @@ function grabDown(e) {
     return;
   }
   if (e.button !== 0) return;
+  // B-19d: a press on a property drawn behind brings it to the front to be edited.
+  if (e.target.dataset && e.target.dataset.prop) {
+    graphProp = e.target.dataset.prop;
+    askForCurve();
+    return;
+  }
   const what = e.target.__arm;
   e.preventDefault();
   e.target.setPointerCapture(e.pointerId);
@@ -5342,7 +5429,7 @@ function grabMove(e) {
     if (to === null) to = pulling.to;
     if (along && !e.ctrlKey) {
       // The keys of the layer's other properties: two keys of one property cannot share a frame.
-      const marks = [frame, ...(layer.id === CAMERA_ROW ? CAMERA_PROPS : PROPS)
+      const marks = [frame, ...propsOf(layer)
         .filter((prop) => prop !== graphLayer().prop)
         .flatMap((prop) => keysOf(layer, prop)
           .filter((k) => !going.has(keyId(layer, prop, k.frame))).map((k) => k.frame))];
@@ -5498,6 +5585,7 @@ $('tabsheet').onclick = () => showSheet('sheet');
 $('tabgraph').onclick = () => showSheet('graph');
 $('graphprop').onchange = (e) => { graphProp = e.target.value; askForCurve(); };
 $('graphmode').onclick = () => { speedGraph = !speedGraph; drawGraph(); };
+$('graphall').onclick = () => { graphAll = !graphAll; askForCurve(); };
 $('graphfit').onclick = fitGraph;
 // The plot is stretched to the panel's width, so a resize leaves the curve right and the round
 // handles as ovals. Drawing it again at the new width is the whole of the fix.
