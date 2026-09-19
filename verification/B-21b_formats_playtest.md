@@ -42,4 +42,4 @@ document 28, which D-72 did not write. Until the owner decides, a TIFF deeper th
 **refused** with the existing MEDIA_UNSUPPORTED_FORMAT, exactly as a 16-bit PNG already is, and
 the message says to re-export at 8 bits. Nothing is changed silently either way.
 
-Result: (the owner's)
+Result: the owner, 2026-09-19: "B-21b playtest works, keep the refusal".
