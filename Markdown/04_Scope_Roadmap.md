@@ -26,7 +26,7 @@ The bounded preview cache is the clearest case. Document 27 is a complete specif
 
 ## Explicit exclusions
 
-Not in any stage: drawing engine, vector animation, skeletal rigging, motion capture, 3D scene renderer, video editing timeline, advanced tracking, roto automation, generative features, asset store, collaboration service, mobile port.
+Not in any stage: drawing engine, vector animation (narrowed by D-75 on 2026-09-19, at the owner's word: shape layers of rectangles, ellipses and pen paths with fill and stroke come after B-24; gradients, trim paths, repeaters and merge paths stay out at first), skeletal rigging, motion capture, 3D scene renderer, video editing timeline, advanced tracking, roto automation, generative features, asset store, collaboration service, mobile port.
 
 Not in any stage: AEP importer, AE binary plugin host, comprehensive AE expression compatibility, cloned commercial effect catalogs. These are separate products with independent technical and legal costs.
 

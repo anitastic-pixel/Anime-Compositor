@@ -176,7 +176,19 @@ B-22c / the window: the quality list and the dither tick box, shown only beside 
 
 B-22d / the specks in a dithered GIF: D-73a in document 14, FX-FMT-053 to 055 in document 25, the rule and its fixtures before code. **WRITTEN on 2026-09-19 at the owner's word; D-73a ACCEPTED the same day ("accept D-73a, proceed with B-22d"). BUILT the same day: two clamps in `dither_indices`; `verification/B-22b_choices_table.md` is 20 of 20, now walking FX-FMT-053 to 055. The build's own `dithered.gif` beside B-22c's: `verification/B-22d playtest/plain_before_after.png`; the agent sees no specks in it and the sky's bands still gone, as its Python trial showed. Awaits the owner's eye, `verification/B-22d_specks_playtest.md`.** Evidence to judge it by: `verification/D-73a proposal/as_accepted_against_proposed.png`. After acceptance: the two steps in `dither_indices`, the table, a new `dithered.gif`.
 
-Named by the owner on 2026-09-19, after B-22d: a first build on macOS or Linux is deferred ("defer 3"); the exposure list overhaul and anime-specific processing (D-64) stay later ("1 and 2 will be later"). Asked about next: solid layers, shape layers, and masks with the pen tool and feather. The plan is put to the owner before anything is written.
+Named by the owner on 2026-09-19, after B-22d: a first build on macOS or Linux is deferred ("defer 3"); the exposure list overhaul and anime-specific processing (D-64) stay later ("1 and 2 will be later"). Asked about next: solid layers, shape layers, and masks with the pen tool and feather. The plan was put to the owner and accepted the same day ("go, yes to all three; proceed with B-23a"): D-75 in document 14 records the three answers.
+
+B-23 / solid layers, asked for by the owner on 2026-09-19, split as B-17 was.
+
+B-23a / the rule and its fixtures before code: D-74 in document 14, FX-SOL-001 to 008 and 020 to 029 in document 25, from `tools/solid_reference.py` into `Fixtures/solid/`; every expected frame drawn large, with its sentence, in `verification/B-23a proposal/solid_cases.png`. **WRITTEN on 2026-09-19 at the owner's word; awaits the owner's acceptance, nothing built.**
+
+B-23b / the core: the `solid` kind in the model and the file, its picture as step 1, the ten refusals, `layer.add_solid` and `solid.set` with their history. Artifact: a table that walks FX-SOL-001 to 029. After B-23a is accepted.
+
+B-23c / the window: New Solid in the Layer menu (Ctrl+Y), the colour picker and the width and height in the layer's panel, the two commands in document 24's table. Artifact: a panel table and a playtest sheet. After B-23b.
+
+B-24 / masks (D-75): B-24a the rule and its fixtures - curved paths, where today's polygon masks keep their pixels exactly; several masks a layer, each with mode (Add, Subtract, Intersect, Difference, None), invert, opacity, even feather and expansion; the mask path animated. B-24b the core. B-24c still masks in the window: the pen, rectangle and ellipse tools, moving points and handles, the masks as timeline rows. B-24d animated paths, with stopwatches. Point-by-point feather is later, its own unit. After B-23.
+
+B-25 / shape layers (D-75, document 04 amended): rectangle, ellipse and pen paths, fill and stroke, several shapes a layer; gradients, trim paths, repeaters and merge paths out at first. B-25a the rule and its fixtures first. After B-24.
 
 A GPU render path is not a backlog item. It is trigger-gated on a stopwatch reading per ADR-006.
 

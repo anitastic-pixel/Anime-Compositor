@@ -872,6 +872,85 @@ FX-PRE-014: A composition that does not exist: drawn as nothing, with COMPOSITIO
 
 FX-PRE-015: Main holds a layer of Inner and Inner a layer of Main: the file is refused.
 
+## Solid layer fixtures
+
+**D-74, PROPOSED on 2026-09-19; nothing is built against these yet.** Every case is a composition 6 by 2 at 24 fps, three frames long, from the projects in `Fixtures/solid/`. The one drawing, `bg`, is the adjustment fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom. The solid's colour is linear `0.2 0.5 0.8` unless a case says otherwise, and a solid is the size of the frame and centred unless a case says otherwise. Layers are listed bottom first. Each cell is R G B A of the finished frame, linear and premultiplied.
+
+**Every number below is produced by `tools/solid_reference.py`**, which renders each pixel from document 21 and moves only by whole pixels, so nothing is resampled. The same numbers are in `Fixtures/solid/expected_solid.json`. Tolerance 1e-6. FX-SOL-020 to 029 have no frames: each is FX-SOL-001's file with one change, and a build must refuse it whole.
+
+FX-SOL-001: A solid the size of the frame, on nothing: every pixel its colour, opaque.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+
+FX-SOL-002: The same at half opacity over the red and grey drawing.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.6 0.25 0.4 1 | 0.6 0.25 0.4 1 | 0.6 0.25 0.4 1 | 0.6 0.25 0.4 1 | 0.6 0.25 0.4 1 | 0.6 0.25 0.4 1 |
+| 0, 1 | 0.20793025 0.35793025 0.50793025 1 | 0.20793025 0.35793025 0.50793025 1 | 0.20793025 0.35793025 0.50793025 1 | 0.20793025 0.35793025 0.50793025 1 | 0.20793025 0.35793025 0.50793025 1 | 0.20793025 0.35793025 0.50793025 1 |
+
+FX-SOL-003: Two pixels square, centred at (3, 1): only columns 2 and 3 are its colour.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-SOL-004: A mask keeping its left three columns.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-SOL-005: One stop of exposure on the solid doubles its colour, past 1 where it goes.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.4 1 1.6 1 | 0.4 1 1.6 1 | 0.4 1 1.6 1 | 0.4 1 1.6 1 | 0.4 1 1.6 1 | 0.4 1 1.6 1 |
+| 0, 1 | 0.4 1 1.6 1 | 0.4 1 1.6 1 | 0.4 1 1.6 1 | 0.4 1 1.6 1 | 0.4 1 1.6 1 | 0.4 1 1.6 1 |
+
+FX-SOL-006: The small solid as a matte-only layer for the drawing: the drawing shows in columns 2 and 3 only.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SOL-007: Multiplied onto the drawing: each colour times the solid's.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0 0 1 | 0.2 0 0 1 | 0.2 0 0 1 | 0.2 0 0 1 | 0.2 0 0 1 | 0.2 0 0 1 |
+| 0, 1 | 0.0431721 0.10793025 0.1726884 1 | 0.0431721 0.10793025 0.1726884 1 | 0.0431721 0.10793025 0.1726884 1 | 0.0431721 0.10793025 0.1726884 1 | 0.0431721 0.10793025 0.1726884 1 | 0.0431721 0.10793025 0.1726884 1 |
+
+FX-SOL-008: Only between its in and out frames (frame 1 only).
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+| 1, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 1, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 2, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 2, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SOL-001's file with one change:
+
+- FX-SOL-020: A solid that names an asset.
+- FX-SOL-021: A solid with exposures.
+- FX-SOL-022: A solid with a source offset.
+- FX-SOL-023: A solid with no solid record.
+- FX-SOL-024: A colour of two numbers.
+- FX-SOL-025: A colour above 1.
+- FX-SOL-026: A colour below 0.
+- FX-SOL-027: A width of 0.
+- FX-SOL-028: A height that is not a whole number.
+- FX-SOL-029: A raster layer carrying a solid record.
+
 ## Keyframed effect setting fixtures
 
 D-68, accepted on 2026-09-18. Every case is a project of one composition 6 by 2 at 24 fps, five frames long, in `Fixtures/fxkey/`. The drawings are the adjustment fixtures' `bg`, `half` and `dot`. An effect's setting is written in the file as a property record with keys, where the adjustment fixtures write a plain number.

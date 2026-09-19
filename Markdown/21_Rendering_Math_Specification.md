@@ -103,6 +103,10 @@ D-66, accepted on 2026-09-17 and built in B-17b. An adjustment layer has no draw
 
 Blend mode is normal only. A layer with no enabled effects, outside its in and out frames or switched off leaves the frame exactly as it was, bit for bit. The draw order is unchanged: far to near, the stack breaking ties. The effect stack runs on the whole frame; the mix is per pixel. At draft preview size the blur's sigma is divided by the draft divisor. FX-ADJ-001 to 013 in document 25 are the cases.
 
+## Solid layers
+
+D-74, proposed on 2026-09-19 and not yet accepted. A solid layer's step 1 is not a decode: its source is `width` by `height` pixels, every one premultiplied `(r, g, b, 1)` for its colour, in its own layer space with (0, 0) at its top left. Steps 2 to 7 then run on it exactly as on a decoded drawing, so a solid and an opaque drawing of the same colour and size give the same frame. The colour is in the working space and is not converted. FX-SOL-001 to 008 in document 25 are the cases.
+
 ## Precompositions
 
 D-67, accepted on 2026-09-18 and built in B-18b. A composition layer's step 1 is not a decode: its source is the composition it names, rendered by this same order at the layer's local frame (document 20), at that composition's own width and height, through that composition's own camera, in linear premultiplied; transparent black outside that composition's own start and length. Steps 2 to 7 then run on that picture exactly as on a decoded drawing, the mask and effects in the inner composition's pixel space, so a blur on the layer blurs the inner picture as one (FX-PRE-002). Nesting is recursion: the inner composition's own composition layers render first, to any depth, and a cycle is `COMPOSITION_CYCLE` before any pixel is drawn. An adjustment layer inside the inner composition sees only what is drawn beneath it there (FX-PRE-009). The same composition rendered for two layers gives the same picture twice (FX-PRE-013). At draft preview size the inner composition is rendered at the draft divisor too. FX-PRE-001 to 015 in document 25 are the cases.
