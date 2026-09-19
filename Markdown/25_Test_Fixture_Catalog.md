@@ -1225,6 +1225,175 @@ After: join the position:
 | 3 | [6.0, 6] | linear |
 | 4 | [8, 6] | linear |
 
+## Audio fixtures
+
+D-71 and ADR-018, proposed on 2026-09-19; nothing is built against these yet. An audio layer draws nothing, so these pin arithmetic and file reading: which samples of a file a frame is, what is heard on a layer, what a WAV header is read as, that a picture does not change, and what a file may not say.
+
+**Every number below is produced by `tools/audio_reference.py`**, which reads WAV with `struct` and not with a sound library, and checks each claim against a value worked by hand. The same cases are in `Fixtures/audio/expected_audio.json`. The numbers are whole and the match is exact.
+
+FX-AUD-001: 24 frames a second and 48000 samples a second: 2000 samples to every frame.
+
+| frame | first sample |
+| --- | --- |
+| 0 | 0 |
+| 1 | 2000 |
+| 2 | 4000 |
+| 3 | 6000 |
+| 4 | 8000 |
+| 23 | 46000 |
+| 24 | 48000 |
+| 1000 | 2000000 |
+| 86400 | 172800000 |
+
+FX-AUD-002: 24 frames a second and 44100 samples: 1837.5 to a frame, so frames take 1837 and 1838 in turn and no sample is played twice or dropped.
+
+| frame | first sample |
+| --- | --- |
+| 0 | 0 |
+| 1 | 1837 |
+| 2 | 3675 |
+| 3 | 5512 |
+| 4 | 7350 |
+| 23 | 42262 |
+| 24 | 44100 |
+| 1000 | 1837500 |
+| 86400 | 158760000 |
+
+FX-AUD-003: 24000/1001 frames a second and 48000 samples: 2002 to every frame, exactly.
+
+| frame | first sample |
+| --- | --- |
+| 0 | 0 |
+| 1 | 2002 |
+| 2 | 4004 |
+| 3 | 6006 |
+| 4 | 8008 |
+| 23 | 46046 |
+| 24 | 48048 |
+| 1000 | 2002000 |
+| 86400 | 172972800 |
+
+FX-AUD-004: 24000/1001 frames a second and 44100 samples: 1839.3375 to a frame.
+
+| frame | first sample |
+| --- | --- |
+| 0 | 0 |
+| 1 | 1839 |
+| 2 | 3678 |
+| 3 | 5518 |
+| 4 | 7357 |
+| 23 | 42304 |
+| 24 | 44144 |
+| 1000 | 1839337 |
+| 86400 | 158918760 |
+
+FX-AUD-005: A layer that starts at frame 10 plays the file's first sample on frame 10.
+
+| composition frame | samples of the file heard |
+| --- | --- |
+| 0 | silence |
+| 9 | silence |
+| 10 | 0 up to 2000 |
+| 11 | 2000 up to 4000 |
+| 12 | 4000 up to 6000 |
+| 13 | 6000 up to 8000 |
+| 14 | 8000 up to 10000 |
+| 23 | 26000 up to 28000 |
+| 24 | 28000 up to 30000 |
+| 33 | 46000 up to 48000 |
+| 34 | silence |
+| 39 | silence |
+| 40 | silence |
+
+FX-AUD-006: A source offset of 5 starts the layer five frames into the file.
+
+| composition frame | samples of the file heard |
+| --- | --- |
+| 0 | silence |
+| 9 | silence |
+| 10 | 10000 up to 12000 |
+| 11 | 12000 up to 14000 |
+| 12 | 14000 up to 16000 |
+| 13 | 16000 up to 18000 |
+| 14 | 18000 up to 20000 |
+| 23 | 36000 up to 38000 |
+| 24 | 38000 up to 40000 |
+| 33 | silence |
+| 34 | silence |
+| 39 | silence |
+| 40 | silence |
+
+FX-AUD-007: A negative source offset: the layer is silent until the file's first sample comes round, three frames after the layer's in frame.
+
+| composition frame | samples of the file heard |
+| --- | --- |
+| 0 | silence |
+| 9 | silence |
+| 10 | silence |
+| 11 | silence |
+| 12 | silence |
+| 13 | 0 up to 2000 |
+| 14 | 2000 up to 4000 |
+| 23 | 20000 up to 22000 |
+| 24 | 22000 up to 24000 |
+| 33 | 40000 up to 42000 |
+| 34 | 42000 up to 44000 |
+| 39 | silence |
+| 40 | silence |
+
+FX-AUD-008: A file shorter than its layer: silence from the frame after its last sample. 47000 samples end part of the way through the 24th frame, which plays what there is.
+
+| composition frame | samples of the file heard |
+| --- | --- |
+| 0 | 0 up to 2000 |
+| 9 | 18000 up to 20000 |
+| 10 | 20000 up to 22000 |
+| 11 | 22000 up to 24000 |
+| 12 | 24000 up to 26000 |
+| 13 | 26000 up to 28000 |
+| 14 | 28000 up to 30000 |
+| 23 | 46000 up to 47000 |
+| 24 | silence |
+| 33 | silence |
+| 34 | silence |
+| 39 | silence |
+| 40 | silence |
+
+FX-AUD-010: What each WAV file in `Fixtures/audio/media/` is read as. `frames_at_24` is how many frames of a 24 frame a second composition the file covers.
+
+| file | read as |
+| --- | --- |
+| `pcm16_mono_48k.wav` | {"encoding": "pcm", "channels": 1, "sample_rate": 48000, "bits": 16, "samples": 4800, "frames_at_24": 3} |
+| `pcm24_stereo_44k.wav` | {"encoding": "pcm", "channels": 2, "sample_rate": 44100, "bits": 24, "samples": 4410, "frames_at_24": 3} |
+| `pcm8_mono_8k.wav` | {"encoding": "pcm", "channels": 1, "sample_rate": 8000, "bits": 8, "samples": 801, "frames_at_24": 3} |
+| `pcm32_mono_48k.wav` | {"encoding": "pcm", "channels": 1, "sample_rate": 48000, "bits": 32, "samples": 480, "frames_at_24": 1} |
+| `float32_stereo_48k.wav` | {"encoding": "float", "channels": 2, "sample_rate": 48000, "bits": 32, "samples": 480, "frames_at_24": 1} |
+| `float64_mono_96k.wav` | {"encoding": "float", "channels": 1, "sample_rate": 96000, "bits": 64, "samples": 960, "frames_at_24": 1} |
+| `extensible_6ch_48k.wav` | {"encoding": "pcm", "channels": 6, "sample_rate": 48000, "bits": 16, "samples": 480, "frames_at_24": 1} |
+| `chunks_in_the_way.wav` | {"encoding": "pcm", "channels": 1, "sample_rate": 48000, "bits": 16, "samples": 480, "frames_at_24": 1} |
+| `cut_short.wav` | {"encoding": "pcm", "channels": 1, "sample_rate": 48000, "bits": 16, "samples": 480, "warning": "MEDIA_AUDIO_CUT_SHORT", "frames_at_24": 1} |
+| `no_sound.wav` | {"encoding": "pcm", "channels": 1, "sample_rate": 48000, "bits": 16, "samples": 0, "frames_at_24": 0} |
+| `adpcm.wav` | {"encoding": "other", "channels": 1, "sample_rate": 22050} |
+| `rf64.wav` | {"refused": "not a RIFF WAVE file"} |
+| `no_fmt.wav` | {"refused": "no format chunk"} |
+| `no_data.wav` | {"refused": "no data chunk"} |
+| `not_a_wav.wav` | {"refused": "not a RIFF WAVE file"} |
+| `zero_rate.wav` | {"refused": "no sample rate or no channels"} |
+
+FX-AUD-020: An audio layer between two picture layers changes no pixel: every frame of `fx_aud_020.json` is the picture of `fx_aud_021.json`, the same project without it, sample for sample, and neither has a warning.
+
+FX-AUD-030: An audio layer with a transform: it has no place to be. Refused, `PROJECT_SCHEMA_INVALID`.
+
+FX-AUD-031: An audio layer with effects. Refused, `PROJECT_SCHEMA_INVALID`.
+
+FX-AUD-032: An audio layer with a blend mode. Refused, `PROJECT_SCHEMA_INVALID`.
+
+FX-AUD-033: An audio layer whose asset is a picture. Refused, `PROJECT_SCHEMA_INVALID`.
+
+FX-AUD-034: A level above +12 dB. Refused, `PROJECT_SCHEMA_INVALID`.
+
+FX-AUD-035: A level that is not a number. Refused, `PROJECT_SCHEMA_INVALID`.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

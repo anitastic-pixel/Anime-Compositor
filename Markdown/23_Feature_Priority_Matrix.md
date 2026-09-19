@@ -64,7 +64,7 @@ What the discipline bought is visible in the answer's shape. The cache that was 
 | Adjustment layers | G3 | B-17 done on 2026-09-18 (D-66) | 4 | 4 | 4 | - |
 | Curve and graph editor | G3 | B-19 done on 2026-09-19 (D-52, D-68, D-69) | 3 | 4 | 3 | - |
 | EXR import and export | G3 | Validate | 4 | 4 | 4 | R-15 |
-| WAV reference audio | G3 | Validate | 3 | 3 | 2 | R-15 |
+| WAV reference audio | G3 | B-20, asked for on 2026-09-19; D-71 proposed | 3 | 3 | 2 | R-15 |
 | Collect and package project | G3 | Should | 4 | 3 | 3 | R-14 |
 | Anime line smoothing | G3 | Research | 5 | 4 | 4 | - |
 | Line recolor and color key | G3 | Research | 5 | 3 | 3 | - |

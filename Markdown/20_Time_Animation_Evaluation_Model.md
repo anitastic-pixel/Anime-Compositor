@@ -118,6 +118,6 @@ Given the same project snapshot, frame index, media bytes and implementation ver
 
 ## Extension boundary
 
-Motion blur, audio sample time, retiming curves, frame blending, optical flow and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
+Audio sample time is proposed by ADR-018 and D-71 on 2026-09-19, with FX-AUD-001 to 008 as its fixtures: it adds a sum from whole frames to whole samples and changes nothing above. Motion blur, retiming curves, frame blending, optical flow and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
 
 Related documents: 07, 19, 21 and 25.

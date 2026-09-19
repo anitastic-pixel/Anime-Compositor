@@ -110,6 +110,10 @@ Consequences: B-08b enters G1 with document 27 as its specification and T-06 as 
 
 Built the same day. `verification/B-08b_cache_table.md` holds the correctness half - 31 of 31 checks that a warm render, a render from a cache too small to keep anything, and a render with no cache at all are the same picture and the same warnings, eighteen of them on the day this was written and the rest added by the hardening pass and the B-12 run preparation - and `verification/B-08b_cache_budget.md` holds the measurement: 99.93 ms per draft frame to 42.54 ms, 10.0 frames per second to 23.5, at a 128 MB default chosen from that table rather than ahead of it. The window-level picture in `verification/B-08_window_shell.md` had not been retaken when this was written, and this record went on saying so until 2026-09-16 after it was retaken twice: on 2026-09-05, reading 59 frames played and 15 dropped, and on 2026-09-08, reading 42 played and 31 dropped, against 66 and 79 before the cache.
 
+## ADR-018 - Audio time is whole samples worked from whole frames, and the window's own decoder plays it
+
+Status: PROPOSED on 2026-09-19 with D-71. Document 20 asks for an ADR before audio sample time exists. Frame `n` of a sound file begins at sample `floor(n * rate * denominator / numerator)`, in whole numbers; an audio layer changes no picture; the WebView2 page's own decoder plays WAV, FLAC, MP3, AAC, Ogg and Opus offline, so no audio crate and no new licence enters the build; the core reads WAV headers only. The alternative, a decoder and an output in the core, is about forty crates and a real-time thread, and can replace the third choice later without touching the file format. Full record: `docs/adr/0018-audio-time-is-whole-samples.md`.
+
 ## Decision gate
 
 Before B-02 begins, ADR-001 through ADR-014 stand as accepted, and SP-01, SP-03, SP-05 and SP-06 must be recorded. SP-02 is removed with ADR-006. A spike that contradicts an accepted ADR reopens it explicitly through document 14.
