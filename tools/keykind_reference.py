@@ -126,6 +126,9 @@ def set_speed(keys, i, s, side, third=False):
 def settle(keys, touched=None):
     """Make every auto and continuous key true again. `touched` is (key index, side) when the
     edit set that side's curve by hand: the other side follows it."""
+    # Corrected on 2026-09-19 by the owner's word: work on a copy, so a case's `before` is not eased
+    # by the working of its `after` (the fault found in FX-KIND-005).
+    keys = json.loads(json.dumps(keys))
     for i, k in enumerate(keys):
         kind = k.get("kind")
         if not kind:
