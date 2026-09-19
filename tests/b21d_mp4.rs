@@ -119,6 +119,35 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
         );
     }
 
+    // ---- B-21e: the same rows through ffmpeg, the road for macOS and Linux ------------------------
+    // Run here on Windows because this is where the tests run; skipped, and said so, on a
+    // machine with no ffmpeg.
+    if std::process::Command::new("ffmpeg").arg("-version").output().is_ok() {
+        for (i, case) in expected["cases"]["FX-FMT-030"]["rows"].as_array().unwrap().iter().enumerate() {
+            let n = |key: &str| case[key].as_u64().unwrap();
+            let (num, den) = (case["frame_rate"][0].as_u64().unwrap(), case["frame_rate"][1].as_u64().unwrap());
+            let rate = FrameRate::new(num as u32, den as u32).unwrap();
+            let file = tmp.join(format!("ffmpeg_row{i}.mp4"));
+            let (w, h) = (64usize, 64usize);
+            let mut film = mp4_out::through_ffmpeg::Mp4::create(&file, w, h, rate).unwrap_or_else(|e| panic!("{e}"));
+            for f in 0..n("frames") {
+                let frame: Vec<u8> = (0..w * h).flat_map(|_| [(f * 5) as u8, 128, 200, 255]).collect();
+                film.push(&frame).unwrap_or_else(|e| panic!("{e}"));
+            }
+            film.finish().unwrap_or_else(|e| panic!("{e}"));
+            let (timescale, duration, runs, codec) = time_numbers(&file);
+            let frames: u32 = runs.iter().map(|r| r.0).sum();
+            let lengths: Vec<String> = runs.iter().map(|r| r.1.to_string()).collect();
+            t.row(
+                &format!("B-21e, through ffmpeg: FX-FMT-030, {num}/{den} frames a second, {} frames", n("frames")),
+                format!("{}, {}, {}, {}, H.264", n("timescale"), n("frame_duration"), n("frames"), n("duration")),
+                format!("{timescale}, {}, {frames}, {duration}, {codec}", lengths.join(" and ")),
+            );
+        }
+    } else {
+        t.out.push_str("| B-21e, through ffmpeg | not run: this machine has no ffmpeg | | skipped |\n");
+    }
+
     // ---- the colour ----------------------------------------------------------------------------
     // BT.709's published numbers for video's 16 to 235 range: the 100% colour bars.
     for (name, rgba, want) in [

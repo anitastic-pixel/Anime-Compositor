@@ -1,6 +1,7 @@
 //! D-72's MP4: H.264 video in an MP4, written by the encoder Windows carries (Media Foundation),
-//! which is the road D-30 names. This build ships no codec of its own, and the cost is that MP4
-//! export is Windows only.
+//! which is the road D-30 names. This build ships no codec of its own. On a system that is not
+//! Windows the frames go to an `ffmpeg` the user has installed instead (D-30's second road,
+//! B-21e), which ships no codec either.
 //!
 //! An MP4 has no alpha, so a frame is laid over black. It has no sound (D-71's ceiling).
 
@@ -179,18 +180,79 @@ pub fn nv12_bt709(srgb8: &[u8], width: usize, height: usize) -> Vec<u8> {
 }
 
 #[cfg(not(windows))]
-pub struct Mp4;
+pub use through_ffmpeg::Mp4;
 
-#[cfg(not(windows))]
-impl Mp4 {
-    pub fn create(_: &Path, _: usize, _: usize, _: FrameRate) -> Result<Self, String> {
-        Err("MP4 export uses the encoder Windows carries, so it is there on Windows only.".into())
+/// D-30's second road, for systems that are not Windows: an `ffmpeg` the user has installed,
+/// found on the PATH when the export starts. Compiled everywhere so that Windows can test it.
+pub mod through_ffmpeg {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::process::{Child, Command, Stdio};
+
+    pub struct Mp4 {
+        ffmpeg: Child,
+        width: usize,
+        height: usize,
     }
-    pub fn push(&mut self, _: &[u8]) -> Result<(), String> {
-        unreachable!("no Mp4 is ever made off Windows")
+
+    impl Mp4 {
+        pub fn create(path: &Path, width: usize, height: usize, rate: FrameRate) -> Result<Self, String> {
+            let (num, den) = (rate.numerator(), rate.denominator());
+            // The same bitrate rule as the Windows road.
+            let bits = ((width * height) as f64 * num as f64 / den as f64 * 0.2).clamp(1.0e6, 1.0e8) as u64;
+            // ponytail: asks for libx264 by name; a build of ffmpeg without it fails with
+            // ffmpeg's own sentence. Try the system's encoder (h264_videotoolbox on macOS) when
+            // someone meets that.
+            Command::new("ffmpeg")
+                .args(["-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "nv12"])
+                .args(["-s", &format!("{width}x{height}"), "-r", &format!("{num}/{den}"), "-i", "-"])
+                // No reordered frames, so the file's index is the plain one FX-FMT-030 reads.
+                .args(["-c:v", "libx264", "-bf", "0", "-b:v", &bits.to_string(), "-pix_fmt", "yuv420p"])
+                .args(["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"])
+                .args(["-color_range", "tv", "-video_track_timescale", &num.to_string()])
+                .arg(path)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map(|ffmpeg| Mp4 { ffmpeg, width, height })
+                .map_err(|_| {
+                    "MP4 export on this system needs ffmpeg, and no program called ffmpeg was \
+                     found. Install it, or export an animated PNG or a PNG sequence."
+                        .to_string()
+                })
+        }
+
+        pub fn push(&mut self, srgb8: &[u8]) -> Result<(), String> {
+            let picture = nv12_bt709(srgb8, self.width, self.height);
+            let sent = self.ffmpeg.stdin.as_mut().expect("opened piped").write_all(&picture);
+            sent.map_err(|_| self.said())
+        }
+
+        pub fn finish(mut self) -> Result<(), String> {
+            drop(self.ffmpeg.stdin.take());
+            match self.ffmpeg.wait() {
+                Ok(status) if status.success() => Ok(()),
+                _ => Err(self.said()),
+            }
+        }
+
+        /// ffmpeg's own words for what went wrong.
+        fn said(&mut self) -> String {
+            let mut words = String::new();
+            if let Some(mut err) = self.ffmpeg.stderr.take() {
+                let _ = err.read_to_string(&mut words);
+            }
+            format!("ffmpeg could not write the MP4: {}", words.trim())
+        }
     }
-    pub fn finish(self) -> Result<(), String> {
-        unreachable!("no Mp4 is ever made off Windows")
+
+    impl Drop for Mp4 {
+        // A cancelled export drops the film without finishing it; do not leave ffmpeg waiting.
+        fn drop(&mut self) {
+            drop(self.ffmpeg.stdin.take());
+            let _ = self.ffmpeg.wait();
+        }
     }
 }
 

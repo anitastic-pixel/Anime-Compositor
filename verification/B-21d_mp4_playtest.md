@@ -41,8 +41,10 @@ deliberately missing drawing.
 
 ## Ceilings, stated
 
-- **Windows only.** The encoder is Windows' own. On another system the export is refused with
-  a sentence saying so. This program ships no encoder inside it.
+- **On Windows the encoder is Windows' own.** This program ships no encoder inside it. On macOS
+  or Linux (B-21e) the frames go to an ffmpeg you have installed, and with none found the export
+  is refused with a sentence saying so. That road is tested on Windows only: this program has
+  never been built or run on macOS or Linux.
 - **Over black, no sound.** D-72 and D-71's ceilings.
 - **The quality is one fixed rule**: 0.2 bits for every pixel of every frame (about 10 megabits
   a second at 1920x1080 and 24 frames a second), no less than 1 and no more than 100 megabits.
