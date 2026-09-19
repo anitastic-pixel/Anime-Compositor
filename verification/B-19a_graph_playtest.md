@@ -75,3 +75,5 @@ and pick Position in the list. Nothing below changes the fixtures.
 ## What to answer
 
 "works", or which step number did something else and what it did.
+
+**Works.** The owner, 2026-09-19: "play test of 19a and 19d work".

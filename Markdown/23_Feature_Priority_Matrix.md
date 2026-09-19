@@ -62,7 +62,7 @@ What the discipline bought is visible in the answer's shape. The cache that was 
 | GPU render path | G2+ | Trigger-gated | 4 | 4 | 4 | ADR-006 |
 | Precompositions | G3 | B-18, done on 2026-09-18: D-67, the core in B-18b, the window in B-18c | 5 | 5 | 5 | - |
 | Adjustment layers | G3 | B-17 done on 2026-09-18 (D-66) | 4 | 4 | 4 | - |
-| Curve and graph editor | G3 | Mostly built (D-52); gaps as B-19 | 3 | 4 | 3 | - |
+| Curve and graph editor | G3 | B-19 done on 2026-09-19 (D-52, D-68, D-69) | 3 | 4 | 3 | - |
 | EXR import and export | G3 | Validate | 4 | 4 | 4 | R-15 |
 | WAV reference audio | G3 | Validate | 3 | 3 | 2 | R-15 |
 | Collect and package project | G3 | Should | 4 | 3 | 3 | R-14 |

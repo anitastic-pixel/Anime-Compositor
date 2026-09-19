@@ -59,3 +59,5 @@ fixtures.
 ## Verdict
 
 Works / does not work, with the number of any step that failed:
+
+**Works.** The owner, 2026-09-19: "play test of 19a and 19d work".

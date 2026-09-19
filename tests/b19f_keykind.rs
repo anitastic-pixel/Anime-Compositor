@@ -239,7 +239,6 @@ fn b19f_keykind() {
         checks: 0,
         passed: 0,
     };
-    let mut held = false;
 
     t.heading("A separated position, frame by frame (FX-SEP-001, 002)");
     for id in ["FX-SEP-001", "FX-SEP-002"] {
@@ -333,25 +332,6 @@ fn b19f_keykind() {
             (_, false) => format!("`{}`", saved(&document, prop)),
         };
         t.row(&what, &built, ok);
-        if id == "FX-KIND-005" {
-            // The fixture's `before` is not what its sentence says. "2 a frame in" is a linear
-            // first segment; the file has that segment already eased to 1.5 a frame, because the
-            // reference worked `after` on the same keys before it copied `before`. D-69's rule
-            // on the keys as written gives 1.25, not the fixture's 1.5. `Fixtures/` is not
-            // implementation work's to change, so the row above stands as it is and this one
-            // shows the sentence's keys. The owner decides the fixture.
-            held = !ok;
-            let mut linear = case.clone();
-            linear["before"][0]["interp"] = json!("linear");
-            let (mut document, prop) = before(&linear);
-            document.apply(edit(id, named)).unwrap();
-            let ok = close(&saved(&document, prop), &case["after"], tolerance);
-            t.row(
-                "FX-KIND-005 with the first key linear, which is what its sentence says: 2 a frame in and 1 out",
-                if ok { "the reference's keys, within 1e-9" } else { "different keys" },
-                ok,
-            );
-        }
     }
 
     t.heading("What a file may not say");
@@ -646,18 +626,13 @@ fn b19f_keykind() {
          **{} of {} checks match.**{}\n{}",
         t.passed,
         t.checks,
-        if held {
-            " The one that does not is FX-KIND-005 as the fixture file writes it, and it is the \
-             fixture that is in question, not the build: see the row under it. It awaits the \
-             owner's decision on the fixture."
-        } else {
-            ""
-        },
+        " FX-KIND-005's `before` was corrected in the fixture on 2026-09-19 by the owner's word; \
+         until then this table was 36 of 37.",
         t.out
     );
     fs::write(repo("verification/B-19f_keykind_table.md"), report).unwrap();
     assert_eq!(
-        t.passed + held as usize,
+        t.passed,
         t.checks,
         "see verification/B-19f_keykind_table.md"
     );

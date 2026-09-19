@@ -4,7 +4,7 @@ Written by `cargo test --test b19f_keykind`. Every expected number is from
 `Fixtures/keykind/expected_keykind.json`, which `tools/keykind_reference.py` wrote before
 this code existed. Tolerance 1e-9.
 
-**36 of 37 checks match.** The one that does not is FX-KIND-005 as the fixture file writes it, and it is the fixture that is in question, not the build: see the row under it. It awaits the owner's decision on the fixture.
+**36 of 36 checks match.** FX-KIND-005's `before` was corrected in the fixture on 2026-09-19 by the owner's word; until then this table was 36 of 37.
 
 ## A separated position, frame by frame (FX-SEP-001, 002)
 
@@ -23,8 +23,7 @@ this code existed. Tolerance 1e-9.
 | FX-KIND-002: Auto on the first and last keys: a straight line out and in.. The edit: make both keys auto | the reference's keys, within 1e-9 | yes |
 | FX-KIND-003: An auto key on a position: 5 pixels in and 12 out over 8 frames, so 17/8 of a pixel a frame on both sides.. The edit: make the key at frame 4 auto | the reference's keys, within 1e-9 | yes |
 | FX-KIND-004: An auto key follows its neighbours: the next key's value goes from 4 to 12 and the slope through the auto key becomes 1.. The edit: set the value of the key at frame 12 to 12 | the reference's keys, within 1e-9 | yes |
-| FX-KIND-005: A corner made continuous: 2 a frame in and 1 a frame out become 1.5 on both sides, the handles keeping their lengths.. The edit: make the key at frame 4 continuous | `[{"frame":0,"interp":[0.3333333333333333,0.3333333333333333,0.6666666666666666,0.7916666666666666],"value":0},{"frame":4,"interp":[0.3333333333333333,0.41666666666666663,0.6666666666666666,0.6666666666666666],"kind":"continuous","value":8},{"frame":8,"interp":"linear","value":12}]` | **NO** |
-| FX-KIND-005 with the first key linear, which is what its sentence says: 2 a frame in and 1 out | the reference's keys, within 1e-9 | yes |
+| FX-KIND-005: A corner made continuous: 2 a frame in and 1 a frame out become 1.5 on both sides, the handles keeping their lengths.. The edit: make the key at frame 4 continuous | the reference's keys, within 1e-9 | yes |
 | FX-KIND-006: One handle of a continuous key pulled by hand: the other side follows it to the same speed, 2 a frame.. The edit: set the ease of the key at frame 4 to [0.25, 0.5, 0.75, 1] | the reference's keys, within 1e-9 | yes |
 | FX-KIND-007: An auto key beside a segment that goes nowhere: that side has no speed to set and is left as it was.. The edit: make the key at frame 4 auto | the reference's keys, within 1e-9 | yes |
 | FX-ROVE-001: A roving key: 50 pixels then 100, so it sits a third of the way through the ten frames, on frame 3.. The edit: make the key at frame 2 roving | the reference's keys, within 1e-9 | yes |
