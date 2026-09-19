@@ -596,6 +596,7 @@
   #newcomposition p, #newcomposition button { grid-column: 1 / -1; margin: 0; }
   /* display: grid above beats the browser rule for [hidden], so say it again here. */
   #newcomposition[hidden] { display: none; }
+  #ditherlabel[hidden] { display: none; }
   #newcomposition label { display: block; }
   #newcomposition input { width: 100%; box-sizing: border-box; }
   #prefs label { display: block; }
@@ -621,14 +622,20 @@
   <button id="redo">Redo</button>
   <span class="sep"></span>
   <button id="export">Export&hellip;</button>
-  <select id="exportformat" title="What the export is written as: a file a frame, or one animated file">
-    <option value="png">PNG, 8-bit</option>
+  <select id="exportformat" title="What the export is written as: a file a frame, or one animated file. Lossless: the file keeps every value it is given, so there is no quality to choose">
+    <option value="png">PNG, 8-bit, lossless</option>
     <option value="exr-half">EXR, half float</option>
-    <option value="exr-float">EXR, full float</option>
-    <option value="apng">Animated PNG, 8-bit</option>
+    <option value="exr-float">EXR, full float, lossless</option>
+    <option value="apng">Animated PNG, 8-bit, lossless</option>
     <option value="gif">GIF, a preview: 256 colours</option>
     <option value="mp4">MP4 (H.264), over black, no sound</option>
   </select>
+  <select id="filmquality" hidden title="How many bits the MP4 may spend. High is for flat colour, where a low number shows as blocks; Preview is a small file to send someone">
+    <option value="preview">Preview, smallest</option>
+    <option value="standard" selected>Standard</option>
+    <option value="high">High, largest</option>
+  </select>
+  <label id="ditherlabel" hidden title="Mixes dots of the 256 colours so soft shading does not fall into bands. A bigger file, and a fine grain in the picture"><input type="checkbox" id="gifdither">Dither</label>
   <button id="cancelexport" hidden>Cancel export</button>
   <progress id="exportbar" hidden></progress><span id="exportleft"></span>
   <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
@@ -6139,15 +6146,36 @@ $('checkpackage').onclick = () => command('/check-package');
 // page, and the owner's B-16c playtest found the list back on PNG afterwards.
 $('export').onclick = () =>
   command('/export?format=' + $('exportformat').value
+    // D-73: each choice travels only with the format it belongs to.
+    + ($('exportformat').value === 'mp4' ? '&quality=' + $('filmquality').value : '')
+    + ($('exportformat').value === 'gif' && $('gifdither').checked ? '&dither=on' : '')
     + ($('anyway').checked ? '&missing=write' : ''));
+// D-73: the quality list shows beside MP4 only, the dither tick beside GIF only.
+const showExportChoices = () => {
+  $('filmquality').hidden = $('exportformat').value !== 'mp4';
+  $('ditherlabel').hidden = $('exportformat').value !== 'gif';
+};
 try {
   const kept = sessionStorage.getItem('exportformat');
   if (kept && [...$('exportformat').options].some((o) => o.value === kept)) {
     $('exportformat').value = kept;
   }
+  const quality = sessionStorage.getItem('filmquality');
+  if (quality && [...$('filmquality').options].some((o) => o.value === quality)) {
+    $('filmquality').value = quality;
+  }
+  $('gifdither').checked = sessionStorage.getItem('gifdither') === 'on';
 } catch (e) { /* no storage: the list starts on PNG */ }
+showExportChoices();
 $('exportformat').onchange = (e) => {
+  showExportChoices();
   try { sessionStorage.setItem('exportformat', e.target.value); } catch (err) { /* as above */ }
+};
+$('filmquality').onchange = (e) => {
+  try { sessionStorage.setItem('filmquality', e.target.value); } catch (err) { /* as above */ }
+};
+$('gifdither').onchange = (e) => {
+  try { sessionStorage.setItem('gifdither', e.target.checked ? 'on' : 'off'); } catch (err) { /* as above */ }
 };
 $('cancelexport').onclick = () => command('/cancel-export');
 $('recent').onchange = (e) => {

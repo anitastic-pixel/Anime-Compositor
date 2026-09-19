@@ -50,8 +50,9 @@ use anime_compositor::effects::{
     Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, TINT,
 };
 use anime_compositor::export::{
-    self, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
+    self, ExportChoices, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
 };
+use anime_compositor::mp4_out::Mp4Quality;
 use anime_compositor::exr_io::{self, ExrSamples};
 use anime_compositor::audio;
 use anime_compositor::media;
@@ -4356,6 +4357,47 @@ fn output_format(query: Option<&str>) -> Result<OutputFormat, String> {
     }
 }
 
+/// D-73's choices, as the page sends them: `quality=` beside an MP4, `dither=on` beside a GIF.
+/// Neither said is Standard and no dithering, which is what B-21c and B-21d wrote.
+fn export_choices(query: Option<&str>) -> Result<ExportChoices, String> {
+    Ok(ExportChoices {
+        mp4_quality: match parameter(query, "quality").as_deref() {
+            None | Some("standard") => Mp4Quality::Standard,
+            Some("preview") => Mp4Quality::Preview,
+            Some("high") => Mp4Quality::High,
+            Some(other) => {
+                return Err(format!(
+                    "Nothing was exported: \"{other}\" is not an MP4 quality. Choose Preview, \
+                     Standard or High."
+                ))
+            }
+        },
+        gif_dither: parameter(query, "dither").as_deref() == Some("on"),
+    })
+}
+
+/// How the status line says what the job is written as, with the choice that was made.
+fn written_as(format: OutputFormat, choices: ExportChoices) -> String {
+    match format {
+        OutputFormat::Png => String::new(),
+        OutputFormat::Exr(ExrSamples::Half) => " as EXR, half float,".into(),
+        OutputFormat::Exr(ExrSamples::Float) => " as EXR, full float,".into(),
+        OutputFormat::Gif if choices.gif_dither => {
+            " as one GIF, a preview of 256 colours a frame, dithered,".into()
+        }
+        OutputFormat::Gif => " as one GIF, a preview of 256 colours a frame,".into(),
+        OutputFormat::Apng => " as one animated PNG,".into(),
+        OutputFormat::Mp4 => format!(
+            " as one MP4 at {} quality, over black and with no sound,",
+            match choices.mp4_quality {
+                Mp4Quality::Preview => "Preview",
+                Mp4Quality::Standard => "Standard",
+                Mp4Quality::High => "High",
+            }
+        ),
+    }
+}
+
 /// Everything a job needs, taken from the viewer under one lock and owned from then on.
 ///
 /// This is B-10's immutable export snapshot, and it is a `clone` rather than a lock held for four
@@ -4477,6 +4519,7 @@ fn start_export(
     into: &Path,
     missing: MissingSource,
     format: OutputFormat,
+    choices: ExportChoices,
 ) -> String {
     let state = app.state::<Mutex<Export>>();
     if state
@@ -4487,22 +4530,16 @@ fn start_export(
     {
         return "An export is already running. Cancel it, or wait for it to finish.".to_string();
     }
-    let (project, root, request) = {
+    let (project, root, mut request) = {
         let viewer = app.state::<Mutex<Viewer>>();
         let viewer = viewer.lock().expect("the viewer lock was poisoned");
         export_job(&viewer, into, missing, format)
     };
+    request.choices = choices;
     let said = format!(
         "Exporting {} frames{} into {}. The window stays usable while it writes.",
         request.last_frame - request.first_frame + 1,
-        match format {
-            OutputFormat::Png => "",
-            OutputFormat::Exr(ExrSamples::Half) => " as EXR, half float,",
-            OutputFormat::Exr(ExrSamples::Float) => " as EXR, full float,",
-            OutputFormat::Gif => " as one GIF, a preview of 256 colours a frame,",
-            OutputFormat::Apng => " as one animated PNG,",
-            OutputFormat::Mp4 => " as one MP4, over black and with no sound,",
-        },
+        written_as(format, choices),
         into.display()
     );
     let cancel = Arc::new(AtomicBool::new(false));
@@ -4550,7 +4587,12 @@ fn start_export(
 const EXPORT_ENDED: &str = "The export has ended. What it wrote, or why it did not, is below.";
 
 /// Ask the operating system which folder the frames go in, then start writing them there.
-fn ask_where_to_export(app: &AppHandle, missing: MissingSource, format: OutputFormat) {
+fn ask_where_to_export(
+    app: &AppHandle,
+    missing: MissingSource,
+    format: OutputFormat,
+    choices: ExportChoices,
+) {
     let handle = app.clone();
     app.dialog()
         .file()
@@ -4559,7 +4601,7 @@ fn ask_where_to_export(app: &AppHandle, missing: MissingSource, format: OutputFo
             let Some(into) = chosen.and_then(|c| c.into_path().ok()) else {
                 return;
             };
-            let said = start_export(&handle, &into, missing, format);
+            let said = start_export(&handle, &into, missing, format, choices);
             announce(&handle.state::<Mutex<Viewer>>(), said);
             refresh(&handle);
         });
@@ -5121,9 +5163,10 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
         // document 28's recorded override rather than a silent fallback.
         // D-62: `?format=` is the page's format list; a value it does not offer is refused
         // before any folder is asked for.
-        "export" => match output_format(query) {
-            Ok(format) => {
-                ask_where_to_export(app, missing_source(query), format);
+        // D-73: a quality the page does not offer is refused the same way.
+        "export" => match output_format(query).and_then(|f| Ok((f, export_choices(query)?))) {
+            Ok((format, choices)) => {
+                ask_where_to_export(app, missing_source(query), format, choices);
                 String::new()
             }
             Err(refused) => refused,
@@ -10677,7 +10720,7 @@ mod editing {
         report.check(
             "and an animated PNG",
             true,
-            page.contains("<option value=\"apng\">Animated PNG, 8-bit</option>"),
+            page.contains("<option value=\"apng\">Animated PNG, 8-bit, lossless</option>"),
         );
         let into = std::env::temp_dir().join("anime_compositor_b21c_export");
         let _ = std::fs::remove_dir_all(&into);
@@ -10750,6 +10793,103 @@ mod editing {
             .map(|(c, _, _)| c)
             .collect();
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// B-22c: D-73's choices in the window.
+    #[test]
+    fn the_export_choices_are_in_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let page = std::fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"),
+        )
+        .expect("the page");
+        report.check(
+            "the page has a quality list of Preview, Standard and High, starting on Standard and hidden until MP4 is chosen",
+            true,
+            page.contains("<select id=\"filmquality\" hidden")
+                && page.contains("<option value=\"preview\">")
+                && page.contains("<option value=\"standard\" selected>")
+                && page.contains("<option value=\"high\">")
+                && page.contains("$('filmquality').hidden = $('exportformat').value !== 'mp4';"),
+        );
+        report.check(
+            "the page has a Dither tick box, hidden until GIF is chosen",
+            true,
+            page.contains("<label id=\"ditherlabel\" hidden")
+                && page.contains("$('ditherlabel').hidden = $('exportformat').value !== 'gif';"),
+        );
+        report.check(
+            "the list says which entries are lossless: PNG, EXR full float and animated PNG, and no other",
+            "3",
+            page.lines().filter(|l| l.contains("<option") && l.contains(", lossless</option>")).count(),
+        );
+        for (query, quality) in [
+            ("format=mp4", "Standard"),
+            ("format=mp4&quality=preview", "Preview"),
+            ("format=mp4&quality=standard", "Standard"),
+            ("format=mp4&quality=high", "High"),
+        ] {
+            report.check(
+                &format!("`{query}` is this quality"),
+                quality,
+                format!("{:?}", export_choices(Some(query)).expect("a listed quality").mp4_quality),
+            );
+        }
+        report.check(
+            "a quality the page does not offer is refused in a sentence",
+            "Nothing was exported: \"ultra\" is not an MP4 quality. Choose Preview, Standard or High.",
+            export_choices(Some("format=mp4&quality=ultra")).expect_err("not a quality"),
+        );
+        report.check(
+            "`dither=on` dithers, and saying nothing does not",
+            "true, false",
+            format!(
+                "{}, {}",
+                export_choices(Some("format=gif&dither=on")).expect("choices").gif_dither,
+                export_choices(Some("format=gif")).expect("choices").gif_dither
+            ),
+        );
+        let high = ExportChoices { mp4_quality: Mp4Quality::High, gif_dither: true };
+        report.check(
+            "the status line names the MP4's quality",
+            " as one MP4 at High quality, over black and with no sound,",
+            written_as(OutputFormat::Mp4, high),
+        );
+        report.check(
+            "the status line says a GIF is dithered when it is",
+            " as one GIF, a preview of 256 colours a frame, dithered,",
+            written_as(OutputFormat::Gif, high),
+        );
+        report.check(
+            "and says nothing of it when it is not",
+            " as one GIF, a preview of 256 colours a frame,",
+            written_as(OutputFormat::Gif, ExportChoices::default()),
+        );
+        report.check(
+            "a choice that belongs to another format changes nothing said of a PNG sequence",
+            "",
+            written_as(OutputFormat::Png, high),
+        );
+        write_artifact(
+            &report,
+            "verification/B-22c_panel_table.md",
+            "B-22c: the export choices in the window",
+            &["D-73 gave an MP4 three qualities and a GIF a dithering choice, and \
+               `verification/B-22b_choices_table.md` shows what each does to the written file. \
+               This is the window's half: the two controls are on the page beside the format \
+               they belong to, what the page sends is read into the choice, a value the page \
+               does not offer is refused, and the status line says what was chosen. Not \
+               reachable by a test, and said so: the one line that hands the choice to the job \
+               sits behind the Windows folder dialog, so that the chosen quality reaches the \
+               file is what `verification/B-22c_choices_playtest.md` asks the owner to see."],
+            &[],
+        );
+        let failed: Vec<&(String, String, String)> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .collect();
+        assert!(failed.is_empty(), "see verification/B-22c_panel_table.md: {failed:?}");
     }
 
     /// B-21d: an MP4 from the window (D-72, D-30).
@@ -15626,7 +15766,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 49] = [
+    const CONTROLS: [&str; 51] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -15646,9 +15786,11 @@ mod contract {
         "down",
         "export",
         "exportformat",
+        "filmquality",
         "fit",
         "fit100",
         "fwd",
+        "gifdither",
         "graphall",
         "graphfit",
         "graphmode",

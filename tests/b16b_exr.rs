@@ -130,6 +130,7 @@ fn export_one(case: &J, out: &Path) -> (Vec<PathBuf>, bool) {
             "half" => ExrSamples::Half,
             _ => ExrSamples::Float,
         }),
+        choices: Default::default(),
     };
     let report = export_sequence(
         doc.project(),
