@@ -279,7 +279,9 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
     // come with them to build `zerocopy-derive` and `paste`, and run only while compiling.
     // D-72's `image` added `byteorder-lite`, `fax`, `image`, `image-webp`, `moxcms`, `pxfm`,
     // `quick-error`, `tiff`, `weezl`, `zune-core` and `zune-jpeg`. D-72's `gif` added
-    // `color_quant` and `gif`; `weezl`, its LZW, was already here.
+    // `color_quant` and `gif`; `weezl`, its LZW, was already here. D-72's MP4 added `windows`
+    // and the ten `windows-*` crates under it: Microsoft's own bindings to Windows, already in
+    // the shell under Tauri, and here only to reach the H.264 encoder Windows carries (D-30).
     report.check(
         "and that part's whole dependency list is small enough to read",
         "adler2, bit_field, bitflags, bytemuck, byteorder-lite, cfg-if, color_quant, crc32fast, \
@@ -287,7 +289,9 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
          gif, half, image, image-webp, itoa, lebe, libm, memchr, miniz_oxide, moxcms, num-complex, \
          num-traits, paste, png, proc-macro2, pulp, pulp-wasm-simd-flag, pxfm, quick-error, \
          quote, raw-cpuid, rayon, rayon-core, reborrow, serde_core, serde_json, simd-adler32, \
-         smallvec, syn, tiff, unicode-ident, weezl, zerocopy, zerocopy-derive, zlib-rs, zmij, \
+         smallvec, syn, tiff, unicode-ident, weezl, windows, windows-collections, windows-core, \
+         windows-future, windows-implement, windows-interface, windows-link, windows-numerics, \
+         windows-result, windows-strings, windows-threading, zerocopy, zerocopy-derive, zlib-rs, zmij, \
          zune-core, zune-inflate, zune-jpeg",
         joined(&in_core),
     );

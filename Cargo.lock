@@ -51,6 +51,7 @@ dependencies = [
  "png 0.18.1",
  "rayon",
  "serde_json",
+ "windows",
 ]
 
 [[package]]

@@ -4348,9 +4348,10 @@ fn output_format(query: Option<&str>) -> Result<OutputFormat, String> {
         Some("exr-float") => Ok(OutputFormat::Exr(ExrSamples::Float)),
         Some("gif") => Ok(OutputFormat::Gif),
         Some("apng") => Ok(OutputFormat::Apng),
+        Some("mp4") => Ok(OutputFormat::Mp4),
         Some(other) => Err(format!(
             "Nothing was exported: \"{other}\" is not a format this window writes. Choose PNG, \
-             EXR half, EXR float, GIF or animated PNG."
+             EXR half, EXR float, GIF, animated PNG or MP4."
         )),
     }
 }
@@ -4397,6 +4398,7 @@ fn export_job(
                 // still, and from landing on a frame of a PNG sequence in the same folder.
                 OutputFormat::Gif => format!("{stem}.gif"),
                 OutputFormat::Apng => format!("{stem}_animated.png"),
+                OutputFormat::Mp4 => format!("{stem}.mp4"),
             },
             depth: WINDOW_DEPTH,
             alpha: WINDOW_ALPHA,
@@ -4498,6 +4500,7 @@ fn start_export(
             OutputFormat::Exr(ExrSamples::Float) => " as EXR, full float,",
             OutputFormat::Gif => " as one GIF, a preview of 256 colours a frame,",
             OutputFormat::Apng => " as one animated PNG,",
+            OutputFormat::Mp4 => " as one MP4, over black and with no sound,",
         },
         into.display()
     );
@@ -10526,7 +10529,7 @@ mod editing {
         report.check(
             "the format list's three choices are the three files, and anything else is refused",
             "Png; Exr(Half); Exr(Float); Nothing was exported: \"psd\" is not a format this \
-             window writes. Choose PNG, EXR half, EXR float, GIF or animated PNG.",
+             window writes. Choose PNG, EXR half, EXR float, GIF, animated PNG or MP4.",
             formats,
         );
         report.check(
@@ -10737,6 +10740,92 @@ mod editing {
                is the window's half: the list beside Export offers them, the job names one file \
                rather than one a frame, and the status line says so. The folder picker is \
                skipped, as in every panel table: no test can answer a Windows dialog."],
+            &[],
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// B-21d: an MP4 from the window (D-72, D-30).
+    #[cfg(windows)]
+    #[test]
+    fn an_mp4_goes_out_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let page = std::fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"),
+        )
+        .expect("the page");
+        report.check(
+            "the list beside Export offers an MP4, and says what it leaves out",
+            true,
+            page.contains("<option value=\"mp4\">MP4 (H.264), over black, no sound</option>"),
+        );
+        let into = std::env::temp_dir().join("anime_compositor_b21d_export");
+        let _ = std::fs::remove_dir_all(&into);
+        std::fs::create_dir_all(&into).expect("the export folder");
+        let format = output_format(Some("format=mp4")).expect("a listed format");
+        // The fixture's drawings are not on the disk, so the frames are written without them,
+        // as the window's own tick box asks; what is checked here is the file.
+        let (snapshot, root, mut request) =
+            export_job(&held(&viewer), &into, MissingSource::RenderTransparent, format);
+        report.check("the file is named", "cel_holds_project.mp4", &request.naming);
+        request.last_frame = request.first_frame + 2;
+        let said = run_export(&snapshot, &root, &request, &AtomicBool::new(false));
+        report.check(
+            "three frames are one file, and the window says so",
+            "Exported 3 frames as one file, the chosen folder's cel_holds_project.mp4.",
+            said.replace(&format!("{}{}", into.display(), std::path::MAIN_SEPARATOR), "the chosen folder's ")
+                .split_inclusive('.')
+                .take(2)
+                .collect::<String>(),
+        );
+        report.check(
+            "the file is there and is not empty",
+            true,
+            std::fs::metadata(into.join("cel_holds_project.mp4")).map(|m| m.len() > 0).unwrap_or(false),
+        );
+
+        // An odd size: the composition made one pixel narrower, as Ctrl+K would.
+        let width = {
+            let v = held(&viewer);
+            v.document.project().composition(&v.composition).expect("the composition").width - 1
+        };
+        run(&viewer, &format!("composition.set_settings?width={width}"));
+        let (odd, root, mut request) =
+            export_job(&held(&viewer), &into, MissingSource::RenderTransparent, format);
+        request.naming = "odd.mp4".to_string();
+        request.last_frame = request.first_frame;
+        let said = run_export(&odd, &root, &request, &AtomicBool::new(false));
+        report.check(
+            "a composition with an odd width is refused, the side is named, and no file is made",
+            format!("true, true, file there: false"),
+            format!(
+                "{}, {}, file there: {}",
+                said.contains("An MP4 needs an even width and an even height"),
+                said.contains(&format!("its width, {width}, is odd")),
+                into.join("odd.mp4").exists()
+            ),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-21d_panel_table.md",
+            "B-21d: MP4 out of the window",
+            &["D-72 added an MP4 as a thing an export can be, written by the H.264 encoder \
+               Windows carries (D-30), and `verification/B-21d_mp4_table.md` reads the written \
+               files' own time numbers back. This is the window's half: the list beside Export \
+               offers it, the job names one file, the status line says so, and an odd size is \
+               refused in a sentence. The folder picker is skipped, as in every panel table: \
+               no test can answer a Windows dialog."],
             &[],
         );
         let failed: Vec<&String> = report

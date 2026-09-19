@@ -1,4 +1,5 @@
-//! D-72's two animated files: a GIF and an animated PNG. One file holds every frame of the job.
+//! D-72's one-file exports: a GIF, an animated PNG, and an MP4 (written by `mp4_out`). One file
+//! holds every frame of the job.
 //!
 //! A GIF is a preview format: 256 colours a frame, alpha that is on or off, time in hundredths
 //! of a second. An animated PNG loses nothing: it is written from the same samples as an exported
@@ -8,6 +9,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
+use crate::mp4_out::Mp4;
 use crate::time::FrameRate;
 use crate::OutputDepth;
 
@@ -30,6 +32,7 @@ pub enum Film {
         frames: u64,
     },
     Apng(png::Writer<BufWriter<File>>),
+    Mp4(Mp4),
 }
 
 impl Film {
@@ -107,6 +110,7 @@ impl Film {
                 encoder.write_frame(&frame).map_err(|e| e.to_string())
             }
             Film::Apng(writer) => writer.write_image_data(samples).map_err(|e| e.to_string()),
+            Film::Mp4(mp4) => mp4.push(srgb8),
         }
     }
 
@@ -118,6 +122,7 @@ impl Film {
                 file.flush().map_err(|e| e.to_string())?;
             }
             Film::Apng(writer) => writer.finish().map_err(|e| e.to_string())?,
+            Film::Mp4(mp4) => mp4.finish()?,
         }
         Ok(())
     }

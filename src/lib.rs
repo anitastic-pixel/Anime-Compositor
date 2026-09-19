@@ -20,6 +20,7 @@ pub mod effects;
 pub mod export;
 pub mod expr;
 pub mod film_out;
+pub mod mp4_out;
 pub mod keykind;
 pub mod exr_io;
 pub mod mask;

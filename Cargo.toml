@@ -32,6 +32,10 @@ serde_json = "1.0.151"
 image = { version = "0.25.10", default-features = false, features = ["bmp", "tga", "tiff", "webp", "jpeg"] }
 gif = "0.14.2"
 
+# D-72 and D-30: MP4 goes out through the encoder Windows carries. Already in the tree under Tauri.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61.3", features = ["Win32_Media_MediaFoundation", "Win32_System_Com"] }
+
 [dev-dependencies]
 # `tests/b11_dependency_record.rs` asks cargo what the build resolves and reads the answer.
 # Already in the graph above; this adds no crate, only visibility from the test binaries.

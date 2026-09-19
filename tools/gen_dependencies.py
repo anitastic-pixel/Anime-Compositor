@@ -163,6 +163,11 @@ underneath one of them.
 - **`gif`** writes the GIF export, by D-72. It brought `color_quant`, which picks each frame's 256
   colours. `tests/b21c_films.rs` reads the file back and holds its delays to FX-FMT-020 to 023.
   The animated PNG needed nothing new: `png` writes it.
+- **`windows`** is Microsoft's own description of Windows for Rust, and the core uses it on
+  Windows only, to hand frames to the H.264 encoder Windows carries (Media Foundation), by D-72
+  and D-30. No encoder is shipped inside this program. It was already in the build underneath
+  `tauri`, at the same version. `tests/b21d_mp4.rs` reads the written file's time numbers back
+  and holds them to FX-FMT-030.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the

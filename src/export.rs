@@ -60,12 +60,15 @@ pub enum OutputFormat {
     /// D-72: one animated PNG holding every frame, from the samples a PNG frame would hold.
     /// `depth` and `alpha` apply. `naming` is the file's name as it stands.
     Apng,
+    /// D-72: one MP4 holding every frame as H.264, over black, with no sound. Windows only
+    /// (D-30). `naming` is the file's name as it stands.
+    Mp4,
 }
 
 impl OutputFormat {
     /// True when the whole job is one file rather than a file a frame.
     pub fn is_one_file(self) -> bool {
-        matches!(self, OutputFormat::Gif | OutputFormat::Apng)
+        matches!(self, OutputFormat::Gif | OutputFormat::Apng | OutputFormat::Mp4)
     }
 }
 
@@ -398,6 +401,10 @@ pub fn export_sequence_counting(
                     Some(why) => Err(why),
                     None => Film::gif(&path, w, h, rate),
                 },
+                OutputFormat::Mp4 => match crate::mp4_out::refusal(w, h) {
+                    Some(why) => Err(why),
+                    None => crate::mp4_out::Mp4::create(&path, w, h, rate).map(Film::Mp4),
+                },
                 // The header is written once, so it carries no `Frame` tag, and its `Fidelity`
                 // tag speaks for the first frame only; the report speaks for them all.
                 _ => {
@@ -416,7 +423,7 @@ pub fn export_sequence_counting(
             }
         }
         let written = match request.format {
-            OutputFormat::Gif | OutputFormat::Apng => film
+            OutputFormat::Gif | OutputFormat::Apng | OutputFormat::Mp4 => film
                 .as_mut()
                 .expect("the film was opened above")
                 .push(
