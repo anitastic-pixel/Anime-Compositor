@@ -38,7 +38,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `comp.start_frame` is in the answer | present | present | pass |
 | `comp.width` is in the answer | present | present | pass |
 | `comp.work_area` is in the answer | present | present | pass |
-| the panels read 20 fields out of one of its layers | true | true | pass |
+| the panels read 21 fields out of one of its layers | true | true | pass |
 | `layer.asset_id` is in the answer | present | present | pass |
 | `layer.blend_mode` is in the answer | present | present | pass |
 | `layer.composition_id` is in the answer | present | present | pass |
@@ -46,6 +46,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.effects` is in the answer | present | present | pass |
 | `layer.enabled` is in the answer | present | present | pass |
 | `layer.exposure_spans` is in the answer | present | present | pass |
+| `layer.gain_db` is in the answer | present | present | pass |
 | `layer.id` is in the answer | present | present | pass |
 | `layer.in_frame` is in the answer | present | present | pass |
 | `layer.kind` is in the answer | present | present | pass |
@@ -89,4 +90,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.tint` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, amount - are the ones the command reads | accepted | accepted | pass |
 
-**68 of 68 checks pass.**
+**69 of 69 checks pass.**

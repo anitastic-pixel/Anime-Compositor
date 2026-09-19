@@ -77,6 +77,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.precompose` can be asked for without a mouse | yes | yes | pass |
 | `layer.rename` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_blend_mode` can be asked for without a mouse | yes | yes | pass |
+| `layer.set_gain` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_label` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_matte` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_parent` can be asked for without a mouse | yes | yes | pass |
@@ -102,6 +103,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `recover` can be asked for without a mouse | yes | yes | pass |
 | `save` can be asked for without a mouse | yes | yes | pass |
 | `save-as` can be asked for without a mouse | yes | yes | pass |
+| `sound` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_markers` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_work_end` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_work_start` can be asked for without a mouse | yes | yes | pass |
@@ -137,4 +139,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | right clicking a chosen key is not the only way to open its menu of key speed, ease, hold, copy, paste and delete | true | true | pass |
 | right clicking an empty place on the timeline is not the only way to paste keys or layers there, add a key, a layer or a marker, or open the settings | true | true | pass |
 
-**107 of 107 checks pass.**
+**109 of 109 checks pass.**

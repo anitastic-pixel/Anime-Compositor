@@ -1,0 +1,4 @@
+B-20c: reference audio in the window (D-71): sound files in the import and relink dialogs, a layer made from a sound is an audio layer, layer.set_gain, the /sound route, playback with resync and a one-frame scrub through the page's own decoder, the speaker and the level box, the green waveform bar, a violet bar for composition layers and an amber strip for the camera; verification/B-20c_panel_table.md is 20 of 20; the owner's playtest is verification/B-20c_audio_playtest.md; no new dependency
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Cu2ekTzJ76XivhNBpKoHAa

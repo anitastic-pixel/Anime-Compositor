@@ -53,9 +53,10 @@ use anime_compositor::export::{
     self, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
 };
 use anime_compositor::exr_io::{self, ExrSamples};
+use anime_compositor::audio;
 use anime_compositor::media;
 use anime_compositor::model::{
-    Asset, BlendMode, Composition, Expression, Id, Interp, Interpretation, Layer, Marker, Project,
+    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Layer, LayerKind, Marker, Project,
     Prop, Value,
 };
 use anime_compositor::package::{self, Answer};
@@ -1605,6 +1606,11 @@ fn spoken(numbers: &[u32]) -> String {
 /// the button that was just pressed. The status line gets the summary a person checks a scan
 /// against: how many drawings arrived, which numbers they run between, and what is missing.
 fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
+    // D-71: sound files, each an asset of its own. A choice that mixes sound and drawings
+    // falls through to the importer, which says what it could not use.
+    if !files.is_empty() && files.iter().all(|f| is_sound(f)) {
+        return import_sounds(viewer, files);
+    }
     // B-12 fix: one file chosen on its own is a still, as After Effects imports one, shown on
     // every frame of a layer made from it. Grouped as a sequence it was drawing N of a sequence
     // of one, and a layer showed it on no frame or one.
@@ -1710,6 +1716,84 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
     }
 }
 
+/// D-71: the sound files the window offers. The core measures a WAV; every format here is played
+/// by the page's own decoder, so the list is what WebView2 decodes.
+const SOUNDS: [&str; 7] = ["wav", "mp3", "ogg", "opus", "flac", "m4a", "aac"];
+const DRAWINGS_AND_SOUND: [&str; 9] = ["png", "exr", "wav", "mp3", "ogg", "opus", "flac", "m4a", "aac"];
+
+fn is_sound(file: &Path) -> bool {
+    file.extension()
+        .is_some_and(|e| SOUNDS.iter().any(|s| e.eq_ignore_ascii_case(s)))
+}
+
+/// D-71: one audio asset per chosen file. A WAV the core cannot measure is still imported, with
+/// the reason told once, because document 28 keeps the reference and makes the layer silent.
+fn import_sounds(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
+    let mut said = Vec::new();
+    let mut warned = String::new();
+    for file in files {
+        let name = file.file_name().map_or_else(
+            || file.display().to_string(),
+            |n| n.to_string_lossy().into_owned(),
+        );
+        let wav = file.extension().is_some_and(|e| e.eq_ignore_ascii_case("wav"));
+        let told = match wav.then(|| std::fs::read(file).map(|raw| audio::read_wav(&raw))) {
+            Some(Ok(Ok(audio::Wav::Read { cut_short: true, .. }))) => Some(audio::cut_short(&name)),
+            Some(Ok(Err(unreadable))) => Some(unreadable),
+            _ => None,
+        };
+        let asset = {
+            let held = viewer.lock().expect("the viewer lock was poisoned");
+            let mut asset = Asset::still(
+                unused_asset_id(held.document.project()),
+                name,
+                persist::stored_path(&held.root, file),
+            );
+            asset.kind = AssetKind::Audio;
+            asset
+        };
+        let id = asset.id.clone();
+        said.push(edit(viewer, Command::AddAsset { asset }));
+        let mut held = viewer.lock().expect("the viewer lock was poisoned");
+        if held.document.project().assets.iter().any(|a| a.id == id) {
+            if let Some(told) = &told {
+                warned = format!("{warned} {}", sentence(told));
+            }
+            held.notes.extend(told.iter().map(note));
+        }
+    }
+    format!(
+        "{}: sound. Drag it to the layer list, or press Make a layer, to hear it.{warned}",
+        said.join(" ")
+    )
+}
+
+/// D-71: the bytes of one sound file, for the page's own decoder. It rides on the frame scheme
+/// beside `curve`, because it is a question whose answer changes nothing.
+fn sound(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
+    let bytes = (|| {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        let id = Id::new(parameter(query, "asset")?);
+        let asset = held
+            .document
+            .project()
+            .assets
+            .iter()
+            .find(|a| a.id == id && a.kind == AssetKind::Audio)?;
+        std::fs::read(held.root.join(asset.path.as_ref()?)).ok()
+    })();
+    match bytes {
+        Some(bytes) => allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/octet-stream")
+            .body(bytes)
+            .expect("build the sound response"),
+        None => allow_the_page_to_read_this(Response::builder().status(404))
+            .header("content-type", "text/plain; charset=utf-8")
+            .body(b"that sound file is not there to read".to_vec())
+            .expect("build the missing sound response"),
+    }
+}
+
 /// A relink that has been worked out and is waiting to be agreed to.
 ///
 /// W-02 requires the window to "present changed dimensions, frame range or alpha interpretation
@@ -1738,6 +1822,29 @@ fn size_now(root: &Path, asset: &Asset) -> Option<(usize, usize)> {
 
 /// Work out what relinking `asset` to `files` would do, and hold it until it is agreed to.
 fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> String {
+    // D-71: a sound is one file with no size, range or alpha to compare, so there is nothing to
+    // agree to first. It is relinked at once, and Ctrl+Z takes it back.
+    let sound = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        let found = held
+            .document
+            .project()
+            .assets
+            .iter()
+            .find(|a| &a.id == asset && a.kind == AssetKind::Audio)
+            .cloned();
+        found.map(|a| (a, held.root.clone()))
+    };
+    if let Some((mut record, root)) = sound {
+        let [file] = files else {
+            return "A sound is one file, so choose one. Nothing was changed.".to_string();
+        };
+        if !is_sound(file) {
+            return "That is not a sound file this window plays. Nothing was changed.".to_string();
+        }
+        record.path = Some(persist::stored_path(&root, file));
+        return edit(viewer, Command::RelinkAsset { asset: Box::new(record) });
+    }
     let mut held = viewer.lock().expect("the viewer lock was poisoned");
     let candidate =
         match persist::relink_candidate(held.document.project(), asset, files, &held.root) {
@@ -1963,6 +2070,7 @@ const ANSWERS: &[&str] = &[
     "layer.rename",
     "layer.set_blend_mode",
     "layer.set_depth",
+    "layer.set_gain",
     "layer.set_label",
     "layer.set_matte",
     "layer.set_parent",
@@ -3148,13 +3256,21 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             if !project.assets.iter().any(|a| a.id == asset) {
                 return Some(format!("There is no imported drawing called {asset}."));
             }
-            let layer = Layer::new(
+            // D-71: a layer made from a sound file is an audio layer.
+            let sound = project
+                .assets
+                .iter()
+                .any(|a| a.id == asset && a.kind == AssetKind::Audio);
+            let mut layer = Layer::new(
                 unused_layer_id(project),
                 parameter(query, "name").unwrap_or_else(|| "New layer".to_string()),
                 asset,
                 comp.start_frame,
                 comp.start_frame + comp.duration_frames as i32,
             );
+            if sound {
+                layer.kind = LayerKind::Audio;
+            }
             // The end of the order is the front of the picture -- `layers_in_order` is bottom
             // first -- and the front is where somebody who has just added a layer looks for it.
             // W-22: a drawing dropped on the layer list says where in the stack it landed.
@@ -3472,6 +3588,21 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     layer_id,
                     value: !layer.locked,
                 },
+                // D-71: an audio layer's level, in decibels. The core keeps it between -96 and 12.
+                "layer.set_gain" => {
+                    let text = parameter(query, "value").unwrap_or_default();
+                    let Ok(value) = text.trim().parse::<f64>() else {
+                        return Some(format!(
+                            "\"{}\" is not a level. A level is a number of decibels, from -96 to 12.",
+                            text.trim()
+                        ));
+                    };
+                    Command::SetAudioGain {
+                        composition,
+                        layer_id,
+                        value,
+                    }
+                }
                 // W-26: the shy switch, read from the document as the other toggles are.
                 "layer.toggle_shy" => Command::SetLayerShy {
                     composition,
@@ -4771,7 +4902,7 @@ fn ask_what_to_import(app: &AppHandle) {
     app.dialog()
         .file()
         .set_title("Import drawings")
-        .add_filter("PNG and EXR drawings", &["png", "exr"])
+        .add_filter("Drawings and sound", &DRAWINGS_AND_SOUND)
         .pick_files(move |chosen| {
             let files: Vec<PathBuf> = chosen
                 .unwrap_or_default()
@@ -4797,7 +4928,7 @@ fn ask_what_to_relink_to(app: &AppHandle, asset: Id) {
     app.dialog()
         .file()
         .set_title("Relink to these drawings")
-        .add_filter("PNG and EXR drawings", &["png", "exr"])
+        .add_filter("Drawings and sound", &DRAWINGS_AND_SOUND)
         .pick_files(move |chosen| {
             let files: Vec<PathBuf> = chosen
                 .unwrap_or_default()
@@ -5076,7 +5207,8 @@ fn main() {
             let viewer = window.state::<Mutex<Viewer>>();
             // The owner's B-16c playtest: drawings dropped on the window are imported, as Import
             // drawings... would, and one file on its own is a still there too.
-            if paths.iter().all(|p| is_drawing(p)) {
+            // D-71: sound files dropped on the window are imported the same way.
+            if paths.iter().all(|p| is_drawing(p)) || paths.iter().all(|p| is_sound(p)) {
                 let said = import(&viewer, paths);
                 announce(&viewer, said);
                 refresh(window.app_handle());
@@ -5108,6 +5240,10 @@ fn main() {
                 .and_then(|n| n.parse::<i32>().ok())
             {
                 return boxes(&viewer, n, quality_asked(request.uri().query()));
+            }
+            // D-71: `/sound?asset=`, one sound file's bytes for the page's decoder.
+            if request.uri().path().trim_matches('/') == "sound" {
+                return sound(&viewer, request.uri().query());
             }
             // `/curve?layer=&prop=&from=&to=`, the graph editor's samples: the same kind of
             // question as `boxes` above, on the same scheme, for the same reason.
@@ -11406,6 +11542,210 @@ mod editing {
          right is B-19c's table.",
     ];
 
+    const AUDIO_PANEL_INTRO: &[&str] = &[
+        "D-71 decided what an audio layer is and B-20b built it in the core, checked in \
+         `verification/B-20b_audio_table.md`. This is the window's half: sound files in the \
+         import and relink dialogs, a layer made from a sound is an audio layer, the level is \
+         `layer.set_gain`, the speaker is the switch every layer has, and the page fetches a \
+         sound file's bytes from `/sound` to play it with its own decoder.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json` \
+         and the WAV files of `Fixtures/audio/media/`, and reads back what the page is given.",
+    ];
+
+    const AUDIO_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhat is heard, whether it stays with the picture, and what \
+         the bars look like. Sound and sync are judged by ear: that is \
+         `verification/B-20c_audio_playtest.md`, for a person.",
+    ];
+
+    /// B-20c: reference audio from the window, on D-71. The order is the playtest sheet's.
+    #[test]
+    fn sound_is_imported_and_levelled_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let media = |name: &str| repo("Fixtures/audio/media").join(name);
+        let asset_named = |viewer: &Mutex<Viewer>, name: &str| {
+            let answer: serde_json::Value =
+                serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+            answer["project"]["assets"]
+                .as_array()
+                .expect("a project has assets")
+                .iter()
+                .find(|a| a["name"] == name)
+                .cloned()
+                .unwrap_or(serde_json::Value::Null)
+        };
+        let before = names(&viewer);
+
+        report.check(
+            "Importing a WAV says what it is and what to do next",
+            "Import pcm16_mono_48k.wav: sound. Drag it to the layer list, or press Make a layer, to hear it.",
+            import(&viewer, &[media("pcm16_mono_48k.wav")]),
+        );
+        let asset = asset_named(&viewer, "pcm16_mono_48k.wav");
+        report.check(
+            "the page is told it is audio, with a path and no interpretation",
+            "audio, a path, no interpretation",
+            format!(
+                "{}, {}, {}",
+                asset["kind"].as_str().unwrap_or("(no kind)"),
+                if asset.get("path").is_some() { "a path" } else { "no path" },
+                if asset.get("interpretation").is_none() { "no interpretation" } else { "an interpretation" }
+            ),
+        );
+        let asset_id = asset["id"].as_str().unwrap_or_default().to_string();
+        report.check(
+            "`/sound` gives the page the file, byte for byte",
+            "200, the same bytes",
+            {
+                let answer = sound(&viewer, Some(&format!("asset={asset_id}")));
+                let same = std::fs::read(media("pcm16_mono_48k.wav")).ok().as_deref()
+                    == Some(answer.body().as_slice());
+                format!(
+                    "{}, {}",
+                    answer.status().as_u16(),
+                    if same { "the same bytes" } else { "different bytes" }
+                )
+            },
+        );
+        report.check(
+            "`/sound` for a drawing is not answered with its bytes",
+            "404",
+            sound(&viewer, Some("asset=no-such-sound")).status().as_u16(),
+        );
+
+        report.check(
+            "Make a layer from it",
+            "Add layer Sound",
+            run(&viewer, &format!("layer.create?asset={asset_id}&name=Sound")),
+        );
+        report.check("it is at the front", format!("{before}, Sound"), names(&viewer));
+        let layer = shown_layer(&viewer, "Sound");
+        report.check(
+            "the page is told it is an audio layer: no transform, no blend mode, no effects",
+            "audio, no transform, no blend_mode, no effects",
+            format!(
+                "{}, {}, {}, {}",
+                layer["kind"].as_str().unwrap_or("(no kind)"),
+                if layer.get("transform").is_none() { "no transform" } else { "a transform" },
+                if layer.get("blend_mode").is_none() { "no blend_mode" } else { "a blend_mode" },
+                if layer.get("effects").is_none() { "no effects" } else { "effects" }
+            ),
+        );
+        let id = layer["id"].as_str().unwrap_or_default().to_string();
+
+        report.check(
+            "The level box sends -6",
+            "Set level to -6 dB",
+            run(&viewer, &format!("layer.set_gain?layer={id}&value=-6")),
+        );
+        report.check(
+            "and the page is given it back",
+            "-6.0",
+            format!("{:?}", shown_layer(&viewer, "Sound")["gain_db"].as_f64().unwrap_or(f64::NAN)),
+        );
+        let refused = run(&viewer, &format!("layer.set_gain?layer={id}&value=13"));
+        report.check(
+            "A level of 13 is refused and the level stays",
+            "A level cannot be set to 13 dB.; -6.0",
+            format!(
+                "{}; {:?}",
+                refused,
+                shown_layer(&viewer, "Sound")["gain_db"].as_f64().unwrap_or(f64::NAN)
+            ),
+        );
+        report.check(
+            "A level that is not a number says so",
+            "\"loud\" is not a level. A level is a number of decibels, from -96 to 12.",
+            run(&viewer, &format!("layer.set_gain?layer={id}&value=loud")),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"].as_str().unwrap_or_default().to_string();
+        let refused = run(&viewer, &format!("layer.set_gain?layer={cel}&value=-3"));
+        report.check(
+            "A level on a picture layer is refused",
+            "\"Cel\" is not an audio layer, so it has no level.",
+            refused,
+        );
+        let refused = run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply"));
+        report.check(
+            "A blend mode on the audio layer is refused",
+            "\"Sound\" is an audio layer, which draws nothing, so there is nothing there to set.",
+            refused,
+        );
+
+        run(&viewer, &format!("layer.toggle_visibility?layer={id}"));
+        report.check(
+            "The speaker is the switch every layer has: off",
+            "false",
+            shown_layer(&viewer, "Sound")["enabled"].to_string(),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and Undo puts it back on",
+            "true",
+            shown_layer(&viewer, "Sound")["enabled"].to_string(),
+        );
+
+        report.check(
+            "Relinking the sound to another WAV is done at once, as one entry to undo",
+            "Relink pcm16_mono_48k.wav",
+            propose_relink(&viewer, &Id::new(&asset_id), &[media("pcm8_mono_8k.wav")]),
+        );
+        report.check(
+            "and the record points at the new file",
+            "pcm8_mono_8k.wav",
+            asset_named(&viewer, "pcm16_mono_48k.wav")["path"]
+                .as_str()
+                .and_then(|p| p.rsplit('/').next())
+                .unwrap_or("(no path)"),
+        );
+        report.check(
+            "Relinking it to a drawing is refused in words",
+            "That is not a sound file this window plays. Nothing was changed.",
+            propose_relink(&viewer, &Id::new(&asset_id), &[media("bg.png")]),
+        );
+
+        report.check(
+            "A WAV that ends early is imported and the person is told",
+            "Import cut_short.wav: sound. Drag it to the layer list, or press Make a layer, to hear it. The sound file \"cut_short.wav\" ends before its header says it does.",
+            import(&viewer, &[media("cut_short.wav")]),
+        );
+        report.check(
+            "A file that is not a WAV inside is imported, kept, and said to be silent",
+            "Import not_a_wav.wav: sound. Drag it to the layer list, or press Make a layer, to hear it. This sound file could not be read, so its layer is silent. Relink the layer to a WAV file, or convert this one to WAV.",
+            import(&viewer, &[media("not_a_wav.wav")]),
+        );
+        report.check(
+            "both are in the notes, with their document 28 codes",
+            "MEDIA_AUDIO_CUT_SHORT, MEDIA_AUDIO_UNREADABLE",
+            held(&viewer)
+                .notes
+                .iter()
+                .filter_map(|n| n.split('\t').nth(1)?.split(' ').next().map(str::to_string))
+                .filter(|code| code.starts_with("MEDIA_AUDIO"))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-20c_panel_table.md",
+            "B-20c: reference audio in the window",
+            AUDIO_PANEL_INTRO,
+            AUDIO_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     const PRECOMP_PANEL_INTRO: &[&str] = &[
         "D-67 decided what a composition layer is and B-18b built it in the core, checked pixel \
          by pixel in `verification/B-18b_precomp_table.md`. This is the window's half: \
@@ -13223,6 +13563,7 @@ mod contract {
         "layer.precompose",
         "layer.rename",
         "layer.set_blend_mode",
+        "layer.set_gain",
         "layer.set_label",
         "layer.set_matte",
         "layer.set_parent",
@@ -13273,6 +13614,8 @@ mod contract {
         "recover",
         "save",
         "save-as",
+        // D-71: the sixth on the frame scheme, one sound file's bytes for the page's decoder.
+        "sound",
         "state",
     ];
 
@@ -13282,6 +13625,11 @@ mod contract {
     /// handler that sends it, so moving `layer.delete` onto the button that moves a layer
     /// forward fails here rather than passing because the string is still somewhere in the file.
     const WIRING: &[(&str, &str, &str)] = &[
+        (
+            "Level",
+            "layer.set_gain",
+            "level.onchange = () => command('/layer.set_gain?layer=' + encodeURIComponent(layer.id)",
+        ),
         (
             "Can be passed on",
             "asset.set_redistribute",
@@ -13406,7 +13754,7 @@ mod contract {
             // `frame`, `at`, `play`, `boxes` and `curve` belong to the other scheme and are served
             // beside `fn frame`, not by the command shell, so there is no arm of that name to
             // look for.
-            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve") {
+            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve" | "sound") {
                 continue;
             }
             let arm = format!("\"{route}\"");
@@ -13548,6 +13896,7 @@ mod contract {
         ("layer.toggle_solo", "a command the window answers"),
         ("layer.set_label", "a command the window answers"),
         ("layer.set_blend_mode", "a command the window answers"),
+        ("layer.set_gain", "a command the window answers"),
         // D-66, accepted on 2026-09-17; B-17c put the button in the window the same day.
         ("layer.add_adjustment", "a command the window answers"),
         // D-67, accepted on 2026-09-18 and built in the core by B-18b; B-18c put both in the
@@ -14389,8 +14738,37 @@ mod contract {
         ] {
             run(&viewer, edit);
         }
+        // B-20c: and an audio layer with a level, the only kind that carries `gain_db`.
+        import(
+            &viewer,
+            &[Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../Fixtures/audio/media/pcm16_mono_48k.wav")],
+        );
+        let sound_asset = held(&viewer)
+            .document
+            .project()
+            .assets
+            .iter()
+            .find(|a| a.kind == AssetKind::Audio)
+            .map(|a| a.id.as_str().to_string())
+            .unwrap_or_default();
+        run(&viewer, &format!("layer.create?asset={sound_asset}&name=Sound"));
         let answer: serde_json::Value =
             serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+        let sound_id = answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .and_then(|all| all.iter().find(|l| l["kind"] == "audio"))
+            .and_then(|l| l["id"].as_str())
+            .unwrap_or_default()
+            .to_string();
+        run(&viewer, &format!("layer.set_gain?layer={sound_id}&value=-6"));
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
+        let sound = answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .and_then(|all| all.iter().find(|l| l["kind"] == "audio"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
         let layer = layer_of(&answer, "layer-3");
         let precomp = answer["project"]["compositions"][0]["layers"]
             .as_array()
@@ -14442,6 +14820,7 @@ mod contract {
                     "present",
                     match holds.get(&field).or_else(|| match field.as_str() {
                         "composition_id" => precomp.get(&field),
+                        "gain_db" => sound.get(&field),
                         _ => None,
                     }) {
                         Some(_) => "present".to_string(),
@@ -14661,7 +15040,7 @@ mod contract {
         };
         let shell: Vec<String> = ROUTES
             .iter()
-            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve"))
+            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sound"))
             .map(|route| route.to_string())
             .collect();
         report.check(

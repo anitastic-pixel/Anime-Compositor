@@ -349,6 +349,13 @@
   /* B-17c: an adjustment layer (D-66) has no drawings, so its bar is hatched rather than hollow:
      hollow already means "every frame shows the drawing of its own number". */
   /* B-18c: a composition layer's bar carries the inner composition's name. */
+  /* B-20c: each kind of layer has its own bar. Sound is green with its shape in it, a composition
+     is violet, the camera is a thin amber strip, an adjustment keeps its hatching. A label colour
+     chosen by the person still wins, and every kind also says what it is in words on its row. */
+  .track.sound .life { background: #1f4a33; border-color: #3f8a5f; overflow: hidden; }
+  .track.sound .life canvas { display: block; width: 100%; height: 100%; pointer-events: none; }
+  .track.precomp .life { background: #3d2f55; border-color: #6a4f96; }
+  .track.camera .life { top: 4px; bottom: 4px; background: #6b5320; border-color: #a8842f; cursor: default; }
   .track.precomp .life { color: #cdd6e6; font-size: 11px; padding-left: 6px; overflow: hidden; white-space: nowrap; }
   .track.adjust .life { background: repeating-linear-gradient(135deg, #2f3d55 0 6px, #46587a 6px 8px); }
   /* W-10: a keyframe, on the frame it is on, over the bar. On the layer's own bar a press
@@ -894,6 +901,7 @@ async function show(url, keep = true) {
     // own clock starts here rather than at the press, so that no instant of the wait for this
     // frame is charged to playback as frames skipped.
     if (url.includes('/play/')) started = performance.now();
+    hear();
     // Nothing is queued behind this answer, so the frame asked for and the frame on screen are
     // the same one again. This is also what puts `wanted` back inside the composition after the
     // core has clamped a step that ran off the end, and what makes an arrow press after playback
@@ -1003,7 +1011,127 @@ async function show(url, keep = true) {
   }
 }
 
+// -------------------------------------------------------------------------------------------
+// D-71: reference audio. The core keeps the layer and its level; the page decodes and plays.
+// -------------------------------------------------------------------------------------------
+let audio = null;          // the AudioContext, made when there is first a sound to decode
+const sounds = new Map();  // asset id and path -> { buffer, peaks }, or null while it is fetched
+let voices = [];           // the sources now sounding
+let voicesFrom = null;     // { frame, at, open }: where they began, on the audio clock
+let lastHeard = null;      // the frame last sounded, so a refresh of the same frame is silent
+
+// The decoded sound of one asset, or null while it is on its way or cannot be decoded. Keyed by
+// the path too, so a relinked sound is fetched again.
+function soundOf(id) {
+  const record = ((doc && doc.project.assets) || []).find((a) => a.id === id);
+  if (!record) return null;
+  const key = id + '\n' + record.path;
+  if (sounds.has(key)) return sounds.get(key);
+  sounds.set(key, null);
+  (async () => {
+    try {
+      const answer = await fetch(FRAMES + '/sound?asset=' + encodeURIComponent(id));
+      if (!answer.ok) throw new Error(await answer.text());
+      audio = audio || new AudioContext();
+      const buffer = await audio.decodeAudioData(await answer.arrayBuffer());
+      // ponytail: the shape is the first channel's loudest sample in each of 4000 slices; a
+      // finer shape when bars are zoomed far enough to want one.
+      const data = buffer.getChannelData(0);
+      const peaks = new Float32Array(4000);
+      const per = Math.max(1, Math.floor(data.length / peaks.length));
+      for (let i = 0; i < peaks.length; i++) {
+        let top = 0;
+        for (let j = i * per; j < Math.min(data.length, (i + 1) * per); j++) top = Math.max(top, Math.abs(data[j]));
+        peaks[i] = top;
+      }
+      sounds.set(key, { buffer, peaks });
+      drawLayers();
+    } catch (e) {
+      $('status').textContent = record.name + ' could not be played, so its layer is silent: ' + (e.message || e);
+    }
+  })();
+  return null;
+}
+
+// The shape of a sound inside its layer's bar. The bar is cut at the edges of the view, so the
+// shape is drawn for the frames the bar really covers.
+function waveform(comp, layer, heard) {
+  const v = viewOf(comp);
+  const a = Math.max(layer.in_frame, v.from), b = Math.min(layer.out_frame, v.from + v.len);
+  const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
+  const canvas = document.createElement('canvas');
+  canvas.width = 800; canvas.height = 24;
+  const pen = canvas.getContext('2d');
+  pen.fillStyle = '#b9f0c8';
+  for (let x = 0; x < canvas.width; x++) {
+    const at = a + (b - a) * x / canvas.width;
+    const seconds = (at - layer.in_frame + (layer.source_offset_frames || 0)) / fps;
+    const i = Math.floor(seconds / heard.buffer.duration * heard.peaks.length);
+    const tall = Math.max(1, (heard.peaks[i] || 0) * canvas.height);
+    if (i >= 0 && i < heard.peaks.length) pen.fillRect(x, (canvas.height - tall) / 2, 1, tall);
+  }
+  return canvas;
+}
+
+function hush() {
+  for (const voice of voices) { try { voice.stop(); } catch (e) { /* it never started */ } }
+  voices = [];
+  voicesFrom = null;
+}
+
+// Sound every audio layer from one composition frame: for `frames` frames, or to the end when
+// null. ADR-018: layer frame n of a file begins n * den / num seconds into it.
+// ponytail: a level changed while playing is heard from the next start; stretch is not applied.
+function sing(from, frames) {
+  hush();
+  const comp = composition();
+  if (!comp || !audio) return;
+  const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
+  const solo = doc.solo || [];
+  for (const layer of layers()) {
+    if (layer.kind !== 'audio' || !layer.enabled || (solo.length && !solo.includes(layer.id))) continue;
+    const heard = soundOf(layer.asset_id);
+    if (!heard) continue;
+    const begin = Math.max(from, layer.in_frame);
+    const end = frames === null ? layer.out_frame : Math.min(layer.out_frame, from + frames);
+    const into = (begin - layer.in_frame + (layer.source_offset_frames || 0)) / fps;
+    const late = Math.max(0, -into);
+    const lasts = (end - begin) / fps - late;
+    if (lasts <= 0 || into >= heard.buffer.duration) continue;
+    const source = audio.createBufferSource();
+    source.buffer = heard.buffer;
+    const level = audio.createGain();
+    level.gain.value = Math.pow(10, (layer.gain_db || 0) / 20);
+    source.connect(level).connect(audio.destination);
+    source.start(audio.currentTime + (begin - from) / fps + late, Math.max(0, into), lasts);
+    voices.push(source);
+  }
+  voicesFrom = { frame: from, at: audio.currentTime, open: frames === null };
+}
+
+// Called with every frame that arrives. Playing: start the sound, and start it again when the
+// picture and the sound are more than three frames apart, which is also what a loop is. Not
+// playing: a frame that changed sounds for its own length, as a scrub does in After Effects.
+function hear() {
+  if (!layers().some((layer) => layer.kind === 'audio')) return hush();
+  audio = audio || new AudioContext();
+  const comp = composition();
+  const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
+  if (playing) {
+    audio.resume();
+    const due = voicesFrom && voicesFrom.open
+      ? voicesFrom.frame + (audio.currentTime - voicesFrom.at) * fps : null;
+    if (due === null || Math.abs(due - frame) > 3) sing(frame, null);
+  } else if (frame !== lastHeard && lastHeard !== null) {
+    audio.resume();
+    sing(frame, 1);
+  }
+  lastHeard = frame;
+}
+
 function tick() {
+  // Pause, a seek and a frame that failed all end playing; the sound ends with it.
+  if (!playing && voicesFrom && voicesFrom.open) hush();
   if (playing && started !== null) {
     show(FRAMES + '/at/' + Math.round(performance.now() - started) + '?q=' + quality, false);
   }
@@ -1138,7 +1266,7 @@ function drawAssets() {
     kind.className = 'kind';
     // "still" or "image_sequence", and for a sequence how many drawings are in it — which is
     // the number a person checks a scan against before making a layer out of it.
-    kind.textContent = asset.kind === 'image_sequence'
+    kind.textContent = asset.kind === 'audio' ? 'sound' : asset.kind === 'image_sequence'
       ? Object.keys(asset.frames || {}).length + ' frames' : 'still';
     const li = row(selectedAsset, asset.id, asset.name, []);
     // D-61: whether Collect Files copies these drawings. Absent in the file means yes.
@@ -1734,6 +1862,15 @@ function track(comp, layer, drawings) {
     + '. Pull the middle to move it, either end to trim it, and the line between two exposures '
     + 'to retime them.';
   const spans = layer.exposure_spans || [];
+  // D-71: an audio layer's bar is green and carries the sound's shape, laid where it is heard.
+  if (layer.kind === 'audio') {
+    box.classList.add('sound');
+    lifeBar.title = layer.name + ' is a sound, heard from frame ' + layer.in_frame
+      + ' up to frame ' + layer.out_frame + '. It draws nothing and is in no export.';
+    const heard = soundOf(layer.asset_id);
+    if (heard) lifeBar.append(waveform(comp, layer, heard));
+    return box;
+  }
   if (layer.kind === 'adjustment') {
     box.classList.add('adjust');
     lifeBar.title = layer.name + ' is an adjustment layer: its effects apply to everything drawn '
@@ -1909,7 +2046,7 @@ sheet.onpointerdown = (e) => {
     seek(at);
     return;
   }
-  if (e.target.closest('li.prop .track') && !e.target.closest('.key')) { boxKeys(e); return; }
+  if (e.target.closest('li.prop .track:not(.camera)') && !e.target.closest('.key')) { boxKeys(e); return; }
   const piece = e.target.closest('.life, .span, .free');
   const li = piece && piece.closest('li');
   const layer = li && layers().find((l) => l.id === li.dataset.id);
@@ -2142,6 +2279,19 @@ function cameraGroup(comp) {
     + 'properties.';
   head.append(twirl, name);
   li.append(head);
+  // B-20c: the camera is there for the whole composition, so its strip is too, and it cannot be
+  // moved or trimmed.
+  if (comp) {
+    const strip = document.createElement('div');
+    strip.className = 'track camera';
+    const life = document.createElement('div');
+    life.className = 'life';
+    life.style.left = '0';
+    life.style.width = '100%';
+    life.title = 'The camera is there for the whole composition. It cannot be moved or trimmed.';
+    strip.append(life);
+    li.append(strip);
+  }
   return [li, ...(cameraOpen ? CAMERA_PROPS.flatMap((prop) => propTrack(comp, camera, prop)) : [])];
 }
 
@@ -2158,8 +2308,10 @@ function drawLayers() {
   const list = $('layers');
   $('shyswitch').setAttribute('aria-pressed', String(prefs.hideShy));
   list.replaceChildren(...cameraGroup(comp), ...all.slice().reverse().filter((layer) => !(prefs.hideShy && layer.shy)).flatMap((layer) => {
-    const eye = iconButton(layer.enabled ? '●' : '○',
-      layer.enabled ? 'Hide ' + layer.name : 'Show ' + layer.name,
+    // D-71: on an audio layer the same switch is a speaker.
+    const sound = layer.kind === 'audio';
+    const eye = iconButton(sound ? (layer.enabled ? '🔊' : '🔇') : layer.enabled ? '●' : '○',
+      (layer.enabled ? (sound ? 'Mute ' : 'Hide ') : (sound ? 'Unmute ' : 'Show ')) + layer.name,
       () => command('/layer.toggle_visibility?layer=' + encodeURIComponent(layer.id)));
     const lock = iconButton(layer.locked ? '🔒' : '🔓',
       layer.locked ? 'Unlock ' + layer.name : 'Lock ' + layer.name,
@@ -2193,10 +2345,12 @@ function drawLayers() {
     // Colour is not the only carrier: a layer that is off, soloed, locked or shy says so in words.
     const adjust = layer.kind === 'adjustment';
     const precomp = layer.kind === 'composition';
-    if (!layer.enabled || layer.locked || soloed || layer.shy || adjust || precomp) {
+    if (sound) twirl.style.visibility = 'hidden';
+    if (!layer.enabled || layer.locked || soloed || layer.shy || adjust || precomp || sound) {
       const mark = document.createElement('span');
       mark.className = 'mark';
-      mark.textContent = [adjust ? 'adjustment' : null, precomp ? 'composition' : null, !layer.enabled ? 'hidden' : null, soloed ? 'soloed' : null,
+      mark.textContent = [adjust ? 'adjustment' : null, precomp ? 'composition' : null, sound ? 'sound' : null,
+        !layer.enabled ? (sound ? 'muted' : 'hidden') : null, soloed ? 'soloed' : null,
         layer.locked ? 'locked' : null, layer.shy ? 'shy' : null]
         .filter(Boolean).join(', ');
       li.append(mark);
@@ -2224,7 +2378,7 @@ function drawLayers() {
       blendLayers(mode);
     };
     // B-17c: an adjustment layer has normal and no list to choose from (D-66).
-    if (!adjust) head.append(blend);
+    if (!adjust && !sound) head.append(blend);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     grabRow(li, head, all, layer);
@@ -3947,7 +4101,9 @@ function fxOf(layer, prop) {
   return held && held.keyframes ? held : { base: held };
 }
 // A layer's properties: the six, and each setting of its effects that has keys.
+// D-71: an audio layer has no transform and no effects, so it has no properties to open or key.
 const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
+  : layer.kind === 'audio' ? []
   : PROPS.flatMap((prop) => (prop === 'position' && isSplit(layer) ? ['position_x', 'position_y'] : [prop]))
     .concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {})
     .filter((name) => keysOf(layer, fxName(fx, name)).length).map((name) => fxName(fx, name)))));
@@ -4274,8 +4430,8 @@ function matteRow(into, layer) {
   chooser.setAttribute('aria-label', 'Matte for ' + layer.name);
   chooser.append(new Option('none', ''), ...layers()
     // A layer cannot be its own matte — document 19 forbids the cycle and the core refuses it,
-    // so the list does not offer it in the first place.
-    .filter((l) => l.id !== layer.id)
+    // so the list does not offer it in the first place. D-71: nor a sound, which draws nothing.
+    .filter((l) => l.id !== layer.id && l.kind !== 'audio')
     .map((l) => new Option(l.name, l.id)));
   chooser.value = held ? held.layer_id : '';
   const send = () => command('/layer.set_matte?layer=' + encodeURIComponent(layer.id)
@@ -4301,7 +4457,8 @@ function parentRow(into, layer) {
   chooser.append(new Option('none', ''), ...layers()
     // A layer cannot ride on itself. The core refuses the whole loop, of which this is only
     // the shortest; the list not offering it is the first line rather than the only one.
-    .filter((l) => l.id !== layer.id)
+    // D-71: a sound has no place to ride on, so it is not offered either.
+    .filter((l) => l.id !== layer.id && l.kind !== 'audio')
     .map((l) => new Option(l.name, l.id)));
   chooser.value = layer.parent || '';
   chooser.onchange = () => command('/layer.set_parent?layer=' + encodeURIComponent(layer.id)
@@ -4335,6 +4492,21 @@ function drawInspector() {
     + (layer.source_offset_frames ? ', drawings offset by ' + layer.source_offset_frames : ''));
   // Document 19's five transform properties, in its order. What they are counted in and the
   // one conversion this panel makes are in `propScrubs`, which the timeline shares.
+  // D-71: an audio layer has a level and nothing else: no transform, blend, mask, matte or parent.
+  if (layer.kind === 'audio') {
+    field(dl, 'Level', '');
+    const level = document.createElement('input');
+    level.id = 'gain';
+    level.type = 'number'; level.min = -96; level.max = 12; level.step = 0.5;
+    level.value = layer.gain_db || 0;
+    level.setAttribute('aria-label', 'Level of ' + layer.name + ' in decibels, from -96 to 12');
+    level.onchange = () => command('/layer.set_gain?layer=' + encodeURIComponent(layer.id)
+      + '&value=' + encodeURIComponent(level.value));
+    dl.lastChild.append(level, ' dB');
+    field(dl, 'Heard', 'in the window only: no sound goes into an export');
+    into.replaceChildren(dl);
+    return;
+  }
   propRow(dl, layer, 'anchor');
   for (const prop of isSplit(layer) ? ['position_x', 'position_y'] : ['position']) propRow(dl, layer, prop);
   propRow(dl, layer, 'scale');
@@ -4526,7 +4698,7 @@ function drawExposures() {
   if (layer.kind !== 'raster') {
     into.replaceChildren(Object.assign(document.createElement('p'),
       { className: 'empty', textContent: (layer.kind === 'composition' ? 'A composition layer'
-        : 'An adjustment layer') + ' has no drawings to expose.' }));
+        : layer.kind === 'audio' ? 'A sound' : 'An adjustment layer') + ' has no drawings to expose.' }));
     return;
   }
   const spans = layer.exposure_spans || [];
@@ -4704,10 +4876,11 @@ function drawEffects() {
   if (dragging) return;
   const layer = selected();
   const into = $('effects');
-  $('addeffect').disabled = !layer;
+  $('addeffect').disabled = !layer || layer.kind === 'audio';
   const empty = (words) => Object.assign(document.createElement('p'),
     { className: 'empty', textContent: words });
   if (!layer) { into.replaceChildren(empty('No layer is selected.')); return; }
+  if (layer.kind === 'audio') { into.replaceChildren(empty('A sound draws nothing, so it takes no effects.')); return; }
   const stack = layer.effects || [];
   if (!stack.length) { into.replaceChildren(empty('This layer has no effects.')); return; }
   into.replaceChildren(...stack.map((fx, at) => effectRow(layer, fx, at, stack.length)));
