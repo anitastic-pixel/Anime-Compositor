@@ -14293,6 +14293,11 @@ mod contract {
             "command('/layer.add_solid' + (at < 0 ? '' : '?to=' + (at + 1)))",
         ),
         (
+            "Width and Height of a solid, dragged or typed",
+            "solid.set",
+            "commit: (v) => set(side + '=' + encodeURIComponent(v)),",
+        ),
+        (
             "Colour, Width and Height of a solid",
             "solid.set",
             "command('/solid.set?layer=' + encodeURIComponent(layer.id) + '&' + what)",

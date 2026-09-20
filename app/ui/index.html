@@ -4545,16 +4545,20 @@ function drawInspector() {
     pick.setAttribute('aria-label', 'Colour of ' + layer.name);
     pick.onchange = () => set('color=' + linearOf(pick.value).join(','));
     dl.lastChild.append(pick);
+    // B-23c, at the owner's word after the playtest: a size is dragged, typed or stepped with
+    // the arrow keys like every other number in this window, and one drag is one step of history.
+    // Whole numbers only, because half a pixel of solid is not a thing D-74 can hold.
     for (const side of ['width', 'height']) {
-      field(dl, side === 'width' ? 'Width' : 'Height', '');
-      const size = document.createElement('input');
-      size.id = 'solid' + side;
-      size.type = 'number'; size.min = 1; size.max = 8192; size.step = 1;
-      size.value = layer.solid[side];
-      size.setAttribute('aria-label', side[0].toUpperCase() + side.slice(1) + ' of ' + layer.name
-        + ' in pixels, from 1 to 8192');
-      size.onchange = () => set(side + '=' + encodeURIComponent(size.value));
-      dl.lastChild.append(size, ' px');
+      const named = side[0].toUpperCase() + side.slice(1);
+      field(dl, named, '');
+      dl.lastChild.append(scrubValue({
+        value: layer.solid[side],
+        suffix: ' px',
+        whole: true,
+        title: 'Drag to change, or press to type. ' + named + ' of the solid in pixels, 1 to 8192',
+        label: named + ' of ' + layer.name + ' in pixels, from 1 to 8192',
+        commit: (v) => set(side + '=' + encodeURIComponent(v)),
+      }));
     }
   }
   propRow(dl, layer, 'anchor');

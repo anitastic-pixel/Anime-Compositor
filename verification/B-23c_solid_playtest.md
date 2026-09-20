@@ -34,7 +34,11 @@ Nothing below changes the fixtures.
 5. **The colour.** Click the swatch. The system's colour picker opens on the grey. Choose a pure
    red and close it. The viewer turns red where the solid is, the bar on the timeline turns red,
    and the swatch shows red. Ctrl+Z puts the grey back, in the viewer, the bar and the swatch.
-6. **The size.** Type 960 in **Width** and press Tab. The solid is half as wide and still
+6. **The size.** Drag across **Width** as you would any other number in this panel: the solid
+   narrows and widens under the hand, and letting go is one thing to undo. Escape part way
+   through puts it back. Pressing it without dragging opens a field to type into, and the arrow
+   keys step it a pixel at a time.
+   Type 960 in **Width** and press Enter. The solid is half as wide and still
    centred: the left and right quarters of the frame show what is beneath. The anchor in the
    inspector reads half what it did across. Type 0 in Width: the status line says the width must
    be from 1 to 8192, and nothing changes. One Ctrl+Z puts the full width back.
@@ -55,9 +59,16 @@ Nothing below changes the fixtures.
   New adjustment layer already stands.
 - The picker works in the screen's 256 levels. A colour written into a file by hand between two
   of them is kept and drawn exactly (D-74); the swatch shows the nearest level.
-- Colour and size are not animated (D-74). A new solid is always mid grey; After Effects
-  remembers the last colour, this does not.
+- Colour and size are not animated (D-74): they have no stopwatch, and Scale is what grows a
+  solid over time. Whether they should be keyable is D-76, proposed and awaiting the owner.
+  A new solid is always mid grey; After Effects remembers the last colour, this does not.
 - A solid is drawn whole: one of 8192 by 8192 takes a gigabyte while it is drawn (D-74).
+
+## Answered
+
+"B-23c playtest works", 2026-09-19. The owner asked for Width and Height to be draggable,
+which step 6 above now covers, and asked whether the colour and size could be keyed: that is
+D-76, proposed and awaiting them.
 
 ## What to answer
 

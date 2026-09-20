@@ -97,6 +97,7 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the window's shell answers `/state` | true | true | pass |
 | the Level control sends `layer.set_gain` | true | true | pass |
 | the New solid control sends `layer.add_solid` | true | true | pass |
+| the Width and Height of a solid, dragged or typed control sends `solid.set` | true | true | pass |
 | the Colour, Width and Height of a solid control sends `solid.set` | true | true | pass |
 | the Can be passed on control sends `asset.set_redistribute` | true | true | pass |
 | the Delete layer control sends `layer.delete` | true | true | pass |
@@ -115,4 +116,4 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the Leave it as it is control sends `media.relink` | true | true | pass |
 | every control the script reaches for is one the markup defines | none missing | none missing | pass |
 
-**93 of 93 checks pass.**
+**94 of 94 checks pass.**
