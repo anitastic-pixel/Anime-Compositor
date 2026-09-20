@@ -8,7 +8,7 @@ Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.j
 
 ## What this does not cover
 
-What a mask looks like on the picture and on the timeline, whether the pen closes where the hand means it to, and whether a dragged point lands where it was let go. That is `verification/B-24c_mask_playtest.md`, for a person. Whether the pixels a mask keeps are right is B-24b's table. A mask's path cannot be keyed yet: that is B-24d.
+What a mask looks like on the picture and on the timeline, whether the pen closes where the hand means it to, and whether a dragged point lands where it was let go. That is `verification/B-24c_mask_playtest.md`, for a person. Whether the pixels a mask keeps are right is B-24b's table. A path that moves is B-24d, in `verification/B-24d_panel_table.md`.
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|

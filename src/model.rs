@@ -150,7 +150,7 @@ fn bezier(a: f64, b: f64, t: f64) -> f64 {
 /// document 25 tabulates what it got, and the two agree to the tolerance stated there. Both
 /// work because `x` is non-decreasing for `x1` and `x2` within 0 and 1, which document 19
 /// requires of the file and `persist` refuses a file without.
-fn solve(x1: f64, y1: f64, x2: f64, y2: f64, u: f64) -> f64 {
+pub(crate) fn solve(x1: f64, y1: f64, x2: f64, y2: f64, u: f64) -> f64 {
     if u <= 0.0 {
         return 0.0;
     }

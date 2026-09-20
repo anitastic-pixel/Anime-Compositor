@@ -82,6 +82,16 @@ Every rule in the list above still fires first. A keyframe's own value is return
 
 There is nothing to solve here: the cubic is evaluated directly at a `t` that is already known, which is the whole benefit of the parameterization D-53 chose. The reference is `tools/path_reference.py`, which evaluates it a second way - by de Casteljau, in another language, written from this section - and prints the expected values document 25 pins.
 
+### A mask's path
+
+Added on 2026-09-20 by B-24d, under D-77, which stated the rule when masks were proposed. A mask's outline is a property whose value is a whole list of points, and every rule in the list above applies to it unchanged: zero keys give the base, before the first key and after the last the shape holds, a key's own outline is returned exactly at its frame, and a hold segment returns the left key's outline.
+
+Between two keys the outline is interpolated **point by point, the point and both of its handles, componentwise**, at the same fraction every other property uses - `u` on a linear segment, `e` on an eased one. A handle is an offset from its own point (document 19), so a handle interpolates as a handle and travels with the point it belongs to rather than towards some other point's.
+
+The two keys must therefore hold the same number of points, and they do: a path's points are the path's, not a key's, so adding or removing one changes every key together. A file whose keys disagree is refused as `PROJECT_SCHEMA_INVALID`, and a command that would make them disagree is refused as `MASK_INVALID_OUTLINE`. There is no correspondence problem to solve and no pairing rule to specify, which is the whole reason D-77 put it that way.
+
+A mask's path takes no spatial handles of its own in the sense the motion path means: the handles it carries shape the outline, not the way the outline travels between keys, and each one moves in a straight line at the segment's fraction. The reference is `tools/mask_reference.py`, which interpolates a second way, in another language, written from this section and D-77, and prints the expected values document 25 pins as FX-MSK-031 to 035.
+
 Opacity is clamped to 0..1 at command validation. Scale may be negative to permit mirroring unless a later UX decision forbids it.
 
 ## Evaluation order at one frame

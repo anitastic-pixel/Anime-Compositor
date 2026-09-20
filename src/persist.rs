@@ -576,10 +576,25 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     };
     // Each mask merges over whatever the file held at the same place in the list, the way the
     // matte does, so a key this build does not know about inside a mask record survives the
-    // round trip -- and so does a path's `keyframes`, which B-24d will build and this build only
-    // carries. D-77: the `masks` list is written and the old single `mask` key never is, so a
-    // file saved by this build and opened by one older than it has no mask rather than a
-    // disagreeing pair.
+    // round trip. B-24d writes a path's `keyframes` from the model rather than inheriting them,
+    // because from B-24d on the build moves them. D-77: the `masks` list is written and the old
+    // single `mask` key never is, so a file saved by this build and opened by one older than it
+    // has no mask rather than a disagreeing pair.
+    let points_json = |points: &[crate::mask::MaskPoint]| {
+        J::Array(
+            points
+                .iter()
+                .map(|p| {
+                    let pair = |(x, y): (f64, f64)| J::Array(vec![J::from(x), J::from(y)]);
+                    let mut point = Map::new();
+                    point.insert("point".into(), pair(p.point));
+                    point.insert("in".into(), pair(p.in_handle));
+                    point.insert("out".into(), pair(p.out_handle));
+                    J::Object(point)
+                })
+                .collect(),
+        )
+    };
     let base_masks = base
         .and_then(|b| b.get("masks"))
         .and_then(J::as_array)
@@ -609,25 +624,37 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                 .and_then(J::as_object)
                 .cloned()
                 .unwrap_or_else(Map::new);
-            path_base.insert(
-                "points".into(),
+            path_base.insert("points".into(), points_json(&m.points));
+            path.insert("base".into(), J::Object(path_base));
+            path.insert(
+                "keyframes".into(),
                 J::Array(
-                    m.points
+                    m.keys
                         .iter()
-                        .map(|p| {
-                            let pair = |(x, y): (f64, f64)| J::Array(vec![J::from(x), J::from(y)]);
-                            let mut point = Map::new();
-                            point.insert("point".into(), pair(p.point));
-                            point.insert("in".into(), pair(p.in_handle));
-                            point.insert("out".into(), pair(p.out_handle));
-                            J::Object(point)
+                        .map(|k| {
+                            let mut key = Map::new();
+                            key.insert("frame".into(), J::from(k.frame));
+                            let mut value = Map::new();
+                            value.insert("points".into(), points_json(&k.points));
+                            key.insert("value".into(), J::Object(value));
+                            key.insert("interp".into(), J::from(k.interp.as_str()));
+                            // Document 19: the four numbers go with `ease` and nothing else.
+                            if let Interp::Ease { x1, y1, x2, y2 } = k.interp {
+                                key.insert(
+                                    "ease".into(),
+                                    J::Array(vec![
+                                        J::from(x1),
+                                        J::from(y1),
+                                        J::from(x2),
+                                        J::from(y2),
+                                    ]),
+                                );
+                            }
+                            J::Object(key)
                         })
                         .collect(),
                 ),
             );
-            path.insert("base".into(), J::Object(path_base));
-            path.entry("keyframes".to_string())
-                .or_insert_with(|| J::Array(Vec::new()));
             map.insert("path".into(), J::Object(path));
             J::Object(map)
         })
@@ -1601,7 +1628,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     if let Some(list) = v.get("masks").filter(|m| !m.is_null()) {
         let at = format!("{pointer}/masks");
         for (i, m) in as_array(list, &at)?.iter().enumerate() {
-            masks.push(parse_mask(m, &format!("{at}/{i}"), i, &name, warnings)?);
+            masks.push(parse_mask(m, &format!("{at}/{i}"), i)?);
         }
     }
     // A mask is kept in the model whatever its shape, so that saving writes back what was read.
@@ -1876,15 +1903,8 @@ fn parse_mask_points(v: &J, at: &str) -> Result<Vec<crate::mask::MaskPoint>, Dia
 /// Everything outside D-77's ranges refuses the file rather than being clamped: a clamped
 /// opacity is a picture nobody asked for, and document 28 would rather say no than guess.
 /// What is *kept* and diagnosed instead is an outline that cannot be drawn, which the caller
-/// warns about, and a path with keyframes on it, which this build carries but does not yet
-/// animate.
-fn parse_mask(
-    v: &J,
-    at: &str,
-    index: usize,
-    layer_name: &str,
-    warnings: &mut Vec<Diagnostic>,
-) -> Result<crate::mask::Mask, Diagnostic> {
+/// warns about.
+fn parse_mask(v: &J, at: &str, index: usize) -> Result<crate::mask::Mask, Diagnostic> {
     as_object(v, at)?;
     let mode_at = format!("{at}/mode");
     let mode = match v.get("mode") {
@@ -1934,13 +1954,12 @@ fn parse_mask(
         None => format!("Mask {}", index + 1),
         Some(n) => as_str(n, &format!("{at}/name"))?.to_string(),
     };
-    // B-24d animates a path. Until it does, a file that carries keys on one is read, kept and
-    // drawn at its base -- and said out loud, because document 28 forbids a silent fidelity
-    // fallback and `export` marks a file incomplete on exactly this identifier.
+    // B-24d: the path's keys, read into the mask itself rather than carried past it. A key holds
+    // a whole outline of the same length as the base, because D-77 interpolates point by point.
     let keys_at = format!("{path_at}/keyframes");
-    if let Some(keys) = path.get("keyframes").filter(|k| !k.is_null()) {
-        let keys = as_array(keys, &keys_at)?;
-        for (i, key) in keys.iter().enumerate() {
+    let mut keys: Vec<crate::mask::MaskKey> = Vec::new();
+    if let Some(list) = path.get("keyframes").filter(|k| !k.is_null()) {
+        for (i, key) in as_array(list, &keys_at)?.iter().enumerate() {
             let at_i = format!("{keys_at}/{i}");
             as_object(key, &at_i)?;
             let held = parse_mask_points(field(key, &at_i, "value")?, &format!("{at_i}/value"))?;
@@ -1952,30 +1971,34 @@ fn parse_mask(
                      interpolate between outlines of different lengths",
                 ));
             }
+            let frame = as_i32(field(key, &at_i, "frame")?, &format!("{at_i}/frame"))?;
+            if keys.iter().any(|k| k.frame == frame) {
+                return Err(invalid(
+                    &at_i,
+                    &format!("at most one keyframe at frame {frame}"),
+                ));
+            }
+            let interp = match as_enum(
+                field(key, &at_i, "interp")?,
+                &format!("{at_i}/interp"),
+                &["hold", "linear", "ease"],
+            )? {
+                "hold" => Interp::Hold,
+                "ease" => parse_ease(field(key, &at_i, "ease")?, &format!("{at_i}/ease"))?,
+                _ => Interp::Linear,
+            };
+            keys.push(crate::mask::MaskKey {
+                frame,
+                points: held,
+                interp,
+            });
         }
-        if !keys.is_empty() {
-            warnings.push(
-                Diagnostic::new(
-                    DiagnosticId::ProjectFeatureUnsupported,
-                    Severity::Warning,
-                    format!(
-                        "The mask \"{name}\" on layer \"{layer_name}\" has an animated \
-                         outline, which this build does not draw yet."
-                    ),
-                    format!(
-                        "D-77 defines an animated mask path and B-24d builds it. The {} keys \
-                         are kept in the project exactly as they were; every frame is drawn \
-                         from the path's base, so the outline does not move.",
-                        keys.len()
-                    ),
-                )
-                .with_remediation(
-                    "Nothing was lost. Saving this project writes the keys back unchanged.",
-                ),
-            );
-        }
+        // Written in order or not, they are held in order: every reader of them, here and in
+        // `Mask::points_at`, asks which segment a frame is in and nothing else.
+        keys.sort_by_key(|k| k.frame);
     }
     Ok(crate::mask::Mask {
+        keys,
         name,
         enabled: match v.get("enabled") {
             None => true,

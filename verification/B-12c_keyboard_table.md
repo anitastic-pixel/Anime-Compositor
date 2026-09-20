@@ -90,6 +90,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.toggle_visibility` can be asked for without a mouse | yes | yes | pass |
 | `layer.trim` can be asked for without a mouse | yes | yes | pass |
 | `mask.add` can be asked for without a mouse | yes | yes | pass |
+| `mask.add_remove_key` can be asked for without a mouse | yes | yes | pass |
 | `mask.delete` can be asked for without a mouse | yes | yes | pass |
 | `mask.set` can be asked for without a mouse | yes | yes | pass |
 | `mask.set_path` can be asked for without a mouse | yes | yes | pass |
@@ -147,4 +148,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | drawing a mask with the pen, the rectangle or the ellipse is not the only way to put a mask on the layer | true | true | pass |
 | dragging a mask point or one of its handles is not the only way to move it | true | true | pass |
 
-**117 of 117 checks pass.**
+**118 of 118 checks pass.**

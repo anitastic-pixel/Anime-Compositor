@@ -17,8 +17,9 @@
 //! # What is deliberately not here
 //!
 //! The window — the pen tool, its G shortcut, the mask rows in the layer panel — is B-24c, and
-//! an animated path is B-24d. A file that carries keys on a path is read, kept, drawn at its
-//! base and diagnosed, which is checked below.
+//! a path that moves is B-24d, whose own evidence is `verification/B-24d_mask_key_table.md`.
+//! The section this test used to carry, where a keyed path was kept, drawn at its base and
+//! diagnosed, went with it on 2026-09-20: the build draws a path moving now.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -258,43 +259,6 @@ fn b24b_masks() {
         "fx_msk_016.json's handles survive a save and a load, to the last bit",
         &format!("{:?}", masks_of(&again.document, "cel")[0].points[0]),
         masks_of(&again.document, "cel") == masks_of(&curve, "cel"),
-    );
-
-    // -----------------------------------------------------------------------------------
-    t.heading("A keyed path: kept, drawn at its base, and said out loud (document 28)");
-    // B-24d animates it. Until then the keys are carried and the frame is the base, which is a
-    // fidelity fallback and therefore has to be announced rather than discovered.
-    let text = fs::read_to_string(root().join("fx_msk_001.json")).unwrap();
-    let mut file: J = serde_json::from_str(&text).unwrap();
-    let path = &mut file["compositions"][0]["layers"][0]["masks"][0]["path"];
-    let base = path["base"].clone();
-    path["keyframes"] = serde_json::json!([{ "frame": 2, "value": base, "interp": "linear" }]);
-    let keyed = persist::load_str(&file.to_string()).expect("a keyed path opens");
-    let said: Vec<DiagnosticId> = keyed.warnings.iter().map(|d| d.id).collect();
-    t.row(
-        "a path with one key opens, with PROJECT_FEATURE_UNSUPPORTED",
-        &format!("{said:?}"),
-        said == vec![DiagnosticId::ProjectFeatureUnsupported],
-    );
-    let (built, _) = render(&keyed.document, 0, 64);
-    let base_frame = expected["cases"]["FX-MSK-001"]["frames"]["0"].clone();
-    t.row(
-        "and frame 0 is the path's base, unmoved",
-        &format!("largest difference {:.1e}", largest_difference(&built, &base_frame)),
-        largest_difference(&built, &base_frame) <= tolerance,
-    );
-    let round_tripped = persist::to_json(keyed.document.project(), &keyed.preserved);
-    let back: J = serde_json::from_str(&round_tripped).unwrap();
-    t.row(
-        "and saving writes the keys back exactly as they were",
-        &format!(
-            "{} key(s)",
-            back["compositions"][0]["layers"][0]["masks"][0]["path"]["keyframes"]
-                .as_array()
-                .map_or(0, |a| a.len())
-        ),
-        back["compositions"][0]["layers"][0]["masks"][0]["path"]["keyframes"]
-            == file["compositions"][0]["layers"][0]["masks"][0]["path"]["keyframes"],
     );
 
     // -----------------------------------------------------------------------------------

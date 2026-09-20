@@ -285,7 +285,19 @@
                 "$ref": "#/$defs/maskOutline"
               },
               "interp": {
-                "type": "string"
+                "enum": [
+                  "hold",
+                  "linear",
+                  "ease"
+                ]
+              },
+              "ease": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 4,
+                "maxItems": 4
               }
             },
             "additionalProperties": false

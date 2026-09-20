@@ -72,7 +72,9 @@ copy. Nothing below changes the fixtures.
 
 - A mask's path cannot be animated yet: there is no stopwatch on it, and the shape you draw is
   the shape at every frame. That is B-24d. A file that already holds a keyed path keeps it, is
-  drawn from its base and says so in the diagnostics (B-24b).
+  drawn from its base and says so in the diagnostics (B-24b). *B-24d, built on 2026-09-20,
+  removed this limit: the mask's row has a stopwatch and the shape moves between its keys. See
+  `verification/B-24d_mask_playtest.md`.*
 - One Undo entry per change reads "Set mask of 4 points", whatever the change was: the core
   takes the whole list of masks as one command, so it names the shape and not the setting.
 - The tools draw on the layer that is chosen, and only where that layer is on this frame. A

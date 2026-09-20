@@ -2434,7 +2434,7 @@ function drawLayers() {
       : beginRename());
     const isOpen = (prop) => open.has(prop) || (prop.startsWith('position') && ['position', 'position_x', 'position_y']
       .some((p) => p !== prop && (p === 'position' || prop === 'position') && open.has(p)));
-    return [li, ...maskRows(layer), ...propsOf(layer).filter(isOpen).flatMap((prop) => propTrack(comp, layer, prop))];
+    return [li, ...maskRows(comp, layer), ...propsOf(layer).filter(isOpen).flatMap((prop) => propTrack(comp, layer, prop))];
   }));
 }
 
@@ -3034,8 +3034,12 @@ function grabKey(comp, layer, prop, key, mark) {
 // whether or not a property is open, because a mask is not a property of the transform and a
 // person who has drawn one expects to see it; a layer with no masks adds no rows at all.
 // The row chooses which mask the picture draws points on, and says its mode and how many points
-// it has. It has no track yet: a mask's path cannot be keyed until B-24d.
-function maskRows(layer) {
+// it has.
+// B-24d: and it carries the path's stopwatch and the path's keys, the way a property's row
+// carries its own. A mark is where the shape was set; a press on one goes to that frame, which
+// is what a person wants first and is all a mask key answers to so far - dragging one is
+// keyframe.move's business and a mask key is not one of its keys.
+function maskRows(comp, layer) {
   return masksOf(layer).map((mask, at) => {
     const li = document.createElement('li');
     li.className = 'prop';
@@ -3051,13 +3055,47 @@ function maskRows(layer) {
     value.className = 'value';
     value.textContent = mask.mode + ', ' + mask.path.base.points.length + ' points'
       + (mask.inverted ? ', inverted' : '') + (mask.enabled ? '' : ', off');
-    head.append(name, value);
+    head.append(maskKeyButton(layer, mask, at), name, value);
     li.append(head);
     const box = document.createElement('div');
     box.className = 'track';
+    for (const key of maskKeys(mask)) {
+      if (comp && !inView(comp, key.frame + 0.5)) continue;
+      const mark = document.createElement('button');
+      mark.type = 'button';
+      mark.className = 'key';
+      if (comp) mark.style.left = percent(atFrame(comp, key.frame + 0.5));
+      mark.title = mask.name + '’s path at frame ' + key.frame + ', ' + (key.interp || 'linear')
+        + '. Press to go there.';
+      mark.setAttribute('aria-label', mark.title);
+      mark.onclick = (e) => { e.stopPropagation(); seek(key.frame); };
+      box.append(mark);
+    }
     li.append(box);
     return li;
   });
+}
+
+// B-24d: the diamond beside a mask, document 24's `mask.add_remove_key`. Hollow where the frame
+// on screen has no key for this path and a press sets one, filled where it has and a press takes
+// it off; a path with no keys at all starts moving from the shape it has now, and the last key
+// taken off leaves that shape behind, so the mask does not jump when the stopwatch goes out.
+function maskKeyButton(layer, mask, at) {
+  const keys = maskKeys(mask);
+  const on = keys.some((k) => k.frame === frame);
+  const button = document.createElement('button');
+  button.className = 'key' + (keys.length ? ' animated' : '');
+  button.textContent = on ? '◆' : '◇';
+  button.title = (on ? 'Remove the ' : 'Add a ') + mask.name + ' path keyframe at frame ' + frame
+    + (keys.length ? ' (' + keys.length + ' keyframe' + (keys.length === 1 ? '' : 's') + ')' : '');
+  button.setAttribute('aria-label', button.title);
+  button.setAttribute('aria-pressed', on);
+  button.onclick = (e) => {
+    e.stopPropagation();
+    command('/mask.add_remove_key?layer=' + encodeURIComponent(layer.id)
+      + '&mask=' + at + '&frame=' + frame);
+  };
+  return button;
 }
 
 function propTrack(comp, layer, prop) {
@@ -3393,7 +3431,7 @@ function drawBoxes() {
   if (space) {
     const heldPoint = document.activeElement && document.activeElement.__mask;
     masksOf(shaper).forEach((mask, at) => {
-      const points = maskPull && maskPull.at === at ? maskPull.points : maskPath(mask);
+      const points = maskPull && maskPull.at === at ? maskPull.points : maskPath(shaper, at);
       const shape = svgEl('polygon');
       shape.setAttribute('class', at === maskPicked ? 'maskline' : 'maskline other');
       shape.setAttribute('points', outlineOf(points)
@@ -3445,7 +3483,7 @@ function drawBoxes() {
             const now = selected();
             const mask = masksOf(now)[at];
             if (!mask) return;
-            const points = maskPath(mask);
+            const points = maskPath(now, at);
             points[i][0] += by[0] * step;
             points[i][1] += by[1] * step;
             return sendMaskPath(now, at, points);
@@ -3559,9 +3597,22 @@ const masksOf = (layer) => (layer && layer.masks) || [];
 
 // One mask's points as six numbers each, `x, y, in_x, in_y, out_x, out_y`, in the layer's own
 // pixels: the shape a request carries and the shape everything below works in.
-const maskPath = (mask) => mask.path.base.points.map((p) => [
-  p.point[0], p.point[1],
-  (p.in || [0, 0])[0], (p.in || [0, 0])[1], (p.out || [0, 0])[0], (p.out || [0, 0])[1]]);
+//
+// B-24d: the shape on the frame on screen, which is the base only while the path stands still.
+// A path that moves is read from the same answer the boxes come from, where the renderer put
+// the outline it actually drew; the page does not solve document 20's curves a second time.
+function maskPath(layer, at) {
+  const now = ((values[layer.id] || {}).masks || [])[at];
+  if (now) return now.map((p) => p.slice());
+  const mask = masksOf(layer)[at];
+  return mask.path.base.points.map((p) => [
+    p.point[0], p.point[1],
+    (p.in || [0, 0])[0], (p.in || [0, 0])[1], (p.out || [0, 0])[0], (p.out || [0, 0])[1]]);
+}
+
+// B-24d: the keys on a mask's path, in frame order, as the file holds them.
+const maskKeys = (mask) => ((mask.path && mask.path.keyframes) || []).slice()
+  .sort((a, b) => a.frame - b.frame);
 
 const maskQuery = (points) => '&points='
   + encodeURIComponent(points.map((p) => p.map(number).join(',')).join(';'));
@@ -3642,9 +3693,12 @@ function layerSpace(layer) {
 
 // One mask's path put down. `how` is `&drag=1` inside a drag, which makes a whole pull one
 // entry in the history, as every other drag in this window is.
+//
+// B-24d: the frame goes with it, because a path that moves is edited at the key under the
+// playhead. A path that stands still ignores it and changes its base, as it always did.
 function sendMaskPath(layer, at, points, how = '') {
   return command('/mask.set_path?layer=' + encodeURIComponent(layer.id)
-    + '&mask=' + at + how + maskQuery(points));
+    + '&mask=' + at + '&frame=' + frame + how + maskQuery(points));
 }
 
 // A mask drawn. The tool goes back to the selection tool afterwards, as After Effects' shape
@@ -3986,7 +4040,7 @@ stage.onpointerdown = (e) => {
   // smallest things on the picture. The whole path travels with every step, because the core
   // takes a mask's path whole, and `&drag=1` makes one pull one entry in the history.
   const pullable = shaping && masksOf(layer)[maskPicked]
-    ? maskPath(masksOf(layer)[maskPicked]).flatMap((p, i) => [
+    ? maskPath(layer, maskPicked).flatMap((p, i) => [
       { i, which: -1, at: shaping.toFrame(p[0], p[1]) },
       ...(p[2] || p[3] ? [{ i, which: 0, at: shaping.toFrame(p[0] + p[2], p[1] + p[3]) }] : []),
       ...(p[4] || p[5] ? [{ i, which: 1, at: shaping.toFrame(p[0] + p[4], p[1] + p[5]) }] : []),
@@ -3996,7 +4050,7 @@ stage.onpointerdown = (e) => {
     e.preventDefault();
     stage.setPointerCapture(e.pointerId);
     const at = maskPicked;
-    const was = maskPath(masksOf(layer)[at]);
+    const was = maskPath(layer, at);
     dragging = true;
     maskPull = { at, points: was.map((p) => p.slice()) };
     const escape = (k) => { if (k.key === 'Escape') stop(true); };

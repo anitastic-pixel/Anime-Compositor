@@ -27,6 +27,31 @@ FX-MSK-001 is the one that says nothing moved: it is the rectangle B-06 drew, wr
 | FX-MSK-017 frame 0: A mask switched off takes no part: the whole drawing. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
 | FX-MSK-018 frame 0: A mask of two points is kept, diagnosed and takes no part: the whole drawing. | largest difference 3.1e-8; tiles of 1 byte-identical; said MASK_INVALID_OUTLINE | yes |
 | FX-MSK-019 frame 0: A mask whose points cross is kept, diagnosed and takes no part. | largest difference 3.1e-8; tiles of 1 byte-identical; said MASK_INVALID_OUTLINE | yes |
+| FX-MSK-031 frame 0: A path keyed from the left three columns at frame 0 to the right three at frame 4, linear: the rectangle slides three columns in four frames, three quarters of a column a frame. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-031 frame 1: A path keyed from the left three columns at frame 0 to the right three at frame 4, linear: the rectangle slides three columns in four frames, three quarters of a column a frame. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-031 frame 2: A path keyed from the left three columns at frame 0 to the right three at frame 4, linear: the rectangle slides three columns in four frames, three quarters of a column a frame. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-031 frame 3: A path keyed from the left three columns at frame 0 to the right three at frame 4, linear: the rectangle slides three columns in four frames, three quarters of a column a frame. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-031 frame 4: A path keyed from the left three columns at frame 0 to the right three at frame 4, linear: the rectangle slides three columns in four frames, three quarters of a column a frame. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-032 frame 0: The same two keys, held: the shape does not move until frame 4, when it is the right three columns at once. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-032 frame 1: The same two keys, held: the shape does not move until frame 4, when it is the right three columns at once. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-032 frame 2: The same two keys, held: the shape does not move until frame 4, when it is the right three columns at once. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-032 frame 3: The same two keys, held: the shape does not move until frame 4, when it is the right three columns at once. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-032 frame 4: The same two keys, held: the shape does not move until frame 4, when it is the right three columns at once. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-033 frame 0: The same two keys, easy ease: the same two shapes and the same path, reached at a different time - a quarter of the way through, the shape has moved 0.15625 of the way. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-033 frame 1: The same two keys, easy ease: the same two shapes and the same path, reached at a different time - a quarter of the way through, the shape has moved 0.15625 of the way. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-033 frame 2: The same two keys, easy ease: the same two shapes and the same path, reached at a different time - a quarter of the way through, the shape has moved 0.15625 of the way. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-033 frame 3: The same two keys, easy ease: the same two shapes and the same path, reached at a different time - a quarter of the way through, the shape has moved 0.15625 of the way. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-033 frame 4: The same two keys, easy ease: the same two shapes and the same path, reached at a different time - a quarter of the way through, the shape has moved 0.15625 of the way. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-034 frame 0: Keys at frames 1 and 3 only: frame 0 is the first key's shape and frame 4 the last key's, because a path holds outside its keys as any property does. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-034 frame 1: Keys at frames 1 and 3 only: frame 0 is the first key's shape and frame 4 the last key's, because a path holds outside its keys as any property does. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-034 frame 2: Keys at frames 1 and 3 only: frame 0 is the first key's shape and frame 4 the last key's, because a path holds outside its keys as any property does. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-034 frame 3: Keys at frames 1 and 3 only: frame 0 is the first key's shape and frame 4 the last key's, because a path holds outside its keys as any property does. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-034 frame 4: Keys at frames 1 and 3 only: frame 0 is the first key's shape and frame 4 the last key's, because a path holds outside its keys as any property does. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-035 frame 0: Handles move with their points: the four corners stay where they are and only the handles on the right edge grow, from nothing at frame 0 to two pixels at frame 4, so the edge bellies further out every frame. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-035 frame 1: Handles move with their points: the four corners stay where they are and only the handles on the right edge grow, from nothing at frame 0 to two pixels at frame 4, so the edge bellies further out every frame. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-035 frame 2: Handles move with their points: the four corners stay where they are and only the handles on the right edge grow, from nothing at frame 0 to two pixels at frame 4, so the edge bellies further out every frame. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-035 frame 3: Handles move with their points: the four corners stay where they are and only the handles on the right edge grow, from nothing at frame 0 to two pixels at frame 4, so the edge bellies further out every frame. | largest difference 3.2e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-035 frame 4: Handles move with their points: the four corners stay where they are and only the handles on the right edge grow, from nothing at frame 0 to two pixels at frame 4, so the edge bellies further out every frame. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
 
 ## FX-MSK-020 to 030, refused whole (D-77)
 
@@ -53,14 +78,6 @@ FX-MSK-001 is the one that says nothing moved: it is the rectangle B-06 drew, wr
 | the written mask holds its path as a base of points with both handles | {"in":[0,0],"out":[0,0],"point":[0,0]} | yes |
 | and it opens again as the same project | equal | yes |
 | fx_msk_016.json's handles survive a save and a load, to the last bit | MaskPoint { point: (3.0, 0.0), in_handle: (-0.5522847498307936, 0.0), out_handle: (0.5522847498307936, 0.0) } | yes |
-
-## A keyed path: kept, drawn at its base, and said out loud (document 28)
-
-| Check | The build's answer | Matches |
-| --- | --- | --- |
-| a path with one key opens, with PROJECT_FEATURE_UNSUPPORTED | [ProjectFeatureUnsupported] | yes |
-| and frame 0 is the path's base, unmoved | largest difference 3.1e-8 | yes |
-| and saving writes the keys back exactly as they were | 1 key(s) | yes |
 
 ## Commands (document 24)
 
@@ -89,4 +106,4 @@ FX-MSK-001 is the one that says nothing moved: it is the rectangle B-06 drew, wr
 
 ## Result
 
-53 of 53 checks pass.
+75 of 75 checks pass.

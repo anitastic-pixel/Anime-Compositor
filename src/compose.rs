@@ -852,14 +852,23 @@ fn resolve_rest(
     // bounds and the effect cache's key all hold plain numbers.
     let effects: Vec<crate::effects::EffectInstance> =
         layer.effects.iter().map(|i| i.at(frame)).collect();
+    // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
+    // draft divisor, before the rasterizer and before document 27's cache key, exactly as an
+    // effect's settings are on the line above. A path that stands still is not copied at all.
+    let moving = layer.masks.iter().any(|m| !m.keys.is_empty());
+    let moved: Vec<crate::mask::Mask> = if moving {
+        layer.masks.iter().map(|m| m.at(frame)).collect()
+    } else {
+        Vec::new()
+    };
+    let now: &[crate::mask::Mask] = if moving { &moved } else { &layer.masks };
     // D-77: a mask's feather and expansion are distances in layer-space pixels, so a draft
     // picture divides them by the divisor exactly as it divides the points, or a feather would
     // be four times as wide at quarter size.
     let draft_masks: Vec<crate::mask::Mask> = if pre == 1.0 {
         Vec::new()
     } else {
-        layer
-            .masks
+        now
             .iter()
             .map(|m| {
                 let mut m = m.clone();
@@ -886,11 +895,7 @@ fn resolve_rest(
     // The two `make_mut` calls below are the only writes to a cel in the whole render, which is
     // why the copy P-01 measured at up to 55.6% of a warm frame could be removed at all: a layer
     // with neither a mask nor an effect never writes, and now never copies.
-    let masks: &[crate::mask::Mask] = if pre == 1.0 {
-        &layer.masks
-    } else {
-        &draft_masks
-    };
+    let masks: &[crate::mask::Mask] = if pre == 1.0 { now } else { &draft_masks };
     for mask in masks {
         // A mask that is switched on but cannot be drawn -- fewer than three corners, or an
         // outline that crosses itself -- is a feature bypassed, not a shape to guess at.

@@ -54,6 +54,7 @@
 //! fill rule and its own antialiasing and the disagreement would say nothing about whether this
 //! file is right.
 
+use crate::model::Interp;
 use crate::WorkingBuffer;
 
 /// The side of the sample grid inside each pixel. Sixteen samples per pixel.
@@ -134,6 +135,20 @@ impl MaskMode {
     }
 }
 
+/// B-24d: one key on a mask's path — the whole outline at one frame.
+///
+/// A key holds the entire path and not one moved point, because D-77 interpolates a path point
+/// by point and there is no honest way to pair the points of two outlines of different lengths.
+/// Every key therefore holds as many points as the path's base, which `persist` refuses a file
+/// without and the commands keep true. The `interp` is the segment that *starts* here, as
+/// document 20 says of every other key.
+#[derive(Clone, PartialEq, Debug)]
+pub struct MaskKey {
+    pub frame: i32,
+    pub points: Vec<MaskPoint>,
+    pub interp: Interp,
+}
+
 /// D-77's mask: a closed path, plus everything that shapes the coverage it gives.
 ///
 /// Closed by definition, as document 19 has always said: the last point joins the first, and no
@@ -151,6 +166,8 @@ pub struct Mask {
     /// -8192 to 8192, in pixels. Positive grows.
     pub expansion_px: f64,
     pub points: Vec<MaskPoint>,
+    /// B-24d: where the path moves. Empty on a path that stands still, which is most of them.
+    pub keys: Vec<MaskKey>,
 }
 
 impl Default for Mask {
@@ -164,6 +181,7 @@ impl Default for Mask {
             feather_px: 0.0,
             expansion_px: 0.0,
             points: Vec::new(),
+            keys: Vec::new(),
         }
     }
 }
@@ -180,6 +198,60 @@ impl Mask {
                 .collect(),
             ..Mask::default()
         }
+    }
+
+    /// B-24d: this mask as it is at a composition frame, with no keys left in it.
+    ///
+    /// Document 20's rules, unchanged and in its order: no keys is the base; before the first
+    /// key is the first key; after the last is the last; on a key is that key; a hold segment is
+    /// its left key; and between two keys every point moves the same fraction of the way - the
+    /// point and both its handles, each of the six numbers on its own, at the fraction the ease
+    /// gives on an eased segment and at `u` itself on a linear one. Nothing else of the mask is
+    /// animated, so nothing else is touched.
+    ///
+    /// The whole mask is resolved before it reaches the rasterizer, as an effect is
+    /// (`EffectInstance::at`), which is what keeps one drawing path in this build rather than
+    /// two and keeps the frame in document 27's cache key honest.
+    pub fn at(&self, frame: i32) -> Mask {
+        Mask {
+            points: self.points_at(frame),
+            keys: Vec::new(),
+            ..self.clone()
+        }
+    }
+
+    /// The path at a composition frame. [`Mask::at`] is this, with the keys taken off.
+    pub fn points_at(&self, frame: i32) -> Vec<MaskPoint> {
+        let Some(first) = self.keys.first() else {
+            return self.points.clone();
+        };
+        if frame <= first.frame {
+            return first.points.clone();
+        }
+        let last = self.keys.last().expect("a first key means a last one");
+        if frame >= last.frame {
+            return last.points.clone();
+        }
+        let i = self.keys.partition_point(|k| k.frame <= frame) - 1;
+        let (a, b) = (&self.keys[i], &self.keys[i + 1]);
+        if a.frame == frame || a.interp == Interp::Hold {
+            return a.points.clone();
+        }
+        let u = (frame - a.frame) as f64 / (b.frame - a.frame) as f64;
+        let u = match a.interp {
+            Interp::Ease { x1, y1, x2, y2 } => crate::model::solve(x1, y1, x2, y2, u),
+            _ => u,
+        };
+        let between = |p: (f64, f64), q: (f64, f64)| (p.0 + (q.0 - p.0) * u, p.1 + (q.1 - p.1) * u);
+        a.points
+            .iter()
+            .zip(&b.points)
+            .map(|(p, q)| MaskPoint {
+                point: between(p.point, q.point),
+                in_handle: between(p.in_handle, q.in_handle),
+                out_handle: between(p.out_handle, q.out_handle),
+            })
+            .collect()
     }
 
     /// The points alone, without their handles: what [`is_simple`] is asked about.

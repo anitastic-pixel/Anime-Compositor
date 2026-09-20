@@ -427,6 +427,32 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             }
                         }
                     }
+                    // B-24d: and the shape of every mask on this frame, six numbers a point in
+                    // the layer's own pixels, in the order the masks were drawn. A keyed path is
+                    // not its base on any frame but a key's, and the page has no business
+                    // solving document 20's curves a second time: the picture it draws points
+                    // on, and the points a drag starts from, are the ones the renderer used.
+                    if !layer.masks.is_empty() {
+                        at.insert(
+                            "masks".to_string(),
+                            serde_json::json!(layer
+                                .masks
+                                .iter()
+                                .map(|m| m
+                                    .points_at(frame)
+                                    .iter()
+                                    .map(|p| [
+                                        p.point.0,
+                                        p.point.1,
+                                        p.in_handle.0,
+                                        p.in_handle.1,
+                                        p.out_handle.0,
+                                        p.out_handle.1
+                                    ])
+                                    .collect::<Vec<_>>())
+                                .collect::<Vec<_>>()),
+                        );
+                    }
                     (layer.id.as_str().to_string(), serde_json::Value::Object(at))
                 })
                 .collect();
@@ -2087,6 +2113,7 @@ const ANSWERS: &[&str] = &[
     "layer.toggle_visibility",
     "layer.trim",
     "mask.add",
+    "mask.add_remove_key",
     "mask.delete",
     "mask.set",
     "mask.set_path",
@@ -3667,7 +3694,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     }
                 }
                 // B-24c: D-77's masks from the picture and from the layer's panel. The core
-                // takes the whole list in one command, so each of these four reads the list the
+                // takes the whole list in one command, so each of these reads the list the
                 // layer has, changes one thing in it and sends it back: a mask drawn, a point or
                 // a handle moved, one setting, or one mask taken out. Whether the shape is legal
                 // stays in the core, which is the reader that knows document 19's rules.
@@ -3675,7 +3702,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 // D-71: a sound layer has no picture to cut, so it has no masks. The core
                 // refuses it too - `sets_a_picture` names SET_MASKS - and this says it in the
                 // words of the thing the person was doing, before a shape is even read.
-                "mask.add" | "mask.set_path" | "mask.set" | "mask.delete" => {
+                "mask.add" | "mask.set_path" | "mask.set" | "mask.delete"
+                | "mask.add_remove_key" => {
                     if layer.kind == LayerKind::Audio {
                         return Some(format!(
                             "\"{}\" is a sound layer, so it has no masks.",
@@ -3705,12 +3733,57 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         "mask.delete" => {
                             masks.remove(at);
                         }
+                        // B-24d: the stopwatch. No keys at all and the path starts moving, from
+                        // the shape it has now; a key under the playhead comes off, and the last
+                        // one to come off leaves its own shape behind as the base, so that
+                        // turning the stopwatch off does not move the mask. Otherwise the shape
+                        // on this frame becomes a key of its own.
+                        "mask.add_remove_key" => {
+                            let frame = match frame_parameter(query, "frame") {
+                                Ok(frame) => frame,
+                                Err(said) => return Some(said),
+                            };
+                            let mask = &mut masks[at];
+                            match mask.keys.iter().position(|k| k.frame == frame) {
+                                Some(i) => {
+                                    let gone = mask.keys.remove(i);
+                                    if mask.keys.is_empty() {
+                                        mask.points = gone.points;
+                                    }
+                                }
+                                None => {
+                                    let points = mask.points_at(frame);
+                                    mask.keys.push(anime_compositor::mask::MaskKey {
+                                        frame,
+                                        points,
+                                        interp: anime_compositor::model::Interp::Linear,
+                                    });
+                                }
+                            }
+                        }
                         "mask.add" | "mask.set_path" => {
                             let points = match mask_points(query) {
                                 Ok(points) => points,
                                 Err(sentence) => return Some(sentence),
                             };
-                            if id == "mask.add" {
+                            if id == "mask.set_path" && !masks[at].keys.is_empty() {
+                                // B-24d: a path that moves is edited at the key under the
+                                // playhead, not at its base, and a drag between two keys makes
+                                // one there rather than moving the whole path under them.
+                                let frame = match frame_parameter(query, "frame") {
+                                    Ok(frame) => frame,
+                                    Err(said) => return Some(said),
+                                };
+                                let mask = &mut masks[at];
+                                match mask.keys.iter_mut().find(|k| k.frame == frame) {
+                                    Some(key) => key.points = points,
+                                    None => mask.keys.push(anime_compositor::mask::MaskKey {
+                                        frame,
+                                        points,
+                                        interp: anime_compositor::model::Interp::Linear,
+                                    }),
+                                }
+                            } else if id == "mask.add" {
                                 // Numbered past every name already in use, the way layer ids are,
                                 // so that drawing, undoing and drawing again does not make two
                                 // masks called the same thing.
@@ -11698,6 +11771,151 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-24d: the stopwatch on a mask's path, and a point moved on a path that is already
+    /// moving. The core's half is `verification/B-24d_mask_key_table.md`; this is what the
+    /// window does with it.
+    #[test]
+    fn a_mask_path_is_keyed_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        // The mask's keys as the page reads them off the document, to draw its row's marks and
+        // to choose between a hollow diamond and a filled one.
+        let keys_of = |viewer: &Mutex<Viewer>| {
+            let layer = shown_layer(viewer, "Cel");
+            let keys = layer["masks"][0]["path"]["keyframes"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            if keys.is_empty() {
+                return "none".to_string();
+            }
+            keys.iter()
+                .map(|k| {
+                    format!(
+                        "frame {} {} at x {}",
+                        k["frame"],
+                        k["interp"].as_str().unwrap_or("(no interp)"),
+                        k["value"]["points"][1]["point"][0]
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        };
+        // And the shape the page draws points on at one frame, which is the renderer's answer
+        // and not the base: the first point's x is enough to read the movement by.
+        let shape_at = |viewer: &Mutex<Viewer>, frame: i32| {
+            let body = boxes(viewer, frame, None).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the boxes answer is JSON");
+            answer["values"][&cel]["masks"][0][1][0].to_string()
+        };
+
+        let square = "0,0,0,0,0,0;100,0,0,0,0,0;100,100,0,0,0,0;0,100,0,0,0,0";
+        run(&viewer, &format!("mask.add?layer={cel}&points={square}"));
+        report.check(
+            "a mask drawn has no keys, so its diamond is hollow and its row has no marks",
+            "none",
+            keys_of(&viewer),
+        );
+        run(
+            &viewer,
+            &format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"),
+        );
+        report.check(
+            "the stopwatch at frame 0 sets the path moving, from the shape it has now",
+            "frame 0 linear at x 100",
+            keys_of(&viewer),
+        );
+        run(
+            &viewer,
+            &format!(
+                "mask.set_path?layer={cel}&mask=0&frame=4&points=\
+                 0,0,0,0,0,0;300,0,0,0,0,0;300,100,0,0,0,0;0,100,0,0,0,0"
+            ),
+        );
+        report.check(
+            "a point moved at frame 4 makes a key there rather than moving the whole path",
+            "frame 0 linear at x 100; frame 4 linear at x 300",
+            keys_of(&viewer),
+        );
+        report.check(
+            "so the page draws the shape half way across at frame 2, and the ends at the keys",
+            "100.0 then 200.0 then 300.0",
+            format!(
+                "{} then {} then {}",
+                shape_at(&viewer, 0),
+                shape_at(&viewer, 2),
+                shape_at(&viewer, 4)
+            ),
+        );
+        run(
+            &viewer,
+            &format!(
+                "mask.set_path?layer={cel}&mask=0&frame=4&points=\
+                 0,0,0,0,0,0;200,0,0,0,0,0;200,100,0,0,0,0;0,100,0,0,0,0"
+            ),
+        );
+        report.check(
+            "moving a point again on a frame that has a key writes to that key, not a new one",
+            "frame 0 linear at x 100; frame 4 linear at x 200",
+            keys_of(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and Undo puts that key back the way it was",
+            "frame 0 linear at x 100; frame 4 linear at x 300",
+            keys_of(&viewer),
+        );
+        run(
+            &viewer,
+            &format!("mask.add_remove_key?layer={cel}&mask=0&frame=4"),
+        );
+        report.check(
+            "a filled diamond takes its key off",
+            "frame 0 linear at x 100",
+            keys_of(&viewer),
+        );
+        run(
+            &viewer,
+            &format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"),
+        );
+        report.check(
+            "and the last key off leaves its own shape behind, so the mask does not jump",
+            "none, at x 100.0",
+            format!("{}, at x {}", keys_of(&viewer), shape_at(&viewer, 3)),
+        );
+        report.check(
+            "a mask that is not there is refused, and the window says how many there are",
+            "Which mask? \"Cel\" has one.",
+            run(
+                &viewer,
+                &format!("mask.add_remove_key?layer={cel}&mask=7&frame=0"),
+            ),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-24d_panel_table.md",
+            "B-24d: a mask's path set moving, from the window",
+            MASK_KEY_PANEL_INTRO,
+            MASK_KEY_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     /// B-18c: the precomposition from the window, on D-67. The order is the playtest sheet's.
     #[test]
     fn layers_are_precomposed_from_the_window() {
@@ -12778,8 +12996,31 @@ mod editing {
         "## What this does not cover\n\nWhat a mask looks like on the picture and on the \
          timeline, whether the pen closes where the hand means it to, and whether a dragged \
          point lands where it was let go. That is `verification/B-24c_mask_playtest.md`, for a \
-         person. Whether the pixels a mask keeps are right is B-24b's table. A mask's path \
-         cannot be keyed yet: that is B-24d.",
+         person. Whether the pixels a mask keeps are right is B-24b's table. A path that moves \
+         is B-24d, in `verification/B-24d_panel_table.md`.",
+    ];
+
+    const MASK_KEY_PANEL_INTRO: &[&str] = &[
+        "D-77 said a mask's path is a property like any other, and B-24d made it one: the \
+         mask's row in the timeline carries a stopwatch and its keys, `mask.add_remove_key` \
+         puts one down or takes one off at the frame on screen, and once a path has keys a \
+         point dragged or nudged writes to the key under the playhead - making one there if \
+         that frame has none, as After Effects does.",
+        "Every row calls what the window calls, on \
+         `Fixtures/projects/cel_holds_project.json`, and reads back what the page is given: \
+         the keys off the document, and the shape at a frame off the same answer the boxes \
+         come from, which is the outline the renderer actually drew.",
+    ];
+
+    const MASK_KEY_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhether the diamond and the marks look right on the \
+         timeline, and whether a path dragged frame by frame moves the way a person means it \
+         to. That is `verification/B-24d_mask_playtest.md`, for a person. Whether the shape \
+         between two keys is the right shape is the core's, in \
+         `verification/B-24d_mask_key_table.md`.\n\nA mask key cannot be dragged along its row \
+         or eased from the graph editor yet: `keyframe.move`, F9 and the graph take a \
+         property's keys, and a path's key is not one of those. The stopwatch, the marks and \
+         the frame the shape is set at are what B-24d builds.",
     ];
 
     const ADJUST_PANEL_NOTES: &[&str] = &[
@@ -14585,6 +14826,7 @@ mod contract {
         "layer.toggle_visibility",
         "layer.trim",
         "mask.add",
+        "mask.add_remove_key",
         "mask.delete",
         "mask.set",
         "mask.set_path",
@@ -14940,10 +15182,12 @@ mod contract {
         // window.
         ("layer.add_solid", "a command the window answers"),
         ("solid.set", "a command the window answers"),
-        // D-77, accepted on 2026-09-19 and built in the core by B-24b; B-24c put all four in
-        // the window. Each one reads the layer's list of masks, changes one thing in it and
-        // sends the whole list back, because SET_MASKS is what the core takes.
+        // D-77, accepted on 2026-09-19 and built in the core by B-24b; B-24c put four of them
+        // in the window and B-24d added the fifth, the stopwatch on a path. Each one reads the
+        // layer's list of masks, changes one thing in it and sends the whole list back, because
+        // SET_MASKS is what the core takes.
         ("mask.add", "a command the window answers"),
+        ("mask.add_remove_key", "a command the window answers"),
         ("mask.set_path", "a command the window answers"),
         ("mask.set", "a command the window answers"),
         ("mask.delete", "a command the window answers"),

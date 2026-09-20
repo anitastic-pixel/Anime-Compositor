@@ -2269,6 +2269,41 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     )
                     .with_remediation("Add points until the shape closes on an area."));
                 }
+                // B-24d: a key holds a whole outline, and every one of them holds as many points
+                // as the base for the reason D-77 gives -- a path is interpolated point by
+                // point. The window keeps this true by changing every key together when a point
+                // is added or taken away; this is the gate that says so when it does not.
+                for k in &m.keys {
+                    let wrong = if k.points.len() != m.points.len() {
+                        Some(format!(
+                            "{} points, where the path has {}",
+                            k.points.len(),
+                            m.points.len()
+                        ))
+                    } else if m.keys.iter().filter(|o| o.frame == k.frame).count() > 1 {
+                        Some(format!("a second key at frame {}", k.frame))
+                    } else {
+                        None
+                    };
+                    if let Some(what) = wrong {
+                        return Err(Diagnostic::new(
+                            DiagnosticId::MaskInvalidOutline,
+                            Severity::Error,
+                            format!(
+                                "The key at frame {} of mask \"{}\" has {what}.",
+                                k.frame, m.name
+                            ),
+                            "D-77 interpolates a path point by point, so every key on it holds \
+                             the same points as the path itself, one key to a frame. The masks \
+                             are unchanged."
+                                .to_string(),
+                        )
+                        .with_remediation(
+                            "Add or remove the point on the path itself, which changes every key \
+                             with it, rather than on one key alone.",
+                        ));
+                    }
+                }
                 if !crate::mask::is_simple(&m.vertices()) {
                     return Err(Diagnostic::new(
                         DiagnosticId::MaskInvalidOutline,
@@ -2318,7 +2353,13 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     .with_remediation("Set a value inside the range and send the masks again."));
                 }
             }
-            layer_mut(project, &comp_id, layer_id)?.masks = masks.clone();
+            let mut masks = masks.clone();
+            for m in &mut masks {
+                // In frame order however they arrived, as the loader holds them: everything that
+                // reads a key asks which segment a frame falls in and nothing else.
+                m.keys.sort_by_key(|k| k.frame);
+            }
+            layer_mut(project, &comp_id, layer_id)?.masks = masks;
         }
         Command::AddEffect {
             layer_id,
