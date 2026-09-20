@@ -334,17 +334,19 @@ pub enum Command {
         layer_id: Id,
         spans: Vec<ExposureSpan>,
     },
-    /// Set or clear a layer's polygon mask. B-06.
+    /// Set a layer's whole list of masks. B-06, widened to a list at D-77.
     ///
-    /// The whole mask is the unit of change, not a vertex, because document 19 makes
-    /// self-intersection a property of the polygon rather than of any one point in it: a vertex
-    /// moved one at a time would have to pass through states this build rejects to get anywhere.
-    /// Editing a mask is therefore a drag that commits one `SetMask`, which is the same shape
+    /// The whole list is the unit of change, not one mask and not one point, for the reason
+    /// document 19 gives: self-intersection is a property of the polygon rather than of any one
+    /// point in it, so a point moved on its own would have to pass through states this build
+    /// rejects to get anywhere. Adding, reordering and deleting a mask are the same edit for the
+    /// same reason -- the modes read first to last, so moving one changes what every mask after
+    /// it means. Editing is therefore a drag that commits one `SetMasks`, which is the shape
     /// document 26 already gives a transform drag.
-    SetMask {
+    SetMasks {
         composition: Id,
         layer_id: Id,
-        mask: Option<crate::mask::PolygonMask>,
+        masks: Vec<crate::mask::Mask>,
     },
     /// Document 24's `effect.add`. B-07.
     ///
@@ -451,7 +453,7 @@ impl Command {
             Command::SetAudioGain { .. } => "SET_AUDIO_GAIN",
             Command::SetCameraProperty { .. } => "SET_CAMERA_PROPERTY",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
-            Command::SetMask { .. } => "SET_MASK",
+            Command::SetMasks { .. } => "SET_MASKS",
             Command::AddEffect { .. } => "ADD_EFFECT",
             Command::RemoveEffect { .. } => "REMOVE_EFFECT",
             Command::ReorderEffect { .. } => "REORDER_EFFECT",
@@ -577,9 +579,10 @@ impl Command {
                 1 => "Set one exposure".to_string(),
                 n => format!("Set {n} exposures"),
             },
-            Command::SetMask { mask, .. } => match mask {
-                Some(m) => format!("Set mask of {} points", m.vertices.len()),
-                None => "Clear mask".to_string(),
+            Command::SetMasks { masks, .. } => match masks.len() {
+                0 => "Clear the masks".to_string(),
+                1 => format!("Set mask of {} points", masks[0].points.len()),
+                n => format!("Set {n} masks"),
             },
             Command::AddEffect { effect, .. } => format!("Add {}", effect.type_id()),
             Command::RemoveEffect { instance_id, .. } => format!("Remove effect {instance_id}"),
@@ -642,7 +645,7 @@ impl Command {
             | Command::SetAudioGain { composition, .. }
             | Command::SetCameraProperty { composition, .. }
             | Command::SetExposureSpans { composition, .. }
-            | Command::SetMask { composition, .. }
+            | Command::SetMasks { composition, .. }
             | Command::AddEffect { composition, .. }
             | Command::RemoveEffect { composition, .. }
             | Command::ReorderEffect { composition, .. }
@@ -677,7 +680,7 @@ impl Command {
             | Command::ShiftLayer { layer_id, .. }
             | Command::TrimLayer { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
-            | Command::SetMask { layer_id, .. }
+            | Command::SetMasks { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
             | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
@@ -802,7 +805,7 @@ impl Command {
                 | Command::SetParent { .. }
                 | Command::SetDepth { .. }
                 | Command::SetExposureSpans { .. }
-                | Command::SetMask { .. }
+                | Command::SetMasks { .. }
                 | Command::AddEffect { .. }
                 | Command::SeparatePosition { .. }
                 | Command::SetPropertyBase { .. }
@@ -833,7 +836,7 @@ impl Command {
             | Command::SetDepth { layer_id, .. }
             | Command::SetAudioGain { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
-            | Command::SetMask { layer_id, .. }
+            | Command::SetMasks { layer_id, .. }
             | Command::AddEffect { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
             | Command::ReorderEffect { layer_id, .. }
@@ -2238,7 +2241,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             })?;
             layer_mut(project, &comp_id, layer_id)?.exposure_spans = spans.clone();
         }
-        Command::SetMask { layer_id, mask, .. } => {
+        Command::SetMasks {
+            layer_id, masks, ..
+        } => {
             // Document 19: a polygon mask is "an ordered list of vec2 vertices, closed by
             // definition", and "self-intersection behavior is unsupported in G1 and must be
             // rejected or normalized only through an explicit command". This build rejects.
@@ -2247,15 +2252,16 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             //
             // MASK_INVALID_OUTLINE is document 28's identifier for both refusals, added to
             // the catalogue by D-43 rather than reusing COMMAND_INVALID_VALUE. It is an ERROR
-            // here because a command that would create one is refused outright.
-            if let Some(m) = mask {
-                if !m.has_enough_vertices() {
+            // here because a command that would create one is refused outright -- a file may
+            // carry one and be told so, but nothing in the window may make one.
+            for m in masks {
+                if !m.has_enough_points() {
                     return Err(Diagnostic::new(
                         DiagnosticId::MaskInvalidOutline,
                         Severity::Error,
                         format!(
                             "A mask needs at least three points, and this one has {}.",
-                            m.vertices.len()
+                            m.points.len()
                         ),
                         "Document 19: a polygon mask is a closed ordered list of vertices. Fewer \
                          than three enclose no area, so there is nothing for the mask to keep."
@@ -2263,7 +2269,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     )
                     .with_remediation("Add points until the shape closes on an area."));
                 }
-                if !crate::mask::is_simple(&m.vertices) {
+                if !crate::mask::is_simple(&m.vertices()) {
                     return Err(Diagnostic::new(
                         DiagnosticId::MaskInvalidOutline,
                         Severity::Error,
@@ -2275,11 +2281,44 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     )
                     .with_remediation(
                         "Move the points so that no edge crosses another. A figure-of-eight has \
-                         to become two masks, which this build does not have yet.",
+                         to become two masks, which this build now has: draw the second one and \
+                         set its mode.",
                     ));
                 }
+                // D-77's ranges, refused here for the same reason the loader refuses them: a
+                // value outside them has no drawing, so accepting one would leave the project
+                // holding a frame nobody can render.
+                let out_of_range = if !(0.0..=1.0).contains(&m.opacity) {
+                    Some(format!(
+                        "an opacity of {}, which is not from 0 to 1",
+                        m.opacity
+                    ))
+                } else if !(m.feather_px >= 0.0) {
+                    Some(format!(
+                        "a feather of {} pixels, which is below 0",
+                        m.feather_px
+                    ))
+                } else if !(m.expansion_px.abs() <= crate::mask::MAX_EXPANSION) {
+                    Some(format!(
+                        "an expansion of {} pixels, which is past 8192 either way",
+                        m.expansion_px
+                    ))
+                } else {
+                    None
+                };
+                if let Some(what) = out_of_range {
+                    return Err(Diagnostic::new(
+                        DiagnosticId::CommandInvalidValue,
+                        Severity::Error,
+                        format!("Mask \"{}\" was given {what}.", m.name),
+                        "D-77 gives a mask an opacity from 0 to 1, a feather of 0 or more and an \
+                         expansion of at most 8192 pixels either way. The masks are unchanged."
+                            .to_string(),
+                    )
+                    .with_remediation("Set a value inside the range and send the masks again."));
+                }
             }
-            layer_mut(project, &comp_id, layer_id)?.mask = mask.clone();
+            layer_mut(project, &comp_id, layer_id)?.masks = masks.clone();
         }
         Command::AddEffect {
             layer_id,

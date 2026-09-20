@@ -37,7 +37,7 @@ use anime_compositor::cache::{CelCache, EffectResult, DEFAULT_EFFECT_BUDGET_BYTE
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
 use anime_compositor::effects::{Effect, EffectInstance};
-use anime_compositor::mask::PolygonMask;
+use anime_compositor::mask::Mask;
 use anime_compositor::model::{Id, Interpretation, Project};
 use anime_compositor::persist;
 use anime_compositor::preview::{self, PreviewQuality};
@@ -169,8 +169,8 @@ fn key_notices_its_inputs() -> Vec<Check> {
             Effect::GaussianBlur { sigma_px: sigma },
         )]
     };
-    let square = PolygonMask::new(vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]);
-    let moved = PolygonMask::new(vec![(0.0, 0.0), (20.0, 0.0), (20.0, 10.0), (0.0, 10.0)]);
+    let square = [Mask::polygon(vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])];
+    let moved = [Mask::polygon(vec![(0.0, 0.0), (20.0, 0.0), (20.0, 10.0), (0.0, 10.0)])];
     let stored = EffectResult {
         buffer: Arc::new(WorkingBuffer::transparent(4, 4)),
         offset: (0, 0),
@@ -178,19 +178,19 @@ fn key_notices_its_inputs() -> Vec<Check> {
     };
 
     let mut cache = CelCache::viewer();
-    cache.store_effect(&cel, interp, Some(&square), &stack(4.0), stored);
+    cache.store_effect(&cel, interp, &square, &stack(4.0), stored);
 
     let hit = cache
-        .effect_result(&cel, interp, Some(&square), &stack(4.0))
+        .effect_result(&cel, interp, &square, &stack(4.0))
         .is_some();
     let other_sigma = cache
-        .effect_result(&cel, interp, Some(&square), &stack(4.5))
+        .effect_result(&cel, interp, &square, &stack(4.5))
         .is_some();
     let other_mask = cache
-        .effect_result(&cel, interp, Some(&moved), &stack(4.0))
+        .effect_result(&cel, interp, &moved, &stack(4.0))
         .is_some();
     let no_mask = cache
-        .effect_result(&cel, interp, None, &stack(4.0))
+        .effect_result(&cel, interp, &[], &stack(4.0))
         .is_some();
 
     vec![

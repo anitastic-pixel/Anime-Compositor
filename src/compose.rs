@@ -852,13 +852,28 @@ fn resolve_rest(
     // bounds and the effect cache's key all hold plain numbers.
     let effects: Vec<crate::effects::EffectInstance> =
         layer.effects.iter().map(|i| i.at(frame)).collect();
-    let draft_mask = layer.mask.as_ref().filter(|_| pre != 1.0).map(|m| {
-        let mut m = m.clone();
-        for v in &mut m.vertices {
-            *v = (v.0 / pre, v.1 / pre);
-        }
-        m
-    });
+    // D-77: a mask's feather and expansion are distances in layer-space pixels, so a draft
+    // picture divides them by the divisor exactly as it divides the points, or a feather would
+    // be four times as wide at quarter size.
+    let draft_masks: Vec<crate::mask::Mask> = if pre == 1.0 {
+        Vec::new()
+    } else {
+        layer
+            .masks
+            .iter()
+            .map(|m| {
+                let mut m = m.clone();
+                for p in &mut m.points {
+                    p.point = (p.point.0 / pre, p.point.1 / pre);
+                    p.in_handle = (p.in_handle.0 / pre, p.in_handle.1 / pre);
+                    p.out_handle = (p.out_handle.0 / pre, p.out_handle.1 / pre);
+                }
+                m.feather_px /= pre;
+                m.expansion_px /= pre;
+                m
+            })
+            .collect()
+    };
     // Document 21 step 2: the polygon mask, in layer/source space, before the transform.
     //
     // `CelCache::decoded` hands back a *shared* buffer since P-03(a), so writing on it directly
@@ -871,7 +886,12 @@ fn resolve_rest(
     // The two `make_mut` calls below are the only writes to a cel in the whole render, which is
     // why the copy P-01 measured at up to 55.6% of a warm frame could be removed at all: a layer
     // with neither a mask nor an effect never writes, and now never copies.
-    if let Some(mask) = draft_mask.as_ref().or(layer.mask.as_ref()) {
+    let masks: &[crate::mask::Mask] = if pre == 1.0 {
+        &layer.masks
+    } else {
+        &draft_masks
+    };
+    for mask in masks {
         // A mask that is switched on but cannot be drawn -- fewer than three corners, or an
         // outline that crosses itself -- is a feature bypassed, not a shape to guess at.
         // Saying so per frame is what puts the incomplete-fidelity mark on an export; leaving
@@ -884,13 +904,17 @@ fn resolve_rest(
                 Diagnostic::new(
                     DiagnosticId::MaskInvalidOutline,
                     Severity::Warning,
-                    format!("Layer {}'s mask cannot be drawn, so it is not.", layer.name),
+                    format!(
+                        "Layer {}'s mask \"{}\" cannot be drawn, so it is not.",
+                        layer.name, mask.name
+                    ),
                     format!(
                         "The mask has {} corners and its outline {} itself. Document 19 requires \
                          at least three corners and an outline that does not cross. The layer is \
-                          drawn unmasked for frame {frame} and the mask is kept in the project.",
-                        mask.vertices.len(),
-                        if crate::mask::is_simple(&mask.vertices) {
+                          drawn without that mask for frame {frame} and the mask is kept in the \
+                          project.",
+                        mask.points.len(),
+                        if crate::mask::is_simple(&mask.vertices()) {
                             "does not cross"
                         } else {
                             "crosses"
@@ -900,14 +924,15 @@ fn resolve_rest(
                 .with_remediation("Redraw the mask so its outline does not cross itself."),
             );
         }
-        // The guard is `mask::apply`'s own first line, called here rather than restated: a mask
-        // that cannot be drawn writes nothing, and a copy taken to write nothing is the whole
-        // cost P-03(a) removed.
-        if mask.is_renderable() {
-            crate::perf::time(crate::perf::Stage::Mask, || {
-                crate::mask::apply(std::sync::Arc::make_mut(&mut source), mask)
-            });
-        }
+    }
+    // The guard is `mask::apply`'s own first line, called here rather than restated: a mask
+    // that cannot be drawn writes nothing, and a copy taken to write nothing is the whole
+    // cost P-03(a) removed. D-77 keeps that: with no mask that takes part, `coverage` is
+    // `None` and `apply` returns before the copy.
+    if masks.iter().any(|m| m.is_renderable() && m.mode != crate::mask::MaskMode::None) {
+        crate::perf::time(crate::perf::Stage::Mask, || {
+            crate::mask::apply(std::sync::Arc::make_mut(&mut source), masks)
+        });
     }
 
     // Document 21 step 3: the ordered effect stack, in layer space, after the mask and before
@@ -966,10 +991,14 @@ fn resolve_rest(
         );
     };
 
-    // The mask that was drawn into the cel above, and therefore part of what the stack ran on.
-    // `None` covers both the layer with no mask and the mask that could not be drawn, which are
-    // the two cases where nothing was written.
-    let drawn_mask = layer.mask.as_ref().filter(|m| m.is_renderable());
+    // The masks that were drawn into the cel above, and therefore part of what the stack ran on.
+    // The ones that could not be drawn are left out, because they wrote nothing: two projects
+    // that differ only in a mask neither of them can draw share a cel and may share a result.
+    let drawn_masks: Vec<crate::mask::Mask> = masks
+        .iter()
+        .filter(|m| m.is_renderable())
+        .cloned()
+        .collect();
 
     let offset = match &cel {
         // D-66: an adjustment layer's stack runs on the frame beneath it, in the renderer. What
@@ -1009,7 +1038,7 @@ fn resolve_rest(
             )
         }
         Some((path, interpretation)) => {
-            if let Some(hit) = cache.effect_result(path, *interpretation, drawn_mask, &effects) {
+            if let Some(hit) = cache.effect_result(path, *interpretation, &drawn_masks, &effects) {
                 // P-11. ADR-017 fixes an evaluation's whole input to the cel, the mask and the stack, all
                 // three of which are in the key, so this buffer is the one `apply_stack` would have
                 // produced. It is handed back shared: the cache holds it too, so the transform below,
@@ -1034,7 +1063,7 @@ fn resolve_rest(
                 cache.store_effect(
                     path,
                     *interpretation,
-                    drawn_mask,
+                    &drawn_masks,
                     &effects,
                     crate::cache::EffectResult {
                         buffer: std::sync::Arc::clone(&source),

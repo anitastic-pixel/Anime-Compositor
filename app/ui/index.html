@@ -4579,7 +4579,10 @@ function drawInspector() {
   }
   // What is on this layer that this panel cannot yet change is still said, because a person
   // deciding whether a layer is the one they want needs to know it carries a mask.
-  field(dl, 'Mask', layer.mask ? layer.mask.vertices.length + ' points' : 'none');
+  const masks = layer.masks || [];
+  field(dl, 'Masks', masks.length === 0 ? 'none'
+    : masks.length === 1 ? masks[0].path.base.points.length + ' points'
+    : masks.length + ' masks');
   matteRow(dl, layer);
   parentRow(dl, layer);
   // B-13d: a property row like the five above, and not a row of its own any more. It keeps its

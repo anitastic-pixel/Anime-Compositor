@@ -56,4 +56,6 @@ Because the reference disagrees on boundary samples by design, the two rows that
 
 Document 25 line 51's "OPEN" is closed. Subpixel edge goldens can now be written, and B-06's table writes them.
 
+D-77 (2026-09-19) gave a layer several masks, with modes, opacity, feather, expansion and curved segments, and amends nothing here: a curve is flattened to straight pieces before the sampler sees it, so the grid, the even-odd rule, the tie-break and the sixteenths are the same sixteen decisions they were, and FX-MSK-001 is that claim as a fixture.
+
 What this record does not settle: whether one sixteenth is fine enough for a shipped picture. It is a number, it is stated, and it is checked. If a real shot shows a mask edge that reads as stepped, the answer is to raise the grid and re-derive the fixture values, and that is a new decision with a new table behind it — not a silent change to this one.

@@ -36,7 +36,7 @@ D-74, accepted by the owner on 2026-09-19. Every expected pixel is `Fixtures/sol
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| fx_sol_006.json's solid written back: the fixture's keys in the fixture's order, no asset_id, exposures or source offset | id, kind, name, solid, enabled, locked, in_frame, out_frame, transform, mask, matte, blend_mode, effects | yes |
+| fx_sol_006.json's solid written back: the fixture's keys in the fixture's order, apart from the retired `mask`, and no asset_id, exposures or source offset | id, kind, name, solid, enabled, locked, in_frame, out_frame, transform, matte, blend_mode, effects | yes |
 | and its record written back | {"color":[0.2,0.5,0.8],"height":2,"width":2} | yes |
 | and it opens again as the same project | equal | yes |
 

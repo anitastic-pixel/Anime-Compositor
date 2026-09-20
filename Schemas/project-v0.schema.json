@@ -227,6 +227,117 @@
       },
       "additionalProperties": false
     },
+    "maskPoint": {
+      "type": "object",
+      "required": [
+        "point"
+      ],
+      "properties": {
+        "point": {
+          "$ref": "#/$defs/vec2"
+        },
+        "in": {
+          "$ref": "#/$defs/vec2"
+        },
+        "out": {
+          "$ref": "#/$defs/vec2"
+        }
+      },
+      "additionalProperties": false
+    },
+    "maskOutline": {
+      "type": "object",
+      "required": [
+        "points"
+      ],
+      "properties": {
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/maskPoint"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "maskPath": {
+      "type": "object",
+      "required": [
+        "base"
+      ],
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/maskOutline"
+        },
+        "keyframes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "frame",
+              "value"
+            ],
+            "properties": {
+              "frame": {
+                "type": "integer"
+              },
+              "value": {
+                "$ref": "#/$defs/maskOutline"
+              },
+              "interp": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "maskRecord": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "inverted": {
+          "type": "boolean"
+        },
+        "mode": {
+          "enum": [
+            "add",
+            "subtract",
+            "intersect",
+            "difference",
+            "none"
+          ]
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "feather_px": {
+          "type": "number",
+          "minimum": 0
+        },
+        "expansion_px": {
+          "type": "number",
+          "minimum": -8192,
+          "maximum": 8192
+        },
+        "path": {
+          "$ref": "#/$defs/maskPath"
+        }
+      },
+      "additionalProperties": false
+    },
     "matte": {
       "type": "object",
       "required": [
@@ -280,6 +391,14 @@
       ],
       "additionalProperties": true,
       "allOf": [
+        {
+          "not": {
+            "required": [
+              "mask",
+              "masks"
+            ]
+          }
+        },
         {
           "if": {
             "properties": {
@@ -387,6 +506,11 @@
                 {
                   "required": [
                     "mask"
+                  ]
+                },
+                {
+                  "required": [
+                    "masks"
                   ]
                 },
                 {
@@ -568,6 +692,12 @@
               "$ref": "#/$defs/mask"
             }
           ]
+        },
+        "masks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/maskRecord"
+          }
         },
         "matte": {
           "anyOf": [

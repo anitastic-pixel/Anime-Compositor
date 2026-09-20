@@ -179,7 +179,6 @@
               "drawing_number": 0
             }
           ],
-          "mask": null,
           "matte": null,
           "blend_mode": "normal",
           "effects": []
@@ -1427,7 +1426,6 @@
               "drawing_number": 23
             }
           ],
-          "mask": null,
           "matte": null,
           "blend_mode": "normal",
           "effects": []
@@ -2075,7 +2073,6 @@
               "drawing_number": 11
             }
           ],
-          "mask": null,
           "matte": null,
           "blend_mode": "normal",
           "effects": []
@@ -2523,7 +2520,6 @@
               "drawing_number": 19
             }
           ],
-          "mask": null,
           "matte": null,
           "blend_mode": "normal",
           "effects": []

@@ -765,10 +765,14 @@ pub struct Layer {
     pub source_offset_frames: i32,
     pub transform: Transform,
     pub exposure_spans: Vec<ExposureSpan>,
-    /// Document 19's optional polygon mask, in layer/source space. Document 21 applies it at
-    /// step 2, before the transform, which is why it holds source coordinates and not
-    /// composition ones.
-    pub mask: Option<crate::mask::PolygonMask>,
+    /// D-77: document 19's masks, in layer/source space, in the order they are drawn, first to
+    /// last. Document 21 applies them at step 2, before the transform, which is why they hold
+    /// source coordinates and not composition ones.
+    ///
+    /// Empty is the common case and means a whole layer. Before D-77 this was a single optional
+    /// mask; a file written that way is read as one Add mask at full opacity, and saving writes
+    /// the list.
+    pub masks: Vec<crate::mask::Mask>,
     pub matte: Option<MatteReference>,
     /// D-57: the layer this one rides on, which must be in the same composition. Document 21
     /// applies the parent's whole transform after this layer's own. Only anchor, position,
@@ -825,7 +829,7 @@ impl Layer {
             source_offset_frames: 0,
             transform: Transform::default(),
             exposure_spans: Vec::new(),
-            mask: None,
+            masks: Vec::new(),
             matte: None,
             parent: None,
             effects: Vec::new(),

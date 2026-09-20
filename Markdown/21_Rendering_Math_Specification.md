@@ -51,7 +51,7 @@ EXR output writes the working buffer unchanged and premultiplied. Float output i
 For each raster layer, the G1 order is:
 
 1. Decode the selected source drawing into tagged linear premultiplied RGBA.
-2. Apply the layer polygon mask in layer/source space.
+2. Apply the layer's masks in layer/source space.
 3. Evaluate ordered layer effects in layer space.
 4. Transform the resulting image into composition space, and project it to the screen through the composition camera (see Camera and depth below, D-58).
 5. Apply the referenced alpha matte in composition space.
@@ -114,6 +114,8 @@ D-67, accepted on 2026-09-18 and built in B-18b. A composition layer's step 1 is
 ## Mask and matte math
 
 Mask coverage `m` in 0..1 multiplies both premultiplied RGB and alpha. G1 polygon edges use the same deterministic rasterization rule in CPU reference and production backend; multisample details must be fixture-tested before claiming subpixel equivalence.
+
+D-77, accepted on 2026-09-19 and built in B-24b, says how a list of masks becomes that one `m`, without changing the rasterization rule ADR-016 fixes. A curved segment is a cubic Bezier through its two points and their handles, flattened into `n` straight pieces at equal steps of t before the sampler sees it, `n` the control polygon's length in pixels halved and rounded up, held between 16 and 512 - so a segment whose handles are both zero is the straight line it always was and draws the same pixels. One mask's own coverage is worked out in this order: expansion, a sample counting as inside when its distance to the outline, positive within, plus `expansion_px` is zero or more; then feather, this document's Gaussian on the coverage alone with `sigma = feather_px / 2`, separable, normalised, radius `ceil(3 * sigma)`, computed over a field extended by that radius so no coverage is invented at the frame's edge; then invert, which is `1 - m`; then opacity, which multiplies. The masks then combine first to last from an accumulator of nothing, except that a first mask in Subtract or Intersect starts from the whole layer: Add is `a + m - a*m`, Subtract is `a * (1 - m)`, Intersect is `a * m`, Difference is `a + m - 2*a*m`, each held within 0 and 1. A mask in mode `none` takes no part, and a layer with no mask that takes part is whole. At a draft preview size the points, both handles, the feather and the expansion are divided by the draft divisor with everything else (D-67).
 
 Alpha matte coverage is the matte layer's post-transform alpha sampled at the destination pixel. Apply `C'=C*m` and `A'=A*m`.
 

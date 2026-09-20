@@ -41,7 +41,7 @@ use rayon::prelude::*;
 use crate::compose::retag;
 use crate::diagnostics::Diagnostic;
 use crate::effects::{Bypassed, EffectInstance};
-use crate::mask::PolygonMask;
+use crate::mask::Mask;
 use crate::media;
 use crate::model::Interpretation;
 use crate::WorkingBuffer;
@@ -130,10 +130,10 @@ impl Key {
 /// What makes two evaluations of an effect stack the same evaluation (P-11).
 ///
 /// ADR-017 runs the stack whole-layer, on the cel's own pixels, before the frame plan exists, so
-/// an evaluation's whole input is the decoded cel, the mask that was drawn into it first, and the
-/// stack itself. All three are held here **by value rather than as a hash**: document 27 line 29
+/// an evaluation's whole input is the decoded cel, the masks that were drawn into it first, and
+/// the stack itself. All three are held here **by value rather than as a hash**: document 27 line 29
 /// requires every input to be in the key, and a comparison of the inputs themselves cannot
-/// collide the way a digest of them can. A mask is a handful of vertices and a stack is a handful
+/// collide the way a digest of them can. A mask is a handful of points and a stack is a handful
 /// of parameters, so this costs nothing next to the 33 MB it protects.
 ///
 /// The cel half is the same [`Key`] the decoded cel is held under - path, length, modification
@@ -142,9 +142,9 @@ impl Key {
 #[derive(PartialEq, Debug)]
 struct EffectKey {
     cel: Key,
-    /// `None` when the layer has no mask or its mask cannot be drawn, which are the two cases
-    /// where nothing is written into the cel before the stack runs.
-    mask: Option<PolygonMask>,
+    /// Empty when the layer has no mask, and holding only the masks that could be drawn: one
+    /// that cannot writes nothing into the cel, so it cannot change what the stack reads.
+    masks: Vec<Mask>,
     effects: Vec<EffectInstance>,
 }
 
@@ -374,7 +374,7 @@ impl CelCache {
         self.pending = decoded;
     }
 
-    /// The result of running `effects` over the cel at `path`, masked by `mask`, if this cache
+    /// The result of running `effects` over the cel at `path`, masked by `masks`, if this cache
     /// already has it (P-11).
     ///
     /// `None` on a miss, and `None` whenever the cel's metadata cannot be read, which is the same
@@ -384,13 +384,13 @@ impl CelCache {
         &mut self,
         path: &Path,
         interpretation: Interpretation,
-        mask: Option<&PolygonMask>,
+        masks: &[Mask],
         effects: &[EffectInstance],
     ) -> Option<EffectResult> {
         if self.effect_budget == 0 {
             return None;
         }
-        let key = self.effect_key(path, interpretation, mask, effects)?;
+        let key = self.effect_key(path, interpretation, masks, effects)?;
         crate::perf::time(crate::perf::Stage::EffectCache, || {
             match self.effect_entries.iter().position(|(k, _)| *k == key) {
                 Some(at) => {
@@ -414,14 +414,14 @@ impl CelCache {
         &mut self,
         path: &Path,
         interpretation: Interpretation,
-        mask: Option<&PolygonMask>,
+        masks: &[Mask],
         effects: &[EffectInstance],
         result: EffectResult,
     ) {
         if self.effect_budget == 0 {
             return;
         }
-        let Some(key) = self.effect_key(path, interpretation, mask, effects) else {
+        let Some(key) = self.effect_key(path, interpretation, masks, effects) else {
             return;
         };
         crate::perf::time(crate::perf::Stage::EffectCache, || {
@@ -443,12 +443,12 @@ impl CelCache {
         &self,
         path: &Path,
         interpretation: Interpretation,
-        mask: Option<&PolygonMask>,
+        masks: &[Mask],
         effects: &[EffectInstance],
     ) -> Option<EffectKey> {
         Some(EffectKey {
             cel: Key::of(path, interpretation)?,
-            mask: mask.cloned(),
+            masks: masks.to_vec(),
             effects: effects.to_vec(),
         })
     }

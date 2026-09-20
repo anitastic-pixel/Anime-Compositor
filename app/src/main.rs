@@ -15441,6 +15441,22 @@ mod contract {
         run(&viewer, &format!("layer.set_gain?layer={sound_id}&value=-6"));
         // B-23c: and a solid, the only kind that carries `solid`.
         run(&viewer, "layer.add_solid");
+        // B-24b: and a mask on layer-3, because a layer with none writes no `masks` key at all.
+        // It goes in through the core rather than through a URL: the window has no mask command
+        // until B-24c, and this check is about the panel reading a field that is there.
+        {
+            let mut held = held(&viewer);
+            let composition = held.composition.clone();
+            let _ = held.document.apply(anime_compositor::command::Command::SetMasks {
+                composition,
+                layer_id: anime_compositor::model::Id::new("layer-3"),
+                masks: vec![anime_compositor::mask::Mask::polygon(vec![
+                    (0.0, 0.0),
+                    (4.0, 0.0),
+                    (4.0, 4.0),
+                ])],
+            });
+        }
         let answer: serde_json::Value =
             serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
         let sound = answer["project"]["compositions"][0]["layers"]
@@ -15538,9 +15554,11 @@ mod contract {
             );
         }
 
-        // The mask, which no command in this build can make: the panel says how many points a
+        // The masks, which no command in this build can make: the panel says how many points a
         // layer's mask has, and the only way to have one is to open a project that carries one.
-        // A wrong name here would not be a blank field, it would be `undefined points`.
+        // A wrong name here would not be a blank field, it would be `undefined points`. D-77
+        // moved the points two levels in, to `masks[0].path.base.points`, and this is the row
+        // that would have gone on reading the old place without saying so.
         let with_a_mask = std::fs::read_to_string(repo("Fixtures/projects/cel_holds_project.json"))
             .expect("read the cel-holds fixture")
             .replace(
@@ -15555,9 +15573,11 @@ mod contract {
         ))
         .expect("what a save would write is JSON");
         report.check(
-            "`layer.mask.vertices` is in a saved project that has a mask",
+            "`layer.masks[0].path.base.points` is in a saved project that has a mask",
             "present",
-            match written["compositions"][0]["layers"][0]["mask"].get("vertices") {
+            match written["compositions"][0]["layers"][0]["masks"][0]["path"]["base"]
+                .get("points")
+            {
                 Some(_) => "present",
                 None => "missing - the inspector would say `undefined points`",
             },

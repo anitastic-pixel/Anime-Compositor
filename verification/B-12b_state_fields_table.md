@@ -52,7 +52,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.kind` is in the answer | present | present | pass |
 | `layer.label` is in the answer | present | present | pass |
 | `layer.locked` is in the answer | present | present | pass |
-| `layer.mask` is in the answer | present | present | pass |
+| `layer.masks` is in the answer | present | present | pass |
 | `layer.matte` is in the answer | present | present | pass |
 | `layer.name` is in the answer | present | present | pass |
 | `layer.out_frame` is in the answer | present | present | pass |
@@ -83,7 +83,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.transform.opacity.base` is in the answer | present | present | pass |
 | `layer.matte.layer_id` is in the answer | present | present | pass |
 | `layer.matte.matte_only` is in the answer | present | present | pass |
-| `layer.mask.vertices` is in a saved project that has a mask | present | present | pass |
+| `layer.masks[0].path.base.points` is in a saved project that has a mask | present | present | pass |
 | the panel's `core.gaussian_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - sigma_px - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.exposure` is an effect this build has | added | added | pass |

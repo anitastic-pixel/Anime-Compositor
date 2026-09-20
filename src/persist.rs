@@ -169,8 +169,17 @@ const KEY_ORDER: &[&str] = &[
     "exposure_spans",
     "drawing_number",
     "mask",
+    "masks",
     "inverted",
     "vertices",
+    "points",
+    "point",
+    "in",
+    "out",
+    "path",
+    "opacity",
+    "feather_px",
+    "expansion_px",
     "matte",
     "layer_id",
     "mode",
@@ -565,31 +574,64 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         }
         None => J::Null,
     };
-    // The mask merges over whatever the file held, the way the matte does, so a key this build
-    // does not know about inside a mask record survives the round trip. A mask the model does
-    // not have writes null, which is what a layer that never had one holds.
-    let mask = match &layer.mask {
-        Some(m) => {
-            let mut map = base
-                .and_then(|b| b.get("mask"))
+    // Each mask merges over whatever the file held at the same place in the list, the way the
+    // matte does, so a key this build does not know about inside a mask record survives the
+    // round trip -- and so does a path's `keyframes`, which B-24d will build and this build only
+    // carries. D-77: the `masks` list is written and the old single `mask` key never is, so a
+    // file saved by this build and opened by one older than it has no mask rather than a
+    // disagreeing pair.
+    let base_masks = base
+        .and_then(|b| b.get("masks"))
+        .and_then(J::as_array)
+        .map(|a| a.as_slice())
+        .unwrap_or(&[]);
+    let masks: Vec<J> = layer
+        .masks
+        .iter()
+        .enumerate()
+        .map(|(i, m)| {
+            let was = base_masks.get(i).and_then(J::as_object);
+            let mut map = was.cloned().unwrap_or_else(Map::new);
+            map.insert("name".into(), J::from(m.name.as_str()));
+            map.insert("enabled".into(), J::from(m.enabled));
+            map.insert("inverted".into(), J::from(m.inverted));
+            map.insert("mode".into(), J::from(m.mode.as_str()));
+            map.insert("opacity".into(), J::from(m.opacity));
+            map.insert("feather_px".into(), J::from(m.feather_px));
+            map.insert("expansion_px".into(), J::from(m.expansion_px));
+            let mut path = was
+                .and_then(|w| w.get("path"))
                 .and_then(J::as_object)
                 .cloned()
                 .unwrap_or_else(Map::new);
-            map.insert(
-                "vertices".into(),
+            let mut path_base = path
+                .get("base")
+                .and_then(J::as_object)
+                .cloned()
+                .unwrap_or_else(Map::new);
+            path_base.insert(
+                "points".into(),
                 J::Array(
-                    m.vertices
+                    m.points
                         .iter()
-                        .map(|&(x, y)| J::Array(vec![J::from(x), J::from(y)]))
+                        .map(|p| {
+                            let pair = |(x, y): (f64, f64)| J::Array(vec![J::from(x), J::from(y)]);
+                            let mut point = Map::new();
+                            point.insert("point".into(), pair(p.point));
+                            point.insert("in".into(), pair(p.in_handle));
+                            point.insert("out".into(), pair(p.out_handle));
+                            J::Object(point)
+                        })
                         .collect(),
                 ),
             );
-            map.insert("enabled".into(), J::from(m.enabled));
-            map.insert("inverted".into(), J::from(m.inverted));
+            path.insert("base".into(), J::Object(path_base));
+            path.entry("keyframes".to_string())
+                .or_insert_with(|| J::Array(Vec::new()));
+            map.insert("path".into(), J::Object(path));
             J::Object(map)
-        }
-        None => J::Null,
-    };
+        })
+        .collect();
     let mut owned = vec![
         ("id", J::from(layer.id.as_str())),
         ("kind", J::from(layer.kind.as_str())),
@@ -609,10 +651,19 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
             transform_json(base.and_then(|b| b.get("transform")), layer),
         ),
         ("exposure_spans", J::Array(spans)),
-        ("mask", mask),
         ("matte", matte),
         ("blend_mode", J::from(layer.blend_mode.as_str())),
     ];
+    // D-77: the list is written where the file already had one, or where there is a mask to
+    // write; a layer with no mask in a file that never had the key keeps it that way. The old
+    // single key, if the file held one, is written back as null: `merge` keeps what the file
+    // said for a key this build does not write, and a file holding both records refuses to open.
+    if !masks.is_empty() || base.is_some_and(|b| b.get("masks").is_some()) {
+        owned.push(("masks", J::Array(masks)));
+    }
+    if base.is_some_and(|b| b.get("mask").is_some_and(|m| !m.is_null())) {
+        owned.push(("mask", J::Null));
+    }
     // D-66: an adjustment layer has no drawing, so the three keys about one are not written.
     // D-74: nor are they for a solid, whose drawing is its `solid` record.
     if layer.is_adjustment() || layer.solid.is_some() {
@@ -1518,100 +1569,94 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         }
     };
 
-    // B-06 unparked masks, so a mask in a file is now read rather than warned about. The shape
-    // is document 07's: an ordered vertex list, closed by definition, plus enabled and inverted.
-    let mask = match v.get("mask") {
-        None | Some(J::Null) => None,
-        Some(m) => {
-            let at = format!("{pointer}/mask");
-            as_object(m, &at)?;
-            let at_v = format!("{at}/vertices");
-            let mut vertices = Vec::new();
-            for (i, vertex) in as_array(field(m, &at, "vertices")?, &at_v)?
-                .iter()
-                .enumerate()
-            {
-                let at_i = format!("{at_v}/{i}");
-                let pair = as_array(vertex, &at_i)?;
-                if pair.len() != 2 {
-                    return Err(invalid(
-                        &at_i,
-                        "a vertex that is not a pair of numbers. Document 19: a polygon mask is \
-                         an ordered list of vec2 vertices",
-                    ));
-                }
-                vertices.push((
-                    as_f64(&pair[0], &format!("{at_i}/0"))?,
-                    as_f64(&pair[1], &format!("{at_i}/1"))?,
-                ));
-            }
-            // A file may hold a mask this build did not write. Rejecting the project over its
-            // shape would lose the whole project for one bad polygon, and document 28 asks for
-            // the opposite: keep it, say so, and let it take no part in the picture. A mask that
-            // is refused here keeps its vertices and comes back out of `save` unchanged.
-            let mask = crate::mask::PolygonMask {
-                enabled: match m.get("enabled") {
-                    None => true,
-                    Some(e) => as_bool(e, &format!("{at}/enabled"))?,
-                },
-                inverted: match m.get("inverted") {
-                    None => false,
-                    Some(e) => as_bool(e, &format!("{at}/inverted"))?,
-                },
-                vertices,
-            };
-            // The mask is kept in the model whatever its shape, so that saving writes back what
-            // was read. What an unusable one loses is the picture, not the record, and the
-            // reason is said out loud here rather than discovered as a blank layer.
-            if !mask.enabled {
-                // Nothing to say. A mask switched off is a mask switched off.
-            } else if !mask.has_enough_vertices() && !mask.vertices.is_empty() {
-                warnings.push(
-                    Diagnostic::new(
-                        DiagnosticId::MaskInvalidOutline,
-                        Severity::Warning,
-                        format!(
-                            "The mask on layer \"{name}\" has {} vertices, which is not enough \
-                             to enclose anything.",
-                            mask.vertices.len()
-                        ),
-                        format!(
-                            "Document 19: a polygon mask is a closed ordered list of vertices, \
-                             and fewer than three of them have no interior. The mask on layer \
-                             {id} is kept in the project exactly as it was and takes no part in \
-                             rendering, so that layer draws unmasked."
-                        ),
-                    )
-                    .with_remediation(
-                        "Nothing was lost. Saving this project writes the mask back unchanged.",
-                    ),
-                );
-            } else if mask.has_enough_vertices() && !crate::mask::is_simple(&mask.vertices) {
-                warnings.push(
-                    Diagnostic::new(
-                        DiagnosticId::MaskInvalidOutline,
-                        Severity::Warning,
-                        format!(
-                            "The mask on layer \"{name}\" crosses itself, which this build does \
-                             not draw."
-                        ),
-                        format!(
-                            "Document 19: self-intersection is unsupported in G1 and must be \
-                             rejected, never normalized silently, because a normalized polygon \
-                             is a different shape from the one that was drawn. The mask on \
-                             layer {id} is kept in the project exactly as it was and takes no \
-                             part in rendering, so that layer draws unmasked."
-                        ),
-                    )
-                    .with_remediation(
-                        "Nothing was lost. Saving this project writes the mask back unchanged. \
-                         Redraw it so that no edge crosses another to have it drawn.",
-                    ),
-                );
-            }
-            Some(mask)
+    // B-06 unparked masks, and D-77 made them a list. A file holding the old single `mask` key
+    // is read as one mask, mode Add at full opacity with no feather, no expansion and no
+    // handles, named "Mask 1" -- and one holding both keys is refused, because there is no
+    // honest way to choose between them (FX-MSK-020).
+    // A null on either side is not a record, and this build writes `"mask": null` itself to put
+    // out the old key, so only two present records are the pair that cannot be read.
+    let present = |k: &str| v.get(k).is_some_and(|m| !m.is_null());
+    if present("mask") && present("masks") {
+        return Err(invalid(
+            &format!("{pointer}/masks"),
+            "either the old `mask` key or D-77's `masks` list, not both: there is no way to tell \
+             which of the two the person drew",
+        ));
+    }
+    let mut masks: Vec<crate::mask::Mask> = Vec::new();
+    if let Some(old) = v.get("mask").filter(|m| !m.is_null()) {
+        let at = format!("{pointer}/mask");
+        as_object(old, &at)?;
+        let mut mask = crate::mask::Mask::polygon(parse_vertices(old, &at)?);
+        mask.enabled = match old.get("enabled") {
+            None => true,
+            Some(e) => as_bool(e, &format!("{at}/enabled"))?,
+        };
+        mask.inverted = match old.get("inverted") {
+            None => false,
+            Some(e) => as_bool(e, &format!("{at}/inverted"))?,
+        };
+        masks.push(mask);
+    }
+    if let Some(list) = v.get("masks").filter(|m| !m.is_null()) {
+        let at = format!("{pointer}/masks");
+        for (i, m) in as_array(list, &at)?.iter().enumerate() {
+            masks.push(parse_mask(m, &format!("{at}/{i}"), i, &name, warnings)?);
         }
-    };
+    }
+    // A mask is kept in the model whatever its shape, so that saving writes back what was read.
+    // What an unusable one loses is the picture, not the record, and the reason is said out loud
+    // here rather than discovered as a blank layer.
+    for mask in &masks {
+        if !mask.enabled {
+            // Nothing to say. A mask switched off is a mask switched off.
+        } else if !mask.has_enough_points() && !mask.points.is_empty() {
+            warnings.push(
+                Diagnostic::new(
+                    DiagnosticId::MaskInvalidOutline,
+                    Severity::Warning,
+                    format!(
+                        "The mask \"{}\" on layer \"{name}\" has {} vertices, which is not \
+                         enough to enclose anything.",
+                        mask.name,
+                        mask.points.len()
+                    ),
+                    format!(
+                        "Document 19: a polygon mask is a closed ordered list of vertices, \
+                         and fewer than three of them have no interior. The mask on layer \
+                         {id} is kept in the project exactly as it was and takes no part in \
+                         rendering, so that layer draws without it."
+                    ),
+                )
+                .with_remediation(
+                    "Nothing was lost. Saving this project writes the mask back unchanged.",
+                ),
+            );
+        } else if mask.has_enough_points() && !crate::mask::is_simple(&mask.vertices()) {
+            warnings.push(
+                Diagnostic::new(
+                    DiagnosticId::MaskInvalidOutline,
+                    Severity::Warning,
+                    format!(
+                        "The mask \"{}\" on layer \"{name}\" crosses itself, which this \
+                         build does not draw.",
+                        mask.name
+                    ),
+                    format!(
+                        "Document 19: self-intersection is unsupported in G1 and must be \
+                         rejected, never normalized silently, because a normalized polygon \
+                         is a different shape from the one that was drawn. The mask on \
+                         layer {id} is kept in the project exactly as it was and takes no \
+                         part in rendering, so that layer draws without it."
+                    ),
+                )
+                .with_remediation(
+                    "Nothing was lost. Saving this project writes the mask back unchanged. \
+                     Redraw it so that no edge crosses another to have it drawn.",
+                ),
+            );
+        }
+    }
 
     // Document 19's ordered effect instances. B-07 implements three of them; anything else is
     // read as `Unsupported`, which is a record this build keeps and never draws.
@@ -1749,7 +1794,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         source_offset_frames,
         transform,
         exposure_spans,
-        mask,
+        masks,
         matte,
         parent,
         depth,
@@ -1762,6 +1807,189 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         blend_mode,
         gain_db: 0.0,
         solid,
+    })
+}
+
+/// The old single `mask` key's vertex list, which D-77 reads as a path of corners.
+fn parse_vertices(m: &J, at: &str) -> Result<Vec<(f64, f64)>, Diagnostic> {
+    let at_v = format!("{at}/vertices");
+    let mut vertices = Vec::new();
+    for (i, vertex) in as_array(field(m, at, "vertices")?, &at_v)?.iter().enumerate() {
+        let at_i = format!("{at_v}/{i}");
+        let pair = as_array(vertex, &at_i)?;
+        if pair.len() != 2 {
+            return Err(invalid(
+                &at_i,
+                "a vertex that is not a pair of numbers. Document 19: a polygon mask is \
+                 an ordered list of vec2 vertices",
+            ));
+        }
+        vertices.push((
+            as_f64(&pair[0], &format!("{at_i}/0"))?,
+            as_f64(&pair[1], &format!("{at_i}/1"))?,
+        ));
+    }
+    Ok(vertices)
+}
+
+/// A pair of numbers: a point, or one of its two handles, which D-53's convention makes an
+/// offset in pixels from the point rather than a position.
+fn parse_pair(v: &J, at: &str) -> Result<(f64, f64), Diagnostic> {
+    let pair = as_array(v, at)?;
+    if pair.len() != 2 {
+        return Err(invalid(
+            at,
+            "a pair of numbers: D-77 writes a mask point and each of its two handles as [x, y]",
+        ));
+    }
+    Ok((
+        as_f64(&pair[0], &format!("{at}/0"))?,
+        as_f64(&pair[1], &format!("{at}/1"))?,
+    ))
+}
+
+/// The points of one path, which is a `base` and, from B-24d, a key.
+fn parse_mask_points(v: &J, at: &str) -> Result<Vec<crate::mask::MaskPoint>, Diagnostic> {
+    as_object(v, at)?;
+    let at_p = format!("{at}/points");
+    let mut points = Vec::new();
+    for (i, point) in as_array(field(v, at, "points")?, &at_p)?.iter().enumerate() {
+        let at_i = format!("{at_p}/{i}");
+        as_object(point, &at_i)?;
+        points.push(crate::mask::MaskPoint {
+            point: parse_pair(field(point, &at_i, "point")?, &format!("{at_i}/point"))?,
+            in_handle: match point.get("in") {
+                None => (0.0, 0.0),
+                Some(h) => parse_pair(h, &format!("{at_i}/in"))?,
+            },
+            out_handle: match point.get("out") {
+                None => (0.0, 0.0),
+                Some(h) => parse_pair(h, &format!("{at_i}/out"))?,
+            },
+        });
+    }
+    Ok(points)
+}
+
+/// D-77's mask record. `index` numbers the unnamed ones, as the window numbers them.
+///
+/// Everything outside D-77's ranges refuses the file rather than being clamped: a clamped
+/// opacity is a picture nobody asked for, and document 28 would rather say no than guess.
+/// What is *kept* and diagnosed instead is an outline that cannot be drawn, which the caller
+/// warns about, and a path with keyframes on it, which this build carries but does not yet
+/// animate.
+fn parse_mask(
+    v: &J,
+    at: &str,
+    index: usize,
+    layer_name: &str,
+    warnings: &mut Vec<Diagnostic>,
+) -> Result<crate::mask::Mask, Diagnostic> {
+    as_object(v, at)?;
+    let mode_at = format!("{at}/mode");
+    let mode = match v.get("mode") {
+        None => crate::mask::MaskMode::Add,
+        Some(m) => match crate::mask::MaskMode::from_str(as_str(m, &mode_at)?) {
+            Some(mode) => mode,
+            None => {
+                return Err(invalid(
+                    &mode_at,
+                    "one of D-77's mask modes: add, subtract, intersect, difference or none",
+                ))
+            }
+        },
+    };
+    let number = |key: &str, default: f64| -> Result<f64, Diagnostic> {
+        match v.get(key) {
+            None => Ok(default),
+            Some(n) => as_f64(n, &format!("{at}/{key}")),
+        }
+    };
+    let opacity = number("opacity", 1.0)?;
+    if !(0.0..=1.0).contains(&opacity) {
+        return Err(invalid(&format!("{at}/opacity"), "an opacity from 0 to 1 (D-77)"));
+    }
+    let feather_px = number("feather_px", 0.0)?;
+    if !(feather_px >= 0.0) {
+        return Err(invalid(
+            &format!("{at}/feather_px"),
+            "a feather of 0 pixels or more (D-77)",
+        ));
+    }
+    let expansion_px = number("expansion_px", 0.0)?;
+    if !(expansion_px.abs() <= crate::mask::MAX_EXPANSION) {
+        return Err(invalid(
+            &format!("{at}/expansion_px"),
+            "an expansion from -8192 to 8192 pixels (D-77)",
+        ));
+    }
+    let path_at = format!("{at}/path");
+    let path = field(v, at, "path")?;
+    as_object(path, &path_at)?;
+    let points = parse_mask_points(
+        field(path, &path_at, "base")?,
+        &format!("{path_at}/base"),
+    )?;
+    let name = match v.get("name") {
+        None => format!("Mask {}", index + 1),
+        Some(n) => as_str(n, &format!("{at}/name"))?.to_string(),
+    };
+    // B-24d animates a path. Until it does, a file that carries keys on one is read, kept and
+    // drawn at its base -- and said out loud, because document 28 forbids a silent fidelity
+    // fallback and `export` marks a file incomplete on exactly this identifier.
+    let keys_at = format!("{path_at}/keyframes");
+    if let Some(keys) = path.get("keyframes").filter(|k| !k.is_null()) {
+        let keys = as_array(keys, &keys_at)?;
+        for (i, key) in keys.iter().enumerate() {
+            let at_i = format!("{keys_at}/{i}");
+            as_object(key, &at_i)?;
+            let held = parse_mask_points(field(key, &at_i, "value")?, &format!("{at_i}/value"))?;
+            if held.len() != points.len() {
+                return Err(invalid(
+                    &at_i,
+                    "a key holding the same number of points as the path's base: D-77 \
+                     interpolates a path point by point, and there is no honest way to \
+                     interpolate between outlines of different lengths",
+                ));
+            }
+        }
+        if !keys.is_empty() {
+            warnings.push(
+                Diagnostic::new(
+                    DiagnosticId::ProjectFeatureUnsupported,
+                    Severity::Warning,
+                    format!(
+                        "The mask \"{name}\" on layer \"{layer_name}\" has an animated \
+                         outline, which this build does not draw yet."
+                    ),
+                    format!(
+                        "D-77 defines an animated mask path and B-24d builds it. The {} keys \
+                         are kept in the project exactly as they were; every frame is drawn \
+                         from the path's base, so the outline does not move.",
+                        keys.len()
+                    ),
+                )
+                .with_remediation(
+                    "Nothing was lost. Saving this project writes the keys back unchanged.",
+                ),
+            );
+        }
+    }
+    Ok(crate::mask::Mask {
+        name,
+        enabled: match v.get("enabled") {
+            None => true,
+            Some(e) => as_bool(e, &format!("{at}/enabled"))?,
+        },
+        inverted: match v.get("inverted") {
+            None => false,
+            Some(e) => as_bool(e, &format!("{at}/inverted"))?,
+        },
+        mode,
+        opacity,
+        feather_px,
+        expansion_px,
+        points,
     })
 }
 
@@ -1809,6 +2037,7 @@ fn parse_audio_layer(v: &J, pointer: &str, id: Id) -> Result<Layer, Diagnostic> 
         "transform",
         "exposure_spans",
         "mask",
+        "masks",
         "matte",
         "blend_mode",
         "effects",

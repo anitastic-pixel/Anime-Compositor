@@ -971,13 +971,25 @@ fn write_report(report: &Report) {
 /// file that already had it, and that is the case document 28 asks the export to report.
 fn crossed_mask_on(project: &Project) -> Project {
     // Every layer, not just the first: the first layer in this project is switched off, and a
-    // layer that is never drawn would never report the mask it cannot draw.
-    let text = persist::to_json(project, &persist::Preserved::none()).replace(
-        "\"mask\": null",
-        "\"mask\": {\"inverted\": false, \"vertices\": [[0, 0], [10, 0], [0, 10], [10, 10]]}",
+    // layer that is never drawn would never report the mask it cannot draw. D-77 put the outline
+    // inside `masks[0].path.base.points`, so the bowtie is put on the layers and the project is
+    // then written and read back, which is the same "it came out of a file" story as before.
+    // `blend_mode` is written for every layer and for nothing else, so putting the mask in front
+    // of it puts one on every layer.
+    let point = |x: f64, y: f64| {
+        format!("{{\"point\": [{x}, {y}], \"in\": [0, 0], \"out\": [0, 0]}}")
+    };
+    let crossed = format!(
+        "\"masks\": [{{\"name\": \"Mask 1\", \"path\": {{\"base\": {{\"points\": [{}, {}, {}, {}]}}}}}}], \"blend_mode\"",
+        point(0.0, 0.0),
+        point(10.0, 0.0),
+        point(0.0, 10.0),
+        point(10.0, 10.0),
     );
+    let text = persist::to_json(project, &persist::Preserved::none())
+        .replace("\"blend_mode\"", &crossed);
     assert!(
-        text.contains("\"vertices\""),
+        text.contains("\"points\""),
         "the crossed mask went into the project file"
     );
     persist::load_str(&text)

@@ -41,7 +41,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use anime_compositor::command::{Command, Document};
-use anime_compositor::mask::{self, PolygonMask, SAMPLES_PER_SIDE};
+use anime_compositor::mask::{self, Mask, SAMPLES_PER_SIDE};
 use anime_compositor::model::{BlendMode, Id, Layer};
 use anime_compositor::render::{render, Affine, FramePlan, LayerDraw, MatteDraw};
 use anime_compositor::WorkingBuffer;
@@ -328,7 +328,7 @@ fn premultiplied_and_inverted(report: &mut Report) {
     let source = [0.4, 0.2, 0.1, 0.5];
 
     let mut buf = solid(8, 8, source);
-    mask::apply(&mut buf, &PolygonMask::new(poly.clone()));
+    mask::apply(&mut buf, &[Mask::polygon(poly.clone())]);
     // Document 21: "Mask coverage m in 0..1 multiplies both premultiplied RGB and alpha." At
     // coverage 0.5 that is (0.2, 0.1, 0.05, 0.25), by hand.
     report.check(
@@ -346,9 +346,9 @@ fn premultiplied_and_inverted(report: &mut Report) {
     );
 
     let mut inverted_buf = solid(8, 8, source);
-    let mut inverted = PolygonMask::new(poly.clone());
+    let mut inverted = Mask::polygon(poly.clone());
     inverted.inverted = true;
-    mask::apply(&mut inverted_buf, &inverted);
+    mask::apply(&mut inverted_buf, &[inverted]);
     // The identity, not a number: m and 1-m must sum to the original at every pixel, whatever
     // the coverage is. A rasterizer that was wrong in the same way on both passes would still
     // fail this, because the two passes use different coverage values.
@@ -371,9 +371,9 @@ fn premultiplied_and_inverted(report: &mut Report) {
     // A disabled mask changes nothing at all, which is what lets one be switched off without
     // losing the shape that was drawn.
     let mut disabled_buf = solid(8, 8, source);
-    let mut disabled = PolygonMask::new(poly.clone());
+    let mut disabled = Mask::polygon(poly.clone());
     disabled.enabled = false;
-    mask::apply(&mut disabled_buf, &disabled);
+    mask::apply(&mut disabled_buf, &[disabled]);
     report.check(
         "a disabled mask leaves every pixel untouched",
         q(source),
@@ -398,7 +398,7 @@ fn rejection(report: &mut Report) {
     // shape. `apply` leaves the layer alone, which is a layer drawn unmasked.
     let source = [0.4, 0.2, 0.1, 0.5];
     let mut buf = solid(8, 8, source);
-    mask::apply(&mut buf, &PolygonMask::new(bowtie.clone()));
+    mask::apply(&mut buf, &[Mask::polygon(bowtie.clone())]);
     report.check(
         "and a layer carrying one is drawn unmasked rather than blank",
         q(source),
@@ -406,7 +406,7 @@ fn rejection(report: &mut Report) {
     );
     // Two vertices cannot enclose anything.
     let mut buf = solid(8, 8, source);
-    mask::apply(&mut buf, &PolygonMask::new(vec![(0.0, 0.0), (4.0, 4.0)]));
+    mask::apply(&mut buf, &[Mask::polygon(vec![(0.0, 0.0), (4.0, 4.0)])]);
     report.check(
         "a mask of two points is not drawn either",
         q(source),
@@ -575,7 +575,12 @@ fn cache_isolation(report: &mut Report) {
     // happened to cover nothing would make every row below pass without proving anything.
     mask::apply(
         first,
-        &PolygonMask::new(vec![(3.0, 3.0), (4.0, 3.0), (4.0, 4.0), (3.0, 4.0)]),
+        &[Mask::polygon(vec![
+            (3.0, 3.0),
+            (4.0, 3.0),
+            (4.0, 4.0),
+            (3.0, 4.0),
+        ])],
     );
     report.check(
         "the copy that was masked really was cut, so the check below is not vacuous",
@@ -630,10 +635,10 @@ fn command_rules(report: &mut Report) {
 
     // A valid mask goes on, and undo takes it off. Document 26: a command supplies enough to
     // restore the exact prior state.
-    let set = Command::SetMask {
+    let set = Command::SetMasks {
         composition: comp.clone(),
         layer_id: layer_id.clone(),
-        mask: Some(PolygonMask::new(square())),
+        masks: vec![Mask::polygon(square())],
     };
     report.check(
         "a valid mask is accepted",
@@ -646,8 +651,8 @@ fn command_rules(report: &mut Report) {
     report.check(
         "and the layer now carries it",
         "4 vertices",
-        match layer_of(&doc, &comp, &layer_id).mask.as_ref() {
-            Some(m) => format!("{} vertices", m.vertices.len()),
+        match layer_of(&doc, &comp, &layer_id).masks.first() {
+            Some(m) => format!("{} vertices", m.points.len()),
             None => "none".to_string(),
         },
     );
@@ -655,22 +660,22 @@ fn command_rules(report: &mut Report) {
     report.check(
         "undo removes it and leaves no mask behind",
         "none",
-        match layer_of(&doc, &comp, &layer_id).mask.as_ref() {
-            Some(m) => format!("{} vertices", m.vertices.len()),
+        match layer_of(&doc, &comp, &layer_id).masks.first() {
+            Some(m) => format!("{} vertices", m.points.len()),
             None => "none".to_string(),
         },
     );
 
     // Document 19: self-intersection must be rejected, not normalized.
-    let bowtie = Command::SetMask {
+    let bowtie = Command::SetMasks {
         composition: comp.clone(),
         layer_id: layer_id.clone(),
-        mask: Some(PolygonMask::new(vec![
+        masks: vec![Mask::polygon(vec![
             (0.0, 0.0),
             (4.0, 0.0),
             (0.0, 4.0),
             (4.0, 4.0),
-        ])),
+        ])],
     };
     // The message, not only the identifier. Both refusals report MASK_INVALID_OUTLINE, so an
     // identifier alone cannot tell whether a shape was refused for the right reason -- a build
@@ -687,16 +692,16 @@ fn command_rules(report: &mut Report) {
     report.check(
         "and a refused command leaves no mask on the layer",
         "none",
-        match layer_of(&doc, &comp, &layer_id).mask.as_ref() {
-            Some(m) => format!("{} vertices", m.vertices.len()),
+        match layer_of(&doc, &comp, &layer_id).masks.first() {
+            Some(m) => format!("{} vertices", m.points.len()),
             None => "none".to_string(),
         },
     );
 
-    let two_points = Command::SetMask {
+    let two_points = Command::SetMasks {
         composition: comp.clone(),
         layer_id: layer_id.clone(),
-        mask: Some(PolygonMask::new(vec![(0.0, 0.0), (4.0, 4.0)])),
+        masks: vec![Mask::polygon(vec![(0.0, 0.0), (4.0, 4.0)])],
     };
     report.check(
         "a mask of two points is refused, for having too few points",

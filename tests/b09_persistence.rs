@@ -461,10 +461,12 @@ fn b09_persistence() {
     );
     let mask_loaded = persist::load_str(&masked).expect("opens");
     report.check(
+        // D-77 saves the outline as `masks[0].path.base.points`, never the old `vertices`, so
+        // what this asks is that the shape is still there under its new name.
         "and the mask is still in the file after saving",
         true,
         persist::to_json(mask_loaded.document.project(), &mask_loaded.preserved)
-            .contains("\"vertices\""),
+            .contains("\"points\""),
     );
 
     // Document 19 rejects a self-intersecting mask rather than repairing it, and document 28
@@ -493,9 +495,9 @@ fn b09_persistence() {
             .compositions
             .iter()
             .flat_map(|c| c.layers_in_order())
-            .find_map(|l| l.mask.as_ref())
+            .find_map(|l| l.masks.first())
         {
-            Some(m) => format!("{:?}", m.vertices),
+            Some(m) => format!("{:?}", m.vertices()),
             None => "the mask was dropped".to_string(),
         },
     );
