@@ -25,6 +25,7 @@ import json
 import struct
 import sys
 import zlib
+from copy import deepcopy
 from math import ceil, exp, hypot
 from pathlib import Path
 
@@ -372,7 +373,9 @@ DIAGNOSED = {"FX-MSK-018": "MASK_INVALID_OUTLINE", "FX-MSK-019": "MASK_INVALID_O
 def refusals():
     """Files a build must refuse whole, as PROJECT_SCHEMA_INVALID, each a change to FX-MSK-001."""
     def edit(change):
-        p = project_json("FX-MSK-001", CASES["FX-MSK-001"][1])
+        # Deep-copied, or one refusal's damage would still be in the next one's file: the case
+        # dictionaries are shared, and a mask edited in place here would be edited for everybody.
+        p = deepcopy(project_json("FX-MSK-001", CASES["FX-MSK-001"][1]))
         change(p["compositions"][0]["layers"][0])
         return p
 
@@ -398,11 +401,16 @@ def refusals():
         "FX-MSK-028": ("A `masks` key that is not a list.", edit(lambda l: l.__setitem__(
             "masks", l["masks"][0]))),
         "FX-MSK-029": ("Masks on an audio layer.",
-                       edit(lambda l: l.update(kind="audio", asset_id="asset-bg"))),
+                       # Everything else about a picture goes, or the file would be refused for
+                       # its transform before anybody looked at its masks.
+                       edit(lambda l: [l.update(kind="audio", asset_id="asset-bg"),
+                                       [l.pop(k, None) for k in ("transform", "exposure_spans",
+                                                                 "matte", "blend_mode",
+                                                                 "effects")]])),
         "FX-MSK-030": ("A keyed path whose key holds a different number of points.",
                        edit(lambda l: l["masks"][0]["path"]["keyframes"].append(
                            {"frame": 1, "value": {"points": points([0, 0], [1, 0], [1, 1])[:3]},
-                            "interpolation": "linear"}) or l["masks"][0]["path"]["keyframes"][0]
+                            "interp": "linear"}) or l["masks"][0]["path"]["keyframes"][0]
                            ["value"].__setitem__("points", points([0, 0], [1, 0], [1, 1])))),
     }
 
