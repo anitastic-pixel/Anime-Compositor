@@ -122,6 +122,15 @@ pub enum DiagnosticId {
     /// one, WARNING when a project already on disk holds one, in which case the record is
     /// preserved, the layer draws unmasked, and the output says its fidelity is incomplete.
     MaskInvalidOutline,
+    /// Document 28, added by D-78: a shape with fewer than two points, which has nothing to fill
+    /// and nothing to stroke between. ERROR when a command would create one, WARNING when a
+    /// project already on disk holds one, in which case the record is preserved and that shape
+    /// draws nothing.
+    ///
+    /// A shape that crosses itself is deliberately *not* this: unlike a mask, where nobody can
+    /// say which side to keep, the even-odd rule says exactly what a crossed shape fills, so it
+    /// is drawn.
+    ShapeInvalidOutline,
     /// **Proposed (D-21).** A command named a composition, layer or keyframe that is not there.
     CommandTargetMissing,
     /// **Proposed (D-21).** A command carried a value the model cannot hold: the wrong value
@@ -195,6 +204,7 @@ impl DiagnosticId {
             DiagnosticId::ParentCycle => "PARENT_CYCLE",
             DiagnosticId::CameraPlaneBehind => "CAMERA_PLANE_BEHIND",
             DiagnosticId::MaskInvalidOutline => "MASK_INVALID_OUTLINE",
+            DiagnosticId::ShapeInvalidOutline => "SHAPE_INVALID_OUTLINE",
             DiagnosticId::CommandTargetMissing => "COMMAND_TARGET_MISSING",
             DiagnosticId::CommandInvalidValue => "COMMAND_INVALID_VALUE",
             DiagnosticId::CommandLayerLocked => "COMMAND_LAYER_LOCKED",
@@ -243,6 +253,7 @@ impl DiagnosticId {
                 | DiagnosticId::CompositionCycle
                 | DiagnosticId::CameraPlaneBehind
                 | DiagnosticId::MaskInvalidOutline
+                | DiagnosticId::ShapeInvalidOutline
                 | DiagnosticId::ExportWriteFailed
                 | DiagnosticId::ExportCancelled
                 | DiagnosticId::ExpressionSyntax

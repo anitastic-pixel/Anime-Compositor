@@ -705,6 +705,8 @@ pub enum LayerKind {
     Audio,
     /// D-74: a rectangle of one colour, held in [`Layer::solid`].
     Solid,
+    /// D-78: a list of drawn shapes, held in [`Layer::shapes`], in the composition's own space.
+    Shape,
 }
 
 impl LayerKind {
@@ -715,6 +717,7 @@ impl LayerKind {
             LayerKind::Composition => "composition",
             LayerKind::Audio => "audio",
             LayerKind::Solid => "solid",
+            LayerKind::Shape => "shape",
         }
     }
 }
@@ -805,6 +808,12 @@ pub struct Layer {
     pub gain_db: f64,
     /// D-74: a solid layer's colour and size, and `None` on every other kind.
     pub solid: Option<Solid>,
+    /// D-78: a shape layer's drawn shapes, first to last, and empty on every other kind.
+    ///
+    /// A shape layer has no width or height of its own: its picture is the composition's size,
+    /// which is why nothing here says one. A shape's path is D-77's record unchanged, so it may
+    /// move exactly as a mask's path does.
+    pub shapes: Vec<crate::shape::Shape>,
 }
 
 impl Layer {
@@ -839,6 +848,7 @@ impl Layer {
             depth: None,
             gain_db: 0.0,
             solid: None,
+            shapes: Vec::new(),
         }
     }
 
@@ -926,11 +936,33 @@ impl Layer {
         layer
     }
 
+    /// D-78: a layer whose picture is the shapes it carries, drawn into the composition's own
+    /// space. It has no size of its own, so its anchor and its position are both the centre of
+    /// the `width` by `height` composition, which leaves shape coordinates and composition
+    /// coordinates the same numbers.
+    pub fn shape(
+        id: Id,
+        name: impl Into<String>,
+        shapes: Vec<crate::shape::Shape>,
+        width: u32,
+        height: u32,
+        in_frame: i32,
+        out_frame: i32,
+    ) -> Self {
+        let mut layer = Layer::new(id, name, Id::new(""), in_frame, out_frame);
+        layer.kind = LayerKind::Shape;
+        layer.shapes = shapes;
+        let centre = Value::Vec2(width as f64 / 2.0, height as f64 / 2.0);
+        layer.transform.anchor = Property::constant(centre.clone());
+        layer.transform.position = Property::constant(centre);
+        layer
+    }
+
     /// True of the kinds that name no asset: nothing looks an asset up for them.
     pub fn has_no_drawing(&self) -> bool {
         matches!(
             self.kind,
-            LayerKind::Adjustment | LayerKind::Composition | LayerKind::Solid
+            LayerKind::Adjustment | LayerKind::Composition | LayerKind::Solid | LayerKind::Shape
         )
     }
 

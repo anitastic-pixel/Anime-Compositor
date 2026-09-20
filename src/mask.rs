@@ -222,36 +222,7 @@ impl Mask {
 
     /// The path at a composition frame. [`Mask::at`] is this, with the keys taken off.
     pub fn points_at(&self, frame: i32) -> Vec<MaskPoint> {
-        let Some(first) = self.keys.first() else {
-            return self.points.clone();
-        };
-        if frame <= first.frame {
-            return first.points.clone();
-        }
-        let last = self.keys.last().expect("a first key means a last one");
-        if frame >= last.frame {
-            return last.points.clone();
-        }
-        let i = self.keys.partition_point(|k| k.frame <= frame) - 1;
-        let (a, b) = (&self.keys[i], &self.keys[i + 1]);
-        if a.frame == frame || a.interp == Interp::Hold {
-            return a.points.clone();
-        }
-        let u = (frame - a.frame) as f64 / (b.frame - a.frame) as f64;
-        let u = match a.interp {
-            Interp::Ease { x1, y1, x2, y2 } => crate::model::solve(x1, y1, x2, y2, u),
-            _ => u,
-        };
-        let between = |p: (f64, f64), q: (f64, f64)| (p.0 + (q.0 - p.0) * u, p.1 + (q.1 - p.1) * u);
-        a.points
-            .iter()
-            .zip(&b.points)
-            .map(|(p, q)| MaskPoint {
-                point: between(p.point, q.point),
-                in_handle: between(p.in_handle, q.in_handle),
-                out_handle: between(p.out_handle, q.out_handle),
-            })
-            .collect()
+        points_at(&self.points, &self.keys, frame)
     }
 
     /// The points alone, without their handles: what [`is_simple`] is asked about.
@@ -291,35 +262,93 @@ impl Mask {
     /// counted from the control polygon's length summed point, out handle, in handle, point — in
     /// that order, so the count is the same on every machine.
     pub fn outline(&self) -> Vec<(f64, f64)> {
-        let n = self.points.len();
-        let mut out = Vec::with_capacity(n);
-        for i in 0..n {
-            let p0 = self.points[i];
-            let p1 = self.points[(i + 1) % n];
-            let a = p0.point;
-            let b = (a.0 + p0.out_handle.0, a.1 + p0.out_handle.1);
-            let d = p1.point;
-            let c = (d.0 + p1.in_handle.0, d.1 + p1.in_handle.1);
-            out.push(a);
-            if p0.out_handle == (0.0, 0.0) && p1.in_handle == (0.0, 0.0) {
-                continue;
-            }
-            let mut length = (b.0 - a.0).hypot(b.1 - a.1);
-            length += (c.0 - b.0).hypot(c.1 - b.1);
-            length += (d.0 - c.0).hypot(d.1 - c.1);
-            let pieces = ((length / 2.0).ceil() as usize).clamp(MIN_PIECES, MAX_PIECES);
-            for k in 1..pieces {
-                let t = k as f64 / pieces as f64;
-                let u = 1.0 - t;
-                let w = (u * u * u, 3.0 * u * u * t, 3.0 * u * t * t, t * t * t);
-                out.push((
-                    w.0 * a.0 + w.1 * b.0 + w.2 * c.0 + w.3 * d.0,
-                    w.0 * a.1 + w.1 * b.1 + w.2 * c.1 + w.3 * d.1,
-                ));
-            }
-        }
-        out
+        flatten(&self.points, true)
     }
+}
+
+/// A keyed path at a composition frame, by document 20's rules in document 20's order.
+///
+/// B-24d wrote this for a mask and D-78 gives a shape the same path record, so it is one
+/// function asked by both rather than two that must be kept in step.
+///
+/// No keys is the base; before the first key is the first key; after the last is the last; on a
+/// key is that key; a hold segment is its left key; and between two keys every point moves the
+/// same fraction of the way — the point and both its handles, each of the six numbers on its
+/// own, at the fraction the ease gives on an eased segment and at `u` itself on a linear one.
+pub fn points_at(base: &[MaskPoint], keys: &[MaskKey], frame: i32) -> Vec<MaskPoint> {
+    let Some(first) = keys.first() else {
+        return base.to_vec();
+    };
+    if frame <= first.frame {
+        return first.points.clone();
+    }
+    let last = keys.last().expect("a first key means a last one");
+    if frame >= last.frame {
+        return last.points.clone();
+    }
+    let i = keys.partition_point(|k| k.frame <= frame) - 1;
+    let (a, b) = (&keys[i], &keys[i + 1]);
+    if a.frame == frame || a.interp == Interp::Hold {
+        return a.points.clone();
+    }
+    let u = (frame - a.frame) as f64 / (b.frame - a.frame) as f64;
+    let u = match a.interp {
+        Interp::Ease { x1, y1, x2, y2 } => crate::model::solve(x1, y1, x2, y2, u),
+        _ => u,
+    };
+    let between = |p: (f64, f64), q: (f64, f64)| (p.0 + (q.0 - p.0) * u, p.1 + (q.1 - p.1) * u);
+    a.points
+        .iter()
+        .zip(&b.points)
+        .map(|(p, q)| MaskPoint {
+            point: between(p.point, q.point),
+            in_handle: between(p.in_handle, q.in_handle),
+            out_handle: between(p.out_handle, q.out_handle),
+        })
+        .collect()
+}
+
+/// D-77's flattening, with the one difference D-78's open path makes.
+///
+/// A closed path has a segment from its last point back to its first; an open one does not, so
+/// its last point is the end of the line rather than a corner, and is pushed on at the end
+/// because no segment starts there. A mask is always closed; a shape may be either.
+pub fn flatten(points: &[MaskPoint], closed: bool) -> Vec<(f64, f64)> {
+    let n = points.len();
+    let mut out = Vec::with_capacity(n);
+    if n == 0 {
+        return out;
+    }
+    let segments = if closed { n } else { n - 1 };
+    for i in 0..segments {
+        let p0 = points[i];
+        let p1 = points[(i + 1) % n];
+        let a = p0.point;
+        let b = (a.0 + p0.out_handle.0, a.1 + p0.out_handle.1);
+        let d = p1.point;
+        let c = (d.0 + p1.in_handle.0, d.1 + p1.in_handle.1);
+        out.push(a);
+        if p0.out_handle == (0.0, 0.0) && p1.in_handle == (0.0, 0.0) {
+            continue;
+        }
+        let mut length = (b.0 - a.0).hypot(b.1 - a.1);
+        length += (c.0 - b.0).hypot(c.1 - b.1);
+        length += (d.0 - c.0).hypot(d.1 - c.1);
+        let pieces = ((length / 2.0).ceil() as usize).clamp(MIN_PIECES, MAX_PIECES);
+        for k in 1..pieces {
+            let t = k as f64 / pieces as f64;
+            let u = 1.0 - t;
+            let w = (u * u * u, 3.0 * u * u * t, 3.0 * u * t * t, t * t * t);
+            out.push((
+                w.0 * a.0 + w.1 * b.0 + w.2 * c.0 + w.3 * d.0,
+                w.0 * a.1 + w.1 * b.1 + w.2 * c.1 + w.3 * d.1,
+            ));
+        }
+    }
+    if !closed {
+        out.push(points[n - 1].point);
+    }
+    out
 }
 
 /// Whether the polygon is simple: no edge crosses another, and no two vertices coincide.
@@ -422,11 +451,27 @@ pub fn point_inside(vertices: &[(f64, f64)], x: f64, y: f64) -> bool {
 
 /// The shortest distance from a point to the outline itself, never signed.
 fn distance_to_outline(outline: &[(f64, f64)], x: f64, y: f64) -> f64 {
-    let n = outline.len();
+    distance_to_path(outline, true, x, y)
+}
+
+/// The same, for a path that may be open.
+///
+/// An open path is the pieces between its points and no more. That is the whole of why D-78's
+/// stroke ends in a half circle: the nearest thing to a sample past the end of the line is the
+/// end point itself, so every sample within half a width of it is in the stroke.
+pub fn distance_to_path(path: &[(f64, f64)], closed: bool, x: f64, y: f64) -> f64 {
+    let n = path.len();
+    if n == 0 {
+        return f64::INFINITY;
+    }
+    if n == 1 {
+        return (x - path[0].0).hypot(y - path[0].1);
+    }
     let mut best = f64::INFINITY;
-    for i in 0..n {
-        let (x0, y0) = outline[i];
-        let (x1, y1) = outline[(i + 1) % n];
+    let segments = if closed { n } else { n - 1 };
+    for i in 0..segments {
+        let (x0, y0) = path[i];
+        let (x1, y1) = path[(i + 1) % n];
         let (dx, dy) = (x1 - x0, y1 - y0);
         let run = dx * dx + dy * dy;
         let t = if run == 0.0 {

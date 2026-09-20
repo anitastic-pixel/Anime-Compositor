@@ -595,6 +595,54 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                 .collect(),
         )
     };
+    // D-77's `path` record, written from the model and merged over whatever the file held at the
+    // same place. One writer for a mask's path and a shape's path, because D-78 makes them one
+    // record.
+    let path_json = |was: Option<&Map<String, J>>,
+                     points: &[crate::mask::MaskPoint],
+                     keys: &[crate::mask::MaskKey]| {
+        let mut path = was
+            .and_then(|w| w.get("path"))
+            .and_then(J::as_object)
+            .cloned()
+            .unwrap_or_else(Map::new);
+        let mut path_base = path
+            .get("base")
+            .and_then(J::as_object)
+            .cloned()
+            .unwrap_or_else(Map::new);
+        path_base.insert("points".into(), points_json(points));
+        path.insert("base".into(), J::Object(path_base));
+        path.insert(
+            "keyframes".into(),
+            J::Array(
+                keys.iter()
+                    .map(|k| {
+                        let mut key = Map::new();
+                        key.insert("frame".into(), J::from(k.frame));
+                        let mut value = Map::new();
+                        value.insert("points".into(), points_json(&k.points));
+                        key.insert("value".into(), J::Object(value));
+                        key.insert("interp".into(), J::from(k.interp.as_str()));
+                        // Document 19: the four numbers go with `ease` and nothing else.
+                        if let Interp::Ease { x1, y1, x2, y2 } = k.interp {
+                            key.insert(
+                                "ease".into(),
+                                J::Array(vec![
+                                    J::from(x1),
+                                    J::from(y1),
+                                    J::from(x2),
+                                    J::from(y2),
+                                ]),
+                            );
+                        }
+                        J::Object(key)
+                    })
+                    .collect(),
+            ),
+        );
+        J::Object(path)
+    };
     let base_masks = base
         .and_then(|b| b.get("masks"))
         .and_then(J::as_array)
@@ -614,48 +662,7 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
             map.insert("opacity".into(), J::from(m.opacity));
             map.insert("feather_px".into(), J::from(m.feather_px));
             map.insert("expansion_px".into(), J::from(m.expansion_px));
-            let mut path = was
-                .and_then(|w| w.get("path"))
-                .and_then(J::as_object)
-                .cloned()
-                .unwrap_or_else(Map::new);
-            let mut path_base = path
-                .get("base")
-                .and_then(J::as_object)
-                .cloned()
-                .unwrap_or_else(Map::new);
-            path_base.insert("points".into(), points_json(&m.points));
-            path.insert("base".into(), J::Object(path_base));
-            path.insert(
-                "keyframes".into(),
-                J::Array(
-                    m.keys
-                        .iter()
-                        .map(|k| {
-                            let mut key = Map::new();
-                            key.insert("frame".into(), J::from(k.frame));
-                            let mut value = Map::new();
-                            value.insert("points".into(), points_json(&k.points));
-                            key.insert("value".into(), J::Object(value));
-                            key.insert("interp".into(), J::from(k.interp.as_str()));
-                            // Document 19: the four numbers go with `ease` and nothing else.
-                            if let Interp::Ease { x1, y1, x2, y2 } = k.interp {
-                                key.insert(
-                                    "ease".into(),
-                                    J::Array(vec![
-                                        J::from(x1),
-                                        J::from(y1),
-                                        J::from(x2),
-                                        J::from(y2),
-                                    ]),
-                                );
-                            }
-                            J::Object(key)
-                        })
-                        .collect(),
-                ),
-            );
-            map.insert("path".into(), J::Object(path));
+            map.insert("path".into(), path_json(was, &m.points, &m.keys));
             J::Object(map)
         })
         .collect();
@@ -691,9 +698,61 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     if base.is_some_and(|b| b.get("mask").is_some_and(|m| !m.is_null())) {
         owned.push(("mask", J::Null));
     }
+    // D-78: a shape layer's drawing is its `shapes` list, written from the model and merged over
+    // what the file held at the same place, as the masks are.
+    if layer.kind == LayerKind::Shape {
+        let base_shapes = base
+            .and_then(|b| b.get("shapes"))
+            .and_then(J::as_array)
+            .map(|a| a.as_slice())
+            .unwrap_or(&[]);
+        let shapes: Vec<J> = layer
+            .shapes
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let was = base_shapes.get(i).and_then(J::as_object);
+                let mut map = was.cloned().unwrap_or_else(Map::new);
+                map.insert("name".into(), J::from(s.name.as_str()));
+                map.insert("enabled".into(), J::from(s.enabled));
+                map.insert("closed".into(), J::from(s.closed));
+                map.insert("path".into(), path_json(was, &s.points, &s.keys));
+                // Absent and null both mean "no fill" on the way in, and null is written on the
+                // way out so that a file that had one and lost it says so rather than keeping it.
+                map.insert(
+                    "fill".into(),
+                    match s.fill {
+                        None => J::Null,
+                        Some(f) => {
+                            let mut m = Map::new();
+                            m.insert("color".into(), J::from(f.color.to_vec()));
+                            m.insert("opacity".into(), J::from(f.opacity));
+                            J::Object(m)
+                        }
+                    },
+                );
+                map.insert(
+                    "stroke".into(),
+                    match s.stroke {
+                        None => J::Null,
+                        Some(t) => {
+                            let mut m = Map::new();
+                            m.insert("color".into(), J::from(t.color.to_vec()));
+                            m.insert("opacity".into(), J::from(t.opacity));
+                            m.insert("width_px".into(), J::from(t.width_px));
+                            J::Object(m)
+                        }
+                    },
+                );
+                J::Object(map)
+            })
+            .collect();
+        owned.push(("shapes", J::Array(shapes)));
+    }
     // D-66: an adjustment layer has no drawing, so the three keys about one are not written.
     // D-74: nor are they for a solid, whose drawing is its `solid` record.
-    if layer.is_adjustment() || layer.solid.is_some() {
+    // D-78: nor for a shape layer, whose drawing is its `shapes` list.
+    if layer.is_adjustment() || layer.solid.is_some() || layer.kind == LayerKind::Shape {
         owned.retain(|(key, _)| {
             !matches!(*key, "asset_id" | "source_offset_frames" | "exposure_spans")
         });
@@ -1403,9 +1462,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["raster", "adjustment", "composition", "audio", "solid"],
+        &["raster", "adjustment", "composition", "audio", "solid", "shape"],
     )? {
         "solid" => LayerKind::Solid,
+        "shape" => LayerKind::Shape,
         "audio" => LayerKind::Audio,
         "adjustment" => LayerKind::Adjustment,
         "composition" => LayerKind::Composition,
@@ -1421,8 +1481,8 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         if v.get("asset_id").is_some() {
             return Err(invalid(
                 &format!("{pointer}/asset_id"),
-                "no asset_id on an adjustment, composition or solid layer, which has no drawing \
-                 (D-66, D-67, D-74)",
+                "no asset_id on an adjustment, composition, solid or shape layer, which has no \
+                 drawing of its own (D-66, D-67, D-74, D-78)",
             ));
         }
         Id::new("")
@@ -1476,8 +1536,38 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     } else {
         None
     };
+    // D-78: a shape layer's drawing is its `shapes` list, and like a solid it has no exposures
+    // and no source offset -- there is no footage behind it to offset into.
+    let mut shapes: Vec<crate::shape::Shape> = Vec::new();
+    if kind == LayerKind::Shape {
+        for key in ["exposure_spans", "source_offset_frames"] {
+            if v.get(key).is_some() {
+                return Err(invalid(
+                    &format!("{pointer}/{key}"),
+                    &format!(
+                        "no {key} on a shape layer, whose drawing is the shapes it carries (D-78)"
+                    ),
+                ));
+            }
+        }
+        let at = format!("{pointer}/shapes");
+        for (i, s) in as_array(field(v, pointer, "shapes")?, &at)?.iter().enumerate() {
+            shapes.push(parse_shape(s, &format!("{at}/{i}"), i)?);
+        }
+    } else if v.get("shapes").is_some() {
+        return Err(invalid(
+            &format!("{pointer}/shapes"),
+            "no shapes on a layer whose kind is not shape (D-78)",
+        ));
+    }
     let source_offset_frames = match v.get("source_offset_frames") {
-        None if matches!(kind, LayerKind::Adjustment | LayerKind::Solid) => 0,
+        None if matches!(
+            kind,
+            LayerKind::Adjustment | LayerKind::Solid | LayerKind::Shape
+        ) =>
+        {
+            0
+        }
         _ => as_i32(
             field(v, pointer, "source_offset_frames")?,
             &format!("{pointer}/source_offset_frames"),
@@ -1685,6 +1775,37 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         }
     }
 
+    // D-78: a shape of fewer than two points has nothing to fill and nothing to stroke between.
+    // Kept, as an unusable mask is kept, so that saving writes it back -- and said out loud here
+    // rather than discovered as a layer that draws nothing. A shape that crosses itself is not
+    // this case: the even-odd rule says what it fills, so it is drawn.
+    for shape in &shapes {
+        if shape.enabled && !shape.has_enough_points() {
+            warnings.push(
+                Diagnostic::new(
+                    DiagnosticId::ShapeInvalidOutline,
+                    Severity::Warning,
+                    format!(
+                        "The shape \"{}\" on layer \"{name}\" has {} point(s), which is not \
+                         enough to draw.",
+                        shape.name,
+                        shape.points.len()
+                    ),
+                    format!(
+                        "D-78: a shape is filled inside its path and stroked along it, and \
+                         neither means anything with fewer than two points. The shape on layer \
+                         {id} is kept in the project exactly as it was and draws nothing, so \
+                         that layer draws without it."
+                    ),
+                )
+                .with_remediation(
+                    "Nothing was lost. Saving this project writes the shape back unchanged. \
+                     Add points to it to have it drawn.",
+                ),
+            );
+        }
+    }
+
     // Document 19's ordered effect instances. B-07 implements three of them; anything else is
     // read as `Unsupported`, which is a record this build keeps and never draws.
     let mut effects = Vec::new();
@@ -1834,6 +1955,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         blend_mode,
         gain_db: 0.0,
         solid,
+        shapes,
     })
 }
 
@@ -1898,6 +2020,122 @@ fn parse_mask_points(v: &J, at: &str) -> Result<Vec<crate::mask::MaskPoint>, Dia
     Ok(points)
 }
 
+/// D-77's `path` record: a `base` outline and, from B-24d, its keys in frame order.
+///
+/// A mask's path and a shape's path are the same record by D-78, so they are the same reader.
+/// The rule a key must keep is D-77's: it holds a whole outline of the same length as the base,
+/// because a path is interpolated point by point and two outlines of different lengths cannot be
+/// paired.
+fn parse_path(
+    path: &J,
+    path_at: &str,
+) -> Result<(Vec<crate::mask::MaskPoint>, Vec<crate::mask::MaskKey>), Diagnostic> {
+    as_object(path, path_at)?;
+    let points = parse_mask_points(field(path, path_at, "base")?, &format!("{path_at}/base"))?;
+    let keys_at = format!("{path_at}/keyframes");
+    let mut keys: Vec<crate::mask::MaskKey> = Vec::new();
+    if let Some(list) = path.get("keyframes").filter(|k| !k.is_null()) {
+        for (i, key) in as_array(list, &keys_at)?.iter().enumerate() {
+            let at_i = format!("{keys_at}/{i}");
+            as_object(key, &at_i)?;
+            let held = parse_mask_points(field(key, &at_i, "value")?, &format!("{at_i}/value"))?;
+            if held.len() != points.len() {
+                return Err(invalid(
+                    &at_i,
+                    "a key holding the same number of points as the path's base: D-77 \
+                     interpolates a path point by point, and there is no honest way to \
+                     interpolate between outlines of different lengths",
+                ));
+            }
+            let frame = as_i32(field(key, &at_i, "frame")?, &format!("{at_i}/frame"))?;
+            if keys.iter().any(|k| k.frame == frame) {
+                return Err(invalid(
+                    &at_i,
+                    &format!("at most one keyframe at frame {frame}"),
+                ));
+            }
+            let interp = match as_enum(
+                field(key, &at_i, "interp")?,
+                &format!("{at_i}/interp"),
+                &["hold", "linear", "ease"],
+            )? {
+                "hold" => Interp::Hold,
+                "ease" => parse_ease(field(key, &at_i, "ease")?, &format!("{at_i}/ease"))?,
+                _ => Interp::Linear,
+            };
+            keys.push(crate::mask::MaskKey {
+                frame,
+                points: held,
+                interp,
+            });
+        }
+        // Written in order or not, they are held in order: every reader of them, here and in
+        // `points_at`, asks which segment a frame is in and nothing else.
+        keys.sort_by_key(|k| k.frame);
+    }
+    Ok((points, keys))
+}
+
+/// D-78's shape record: a path that may be open, with an optional fill and an optional stroke.
+///
+/// Everything outside D-78's ranges refuses the file (FX-SHP-024 to 029), for D-77's reason: a
+/// clamped colour or opacity is a picture nobody chose. What is *kept* and diagnosed instead is a
+/// path of fewer than two points, which the caller warns about.
+fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Diagnostic> {
+    as_object(v, at)?;
+    let (points, keys) = parse_path(field(v, at, "path")?, &format!("{at}/path"))?;
+    // A colour, an opacity and, for a stroke, a width. Read for both and ranged once afterwards
+    // by `Shape::problem`, which is the same sentence the commands refuse with.
+    let paint = |key: &str| -> Result<Option<([f64; 3], f64, f64)>, Diagnostic> {
+        let Some(p) = v.get(key).filter(|p| !p.is_null()) else {
+            return Ok(None);
+        };
+        let at = format!("{at}/{key}");
+        as_object(p, &at)?;
+        let at_c = format!("{at}/color");
+        let color = as_array(field(p, &at, "color")?, &at_c)?;
+        if color.len() != 3 {
+            return Err(invalid(&at_c, "three numbers from 0 to 1 (D-78)"));
+        }
+        let mut rgb = [0.0; 3];
+        for (i, c) in color.iter().enumerate() {
+            rgb[i] = as_f64(c, &format!("{at_c}/{i}"))?;
+        }
+        let opacity = as_f64(field(p, &at, "opacity")?, &format!("{at}/opacity"))?;
+        let width_px = match p.get("width_px") {
+            None => 0.0,
+            Some(w) => as_f64(w, &format!("{at}/width_px"))?,
+        };
+        Ok(Some((rgb, opacity, width_px)))
+    };
+    let shape = crate::shape::Shape {
+        name: match v.get("name") {
+            None => format!("Shape {}", index + 1),
+            Some(n) => as_str(n, &format!("{at}/name"))?.to_string(),
+        },
+        enabled: match v.get("enabled") {
+            None => true,
+            Some(e) => as_bool(e, &format!("{at}/enabled"))?,
+        },
+        closed: match v.get("closed") {
+            None => true,
+            Some(c) => as_bool(c, &format!("{at}/closed"))?,
+        },
+        points,
+        keys,
+        fill: paint("fill")?.map(|(color, opacity, _)| crate::shape::Fill { color, opacity }),
+        stroke: paint("stroke")?.map(|(color, opacity, width_px)| crate::shape::Stroke {
+            color,
+            opacity,
+            width_px,
+        }),
+    };
+    match shape.problem() {
+        Some(p) => Err(invalid(at, &p)),
+        None => Ok(shape),
+    }
+}
+
 /// D-77's mask record. `index` numbers the unnamed ones, as the window numbers them.
 ///
 /// Everything outside D-77's ranges refuses the file rather than being clamped: a clamped
@@ -1943,60 +2181,11 @@ fn parse_mask(v: &J, at: &str, index: usize) -> Result<crate::mask::Mask, Diagno
             "an expansion from -8192 to 8192 pixels (D-77)",
         ));
     }
-    let path_at = format!("{at}/path");
-    let path = field(v, at, "path")?;
-    as_object(path, &path_at)?;
-    let points = parse_mask_points(
-        field(path, &path_at, "base")?,
-        &format!("{path_at}/base"),
-    )?;
+    let (points, keys) = parse_path(field(v, at, "path")?, &format!("{at}/path"))?;
     let name = match v.get("name") {
         None => format!("Mask {}", index + 1),
         Some(n) => as_str(n, &format!("{at}/name"))?.to_string(),
     };
-    // B-24d: the path's keys, read into the mask itself rather than carried past it. A key holds
-    // a whole outline of the same length as the base, because D-77 interpolates point by point.
-    let keys_at = format!("{path_at}/keyframes");
-    let mut keys: Vec<crate::mask::MaskKey> = Vec::new();
-    if let Some(list) = path.get("keyframes").filter(|k| !k.is_null()) {
-        for (i, key) in as_array(list, &keys_at)?.iter().enumerate() {
-            let at_i = format!("{keys_at}/{i}");
-            as_object(key, &at_i)?;
-            let held = parse_mask_points(field(key, &at_i, "value")?, &format!("{at_i}/value"))?;
-            if held.len() != points.len() {
-                return Err(invalid(
-                    &at_i,
-                    "a key holding the same number of points as the path's base: D-77 \
-                     interpolates a path point by point, and there is no honest way to \
-                     interpolate between outlines of different lengths",
-                ));
-            }
-            let frame = as_i32(field(key, &at_i, "frame")?, &format!("{at_i}/frame"))?;
-            if keys.iter().any(|k| k.frame == frame) {
-                return Err(invalid(
-                    &at_i,
-                    &format!("at most one keyframe at frame {frame}"),
-                ));
-            }
-            let interp = match as_enum(
-                field(key, &at_i, "interp")?,
-                &format!("{at_i}/interp"),
-                &["hold", "linear", "ease"],
-            )? {
-                "hold" => Interp::Hold,
-                "ease" => parse_ease(field(key, &at_i, "ease")?, &format!("{at_i}/ease"))?,
-                _ => Interp::Linear,
-            };
-            keys.push(crate::mask::MaskKey {
-                frame,
-                points: held,
-                interp,
-            });
-        }
-        // Written in order or not, they are held in order: every reader of them, here and in
-        // `Mask::points_at`, asks which segment a frame is in and nothing else.
-        keys.sort_by_key(|k| k.frame);
-    }
     Ok(crate::mask::Mask {
         keys,
         name,
@@ -2067,6 +2256,7 @@ fn parse_audio_layer(v: &J, pointer: &str, id: Id) -> Result<Layer, Diagnostic> 
         "parent",
         "depth",
         "composition_id",
+        "shapes",
     ] {
         if v.get(key).is_some() {
             return Err(invalid(

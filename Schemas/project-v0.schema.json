@@ -306,6 +306,98 @@
       },
       "additionalProperties": false
     },
+    "shapeRecord": {
+      "type": "object",
+      "description": "D-78: one drawn shape. Its path is D-77's record unchanged, so a shape's path moves the way a mask's does; `closed` false leaves the last point unjoined to the first.",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "path": {
+          "$ref": "#/$defs/maskPath"
+        },
+        "fill": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "color",
+                "opacity"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "color": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "opacity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          ]
+        },
+        "stroke": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "color",
+                "opacity",
+                "width_px"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "color": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "opacity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "width_px": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 8192
+                }
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "maskRecord": {
       "type": "object",
       "required": [
@@ -554,6 +646,11 @@
                   "required": [
                     "composition_id"
                   ]
+                },
+                {
+                  "required": [
+                    "shapes"
+                  ]
                 }
               ]
             }
@@ -615,6 +712,51 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "shape"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "shapes"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "asset_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "composition_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "exposure_spans"
+                  ]
+                },
+                {
+                  "required": [
+                    "source_offset_frames"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "shapes"
+              ]
+            }
+          }
         }
       ],
       "properties": {
@@ -627,7 +769,8 @@
             "adjustment",
             "composition",
             "audio",
-            "solid"
+            "solid",
+            "shape"
           ]
         },
         "name": {
@@ -709,6 +852,13 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/maskRecord"
+          }
+        },
+        "shapes": {
+          "type": "array",
+          "description": "D-78: a shape layer's drawn shapes, first to last. Only a shape layer carries this key.",
+          "items": {
+            "$ref": "#/$defs/shapeRecord"
           }
         },
         "matte": {

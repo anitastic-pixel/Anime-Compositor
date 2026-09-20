@@ -33,6 +33,7 @@ pub mod png_out;
 pub mod preview;
 pub mod render;
 pub mod sha256;
+pub mod shape;
 pub mod time;
 pub mod trace;
 

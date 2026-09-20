@@ -748,6 +748,43 @@ fn resolve_layer(
             px[..3].copy_from_slice(&solid.color.map(|c| c as f32));
         }
         (std::sync::Arc::new(shape), None)
+    } else if layer.kind == crate::model::LayerKind::Shape {
+        // D-78: a shape layer's step 1 is the composition's size in transparent black with its
+        // shapes drawn into it. It has no size of its own, which is why `comp` is asked and not
+        // the layer. The paths are resolved to this frame first, exactly as a mask's are and for
+        // the same reason: what the rasterizer sees holds plain numbers.
+        layer.timing().local_frame(frame)?;
+        let now: Vec<crate::shape::Shape> = layer.shapes.iter().map(|s| s.at(frame)).collect();
+        for s in &now {
+            // Said per frame, as an undrawable mask is, because that is what marks an export's
+            // fidelity incomplete. The warning raised when the file opened is not enough: a
+            // picture would otherwise go out with a shape silently missing from it.
+            if s.enabled && !s.has_enough_points() {
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::ShapeInvalidOutline,
+                        Severity::Warning,
+                        format!(
+                            "Layer {}'s shape \"{}\" cannot be drawn, so it is not.",
+                            layer.name, s.name
+                        ),
+                        format!(
+                            "D-78: a shape is filled inside its path and stroked along it, and \
+                             neither means anything with fewer than two points. The shape has {} \
+                             and is left out of frame {frame}. Its record is untouched.",
+                            s.points.len()
+                        ),
+                    )
+                    .with_remediation(
+                        "Add points to the shape, or switch it off if it is not wanted.",
+                    ),
+                );
+            }
+        }
+        let shape = crate::shape::draw(&now, comp.width as usize, comp.height as usize);
+        (std::sync::Arc::new(shape), None)
     } else {
         let (source, cel) = decode_cel(project, layer, frame, root, cache, log)?;
         (source, Some(cel))
