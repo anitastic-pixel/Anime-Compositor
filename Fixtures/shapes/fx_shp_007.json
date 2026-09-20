@@ -1,0 +1,129 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-shp-007",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 6,
+      "height": 2,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 3,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 3
+      },
+      "layer_order": [
+        "shapes"
+      ],
+      "layers": [
+        {
+          "id": "shapes",
+          "kind": "shape",
+          "name": "shapes",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "shapes": [
+            {
+              "name": "Shape 1",
+              "enabled": true,
+              "closed": false,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        1,
+                        1
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        5,
+                        1
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": null,
+              "stroke": {
+                "color": [
+                  0.8,
+                  0.2,
+                  0.1
+                ],
+                "opacity": 1.0,
+                "width_px": 1.0
+              }
+            }
+          ],
+          "transform": {
+            "anchor": {
+              "base": [
+                3.0,
+                1.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                3.0,
+                1.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        }
+      ]
+    }
+  ]
+}

@@ -1185,6 +1185,155 @@ FX-MSK-035: Handles move with their points: the four corners stay where they are
 | 4, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0.9375 0 0 0.9375 | 0.3125 0 0 0.3125 | 0 0 0 0 |
 | 4, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.202369219 0.202369219 0.202369219 0.9375 | 0.0674564063 0.0674564063 0.0674564063 0.3125 | 0 0 0 0 |
 
+## Shape fixtures
+
+**D-78, proposed by the agent on 2026-09-20 as B-25a and not yet accepted by the owner.** Nothing is built against these until it is. Every case is a composition 6 by 2 at 24 fps: one frame long where the shape stands still, and five where its path moves (FX-SHP-017), from the projects in `Fixtures/shapes/`. One shape layer carries the shapes; it has no width or height of its own, because a shape layer's space is its composition's. Nothing else is on the frame except in FX-SHP-010, where the shape layer sits over the one drawing, `bg`, the adjustment fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom. Each cell is R G B A of the finished frame, linear and premultiplied. The fill is 0.2 0.5 0.8 and the stroke 0.8 0.2 0.1, both in the working space.
+
+**Every number below is produced by `tools/shape_reference.py`**, which samples each outline from ADR-016's 4x4 grid and renders each pixel from document 21, and which is written from D-78's rule rather than from any source file - there is none yet to copy. The same numbers are in `Fixtures/shapes/expected_shapes.json`, and every still case is drawn in `verification/B-25a proposal/shape_cases.png` and the moving one, frame by frame across the row, in `verification/B-25a proposal/shape_moving_case.png`, in order, numbered. Tolerance 1e-6.
+
+FX-SHP-016 has a frame **and** a warning: the shape is kept in the file, takes no part in the picture, and raises `SHAPE_INVALID_OUTLINE`, a new identifier D-78 asks document 28 for. FX-SHP-020 to 030 have no frames: each is FX-SHP-001's file with one change, and a build must refuse it whole.
+
+FX-SHP-001: A filled rectangle on the left three columns, its edges on pixel boundaries: the same sixteen decisions a mask's edge is made of.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-002: The same rectangle ending half way through column 2: that column is exactly half covered, which is the edge quantum ADR-016 states.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.1 0.25 0.4 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.1 0.25 0.4 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-003: A sloped edge: coverage in whole sixteenths.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.15 0.375 0.6 0.75 | 0.05 0.125 0.2 0.25 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.15 0.375 0.6 0.75 | 0.05 0.125 0.2 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-004: An ellipse of four curved segments, filling the frame's height.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0.1625 0.40625 0.65 0.8125 | 0.1625 0.40625 0.65 0.8125 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.1625 0.40625 0.65 0.8125 | 0.1625 0.40625 0.65 0.8125 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-005: The same rectangle at half fill opacity: half there, and nothing else changed.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.1 0.25 0.4 0.5 | 0.1 0.25 0.4 0.5 | 0.1 0.25 0.4 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.1 0.25 0.4 0.5 | 0.1 0.25 0.4 0.5 | 0.1 0.25 0.4 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-006: A stroke and no fill, one pixel wide, on a rectangle taller than the frame: a band half a pixel either side of each upright edge, and the middle of the rectangle empty, because a stroke is on the line and not within it.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-007: A stroke on an open path of two points, one pixel wide: the band runs the length of the line and ends in a half circle at each end, because a cap is round by definition.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 |
+| 0, 1 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 |
+
+FX-SHP-008: Fill and stroke together on that rectangle: the stroke is laid over its own fill, so column 1 is the fill's colour alone, column 3 the stroke's alone, and the columns they share carry the stroke over the fill.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.5 0.35 0.45 1 | 0.2 0.5 0.8 1 | 0.5 0.35 0.45 1 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.5 0.35 0.45 1 | 0.2 0.5 0.8 1 | 0.5 0.35 0.45 1 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-009: Two shapes, the second covering the first: the list is drawn first to last.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.6875 0.25625 0.23125 1 | 0.65 0.1625 0.08125 0.8125 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.6875 0.25625 0.23125 1 | 0.65 0.1625 0.08125 0.8125 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-010: A shape layer over the drawing: the drawing shows everywhere the shape does not, and the shape is opaque where it does.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-SHP-011: An open path with both a fill and a stroke: the fill closes it with a straight line from its last point to its first, while the stroke does not run along that line.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.2 0.05 0.025 0.25 | 0.6125 0.18125 0.125 0.8125 | 0.6125 0.18125 0.125 0.8125 | 0.2 0.05 0.025 0.25 | 0 0 0 0 |
+| 0, 1 | 0.3 0.075 0.0375 0.375 | 0.6125 0.18125 0.125 0.8125 | 0.275 0.2375 0.325 0.625 | 0.275 0.2375 0.325 0.625 | 0.6125 0.18125 0.125 0.8125 | 0.3 0.075 0.0375 0.375 |
+
+FX-SHP-012: A path that crosses itself, filled: the even-odd rule says what is inside, and a shape is drawn rather than diagnosed for it, which is where a shape and a mask part company.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.1625 0.40625 0.65 0.8125 | 0.0875 0.21875 0.35 0.4375 | 0.025 0.0625 0.1 0.125 | 0.0375 0.09375 0.15 0.1875 | 0.1125 0.28125 0.45 0.5625 | 0.175 0.4375 0.7 0.875 |
+| 0, 1 | 0.1625 0.40625 0.65 0.8125 | 0.0875 0.21875 0.35 0.4375 | 0.025 0.0625 0.1 0.125 | 0.0375 0.09375 0.15 0.1875 | 0.1125 0.28125 0.45 0.5625 | 0.175 0.4375 0.7 0.875 |
+
+FX-SHP-013: A mask on the shape layer, keeping its left three columns: a shape layer is masked like any other, after its shapes are drawn - the frame of FX-SHP-001.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-014: A shape with neither a fill nor a stroke: nothing is drawn and nothing is said, because a path a person has not decided about yet is not a fault.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-015: A shape switched off takes no part: the empty frame.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-016: A shape of one point is kept, diagnosed and draws nothing: there is nothing to fill and nothing to stroke between.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-017: A path keyed from the left three columns at frame 0 to the right three at frame 4, linear: the fill slides three columns in four frames, three quarters of a column a frame, by D-77's rule and document 20's.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 1, 0 | 0.05 0.125 0.2 0.25 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.15 0.375 0.6 0.75 | 0 0 0 0 | 0 0 0 0 |
+| 1, 1 | 0.05 0.125 0.2 0.25 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.15 0.375 0.6 0.75 | 0 0 0 0 | 0 0 0 0 |
+| 2, 0 | 0 0 0 0 | 0.1 0.25 0.4 0.5 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.1 0.25 0.4 0.5 | 0 0 0 0 |
+| 2, 1 | 0 0 0 0 | 0.1 0.25 0.4 0.5 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.1 0.25 0.4 0.5 | 0 0 0 0 |
+| 3, 0 | 0 0 0 0 | 0 0 0 0 | 0.15 0.375 0.6 0.75 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.05 0.125 0.2 0.25 |
+| 3, 1 | 0 0 0 0 | 0 0 0 0 | 0.15 0.375 0.6 0.75 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.05 0.125 0.2 0.25 |
+| 4, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 4, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SHP-001's file with one change:
+
+- FX-SHP-020: A shape layer that names an asset.
+- FX-SHP-021: A shape layer with exposures.
+- FX-SHP-022: A shape layer with a source offset.
+- FX-SHP-023: A `shapes` key that is not a list.
+- FX-SHP-024: A shape with no path.
+- FX-SHP-025: A `closed` that is not true or false.
+- FX-SHP-026: A fill colour above 1.
+- FX-SHP-027: A fill opacity below 0.
+- FX-SHP-028: A stroke width of 0.
+- FX-SHP-029: A stroke width past the 8192 pixel limit.
+- FX-SHP-030: A raster layer carrying a `shapes` key.
+
 ## Keyframed effect setting fixtures
 
 D-68, accepted on 2026-09-18. Every case is a project of one composition 6 by 2 at 24 fps, five frames long, in `Fixtures/fxkey/`. The drawings are the adjustment fixtures' `bg`, `half` and `dot`. An effect's setting is written in the file as a property record with keys, where the adjustment fixtures write a plain number.
