@@ -951,6 +951,161 @@ Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SOL-001's file with 
 - FX-SOL-028: A height that is not a whole number.
 - FX-SOL-029: A raster layer carrying a solid record.
 
+## Mask fixtures
+
+**D-77, proposed on 2026-09-19; nothing is built against it until the owner accepts it.** Every case is a composition 6 by 2 at 24 fps, three frames long, from the projects in `Fixtures/masks/`. The one drawing, `bg`, is the adjustment fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom. One raster layer carries the masks; nothing else is on it, so every cell is the drawing multiplied by the coverage the masks work out to. Each cell is R G B A of the finished frame, linear and premultiplied.
+
+**Every number below is produced by `tools/mask_reference.py`**, which samples each outline from ADR-016's 4x4 grid and renders each pixel from document 21, and which is written from the rule rather than copied from `src/mask.rs`. The same numbers are in `Fixtures/masks/expected_masks.json`, and every case is drawn in `verification/B-24a proposal/mask_cases.png`, in order, numbered. Tolerance 1e-6.
+
+FX-MSK-001 exists to be compared with what the build already does: it is today's four-point rectangle written in D-77's shape, and every number in it must be the number the build gives now. FX-MSK-002 is the same mask written the old way, with one `mask` key, and must give the same frame after conversion. FX-MSK-018 and 019 have frames **and** a warning: the mask is kept in the file, takes no part in the picture, and raises `MASK_INVALID_OUTLINE`, which is what the build does today. FX-MSK-020 to 030 have no frames: each is FX-MSK-001's file with one change, and a build must refuse it whole.
+
+FX-MSK-001: Today's rectangle written the new way: the left three columns, and every number the same as before D-77.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MSK-002: The same file written the old way, with one `mask` key: read as one Add mask, the same frame as FX-MSK-001.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MSK-003: A sloped edge: coverage in whole sixteenths.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 0.75 0 0 0.75 | 0.25 0 0 0.25 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.161895375 0.161895375 0.161895375 0.75 | 0.053965125 0.053965125 0.053965125 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MSK-004: Inverted: the three columns the mask keeps are the ones it now cuts.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-MSK-005: At half opacity: the kept columns are half there.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.10793025 0.10793025 0.10793025 0.5 | 0.10793025 0.10793025 0.10793025 0.5 | 0.10793025 0.10793025 0.10793025 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MSK-006: Two masks, the second Add: both halves, so the whole frame.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-MSK-007: Two masks, the second Subtract: the left three columns with its middle column taken out.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MSK-008: Two masks, the second Intersect: only where both are, column 2.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MSK-009: Two masks, the second Difference: where one is but not both.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MSK-010: A second mask in mode None takes no part: the frame of FX-MSK-001.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MSK-011: A first mask in Subtract takes from the whole layer: a hole in columns 2 and 3.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-MSK-012: Expanded a quarter of a pixel: the rectangle grows on every side, its corners rounded.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.75 0 0 0.75 | 1 0 0 1 | 1 0 0 1 | 0.75 0 0 0.75 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0.161895375 0.161895375 0.161895375 0.75 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.161895375 0.161895375 0.161895375 0.75 | 0 0 0 0 |
+
+FX-MSK-013: Shrunk a quarter of a pixel: the same rectangle the other way.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.125 0 0 0.125 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.125 0 0 0.125 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0.0269825625 0.0269825625 0.0269825625 0.125 | 0.10793025 0.10793025 0.10793025 0.5 | 0.10793025 0.10793025 0.10793025 0.5 | 0.0269825625 0.0269825625 0.0269825625 0.125 | 0 0 0 0 |
+
+FX-MSK-014: Feathered two pixels: the hard edge at column 3 becomes a soft band.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.445614162 0 0 0.445614162 | 0.566158073 0 0 0.566158073 | 0.445614162 0 0 0.445614162 | 0.192630379 0 0 0.192630379 | 0.0374642178 0 0 0.0374642178 | 0.00284196738 0 0 0.00284196738 |
+| 0, 1 | 0.096190496 0.096190496 0.096190496 0.445614162 | 0.122211165 0.122211165 0.122211165 0.566158073 | 0.096190496 0.096190496 0.096190496 0.445614162 | 0.04158129 0.04158129 0.04158129 0.192630379 | 0.00808704479 0.00808704479 0.00808704479 0.0374642178 | 0.0006134685 0.0006134685 0.0006134685 0.00284196738 |
+
+FX-MSK-015: A circle of four points with handles, filling the frame's height.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0.8125 0 0 0.8125 | 0.8125 0 0 0.8125 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.175386656 0.175386656 0.175386656 0.8125 | 0.175386656 0.175386656 0.175386656 0.8125 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MSK-016: The same circle, expanded half a pixel.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.375 0 0 0.375 | 1 0 0 1 | 1 0 0 1 | 0.375 0 0 0.375 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0.0809476875 0.0809476875 0.0809476875 0.375 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.0809476875 0.0809476875 0.0809476875 0.375 | 0 0 0 0 |
+
+FX-MSK-017: A mask switched off takes no part: the whole drawing.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-MSK-018: A mask of two points is kept, diagnosed and takes no part: the whole drawing.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-MSK-019: A mask whose points cross is kept, diagnosed and takes no part.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-MSK-001's file with one change:
+
+- FX-MSK-020: Both a `mask` and a `masks` key.
+- FX-MSK-021: A mode this build does not know.
+- FX-MSK-022: An opacity above 1.
+- FX-MSK-023: A feather below 0.
+- FX-MSK-024: An expansion past the 8192 pixel limit.
+- FX-MSK-025: A point that is not two numbers.
+- FX-MSK-026: A handle that is not two numbers.
+- FX-MSK-027: A mask with no path.
+- FX-MSK-028: A `masks` key that is not a list.
+- FX-MSK-029: Masks on an audio layer.
+- FX-MSK-030: A keyed path whose key holds a different number of points.
+
 ## Keyframed effect setting fixtures
 
 D-68, accepted on 2026-09-18. Every case is a project of one composition 6 by 2 at 24 fps, five frames long, in `Fixtures/fxkey/`. The drawings are the adjustment fixtures' `bg`, `half` and `dot`. An effect's setting is written in the file as a property record with keys, where the adjustment fixtures write a plain number.
