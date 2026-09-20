@@ -155,6 +155,12 @@
   #boxes line.patharm { stroke: #6ea8fe; stroke-width: 1; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; }
   #boxes circle.pathgrab { fill: #141414; stroke: #6ea8fe; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   #boxes circle.pathgrab:focus-visible { outline: none; stroke: #ffffff; stroke-width: 3; }
+  /* B-24c: a mask is yellow, as After Effects draws one, so that it is never mistaken for the
+     layer's own box or for a motion path. The masks not being worked on are dashed. */
+  #boxes .maskline { fill: none; stroke: #f2e04c; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  #boxes .maskline.other { stroke: #8a8340; stroke-dasharray: 4 3; }
+  #boxes rect.maskpoint { fill: #141414; stroke: #f2e04c; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+  #boxes rect.maskpoint:focus-visible { outline: none; stroke: #ffffff; stroke-width: 3; }
   #boxes rect.marquee {
     fill: rgba(232, 176, 106, 0.12); stroke: #e8b06a; stroke-width: 1; stroke-dasharray: 4 3;
     vector-effect: non-scaling-stroke;
@@ -2428,7 +2434,7 @@ function drawLayers() {
       : beginRename());
     const isOpen = (prop) => open.has(prop) || (prop.startsWith('position') && ['position', 'position_x', 'position_y']
       .some((p) => p !== prop && (p === 'position' || prop === 'position') && open.has(p)));
-    return [li, ...propsOf(layer).filter(isOpen).flatMap((prop) => propTrack(comp, layer, prop))];
+    return [li, ...maskRows(layer), ...propsOf(layer).filter(isOpen).flatMap((prop) => propTrack(comp, layer, prop))];
   }));
 }
 
@@ -2616,6 +2622,9 @@ function labelLayers(n) {
 
 // W-25: the four blend modes the renderer draws, set on every selected layer as one entry to undo.
 const BLENDS = ['normal', 'multiply', 'screen', 'add'];
+
+// B-24c: D-77's five mask modes, in the order that document 19 writes them.
+const MASK_MODES = ['add', 'subtract', 'intersect', 'difference', 'none'];
 function blendLayers(mode) {
   const ids = selection.slice();
   if (!ids.length) return;
@@ -2842,6 +2851,10 @@ function layerMenu(x, y, first = []) {
     ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
     ['Pre-compose', 'Ctrl+Shift+C', precompose],
     ['Sequence layers', '', sequenceLayers, selection.length > 1],
+    // B-24c: a mask over the whole layer, which is what After Effects' double-clicked shape tool
+    // makes and what anyone without a mouse needs: the pen and the shape tools are drawn with a
+    // hand, and `mask.add` must be reachable without one.
+    ['New mask', 'G for the pen', newMask, selected() && selected().kind !== 'audio'],
     ['Shy or not shy', '', () => toggleLayers('shy')],
     ['Bring to front', 'Ctrl+Shift+]', () => toEnd(true)],
     ['Send to back', 'Ctrl+Shift+[', () => toEnd(false)],
@@ -3017,6 +3030,36 @@ function grabKey(comp, layer, prop, key, mark) {
 // W-12: one property of a layer as a row of the timeline: its name, the diamond the inspector
 // has, its value on the frame on screen, and a bar with a mark at each of its keys and nothing
 // else. A mark is W-11's to drag; a press on the row selects the layer.
+// B-24c: one row under the layer for each mask it carries, in the order they were drawn. Shown
+// whether or not a property is open, because a mask is not a property of the transform and a
+// person who has drawn one expects to see it; a layer with no masks adds no rows at all.
+// The row chooses which mask the picture draws points on, and says its mode and how many points
+// it has. It has no track yet: a mask's path cannot be keyed until B-24d.
+function maskRows(layer) {
+  return masksOf(layer).map((mask, at) => {
+    const li = document.createElement('li');
+    li.className = 'prop';
+    li.dataset.id = layer.id;
+    const head = document.createElement('div');
+    head.className = 'rowhead';
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = mask.name + (at === maskPicked && layer.id === selectedLayer ? ' ◆' : '');
+    name.title = 'Press to work on this mask’s points on the picture';
+    name.onclick = (e) => { e.stopPropagation(); select(layer.id, false); maskPicked = at; drawLayers(); drawBoxes(); };
+    const value = document.createElement('span');
+    value.className = 'value';
+    value.textContent = mask.mode + ', ' + mask.path.base.points.length + ' points'
+      + (mask.inverted ? ', inverted' : '') + (mask.enabled ? '' : ', off');
+    head.append(name, value);
+    li.append(head);
+    const box = document.createElement('div');
+    box.className = 'track';
+    li.append(box);
+    return li;
+  });
+}
+
 function propTrack(comp, layer, prop) {
   const li = document.createElement('li');
   li.className = 'prop';
@@ -3340,6 +3383,98 @@ function drawBoxes() {
       drawn.push(arm, knob);
     }
   }
+  // B-24c: D-77's masks on the selected layer, and the pen's unfinished path. Every mask is
+  // outlined; the one being worked on shows its points, and its points show their handles, the
+  // way the motion path above shows its own. A layer that is not on this frame has no map from
+  // its own pixels to the frame, so there is nothing to draw and nothing to press.
+  const shaper = selected();
+  const space = shaper ? layerSpace(shaper) : null;
+  let refocusPoint = null;
+  if (space) {
+    const heldPoint = document.activeElement && document.activeElement.__mask;
+    masksOf(shaper).forEach((mask, at) => {
+      const points = maskPull && maskPull.at === at ? maskPull.points : maskPath(mask);
+      const shape = svgEl('polygon');
+      shape.setAttribute('class', at === maskPicked ? 'maskline' : 'maskline other');
+      shape.setAttribute('points', outlineOf(points)
+        .map((p) => space.toFrame(p[0], p[1]).join(',')).join(' '));
+      drawn.push(shape);
+      if (at !== maskPicked || shaper.locked) return;
+      points.forEach((p, i) => {
+        // A handle is an offset from its own point, so it is drawn from the point it belongs to.
+        for (const which of [0, 1]) {
+          const [hx, hy] = [p[2 + which * 2], p[3 + which * 2]];
+          if (!hx && !hy) continue;
+          const arm = svgEl('line');
+          arm.setAttribute('class', 'patharm');
+          const [bx, by] = space.toFrame(p[0], p[1]);
+          const [ax, ay] = space.toFrame(p[0] + hx, p[1] + hy);
+          arm.setAttribute('x1', bx);
+          arm.setAttribute('y1', by);
+          arm.setAttribute('x2', ax);
+          arm.setAttribute('y2', ay);
+          const knob = svgEl('circle');
+          knob.setAttribute('class', 'pathgrab');
+          knob.setAttribute('cx', ax);
+          knob.setAttribute('cy', ay);
+          knob.setAttribute('r', 4 * unit);
+          drawn.push(arm, knob);
+        }
+        const [px, py] = space.toFrame(p[0], p[1]);
+        const mark = svgEl('rect');
+        mark.setAttribute('class', 'maskpoint');
+        mark.setAttribute('x', px - 3 * unit);
+        mark.setAttribute('y', py - 3 * unit);
+        mark.setAttribute('width', 6 * unit);
+        mark.setAttribute('height', 6 * unit);
+        mark.setAttribute('tabindex', 0);
+        mark.setAttribute('role', 'slider');
+        mark.setAttribute('aria-label', 'Point ' + (i + 1) + ' of ' + mask.name + ' on '
+          + shaper.name + '. Drag it, or use the arrow keys; Shift moves ten pixels.');
+        mark.__mask = { at, i };
+        // A pixel a press, in the layer's own pixels, queued the way the motion path's handles
+        // are: a held arrow key is every one of its steps, each read from the document the one
+        // before it brought back rather than from this drawing.
+        mark.onkeydown = (k) => {
+          const by = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[k.key];
+          if (!by) return;
+          k.preventDefault();
+          k.stopPropagation();
+          const step = k.shiftKey ? 10 : 1;
+          maskNudge = maskNudge.then(() => {
+            const now = selected();
+            const mask = masksOf(now)[at];
+            if (!mask) return;
+            const points = maskPath(mask);
+            points[i][0] += by[0] * step;
+            points[i][1] += by[1] * step;
+            return sendMaskPath(now, at, points);
+          });
+        };
+        if (heldPoint && heldPoint.at === at && heldPoint.i === i) refocusPoint = mark;
+        drawn.push(mark);
+      });
+    });
+    // The pen's path so far: the points placed, and the line back to the first, so that what
+    // clicking the first point would close is visible before it is closed.
+    if (penDraft && penDraft.length) {
+      const line = svgEl('polygon');
+      line.setAttribute('class', 'maskline');
+      line.setAttribute('points', outlineOf(penDraft)
+        .map((p) => space.toFrame(p[0], p[1]).join(',')).join(' '));
+      drawn.push(line);
+      for (const p of penDraft) {
+        const [px, py] = space.toFrame(p[0], p[1]);
+        const mark = svgEl('rect');
+        mark.setAttribute('class', 'maskpoint');
+        mark.setAttribute('x', px - 3 * unit);
+        mark.setAttribute('y', py - 3 * unit);
+        mark.setAttribute('width', 6 * unit);
+        mark.setAttribute('height', 6 * unit);
+        drawn.push(mark);
+      }
+    }
+  }
   if (marquee) {
     const box = svgEl('rect');
     box.setAttribute('class', 'marquee');
@@ -3353,6 +3488,7 @@ function drawBoxes() {
   // Drawing replaces every node, and a focus left on a discarded handle is an arrow press that
   // does nothing. The graph editor gives its focus back the same way.
   if (refocus) refocus.focus();
+  if (refocusPoint) refocusPoint.focus();
 }
 
 // D-53: where each position key's two handles are, as offsets in composition pixels and as
@@ -3391,6 +3527,146 @@ function sendPath(h, offset) {
   handles[h.which * 2 + 1] = Math.round(offset[1] * 1000) / 1000;
   return command('/keyframe.set_path?layer=' + encodeURIComponent(selectedLayer)
     + '&frame=' + h.key.frame + '&handles=' + handles.join(','));
+}
+
+// -------------------------------------------------------------------------------------------
+// B-24c: D-77's masks on the picture
+// -------------------------------------------------------------------------------------------
+
+// Which tool the picture is in: After Effects' V, G and Q. Everything written before this
+// assumed the selection tool, which is why that is what the window starts in.
+let tool = 'select';
+// Which mask the points and handles are drawn on, as the index in the selected layer's list,
+// and the pen's unfinished path, which is not a mask until it closes. Both are the page's own:
+// nothing here reaches the file until a command is sent.
+let maskPicked = 0;
+let penDraft = null;
+// A point or a handle being pulled: which mask, and the whole path as it stands under the hand.
+let maskPull = null;
+let maskNudge = Promise.resolve();
+
+function useTool(which) {
+  tool = which;
+  penDraft = null;
+  view.style.cursor = which === 'select' ? '' : 'crosshair';
+  $('status').textContent = which === 'select' ? 'The selection tool.'
+    : which === 'pen' ? 'The pen: click to place points, and click the first point to close the mask.'
+    : 'The ' + which + ' tool: drag across the layer to mask it.';
+  drawBoxes();
+}
+
+const masksOf = (layer) => (layer && layer.masks) || [];
+
+// One mask's points as six numbers each, `x, y, in_x, in_y, out_x, out_y`, in the layer's own
+// pixels: the shape a request carries and the shape everything below works in.
+const maskPath = (mask) => mask.path.base.points.map((p) => [
+  p.point[0], p.point[1],
+  (p.in || [0, 0])[0], (p.in || [0, 0])[1], (p.out || [0, 0])[0], (p.out || [0, 0])[1]]);
+
+const maskQuery = (points) => '&points='
+  + encodeURIComponent(points.map((p) => p.map(number).join(',')).join(';'));
+
+// The closed outline a path draws, in the layer's own pixels. A segment whose two handles are
+// both zero is the straight line it always was; a curved one is cut into pieces, as
+// `Mask::outline` cuts it. Twelve pieces is enough to look right on screen — the picture itself
+// is the core's arithmetic and not this.
+function outlineOf(points) {
+  const out = [];
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const d = points[(i + 1) % points.length];
+    if (!a[4] && !a[5] && !d[2] && !d[3]) { out.push([a[0], a[1]]); continue; }
+    const b = [a[0] + a[4], a[1] + a[5]];
+    const c = [d[0] + d[2], d[1] + d[3]];
+    for (let s = 0; s < 12; s++) {
+      const t = s / 12;
+      const u = 1 - t;
+      out.push([
+        u * u * u * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c[0] + t * t * t * d[0],
+        u * u * u * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c[1] + t * t * t * d[1]]);
+    }
+  }
+  return out;
+}
+
+// A rectangle and an ellipse as D-77 points: the rectangle four corners, the ellipse four points
+// with the handles that make a circle out of a square, which is the shape After Effects' mask
+// tools draw. The two are one function because they differ only in those handles.
+const KAPPA = 0.5522847498307936;
+function shapePoints(kind, x0, y0, x1, y1) {
+  const [ax, bx] = [Math.min(x0, x1), Math.max(x0, x1)];
+  const [ay, by] = [Math.min(y0, y1), Math.max(y0, y1)];
+  if (kind === 'rectangle') {
+    return [[ax, ay, 0, 0, 0, 0], [bx, ay, 0, 0, 0, 0], [bx, by, 0, 0, 0, 0], [ax, by, 0, 0, 0, 0]];
+  }
+  const [cx, cy] = [(ax + bx) / 2, (ay + by) / 2];
+  const [hx, hy] = [(bx - ax) / 2 * KAPPA, (by - ay) / 2 * KAPPA];
+  return [
+    [cx, ay, -hx, 0, hx, 0],
+    [bx, cy, 0, -hy, 0, hy],
+    [cx, by, hx, 0, -hx, 0],
+    [ax, cy, 0, hy, 0, -hy],
+  ];
+}
+
+// Where a layer's own pixels land on the frame, and back again.
+//
+// D-77 holds a mask in layer space, before the transform, and the window draws frames: a point
+// has to cross that map in both directions or a mask could not be drawn on a layer that has
+// been moved, turned or scaled. The map is read out of where the layer's box landed, because
+// document 07 records no pixel size for a drawing and only the renderer knows how big a cel is —
+// the same reading `alignLayers` makes. A layer that is not on this frame has no box and no map.
+function layerSpace(layer) {
+  const box = boxOf(layer.id);
+  if (!box) return null;
+  const c = box.corners;
+  const ex = [c[2] - c[0], c[3] - c[1]];
+  const ey = [c[6] - c[0], c[7] - c[1]];
+  const [sx, sy] = transformValue(layer, 'scale');
+  const per = perFramePixel();
+  const w = Math.hypot(...ex) * per / (Math.abs(sx) / 100 || 1);
+  const h = Math.hypot(...ey) * per / (Math.abs(sy) / 100 || 1);
+  if (!(w > 0 && h > 0) || !Number.isFinite(w + h)) return null;
+  const [a, b, d, f] = [ex[0] / w, ey[0] / h, ex[1] / w, ey[1] / h];
+  const det = a * f - b * d;
+  if (!det) return null;
+  return {
+    w, h,
+    toFrame: (x, y) => [c[0] + a * x + b * y, c[1] + d * x + f * y],
+    toLayer: (fx, fy) => {
+      const [dx, dy] = [fx - c[0], fy - c[1]];
+      return [(f * dx - b * dy) / det, (a * dy - d * dx) / det];
+    },
+  };
+}
+
+// One mask's path put down. `how` is `&drag=1` inside a drag, which makes a whole pull one
+// entry in the history, as every other drag in this window is.
+function sendMaskPath(layer, at, points, how = '') {
+  return command('/mask.set_path?layer=' + encodeURIComponent(layer.id)
+    + '&mask=' + at + how + maskQuery(points));
+}
+
+// A mask drawn. The tool goes back to the selection tool afterwards, as After Effects' shape
+// tools do not but its pen does; a person who has just drawn one wants to move its points.
+function addMask(layer, points) {
+  maskPicked = masksOf(layer).length;
+  useTool('select');
+  return command('/mask.add?layer=' + encodeURIComponent(layer.id) + maskQuery(points));
+}
+
+// B-24c: a rectangular mask over the whole of the selected layer, which is the menu's way in
+// and the only one that needs no hand. The layer has to be on this frame for its size to be
+// known, because the window reads that size off the box the renderer drew.
+function newMask() {
+  const layer = selected();
+  if (!layer) return;
+  const space = layerSpace(layer);
+  if (!space) {
+    $('status').textContent = '"' + layer.name + '" is not on this frame, so there is nothing to mask.';
+    return;
+  }
+  addMask(layer, shapePoints('rectangle', 0, 0, space.w, space.h));
 }
 
 // The knob that turns a layer, on a short arm out from the middle of its top edge. Out along the
@@ -3645,6 +3921,110 @@ stage.onpointerdown = (e) => {
   const unit = perScreenPixel();
   const one = boxOf(selectedLayer);
   const layer = selected();
+  // B-24c: the mask tools, first of all, because a press with one of them chosen means the mask
+  // and nothing else — it must not select the layer under the pointer or move it.
+  const shaping = layer && !layer.locked ? layerSpace(layer) : null;
+  if (tool !== 'select') {
+    e.preventDefault();
+    if (!shaping) {
+      $('status').textContent = layer
+        ? (layer.locked ? '"' + layer.name + '" is locked.'
+          : '"' + layer.name + '" is not on this frame, so there is nothing to mask.')
+        : 'Select the layer to mask first.';
+      return;
+    }
+    const [lx, ly] = shaping.toLayer(x, y);
+    if (tool === 'pen') {
+      // A click places a point; a click on the first one closes the mask, which is how After
+      // Effects' pen closes a path. Three points are the fewest that enclose anything, and the
+      // core refuses fewer, so the first point does not close it before then.
+      const first = penDraft && penDraft[0];
+      const shut = first && penDraft.length >= 3
+        && Math.hypot(...shaping.toFrame(first[0], first[1]).map((v, i) => v - [x, y][i])) <= 6 * unit;
+      if (shut) {
+        const points = penDraft;
+        penDraft = null;
+        addMask(layer, points);
+      } else {
+        penDraft = (penDraft || []).concat([[lx, ly, 0, 0, 0, 0]]);
+        $('status').textContent = penDraft.length < 3
+          ? 'Place at least three points; then click the first to close the mask.'
+          : 'Click the first point to close the mask, or Escape to start again.';
+        drawBoxes();
+      }
+      return;
+    }
+    // The rectangle and the ellipse are drawn corner to corner, the shape following the
+    // pointer, and sent once at release: one shape, one thing to undo. A press that never
+    // moved is not a mask, and Escape lets go of it.
+    const kind = tool;
+    let drawn = false;
+    stage.setPointerCapture(e.pointerId);
+    const escape = (k) => { if (k.key === 'Escape') stop(false); };
+    const stop = (keep) => {
+      stage.onpointermove = null;
+      stage.onpointerup = null;
+      window.removeEventListener('keydown', escape, true);
+      const drew = penDraft;
+      penDraft = null;
+      if (keep && drawn && drew) addMask(layer, drew);
+      else drawBoxes();
+    };
+    stage.onpointermove = (m) => {
+      const [mx, my] = shaping.toLayer(...atCanvas(m));
+      if (Math.abs(mx - lx) < 1 && Math.abs(my - ly) < 1) return;
+      drawn = true;
+      penDraft = shapePoints(kind, lx, ly, mx, my);
+      drawBoxes();
+    };
+    stage.onpointerup = () => stop(true);
+    window.addEventListener('keydown', escape, true);
+    return;
+  }
+  // A mask's point or one of its handles, pulled. Before the layer's own handles and before the
+  // layer under the pointer, for the reason the motion path's handles come first: these are the
+  // smallest things on the picture. The whole path travels with every step, because the core
+  // takes a mask's path whole, and `&drag=1` makes one pull one entry in the history.
+  const pullable = shaping && masksOf(layer)[maskPicked]
+    ? maskPath(masksOf(layer)[maskPicked]).flatMap((p, i) => [
+      { i, which: -1, at: shaping.toFrame(p[0], p[1]) },
+      ...(p[2] || p[3] ? [{ i, which: 0, at: shaping.toFrame(p[0] + p[2], p[1] + p[3]) }] : []),
+      ...(p[4] || p[5] ? [{ i, which: 1, at: shaping.toFrame(p[0] + p[4], p[1] + p[5]) }] : []),
+    ]) : [];
+  const grabbed = pullable.find((g) => Math.hypot(x - g.at[0], y - g.at[1]) <= 6 * unit);
+  if (grabbed) {
+    e.preventDefault();
+    stage.setPointerCapture(e.pointerId);
+    const at = maskPicked;
+    const was = maskPath(masksOf(layer)[at]);
+    dragging = true;
+    maskPull = { at, points: was.map((p) => p.slice()) };
+    const escape = (k) => { if (k.key === 'Escape') stop(true); };
+    const stop = (cancelled) => {
+      dragging = false;
+      stage.onpointermove = null;
+      stage.onpointerup = null;
+      window.removeEventListener('keydown', escape, true);
+      const moved = maskPull && maskPull.moved;
+      maskPull = null;
+      if (!moved) { drawBoxes(); return; }
+      command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+    };
+    stage.onpointermove = (m) => {
+      const [mx, my] = shaping.toLayer(...atCanvas(m));
+      const point = maskPull.points[grabbed.i];
+      // The point carries its handles with it, because D-77 holds a handle as an offset from
+      // its own point; a handle moves alone.
+      if (grabbed.which < 0) { point[0] = mx; point[1] = my; }
+      else { point[2 + grabbed.which * 2] = mx - point[0]; point[3 + grabbed.which * 2] = my - point[1]; }
+      maskPull.moved = true;
+      drawBoxes();
+      sendMaskPath(layer, at, maskPull.points, '&drag=1');
+    };
+    stage.onpointerup = () => stop(false);
+    window.addEventListener('keydown', escape, true);
+    return;
+  }
   // D-53: a path handle, first, because it is the smallest thing on the picture and would
   // otherwise be taken for the layer under it. The knob follows the pointer and nothing is sent
   // until release, as the graph editor's handles do: one pull, one thing to undo. Escape puts
@@ -4577,12 +4957,60 @@ function drawInspector() {
     blend.onchange = () => blendLayers(blend.value);
     dl.lastChild.append(blend);
   }
-  // What is on this layer that this panel cannot yet change is still said, because a person
-  // deciding whether a layer is the one they want needs to know it carries a mask.
-  const masks = layer.masks || [];
-  field(dl, 'Masks', masks.length === 0 ? 'none'
-    : masks.length === 1 ? masks[0].path.base.points.length + ' points'
-    : masks.length + ' masks');
+  // B-24c: D-77's masks, one block of settings each. A sound layer has no picture to cut, so it
+  // is not offered any (D-71), and a layer with none says so rather than showing nothing at all:
+  // a person deciding whether a layer is the one they want needs to know what it carries.
+  const masks = layer.kind === 'audio' ? [] : masksOf(layer);
+  if (layer.kind !== 'audio' && masks.length === 0) field(dl, 'Masks', 'none');
+  for (const [at, mask] of masks.entries()) {
+    const set = (what) => command('/mask.set?layer=' + encodeURIComponent(layer.id)
+      + '&mask=' + at + '&' + what);
+    field(dl, mask.name, '');
+    const row = dl.lastChild;
+    // Which mask the picture draws points on. A button, so the choice is made with the keys as
+    // readily as with the hand, and it is the page's own: nothing in the project changes.
+    const edit = document.createElement('button');
+    edit.textContent = at === maskPicked ? 'Editing' : 'Edit points';
+    edit.setAttribute('aria-pressed', at === maskPicked ? 'true' : 'false');
+    edit.setAttribute('aria-label', 'Edit the points of ' + mask.name + ' on ' + layer.name);
+    edit.onclick = () => { maskPicked = at; drawBoxes(); drawInspector(); };
+    const mode = document.createElement('select');
+    mode.setAttribute('aria-label', 'Mode of ' + mask.name + ' on ' + layer.name);
+    mode.append(...MASK_MODES.map((m) => new Option(m, m)));
+    mode.value = mask.mode;
+    mode.onchange = () => set('mode=' + mode.value);
+    const flag = (what, on, text) => {
+      const button = document.createElement('button');
+      button.textContent = text;
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+      button.setAttribute('aria-label', text + ' ' + mask.name + ' on ' + layer.name);
+      button.onclick = () => set(what + '=1');
+      return button;
+    };
+    const gone = document.createElement('button');
+    gone.textContent = 'Delete';
+    gone.setAttribute('aria-label', 'Delete ' + mask.name + ' from ' + layer.name);
+    gone.onclick = () => command('/mask.delete?layer=' + encodeURIComponent(layer.id) + '&mask=' + at);
+    row.append(edit, mode, flag('inverted', mask.inverted, 'Invert'),
+      flag('enabled', !mask.enabled, mask.enabled ? 'On' : 'Off'), gone);
+    // The three numbers, each dragged, typed or stepped like every other number in this window.
+    // Opacity is counted in percent here and sent in percent; the window divides by a hundred,
+    // because D-77 holds it from zero to one.
+    for (const [what, named, value, suffix, range] of [
+      ['opacity', 'Opacity', mask.opacity * 100, '%', '0 to 100'],
+      ['feather', 'Feather', mask.feather_px, ' px', '0 or more'],
+      ['expansion', 'Expansion', mask.expansion_px, ' px', '-8192 to 8192'],
+    ]) {
+      field(dl, named, '');
+      dl.lastChild.append(scrubValue({
+        value,
+        suffix,
+        title: 'Drag to change, or press to type. ' + named + ' of ' + mask.name + ', ' + range,
+        label: named + ' of ' + mask.name + ' on ' + layer.name + ', ' + range,
+        commit: (v) => set(what + '=' + encodeURIComponent(v)),
+      }));
+    }
+  }
   matteRow(dl, layer);
   parentRow(dl, layer);
   // B-13d: a property row like the five above, and not a row of its own any more. It keeps its
@@ -6405,7 +6833,16 @@ addEventListener('keydown', (e) => {
   // W-23: Enter renames the selected layer and Escape lets go of every layer and key, as After
   // Effects has them; the comma and the full stop zoom the picture out and in; Alt with Page Up or
   // Page Down moves the selected layers in time.
+  // B-24c: with the pen in hand, Enter closes the mask being drawn and Escape abandons it, as
+  // After Effects has them, and each takes the key before the rename and the letting go do.
+  else if (e.key === 'Enter' && !el && penDraft && penDraft.length >= 3 && selected()) {
+    e.preventDefault();
+    const points = penDraft;
+    penDraft = null;
+    addMask(selected(), points);
+  }
   else if (e.key === 'Enter' && !el) { e.preventDefault(); beginRename(); }
+  else if (e.key === 'Escape' && (penDraft || tool !== 'select')) { e.preventDefault(); useTool('select'); }
   else if (e.key === 'Escape') { if (!dragging) { pickKey(null, false); choose([]); } }
   else if (e.key === ',') zoomTo(shownScale() / 1.15, ...stageCentre());
   else if (e.key === '.') zoomTo(shownScale() * 1.15, ...stageCentre());
@@ -6424,7 +6861,14 @@ addEventListener('keydown', (e) => {
   // was on A alone until W-12 gave A to the anchor, as After Effects has it; document 24 never
   // promised alpha-only a key, so Alt+A is the window's own choice, like A was.
   else if (e.altKey && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); $('alpha').click(); }
-  else if (e.key === 'g' || e.key === 'G') $('checker').click();
+  // B-24c: document 15 gives the pen G, as After Effects does, and the checkerboard had it
+  // first. The checkerboard moves to Alt+G, beside alpha-only on Alt+A and for the same reason:
+  // document 24 never promised it a key, and the pen's is in After Effects' hands. Q cycles the
+  // two shape tools, V comes back to the selection tool; both as After Effects has them.
+  else if (e.altKey && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); $('checker').click(); }
+  else if (e.key === 'g' || e.key === 'G') { e.preventDefault(); useTool('pen'); }
+  else if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); useTool(tool === 'rectangle' ? 'ellipse' : 'rectangle'); }
+  else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); useTool('select'); }
   // W-24: After Effects' B and N set the work area's ends at the playhead, and * adds a marker.
   else if (e.key === 'b' || e.key === 'B') setWork('start');
   else if (e.key === 'n' || e.key === 'N') setWork('end');

@@ -2086,6 +2086,10 @@ const ANSWERS: &[&str] = &[
     "layer.toggle_solo",
     "layer.toggle_visibility",
     "layer.trim",
+    "mask.add",
+    "mask.delete",
+    "mask.set",
+    "mask.set_path",
     "media.import",
     "media.relink",
     "property.drag_cancel",
@@ -3662,6 +3666,119 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         Err(sentence) => return Some(sentence),
                     }
                 }
+                // B-24c: D-77's masks from the picture and from the layer's panel. The core
+                // takes the whole list in one command, so each of these four reads the list the
+                // layer has, changes one thing in it and sends it back: a mask drawn, a point or
+                // a handle moved, one setting, or one mask taken out. Whether the shape is legal
+                // stays in the core, which is the reader that knows document 19's rules.
+                //
+                // D-71: a sound layer has no picture to cut, so it has no masks. The core
+                // refuses it too - `sets_a_picture` names SET_MASKS - and this says it in the
+                // words of the thing the person was doing, before a shape is even read.
+                "mask.add" | "mask.set_path" | "mask.set" | "mask.delete" => {
+                    if layer.kind == LayerKind::Audio {
+                        return Some(format!(
+                            "\"{}\" is a sound layer, so it has no masks.",
+                            layer.name
+                        ));
+                    }
+                    let mut masks = layer.masks.clone();
+                    // Which mask, for the three that name one. `mask.add` makes the next one.
+                    let at = match id {
+                        "mask.add" => masks.len(),
+                        _ => match parameter(query, "mask").and_then(|m| m.parse::<usize>().ok()) {
+                            Some(at) if at < masks.len() => at,
+                            _ => {
+                                return Some(format!(
+                                    "Which mask? \"{}\" has {}.",
+                                    layer.name,
+                                    match masks.len() {
+                                        0 => "none".to_string(),
+                                        1 => "one".to_string(),
+                                        n => format!("{n}"),
+                                    }
+                                ))
+                            }
+                        },
+                    };
+                    match id {
+                        "mask.delete" => {
+                            masks.remove(at);
+                        }
+                        "mask.add" | "mask.set_path" => {
+                            let points = match mask_points(query) {
+                                Ok(points) => points,
+                                Err(sentence) => return Some(sentence),
+                            };
+                            if id == "mask.add" {
+                                // Numbered past every name already in use, the way layer ids are,
+                                // so that drawing, undoing and drawing again does not make two
+                                // masks called the same thing.
+                                let name = (1..)
+                                    .map(|n| format!("Mask {n}"))
+                                    .find(|name| masks.iter().all(|m| &m.name != name))
+                                    .expect("the numbers do not run out");
+                                masks.push(anime_compositor::mask::Mask {
+                                    name,
+                                    points,
+                                    ..Default::default()
+                                });
+                            } else {
+                                masks[at].points = points;
+                            }
+                        }
+                        _ => {
+                            if let Some(text) = parameter(query, "mode") {
+                                match anime_compositor::mask::MaskMode::from_str(&text) {
+                                    Some(mode) => masks[at].mode = mode,
+                                    None => {
+                                        return Some(format!(
+                                            "A mask mode is add, subtract, intersect, difference \
+                                             or none. Not \"{text}\"."
+                                        ))
+                                    }
+                                }
+                            }
+                            for (key, what) in [
+                                ("opacity", "an opacity"),
+                                ("feather", "a feather"),
+                                ("expansion", "an expansion"),
+                            ] {
+                                let Some(text) = parameter(query, key) else {
+                                    continue;
+                                };
+                                let Ok(value) = text.trim().parse::<f64>() else {
+                                    return Some(format!(
+                                        "\"{}\" is not {what}. It is a number.",
+                                        text.trim()
+                                    ));
+                                };
+                                match key {
+                                    // The panel counts opacity in percent, as it does a layer's.
+                                    "opacity" => masks[at].opacity = value / 100.0,
+                                    "feather" => masks[at].feather_px = value,
+                                    _ => masks[at].expansion_px = value,
+                                }
+                            }
+                            // The two switches are read from the document, as every other toggle
+                            // in this window is, so a stale list in the page cannot flip them.
+                            if parameter(query, "inverted").is_some() {
+                                masks[at].inverted = !masks[at].inverted;
+                            }
+                            if parameter(query, "enabled").is_some() {
+                                masks[at].enabled = !masks[at].enabled;
+                            }
+                            if let Some(name) = parameter(query, "name") {
+                                masks[at].name = name;
+                            }
+                        }
+                    }
+                    Command::SetMasks {
+                        composition,
+                        layer_id,
+                        masks,
+                    }
+                }
                 // W-26: the shy switch, read from the document as the other toggles are.
                 "layer.toggle_shy" => Command::SetLayerShy {
                     composition,
@@ -4940,6 +5057,35 @@ fn solid_from(query: Option<&str>, mut solid: Solid) -> Result<Solid, String> {
         }
     }
     Ok(solid)
+}
+
+/// B-24c: a mask's path as the page sends it, `x,y,in_x,in_y,out_x,out_y` per point, separated
+/// by semicolons, or the sentence to answer with.
+///
+/// Six numbers and not two, so that the pen's curve and a dragged handle travel by the same
+/// route as a rectangle's corners; a corner is the same point with four zeros, which is what
+/// D-77 calls no handle. How many points make a shape, and whether they cross, is the core's to
+/// say — this refuses only text that is not a path at all.
+fn mask_points(query: Option<&str>) -> Result<Vec<anime_compositor::mask::MaskPoint>, String> {
+    let text = parameter(query, "points").unwrap_or_default();
+    let mut points = Vec::new();
+    for piece in text.split(';').filter(|p| !p.trim().is_empty()) {
+        let numbers: Vec<f64> = piece
+            .split(',')
+            .filter_map(|n| n.trim().parse::<f64>().ok())
+            .collect();
+        let [x, y, in_x, in_y, out_x, out_y] = numbers[..] else {
+            return Err(format!(
+                "A mask point is six numbers, x,y,in_x,in_y,out_x,out_y. Not \"{piece}\"."
+            ));
+        };
+        points.push(anime_compositor::mask::MaskPoint {
+            point: (x, y),
+            in_handle: (in_x, in_y),
+            out_handle: (out_x, out_y),
+        });
+    }
+    Ok(points)
 }
 
 fn parameter(query: Option<&str>, name: &str) -> Option<String> {
@@ -11365,6 +11511,193 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-24c: the masks from the window, on D-77. The order is the playtest sheet's.
+    #[test]
+    fn masks_are_drawn_and_set_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        // What the page draws from and what its panel shows: every mask of the layer, in order.
+        let masks_of = |viewer: &Mutex<Viewer>| {
+            let layer = shown_layer(viewer, "Cel");
+            let masks = layer["masks"].as_array().cloned().unwrap_or_default();
+            if masks.is_empty() {
+                return "none".to_string();
+            }
+            masks
+                .iter()
+                .map(|m| {
+                    format!(
+                        "{} {} {} points, opacity {}, feather {}, expansion {}{}{}",
+                        m["name"].as_str().unwrap_or("(no name)"),
+                        m["mode"].as_str().unwrap_or("(no mode)"),
+                        m["path"]["base"]["points"].as_array().map_or(0, |p| p.len()),
+                        m["opacity"],
+                        m["feather_px"],
+                        m["expansion_px"],
+                        if m["inverted"] == serde_json::Value::Bool(true) { ", inverted" } else { "" },
+                        if m["enabled"] == serde_json::Value::Bool(false) { ", off" } else { "" },
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        };
+        // The corners of a rectangle over the whole of a 1920 by 1080 layer, which is what New
+        // mask sends, and what the rectangle tool sends when it is dragged corner to corner.
+        let whole = "0,0,0,0,0,0;1920,0,0,0,0,0;1920,1080,0,0,0,0;0,1080,0,0,0,0";
+
+        report.check("the drawing layer starts with no masks", "none", masks_of(&viewer));
+        run(&viewer, &format!("mask.add?layer={cel}&points={whole}"));
+        report.check(
+            "New mask, the pen and the two shape tools all send mask.add, and the first is Mask 1",
+            "Mask 1 add 4 points, opacity 1, feather 0, expansion 0",
+            masks_of(&viewer),
+        );
+        report.check(
+            "Undo says what it would take back",
+            "Set mask of 4 points",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+        // An ellipse, as the ellipse tool draws one: four points with the handles that round it.
+        run(
+            &viewer,
+            &format!(
+                "mask.add?layer={cel}&points=960,0,-265.096,0,265.096,0;1920,540,0,-149.117,0,\
+                 149.117;960,1080,265.096,0,-265.096,0;0,540,0,149.117,0,-149.117"
+            ),
+        );
+        report.check(
+            "a second one is Mask 2, and the ellipse keeps its handles",
+            "Mask 1 add 4 points, opacity 1, feather 0, expansion 0; \
+             Mask 2 add 4 points, opacity 1, feather 0, expansion 0",
+            masks_of(&viewer),
+        );
+        report.check(
+            "the curved point really is curved: its outgoing handle is the one that was drawn",
+            "[265.096,0]",
+            shown_layer(&viewer, "Cel")["masks"][1]["path"]["base"]["points"][0]["out"].to_string(),
+        );
+
+        // A point dragged, or nudged with the arrow keys: the whole path goes back each time.
+        run(
+            &viewer,
+            &format!(
+                "mask.set_path?layer={cel}&mask=0&points=100,0,0,0,0,0;1920,0,0,0,0,0;\
+                 1920,1080,0,0,0,0;0,1080,0,0,0,0"
+            ),
+        );
+        report.check(
+            "moving one point moves that point and no other",
+            "[100,0] then [1920,0]",
+            format!(
+                "{} then {}",
+                shown_layer(&viewer, "Cel")["masks"][0]["path"]["base"]["points"][0]["point"],
+                shown_layer(&viewer, "Cel")["masks"][0]["path"]["base"]["points"][1]["point"]
+            ),
+        );
+
+        // The panel's own controls, each sending one setting and leaving the rest alone.
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&mode=subtract"));
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&opacity=50"));
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&feather=8"));
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&expansion=-4"));
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&inverted=1"));
+        report.check(
+            "the mode, opacity, feather, expansion and invert of one mask, each on its own",
+            "Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted",
+            masks_of(&viewer).split("; ").next().unwrap_or_default().to_string(),
+        );
+        run(&viewer, &format!("mask.set?layer={cel}&mask=1&enabled=1"));
+        report.check(
+            "the On button turns one mask off without touching the other",
+            "Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off",
+            masks_of(&viewer).split("; ").nth(1).unwrap_or_default().to_string(),
+        );
+
+        // What must be refused, each with the reason a person is given.
+        report.check(
+            "a shape of fewer than three points is refused by the core, with the reason",
+            "A mask needs at least three points, and this one has 2. Add points until the \
+             shape closes on an area.",
+            run(&viewer, &format!("mask.add?layer={cel}&points=0,0,0,0,0,0;10,10,0,0,0,0")),
+        );
+        report.check(
+            "a shape that crosses itself is refused, with the reason",
+            "The mask crosses itself, which this build does not draw. Move the points so that \
+             no edge crosses another. A figure-of-eight has to become two masks, which this \
+             build now has: draw the second one and set its mode.",
+            run(
+                &viewer,
+                &format!(
+                    "mask.add?layer={cel}&points=0,0,0,0,0,0;100,100,0,0,0,0;\
+                     100,0,0,0,0,0;0,100,0,0,0,0"
+                ),
+            ),
+        );
+        report.check(
+            "an opacity outside 0 to 1 is refused, with the reason",
+            "Mask \"Mask 1\" was given an opacity of 1.5, which is not from 0 to 1. Set a \
+             value inside the range and send the masks again.",
+            run(&viewer, &format!("mask.set?layer={cel}&mask=0&opacity=150")),
+        );
+        report.check(
+            "a point that is not six numbers is refused before the core sees it",
+            "A mask point is six numbers, x,y,in_x,in_y,out_x,out_y. Not \"0,0\".",
+            run(&viewer, &format!("mask.add?layer={cel}&points=0,0")),
+        );
+        report.check(
+            "a mode nobody has is refused, with the five there are",
+            "A mask mode is add, subtract, intersect, difference or none. Not \"lighten\".",
+            run(&viewer, &format!("mask.set?layer={cel}&mask=0&mode=lighten")),
+        );
+        report.check(
+            "a mask that is not there is refused, and the window says how many there are",
+            "Which mask? \"Cel\" has 2.",
+            run(&viewer, &format!("mask.set?layer={cel}&mask=7&opacity=50")),
+        );
+        report.check(
+            "and after the six refusals the two masks are as they were",
+            "Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; \
+             Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off",
+            masks_of(&viewer),
+        );
+
+        run(&viewer, &format!("mask.delete?layer={cel}&mask=0"));
+        report.check(
+            "Delete takes one mask off and leaves the other",
+            "Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off",
+            masks_of(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and Undo brings it back as it was, settings and all",
+            "Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; \
+             Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off",
+            masks_of(&viewer),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-24c_panel_table.md",
+            "B-24c: masks in the window",
+            MASK_PANEL_INTRO,
+            MASK_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     /// B-18c: the precomposition from the window, on D-67. The order is the playtest sheet's.
     #[test]
     fn layers_are_precomposed_from_the_window() {
@@ -12426,6 +12759,27 @@ mod editing {
          and in the panels, and whether the picker opens and shows the colour. That is \
          `verification/B-23c_solid_playtest.md`, for a person. Whether the pixels are right is \
          B-23b's table.",
+    ];
+
+    const MASK_PANEL_INTRO: &[&str] = &[
+        "D-77 decided what a mask is and B-24b built it in the core, checked pixel by pixel in \
+         `verification/B-24b_mask_table.md`. This is the window's half: the pen (G), the \
+         rectangle and the ellipse (Q) draw a mask and send `mask.add`; a point or a handle \
+         dragged on the picture, or nudged with the arrow keys, sends `mask.set_path`; the \
+         layer's panel shows every mask with its mode, opacity, feather, expansion, invert, on \
+         and Delete, which send `mask.set` and `mask.delete`.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
+         and reads back what the page is given. The panel counts opacity in percent, as After \
+         Effects does, and the window divides by a hundred before sending it, because D-77 \
+         holds it from 0 to 1.",
+    ];
+
+    const MASK_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhat a mask looks like on the picture and on the \
+         timeline, whether the pen closes where the hand means it to, and whether a dragged \
+         point lands where it was let go. That is `verification/B-24c_mask_playtest.md`, for a \
+         person. Whether the pixels a mask keeps are right is B-24b's table. A mask's path \
+         cannot be keyed yet: that is B-24d.",
     ];
 
     const ADJUST_PANEL_NOTES: &[&str] = &[
@@ -14230,6 +14584,10 @@ mod contract {
         "layer.toggle_solo",
         "layer.toggle_visibility",
         "layer.trim",
+        "mask.add",
+        "mask.delete",
+        "mask.set",
+        "mask.set_path",
         "media.import",
         "media.relink",
         "property.drag_cancel",
@@ -14582,6 +14940,13 @@ mod contract {
         // window.
         ("layer.add_solid", "a command the window answers"),
         ("solid.set", "a command the window answers"),
+        // D-77, accepted on 2026-09-19 and built in the core by B-24b; B-24c put all four in
+        // the window. Each one reads the layer's list of masks, changes one thing in it and
+        // sends the whole list back, because SET_MASKS is what the core takes.
+        ("mask.add", "a command the window answers"),
+        ("mask.set_path", "a command the window answers"),
+        ("mask.set", "a command the window answers"),
+        ("mask.delete", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -14678,6 +15043,14 @@ mod contract {
             "Ctrl+Alt+V",
             "toggleLayers('visibility')",
         ),
+        // B-24c: the tools that draw a mask. The key does not send the command - it takes up a
+        // tool, and the mask is sent when the shape closes - so what is checked here is that the
+        // key document 15 promises the pen really reaches for it.
+        (
+            "mask.add",
+            "G for the pen, Q for the rectangle and the ellipse",
+            "useTool('pen')",
+        ),
     ];
 
     /// The accelerators that work by pressing a button, and the button each one presses.
@@ -14698,7 +15071,8 @@ mod contract {
         ("Space", "e.key === ' ') {", "$('play')"),
         ("D", "e.key === 'd'", "$('toggle')"),
         ("Alt+A", "e.key === 'a'", "$('alpha')"),
-        ("G", "e.key === 'g'", "$('checker')"),
+        // B-24c: the checkerboard moved to Alt+G when document 15 gave the pen G.
+        ("Alt+G", "e.altKey && (e.key === 'g'", "$('checker')"),
         ("Shift+/", "e.key === '?'", "$('fit')"),
     ];
 
@@ -16131,7 +16505,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 45] = [
+    const KEYS: [&str; 46] = [
         "*",
         ",",
         "-",
@@ -16167,6 +16541,7 @@ mod contract {
         "P",
         "PageDown",
         "PageUp",
+        "Q",
         "R",
         "S",
         "Space",
@@ -16198,7 +16573,7 @@ mod contract {
     const MOUSE_ONLY: [&str; 1] = ["effect.move"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 29] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 31] = [
         (
             "dragging the border between two panels",
             "give one of them more of the window",
@@ -16343,6 +16718,19 @@ mod contract {
             "right clicking an empty place on the timeline",
             "paste keys or layers there, add a key, a layer or a marker, or open the settings",
             "['Add a marker', '*', { key: '*' }]",
+        ),
+        // B-24c: the two mask gestures. A mask is drawn with a hand, so the menu carries the
+        // one shape a person without a mouse cannot draw - the whole layer - and a point that
+        // has been tabbed to moves under the arrow keys, ten pixels with Shift.
+        (
+            "drawing a mask with the pen, the rectangle or the ellipse",
+            "put a mask on the layer",
+            "['New mask', 'G for the pen', newMask,",
+        ),
+        (
+            "dragging a mask point or one of its handles",
+            "move it",
+            "'Point ' + (i + 1) + ' of ' + mask.name",
         ),
     ];
 
