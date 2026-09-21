@@ -784,6 +784,8 @@
         title="A layer with no drawing whose effects apply to everything drawn beneath it">New adjustment layer</button>
       <button id="addsolid"
         title="A rectangle of one colour, the size of the composition and covering it. Its colour and size are in the layer's panel">New solid</button>
+      <button id="addshape"
+        title="A layer that draws shapes: paths with a fill, a stroke or both, drawn with the pen, the rectangle or the ellipse. Their colours are in the layer's panel">New shape layer</button>
       <button id="dellayer">Delete layer</button>
       <button id="up">Forward</button>
       <button id="down">Back</button>
@@ -1897,6 +1899,12 @@ function track(comp, layer, drawings) {
       + 'beneath it, from frame ' + layer.in_frame + ' up to frame ' + layer.out_frame + '.';
     return box;
   }
+  if (layer.kind === 'shape') {
+    box.classList.add('adjust');
+    lifeBar.title = layer.name + ' is a shape layer with ' + (layer.shapes || []).length
+      + ' shapes, from frame ' + layer.in_frame + ' up to frame ' + layer.out_frame + '.';
+    return box;
+  }
   // B-23c: a solid (D-74) has no drawings; its bar is its colour unless a label is chosen.
   if (layer.kind === 'solid') {
     box.classList.add('solid');
@@ -2186,6 +2194,7 @@ sheet.addEventListener('contextmenu', (e) => {
     ['Add layer', 'Ctrl+Alt+L', () => $('addlayer').click()],
     ['New adjustment layer', 'Ctrl+Alt+Y', () => $('addadjust').click()],
     ['New solid', 'Ctrl+Y', () => $('addsolid').click()],
+    ['New shape layer', '', () => $('addshape').click()],
     ['Add a marker at frame ' + at, '*', () => addMarker(at)],
     ['Composition settings', 'Ctrl+K', compSettings],
   ]);
@@ -2374,7 +2383,7 @@ function drawLayers() {
     // Colour is not the only carrier: a layer that is off, soloed, locked or shy says so in words.
     const adjust = layer.kind === 'adjustment';
     const precomp = layer.kind === 'composition';
-    const solid = layer.kind === 'solid';
+    const solid = layer.kind === 'solid' || layer.kind === 'shape';
     if (sound) twirl.style.visibility = 'hidden';
     if (!layer.enabled || layer.locked || soloed || layer.shy || adjust || precomp || solid || sound) {
       const mark = document.createElement('span');
@@ -2434,7 +2443,7 @@ function drawLayers() {
       : beginRename());
     const isOpen = (prop) => open.has(prop) || (prop.startsWith('position') && ['position', 'position_x', 'position_y']
       .some((p) => p !== prop && (p === 'position' || prop === 'position') && open.has(p)));
-    return [li, ...maskRows(comp, layer), ...propsOf(layer).filter(isOpen).flatMap((prop) => propTrack(comp, layer, prop))];
+    return [li, ...shapeRows(comp, layer), ...maskRows(comp, layer), ...propsOf(layer).filter(isOpen).flatMap((prop) => propTrack(comp, layer, prop))];
   }));
 }
 
@@ -2718,6 +2727,7 @@ function palette() {
     ['Add layer', 'Ctrl+Alt+L', { key: 'l', ctrlKey: true, altKey: true }],
     ['New adjustment layer', 'Ctrl+Alt+Y', { key: 'y', ctrlKey: true, altKey: true }],
     ['New solid', 'Ctrl+Y', { key: 'y', ctrlKey: true }],
+    ['New shape layer', '', () => $('addshape').click()],
     ['Pre-compose', 'Ctrl+Shift+C', { key: 'C', code: 'KeyC', ctrlKey: true, shiftKey: true }],
     ['Rename layer', 'F2', { key: 'F2' }],
     ['Delete layer or keys', 'Delete', { key: 'Delete' }],
@@ -3039,8 +3049,8 @@ function grabKey(comp, layer, prop, key, mark) {
 // carries its own. A mark is where the shape was set; a press on one goes to that frame, which
 // is what a person wants first and is all a mask key answers to so far - dragging one is
 // keyframe.move's business and a mask key is not one of its keys.
-function maskRows(comp, layer) {
-  return masksOf(layer).map((mask, at) => {
+function maskRows(comp, layer, shapes = false) {
+  return (shapes ? layer.shapes || [] : masksOf(layer)).map((mask, at) => {
     const li = document.createElement('li');
     li.className = 'prop';
     li.dataset.id = layer.id;
@@ -3049,13 +3059,14 @@ function maskRows(comp, layer) {
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = mask.name + (at === maskPicked && layer.id === selectedLayer ? ' ◆' : '');
-    name.title = 'Press to work on this mask’s points on the picture';
+    name.title = 'Press to work on this ' + (shapes ? 'shape' : 'mask') + '’s points on the picture';
     name.onclick = (e) => { e.stopPropagation(); select(layer.id, false); maskPicked = at; drawLayers(); drawBoxes(); };
     const value = document.createElement('span');
     value.className = 'value';
-    value.textContent = mask.mode + ', ' + mask.path.base.points.length + ' points'
+    value.textContent = (shapes ? (mask.closed ? 'closed' : 'open') : mask.mode) + ', '
+      + mask.path.base.points.length + ' points'
       + (mask.inverted ? ', inverted' : '') + (mask.enabled ? '' : ', off');
-    head.append(maskKeyButton(layer, mask, at), name, value);
+    head.append(maskKeyButton(layer, mask, at, shapes), name, value);
     li.append(head);
     const box = document.createElement('div');
     box.className = 'track';
@@ -3080,7 +3091,10 @@ function maskRows(comp, layer) {
 // on screen has no key for this path and a press sets one, filled where it has and a press takes
 // it off; a path with no keys at all starts moving from the shape it has now, and the last key
 // taken off leaves that shape behind, so the mask does not jump when the stopwatch goes out.
-function maskKeyButton(layer, mask, at) {
+// B-25c: a shape layer's shapes have the same rows, drawn by the same function, because a
+// shape's path is a mask's path; only the command's word and the picked path differ.
+const shapeRows = (comp, layer) => maskRows(comp, layer, true);
+function maskKeyButton(layer, mask, at, shapes = false) {
   const keys = maskKeys(mask);
   const on = keys.some((k) => k.frame === frame);
   const button = document.createElement('button');
@@ -3092,8 +3106,8 @@ function maskKeyButton(layer, mask, at) {
   button.setAttribute('aria-pressed', on);
   button.onclick = (e) => {
     e.stopPropagation();
-    command('/mask.add_remove_key?layer=' + encodeURIComponent(layer.id)
-      + '&mask=' + at + '&frame=' + frame);
+    command((shapes ? '/shape.add_remove_key' : '/mask.add_remove_key') + '?layer='
+      + encodeURIComponent(layer.id) + (shapes ? '&shape=' : '&mask=') + at + '&frame=' + frame);
   };
   return button;
 }
@@ -3430,11 +3444,11 @@ function drawBoxes() {
   let refocusPoint = null;
   if (space) {
     const heldPoint = document.activeElement && document.activeElement.__mask;
-    masksOf(shaper).forEach((mask, at) => {
+    pathsOf(shaper).forEach((mask, at) => {
       const points = maskPull && maskPull.at === at ? maskPull.points : maskPath(shaper, at);
-      const shape = svgEl('polygon');
+      const shape = svgEl(mask.closed === false ? 'polyline' : 'polygon');
       shape.setAttribute('class', at === maskPicked ? 'maskline' : 'maskline other');
-      shape.setAttribute('points', outlineOf(points)
+      shape.setAttribute('points', outlineOf(points, mask.closed !== false)
         .map((p) => space.toFrame(p[0], p[1]).join(',')).join(' '));
       drawn.push(shape);
       if (at !== maskPicked || shaper.locked) return;
@@ -3481,7 +3495,7 @@ function drawBoxes() {
           const step = k.shiftKey ? 10 : 1;
           maskNudge = maskNudge.then(() => {
             const now = selected();
-            const mask = masksOf(now)[at];
+            const mask = pathsOf(now)[at];
             if (!mask) return;
             const points = maskPath(now, at);
             points[i][0] += by[0] * step;
@@ -3586,14 +3600,32 @@ let maskNudge = Promise.resolve();
 function useTool(which) {
   tool = which;
   penDraft = null;
-  view.style.cursor = which === 'select' ? '' : 'crosshair';
+  view.style.cursor = which === 'pen' ? PEN_CURSOR : which === 'select' ? '' : 'crosshair';
+  const shapes = drawsShapes(selected());
   $('status').textContent = which === 'select' ? 'The selection tool.'
-    : which === 'pen' ? 'The pen: click to place points, and click the first point to close the mask.'
-    : 'The ' + which + ' tool: drag across the layer to mask it.';
+    : which === 'pen' ? (shapes
+      ? 'The pen: click to place points; click the first point to close the shape, or Enter to leave it open.'
+      : 'The pen: click to place points, and click the first point to close the mask.')
+    : 'The ' + which + ' tool: drag across the layer to ' + (shapes ? 'draw a shape.' : 'mask it.');
   drawBoxes();
 }
 
 const masksOf = (layer) => (layer && layer.masks) || [];
+
+// B-25c: the pen over the picture is a pen, as After Effects shows it, its tip where the point
+// goes. The browser falls back to the crosshair where it cannot draw the picture.
+const PEN_CURSOR = 'url("data:image/svg+xml,' + encodeURIComponent(
+  '<svg xmlns="' + $('boxes').namespaceURI + '" width="24" height="24" viewBox="0 0 24 24">'
+  + '<path d="M2 22 L5 13 L15 3 L21 9 L11 19 Z" fill="white" stroke="black" stroke-width="1.2" stroke-linejoin="round"/>'
+  + '<path d="M2 22 L8 16 M13 5 L19 11" stroke="black" stroke-width="1.2"/>'
+  + '<circle cx="8.5" cy="15.5" r="1.3" fill="black"/></svg>') + '") 2 22, crosshair';
+
+// B-25c: on a shape layer (D-78) the picture's tools draw its shapes rather than its masks: the
+// same paths, the same points and handles, the other list and the other command. Its masks are
+// still set in its panel.
+// ponytail: a shape layer's masks cannot be drawn on the picture; a tool switch if that is wanted.
+const drawsShapes = (layer) => !!layer && layer.kind === 'shape';
+const pathsOf = (layer) => (drawsShapes(layer) ? layer.shapes || [] : masksOf(layer));
 
 // One mask's points as six numbers each, `x, y, in_x, in_y, out_x, out_y`, in the layer's own
 // pixels: the shape a request carries and the shape everything below works in.
@@ -3602,9 +3634,9 @@ const masksOf = (layer) => (layer && layer.masks) || [];
 // A path that moves is read from the same answer the boxes come from, where the renderer put
 // the outline it actually drew; the page does not solve document 20's curves a second time.
 function maskPath(layer, at) {
-  const now = ((values[layer.id] || {}).masks || [])[at];
+  const now = ((values[layer.id] || {})[drawsShapes(layer) ? 'shapes' : 'masks'] || [])[at];
   if (now) return now.map((p) => p.slice());
-  const mask = masksOf(layer)[at];
+  const mask = pathsOf(layer)[at];
   return mask.path.base.points.map((p) => [
     p.point[0], p.point[1],
     (p.in || [0, 0])[0], (p.in || [0, 0])[1], (p.out || [0, 0])[0], (p.out || [0, 0])[1]]);
@@ -3617,13 +3649,14 @@ const maskKeys = (mask) => ((mask.path && mask.path.keyframes) || []).slice()
 const maskQuery = (points) => '&points='
   + encodeURIComponent(points.map((p) => p.map(number).join(',')).join(';'));
 
-// The closed outline a path draws, in the layer's own pixels. A segment whose two handles are
+// The outline a path draws, in the layer's own pixels, closed unless B-25c's open shape says not. A segment whose two handles are
 // both zero is the straight line it always was; a curved one is cut into pieces, as
 // `Mask::outline` cuts it. Twelve pieces is enough to look right on screen — the picture itself
 // is the core's arithmetic and not this.
-function outlineOf(points) {
+function outlineOf(points, closed = true) {
   const out = [];
   for (let i = 0; i < points.length; i++) {
+    if (!closed && i === points.length - 1) { out.push([points[i][0], points[i][1]]); break; }
     const a = points[i];
     const d = points[(i + 1) % points.length];
     if (!a[4] && !a[5] && !d[2] && !d[3]) { out.push([a[0], a[1]]); continue; }
@@ -3697,16 +3730,20 @@ function layerSpace(layer) {
 // B-24d: the frame goes with it, because a path that moves is edited at the key under the
 // playhead. A path that stands still ignores it and changes its base, as it always did.
 function sendMaskPath(layer, at, points, how = '') {
-  return command('/mask.set_path?layer=' + encodeURIComponent(layer.id)
-    + '&mask=' + at + '&frame=' + frame + how + maskQuery(points));
+  const shapes = drawsShapes(layer);
+  return command((shapes ? '/shape.set_path' : '/mask.set_path') + '?layer='
+    + encodeURIComponent(layer.id) + (shapes ? '&shape=' : '&mask=') + at + '&frame=' + frame
+    + how + maskQuery(points));
 }
 
 // A mask drawn. The tool goes back to the selection tool afterwards, as After Effects' shape
 // tools do not but its pen does; a person who has just drawn one wants to move its points.
-function addMask(layer, points) {
-  maskPicked = masksOf(layer).length;
+// B-25c: on a shape layer it is a shape, and the pen may leave it open.
+function addMask(layer, points, closed = true) {
+  maskPicked = pathsOf(layer).length;
   useTool('select');
-  return command('/mask.add?layer=' + encodeURIComponent(layer.id) + maskQuery(points));
+  return command((drawsShapes(layer) ? '/shape.add?closed=' + (closed ? 1 : 0) + '&' : '/mask.add?')
+    + 'layer=' + encodeURIComponent(layer.id) + maskQuery(points));
 }
 
 // B-24c: a rectangular mask over the whole of the selected layer, which is the menu's way in
@@ -4001,7 +4038,9 @@ stage.onpointerdown = (e) => {
         addMask(layer, points);
       } else {
         penDraft = (penDraft || []).concat([[lx, ly, 0, 0, 0, 0]]);
-        $('status').textContent = penDraft.length < 3
+        $('status').textContent = drawsShapes(layer)
+          ? 'Click the first point to close the shape, Enter to leave it open, or Escape to start again.'
+          : penDraft.length < 3
           ? 'Place at least three points; then click the first to close the mask.'
           : 'Click the first point to close the mask, or Escape to start again.';
         drawBoxes();
@@ -4039,7 +4078,7 @@ stage.onpointerdown = (e) => {
   // layer under the pointer, for the reason the motion path's handles come first: these are the
   // smallest things on the picture. The whole path travels with every step, because the core
   // takes a mask's path whole, and `&drag=1` makes one pull one entry in the history.
-  const pullable = shaping && masksOf(layer)[maskPicked]
+  const pullable = shaping && pathsOf(layer)[maskPicked]
     ? maskPath(layer, maskPicked).flatMap((p, i) => [
       { i, which: -1, at: shaping.toFrame(p[0], p[1]) },
       ...(p[2] || p[3] ? [{ i, which: 0, at: shaping.toFrame(p[0] + p[2], p[1] + p[3]) }] : []),
@@ -4947,6 +4986,7 @@ function drawInspector() {
   field(dl, 'Identifier', layer.id);
   field(dl, 'Drawing', layer.kind === 'adjustment' ? 'none: an adjustment layer'
     : layer.kind === 'solid' ? 'none: a solid'
+    : layer.kind === 'shape' ? 'none: a shape layer'
     : layer.kind === 'composition' ? 'the composition ' + compName(layer.composition_id) : layer.asset_id);
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive'
     + (layer.source_offset_frames ? ', drawings offset by ' + layer.source_offset_frames : ''));
@@ -4993,6 +5033,55 @@ function drawInspector() {
         label: named + ' of ' + layer.name + ' in pixels, from 1 to 8192',
         commit: (v) => set(side + '=' + encodeURIComponent(v)),
       }));
+    }
+  }
+  // B-25c: D-78's shapes, one block each: which one the picture draws points on, open or
+  // closed, on or off, and its fill and stroke. A colour is picked on the screen's 256 levels
+  // and sent linear, as the solid's is; "No fill" and "No stroke" take one off and "Add" puts
+  // it back in the colour showing.
+  if (layer.kind === 'shape') {
+    const shapes = layer.shapes || [];
+    if (!shapes.length) field(dl, 'Shapes', 'none yet: draw one with the pen (G), or the rectangle or ellipse (Q)');
+    for (const [at, shape] of shapes.entries()) {
+      const set = (what) => command('/shape.set?layer=' + encodeURIComponent(layer.id)
+        + '&shape=' + at + '&' + what);
+      const labelled = (el, text) => { el.setAttribute('aria-label', text + ' of ' + shape.name + ' on ' + layer.name); return el; };
+      const button = (text, on, click) => {
+        const b = labelled(document.createElement('button'), text);
+        b.textContent = text;
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.onclick = click;
+        return b;
+      };
+      field(dl, shape.name, '');
+      dl.lastChild.append(
+        button(at === maskPicked ? 'Editing' : 'Edit points', at === maskPicked,
+          () => { maskPicked = at; drawBoxes(); drawInspector(); }),
+        button(shape.closed ? 'Closed' : 'Open', !shape.closed, () => set('closed=1')),
+        button(shape.enabled ? 'On' : 'Off', !shape.enabled, () => set('enabled=1')),
+        button('Delete', false, () => command('/shape.delete?layer='
+          + encodeURIComponent(layer.id) + '&shape=' + at)));
+      for (const [what, named, paint] of [['fill', 'Fill', shape.fill], ['stroke', 'Stroke', shape.stroke]]) {
+        field(dl, named, '');
+        const pick = labelled(document.createElement('input'), named + ' colour');
+        pick.type = 'color';
+        pick.value = hexOf(paint ? paint.color : [1, 1, 1]);
+        pick.onchange = () => set(what + '=' + linearOf(pick.value).join(','));
+        dl.lastChild.append(pick, button(paint ? 'No ' + what : 'Add ' + what, !paint,
+          () => set(what + '=' + (paint ? 'none' : linearOf(pick.value).join(',')))));
+        if (!paint) continue;
+        const scrubs = [[what + '_opacity', 'opacity', paint.opacity * 100, '%', '0 to 100']];
+        if (what === 'stroke') scrubs.push(['stroke_width', 'width', paint.width_px, ' px', 'above 0, at most 8192']);
+        for (const [key, word, value, suffix, range] of scrubs) {
+          dl.lastChild.append(' ', scrubValue({
+            value,
+            suffix,
+            title: 'Drag to change, or press to type. ' + named + ' ' + word + ', ' + range,
+            label: named + ' ' + word + ' of ' + shape.name + ' on ' + layer.name + ', ' + range,
+            commit: (v) => set(key + '=' + encodeURIComponent(v)),
+          }));
+        }
+      }
     }
   }
   propRow(dl, layer, 'anchor');
@@ -5238,6 +5327,7 @@ function drawExposures() {
     into.replaceChildren(Object.assign(document.createElement('p'),
       { className: 'empty', textContent: (layer.kind === 'composition' ? 'A composition layer'
         : layer.kind === 'audio' ? 'A sound' : layer.kind === 'solid' ? 'A solid'
+        : layer.kind === 'shape' ? 'A shape layer'
         : 'An adjustment layer') + ' has no drawings to expose.' }));
     return;
   }
@@ -6385,6 +6475,7 @@ function drawPanels() {
   $('addlayer').disabled = !selectedAsset;
   $('addadjust').disabled = !comp;
   $('addsolid').disabled = !comp;
+  $('addshape').disabled = !comp;
   $('relink').disabled = !selectedAsset;
   // Document 26 requires a label on every history record, and this is where it earns its keep:
   // a person who has been away from the window cannot otherwise know what Undo is about to
@@ -6526,6 +6617,14 @@ $('addsolid').onclick = () => {
   if (!composition()) return;
   const at = layers().findIndex((l) => l.id === selectedLayer);
   command('/layer.add_solid' + (at < 0 ? '' : '?to=' + (at + 1)));
+};
+// B-25c: D-78's shape layer, placed as the solid is, and empty: its shapes are drawn on the
+// picture with the pen, the rectangle and the ellipse, so the pen is put in hand.
+$('addshape').onclick = async () => {
+  if (!composition()) return;
+  const at = layers().findIndex((l) => l.id === selectedLayer);
+  await command('/layer.add_shape' + (at < 0 ? '' : '?to=' + (at + 1)));
+  useTool('pen');
 };
 // B-12 fix: Forward and Back move every chosen layer a step, as one entry to undo. The chosen
 // layer nearest the end it is going to moves first; one already against that end, or against a
@@ -6889,11 +6988,13 @@ addEventListener('keydown', (e) => {
   // Page Down moves the selected layers in time.
   // B-24c: with the pen in hand, Enter closes the mask being drawn and Escape abandons it, as
   // After Effects has them, and each takes the key before the rename and the letting go do.
-  else if (e.key === 'Enter' && !el && penDraft && penDraft.length >= 3 && selected()) {
+  // B-25c: on a shape layer Enter leaves the path open, and two points are enough for a line.
+  else if (e.key === 'Enter' && !el && penDraft && selected()
+    && penDraft.length >= (drawsShapes(selected()) ? 2 : 3)) {
     e.preventDefault();
     const points = penDraft;
     penDraft = null;
-    addMask(selected(), points);
+    addMask(selected(), points, !drawsShapes(selected()));
   }
   else if (e.key === 'Enter' && !el) { e.preventDefault(); beginRename(); }
   else if (e.key === 'Escape' && (penDraft || tool !== 'select')) { e.preventDefault(); useTool('select'); }

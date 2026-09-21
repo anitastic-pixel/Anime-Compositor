@@ -348,6 +348,13 @@ pub enum Command {
         layer_id: Id,
         masks: Vec<crate::mask::Mask>,
     },
+    /// Set a shape layer's whole list of shapes. D-78, B-25c. The whole list for the reason
+    /// `SetMasks` gives: they draw first to last, so the list is the unit of change.
+    SetShapes {
+        composition: Id,
+        layer_id: Id,
+        shapes: Vec<crate::shape::Shape>,
+    },
     /// Document 24's `effect.add`. B-07.
     ///
     /// `index` is where in the stack it lands, because order changes the picture: a blur then a
@@ -454,6 +461,7 @@ impl Command {
             Command::SetCameraProperty { .. } => "SET_CAMERA_PROPERTY",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
             Command::SetMasks { .. } => "SET_MASKS",
+            Command::SetShapes { .. } => "SET_SHAPES",
             Command::AddEffect { .. } => "ADD_EFFECT",
             Command::RemoveEffect { .. } => "REMOVE_EFFECT",
             Command::ReorderEffect { .. } => "REORDER_EFFECT",
@@ -584,6 +592,11 @@ impl Command {
                 1 => format!("Set mask of {} points", masks[0].points.len()),
                 n => format!("Set {n} masks"),
             },
+            Command::SetShapes { shapes, .. } => match shapes.len() {
+                0 => "Clear the shapes".to_string(),
+                1 => "Set one shape".to_string(),
+                n => format!("Set {n} shapes"),
+            },
             Command::AddEffect { effect, .. } => format!("Add {}", effect.type_id()),
             Command::RemoveEffect { instance_id, .. } => format!("Remove effect {instance_id}"),
             Command::ReorderEffect {
@@ -646,6 +659,7 @@ impl Command {
             | Command::SetCameraProperty { composition, .. }
             | Command::SetExposureSpans { composition, .. }
             | Command::SetMasks { composition, .. }
+            | Command::SetShapes { composition, .. }
             | Command::AddEffect { composition, .. }
             | Command::RemoveEffect { composition, .. }
             | Command::ReorderEffect { composition, .. }
@@ -681,6 +695,7 @@ impl Command {
             | Command::TrimLayer { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMasks { layer_id, .. }
+            | Command::SetShapes { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
             | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
@@ -806,6 +821,7 @@ impl Command {
                 | Command::SetDepth { .. }
                 | Command::SetExposureSpans { .. }
                 | Command::SetMasks { .. }
+                | Command::SetShapes { .. }
                 | Command::AddEffect { .. }
                 | Command::SeparatePosition { .. }
                 | Command::SetPropertyBase { .. }
@@ -837,6 +853,7 @@ impl Command {
             | Command::SetAudioGain { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetMasks { layer_id, .. }
+            | Command::SetShapes { layer_id, .. }
             | Command::AddEffect { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
             | Command::ReorderEffect { layer_id, .. }
@@ -2360,6 +2377,58 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 m.keys.sort_by_key(|k| k.frame);
             }
             layer_mut(project, &comp_id, layer_id)?.masks = masks;
+        }
+        Command::SetShapes {
+            layer_id, shapes, ..
+        } => {
+            // D-78: a file may carry a shape of fewer than two points and be told so, but nothing
+            // in the window may make one, which is document 28's ERROR on a command. A shape
+            // that crosses itself is drawn, so it is not refused here as a crossed mask is.
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            if layer.kind != crate::model::LayerKind::Shape {
+                return Err(reject(
+                    &format!("\"{}\" is not a shape layer, so it has no shapes.", layer.name),
+                    "D-78: only a shape layer carries a list of shapes.",
+                ));
+            }
+            for s in shapes {
+                if !s.has_enough_points() {
+                    return Err(Diagnostic::new(
+                        DiagnosticId::ShapeInvalidOutline,
+                        Severity::Error,
+                        format!(
+                            "A shape needs at least two points, and \"{}\" has {}.",
+                            s.name,
+                            s.points.len()
+                        ),
+                        "D-78: fewer than two points can be neither filled nor stroked. The \
+                         shapes are unchanged."
+                            .to_string(),
+                    )
+                    .with_remediation("Place a second point before finishing the shape."));
+                }
+                let twice = s
+                    .keys
+                    .iter()
+                    .find(|k| s.keys.iter().filter(|o| o.frame == k.frame).count() > 1);
+                let problem = s
+                    .problem()
+                    .or_else(|| twice.map(|k| format!("one key to a frame, not two at {}", k.frame)));
+                if let Some(p) = problem {
+                    return Err(Diagnostic::new(
+                        DiagnosticId::CommandInvalidValue,
+                        Severity::Error,
+                        format!("Shape \"{}\" cannot be drawn: it needs {p}.", s.name),
+                        "D-78's ranges. The shapes are unchanged.".to_string(),
+                    )
+                    .with_remediation("Set a value inside the range and send the shapes again."));
+                }
+            }
+            let mut shapes = shapes.clone();
+            for s in &mut shapes {
+                s.keys.sort_by_key(|k| k.frame);
+            }
+            layer.shapes = shapes;
         }
         Command::AddEffect {
             layer_id,

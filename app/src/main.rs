@@ -432,24 +432,39 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                     // not its base on any frame but a key's, and the page has no business
                     // solving document 20's curves a second time: the picture it draws points
                     // on, and the points a drag starts from, are the ones the renderer used.
+                    // B-25c: and a shape layer's shapes, for the same reason and in the same six.
+                    let six = |points: Vec<anime_compositor::mask::MaskPoint>| {
+                        points
+                            .iter()
+                            .map(|p| {
+                                [
+                                    p.point.0,
+                                    p.point.1,
+                                    p.in_handle.0,
+                                    p.in_handle.1,
+                                    p.out_handle.0,
+                                    p.out_handle.1,
+                                ]
+                            })
+                            .collect::<Vec<_>>()
+                    };
                     if !layer.masks.is_empty() {
                         at.insert(
                             "masks".to_string(),
                             serde_json::json!(layer
                                 .masks
                                 .iter()
-                                .map(|m| m
-                                    .points_at(frame)
-                                    .iter()
-                                    .map(|p| [
-                                        p.point.0,
-                                        p.point.1,
-                                        p.in_handle.0,
-                                        p.in_handle.1,
-                                        p.out_handle.0,
-                                        p.out_handle.1
-                                    ])
-                                    .collect::<Vec<_>>())
+                                .map(|m| six(m.points_at(frame)))
+                                .collect::<Vec<_>>()),
+                        );
+                    }
+                    if !layer.shapes.is_empty() {
+                        at.insert(
+                            "shapes".to_string(),
+                            serde_json::json!(layer
+                                .shapes
+                                .iter()
+                                .map(|s| six(s.points_at(frame)))
                                 .collect::<Vec<_>>()),
                         );
                     }
@@ -2088,6 +2103,7 @@ const ANSWERS: &[&str] = &[
     "keyframe.set_roving",
     "layer.add_adjustment",
     "layer.add_composition",
+    "layer.add_shape",
     "layer.add_solid",
     "layer.copy",
     "layer.create",
@@ -2125,6 +2141,11 @@ const ANSWERS: &[&str] = &[
     "property.separate",
     "property.set_base",
     "property.set_expression",
+    "shape.add",
+    "shape.add_remove_key",
+    "shape.delete",
+    "shape.set",
+    "shape.set_path",
     "solid.set",
     "timeline.set_markers",
     "timeline.set_work_end",
@@ -3372,6 +3393,30 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .and_then(|to| to.parse::<usize>().ok())
                     .unwrap_or(comp.len()),
             }
+        } else if id == "layer.add_shape" {
+            // B-25c: D-78's shape layer, empty, over the frame exactly and named with the
+            // smallest `Shape Layer N` this composition does not have yet. Above the chosen layer
+            // (`to`) or else at the front, as a new solid lands.
+            let name = (1..)
+                .map(|n| format!("Shape Layer {n}"))
+                .find(|name| comp.layers_in_order().all(|l| &l.name != name))
+                .expect("a name not yet taken");
+            let layer = Layer::shape(
+                unused_layer_id(project),
+                parameter(query, "name").unwrap_or(name),
+                Vec::new(),
+                comp.width,
+                comp.height,
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            Command::AddLayer {
+                composition,
+                layer: Box::new(layer),
+                index: parameter(query, "to")
+                    .and_then(|to| to.parse::<usize>().ok())
+                    .unwrap_or(comp.len()),
+            }
         } else if id == "layer.add_composition" {
             // B-18c: D-67's layer of another composition, centred, above the chosen layer
             // (`to`) or else at the front. A cycle is the core's to refuse.
@@ -3850,6 +3895,122 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         composition,
                         layer_id,
                         masks,
+                    }
+                }
+                // B-25c: D-78's shapes, the mask commands' twin. The same read-change-send of
+                // the whole list, because SET_SHAPES takes the whole list, and the same pen: which
+                // of the two it draws is decided by the kind of layer chosen.
+                "shape.add" | "shape.set_path" | "shape.set" | "shape.delete"
+                | "shape.add_remove_key" => {
+                    if layer.kind != LayerKind::Shape {
+                        return Some(format!(
+                            "\"{}\" is not a shape layer, so it has no shapes.",
+                            layer.name
+                        ));
+                    }
+                    let mut shapes = layer.shapes.clone();
+                    let at = match id {
+                        "shape.add" => shapes.len(),
+                        _ => match parameter(query, "shape").and_then(|s| s.parse::<usize>().ok()) {
+                            Some(at) if at < shapes.len() => at,
+                            _ => {
+                                return Some(format!(
+                                    "Which shape? \"{}\" has {}.",
+                                    layer.name,
+                                    match shapes.len() {
+                                        0 => "none".to_string(),
+                                        1 => "one".to_string(),
+                                        n => format!("{n}"),
+                                    }
+                                ))
+                            }
+                        },
+                    };
+                    let key = |frame, points| anime_compositor::mask::MaskKey {
+                        frame,
+                        points,
+                        interp: anime_compositor::model::Interp::Linear,
+                    };
+                    match id {
+                        "shape.delete" => {
+                            shapes.remove(at);
+                        }
+                        // The stopwatch, exactly as `mask.add_remove_key` works it.
+                        "shape.add_remove_key" => {
+                            let frame = match frame_parameter(query, "frame") {
+                                Ok(frame) => frame,
+                                Err(said) => return Some(said),
+                            };
+                            let shape = &mut shapes[at];
+                            match shape.keys.iter().position(|k| k.frame == frame) {
+                                Some(i) => {
+                                    let gone = shape.keys.remove(i);
+                                    if shape.keys.is_empty() {
+                                        shape.points = gone.points;
+                                    }
+                                }
+                                None => {
+                                    let points = shape.points_at(frame);
+                                    shape.keys.push(key(frame, points));
+                                }
+                            }
+                        }
+                        "shape.add" | "shape.set_path" => {
+                            let points = match mask_points(query) {
+                                Ok(points) => points,
+                                Err(sentence) => return Some(sentence),
+                            };
+                            if id == "shape.add" {
+                                // A closed shape comes with a fill and an open one with a stroke,
+                                // so that what was just drawn can be seen: an open path has
+                                // nothing to fill that a person meant, and a closed one drawn
+                                // with a line only looks like a mask. Grey, as a new solid is.
+                                let grey = anime_compositor::color::srgb_to_linear(128.0 / 255.0)
+                                    as f64;
+                                let closed = parameter(query, "closed").as_deref() != Some("0");
+                                let name = (1..)
+                                    .map(|n| format!("Shape {n}"))
+                                    .find(|name| shapes.iter().all(|s| &s.name != name))
+                                    .expect("the numbers do not run out");
+                                shapes.push(anime_compositor::shape::Shape {
+                                    name,
+                                    closed,
+                                    points,
+                                    fill: closed.then_some(anime_compositor::shape::Fill {
+                                        color: [grey; 3],
+                                        opacity: 1.0,
+                                    }),
+                                    stroke: (!closed).then_some(anime_compositor::shape::Stroke {
+                                        color: [1.0; 3],
+                                        opacity: 1.0,
+                                        width_px: 4.0,
+                                    }),
+                                    ..Default::default()
+                                });
+                            } else if shapes[at].keys.is_empty() {
+                                shapes[at].points = points;
+                            } else {
+                                let frame = match frame_parameter(query, "frame") {
+                                    Ok(frame) => frame,
+                                    Err(said) => return Some(said),
+                                };
+                                let shape = &mut shapes[at];
+                                match shape.keys.iter_mut().find(|k| k.frame == frame) {
+                                    Some(k) => k.points = points,
+                                    None => shape.keys.push(key(frame, points)),
+                                }
+                            }
+                        }
+                        _ => {
+                            if let Err(sentence) = shape_settings(query, &mut shapes[at]) {
+                                return Some(sentence);
+                            }
+                        }
+                    }
+                    Command::SetShapes {
+                        composition,
+                        layer_id,
+                        shapes,
                     }
                 }
                 // W-26: the shy switch, read from the document as the other toggles are.
@@ -5130,6 +5291,80 @@ fn solid_from(query: Option<&str>, mut solid: Solid) -> Result<Solid, String> {
         }
     }
     Ok(solid)
+}
+
+/// B-25c: `shape.set`'s settings onto one shape. `fill` and `stroke` are three linear numbers,
+/// or `none` to take it off; the opacities come in percent, as the panel counts them; `enabled`
+/// and `closed` are switches read from the document, as every toggle here is. Only text that is
+/// not a number at all is refused here; D-78's ranges are the core's to refuse.
+fn shape_settings(
+    query: Option<&str>,
+    shape: &mut anime_compositor::shape::Shape,
+) -> Result<(), String> {
+    use anime_compositor::shape::{Fill, Stroke};
+    let color = |text: &str| -> Result<[f64; 3], String> {
+        let numbers: Vec<f64> = text
+            .split(',')
+            .filter_map(|n| n.trim().parse::<f64>().ok())
+            .collect();
+        <[f64; 3]>::try_from(numbers).map_err(|_| {
+            format!("\"{text}\" is not a colour. A colour is three numbers from 0 to 1, red, green and blue.")
+        })
+    };
+    let number = |key: &str, what: &str| -> Result<Option<f64>, String> {
+        parameter(query, key)
+            .map(|text| {
+                text.trim().parse::<f64>().map_err(|_| {
+                    format!("\"{}\" is not {what}. It is a number.", text.trim())
+                })
+            })
+            .transpose()
+    };
+    match parameter(query, "fill").as_deref() {
+        None => {}
+        Some("none") => shape.fill = None,
+        Some(text) => {
+            let color = color(text)?;
+            let opacity = shape.fill.map_or(1.0, |f| f.opacity);
+            shape.fill = Some(Fill { color, opacity });
+        }
+    }
+    match parameter(query, "stroke").as_deref() {
+        None => {}
+        Some("none") => shape.stroke = None,
+        Some(text) => {
+            let color = color(text)?;
+            let (opacity, width_px) = shape.stroke.map_or((1.0, 4.0), |s| (s.opacity, s.width_px));
+            shape.stroke = Some(Stroke { color, opacity, width_px });
+        }
+    }
+    if let Some(v) = number("fill_opacity", "an opacity")? {
+        let Some(fill) = shape.fill.as_mut() else {
+            return Err(format!("\"{}\" has no fill to set the opacity of.", shape.name));
+        };
+        fill.opacity = v / 100.0;
+    }
+    for (key, what) in [("stroke_opacity", "an opacity"), ("stroke_width", "a width")] {
+        if let Some(v) = number(key, what)? {
+            let Some(stroke) = shape.stroke.as_mut() else {
+                return Err(format!("\"{}\" has no stroke to set the {} of.", shape.name, &key[7..]));
+            };
+            match key {
+                "stroke_opacity" => stroke.opacity = v / 100.0,
+                _ => stroke.width_px = v,
+            }
+        }
+    }
+    if parameter(query, "enabled").is_some() {
+        shape.enabled = !shape.enabled;
+    }
+    if parameter(query, "closed").is_some() {
+        shape.closed = !shape.closed;
+    }
+    if let Some(name) = parameter(query, "name") {
+        shape.name = name;
+    }
+    Ok(())
 }
 
 /// B-24c: a mask's path as the page sends it, `x,y,in_x,in_y,out_x,out_y` per point, separated
@@ -11916,6 +12151,227 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-25c: D-78's shape layer from the window. The core's half is
+    /// `verification/B-25b_shape_table.md`; this is what the window sends and what comes back.
+    #[test]
+    fn a_shape_layer_is_drawn_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        // The shapes as the page reads them off the document, one clause each.
+        let shapes_of = |viewer: &Mutex<Viewer>| {
+            let layer = shown_layer(viewer, "Shape Layer 1");
+            let shapes = layer["shapes"].as_array().cloned().unwrap_or_default();
+            if shapes.is_empty() {
+                return "none".to_string();
+            }
+            shapes
+                .iter()
+                .map(|s| {
+                    let paint = |p: &serde_json::Value| {
+                        if p.is_null() {
+                            "none".to_string()
+                        } else {
+                            format!(
+                                "{} at {}{}",
+                                p["color"],
+                                p["opacity"],
+                                p.get("width_px").map_or(String::new(), |w| format!(", {w} px"))
+                            )
+                        }
+                    };
+                    format!(
+                        "{} {} {} points, fill {}, stroke {}{}",
+                        s["name"].as_str().unwrap_or("(no name)"),
+                        if s["closed"] == serde_json::Value::Bool(false) { "open" } else { "closed" },
+                        s["path"]["base"]["points"].as_array().map_or(0, |p| p.len()),
+                        paint(&s["fill"]),
+                        paint(&s["stroke"]),
+                        if s["enabled"] == serde_json::Value::Bool(false) { ", off" } else { "" },
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        };
+
+        run(&viewer, "layer.add_shape");
+        let layer = shown_layer(&viewer, "Shape Layer 1");
+        report.check(
+            "New shape layer adds an empty shape layer the size of the composition, named Shape Layer 1",
+            "shape, 0 shapes",
+            format!(
+                "{}, {} shapes",
+                layer["kind"].as_str().unwrap_or("(no kind)"),
+                layer["shapes"].as_array().map_or(0, |s| s.len())
+            ),
+        );
+        let id = layer["id"].as_str().unwrap_or_default().to_string();
+
+        // The rectangle tool, dragged corner to corner on the shape layer.
+        run(
+            &viewer,
+            &format!(
+                "shape.add?layer={id}&closed=1&points=100,100,0,0,0,0;300,100,0,0,0,0;\
+                 300,300,0,0,0,0;100,300,0,0,0,0"
+            ),
+        );
+        report.check(
+            "a closed shape drawn comes with a grey fill, as a new solid is grey, and no stroke",
+            "Shape 1 closed 4 points, fill [0.2158605307340622,0.2158605307340622,0.2158605307340622] at 1, stroke none",
+            shapes_of(&viewer),
+        );
+        report.check(
+            "Undo says what it would take back",
+            "Set one shape",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+        // The pen, two points placed and Enter pressed: an open line.
+        run(
+            &viewer,
+            &format!("shape.add?layer={id}&closed=0&points=0,500,0,0,0,0;800,500,0,0,0,0"),
+        );
+        report.check(
+            "an open shape drawn with the pen comes with a white stroke 4 pixels wide, and no fill",
+            "Shape 2 open 2 points, fill none, stroke [1,1,1] at 1, 4 px",
+            shapes_of(&viewer).split("; ").nth(1).unwrap_or_default().to_string(),
+        );
+        report.check(
+            "the page is given the open shape's points on the frame, to draw its outline",
+            "[800.0,500.0,0.0,0.0,0.0,0.0]",
+            {
+                let body = boxes(&viewer, 0, None).into_body();
+                let answer: serde_json::Value =
+                    serde_json::from_slice(&body).expect("the boxes answer is JSON");
+                answer["values"][&id]["shapes"][1][1].to_string()
+            },
+        );
+
+        // The panel's own controls, each sending one setting and leaving the rest alone. The
+        // picker's #ff0000 arrives linear as 1,0,0.
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke=1,0,0"));
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke_width=10"));
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke_opacity=50"));
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_opacity=25"));
+        report.check(
+            "Add stroke, its width and its opacity, and the fill's opacity, each on its own",
+            "Shape 1 closed 4 points, fill [0.2158605307340622,0.2158605307340622,0.2158605307340622] at 0.25, \
+             stroke [1,0,0] at 0.5, 10 px",
+            shapes_of(&viewer).split("; ").next().unwrap_or_default().to_string(),
+        );
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill=none"));
+        run(&viewer, &format!("shape.set?layer={id}&shape=1&closed=1"));
+        run(&viewer, &format!("shape.set?layer={id}&shape=1&enabled=1"));
+        report.check(
+            "No fill takes the fill off; Open or Closed and On or Off each turn over one shape",
+            "Shape 1 closed 4 points, fill none, stroke [1,0,0] at 0.5, 10 px; \
+             Shape 2 closed 2 points, fill none, stroke [1,1,1] at 1, 4 px, off",
+            shapes_of(&viewer),
+        );
+
+        // A point dragged, and the stopwatch, as a mask's are.
+        run(
+            &viewer,
+            &format!(
+                "shape.set_path?layer={id}&shape=0&frame=0&points=150,100,0,0,0,0;\
+                 300,100,0,0,0,0;300,300,0,0,0,0;100,300,0,0,0,0"
+            ),
+        );
+        report.check(
+            "moving one point moves that point and no other",
+            "[150,100] then [300,100]",
+            format!(
+                "{} then {}",
+                shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["path"]["base"]["points"][0]["point"],
+                shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["path"]["base"]["points"][1]["point"]
+            ),
+        );
+        run(&viewer, &format!("shape.add_remove_key?layer={id}&shape=0&frame=0"));
+        report.check(
+            "the stopwatch at frame 0 sets the shape's path moving, from the shape it has now",
+            "1 key, at frame 0",
+            {
+                let keys = shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["path"]["keyframes"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                format!(
+                    "{} key, at frame {}",
+                    keys.len(),
+                    keys.first().map_or("none".to_string(), |k| k["frame"].to_string())
+                )
+            },
+        );
+
+        // What must be refused, each with the reason a person is given.
+        report.check(
+            "a shape of one point is refused, with the reason",
+            "A shape needs at least two points, and \"Shape 3\" has 1. Place a second point \
+             before finishing the shape.",
+            run(&viewer, &format!("shape.add?layer={id}&points=0,0,0,0,0,0")),
+        );
+        report.check(
+            "a stroke width of 0 is refused, with the reason",
+            "Shape \"Shape 1\" cannot be drawn: it needs a stroke width above 0 and at most \
+             8192, not 0. Set a value inside the range and send the shapes again.",
+            run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke_width=0")),
+        );
+        report.check(
+            "a fill opacity on a shape with no fill is refused, with the reason",
+            "\"Shape 1\" has no fill to set the opacity of.",
+            run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_opacity=50")),
+        );
+        report.check(
+            "a colour that is not three numbers is refused, with the reason",
+            "\"red\" is not a colour. A colour is three numbers from 0 to 1, red, green and blue.",
+            run(&viewer, &format!("shape.set?layer={id}&shape=0&fill=red")),
+        );
+        report.check(
+            "a shape that is not there is refused, and the window says how many there are",
+            "Which shape? \"Shape Layer 1\" has 2.",
+            run(&viewer, &format!("shape.set?layer={id}&shape=7&enabled=1")),
+        );
+        report.check(
+            "a drawing layer has no shapes, so the shape commands refuse it",
+            "\"Cel\" is not a shape layer, so it has no shapes.",
+            run(&viewer, &format!("shape.add?layer={cel}&points=0,0,0,0,0,0;9,9,0,0,0,0")),
+        );
+
+        run(&viewer, &format!("shape.delete?layer={id}&shape=0"));
+        report.check(
+            "Delete takes one shape off and leaves the other",
+            "Shape 2 closed 2 points, fill none, stroke [1,1,1] at 1, 4 px, off",
+            shapes_of(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and Undo brings it back as it was",
+            "Shape 1 closed 4 points, fill none, stroke [1,0,0] at 0.5, 10 px; \
+             Shape 2 closed 2 points, fill none, stroke [1,1,1] at 1, 4 px, off",
+            shapes_of(&viewer),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-25c_panel_table.md",
+            "B-25c: a shape layer in the window",
+            SHAPE_PANEL_INTRO,
+            SHAPE_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     /// B-18c: the precomposition from the window, on D-67. The order is the playtest sheet's.
     #[test]
     fn layers_are_precomposed_from_the_window() {
@@ -12977,6 +13433,26 @@ mod editing {
          and in the panels, and whether the picker opens and shows the colour. That is \
          `verification/B-23c_solid_playtest.md`, for a person. Whether the pixels are right is \
          B-23b's table.",
+    ];
+
+    const SHAPE_PANEL_INTRO: &[&str] = &[
+        "D-78 decided what a shape layer is and B-25b built it in the core, checked pixel by \
+         pixel in `verification/B-25b_shape_table.md`. This is the window's half: New shape \
+         layer sends `layer.add_shape`; on a shape layer the pen, the rectangle and the ellipse \
+         send `shape.add` rather than `mask.add`, a point dragged sends `shape.set_path`, the \
+         stopwatch on a shape's row sends `shape.add_remove_key`, and the layer's panel sends \
+         `shape.set` and `shape.delete`.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
+         and reads back what the page is given. Colours are linear, as document 21 holds them: \
+         the grey a new closed shape gets is the screen's #808080, about 0.21586 linear.",
+    ];
+
+    const SHAPE_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhat the shapes look like on the picture, whether the pen \
+         pointer shows over the picture, and whether the tools feel right in the hand. That is \
+         `verification/B-25c_shape_playtest.md`, for a person. Whether the pixels are right is \
+         B-25b's table.\n\nOn a shape layer the picture's tools draw shapes, so a shape layer's \
+         own masks are set in its panel but not drawn on the picture.",
     ];
 
     const MASK_PANEL_INTRO: &[&str] = &[
@@ -14802,6 +15278,7 @@ mod contract {
         "keyframe.set_roving",
         "layer.add_adjustment",
         "layer.add_composition",
+        "layer.add_shape",
         "layer.add_solid",
         "layer.copy",
         "layer.create",
@@ -14838,6 +15315,11 @@ mod contract {
         "property.separate",
         "property.set_base",
         "property.set_expression",
+        "shape.add",
+        "shape.add_remove_key",
+        "shape.delete",
+        "shape.set",
+        "shape.set_path",
         "solid.set",
         "timeline.set_markers",
         "timeline.set_work_end",
@@ -14891,6 +15373,21 @@ mod contract {
             "New solid",
             "layer.add_solid",
             "command('/layer.add_solid' + (at < 0 ? '' : '?to=' + (at + 1)))",
+        ),
+        (
+            "New shape layer",
+            "layer.add_shape",
+            "await command('/layer.add_shape' + (at < 0 ? '' : '?to=' + (at + 1)));",
+        ),
+        (
+            "the pen, the rectangle and the ellipse on a shape layer",
+            "shape.add",
+            "command((drawsShapes(layer) ? '/shape.add?closed=' + (closed ? 1 : 0) + '&' : '/mask.add?')",
+        ),
+        (
+            "a shape's fill and stroke in the layer's panel",
+            "shape.set",
+            "const set = (what) => command('/shape.set?layer=' + encodeURIComponent(layer.id)",
         ),
         (
             "Width and Height of a solid, dragged or typed",
@@ -15191,6 +15688,14 @@ mod contract {
         ("mask.set_path", "a command the window answers"),
         ("mask.set", "a command the window answers"),
         ("mask.delete", "a command the window answers"),
+        // D-78, accepted on 2026-09-21 and built in the core by B-25b; B-25c put all six in the
+        // window, each the twin of its mask command.
+        ("layer.add_shape", "a command the window answers"),
+        ("shape.add", "a command the window answers"),
+        ("shape.add_remove_key", "a command the window answers"),
+        ("shape.set_path", "a command the window answers"),
+        ("shape.set", "a command the window answers"),
+        ("shape.delete", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -16059,6 +16564,20 @@ mod contract {
         run(&viewer, &format!("layer.set_gain?layer={sound_id}&value=-6"));
         // B-23c: and a solid, the only kind that carries `solid`.
         run(&viewer, "layer.add_solid");
+        // B-25c: and a shape layer with a shape, the only kind that carries `shapes`.
+        run(&viewer, "layer.add_shape");
+        let shape_id = held(&viewer)
+            .document
+            .project()
+            .compositions[0]
+            .layers_in_order()
+            .find(|l| l.kind == anime_compositor::model::LayerKind::Shape)
+            .map(|l| l.id.as_str().to_string())
+            .unwrap_or_default();
+        run(
+            &viewer,
+            &format!("shape.add?layer={shape_id}&points=0,0,0,0,0,0;9,9,0,0,0,0;0,9,0,0,0,0"),
+        );
         // B-24b: and a mask on layer-3, because a layer with none writes no `masks` key at all.
         // It goes in through the core rather than through a URL: the window has no mask command
         // until B-24c, and this check is about the panel reading a field that is there.
@@ -16088,6 +16607,11 @@ mod contract {
             .cloned()
             .unwrap_or(serde_json::Value::Null);
         let layer = layer_of(&answer, "layer-3");
+        let shape = answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .and_then(|all| all.iter().find(|l| l["kind"] == "shape"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
         let precomp = answer["project"]["compositions"][0]["layers"]
             .as_array()
             .and_then(|all| all.iter().find(|l| l["kind"] == "composition"))
@@ -16140,6 +16664,7 @@ mod contract {
                         "composition_id" => precomp.get(&field),
                         "gain_db" => sound.get(&field),
                         "solid" => solid.get(&field),
+                        "shapes" => shape.get(&field),
                         _ => None,
                     }) {
                         Some(_) => "present".to_string(),
@@ -16692,11 +17217,12 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 52] = [
+    const CONTROLS: [&str; 53] = [
         "addadjust",
         "addeffect",
         "addexposure",
         "addlayer",
+        "addshape",
         "addsolid",
         "alpha",
         "anyway",
