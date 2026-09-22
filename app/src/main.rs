@@ -739,6 +739,12 @@ fn serve(
     ask: Ask,
     quality: Option<PreviewQuality>,
 ) -> Response<Vec<u8>> {
+    // P-15: how long this whole answer took inside the window, sent back with it. The page
+    // subtracts it from its own round trip, and what is left is the transport - the one part of
+    // the path from a project file to a picture that no measurement in `verification/` covers,
+    // as P-01 and B-08 both say of themselves. One `Instant` on a path that is about to render a
+    // frame is not a cost worth a switch.
+    let began = std::time::Instant::now();
     let (exporting, exported, progress) = {
         let export = export.lock().expect("the export lock was poisoned");
         // Frames written, frames asked for, and milliseconds since the export began.
@@ -840,18 +846,20 @@ fn serve(
 
     let image = buffer.as_image();
     let (width, height) = (image.width(), image.height());
+    let mut pixels = buffer.to_srgb8_straight();
+    if taken.alpha_only {
+        as_alpha_only(&mut pixels);
+    }
     taken
         .reply
         // The only two things about a frame the window cannot say until it has been made.
         .header("x-width", width.to_string())
         .header("x-height", height.to_string())
-        .body({
-            let mut pixels = buffer.to_srgb8_straight();
-            if taken.alpha_only {
-                as_alpha_only(&mut pixels);
-            }
-            pixels
-        })
+        // P-15. Everything this window did for this frame, including the wait for the lock and
+        // the encode, and stopping where the window's own work stops: the bytes are made, and
+        // handing them to the web view is the next thing to happen and is not in here.
+        .header("x-ms", format!("{:.1}", began.elapsed().as_secs_f64() * 1000.0))
+        .body(pixels)
         .expect("build the frame response")
 }
 

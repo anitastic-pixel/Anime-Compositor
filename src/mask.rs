@@ -56,6 +56,7 @@
 
 use crate::model::Interp;
 use crate::WorkingBuffer;
+use rayon::prelude::*;
 
 /// The side of the sample grid inside each pixel. Sixteen samples per pixel.
 ///
@@ -449,12 +450,7 @@ pub fn point_inside(vertices: &[(f64, f64)], x: f64, y: f64) -> bool {
     inside
 }
 
-/// The shortest distance from a point to the outline itself, never signed.
-fn distance_to_outline(outline: &[(f64, f64)], x: f64, y: f64) -> f64 {
-    distance_to_path(outline, true, x, y)
-}
-
-/// The same, for a path that may be open.
+/// The shortest distance from a point to a path, never signed.
 ///
 /// An open path is the pieces between its points and no more. That is the whole of why D-78's
 /// stroke ends in a half circle: the nearest thing to a sample past the end of the line is the
@@ -470,56 +466,231 @@ pub fn distance_to_path(path: &[(f64, f64)], closed: bool, x: f64, y: f64) -> f6
     let mut best = f64::INFINITY;
     let segments = if closed { n } else { n - 1 };
     for i in 0..segments {
-        let (x0, y0) = path[i];
-        let (x1, y1) = path[(i + 1) % n];
-        let (dx, dy) = (x1 - x0, y1 - y0);
-        let run = dx * dx + dy * dy;
-        let t = if run == 0.0 {
-            0.0
-        } else {
-            (((x - x0) * dx + (y - y0) * dy) / run).clamp(0.0, 1.0)
-        };
-        best = best.min((x - (x0 + t * dx)).hypot(y - (y0 + t * dy)));
+        best = best.min(distance_to_segment(path[i], path[(i + 1) % n], x, y));
     }
     best
 }
 
-/// Whether one sample point is inside a mask grown or shrunk by `expansion` pixels.
+/// The shortest distance from a point to one segment.
 ///
-/// D-77: an expansion of zero is exactly B-06's rule and touches no distance arithmetic, which
-/// is what keeps every mask drawn before D-77 pixel for pixel what it was. Otherwise the sample
-/// is inside when its distance to the outline, signed positive within, plus the expansion is
-/// zero or more — so a corner rounds off, as After Effects rounds one.
-fn sample_inside(outline: &[(f64, f64)], x: f64, y: f64, expansion: f64) -> bool {
-    let inside = point_inside(outline, x, y);
-    if expansion == 0.0 {
-        return inside;
-    }
-    let signed = distance_to_outline(outline, x, y) * if inside { 1.0 } else { -1.0 };
-    signed + expansion >= 0.0
+/// Lifted out of [`distance_to_path`] so that the expanded mask's band, which asks the same
+/// question of a few edges rather than of all of them, asks it in exactly the same arithmetic.
+/// Two callers, one expression.
+fn distance_to_segment((x0, y0): (f64, f64), (x1, y1): (f64, f64), x: f64, y: f64) -> f64 {
+    let (dx, dy) = (x1 - x0, y1 - y0);
+    let run = dx * dx + dy * dy;
+    let t = if run == 0.0 {
+        0.0
+    } else {
+        (((x - x0) * dx + (y - y0) * dy) / run).clamp(0.0, 1.0)
+    };
+    (x - (x0 + t * dx)).hypot(y - (y0 + t * dy))
 }
 
 /// Coverage of one pixel: the fraction of the 4x4 sample grid inside the polygon.
 ///
-/// Returns one of seventeen values, `0/16` through `16/16`.
+/// Returns one of seventeen values, `0/16` through `16/16`. A sample at a time, which is what
+/// makes it the thing `tests/b06_mask.rs` measures the field against rather than the thing that
+/// builds a field: [`scanline_field`] does that, and P-15 says why.
 pub fn pixel_coverage(vertices: &[(f64, f64)], x: usize, y: usize) -> f32 {
-    pixel_coverage_at(vertices, x as f64, y as f64, 0.0)
-}
-
-/// The same, at a pixel that may sit outside the frame and under an expansion.
-fn pixel_coverage_at(outline: &[(f64, f64)], x: f64, y: f64, expansion: f64) -> f32 {
     let n = SAMPLES_PER_SIDE;
     let mut hits = 0u32;
     for j in 0..n {
         for i in 0..n {
-            let sx = x + (i as f64 + 0.5) / n as f64;
-            let sy = y + (j as f64 + 0.5) / n as f64;
-            if sample_inside(outline, sx, sy, expansion) {
+            let sx = x as f64 + (i as f64 + 0.5) / n as f64;
+            let sy = y as f64 + (j as f64 + 0.5) / n as f64;
+            if point_inside(vertices, sx, sy) {
                 hits += 1;
             }
         }
     }
     hits as f32 / (n * n) as f32
+}
+
+/// Every pixel's coverage, a sample row at a time instead of a sample at a time.
+///
+/// P-15, 2026-09-22. `pixel_coverage_at` asks each of a pixel's sixteen samples whether it is
+/// inside, and each of those questions walks every edge of the outline. That is
+/// `width * height * 16 * edges` crossing tests for one mask of one layer of one frame: on the
+/// owner's 1920x1080 layer, with an outline flattened to a few hundred edges, about three
+/// thousand million of them, which the window measured at 17.75 seconds for a single frame while
+/// a mask point was being dragged. No table in `verification/` had ever caught it, because no
+/// fixture P-01 traces carries a mask and its `layer mask` row reads 0.000 ms in all twelve.
+///
+/// The edges a sample row crosses do not depend on where along the row the sample is, so they
+/// are worked out once for the row rather than once for each of its samples: every crossing, in
+/// order, and then one walk along the row. A sample is inside when an odd number of crossings lie
+/// to its right, which is what `point_inside`'s parity already means, so `k` - how many crossings
+/// this sample has passed - is all the walk has to carry. The cost stops being
+/// `width * 16 * edges` a row and becomes `4 * (edges + 4 * width)`.
+///
+/// **It is the same answer, not an approximation.** The sample coordinates, the crossing
+/// arithmetic and the comparison are the expressions from `pixel_coverage_at` and `point_inside`
+/// unchanged, down to the order of the operations, so the floating-point result is identical and
+/// not merely close; `equivalent_to_the_sample_by_sample_field` in `tests/b06_mask.rs` asserts
+/// that over random outlines rather than leaving it as a claim.
+///
+/// **An expanded mask comes here too**, for its parity. It needs a distance as well, which has no
+/// parity to carry along a row; [`expanded_field`] is where that half is done.
+///
+/// **Rows are worked out in parallel.** Every row reads the outline and writes only its own
+/// pixels, so the threads share nothing and the answer does not depend on how the work was split.
+fn scanline_field(outline: &[(f64, f64)], w: usize, h: usize, radius: usize) -> Vec<f32> {
+    let n = SAMPLES_PER_SIDE;
+    let mut field = vec![0.0f32; w * h];
+    if outline.len() < 2 {
+        return field;
+    }
+    field
+        .par_chunks_mut(w)
+        .enumerate()
+        // The two scratch buffers are per thread rather than per row: a mask is the thing being
+        // dragged, so this runs as fast as a hand moves and a million-pixel allocation a row is
+        // the kind of cost this function exists to stop paying.
+        .for_each_init(
+            || (Vec::new(), vec![0u32; w]),
+            |(crossings, hits), (yi, row)| {
+                hits.iter_mut().for_each(|hit| *hit = 0);
+                let y = yi as f64 - radius as f64;
+                for j in 0..n {
+                    let sy = y + (j as f64 + 0.5) / n as f64;
+                    row_crossings(outline, sy, crossings);
+                    let m = crossings.len();
+                    // The samples of a row are visited left to right, so the crossings behind the
+                    // walk are never revisited and `k` only ever moves forwards.
+                    let mut k = 0;
+                    for (xi, hit) in hits.iter_mut().enumerate() {
+                        let x = xi as f64 - radius as f64;
+                        for i in 0..n {
+                            let sx = x + (i as f64 + 0.5) / n as f64;
+                            while k < m && crossings[k] <= sx {
+                                k += 1;
+                            }
+                            // `point_inside` flips on `x < crossing`, so what counts is the
+                            // crossings still ahead of this sample: an odd number means inside.
+                            if (m - k) % 2 == 1 {
+                                *hit += 1;
+                            }
+                        }
+                    }
+                }
+                for (v, hit) in row.iter_mut().zip(hits.iter()) {
+                    *v = *hit as f32 / (n * n) as f32;
+                }
+            },
+        );
+    field
+}
+
+/// Where the outline crosses one horizontal sample line, in order, left to right.
+///
+/// `point_inside`'s half-open rule and its crossing arithmetic, lifted out so that the plain
+/// scanline and the expanded one ask for the parity in one expression rather than two.
+fn row_crossings(outline: &[(f64, f64)], sy: f64, into: &mut Vec<f64>) {
+    let edges = outline.len();
+    into.clear();
+    for i in 0..edges {
+        let (x0, y0) = outline[i];
+        let (x1, y1) = outline[(i + 1) % edges];
+        if (y0 <= sy) != (y1 <= sy) {
+            let t = (sy - y0) / (y1 - y0);
+            into.push(x0 + t * (x1 - x0));
+        }
+    }
+    into.sort_by(|a, b| a.partial_cmp(b).expect("an edge crossing is never NaN"));
+}
+
+/// Every pixel's coverage under D-77's expansion, without asking every edge about every sample.
+///
+/// P-15, 2026-09-22, the second half. [`scanline_field`] left this path alone and said so, and
+/// dragging a point on an expanded mask stayed as slow as everything was before: `sample_inside`
+/// walks the whole outline twice for each of a pixel's sixteen samples, once for the side and
+/// once for the distance.
+///
+/// The side is the scanline's parity, unchanged. The distance is the part that has no parity, and
+/// what this uses instead is that **it only matters near the edge**. D-77 decides a sample by
+/// `signed + expansion >= 0`, where `signed` is the distance to the outline, positive within. So
+/// for a growth (`expansion > 0`) a sample passes when it is inside *or* within `expansion` of the
+/// outline, and for a shrink it passes when it is inside *and* at least `|expansion|` from the
+/// outline. Either way an edge further than `|expansion|` away cannot change the answer, and an
+/// edge whose whole run of y lies more than `|expansion|` above or below the sample line is
+/// further than that from every sample on it. Those edges are dropped for the row, and the
+/// remaining few are asked by x as well.
+///
+/// **It is the same answer, not an approximation.** The distance kept is the smallest over the
+/// band, and a minimum does not care what order it was taken in or what was left out from beyond
+/// the reach: whatever was dropped was further than `|expansion|`, and every comparison D-77 makes
+/// at that range has already been decided by the parity. When the band is empty the distance is
+/// infinite, which is what `signed + expansion >= 0` wants there - true when inside and false when
+/// out, for a growth and for a shrink alike. `expansion_is_the_same_field_either_way` in
+/// `tests/b06_mask.rs` checks it against a second implementation rather than leaving it as a claim.
+fn expanded_field(
+    outline: &[(f64, f64)],
+    w: usize,
+    h: usize,
+    radius: usize,
+    expansion: f64,
+) -> Vec<f32> {
+    let n = SAMPLES_PER_SIDE;
+    let mut field = vec![0.0f32; w * h];
+    let edges = outline.len();
+    if edges < 2 {
+        return field;
+    }
+    let reach = expansion.abs();
+    field.par_chunks_mut(w).enumerate().for_each_init(
+        || (Vec::new(), Vec::new(), vec![0u32; w]),
+        |(crossings, band, hits), (yi, row)| {
+            hits.iter_mut().for_each(|hit| *hit = 0);
+            let y = yi as f64 - radius as f64;
+            for j in 0..n {
+                let sy = y + (j as f64 + 0.5) / n as f64;
+                row_crossings(outline, sy, crossings);
+                // The edges this sample line can come within `reach` of, with the run of x each
+                // one covers, so that the walk along the row can drop them again one at a time.
+                band.clear();
+                for i in 0..edges {
+                    let a = outline[i];
+                    let b = outline[(i + 1) % edges];
+                    let (low, high) = if a.1 <= b.1 { (a.1, b.1) } else { (b.1, a.1) };
+                    if low - reach <= sy && sy <= high + reach {
+                        let (left, right) = if a.0 <= b.0 { (a.0, b.0) } else { (b.0, a.0) };
+                        band.push((a, b, left, right));
+                    }
+                }
+                let m = crossings.len();
+                let mut k = 0;
+                for (xi, hit) in hits.iter_mut().enumerate() {
+                    let x = xi as f64 - radius as f64;
+                    for i in 0..n {
+                        let sx = x + (i as f64 + 0.5) / n as f64;
+                        while k < m && crossings[k] <= sx {
+                            k += 1;
+                        }
+                        let inside = (m - k) % 2 == 1;
+                        let mut nearest = f64::INFINITY;
+                        for &(a, b, left, right) in band.iter() {
+                            // Same reasoning as the band itself, along the other axis: a sample
+                            // is at least this far from the segment horizontally.
+                            if sx < left - reach || sx > right + reach {
+                                continue;
+                            }
+                            nearest = nearest.min(distance_to_segment(a, b, sx, sy));
+                        }
+                        // D-77's rule, the expression from `sample_inside` unchanged.
+                        let signed = nearest * if inside { 1.0 } else { -1.0 };
+                        if signed + expansion >= 0.0 {
+                            *hit += 1;
+                        }
+                    }
+                }
+            }
+            for (v, hit) in row.iter_mut().zip(hits.iter()) {
+                *v = *hit as f32 / (n * n) as f32;
+            }
+        },
+    );
+    field
 }
 
 /// One mask's own coverage over the layer: expansion, then feather, then invert, then opacity.
@@ -538,17 +709,15 @@ fn mask_field(mask: &Mask, width: usize, height: usize) -> Vec<f32> {
     let (w, h) = (width + 2 * radius, height + 2 * radius);
     // The coverage outside the frame is worked out like any other coverage rather than invented,
     // so a mask lying against the frame's edge does not darken when it is feathered.
-    let mut field: Vec<f32> = Vec::with_capacity(w * h);
-    for y in 0..h {
-        for x in 0..w {
-            field.push(pixel_coverage_at(
-                &outline,
-                x as f64 - radius as f64,
-                y as f64 - radius as f64,
-                mask.expansion_px,
-            ));
-        }
-    }
+    //
+    // P-15: both of these answer the same question `pixel_coverage_at` answers a sample at a
+    // time, in the same arithmetic. An expansion needs a distance as well as a side, which is the
+    // whole of the difference between them; see `scanline_field` and `expanded_field`.
+    let field: Vec<f32> = if mask.expansion_px == 0.0 {
+        scanline_field(&outline, w, h, radius)
+    } else {
+        expanded_field(&outline, w, h, radius, mask.expansion_px)
+    };
 
     if radius == 0 {
         // No feather: the field is the frame already.
@@ -568,27 +737,34 @@ fn mask_field(mask: &Mask, width: usize, height: usize) -> Vec<f32> {
     for weight in &mut weights {
         *weight /= total;
     }
+    // P-15: both passes a row at a time across the threads. Each row reads the pass before it and
+    // writes only its own pixels, so this is the same blur split up, not a different one.
     let mut across = vec![0.0f32; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            let mut acc = 0.0;
-            for (k, weight) in weights.iter().enumerate() {
-                let sx = (x + k).saturating_sub(radius).min(w - 1);
-                acc += field[y * w + sx] * weight;
+    across
+        .par_chunks_mut(w)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, out) in row.iter_mut().enumerate() {
+                let mut acc = 0.0;
+                for (k, weight) in weights.iter().enumerate() {
+                    let sx = (x + k).saturating_sub(radius).min(w - 1);
+                    acc += field[y * w + sx] * weight;
+                }
+                *out = acc;
             }
-            across[y * w + x] = acc;
-        }
-    }
+        });
     let mut done = vec![0.0f32; width * height];
-    for y in 0..height {
-        for x in 0..width {
-            let mut acc = 0.0;
-            for (k, weight) in weights.iter().enumerate() {
-                acc += across[(y + k) * w + (x + radius)] * weight;
+    done.par_chunks_mut(width)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, out) in row.iter_mut().enumerate() {
+                let mut acc = 0.0;
+                for (k, weight) in weights.iter().enumerate() {
+                    acc += across[(y + k) * w + (x + radius)] * weight;
+                }
+                *out = acc;
             }
-            done[y * width + x] = acc;
-        }
-    }
+        });
     finish(done, mask)
 }
 

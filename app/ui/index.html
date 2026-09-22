@@ -907,6 +907,7 @@ async function show(url, keep = true) {
   inFlight = true;
   const mine = ++generation;
   try {
+    const asked = performance.now();
     const response = await fetch(url);
     if (mine !== generation) return;
     if (!response.ok) {
@@ -919,10 +920,19 @@ async function show(url, keep = true) {
     const h = response.headers;
     const width = +h.get('x-width'), height = +h.get('x-height');
     const pixels = new Uint8ClampedArray(await response.arrayBuffer());
+    const arrived = performance.now();
     if (view.width !== width || view.height !== height) {
       view.width = width; view.height = height;
     }
     paint.putImageData(new ImageData(pixels, width, height), 0, 0);
+    // P-15. The window's own figure comes back with the pixels, so the subtraction is between
+    // two clocks reading the same one answer rather than two runs.
+    if (dragWatch) {
+      const inside = +(h.get('x-ms') || 0);
+      dragWatch.window.push(inside);
+      dragWatch.trip.push(Math.max(0, arrived - asked - inside));
+      dragWatch.paint.push(performance.now() - arrived);
+    }
 
     frame = +h.get('x-frame');
     // W-09: the answer to Play. The clock in Rust now counts from this frame, and the page's
@@ -5157,6 +5167,17 @@ function drawInspector() {
   for (const [at, mask] of masks.entries()) {
     const set = (what) => command('/mask.set?layer=' + encodeURIComponent(layer.id)
       + '&mask=' + at + '&' + what);
+    // P-15: the three numbers below follow the hand rather than waiting for it to let go. They
+    // did not before, because an expanded or feathered mask cost seconds a frame and a picture
+    // that arrives a second late is worse than one that waits. It costs what an ordinary mask
+    // costs now, so the setting is dragged the way every other number in this window is.
+    //
+    // Two rules already written do the rest. W-05: an edit carrying `drag=1` joins the running
+    // drag, so the whole pull is one thing to undo whichever command is inside it. B-24g: the
+    // queue keeps one update in flight and the newest waiting and drops whatever the hand
+    // overtook, and `afterDrag` holds the close until the queue is empty.
+    const pull = (what) => dragSend('/mask.set?layer=' + encodeURIComponent(layer.id)
+      + '&mask=' + at + '&drag=1&' + what);
     field(dl, mask.name, '');
     const row = dl.lastChild;
     // Which mask the picture draws points on. A button, so the choice is made with the keys as
@@ -5199,6 +5220,8 @@ function drawInspector() {
         suffix,
         title: 'Drag to change, or press to type. ' + named + ' of ' + mask.name + ', ' + range,
         label: named + ' of ' + mask.name + ' on ' + layer.name + ', ' + range,
+        live: (v) => pull(what + '=' + encodeURIComponent(v)),
+        done: (cancelled) => afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
         commit: (v) => set(what + '=' + encodeURIComponent(v)),
       }));
     }
@@ -6647,13 +6670,33 @@ $('checker').onclick = () => command('/viewer.toggle_checkerboard');
 // the panels back as it always did.
 let dragFlight = null;
 let dragNext = null;
+// P-15, 2026-09-22: where a drag update's time actually goes, split four ways and reported in
+// milliseconds when the hand lets go. The owner reported that dragging a mask point still lags
+// after B-24g, and no measurement in `verification/` can say why: P-01 stops at a buffer in
+// memory and B-08 says the same of itself, so the trip into the web view - which is most of the
+// bytes - has never been timed. This times it, in the running window, on whatever project is
+// open, which is the only place it can be timed.
+//
+//   command  the round trip for the change itself, `mask.set_path` and its kind
+//   window   what the window says it spent making the frame, its own `x-ms` header
+//   trip     the frame's round trip less that: the bytes crossing into the page
+//   paint    `putImageData` onto the canvas
+//
+// Medians over the drag, because one slow update is not what a hand feels. It costs four
+// `performance.now()` calls on a path that is already fetching a frame, and it says nothing
+// until a drag ends, so an ordinary sitting never sees it.
+let dragWatch = null;
+const middle = (xs) => xs.length ? [...xs].sort((a, b) => a - b)[xs.length >> 1] : 0;
 function dragSend(what) {
   if (dragFlight) { dragNext = what; return dragFlight; }
+  dragWatch = { command: [], window: [], trip: [], paint: [] };
   dragFlight = (async () => {
     let request = what;
     while (request) {
       try {
+        const sent = performance.now();
         const said = await (await fetch(PROJECT + request)).text();
+        if (dragWatch) dragWatch.command.push(performance.now() - sent);
         if (said) $('status').textContent = brief(said);
       } catch (e) {
         $('report').textContent = 'the command did not arrive: ' + e;
@@ -6669,7 +6712,18 @@ function dragSend(what) {
 }
 async function afterDrag(what) {
   if (dragFlight) await dragFlight;
-  return command(what);
+  const watch = dragWatch;
+  dragWatch = null;
+  const said = await command(what);
+  // After `command`, because it writes the core's sentence into the same place and this is the
+  // sentence the owner is being asked to read.
+  if (watch && watch.window.length) {
+    $('status').textContent = watch.window.length + ' updates — command '
+      + middle(watch.command).toFixed(1) + ' ms, window ' + middle(watch.window).toFixed(1)
+      + ' ms, trip ' + middle(watch.trip).toFixed(1) + ' ms, paint '
+      + middle(watch.paint).toFixed(1) + ' ms';
+  }
+  return said;
 }
 
 async function command(what) {

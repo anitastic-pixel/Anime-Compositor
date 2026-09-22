@@ -931,10 +931,215 @@ fn write_report(report: &Report) {
     fs::write(repo("verification/B-06_mask_table.md"), out).expect("write report");
 }
 
+/// P-15: the scanline field and the sample-by-sample field are the same field.
+///
+/// `src/mask.rs` now works a mask's coverage out a sample row at a time, because asking every
+/// one of a pixel's sixteen samples to walk every edge of the outline cost the owner's window
+/// 17.75 seconds on one frame while a mask point was being dragged. The two rows below are what
+/// stop that being a trade: the fast path's answer is compared with the slow path's, pixel for
+/// pixel, on outlines it did not choose.
+///
+/// `mask::coverage` is the fast path, since D-77's expansion is zero here. `mask::pixel_coverage`
+/// is the sample-by-sample one, still reached directly, and it is the function every hand-written
+/// row above this one is written against - so this compares the new rule against the rule this
+/// fixture already pinned rather than against itself.
+///
+/// The outlines are convex polygons of between 3 and 12 corners, turned out of a fixed
+/// arithmetic sequence so that a failure is the same failure tomorrow. Convex because
+/// `Mask::is_renderable` only accepts a simple outline, and a ring of points in angle order is
+/// simple by construction at any radius.
+///
+/// **Bit for bit, not close.** The comparison is `==` on the f32s and not a tolerance: the
+/// scanline evaluates the same expressions in the same order, so anything but equality is a
+/// difference in the rule and not in the arithmetic.
+/// One of twelve outlines, the same twelve every run.
+///
+/// Convex polygons of between 3 and 12 corners, turned out of a fixed arithmetic sequence so that
+/// a failure is the same failure tomorrow. Convex because `Mask::is_renderable` only accepts a
+/// simple outline, and a ring of points in angle order is simple by construction at any radius.
+/// The radius changes corner by corner, so the edges meet the sample grid at every sort of angle
+/// rather than at the few a regular polygon has.
+fn generated_outline(outline: u32) -> Vec<mask::MaskPoint> {
+    let corners = 3 + (outline % 10) as usize;
+    let (cx, cy) = (20.0 + (outline % 5) as f64 * 4.0, 18.0 + (outline % 3) as f64 * 5.0);
+    (0..corners)
+        .map(|i| {
+            let turn = std::f64::consts::TAU * i as f64 / corners as f64 + outline as f64 * 0.37;
+            let reach = 6.0 + ((i * 7 + outline as usize * 3) % 11) as f64;
+            mask::MaskPoint::corner(cx + reach * turn.cos(), cy + reach * turn.sin())
+        })
+        .collect()
+}
+
+fn scanline_matches_sample_by_sample(report: &mut Report) {
+    let (w, h) = (64usize, 48usize);
+    let mut worst = 0.0f32;
+    let mut compared = 0usize;
+    let mut differing = 0usize;
+    for outline in 0..12u32 {
+        let points = generated_outline(outline);
+        let vertices: Vec<(f64, f64)> = points.iter().map(|p| p.point).collect();
+        let mask = Mask {
+            points,
+            ..Mask::default()
+        };
+        let Some(fast) = mask::coverage(std::slice::from_ref(&mask), w, h) else {
+            report.check(
+                "every generated outline is one the build will draw",
+                "drawn",
+                format!("outline {outline} was refused"),
+            );
+            continue;
+        };
+        for y in 0..h {
+            for x in 0..w {
+                let slow = mask::pixel_coverage(&vertices, x, y);
+                let quick = fast[y * w + x];
+                compared += 1;
+                if quick != slow {
+                    differing += 1;
+                    worst = worst.max((quick - slow).abs());
+                }
+            }
+        }
+    }
+    report.check(
+        "the scanline field and the sample-by-sample field agree at every pixel of every outline",
+        "0 pixels differ",
+        format!("{differing} pixels differ"),
+    );
+    report.check(
+        "the largest difference between the two fields, over 36864 pixels",
+        "0.000000",
+        format!("{worst:.6}"),
+    );
+    assert_eq!(compared, 12 * w * h, "every outline was compared");
+}
+
+/// The shortest distance from a point to one segment, written the other way round.
+///
+/// `src/mask.rs` finds the foot of the perpendicular, clamps it into the segment and measures to
+/// it. This asks where along the edge the foot falls, and then takes an endpoint when the foot
+/// falls off the end and the perpendicular itself - by cross product, over the edge length - when
+/// it does not. Same distance, different arithmetic, which is what makes the agreement below
+/// evidence rather than a copy.
+fn distance_by_perpendicular((ax, ay): (f64, f64), (bx, by): (f64, f64), x: f64, y: f64) -> f64 {
+    let (ex, ey) = (bx - ax, by - ay);
+    let length = ex.hypot(ey);
+    if length == 0.0 {
+        return (x - ax).hypot(y - ay);
+    }
+    let along = ((x - ax) * ex + (y - ay) * ey) / (length * length);
+    if along <= 0.0 {
+        (x - ax).hypot(y - ay)
+    } else if along >= 1.0 {
+        (x - bx).hypot(y - by)
+    } else {
+        ((x - ax) * ey - (y - ay) * ex).abs() / length
+    }
+}
+
+/// Coverage of one pixel of a mask grown or shrunk by `expansion`, independently.
+///
+/// D-77's rule over this file's own insideness test and its own distance: a sample is in when its
+/// distance to the outline, counted positive within, plus the expansion is zero or more. Every
+/// edge is asked about every sample, with no band and no pruning - which is exactly what the
+/// build stopped doing.
+fn expanded_coverage_independent(
+    vertices: &[(f64, f64)],
+    x: usize,
+    y: usize,
+    expansion: f64,
+) -> f32 {
+    let n = vertices.len();
+    let mut hits = 0u32;
+    for &dy in &REFERENCE_OFFSETS {
+        for &dx in &REFERENCE_OFFSETS {
+            let (sx, sy) = (x as f64 + dx, y as f64 + dy);
+            let mut nearest = f64::INFINITY;
+            for i in 0..n {
+                nearest =
+                    nearest.min(distance_by_perpendicular(vertices[i], vertices[(i + 1) % n], sx, sy));
+            }
+            let signed = if inside_by_winding(vertices, sx, sy) {
+                nearest
+            } else {
+                -nearest
+            };
+            if signed + expansion >= 0.0 {
+                hits += 1;
+            }
+        }
+    }
+    let side = REFERENCE_OFFSETS.len();
+    hits as f32 / (side * side) as f32
+}
+
+/// P-15: an expanded mask is the field D-77 describes, band or no band.
+///
+/// The expanded path stopped asking every edge about every sample on 2026-09-22, because dragging
+/// a point on an expanded mask was as slow as everything had been before. It now drops, for each
+/// sample row, the edges that row cannot come within the expansion of - a growth takes a sample
+/// that is inside or near the outline, a shrink one that is inside and far from it, and an edge
+/// beyond that reach changes neither answer.
+///
+/// That is an argument, and these rows are the check: the built field against a field worked out
+/// here, over the same twelve outlines, grown by 2.3 pixels and shrunk by 1.7. Both the
+/// insideness test and the distance are this file's own, written the other way round from the
+/// build's, so agreement is not a tautology.
+fn expansion_is_the_same_field_either_way(report: &mut Report) {
+    let (w, h) = (64usize, 48usize);
+    let mut worst = 0.0f32;
+    let mut compared = 0usize;
+    let mut differing = 0usize;
+    for expansion in [2.3f64, -1.7] {
+        for outline in 0..12u32 {
+            let points = generated_outline(outline);
+            let vertices: Vec<(f64, f64)> = points.iter().map(|p| p.point).collect();
+            let mask = Mask {
+                points,
+                expansion_px: expansion,
+                ..Mask::default()
+            };
+            let Some(built) = mask::coverage(std::slice::from_ref(&mask), w, h) else {
+                report.check(
+                    "every generated outline is one the build will draw expanded",
+                    "drawn",
+                    format!("outline {outline} at {expansion} was refused"),
+                );
+                continue;
+            };
+            for y in 0..h {
+                for x in 0..w {
+                    let wanted = expanded_coverage_independent(&vertices, x, y, expansion);
+                    compared += 1;
+                    if built[y * w + x] != wanted {
+                        differing += 1;
+                        worst = worst.max((built[y * w + x] - wanted).abs());
+                    }
+                }
+            }
+        }
+    }
+    report.check(
+        "the banded expanded field and an independent expanded field agree at every pixel",
+        "0 pixels differ",
+        format!("{differing} pixels differ"),
+    );
+    report.check(
+        "the largest difference between the two expanded fields, over 73728 pixels",
+        "0.000000",
+        format!("{worst:.6}"),
+    );
+    assert_eq!(compared, 2 * 12 * w * h, "every outline was compared both ways");
+}
+
 #[test]
 fn mask_and_matte() {
     let mut report = Report::default();
     topology(&mut report);
+    scanline_matches_sample_by_sample(&mut report);
+    expansion_is_the_same_field_either_way(&mut report);
     edge_quantum(&mut report);
     premultiplied_and_inverted(&mut report);
     rejection(&mut report);
