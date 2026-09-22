@@ -1783,6 +1783,11 @@ function pasteKeys(start = frame, target = null) {
 // W-20: After Effects' Ctrl+Alt+H, moved to Ctrl+Alt+G at the owner's word. The chosen keys hold; if every one of them holds already, they
 // go back to linear. ponytail: an ease a hold replaced is not remembered.
 function holdKeys(to) {
+  if (pathPick) {
+    const [layer, list] = pathOf(pathPick);
+    const key = list && maskKeys(list[pathPick.at] || {}).find((k) => k.frame === pathPick.frame);
+    return key && pathKey('&interp=' + (to || (key.interp === 'hold' ? 'linear' : 'hold')));
+  }
   const keys = [...pickedKeys].map(keyParts).flatMap(([layer, prop, at]) => {
     const key = layer && !layer.locked && keysOf(layer, prop).find((k) => k.frame === at);
     return key ? [[layer, prop, key]] : [];
@@ -1798,6 +1803,18 @@ function holdKeys(to) {
   });
 }
 
+// B-24e: the chosen path key's layer and its list of masks or shapes, and one change to it.
+const pathOf = (pick) => {
+  const layer = layers().find((l) => l.id === pick.layer);
+  return [layer, layer && (pick.shapes ? layer.shapes || [] : masksOf(layer))];
+};
+function pathKey(change) {
+  const [layer] = pathOf(pathPick);
+  if (!layer || layer.locked) return;
+  command((pathPick.shapes ? '/shape.set' : '/mask.set') + '?layer=' + encodeURIComponent(layer.id)
+    + (pathPick.shapes ? '&shape=' : '&mask=') + pathPick.at + '&key=' + pathPick.frame + change);
+}
+
 // W-20: Ctrl+Up and Ctrl+Down select the layer above or below the selected one in the list, as
 // After Effects does; with none selected, the front one.
 function nextLayer(up) {
@@ -1810,6 +1827,7 @@ function nextLayer(up) {
 // A click chooses one key, Shift or Ctrl with it adds or takes away one, and `null` clears.
 // The marks are lit in place rather than redrawn, so the click lands on the mark it began on.
 function pickKey(id, add) {
+  pathPick = null;
   if (!add) pickedKeys.clear();
   if (id && add && pickedKeys.has(id)) pickedKeys.delete(id);
   else if (id) pickedKeys.add(id);
@@ -3046,9 +3064,11 @@ function grabKey(comp, layer, prop, key, mark) {
 // The row chooses which mask the picture draws points on, and says its mode and how many points
 // it has.
 // B-24d: and it carries the path's stopwatch and the path's keys, the way a property's row
-// carries its own. A mark is where the shape was set; a press on one goes to that frame, which
-// is what a person wants first and is all a mask key answers to so far - dragging one is
-// keyframe.move's business and a mask key is not one of its keys.
+// carries its own.
+// B-24e: a mark is chosen by a press, which also goes to its frame, for F9 and Ctrl+Alt+G, and
+// dragged along the row to move the key; both are `mask.set` or `shape.set` naming the key by
+// its frame, one entry to undo. A path key is chosen on its own, not with a property's keys.
+let pathPick = null;
 function maskRows(comp, layer, shapes = false) {
   return (shapes ? layer.shapes || [] : masksOf(layer)).map((mask, at) => {
     const li = document.createElement('li');
@@ -3070,16 +3090,44 @@ function maskRows(comp, layer, shapes = false) {
     li.append(head);
     const box = document.createElement('div');
     box.className = 'track';
-    for (const key of maskKeys(mask)) {
+    const keys = maskKeys(mask);
+    for (const [i, key] of keys.entries()) {
       if (comp && !inView(comp, key.frame + 0.5)) continue;
       const mark = document.createElement('button');
       mark.type = 'button';
-      mark.className = 'key';
+      const pick = { layer: layer.id, shapes, at, frame: key.frame };
+      const picked = pathPick && ['layer', 'shapes', 'at', 'frame'].every((k) => pathPick[k] === pick[k]);
+      mark.className = 'key' + (picked ? ' selected' : '');
+      mark.style.clipPath = keyShape(keys, i);
       if (comp) mark.style.left = percent(atFrame(comp, key.frame + 0.5));
       mark.title = mask.name + '’s path at frame ' + key.frame + ', ' + (key.interp || 'linear')
-        + '. Press to go there.';
+        + '. Press to choose it for F9 and go there, or drag it along the row.';
       mark.setAttribute('aria-label', mark.title);
-      mark.onclick = (e) => { e.stopPropagation(); seek(key.frame); };
+      mark.onpointerdown = (e) => {
+        if (e.button !== 0 || layer.locked) return;
+        e.preventDefault();
+        e.stopPropagation();
+        let to = key.frame;
+        dragging = true;
+        mark.setPointerCapture(e.pointerId);
+        mark.onpointermove = (m) => {
+          const now = frameUnder(m.clientX);
+          if (now === null || now === to || !comp) return;
+          to = now;
+          mark.style.left = percent(atFrame(comp, to + 0.5));
+        };
+        mark.onpointerup = () => {
+          dragging = false;
+          mark.onpointermove = null;
+          mark.onpointerup = null;
+          pickKey(null, false);
+          pathPick = { ...pick, frame: to };
+          if (to === key.frame) { seek(key.frame); drawLayers(); return; }
+          command((shapes ? '/shape.set' : '/mask.set') + '?layer=' + encodeURIComponent(layer.id)
+            + (shapes ? '&shape=' : '&mask=') + at + '&key=' + key.frame + '&to=' + to);
+        };
+      };
+      mark.onclick = (e) => e.stopPropagation();
       box.append(mark);
     }
     li.append(box);
@@ -3235,6 +3283,7 @@ const svgEl = (kind) => document.createElementNS($('boxes').namespaceURI, kind);
 // than saying which one it is.
 function select(id, add) {
   if (id) cameraPicked = false;
+  pathPick = null;
   if (!add || !id) selection = id ? [id] : [];
   else if (selection.includes(id)) selection = selection.filter((held) => held !== id);
   else selection = [id, ...selection];
@@ -6392,6 +6441,7 @@ function grabKeys(e) {
 // side keeps the other half of its segment's curve, a hold is left a hold, and the first and last
 // keys have one side each. One press is one entry to undo, by the transaction `[` and `]` use.
 function easeKeys(sides) {
+  if (pathPick) return pathKey('&ease=' + sides);
   // The keys chosen on the timeline or the graph when there are any; otherwise, as before, every
   // key under the playhead on the selected layers.
   const targets = pickedKeys.size

@@ -65,6 +65,7 @@ below changes the fixtures.
   whose points' handles can be dragged.
 - A shape's key, like a mask's, cannot be dragged along its row, eased with F9, or opened in the
   graph editor, and is always linear. That is the next piece of work, for masks and shapes both.
+  (B-24e, 2026-09-22, has since built the dragging and the easing: `verification/B-24e_path_key_playtest.md`.)
 
 ## Result
 

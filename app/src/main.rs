@@ -1500,7 +1500,13 @@ fn prop_of_camera(which: anime_compositor::model::CameraProp) -> Prop {
 }
 
 fn interp_parameter(query: Option<&str>) -> Result<Interp, String> {
-    match parameter(query, "mode").as_deref() {
+    interp_named(query, "mode")
+}
+
+/// `interp_parameter` under another name, for B-24e's path keys: `mask.set` already reads
+/// `mode` as the mask's own mode, so a path key's curve arrives as `interp`.
+fn interp_named(query: Option<&str>, name: &str) -> Result<Interp, String> {
+    match parameter(query, name).as_deref() {
         Some("hold") => Ok(Interp::Hold),
         Some("linear") => Ok(Interp::Linear),
         // Without `curve`, this is the preset button beside the diamond and the curve is easy
@@ -3846,6 +3852,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             }
                         }
                         _ => {
+                            if let Err(sentence) = path_key(query, &mut masks[at].keys) {
+                                return Some(sentence);
+                            }
                             if let Some(text) = parameter(query, "mode") {
                                 match anime_compositor::mask::MaskMode::from_str(&text) {
                                     Some(mode) => masks[at].mode = mode,
@@ -4002,7 +4011,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             }
                         }
                         _ => {
-                            if let Err(sentence) = shape_settings(query, &mut shapes[at]) {
+                            if let Err(sentence) = path_key(query, &mut shapes[at].keys)
+                                .and_then(|()| shape_settings(query, &mut shapes[at]))
+                            {
                                 return Some(sentence);
                             }
                         }
@@ -5291,6 +5302,59 @@ fn solid_from(query: Option<&str>, mut solid: Solid) -> Result<Solid, String> {
         }
     }
     Ok(solid)
+}
+
+/// B-24e: one key on a mask's or a shape's path, named by its frame in `key`, moved along its
+/// row to `to`, given `interp` - hold, linear or ease, with `curve`'s four numbers - or eased by
+/// F9's rule in `ease`: `both` sides, the side it is reached `in` by, or the side it leaves `out`
+/// by, each side keeping the other half of its segment's curve and a hold left a hold, exactly as
+/// the page's F9 eases a property's keys. A key moved onto another takes its place, as After
+/// Effects' does; the core puts the keys back in frame order. Nothing named, nothing done.
+fn path_key(
+    query: Option<&str>,
+    keys: &mut Vec<anime_compositor::mask::MaskKey>,
+) -> Result<(), String> {
+    if parameter(query, "key").is_none() {
+        return Ok(());
+    }
+    let frame = frame_parameter(query, "key")?;
+    let Some(i) = keys.iter().position(|k| k.frame == frame) else {
+        return Err(format!("This path has no key at frame {frame}."));
+    };
+    if parameter(query, "interp").is_some() {
+        keys[i].interp = interp_named(query, "interp")?;
+    }
+    if let Some(sides) = parameter(query, "ease") {
+        let Interp::Ease { x1: ex, y1: ey, x2: fx, y2: fy } = Interp::EASY else {
+            unreachable!("easy ease is an ease")
+        };
+        // The curve a segment has now: its own, or the one that is exactly straight.
+        let curve = |k: &anime_compositor::mask::MaskKey| match k.interp {
+            Interp::Ease { x1, y1, x2, y2 } => [x1, y1, x2, y2],
+            _ => [1.0 / 3.0, 1.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0],
+        };
+        let (out, into) = match sides.as_str() {
+            "both" => (true, true),
+            "out" => (true, false),
+            "in" => (false, true),
+            other => return Err(format!("F9 eases both, in or out. Not \"{other}\".")),
+        };
+        if out && i + 1 < keys.len() && keys[i].interp != Interp::Hold {
+            let [_, _, x2, y2] = curve(&keys[i]);
+            keys[i].interp = Interp::Ease { x1: ex, y1: ey, x2, y2 };
+        }
+        if into && i > 0 && keys[i - 1].interp != Interp::Hold {
+            let [x1, y1, _, _] = curve(&keys[i - 1]);
+            keys[i - 1].interp = Interp::Ease { x1, y1, x2: fx, y2: fy };
+        }
+    }
+    if parameter(query, "to").is_some() {
+        let mut moved = keys.remove(i);
+        moved.frame = frame_parameter(query, "to")?;
+        keys.retain(|k| k.frame != moved.frame);
+        keys.push(moved);
+    }
+    Ok(())
 }
 
 /// B-25c: `shape.set`'s settings onto one shape. `fill` and `stroke` are three linear numbers,
@@ -12151,6 +12215,173 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-24e: a path key moved along its row, eased by F9's rule and held, for a mask and a
+    /// shape alike, through `mask.set` and `shape.set` naming the key by its frame.
+    #[test]
+    fn a_path_key_is_moved_and_eased_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        // The keys as the page reads them: frame, curve, and the second point's x.
+        let keys_of = |path: &serde_json::Value| {
+            let keys = path["keyframes"].as_array().cloned().unwrap_or_default();
+            keys.iter()
+                .map(|k| {
+                    format!(
+                        "frame {} {}{} at x {}",
+                        k["frame"],
+                        k["interp"].as_str().unwrap_or("(no interp)"),
+                        match k["ease"].as_array() {
+                            Some(e) => format!(
+                                " {}",
+                                e.iter()
+                                    .map(|n| format!("{:.3}", n.as_f64().unwrap_or(f64::NAN)))
+                                    .collect::<Vec<_>>()
+                                    .join(",")
+                            ),
+                            None => String::new(),
+                        },
+                        k["value"]["points"][1]["point"][0]
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        };
+        let mask_keys = |viewer: &Mutex<Viewer>| {
+            keys_of(&shown_layer(viewer, "Cel")["masks"][0]["path"])
+        };
+        // The outline the renderer drew at a frame: the second point's x.
+        let shape_at = |viewer: &Mutex<Viewer>, frame: i32| {
+            let body = boxes(viewer, frame, None).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the boxes answer is JSON");
+            answer["values"][&cel]["masks"][0][1][0].to_string()
+        };
+        let at = |x: i32| format!("0,0,0,0,0,0;{x},0,0,0,0,0;{x},100,0,0,0,0;0,100,0,0,0,0");
+
+        run(&viewer, &format!("mask.add?layer={cel}&points={}", at(100)));
+        run(&viewer, &format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"));
+        run(&viewer, &format!("mask.set_path?layer={cel}&mask=0&frame=8&points={}", at(300)));
+        report.check(
+            "a mask keyed at frame 0 and frame 8, as B-24d leaves it",
+            "frame 0 linear at x 100; frame 8 linear at x 300",
+            mask_keys(&viewer),
+        );
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=8&to=4"));
+        report.check(
+            "the key at 8 dragged along its row to 4 lands there, holding the same shape",
+            "frame 0 linear at x 100; frame 4 linear at x 300",
+            mask_keys(&viewer),
+        );
+        report.check(
+            "so the path now arrives at frame 4, and is half way at frame 2",
+            "200.0 then 300.0",
+            format!("{} then {}", shape_at(&viewer, 2), shape_at(&viewer, 4)),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "one Undo puts the key back at 8",
+            "frame 0 linear at x 100; frame 8 linear at x 300",
+            mask_keys(&viewer),
+        );
+        run(&viewer, "edit.redo");
+        run(&viewer, &format!("mask.set_path?layer={cel}&mask=0&frame=8&points={}", at(100)));
+        report.check(
+            "and Redo moves it again; a third key at 8 takes the path back",
+            "frame 0 linear at x 100; frame 4 linear at x 300; frame 8 linear at x 100",
+            mask_keys(&viewer),
+        );
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=4&ease=both"));
+        report.check(
+            "F9 on the middle key eases both sides of it: the segment it is reached by ends \
+             slowly, the one it leaves by starts slowly, and each keeps its other half straight",
+            "frame 0 ease 0.333,0.333,0.667,1.000 at x 100; frame 4 ease 0.333,0.000,0.667,0.667 \
+             at x 300; frame 8 linear at x 100",
+            mask_keys(&viewer),
+        );
+        report.check(
+            "so half way through each segment's time the path is three quarters of the way to \
+             the eased key, worked out from document 20's curve by hand: 100 + 200 x 0.625 and \
+             300 - 200 x 0.375",
+            "225.0 and 225.0",
+            format!("{} and {}", shape_at(&viewer, 2), shape_at(&viewer, 6)),
+        );
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=0&interp=linear"));
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=8&ease=in"));
+        report.check(
+            "Shift+F9 eases only the side a key is reached by; linear, which Ctrl+Alt+G sends to \
+             release a held key, straightened the first segment again",
+            "frame 0 linear at x 100; frame 4 ease 0.333,0.000,0.667,1.000 at x 300; frame 8 \
+             linear at x 100",
+            mask_keys(&viewer),
+        );
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=0&interp=hold"));
+        report.check(
+            "Ctrl+Alt+G holds a key: the path stays as it is until the next key",
+            "frame 0 hold at x 100; 100.0 at frame 3, 300.0 at frame 4",
+            format!(
+                "{}; {} at frame 3, {} at frame 4",
+                mask_keys(&viewer).split("; ").next().unwrap_or(""),
+                shape_at(&viewer, 3),
+                shape_at(&viewer, 4)
+            ),
+        );
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=8&to=4"));
+        report.check(
+            "a key dropped on a frame that has one takes its place, as After Effects' does",
+            "frame 0 hold at x 100; frame 4 linear at x 100",
+            mask_keys(&viewer),
+        );
+        report.check(
+            "a key that is not there is refused, in words",
+            "This path has no key at frame 9.",
+            run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=9&to=2")),
+        );
+        report.check(
+            "and so is an ease that is not one of F9's three",
+            "F9 eases both, in or out. Not \"sideways\".",
+            run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=4&ease=sideways")),
+        );
+
+        // A shape's path is a mask's path, and `shape.set` takes the same words.
+        run(&viewer, "layer.add_shape");
+        let shape = shown_layer(&viewer, "Shape Layer 1")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        run(&viewer, &format!("shape.add?layer={shape}&points={}", at(100)));
+        run(&viewer, &format!("shape.add_remove_key?layer={shape}&shape=0&frame=0"));
+        run(&viewer, &format!("shape.set_path?layer={shape}&shape=0&frame=6&points={}", at(300)));
+        run(&viewer, &format!("shape.set?layer={shape}&shape=0&key=6&to=3"));
+        run(&viewer, &format!("shape.set?layer={shape}&shape=0&key=3&ease=in"));
+        report.check(
+            "a shape's key is dragged and eased the same way",
+            "frame 0 ease 0.333,0.333,0.667,1.000 at x 100; frame 3 linear at x 300",
+            keys_of(&shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["path"]),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-24e_panel_table.md",
+            "B-24e: a path key moved, eased and held, from the window",
+            PATH_KEY_PANEL_INTRO,
+            PATH_KEY_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     /// B-25c: D-78's shape layer from the window. The core's half is
     /// `verification/B-25b_shape_table.md`; this is what the window sends and what comes back.
     #[test]
@@ -13497,6 +13728,29 @@ mod editing {
          or eased from the graph editor yet: `keyframe.move`, F9 and the graph take a \
          property's keys, and a path's key is not one of those. The stopwatch, the marks and \
          the frame the shape is set at are what B-24d builds.",
+    ];
+
+    const PATH_KEY_PANEL_INTRO: &[&str] = &[
+        "B-24d gave a mask's path keys and B-25c gave a shape's path the same, but a key once \
+         set stayed where it was put and stayed linear. B-24e lets the page drag a path key \
+         along its row, ease it with F9, Shift+F9 and Ctrl+F9, and hold it with Ctrl+Alt+G, by \
+         naming the key by its frame in `mask.set` or `shape.set`: `to` moves it, `ease` eases \
+         it by the rule F9 already uses for a property's keys, and `interp` sets hold, linear or \
+         ease outright. Each is one entry to undo.",
+        "Every row calls what the window calls, on \
+         `Fixtures/projects/cel_holds_project.json`, and reads back what the page is given: the \
+         keys off the document, and the outline at a frame off the answer the boxes come from, \
+         which is what the renderer drew. The eased positions were worked out by hand from \
+         document 20's curve, not read from the build.",
+    ];
+
+    const PATH_KEY_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhether a mark follows the hand when dragged, lights \
+         when chosen and changes shape when eased. That is \
+         `verification/B-24e_path_key_playtest.md`, for a person.\n\nA path's keys are still \
+         not in the graph editor: a path has no one number to draw a curve of, and After \
+         Effects shows a path's speed only. Their curve can be eased and held from the \
+         timeline, which is what this builds.",
     ];
 
     const ADJUST_PANEL_NOTES: &[&str] = &[
