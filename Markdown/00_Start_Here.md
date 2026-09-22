@@ -28,7 +28,7 @@ Then contracts: 18 ADRs, 19 data model, 20 time model, 21 rendering math, 24 com
 
 Then delivery: 07 project format, 11 verification, 22 reference shot, 25 fixture catalog, 29 build, 10 legal, 13 delivery.
 
-Research context: 16, 30 and 31.
+Research context: 16, 30 and 31. On 2026-09-22 the owner asked whether anything already built could be branched from or taken in: `research/2026-09-22_github_reuse_survey.md` is the answer, document 30 records it (no application to fork, because the layer-based ones are all copyleft; parts may lawfully be ported), and document 15's last section proposes four ports - the XDTS timesheet read, line smoothing, the cel colour operations and the blur and glow family - each awaiting the owner.
 
 Before any code, read root `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md`.
 

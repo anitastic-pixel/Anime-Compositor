@@ -54,4 +54,14 @@ Do not claim "no competitor exists" or "industry standard" from vendor pages. Ve
 
 Continue G0 custom-prototype work, but keep an explicit off-ramp: if an existing open-source base can satisfy W-01/W-02 with modest, maintainable customization, extending it may be economically superior. The current pack has not demonstrated that outcome either way.
 
+## The 2026-09-22 survey: fork no, port yes
+
+The owner asked on 2026-09-22 whether anything already built could be branched from or integrated. The survey is `research/2026-09-22_github_reuse_survey.md`, and it is research: it decides nothing and authorises nothing.
+
+On forking, it confirms the D-15 preference with a licence fact that D-15 did not rest on. Every mature layer-based animation application on GitHub is copyleft - Friction (the successor to the archived enve), Synfig and Glaxnimate, as Natron, Blender and Olive already were - so building on one would make this project GPL, which contradicts D-03 and ADR-010, and would discard the Rust core, the fixtures and the decision record. The permissively licensed applications do not fit either: OpenToonz and Tahoma2D are BSD but are C++ Qt xsheet-and-node applications, and Graphite is Apache-2.0 Rust but node-first with its keyframe animation still unbuilt. No layer-based Rust compositor exists. The off-ramp this document keeps open is therefore narrower than it was: it is now closed by preference **and** by licence.
+
+On parts, the answer changes. The anime-specific processing that document 31 places at G3a and G3b, and the timesheet import it places at G2b, all have permissive implementations that may lawfully be ported with their notices kept - OpenToonz and `xdts_viewer` under BSD-3, `F-s-PluginsProjects` and `FsPluginsOFX` under MIT, `loilo-inc/smooth` under Apache-2.0 - and CELSYS publishes the XDTS format as a public specification. Four candidates are written up as PROPOSED in document 15 and await the owner. OLM's OpenTools are Apache-2.0 but distributed as built plugins with no public source, so they are a specification of the primitives, not code to take.
+
+Two GitHub repositories carrying After Effects product names, `ImageBeautician/adobe-after-effects-software` and `FastMakerString/after-effects-pro-setup`, have the shape of fake-installer malware. Nothing is to be downloaded from them.
+
 Related documents: 01, 04, 16, 18 and 31. Sources: S-02, S-09 through S-16.
