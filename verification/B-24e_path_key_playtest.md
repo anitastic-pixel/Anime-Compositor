@@ -33,6 +33,8 @@ to frame 20 and drag a corner of the mask somewhere else. The row now has two ke
    the hold is not remembered).
 7. **Dropping on a key.** Drag the mark at frame 40 onto the one at frame 20. Only one mark is left
    at frame 20, and the mask there has the shape the dragged key had.
+   (Since B-24f, 2026-09-22, a path key is dragged as a property's key is, and a drop on another
+   key is refused instead. `verification/B-24f_path_key_playtest.md` step 4 replaces this one.)
 8. **Shapes too.** Press **New shape layer**, draw a rectangle, and repeat steps 2 and 4 on its
    shape's row. It behaves the same way.
 9. **Property keys still work.** Press a Position key on any layer and press F9: it eases as it
@@ -41,6 +43,8 @@ to frame 20 and drag a corner of the mask somewhere else. The row now has two ke
     with the same shapes, and the mask moves the same way.
 
 ## Known limits
+
+B-24f, on 2026-09-22, lifted all three: `verification/B-24f_path_key_playtest.md`.
 
 - A path key is not in the graph editor. The graph draws a number over time, and a path is not one
   number. After Effects shows only a path's speed there.

@@ -245,6 +245,46 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
                 .collect();
             return Some(serde_json::json!({ "from": from, "to": to, "samples": samples }));
         }
+        // B-24f: a path is not one number, so its graph is how far its points have gone: the
+        // mean distance between two keys' points, added up key after key, and part of the way
+        // along a segment by where `points_at` puts the path. Its speed graph is then pixels a
+        // second, which is what After Effects' graph shows of a path.
+        // ponytail: an ease that overshoots reads as distance on the way back; signed travel if
+        // that ever misleads.
+        if let Some((shape, at)) = path_prop(&name) {
+            let layer = comp.layer(&Id::new(&parameter(query, "layer")?))?;
+            let (base, keys) = if shape {
+                let s = layer.shapes.get(at)?;
+                (&s.points, &s.keys)
+            } else {
+                let m = layer.masks.get(at)?;
+                (&m.points, &m.keys)
+            };
+            use anime_compositor::mask::MaskPoint;
+            let apart = |p: &[MaskPoint], q: &[MaskPoint]| {
+                p.iter()
+                    .zip(q)
+                    .map(|(a, b)| (a.point.0 - b.point.0).hypot(a.point.1 - b.point.1))
+                    .sum::<f64>()
+                    / p.len().max(1) as f64
+            };
+            let travelled = |f: i32| {
+                let i = keys.partition_point(|k| k.frame <= f);
+                if i == 0 {
+                    return 0.0;
+                }
+                let before: f64 = keys[..i]
+                    .windows(2)
+                    .map(|w| apart(&w[0].points, &w[1].points))
+                    .sum();
+                before + apart(&keys[i - 1].points, &anime_compositor::mask::points_at(base, keys, f))
+            };
+            let (from, to) = (number("from", 0), number("to", 0));
+            let to = to.clamp(from, from.saturating_add(10_000));
+            let samples: Vec<serde_json::Value> =
+                (from..=to).map(|f| serde_json::json!([travelled(f)])).collect();
+            return Some(serde_json::json!({ "from": from, "to": to, "samples": samples }));
+        }
         // D-22: a scale is a percentage in the panels and a lens is millimetres, so the graph is
         // drawn in the numbers the inspector beside it shows.
         let (held, factor) = if parameter(query, "target").as_deref() == Some("camera") {
@@ -2992,6 +3032,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // values of the others, which `value=` no longer lines up with once these are out.
             let mut fx: std::collections::BTreeMap<(String, String, String), Vec<(i32, Option<String>)>> =
                 Default::default();
+            let mut paths: std::collections::BTreeMap<(String, (bool, usize)), Vec<i32>> =
+                Default::default();
             let all_values = parameters(query, "value");
             let mut key_values = Vec::new();
             let named_count = parameters(query, "key").len();
@@ -3002,6 +3044,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 else {
                     return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
                 };
+                // B-24f: a path's keys, by layer and path. A value sent with one is the graph's
+                // travelled distance and not something a path can hold, so it is not read.
+                if let (Some(which), Ok(at)) = (path_prop(prop), at.parse::<i32>()) {
+                    paths.entry((layer.to_string(), which)).or_default().push(at);
+                    continue;
+                }
                 if let (Some((instance, setting)), Ok(at)) = (effect_setting(prop), at.parse()) {
                     fx.entry((layer.to_string(), instance.as_str().to_string(), setting))
                         .or_default()
@@ -3078,6 +3126,44 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     setting,
                     keys: list,
                 });
+            }
+            // B-24f: each path's chosen keys moved by the same distance or taken out, as the one
+            // command for its layer's masks or shapes. The last key taken off leaves the path
+            // with the shape the first of them had, as the stopwatch's last key does.
+            for ((named, which), chosen) in paths {
+                let removing = id == "keyframe.add_remove";
+                if !removing && by == 0 {
+                    continue;
+                }
+                let Some(layer) = held
+                    .document
+                    .project()
+                    .composition(&composition)
+                    .and_then(|c| c.layer(&Id::new(&named)))
+                else {
+                    return Some(format!("There is no layer {named} here."));
+                };
+                let made = with_path(composition.clone(), layer, which, |base, keys| {
+                    if let Some(at) = chosen.iter().find(|at| keys.iter().all(|k| k.frame != **at)) {
+                        return Err(format!("This path has no key at frame {at}."));
+                    }
+                    if removing {
+                        let first = keys.iter().find(|k| chosen.contains(&k.frame)).cloned();
+                        keys.retain(|k| !chosen.contains(&k.frame));
+                        if let (true, Some(first)) = (keys.is_empty(), first) {
+                            *base = first.points;
+                        }
+                    } else {
+                        for k in keys.iter_mut().filter(|k| chosen.contains(&k.frame)) {
+                            k.frame += by;
+                        }
+                    }
+                    Ok(())
+                });
+                match made {
+                    Ok(command) => fx_commands.push(command),
+                    Err(said) => return Some(said),
+                }
             }
             // W-19: the chosen keys named are removed, as one entry to undo. Only removed: a key
             // somebody chose is a key that is there, and one that has gone since is refused by
@@ -4154,6 +4240,19 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         .expect("the guard above");
                     match effect_key_command(id, query, composition, layer, instance_id, setting)
                     {
+                        Ok(command) => command,
+                        Err(said) => return Some(said),
+                    }
+                }
+                // B-24f: and three of them about a mask's or a shape's path.
+                "keyframe.add_remove" | "keyframe.move" | "keyframe.set_interp"
+                    if parameter(query, "prop").as_deref().and_then(path_prop).is_some() =>
+                {
+                    let which = parameter(query, "prop")
+                        .as_deref()
+                        .and_then(path_prop)
+                        .expect("the guard above");
+                    match path_key_command(id, query, composition, layer, which) {
                         Ok(command) => command,
                         Err(said) => return Some(said),
                     }
@@ -5355,6 +5454,91 @@ fn path_key(
         keys.push(moved);
     }
     Ok(())
+}
+
+/// B-24f: `mask:<n>` and `shape:<n>` name a path's keys wherever a request names a property, as
+/// `fx:` names an effect's setting, so that the timeline's choice, the arrow keys, Delete, the
+/// key menu, F9, copy and paste and the graph reach a path's keys through the requests they
+/// already send. `true` is a shape.
+fn path_prop(prop: &str) -> Option<(bool, usize)> {
+    let (kind, at) = prop.split_once(':')?;
+    let shape = match kind {
+        "mask" => false,
+        "shape" => true,
+        _ => return None,
+    };
+    Some((shape, at.parse().ok()?))
+}
+
+/// B-24f: the path `which` names on a layer handed to `change`, base and keys, and the layer's
+/// masks or shapes sent back whole, as the one command the core has for them.
+fn with_path(
+    composition: Id,
+    layer: &Layer,
+    (shape, at): (bool, usize),
+    change: impl FnOnce(
+        &mut Vec<anime_compositor::mask::MaskPoint>,
+        &mut Vec<anime_compositor::mask::MaskKey>,
+    ) -> Result<(), String>,
+) -> Result<Command, String> {
+    let (mut masks, mut shapes) = (layer.masks.clone(), layer.shapes.clone());
+    let path = if shape {
+        shapes.get_mut(at).map(|s| (&mut s.points, &mut s.keys))
+    } else {
+        masks.get_mut(at).map(|m| (&mut m.points, &mut m.keys))
+    };
+    let Some((base, keys)) = path else {
+        return Err(format!(
+            "{} has no {} {at}.",
+            layer.name,
+            if shape { "shape" } else { "mask" }
+        ));
+    };
+    change(base, keys)?;
+    let layer_id = layer.id.clone();
+    Ok(if shape {
+        Command::SetShapes { composition, layer_id, shapes }
+    } else {
+        Command::SetMasks { composition, layer_id, masks }
+    })
+}
+
+/// B-24f: the three single-key requests about a path's key - the diamond, a move and an ease -
+/// by the rules `mask.add_remove_key` and `effect_key_command` already keep. A key moved onto
+/// another is refused by the core, as a property's is.
+fn path_key_command(
+    id: &str,
+    query: Option<&str>,
+    composition: Id,
+    layer: &Layer,
+    which: (bool, usize),
+) -> Result<Command, String> {
+    let frame = frame_parameter(query, if id == "keyframe.move" { "from" } else { "frame" })?;
+    with_path(composition, layer, which, |base, keys| {
+        let at = keys.iter().position(|k| k.frame == frame);
+        let missing = || format!("This path has no key at frame {frame}.");
+        match id {
+            "keyframe.add_remove" => match at {
+                Some(i) => {
+                    let gone = keys.remove(i);
+                    if keys.is_empty() {
+                        *base = gone.points;
+                    }
+                }
+                None => {
+                    let points = anime_compositor::mask::points_at(base, keys, frame);
+                    keys.push(anime_compositor::mask::MaskKey {
+                        frame,
+                        points,
+                        interp: Interp::Linear,
+                    });
+                }
+            },
+            "keyframe.move" => keys[at.ok_or_else(missing)?].frame = frame_parameter(query, "to")?,
+            _ => keys[at.ok_or_else(missing)?].interp = interp_parameter(query)?,
+        }
+        Ok(())
+    })
 }
 
 /// B-25c: `shape.set`'s settings onto one shape. `fill` and `stroke` are three linear numbers,
@@ -12382,6 +12566,262 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-24f: a path's keys named `mask:<n>` and `shape:<n>` in the requests a property's keys
+    /// already go through - chosen with other keys, moved, deleted, eased, pasted - and drawn in
+    /// the graph as the distance the path has travelled.
+    #[test]
+    fn a_path_key_goes_where_a_property_key_goes() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        // A path's keys as the page reads them: frame, curve, and the second point's x.
+        let keys_of = |path: &serde_json::Value| {
+            let keys = path["keyframes"].as_array().cloned().unwrap_or_default();
+            keys.iter()
+                .map(|k| {
+                    format!(
+                        "frame {} {}{} at x {}",
+                        k["frame"],
+                        k["interp"].as_str().unwrap_or("(no interp)"),
+                        match k["ease"].as_array() {
+                            Some(e) => format!(
+                                " {}",
+                                e.iter()
+                                    .map(|n| format!("{:.3}", n.as_f64().unwrap_or(f64::NAN)))
+                                    .collect::<Vec<_>>()
+                                    .join(",")
+                            ),
+                            None => String::new(),
+                        },
+                        k["value"]["points"][1]["point"][0]
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        };
+        let mask_keys = |viewer: &Mutex<Viewer>| {
+            keys_of(&shown_layer(viewer, "Cel")["masks"][0]["path"])
+        };
+        let rotation_keys = |viewer: &Mutex<Viewer>| {
+            shown_layer(viewer, "Cel")["transform"]["rotation"]["keyframes"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(|k| format!("frame {}", k["frame"]))
+                .collect::<Vec<_>>()
+                .join("; ")
+        };
+        // What the graph is given at a few frames, to three places.
+        let graph = |viewer: &Mutex<Viewer>, frames: &[i32]| {
+            let query = format!("layer={cel}&prop=mask:0&from=0&to=12");
+            let body = curve(viewer, Some(&query)).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the curve answer is JSON");
+            frames
+                .iter()
+                .map(|f| format!("{:.3}", answer["samples"][*f as usize][0].as_f64().unwrap_or(f64::NAN)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let at = |x: i32| format!("0,0,0,0,0,0;{x},0,0,0,0,0;{x},100,0,0,0,0;0,100,0,0,0,0");
+
+        run(&viewer, &format!("mask.add?layer={cel}&points={}", at(100)));
+        run(&viewer, &format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"));
+        run(&viewer, &format!("mask.set_path?layer={cel}&mask=0&frame=8&points={}", at(300)));
+        run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=rotation&frame=0"));
+        report.check(
+            "a mask keyed at frame 0 and frame 8, and the layer's rotation keyed at frame 0",
+            "frame 0 linear at x 100; frame 8 linear at x 300 / frame 0",
+            format!("{} / {}", mask_keys(&viewer), rotation_keys(&viewer)),
+        );
+        report.check(
+            "the graph of the path is how far its points have gone on average, in pixels: two of \
+             its four points move 200 pixels, so 100 in all, half of it by frame 4, none before \
+             the first key and all of it after the last",
+            "0.000, 50.000, 100.000, 100.000",
+            graph(&viewer, &[0, 4, 8, 12]),
+        );
+
+        let mask_key = |frame: i32| format!("key={cel}%7Cmask:0%7C{frame}");
+        run(
+            &viewer,
+            &format!("keyframe.move?by=2&{}&key={cel}%7Crotation%7C0", mask_key(8)),
+        );
+        report.check(
+            "the mask's key at 8 chosen with the rotation's key at 0, and both dragged two frames \
+             later, as one move",
+            "frame 0 linear at x 100; frame 10 linear at x 300 / frame 2",
+            format!("{} / {}", mask_keys(&viewer), rotation_keys(&viewer)),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "one Undo puts both back",
+            "frame 0 linear at x 100; frame 8 linear at x 300 / frame 0",
+            format!("{} / {}", mask_keys(&viewer), rotation_keys(&viewer)),
+        );
+        let answer = run(&viewer, &format!("keyframe.move?by=8&{}", mask_key(0)));
+        report.check(
+            "a path key moved onto another key of the same path is refused, as a property's is, \
+             and nothing moves",
+            "refused: true; frame 0 linear at x 100; frame 8 linear at x 300",
+            format!(
+                "refused: {}; {}",
+                answer.contains("a second key at frame 8"),
+                mask_keys(&viewer)
+            ),
+        );
+        report.check(
+            "a key that is not there is refused, in words",
+            "This path has no key at frame 5.",
+            run(&viewer, &format!("keyframe.move?by=1&{}", mask_key(5))),
+        );
+        run(&viewer, &format!("keyframe.add_remove?{}", mask_key(8)));
+        report.check(
+            "Delete on a chosen path key takes it off",
+            "frame 0 linear at x 100",
+            mask_keys(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        run(&viewer, &format!("keyframe.add_remove?{}&{}", mask_key(0), mask_key(8)));
+        report.check(
+            "Delete on both keys stops the path, which keeps the shape the first of them had",
+            "no keys; x 100",
+            format!(
+                "{}; x {}",
+                match mask_keys(&viewer).as_str() {
+                    "" => "no keys".to_string(),
+                    other => other.to_string(),
+                },
+                shown_layer(&viewer, "Cel")["masks"][0]["path"]["base"]["points"][1]["point"][0]
+            ),
+        );
+        run(&viewer, "edit.undo");
+        run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=mask:0&frame=4"));
+        report.check(
+            "the diamond, sent with the path's name, sets a key holding the shape the path has \
+             there: half way",
+            "frame 0 linear at x 100; frame 4 linear at x 200; frame 8 linear at x 300",
+            mask_keys(&viewer),
+        );
+        run(&viewer, "edit.undo");
+
+        // F9 on the first key, as the page sends it: the side it leaves by eased, the other
+        // half of the segment's curve left straight.
+        run(
+            &viewer,
+            &format!(
+                "keyframe.set_interp?layer={cel}&prop=mask:0&frame=0&mode=ease\
+                 &curve=0.333333,0,0.666667,0.666667"
+            ),
+        );
+        report.check(
+            "F9 on a path key reaches it through the request it sends for a property's key",
+            "frame 0 ease 0.333,0.000,0.667,0.667 at x 100; frame 8 linear at x 300",
+            mask_keys(&viewer),
+        );
+        report.check(
+            "and the graph follows the ease: on this curve time runs straight, so half way the \
+             path has gone 2 x 0.5 x 0.25 + 0.125 = 0.375 of its 100 pixels, worked out by hand",
+            "0.000, 37.500, 100.000",
+            graph(&viewer, &[0, 4, 8]),
+        );
+        run(
+            &viewer,
+            &format!("keyframe.set_interp?layer={cel}&prop=mask:0&frame=0&mode=hold"),
+        );
+        report.check(
+            "Ctrl+Alt+G holds it: the graph stays flat until the next key",
+            "frame 0 hold at x 100; 0.000, 0.000, 100.000",
+            format!(
+                "{}; {}",
+                mask_keys(&viewer).split("; ").next().unwrap_or(""),
+                graph(&viewer, &[0, 7, 8])
+            ),
+        );
+        // Letting the hold go is the page's to remember: it sends back the ease the key had.
+        run(
+            &viewer,
+            &format!(
+                "keyframe.set_interp?layer={cel}&prop=mask:0&frame=0&mode=ease\
+                 &curve=0.333333,0,0.666667,0.666667"
+            ),
+        );
+
+        // Ctrl+V of the key at 8 onto frame 12, as the page pastes a path's key: its points by
+        // the pen's own request at that frame, then its curve, one entry to undo.
+        run(
+            &viewer,
+            &format!("mask.set_path?layer={cel}&frame=12&drag=1&mask=0&points={}", at(300)),
+        );
+        run(
+            &viewer,
+            &format!("keyframe.set_interp?layer={cel}&frame=12&drag=1&prop=mask:0&mode=linear"),
+        );
+        run(&viewer, "property.drag_end");
+        report.check(
+            "a path key pasted at frame 12 holds the copied shape",
+            "frame 0 ease 0.333,0.000,0.667,0.667 at x 100; frame 8 linear at x 300; frame 12 \
+             linear at x 300",
+            mask_keys(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and one Undo takes the paste away",
+            "frame 0 ease 0.333,0.000,0.667,0.667 at x 100; frame 8 linear at x 300",
+            mask_keys(&viewer),
+        );
+        report.check(
+            "a path that is not there is refused, in words",
+            "Cel has no mask 3.",
+            run(
+                &viewer,
+                &format!("keyframe.set_interp?layer={cel}&prop=mask:3&frame=0&mode=hold"),
+            ),
+        );
+
+        // A shape's path is named `shape:<n>` and goes the same way.
+        run(&viewer, "layer.add_shape");
+        let shape = shown_layer(&viewer, "Shape Layer 1")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        run(&viewer, &format!("shape.add?layer={shape}&points={}", at(100)));
+        run(&viewer, &format!("shape.add_remove_key?layer={shape}&shape=0&frame=0"));
+        run(&viewer, &format!("shape.set_path?layer={shape}&shape=0&frame=6&points={}", at(300)));
+        run(&viewer, &format!("keyframe.move?by=-2&key={shape}%7Cshape:0%7C6"));
+        run(
+            &viewer,
+            &format!("keyframe.set_interp?layer={shape}&prop=shape:0&frame=4&mode=hold"),
+        );
+        report.check(
+            "a shape's key is moved and held the same way",
+            "frame 0 linear at x 100; frame 4 hold at x 300",
+            keys_of(&shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["path"]),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-24f_panel_table.md",
+            "B-24f: a path key chosen, moved, deleted, pasted and graphed like a property's",
+            PATH_KEY_GRAPH_INTRO,
+            PATH_KEY_GRAPH_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     /// B-25c: D-78's shape layer from the window. The core's half is
     /// `verification/B-25b_shape_table.md`; this is what the window sends and what comes back.
     #[test]
@@ -13750,7 +14190,34 @@ mod editing {
          `verification/B-24e_path_key_playtest.md`, for a person.\n\nA path's keys are still \
          not in the graph editor: a path has no one number to draw a curve of, and After \
          Effects shows a path's speed only. Their curve can be eased and held from the \
-         timeline, which is what this builds.",
+         timeline, which is what this builds. (B-24f has since put them there, as the distance \
+         the path has travelled: `verification/B-24f_panel_table.md`.)",
+    ];
+
+    const PATH_KEY_GRAPH_INTRO: &[&str] = &[
+        "B-24e let a path key be dragged and eased on its own. B-24f names a mask's path \
+         `mask:<n>` and a shape's `shape:<n>` wherever a request names a property, as an \
+         effect's setting is named `fx:`, so a path's key goes through the requests a property's \
+         keys already go through: chosen with other keys and moved with them, moved by the arrow \
+         keys, deleted, eased, held, copied and pasted, and drawn in the graph editor.",
+        "A path is not one number, so the graph draws how far its points have travelled: the \
+         mean distance its points move from one key to the next, added up key after key, and \
+         part of the way along a segment by where the renderer puts the path. The speed graph is \
+         then pixels a second, which is what After Effects draws for a path.",
+        "Every row calls what the window calls, on \
+         `Fixtures/projects/cel_holds_project.json`, and reads back what the page is given. The \
+         distances were worked out by hand, not read from the build.",
+    ];
+
+    const PATH_KEY_GRAPH_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhether the marks light, follow the hand and open their \
+         menu, and whether the graph draws the line: \
+         `verification/B-24f_path_key_playtest.md`, for a person. So is letting a hold go \
+         bringing back the ease the key had, which the page remembers and this table cannot \
+         see; the table sends what the page sends then.\n\nA path key's value is its shape, \
+         which is drawn, not typed or dragged up and down in the graph. Key speed and influence \
+         typed in the menu's dialog, and the three kinds of bezier, are a number's and are not \
+         offered for a path; its speed is pulled in the graph.",
     ];
 
     const ADJUST_PANEL_NOTES: &[&str] = &[

@@ -10,7 +10,7 @@ Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.j
 
 Whether a mark follows the hand when dragged, lights when chosen and changes shape when eased. That is `verification/B-24e_path_key_playtest.md`, for a person.
 
-A path's keys are still not in the graph editor: a path has no one number to draw a curve of, and After Effects shows a path's speed only. Their curve can be eased and held from the timeline, which is what this builds.
+A path's keys are still not in the graph editor: a path has no one number to draw a curve of, and After Effects shows a path's speed only. Their curve can be eased and held from the timeline, which is what this builds. (B-24f has since put them there, as the distance the path has travelled: `verification/B-24f_panel_table.md`.)
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|

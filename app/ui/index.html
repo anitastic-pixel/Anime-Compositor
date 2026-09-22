@@ -1766,9 +1766,14 @@ function pasteKeys(start = frame, target = null) {
     const target = rowOf(onto || layer);
     const fresh = target && !keysOf(target, prop).length && !started.has(target.id + '|' + prop);
     if (fresh) started.add(target.id + '|' + prop);
+    // B-24f: a path's key holds its points, which the pen's own request puts down at a frame.
+    const [kind, n] = prop.split(':');
+    const points = isPath(prop) && key.value.points.map((p) => [
+      p.point[0], p.point[1], ...(p.in || [0, 0]), ...(p.out || [0, 0])]);
     return [
       ...(fresh ? ['/keyframe.add_remove' + q + '&prop=' + prop] : []),
-      '/property.set_base' + q + '&prop=' + prop + '&value=' + encodeURIComponent([].concat(key.value).join(',')),
+      points ? '/' + kind + '.set_path' + q + '&' + kind + '=' + n + maskQuery(points)
+        : '/property.set_base' + q + '&prop=' + prop + '&value=' + encodeURIComponent([].concat(key.value).join(',')),
       '/keyframe.set_interp' + q + '&prop=' + prop + '&mode=' + key.interp
         + (key.interp === 'ease' ? '&curve=' + easeOf(key).join(',') : ''),
       ...(key.spatial ? ['/keyframe.set_path' + q + '&handles=' + key.spatial.join(',')] : []),
@@ -1781,38 +1786,29 @@ function pasteKeys(start = frame, target = null) {
 }
 
 // W-20: After Effects' Ctrl+Alt+H, moved to Ctrl+Alt+G at the owner's word. The chosen keys hold; if every one of them holds already, they
-// go back to linear. ponytail: an ease a hold replaced is not remembered.
+// go back to linear.
+// B-24f: or to the ease they had before this window held them, which is kept here by key until
+// the hold is let go. Page state: a key held, saved and opened again comes back linear.
+const heldFrom = new Map();
 function holdKeys(to) {
-  if (pathPick) {
-    const [layer, list] = pathOf(pathPick);
-    const key = list && maskKeys(list[pathPick.at] || {}).find((k) => k.frame === pathPick.frame);
-    return key && pathKey('&interp=' + (to || (key.interp === 'hold' ? 'linear' : 'hold')));
-  }
   const keys = [...pickedKeys].map(keyParts).flatMap(([layer, prop, at]) => {
     const key = layer && !layer.locked && keysOf(layer, prop).find((k) => k.frame === at);
     return key ? [[layer, prop, key]] : [];
   });
   if (!keys.length) return;
   const mode = to || (keys.every(([, , key]) => key.interp === 'hold') ? 'linear' : 'hold');
+  const sends = keys.map(([layer, prop, key]) => {
+    const id = keyId(layer, prop, key.frame);
+    const was = !to && mode === 'linear' && heldFrom.get(id);
+    if (mode !== 'hold') heldFrom.delete(id);
+    else if (key.interp !== 'hold') heldFrom.set(id, key);
+    return '/keyframe.set_interp?' + whose(layer) + '&prop=' + prop + '&frame=' + key.frame
+      + (was && was.interp === 'ease' ? '&mode=ease&curve=' + easeOf(was).join(',') : '&mode=' + mode) + '&drag=1';
+  });
   nudge = nudge.then(async () => {
-    for (const [layer, prop, key] of keys) {
-      await command('/keyframe.set_interp?' + whose(layer) + '&prop=' + prop
-        + '&frame=' + key.frame + '&mode=' + mode + '&drag=1');
-    }
+    for (const request of sends) await command(request);
     await command('/property.drag_end');
   });
-}
-
-// B-24e: the chosen path key's layer and its list of masks or shapes, and one change to it.
-const pathOf = (pick) => {
-  const layer = layers().find((l) => l.id === pick.layer);
-  return [layer, layer && (pick.shapes ? layer.shapes || [] : masksOf(layer))];
-};
-function pathKey(change) {
-  const [layer] = pathOf(pathPick);
-  if (!layer || layer.locked) return;
-  command((pathPick.shapes ? '/shape.set' : '/mask.set') + '?layer=' + encodeURIComponent(layer.id)
-    + (pathPick.shapes ? '&shape=' : '&mask=') + pathPick.at + '&key=' + pathPick.frame + change);
 }
 
 // W-20: Ctrl+Up and Ctrl+Down select the layer above or below the selected one in the list, as
@@ -1827,7 +1823,6 @@ function nextLayer(up) {
 // A click chooses one key, Shift or Ctrl with it adds or takes away one, and `null` clears.
 // The marks are lit in place rather than redrawn, so the click lands on the mark it began on.
 function pickKey(id, add) {
-  pathPick = null;
   if (!add) pickedKeys.clear();
   if (id && add && pickedKeys.has(id)) pickedKeys.delete(id);
   else if (id) pickedKeys.add(id);
@@ -2461,7 +2456,7 @@ function drawLayers() {
       : beginRename());
     const isOpen = (prop) => open.has(prop) || (prop.startsWith('position') && ['position', 'position_x', 'position_y']
       .some((p) => p !== prop && (p === 'position' || prop === 'position') && open.has(p)));
-    return [li, ...shapeRows(comp, layer), ...maskRows(comp, layer), ...propsOf(layer).filter(isOpen).flatMap((prop) => propTrack(comp, layer, prop))];
+    return [li, ...shapeRows(comp, layer), ...maskRows(comp, layer), ...propsOf(layer).filter((prop) => !isPath(prop) && isOpen(prop)).flatMap((prop) => propTrack(comp, layer, prop))];
   }));
 }
 
@@ -2914,7 +2909,7 @@ function layerMenu(x, y, first = []) {
 // named is roving: on, or off if every chosen key roves already. A roving key's frame is the
 // window's to work out, so the choice is dropped rather than left naming frames that have gone.
 function kindKeys(kind) {
-  const keys = [...pickedKeys].filter((id) => { const [layer] = keyParts(id); return layer && !layer.locked; });
+  const keys = [...pickedKeys].filter((id) => { const [layer, prop] = keyParts(id); return layer && !layer.locked && !isPath(prop); });
   if (!keys.length) return;
   const roving = !keys.every((id) => {
     const [layer, prop, at] = keyParts(id);
@@ -3065,10 +3060,9 @@ function grabKey(comp, layer, prop, key, mark) {
 // it has.
 // B-24d: and it carries the path's stopwatch and the path's keys, the way a property's row
 // carries its own.
-// B-24e: a mark is chosen by a press, which also goes to its frame, for F9 and Ctrl+Alt+G, and
-// dragged along the row to move the key; both are `mask.set` or `shape.set` naming the key by
-// its frame, one entry to undo. A path key is chosen on its own, not with a property's keys.
-let pathPick = null;
+// B-24e: a mark is chosen by a press, which also goes to its frame, and dragged along the row.
+// B-24f: by W-11's `grabKey`, as a property's mark is, so it is chosen with other keys, moved by
+// the arrow keys, deleted, copied and right-clicked the same way.
 function maskRows(comp, layer, shapes = false) {
   return (shapes ? layer.shapes || [] : masksOf(layer)).map((mask, at) => {
     const li = document.createElement('li');
@@ -3095,39 +3089,15 @@ function maskRows(comp, layer, shapes = false) {
       if (comp && !inView(comp, key.frame + 0.5)) continue;
       const mark = document.createElement('button');
       mark.type = 'button';
-      const pick = { layer: layer.id, shapes, at, frame: key.frame };
-      const picked = pathPick && ['layer', 'shapes', 'at', 'frame'].every((k) => pathPick[k] === pick[k]);
-      mark.className = 'key' + (picked ? ' selected' : '');
+      const prop = (shapes ? 'shape:' : 'mask:') + at;
+      mark.dataset.key = keyId(layer, prop, key.frame);
+      mark.className = 'key' + (pickedKeys.has(mark.dataset.key) ? ' selected' : '');
       mark.style.clipPath = keyShape(keys, i);
       if (comp) mark.style.left = percent(atFrame(comp, key.frame + 0.5));
       mark.title = mask.name + '’s path at frame ' + key.frame + ', ' + (key.interp || 'linear')
-        + '. Press to choose it for F9 and go there, or drag it along the row.';
+        + '. Press to choose it for F9 and go there, drag it along the row, or move it with the arrow keys.';
       mark.setAttribute('aria-label', mark.title);
-      mark.onpointerdown = (e) => {
-        if (e.button !== 0 || layer.locked) return;
-        e.preventDefault();
-        e.stopPropagation();
-        let to = key.frame;
-        dragging = true;
-        mark.setPointerCapture(e.pointerId);
-        mark.onpointermove = (m) => {
-          const now = frameUnder(m.clientX);
-          if (now === null || now === to || !comp) return;
-          to = now;
-          mark.style.left = percent(atFrame(comp, to + 0.5));
-        };
-        mark.onpointerup = () => {
-          dragging = false;
-          mark.onpointermove = null;
-          mark.onpointerup = null;
-          pickKey(null, false);
-          pathPick = { ...pick, frame: to };
-          if (to === key.frame) { seek(key.frame); drawLayers(); return; }
-          command((shapes ? '/shape.set' : '/mask.set') + '?layer=' + encodeURIComponent(layer.id)
-            + (shapes ? '&shape=' : '&mask=') + at + '&key=' + key.frame + '&to=' + to);
-        };
-      };
-      mark.onclick = (e) => e.stopPropagation();
+      if (comp) grabKey(comp, layer, prop, key, mark);
       box.append(mark);
     }
     li.append(box);
@@ -3283,7 +3253,6 @@ const svgEl = (kind) => document.createElementNS($('boxes').namespaceURI, kind);
 // than saying which one it is.
 function select(id, add) {
   if (id) cameraPicked = false;
-  pathPick = null;
   if (!add || !id) selection = id ? [id] : [];
   else if (selection.includes(id)) selection = selection.filter((held) => held !== id);
   else selection = [id, ...selection];
@@ -4606,7 +4575,8 @@ const PROPS = ['anchor', 'position', 'scale', 'rotation', 'opacity', 'depth'];
 // layer itself, beside its parent, because D-58 has it ride the parent chain additively and a
 // transform does not. A layer that has never been given one sits on plane 0, which is the value
 // to show rather than a blank.
-const propOf = (layer, prop) => (isFx(prop) ? fxOf(layer, prop) : prop === 'depth'
+const propOf = (layer, prop) => (isPath(prop) ? { keyframes: maskKeys(pathAt(layer, prop) || {}) }
+  : isFx(prop) ? fxOf(layer, prop) : prop === 'depth'
   ? (layer.depth || { base: 0 })
   : halfOf(layer, prop));
 // B-19g: D-69's separated position. The file writes it as `{x, y}`, two properties named
@@ -4647,15 +4617,25 @@ function fxOf(layer, prop) {
   if (held === undefined) return {};
   return held && held.keyframes ? held : { base: held };
 }
-// A layer's properties: the six, and each setting of its effects that has keys.
+// B-24f: a mask's or a shape's path is named `mask:<n>` or `shape:<n>` wherever a property is
+// named, as an effect's setting is, so the choice of keys, the arrow keys, Delete, the key menu,
+// F9, copy and paste and the graph reach a path's keys the way they reach a transform's. Its
+// row on the timeline stays the one `maskRows` draws.
+const isPath = (prop) => /^(mask|shape):\d+$/.test(prop);
+const pathsNamed = (layer, kind) => (kind === 'shape' ? layer.shapes || [] : masksOf(layer));
+const pathAt = (layer, prop) => pathsNamed(layer, prop.split(':')[0])[prop.split(':')[1]];
+// A layer's properties: the six, each setting of its effects that has keys, and each path that has.
 // D-71: an audio layer has no transform and no effects, so it has no properties to open or key.
 const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
   : layer.kind === 'audio' ? []
   : PROPS.flatMap((prop) => (prop === 'position' && isSplit(layer) ? ['position_x', 'position_y'] : [prop]))
     .concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {})
-    .filter((name) => keysOf(layer, fxName(fx, name)).length).map((name) => fxName(fx, name)))));
+    .filter((name) => keysOf(layer, fxName(fx, name)).length).map((name) => fxName(fx, name))))
+    .concat(['mask', 'shape'].flatMap((kind) => pathsNamed(layer, kind).map((_, at) => kind + ':' + at))
+      .filter((prop) => keysOf(layer, prop).length)));
 // What a property is called on screen: its own name, or the effect's and the setting's words.
 function propLabel(layer, prop) {
+  if (isPath(prop)) return ((pathAt(layer, prop) || {}).name || prop) + ' path';
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
@@ -5821,7 +5801,8 @@ function keyValueDialog(id) {
   box.className = 'menu palette';
   box.setAttribute('role', 'dialog');
   box.setAttribute('aria-label', 'Key value and frame');
-  const old = [].concat(key.value);
+  // B-24f: a path's key is its points, which are drawn, not typed; only its frame is typed.
+  const old = isPath(prop) ? [] : [].concat(key.value);
   const make = (label, value) => {
     const input = document.createElement('input');
     input.type = 'number';
@@ -5845,7 +5826,7 @@ function keyValueDialog(id) {
     close();
     const to = Math.round(Number(frameBox.value));
     const value = valueBoxes.map((input, c) => (input.value === '' ? old[c] : Number(input.value) / per));
-    if (!Number.isFinite(to + value[0] + (value[1] || 0))) return;
+    if (!Number.isFinite(to + (value[0] || 0) + (value[1] || 0))) return;
     const same = value.every((v, c) => v === old[c]);
     moveKeys([id], to - at, same ? undefined : new Map([[id, value]]));
   };
@@ -5858,15 +5839,15 @@ function keyValueDialog(id) {
   };
   document.body.append(box);
   addEventListener('pointerdown', away, true);
-  valueBoxes[0].focus();
-  valueBoxes[0].select();
+  (valueBoxes[0] || frameBox).focus();
+  (valueBoxes[0] || frameBox).select();
 }
 
 function velocityDialog() {
   if (document.querySelector('.palette')) return;
   const comp = composition();
-  const picked = [...pickedKeys].map(keyParts).filter(([layer]) => layer && !layer.locked);
-  if (!comp || !picked.length) { $('status').textContent = 'Choose keys first, then right-click one of them.'; return; }
+  const picked = [...pickedKeys].map(keyParts).filter(([layer, prop]) => layer && !layer.locked && !isPath(prop));
+  if (!comp || !picked.length) { $('status').textContent = 'Choose keys first, then right-click one of them. A path’s speed is pulled in the graph.'; return; }
   const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
   const armOf = (layer, prop, at, which) => {
     const keys = keysOf(layer, prop);
@@ -6113,7 +6094,8 @@ function drawGraph() {
         dot.__key = { key, space, c, value: part(key.frame, c) };
         // W-20: what the timeline's key marks say when hovered, to hundredths.
         el('title', {}, dot).textContent = pick.prop + ' at frame ' + key.frame + ': '
-          + [].concat(key.value).map((n) => number(Math.round(n * 100) / 100)).join(', ');
+          + (isPath(pick.prop) ? [part(key.frame, c)] : [].concat(key.value))
+            .map((n) => number(Math.round(n * 100) / 100)).join(', ') + (isPath(pick.prop) ? ' pixels travelled' : '');
       }
     }
   }
@@ -6325,7 +6307,8 @@ function grabMove(e) {
     const NEAR = 7;
     // A few pixels sideways while going up is a hand that is not steady, not a move in time.
     const along = Math.abs(dx) >= 4 && (!e.shiftKey || Math.abs(dx) >= Math.abs(dy));
-    const upDown = !e.shiftKey || Math.abs(dy) > Math.abs(dx);
+    // B-24f: a path's value is how far it has travelled, which is drawn, not dragged.
+    const upDown = !isPath(graphLayer().prop) && (!e.shiftKey || Math.abs(dy) > Math.abs(dx));
     let to = along ? frameUnder(e.clientX) : dot.key.frame;
     if (to === null) to = pulling.to;
     if (along && !e.ctrlKey) {
@@ -6441,7 +6424,6 @@ function grabKeys(e) {
 // side keeps the other half of its segment's curve, a hold is left a hold, and the first and last
 // keys have one side each. One press is one entry to undo, by the transaction `[` and `]` use.
 function easeKeys(sides) {
-  if (pathPick) return pathKey('&ease=' + sides);
   // The keys chosen on the timeline or the graph when there are any; otherwise, as before, every
   // key under the playhead on the selected layers.
   const targets = pickedKeys.size
