@@ -161,6 +161,12 @@
   #boxes .maskline.other { stroke: #8a8340; stroke-dasharray: 4 3; }
   #boxes rect.maskpoint { fill: #141414; stroke: #f2e04c; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   #boxes rect.maskpoint:focus-visible { outline: none; stroke: #ffffff; stroke-width: 3; }
+  /* B-24g: the point under the pointer, and the one last pressed, are filled rather than hollow,
+     so that a press on a point says it landed before the hand has moved anywhere. */
+  #boxes rect.maskpoint:hover, #boxes rect.maskpoint.picked { fill: #f2e04c; }
+  #boxes rect.maskpoint.picked { stroke: #ffffff; }
+  #boxes circle.pathgrab:hover, #boxes circle.pathgrab.picked { fill: #6ea8fe; }
+  #boxes circle.pathgrab.picked { stroke: #ffffff; }
   #boxes rect.marquee {
     fill: rgba(232, 176, 106, 0.12); stroke: #e8b06a; stroke-width: 1; stroke-dasharray: 4 3;
     vector-effect: non-scaling-stroke;
@@ -3459,6 +3465,8 @@ function drawBoxes() {
   // its own pixels to the frame, so there is nothing to draw and nothing to press.
   const shaper = selected();
   const space = shaper ? layerSpace(shaper) : null;
+  const litPoint = (layer, at, i, which) => !!maskPointPicked && maskPointPicked.layer === layer.id
+    && maskPointPicked.at === at && maskPointPicked.i === i && maskPointPicked.which === which;
   let refocusPoint = null;
   if (space) {
     const heldPoint = document.activeElement && document.activeElement.__mask;
@@ -3484,7 +3492,7 @@ function drawBoxes() {
           arm.setAttribute('x2', ax);
           arm.setAttribute('y2', ay);
           const knob = svgEl('circle');
-          knob.setAttribute('class', 'pathgrab');
+          knob.setAttribute('class', 'pathgrab' + (litPoint(shaper, at, i, which) ? ' picked' : ''));
           knob.setAttribute('cx', ax);
           knob.setAttribute('cy', ay);
           knob.setAttribute('r', 4 * unit);
@@ -3492,7 +3500,7 @@ function drawBoxes() {
         }
         const [px, py] = space.toFrame(p[0], p[1]);
         const mark = svgEl('rect');
-        mark.setAttribute('class', 'maskpoint');
+        mark.setAttribute('class', 'maskpoint' + (litPoint(shaper, at, i, -1) ? ' picked' : ''));
         mark.setAttribute('x', px - 3 * unit);
         mark.setAttribute('y', py - 3 * unit);
         mark.setAttribute('width', 6 * unit);
@@ -3502,6 +3510,10 @@ function drawBoxes() {
         mark.setAttribute('aria-label', 'Point ' + (i + 1) + ' of ' + mask.name + ' on '
           + shaper.name + '. Drag it, or use the arrow keys; Shift moves ten pixels.');
         mark.__mask = { at, i };
+        mark.onfocus = () => {
+          maskPointPicked = { layer: shaper.id, at, i, which: -1 };
+          drawBoxes();
+        };
         // A pixel a press, in the layer's own pixels, queued the way the motion path's handles
         // are: a held arrow key is every one of its steps, each read from the document the one
         // before it brought back rather than from this drawing.
@@ -3613,6 +3625,9 @@ let maskPicked = 0;
 let penDraft = null;
 // A point or a handle being pulled: which mask, and the whole path as it stands under the hand.
 let maskPull = null;
+// B-24g: the point or handle last pressed or tabbed to, lit until another is. It is remembered by
+// layer, mask, point and which handle, so a stale one simply never matches again.
+let maskPointPicked = null;
 let maskNudge = Promise.resolve();
 
 function useTool(which) {
@@ -3749,7 +3764,10 @@ function layerSpace(layer) {
 // playhead. A path that stands still ignores it and changes its base, as it always did.
 function sendMaskPath(layer, at, points, how = '') {
   const shapes = drawsShapes(layer);
-  return command((shapes ? '/shape.set_path' : '/mask.set_path') + '?layer='
+  // B-24g: inside a pull this goes through the drag queue, so that a fast hand drops the shapes
+  // nobody will see rather than making the picture chase them one at a time.
+  const send = how ? dragSend : command;
+  return send((shapes ? '/shape.set_path' : '/mask.set_path') + '?layer='
     + encodeURIComponent(layer.id) + (shapes ? '&shape=' : '&mask=') + at + '&frame=' + frame
     + how + maskQuery(points));
 }
@@ -4000,7 +4018,7 @@ stage.onpointerdown = (e) => {
     }]);
     dragging = true;
     stage.setPointerCapture(down.pointerId);
-    const during = (layer, prop, values) => command('/property.drag_update?layer='
+    const during = (layer, prop, values) => dragSend('/property.drag_update?layer='
       + encodeURIComponent(layer.id) + '&prop=' + prop
       + '&value=' + encodeURIComponent(values.map(number).join(',')) + '&frame=' + frame);
     const escape = (k) => { if (k.key === 'Escape') stop(true); };
@@ -4009,7 +4027,7 @@ stage.onpointerdown = (e) => {
       stage.onpointermove = null;
       stage.onpointerup = null;
       window.removeEventListener('keydown', escape, true);
-      command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+      afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end');
     };
     stage.onpointermove = (m) => apply(start, from, atCanvas(m), m, during);
     stage.onpointerup = () => stop(false);
@@ -4106,6 +4124,8 @@ stage.onpointerdown = (e) => {
   if (grabbed) {
     e.preventDefault();
     stage.setPointerCapture(e.pointerId);
+    maskPointPicked = { layer: layer.id, at: maskPicked, i: grabbed.i, which: grabbed.which };
+    drawBoxes();
     const at = maskPicked;
     const was = maskPath(layer, at);
     dragging = true;
@@ -4119,7 +4139,7 @@ stage.onpointerdown = (e) => {
       const moved = maskPull && maskPull.moved;
       maskPull = null;
       if (!moved) { drawBoxes(); return; }
-      command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+      afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end');
     };
     stage.onpointermove = (m) => {
       const [mx, my] = shaping.toLayer(...atCanvas(m));
@@ -6607,6 +6627,51 @@ $('checker').onclick = () => command('/viewer.toggle_checkerboard');
 // the window says about the project comes back from the core rather than being guessed here.
 // A command that opens a dialog answers immediately and says nothing; what it eventually does
 // reaches the page as a reload, from Rust.
+// B-24g, 2026-09-22: what a drag on the picture sends, and the reason this is not `command`.
+//
+// A pointer reports sixty times a second; a frame of the reference shot takes about eighty
+// milliseconds to come back (`verification/B-08_preview_latency.md`). `command` awaited each
+// request in turn, so a two-second pull on a mask point queued something like a hundred and
+// twenty of them behind a renderer that could answer twelve, and the picture went on catching up
+// long after the hand had stopped. Every one of those but the last described a shape nobody was
+// going to look at.
+//
+// So: one request in flight, the newest waiting behind it, and the ones in between dropped
+// unsent. The outline itself is drawn by the page and still follows the hand at the pointer's own
+// rate; what this bounds is how far the picture may fall behind, which is now one frame rather
+// than the whole gesture. Dropping is safe because each request carries the whole path, not a
+// step of it: the last one is the shape, whatever was skipped.
+//
+// `drag_end` must not overtake the update it follows, so `afterDrag` waits for the queue to empty
+// before the transaction is closed, and it goes through `command`, which brings the document and
+// the panels back as it always did.
+let dragFlight = null;
+let dragNext = null;
+function dragSend(what) {
+  if (dragFlight) { dragNext = what; return dragFlight; }
+  dragFlight = (async () => {
+    let request = what;
+    while (request) {
+      try {
+        const said = await (await fetch(PROJECT + request)).text();
+        if (said) $('status').textContent = brief(said);
+      } catch (e) {
+        $('report').textContent = 'the command did not arrive: ' + e;
+        $('report').className = 'dropped';
+      }
+      show(FRAMES + '/frame/' + frame + '?q=' + quality);
+      request = dragNext;
+      dragNext = null;
+    }
+    dragFlight = null;
+  })();
+  return dragFlight;
+}
+async function afterDrag(what) {
+  if (dragFlight) await dragFlight;
+  return command(what);
+}
+
 async function command(what) {
   try {
     const said = await (await fetch(PROJECT + what)).text();

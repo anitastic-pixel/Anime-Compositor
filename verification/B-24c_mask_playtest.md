@@ -84,6 +84,15 @@ copy. Nothing below changes the fixtures.
 - The pen places corner points; a curve is made by dragging a point's handles afterwards,
   rather than by dragging as you place it.
 
+## Result
+
+**Passed on 2026-09-22.** The owner walked all fourteen steps: 1 to 6 work, 7 and 8 work, 9, 10,
+11 work, 12, 13 and 14 true. Nothing on this sheet did the wrong thing.
+
+Two things were reported that no step asks about, and both are now answered in B-24g,
+`verification/B-24g_drag_playtest.md`: the picture lagged considerably behind every point dragged,
+and a point pressed showed no sign of having been pressed.
+
 ## What to answer
 
 "works", or which step number did something else and what it did.
