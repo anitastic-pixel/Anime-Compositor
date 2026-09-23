@@ -29,7 +29,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addadjust, addeffect, addexposure, addlayer, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
+| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
@@ -66,6 +66,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `keyframe.set_roving` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_adjustment` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_composition` can be asked for without a mouse | yes | yes | pass |
+| `layer.add_null` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_shape` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_solid` can be asked for without a mouse | yes | yes | pass |
 | `layer.copy` can be asked for without a mouse | yes | yes | pass |
@@ -159,4 +160,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a box across a mask's points, or Shift-clicking them one by one is not the only way to choose several of them and move or delete them together | true | true | pass |
 | pulling a mask point's handle, or dragging out of a point with Alt held is not the only way to curve the path through that point, or straighten it again | true | true | pass |
 
-**129 of 129 checks pass.**
+**130 of 130 checks pass.**

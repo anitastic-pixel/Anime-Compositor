@@ -146,6 +146,8 @@
     fill: none; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke;
   }
   #boxes polygon.second { stroke: #7a8fb0; stroke-dasharray: 4 3; }
+  /* B-26c: a null's square when it is not chosen, so a person can see where it is. */
+  #boxes polygon.null { stroke: #9aa3b2; stroke-dasharray: 2 3; }
   #boxes rect.handle { fill: #e8b06a; stroke: none; }
   #boxes line.arm { stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
   #boxes circle.spin { fill: #141414; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
@@ -376,6 +378,8 @@
   .track.adjust .life { background: repeating-linear-gradient(135deg, #2f3d55 0 6px, #46587a 6px 8px); }
   /* B-23c: a solid's bar is its own colour, set on the element, with a border that shows on any colour. */
   .track.solid .life { border-color: #cdd6e6; }
+  /* B-26c: a null (D-82) is never drawn, so its bar is a thin grey strip, as the camera's is amber. */
+  .track.null .life { top: 6px; bottom: 6px; background: #4a4f58; border-color: #8a909c; }
   /* W-10: a keyframe, on the frame it is on, over the bar. On the layer's own bar a press
      lands on the bar underneath and does what the bar does; on a property's row, W-11 below
      makes the same mark something to take hold of. */
@@ -796,6 +800,8 @@
         title="A rectangle of one colour, the size of the composition and covering it. Its colour and size are in the layer's panel">New solid</button>
       <button id="addshape"
         title="A layer that draws shapes: paths with a fill, a stroke or both, drawn with the pen, the rectangle or the ellipse. Their colours are in the layer's panel">New shape layer</button>
+      <button id="addnull"
+        title="A null: never drawn, there to be a parent. Parent layers to it and move it to move them together">New null</button>
       <button id="dellayer">Delete layer</button>
       <button id="up">Forward</button>
       <button id="down">Back</button>
@@ -1938,6 +1944,13 @@ function track(comp, layer, drawings) {
       + ' shapes, from frame ' + layer.in_frame + ' up to frame ' + layer.out_frame + '.';
     return box;
   }
+  // B-26c: a null (D-82) is never drawn; its bar is a thin grey strip.
+  if (layer.kind === 'null') {
+    box.classList.add('null');
+    lifeBar.title = layer.name + ' is a null, from frame ' + layer.in_frame + ' up to frame '
+      + layer.out_frame + '. It is never drawn and is there to be a parent.';
+    return box;
+  }
   // B-23c: a solid (D-74) has no drawings; its bar is its colour unless a label is chosen.
   if (layer.kind === 'solid') {
     box.classList.add('solid');
@@ -2228,6 +2241,7 @@ sheet.addEventListener('contextmenu', (e) => {
     ['New adjustment layer', 'Ctrl+Alt+Y', () => $('addadjust').click()],
     ['New solid', 'Ctrl+Y', () => $('addsolid').click()],
     ['New shape layer', '', () => $('addshape').click()],
+    ['New null', 'Ctrl+Alt+Shift+Y', () => $('addnull').click()],
     ['Add a marker at frame ' + at, '*', () => addMarker(at)],
     ['Composition settings', 'Ctrl+K', compSettings],
   ]);
@@ -2417,11 +2431,12 @@ function drawLayers() {
     const adjust = layer.kind === 'adjustment';
     const precomp = layer.kind === 'composition';
     const solid = layer.kind === 'solid' || layer.kind === 'shape';
+    const nul = layer.kind === 'null';
     if (sound) twirl.style.visibility = 'hidden';
-    if (!layer.enabled || layer.locked || soloed || layer.shy || adjust || precomp || solid || sound) {
+    if (!layer.enabled || layer.locked || soloed || layer.shy || adjust || precomp || solid || sound || nul) {
       const mark = document.createElement('span');
       mark.className = 'mark';
-      mark.textContent = [adjust ? 'adjustment' : null, precomp ? 'composition' : null, solid ? 'solid' : null, sound ? 'sound' : null,
+      mark.textContent = [adjust ? 'adjustment' : null, precomp ? 'composition' : null, solid ? 'solid' : null, sound ? 'sound' : null, nul ? 'null' : null,
         !layer.enabled ? (sound ? 'muted' : 'hidden') : null, soloed ? 'soloed' : null,
         layer.locked ? 'locked' : null, layer.shy ? 'shy' : null]
         .filter(Boolean).join(', ');
@@ -2450,7 +2465,7 @@ function drawLayers() {
       blendLayers(mode);
     };
     // B-17c: an adjustment layer has normal and no list to choose from (D-66).
-    if (!adjust && !sound) head.append(blend);
+    if (!adjust && !sound && !nul) head.append(blend);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     grabRow(li, head, all, layer);
@@ -2761,6 +2776,7 @@ function palette() {
     ['New adjustment layer', 'Ctrl+Alt+Y', { key: 'y', ctrlKey: true, altKey: true }],
     ['New solid', 'Ctrl+Y', { key: 'y', ctrlKey: true }],
     ['New shape layer', '', () => $('addshape').click()],
+    ['New null', 'Ctrl+Alt+Shift+Y', { key: 'Y', ctrlKey: true, altKey: true, shiftKey: true }],
     ['Pre-compose', 'Ctrl+Shift+C', { key: 'C', code: 'KeyC', ctrlKey: true, shiftKey: true }],
     ['Rename layer', 'F2', { key: 'F2' }],
     ['Delete layer or keys', 'Delete', { key: 'Delete' }],
@@ -3353,6 +3369,15 @@ function drawBoxes() {
   svg.setAttribute('viewBox', '0 0 ' + view.width + ' ' + view.height);
   const drawn = [];
   const unit = perScreenPixel();
+  // B-26c: a null (D-82) draws nothing, so its square is always outlined, faintly when not chosen.
+  const nulls = new Set(layers().filter((l) => l.kind === 'null').map((l) => l.id));
+  for (const box of boxes) {
+    if (!nulls.has(box.layer) || selection.includes(box.layer)) continue;
+    const outline = svgEl('polygon');
+    outline.setAttribute('points', box.corners.join(' '));
+    outline.setAttribute('class', 'null');
+    drawn.push(outline);
+  }
   for (const id of selection) {
     const box = boxOf(id);
     if (!box) continue;
@@ -5585,7 +5610,8 @@ function matteRow(into, layer) {
   chooser.append(new Option('none', ''), ...layers()
     // A layer cannot be its own matte — document 19 forbids the cycle and the core refuses it,
     // so the list does not offer it in the first place. D-71: nor a sound, which draws nothing.
-    .filter((l) => l.id !== layer.id && l.kind !== 'audio')
+    // D-82: nor a null, which is never drawn.
+    .filter((l) => l.id !== layer.id && l.kind !== 'audio' && l.kind !== 'null')
     .map((l) => new Option(l.name, l.id)));
   chooser.value = held ? held.layer_id : '';
   const send = () => command('/layer.set_matte?layer=' + encodeURIComponent(layer.id)
@@ -5643,6 +5669,7 @@ function drawInspector() {
   field(dl, 'Drawing', layer.kind === 'adjustment' ? 'none: an adjustment layer'
     : layer.kind === 'solid' ? 'none: a solid'
     : layer.kind === 'shape' ? 'none: a shape layer'
+    : layer.kind === 'null' ? 'none: a null, never drawn, there to be a parent'
     : layer.kind === 'composition' ? 'the composition ' + compName(layer.composition_id) : layer.asset_id);
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive'
     + (layer.source_offset_frames ? ', drawings offset by ' + layer.source_offset_frames : ''));
@@ -5746,8 +5773,8 @@ function drawInspector() {
   propRow(dl, layer, 'rotation');
   propRow(dl, layer, 'opacity');
   // W-25: the blend mode, which the owner asked to change, from a list. B-17c: not offered on
-  // an adjustment layer, which has normal only (D-66).
-  if (layer.kind !== 'adjustment') {
+  // an adjustment layer, which has normal only (D-66), nor on a null, which is never drawn (D-82).
+  if (layer.kind !== 'adjustment' && layer.kind !== 'null') {
     field(dl, 'Blend', '');
     const blend = document.createElement('select');
     blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
@@ -5759,8 +5786,9 @@ function drawInspector() {
   // B-24c: D-77's masks, one block of settings each. A sound layer has no picture to cut, so it
   // is not offered any (D-71), and a layer with none says so rather than showing nothing at all:
   // a person deciding whether a layer is the one they want needs to know what it carries.
-  const masks = layer.kind === 'audio' ? [] : masksOf(layer);
-  if (layer.kind !== 'audio' && masks.length === 0) field(dl, 'Masks', 'none');
+  const bare = layer.kind === 'audio' || layer.kind === 'null';
+  const masks = bare ? [] : masksOf(layer);
+  if (!bare && masks.length === 0) field(dl, 'Masks', 'none');
   for (const [at, mask] of masks.entries()) {
     const set = (what) => command('/mask.set?layer=' + encodeURIComponent(layer.id)
       + '&mask=' + at + '&' + what);
@@ -5823,7 +5851,7 @@ function drawInspector() {
       }));
     }
   }
-  matteRow(dl, layer);
+  if (layer.kind !== 'null') matteRow(dl, layer);
   parentRow(dl, layer);
   // B-13d: a property row like the five above, and not a row of its own any more. It keeps its
   // place here rather than joining them, because a depth reads beside the parent - the other
@@ -6175,11 +6203,12 @@ function drawEffects() {
   if (dragging) return;
   const layer = selected();
   const into = $('effects');
-  $('addeffect').disabled = !layer || layer.kind === 'audio';
+  $('addeffect').disabled = !layer || layer.kind === 'audio' || layer.kind === 'null';
   const empty = (words) => Object.assign(document.createElement('p'),
     { className: 'empty', textContent: words });
   if (!layer) { into.replaceChildren(empty('No layer is selected.')); return; }
   if (layer.kind === 'audio') { into.replaceChildren(empty('A sound draws nothing, so it takes no effects.')); return; }
+  if (layer.kind === 'null') { into.replaceChildren(empty('A null is never drawn, so it takes no effects.')); return; }
   const stack = layer.effects || [];
   if (!stack.length) { into.replaceChildren(empty('This layer has no effects.')); return; }
   into.replaceChildren(...stack.map((fx, at) => effectRow(layer, fx, at, stack.length)));
@@ -7148,6 +7177,7 @@ function drawPanels() {
   $('addadjust').disabled = !comp;
   $('addsolid').disabled = !comp;
   $('addshape').disabled = !comp;
+  $('addnull').disabled = !comp;
   $('relink').disabled = !selectedAsset;
   // Document 26 requires a label on every history record, and this is where it earns its keep:
   // a person who has been away from the window cannot otherwise know what Undo is about to
@@ -7379,6 +7409,12 @@ $('addshape').onclick = async () => {
   const at = layers().findIndex((l) => l.id === selectedLayer);
   await command('/layer.add_shape' + (at < 0 ? '' : '?to=' + (at + 1)));
   useTool('pen');
+};
+// B-26c: D-82's null, placed as the solid is.
+$('addnull').onclick = () => {
+  if (!composition()) return;
+  const at = layers().findIndex((l) => l.id === selectedLayer);
+  command('/layer.add_null' + (at < 0 ? '' : '?to=' + (at + 1)));
 };
 // B-12 fix: Forward and Back move every chosen layer a step, as one entry to undo. The chosen
 // layer nearest the end it is going to moves first; one already against that end, or against a
@@ -7663,10 +7699,15 @@ addEventListener('keydown', (e) => {
     e.preventDefault();
     $('addlayer').click();
   }
-  // B-17c: After Effects' Ctrl+Alt+Y.
-  else if (e.ctrlKey && e.altKey && (e.key === 'y' || e.key === 'Y')) {
+  // B-17c: After Effects' Ctrl+Alt+Y. B-26c: only with Shift up, since Shift makes it a null.
+  else if (e.ctrlKey && e.altKey && !e.shiftKey && (e.key === 'y' || e.key === 'Y')) {
     e.preventDefault();
     $('addadjust').click();
+  }
+  // B-26c: After Effects' Ctrl+Alt+Shift+Y, a null (D-82).
+  else if (e.ctrlKey && e.altKey && e.shiftKey && (e.key === 'Y' || e.key === 'y')) {
+    e.preventDefault();
+    $('addnull').click();
   }
   // B-23c: After Effects' Ctrl+Y, after Ctrl+Alt+Y so that one still reaches its own layer.
   else if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === 'y' || e.key === 'Y')) {

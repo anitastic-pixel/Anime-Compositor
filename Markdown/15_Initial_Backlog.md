@@ -252,7 +252,7 @@ B-26a / the rule and its fixtures before code: D-82 in document 14, FX-NULL-001 
 
 B-26b / the core, once D-82 is accepted: the `null` kind in the model and the file, left out of every frame, the ten refusals, `layer.add_null`, and a table that walks FX-NULL-001 to 029. **Built on 2026-09-23:** `tests/b26b_null.rs` writes `verification/B-26b_null_table.md`, 34 of 34 checks.
 
-B-26c / the window: New Null in the Layer menu (Ctrl+Alt+Shift+Y), its outline and anchor on the picture, its grey strip on the timeline, Ctrl+Alt+Y no longer answering with Shift held, and a playtest sheet.
+B-26c / the window: New Null in the Layer menu (Ctrl+Alt+Shift+Y), its outline and anchor on the picture, its grey strip on the timeline, Ctrl+Alt+Y no longer answering with Shift held, and a playtest sheet. **Built on 2026-09-23:** `verification/B-26c_panel_table.md`, 10 of 10, and `verification/B-26c_null_playtest.md`, 11 steps, awaiting the owner.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

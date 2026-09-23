@@ -363,21 +363,53 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             layers: Vec::new(),
         },
     };
-    let found: Vec<serde_json::Value> = plan
+    let outline = |id: &str, w: f64, h: f64, map: &dyn Fn(f64, f64) -> (f64, f64)| {
+        let corners: Vec<f64> = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
+            .iter()
+            .flat_map(|&(x, y)| {
+                let (x, y) = map(x, y);
+                [x, y]
+            })
+            .collect();
+        serde_json::json!({ "layer": id, "corners": corners })
+    };
+    let mut found: Vec<serde_json::Value> = plan
         .layers
         .iter()
         .map(|layer| {
             let (w, h) = (layer.source.width() as f64, layer.source.height() as f64);
-            let corners: Vec<f64> = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
-                .iter()
-                .flat_map(|&(x, y)| {
-                    let (x, y) = layer.transform.apply(x, y);
-                    [x, y]
-                })
-                .collect();
-            serde_json::json!({ "layer": layer.id.as_str(), "corners": corners })
+            outline(layer.id.as_str(), w, h, &|x, y| layer.transform.apply(x, y))
         })
         .collect();
+    // B-26c: a null (D-82) is in no plan, because it is never drawn. Its outline is the 100 by
+    // 100 square in its own space, carried to the screen as a drawn layer's would be, and it is
+    // put among the others in the composition's order so a press on the picture finds the one
+    // on top. A null that is switched off or outside its frames has no outline, as a drawing
+    // would have none.
+    if let Some(comp) = taken.project.composition(&taken.composition) {
+        let s = 1.0 / taken.quality.divisor() as f64;
+        for (at, layer) in comp.layers_in_order().enumerate() {
+            let on = layer.enabled && layer.in_frame <= frame && frame < layer.out_frame;
+            if layer.kind != LayerKind::Null || !on {
+                continue;
+            }
+            let Some(map) = anime_compositor::compose::screen_transform(comp, &layer.id, frame)
+            else {
+                continue;
+            };
+            let below: std::collections::HashSet<&str> =
+                comp.layers_in_order().take(at).map(|l| l.id.as_str()).collect();
+            let index = found
+                .iter()
+                .rposition(|b| b["layer"].as_str().is_some_and(|id| below.contains(id)))
+                .map_or(0, |i| i + 1);
+            let null = outline(layer.id.as_str(), 100.0, 100.0, &|x, y| {
+                let (x, y) = map.apply(x, y);
+                (x * s, y * s)
+            });
+            found.insert(index, null);
+        }
+    }
     // W-10: what each layer's five properties are on this frame, in the units the file holds,
     // so that the inspector can show a keyframed property's value under the playhead rather
     // than a base value nothing is drawn from. Every layer of the composition is here, not only
@@ -2157,6 +2189,7 @@ const ANSWERS: &[&str] = &[
     "keyframe.set_roving",
     "layer.add_adjustment",
     "layer.add_composition",
+    "layer.add_null",
     "layer.add_shape",
     "layer.add_solid",
     "layer.copy",
@@ -3483,6 +3516,29 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 unused_layer_id(project),
                 parameter(query, "name").unwrap_or(name),
                 solid,
+                comp.width,
+                comp.height,
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            Command::AddLayer {
+                composition,
+                layer: Box::new(layer),
+                index: parameter(query, "to")
+                    .and_then(|to| to.parse::<usize>().ok())
+                    .unwrap_or(comp.len()),
+            }
+        } else if id == "layer.add_null" {
+            // B-26c: D-82's null, named with the smallest `Null N` this composition does not
+            // have yet, lasting the whole composition, at its centre. Above the chosen layer
+            // (`to`) or else at the front, as a new solid lands.
+            let name = (1..)
+                .map(|n| format!("Null {n}"))
+                .find(|name| comp.layers_in_order().all(|l| &l.name != name))
+                .expect("a name not yet taken");
+            let layer = Layer::null(
+                unused_layer_id(project),
+                parameter(query, "name").unwrap_or(name),
                 comp.width,
                 comp.height,
                 comp.start_frame,
@@ -12021,6 +12077,142 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-26c: the null from the window, on D-82. The order is the playtest sheet's.
+    #[test]
+    fn a_null_is_added_and_carries_its_children_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        // Each layer's outline on frame 0, as the page is given it, at full size. This project's
+        // drawings are not on disk, so the drawn layers have no outline here and the nulls do.
+        let outline = |viewer: &Mutex<Viewer>, id: &str| {
+            let body = boxes(viewer, 0, Some(PreviewQuality::Full)).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the boxes answer is JSON");
+            let found = answer["layers"].as_array().cloned().unwrap_or_default();
+            let at = found.iter().position(|b| b["layer"] == id);
+            let corners = at.map_or(Vec::new(), |at| {
+                found[at]["corners"]
+                    .as_array()
+                    .map_or(Vec::new(), |c| c.iter().map(|v| v.as_f64().unwrap_or(f64::NAN)).collect())
+            });
+            (at, corners)
+        };
+
+        let before = names(&viewer);
+        run(&viewer, "layer.add_null");
+        report.check(
+            "New null (Ctrl+Alt+Shift+Y) needs no drawing chosen and adds Null 1 at the front",
+            format!("{before}, Null 1"),
+            names(&viewer),
+        );
+        let layer = shown_layer(&viewer, "Null 1");
+        let id = layer["id"].as_str().unwrap_or_default().to_string();
+        report.check(
+            "the page is told it is a null, and it has no drawing",
+            "null, no asset_id, no exposure_spans",
+            format!(
+                "{}, {}, {}",
+                layer["kind"].as_str().unwrap_or("(no kind)"),
+                if layer.get("asset_id").is_none() { "no asset_id" } else { "an asset_id" },
+                if layer.get("exposure_spans").is_none() { "no exposure_spans" } else { "exposure_spans" }
+            ),
+        );
+        report.check(
+            "it stands at the composition's centre, its anchor the middle of its 100 by 100 square, for the whole composition",
+            "[50,50] and [960,540], frames 0 to 5",
+            format!(
+                "{} and {}, frames {} to {}",
+                layer["transform"]["anchor"]["base"],
+                layer["transform"]["position"]["base"],
+                layer["in_frame"],
+                layer["out_frame"]
+            ),
+        );
+        report.check(
+            "Undo says what it would take back",
+            "Add layer Null 1",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+        let (at, corners) = outline(&viewer, &id);
+        report.check(
+            "the picture is given its square to outline, 100 by 100 about the centre",
+            "given, [910,490 1010,490 1010,590 910,590]",
+            format!(
+                "{}, [{}]",
+                if at.is_some() { "given" } else { "not given" },
+                corners
+                    .chunks(2)
+                    .map(|p| format!("{:.0},{:.0}", p[0], p[1]))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
+        );
+        report.check(
+            "a blend mode on the null is refused, with the reason",
+            "\"Null 1\" is a null, which is never drawn, so it has no picture for that to work on.",
+            run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply")),
+        );
+        report.check(
+            "the null as Cel's matte is refused, with the reason",
+            "\"Null 1\" is a null, which is never drawn, so it cannot be a matte.",
+            run(&viewer, &format!("layer.set_matte?layer=layer-cel&matte={id}&only=false")),
+        );
+
+        // A second null, moved off the first and parented to it, keeps its place; the first
+        // moved 100 to the right takes it along.
+        run(&viewer, "layer.add_null");
+        let child = shown_layer(&viewer, "Null 2")["id"].as_str().unwrap_or_default().to_string();
+        run(&viewer, &format!("property.set_base?layer={child}&prop=position&value=700,300"));
+        let (at_child, child_before) = outline(&viewer, &child);
+        report.check(
+            "Null 2 is added at the front, and its outline comes after Null 1's as its row is above",
+            "Cel, Null 1, Null 2; after",
+            format!(
+                "{}; {}",
+                names(&viewer),
+                if at_child > outline(&viewer, &id).0 { "after" } else { "before" }
+            ),
+        );
+        run(&viewer, &format!("layer.set_parent?layer={child}&parent={id}&frame=0"));
+        let (_, child_parented) = outline(&viewer, &child);
+        run(&viewer, &format!("property.set_base?layer={id}&prop=position&value=1060,540"));
+        let (_, child_carried) = outline(&viewer, &child);
+        let moved = |a: &[f64], b: &[f64]| {
+            match (a.first(), b.first(), a.get(1), b.get(1)) {
+                (Some(ax), Some(bx), Some(ay), Some(by)) => format!("{:.0},{:.0}", bx - ax, by - ay),
+                _ => "no outline".to_string(),
+            }
+        };
+        report.check(
+            "Null 2 parented to Null 1 stays where it was",
+            "0,0",
+            moved(&child_before, &child_parented),
+        );
+        report.check(
+            "and moving Null 1 100 pixels right carries Null 2 100 pixels right",
+            "100,0",
+            moved(&child_parented, &child_carried),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-26c_panel_table.md",
+            "B-26c: null layers in the window",
+            NULL_PANEL_INTRO,
+            NULL_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    }
+
     /// B-23c: the solid from the window, on D-74. The order is the playtest sheet's.
     #[test]
     fn a_solid_is_added_and_set_from_the_window() {
@@ -14564,6 +14756,24 @@ mod editing {
          B-23b's table.",
     ];
 
+    const NULL_PANEL_INTRO: &[&str] = &[
+        "D-82 decided what a null is and B-26b built it in the core, checked pixel by pixel in \
+         `verification/B-26b_null_table.md`. This is the window's half: the New null button, \
+         its line in the timeline's right-click menu and the command palette, and \
+         Ctrl+Alt+Shift+Y send `layer.add_null`; the picture is given each null's 100 by 100 \
+         square to outline, since the null itself is never drawn.",
+        "Every row calls what the window calls, on `Fixtures/projects/cel_holds_project.json`, \
+         and reads back what the page is given. That project's drawings are not on disk, so \
+         the drawn layer has no outline in these rows and the nulls do.",
+    ];
+
+    const NULL_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhat the null looks like on the picture, the timeline \
+         and in the panels, and whether dragging its square moves it. That is \
+         `verification/B-26c_null_playtest.md`, for a person. Whether the frames are right is \
+         B-26b's table.",
+    ];
+
     const SHAPE_PANEL_INTRO: &[&str] = &[
         "D-78 decided what a shape layer is and B-25b built it in the core, checked pixel by \
          pixel in `verification/B-25b_shape_table.md`. This is the window's half: New shape \
@@ -16480,6 +16690,7 @@ mod contract {
         "keyframe.set_roving",
         "layer.add_adjustment",
         "layer.add_composition",
+        "layer.add_null",
         "layer.add_shape",
         "layer.add_solid",
         "layer.copy",
@@ -16582,6 +16793,11 @@ mod contract {
             "New shape layer",
             "layer.add_shape",
             "await command('/layer.add_shape' + (at < 0 ? '' : '?to=' + (at + 1)));",
+        ),
+        (
+            "New null",
+            "layer.add_null",
+            "command('/layer.add_null' + (at < 0 ? '' : '?to=' + (at + 1)))",
         ),
         (
             "the pen, the rectangle and the ellipse on a shape layer",
@@ -16904,6 +17120,8 @@ mod contract {
         // and a shape's are the same points.
         ("path.add_point", "a command the window answers"),
         ("path.remove_point", "a command the window answers"),
+        // D-82, accepted on 2026-09-23 and built in the core by B-26b; B-26c put it in the window.
+        ("layer.add_null", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -16956,8 +17174,9 @@ mod contract {
         ("edit.redo", "Ctrl+Shift+Z", "e.shiftKey ? $('redo')"),
         ("media.import", "Ctrl+I", "e.key === 'i'"),
         ("layer.create", "Ctrl+Alt+L", "e.altKey && (e.key === 'l'"),
-        ("layer.add_adjustment", "Ctrl+Alt+Y", "e.altKey && (e.key === 'y'"),
+        ("layer.add_adjustment", "Ctrl+Alt+Y", "e.altKey && !e.shiftKey && (e.key === 'y'"),
         ("layer.add_solid", "Ctrl+Y", "$('addsolid').click();"),
+        ("layer.add_null", "Ctrl+Alt+Shift+Y", "e.shiftKey && (e.key === 'Y'"),
         (
             "layer.precompose",
             "Ctrl+Shift+C",
@@ -17022,6 +17241,7 @@ mod contract {
         ("Ctrl+Shift+N", "e.key === 'n'", "$('newcomp')"),
         ("Ctrl+Alt+L", "e.key === 'l'", "$('addlayer')"),
         ("Ctrl+Alt+Y", "e.key === 'y'", "$('addadjust')"),
+        ("Ctrl+Alt+Shift+Y", "e.shiftKey && (e.key === 'Y'", "$('addnull')"),
         ("Ctrl+]", "e.key === ']'", "$('up')"),
         ("Ctrl+[", "e.key === '['", "$('down')"),
         ("Delete", "e.key === 'Delete'", "$('dellayer')"),
@@ -18427,11 +18647,12 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 53] = [
+    const CONTROLS: [&str; 54] = [
         "addadjust",
         "addeffect",
         "addexposure",
         "addlayer",
+        "addnull",
         "addshape",
         "addsolid",
         "alpha",

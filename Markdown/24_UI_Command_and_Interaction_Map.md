@@ -67,6 +67,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | shape.delete | Take one shape off a shape layer (D-78; in the window since B-25c, 2026-09-21) | none | yes |
 | path.add_point | Cut a new point into a mask's or a shape's path, part way along one segment, on the path and on every key it has at once (D-79; in the window since B-24h, 2026-09-22) | The pen on the path, or + on a chosen point | yes |
 | path.remove_point | Take one point off a mask's or a shape's path, or several named together, off the path and off every key it has at once (D-79, D-80; in the window since B-24h, 2026-09-22) | The pen on a point, Delete with points chosen, or - on a chosen point | yes |
+| layer.add_null | Add a null above the selected layer: never drawn, there to be a parent, at the composition's centre (D-82; in the window since B-26c, 2026-09-23) | Ctrl+Alt+Shift+Y | yes |
 | timeline.previous_frame | Step one composition frame back | Left | no |
 | timeline.next_frame | Step one composition frame forward | Right | no |
 | timeline.play_pause | Toggle work-area playback | Space | no |
