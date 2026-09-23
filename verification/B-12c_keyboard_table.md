@@ -106,6 +106,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `property.drag_cancel` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_end` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_update` can be asked for without a mouse | yes | yes | pass |
+| `property.link` can be asked for without a mouse | no - it is a drag, and a drag is a mouse | no - it is a drag, and a drag is a mouse | pass |
 | `property.separate` can be asked for without a mouse | yes | yes | pass |
 | `property.set_base` can be asked for without a mouse | yes | yes | pass |
 | `property.set_expression` can be asked for without a mouse | yes | yes | pass |
@@ -159,5 +160,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | the pen over a mask's path, or over one of its points is not the only way to add a point there, or take that point off | true | true | pass |
 | dragging a box across a mask's points, or Shift-clicking them one by one is not the only way to choose several of them and move or delete them together | true | true | pass |
 | pulling a mask point's handle, or dragging out of a point with Alt held is not the only way to curve the path through that point, or straighten it again | true | true | pass |
+| dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
+| dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**130 of 130 checks pass.**
+**133 of 133 checks pass.**

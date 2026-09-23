@@ -428,6 +428,16 @@
   .exprerror { margin: 0; color: #ff8a80; font-size: 11px; overflow-wrap: anywhere; }
   .exprswitch { font: inherit; padding: 0 3px; background: none; border: 0; color: #e8866a; cursor: pointer; }
   .exprswitch.off { color: #77777d; }
+  .whip { font: inherit; padding: 0 3px; background: none; border: 0; color: #8fb8ff; cursor: grab; touch-action: none; }
+  .whip:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
+  #layers li.whiptarget { outline: 2px solid #8fb8ff; outline-offset: -2px; background: #26344d; }
+  #whipline { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
+  #whipline line { stroke: #8fb8ff; stroke-width: 1.5; }
+  #whiplabel {
+    position: fixed; pointer-events: none; z-index: 51; padding: 2px 6px; font-size: 12px;
+    background: #1d1d21; color: #e8e8ea; border: 1px solid #44444a; border-radius: 3px; white-space: nowrap;
+  }
+  #whiplabel.no { color: #b0b0b6; }
   .exprswitch:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   #layers li.prop.expr .exprtrack { padding: 2px 8px 2px 0; min-width: 0; }
   #detail .key:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
@@ -2423,7 +2433,7 @@ function drawLayers() {
     const shy = iconButton(layer.shy ? '\u25e1' : '\u25e0', (layer.shy ? 'Not shy: ' : 'Shy: ') + layer.name,
       () => command('/layer.toggle_shy?layer=' + encodeURIComponent(layer.id)));
     shy.setAttribute('aria-pressed', String(!!layer.shy));
-    const li = row(selectedLayer, layer.id, layer.name, [swatch, twirl, eye, solo, lock, shy]);
+    const li = row(selectedLayer, layer.id, layer.name, [swatch, twirl, eye, solo, lock, shy, sound ? blank() : whip(layer, null)]);
     // W-26 fix: every chosen row lights up, not only the last one clicked, so a Shift-click range
     // and Ctrl-clicks can be seen.
     li.setAttribute('aria-selected', String(selection.includes(layer.id)));
@@ -3170,6 +3180,7 @@ function propTrack(comp, layer, prop) {
   const li = document.createElement('li');
   li.className = 'prop';
   li.dataset.id = layer.id;
+  li.dataset.prop = prop;
   const head = document.createElement('div');
   head.className = 'rowhead';
   const name = document.createElement('span');
@@ -3238,12 +3249,13 @@ function propTrack(comp, layer, prop) {
   const row = document.createElement('li');
   row.className = 'prop expr';
   row.dataset.id = layer.id;
+  row.dataset.prop = prop;
   const rowHead = document.createElement('div');
   rowHead.className = 'rowhead';
   const label = document.createElement('span');
   label.className = 'name';
   label.textContent = 'Expression';
-  rowHead.append(expr.toggle, label);
+  rowHead.append(expr.toggle, whip(layer, prop), label);
   const rowBody = document.createElement('div');
   rowBody.className = 'exprtrack';
   rowBody.append(expr.box);
@@ -3251,6 +3263,108 @@ function propTrack(comp, layer, prop) {
   return [li, row];
 }
 
+// B-27c: D-83's pick whip. With no property it is the parent whip, on a layer's row and beside
+// the Parent list; with one it is the value whip, beside that property's expression. Dragged,
+// a line follows the hand, a row that can take the drop lights, and a label says what letting
+// go would do or why it would do nothing. Letting go on a lit row sends the one command;
+// anywhere else, or Escape, sends nothing.
+// The whole drag is the spiral's press handler, as every drag on this page is, so the keyboard
+// table can see that a whip is a mouse's: the same links are typed into the expression box and
+// the same parents chosen from the Parent list.
+const WHIP_READS = ['anchor', 'position', 'scale', 'rotation', 'opacity', 'depth'];
+function whip(layer, prop) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'whip';
+  b.textContent = '@';
+  b.title = prop
+    ? 'Drag onto another property\'s row to make this ' + prop + ' expression read it'
+    : 'Drag onto another layer\'s row to make it ' + layer.name + '\'s parent';
+  b.setAttribute('aria-label', b.title);
+  b.onclick = (e) => e.stopPropagation();
+  b.onpointerdown = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // What letting go on this row would do: [words, request], the request null when it would
+    // do nothing. The core refuses the same things; this only keeps them from lighting up.
+    const onto = (li) => {
+      const id = li && li.dataset.id;
+      if (!prop) {
+        if (!li || li.classList.contains('prop')) {
+          return [li ? 'the camera and properties are not layers' : 'drop on a layer\'s row', null];
+        }
+        const parent = layers().find((l) => l.id === id);
+        if (!parent) return ['drop on a layer\'s row', null];
+        if (parent.id === layer.id) return ['a layer cannot be its own parent', null];
+        if (parent.kind === 'audio') return ['a sound cannot be a parent', null];
+        for (let up = parent; up; up = layers().find((l) => l.id === up.parent)) {
+          if (up.parent === layer.id) return [parent.name + ' rides on ' + layer.name + ', so that would be a loop', null];
+        }
+        return ['Parent: ' + parent.name, '/layer.set_parent?layer=' + encodeURIComponent(layer.id)
+          + '&parent=' + encodeURIComponent(parent.id) + '&frame=' + frame];
+      }
+      const to = li && li.dataset.prop;
+      const owner = !to ? null : id === CAMERA_ROW ? cameraRow() : layers().find((l) => l.id === id);
+      if (!owner) return ['drop on a property\'s row', null];
+      const words = owner.name + ' › ' + propLabel(owner, to).replace(/^./, (c) => c.toUpperCase());
+      if (id === layer.id && to === prop) return ['a property cannot be linked to itself', null];
+      if (!(id === CAMERA_ROW ? CAMERA_PROPS : WHIP_READS).includes(to)) return ['an expression cannot read ' + words, null];
+      return [words, '/property.link?' + whose(layer) + '&prop=' + prop + '&from_' + whoseId(id) + '&from_prop=' + to];
+    };
+    const at = b.getBoundingClientRect();
+    const svg = svgEl('svg');
+    svg.id = 'whipline';
+    const line = svgEl('line');
+    line.setAttribute('x1', at.left + at.width / 2);
+    line.setAttribute('y1', at.top + at.height / 2);
+    svg.append(line);
+    const label = document.createElement('div');
+    label.id = 'whiplabel';
+    document.body.append(svg, label);
+    let lit = null;
+    let request = null;
+    dragging = true;
+    b.setPointerCapture(e.pointerId);
+    const move = (m) => {
+      line.setAttribute('x2', m.clientX);
+      line.setAttribute('y2', m.clientY);
+      label.style.left = (m.clientX + 14) + 'px';
+      label.style.top = (m.clientY + 10) + 'px';
+      const under = document.elementFromPoint(m.clientX, m.clientY);
+      const li = under && under.closest('#layers li');
+      const [words, send] = onto(li);
+      request = send;
+      label.textContent = words;
+      label.className = send ? '' : 'no';
+      if (lit) lit.classList.remove('whiptarget');
+      lit = send ? li : null;
+      if (lit) lit.classList.add('whiptarget');
+    };
+    const stop = (go) => {
+      dragging = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('keydown', escape, true);
+      if (lit) lit.classList.remove('whiptarget');
+      svg.remove();
+      label.remove();
+      if (go && request) command(request);
+    };
+    // On the window rather than the spiral: the list may be redrawn under the drag, and the
+    // spiral that held the pointer with it, and the hand must still be followed.
+    const up = () => stop(true);
+    const cancel = () => stop(false);
+    const escape = (k) => { if (k.key === 'Escape') { k.preventDefault(); k.stopPropagation(); stop(false); } };
+    move(e);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('keydown', escape, true);
+  };
+  return b;
+}
 
 // -------------------------------------------------------------------------------------------
 // The selection on the picture
@@ -5588,7 +5702,7 @@ function propRow(into, layer, prop) {
   into.append(dt, dd);
   const expr = exprParts(layer, prop, 'panel');
   if (expr) {
-    dt.append(' ', expr.toggle);
+    dt.append(' ', expr.toggle, whip(layer, prop));
     into.append(expr.box);
   }
 }
@@ -5643,7 +5757,7 @@ function parentRow(into, layer) {
   chooser.value = layer.parent || '';
   chooser.onchange = () => command('/layer.set_parent?layer=' + encodeURIComponent(layer.id)
     + '&parent=' + encodeURIComponent(chooser.value) + '&frame=' + frame);
-  dd.append(chooser);
+  dd.append(chooser, ' ', whip(layer, null));
   into.append(dt, dd);
 }
 
@@ -5915,7 +6029,7 @@ function drawCamera() {
     dl.append(dt, dd);
     const expr = exprParts(camera, prop, 'panel');
     if (expr) {
-      dt.append(' ', expr.toggle);
+      dt.append(' ', expr.toggle, whip(camera, prop));
       dl.append(expr.box);
     }
   };

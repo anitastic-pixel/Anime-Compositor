@@ -260,7 +260,7 @@ B-27a / the rule and its fixtures before code: D-83 in document 14, FX-WHIP-001 
 
 B-27b / the core, once D-83 is accepted: `property.link`, which writes a link's text by D-83's rule as one step of history and refuses a property linked to itself, and a table that walks FX-WHIP-001 to 020. **Built on 2026-09-23:** `expr::link` writes the text; `tests/b27b_pickwhip.rs` sets it as the expression, checks it is one step that Undo takes back, evaluates it on five frames, and checks the link survives a rename and a save; `verification/B-27b_pickwhip_table.md`, 109 of 109 checks.
 
-B-27c / the window: the parent whip on each layer's row and beside the Parent list, the value whip beside an expression box, the line that follows the hand, the lit row and its label, Escape to cancel, and a playtest sheet.
+B-27c / the window: the parent whip on each layer's row and beside the Parent list, the value whip beside an expression box, the line that follows the hand, the lit row and its label, Escape to cancel, and a playtest sheet. **Built on 2026-09-23:** `verification/B-27c_panel_table.md`, 22 of 22 (each of FX-WHIP-001 to 013 sent as the page sends it writes the fixture's text as one step Undo takes back; the refusals; the parent whip sends what the Parent list sends); `verification/B-27c_pickwhip_playtest.md`, 13 steps, awaiting the owner.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

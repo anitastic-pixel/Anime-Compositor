@@ -2227,6 +2227,7 @@ const ANSWERS: &[&str] = &[
     "property.drag_cancel",
     "property.drag_end",
     "property.drag_update",
+    "property.link",
     "property.separate",
     "property.set_base",
     "property.set_expression",
@@ -3438,6 +3439,47 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 expression: parameter(query, "text").map(|text| Expression {
                     text,
                     enabled: parameter(query, "on").as_deref() != Some("false"),
+                }),
+            }
+        } else if id == "property.link" {
+            // B-27c: D-83's value whip. `layer` or `target=camera` and `prop` name the property
+            // the spiral was dragged from, which gets the expression; `from_layer` or
+            // `from_target=camera` and `from_prop` name the one it was dropped on. The core
+            // writes the text or says why not, and the step is `property.set_expression`'s.
+            use anime_compositor::expr;
+            let side = |prefix: &str| {
+                let name = parameter(query, &format!("{prefix}prop")).unwrap_or_default();
+                if parameter(query, &format!("{prefix}target")).as_deref() == Some("camera") {
+                    let prop = anime_compositor::model::CameraProp::from_str(&name)
+                        .map(prop_of_camera);
+                    return prop.map(|p| (expr::Target::Camera, p)).ok_or(name);
+                }
+                let layer = parameter(query, &format!("{prefix}layer")).map(Id::new);
+                match (layer, property(&name)) {
+                    (Some(layer), Some(p)) => Ok((expr::Target::Layer(layer), p)),
+                    _ => Err(name),
+                }
+            };
+            let ((to, to_prop), (from, from_prop)) = match (side(""), side("from_")) {
+                (Ok(to), Ok(from)) => (to, from),
+                (Err(name), _) | (_, Err(name)) => {
+                    return Some(format!("\"{name}\" is not a property that can be linked."))
+                }
+            };
+            let text = match expr::link(comp, &from, from_prop, &to, to_prop) {
+                Ok(text) => text,
+                Err(said) => return Some(said),
+            };
+            Command::SetExpression {
+                composition,
+                target: match to {
+                    expr::Target::Camera => Target::Camera,
+                    expr::Target::Layer(id) => Target::Layer(id),
+                },
+                prop: to_prop,
+                expression: Some(Expression {
+                    text,
+                    enabled: true,
                 }),
             }
         } else if id == "layer.create" {
@@ -12213,6 +12255,171 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
     }
 
+    /// B-27c: D-83's pick whip from the window. Each drop is sent as the page sends it.
+    #[test]
+    fn the_pick_whip_links_and_parents_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let root = repo("Fixtures/pickwhip");
+        let expected: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(root.join("expected_pickwhip.json")).expect("the fixture"),
+        )
+        .expect("the fixture is JSON");
+        let source = root.join("pickwhip_project.json");
+        let fresh = || {
+            Mutex::new(
+                open(&source)
+                    .unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+            )
+        };
+        // What the page puts in the request for one side of a drop, as `whoseId` writes it.
+        let side = |prefix: &str, pair: &serde_json::Value| match pair[0].as_str().unwrap_or("") {
+            "camera" => format!("{prefix}target=camera&{prefix}prop={}", pair[1].as_str().unwrap_or("")),
+            id => format!("{prefix}layer={id}&{prefix}prop={}", pair[1].as_str().unwrap_or("")),
+        };
+        // The text the property was given, read from what the page is given.
+        let written = |viewer: &Mutex<Viewer>, pair: &serde_json::Value| {
+            let answer: serde_json::Value =
+                serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+            let comp = &answer["project"]["compositions"][0];
+            let (who, prop) = (pair[0].as_str().unwrap_or(""), pair[1].as_str().unwrap_or(""));
+            let record = if who == "camera" {
+                comp["camera"][prop].clone()
+            } else {
+                let layer = comp["layers"]
+                    .as_array()
+                    .and_then(|all| all.iter().find(|l| l["id"] == who).cloned())
+                    .unwrap_or_default();
+                if prop == "depth" { layer["depth"].clone() } else { layer["transform"][prop].clone() }
+            };
+            record["expression"]["text"]
+                .as_str()
+                .map_or("(no expression)".to_string(), |t| t.replace('\n', " "))
+        };
+
+        for (fx, case) in expected["cases"].as_object().expect("cases") {
+            let viewer = fresh();
+            for drop in case["drops"].as_array().expect("drops") {
+                let depth = held(&viewer).document.undo_depth();
+                run(
+                    &viewer,
+                    &format!(
+                        "property.link?{}&{}",
+                        side("", &drop["destination"]),
+                        side("from_", &drop["source"])
+                    ),
+                );
+                report.check(
+                    &format!(
+                        "{fx}: {} {} dropped on {} {}, one step of history",
+                        drop["destination"][0].as_str().unwrap_or(""),
+                        drop["destination"][1].as_str().unwrap_or(""),
+                        drop["source"][0].as_str().unwrap_or(""),
+                        drop["source"][1].as_str().unwrap_or("")
+                    ),
+                    format!("`{}`, 1 step", drop["text"].as_str().unwrap_or("").replace('\n', " ")),
+                    format!(
+                        "`{}`, {} step",
+                        written(&viewer, &drop["destination"]),
+                        held(&viewer).document.undo_depth() - depth
+                    ),
+                );
+            }
+        }
+
+        // Undo names a drop as it names a typed expression, because it is one.
+        let (whipped, typed) = (fresh(), fresh());
+        run(&whipped, "property.link?layer=layer-target&prop=position&from_layer=null-1&from_prop=position");
+        run(&typed, "property.set_expression?layer=layer-target&prop=position&text=value");
+        let last = |v: &Mutex<Viewer>| held(v).document.undo_labels().last().map(|s| s.to_string()).unwrap_or_default();
+        report.check("Undo names the drop as it names a typed expression", last(&typed), last(&whipped));
+        held(&whipped).document.undo();
+        report.check(
+            "and Undo takes the drop back",
+            "(no expression)",
+            written(&whipped, &serde_json::json!(["layer-target", "position"])),
+        );
+
+        for (fx, case) in expected["nothing"].as_object().expect("nothing") {
+            let viewer = fresh();
+            let depth = held(&viewer).document.undo_depth();
+            let said = run(
+                &viewer,
+                &format!(
+                    "property.link?{}&{}",
+                    side("", &case["destination"]),
+                    side("from_", &case["source"])
+                ),
+            );
+            report.check(
+                &format!("{fx}: {}", case["says"].as_str().unwrap_or("")),
+                "A property cannot be linked to itself.; nothing changed",
+                format!(
+                    "{said}; {}",
+                    if held(&viewer).document.undo_depth() == depth { "nothing changed" } else { "changed" }
+                ),
+            );
+        }
+        let viewer = fresh();
+        report.check(
+            "a separated half is not a place to drop, and says so",
+            "An expression cannot read position_x, so nothing can link to it.",
+            run(&viewer, "property.link?layer=layer-target&prop=rotation&from_layer=null-1&from_prop=position_x"),
+        );
+        report.check(
+            "nor is a property that does not exist",
+            "\"wobble\" is not a property that can be linked.",
+            run(&viewer, "property.link?layer=layer-target&prop=rotation&from_layer=null-1&from_prop=wobble"),
+        );
+
+        // The parent whip builds its request as the Parent list does: the same command, the
+        // same three parameters, the frame on screen.
+        let page = std::fs::read_to_string(repo("app/ui/index.html")).expect("the page");
+        report.check(
+            "the parent whip sends what the Parent list sends",
+            "both: /layer.set_parent?layer=…&parent=…&frame=frame",
+            format!(
+                "{}: /layer.set_parent?layer=…&parent=…&frame=frame",
+                match (
+                    page.contains("'/layer.set_parent?layer=' + encodeURIComponent(layer.id)\n          + '&parent=' + encodeURIComponent(parent.id) + '&frame=' + frame"),
+                    page.contains("'/layer.set_parent?layer=' + encodeURIComponent(layer.id)\n    + '&parent=' + encodeURIComponent(chooser.value) + '&frame=' + frame"),
+                ) {
+                    (true, true) => "both",
+                    (true, false) => "the whip only",
+                    (false, true) => "the list only",
+                    (false, false) => "neither",
+                }
+            ),
+        );
+        let viewer = fresh();
+        run(&viewer, "layer.set_parent?layer=layer-target&parent=null-1&frame=0");
+        report.check(
+            "Target whipped onto Null 1 rides on it",
+            "null-1",
+            shown_layer(&viewer, "Target")["parent"].as_str().unwrap_or("(none)").to_string(),
+        );
+        report.check(
+            "and Null 1 whipped back onto Target is refused as a loop",
+            true,
+            !run(&viewer, "layer.set_parent?layer=null-1&parent=layer-target&frame=0").is_empty()
+                && shown_layer(&viewer, "Null 1")["parent"].is_null(),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-27c_panel_table.md",
+            "B-27c: the pick whip in the window",
+            PICKWHIP_PANEL_INTRO,
+            PICKWHIP_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    }
+
     /// B-23c: the solid from the window, on D-74. The order is the playtest sheet's.
     #[test]
     fn a_solid_is_added_and_set_from_the_window() {
@@ -14774,6 +14981,24 @@ mod editing {
          B-26b's table.",
     ];
 
+    const PICKWHIP_PANEL_INTRO: &[&str] = &[
+        "D-83 decided what the pick whip writes and B-27b built it in the core, checked against \
+         FX-WHIP-001 to 020 in `verification/B-27b_pickwhip_table.md`. This is the window's \
+         half: the spiral beside an expression sends `property.link` when it is let go on \
+         another property's row, and the spiral on a layer's row or beside the Parent list \
+         sends `layer.set_parent` when it is let go on another layer's row.",
+        "Every row sends what the page sends, on `Fixtures/pickwhip/pickwhip_project.json`, \
+         and reads back the text the property was given. The expected text is \
+         `Fixtures/pickwhip/expected_pickwhip.json`'s, written by `tools/pickwhip_reference.py`.",
+    ];
+
+    const PICKWHIP_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nThat the line follows the hand, that the right row \
+         lights and the label says the right thing, and that Escape or letting go elsewhere \
+         does nothing. That is `verification/B-27c_pickwhip_playtest.md`, for a person. Whether \
+         the linked values are right is B-27b's table.",
+    ];
+
     const SHAPE_PANEL_INTRO: &[&str] = &[
         "D-78 decided what a shape layer is and B-25b built it in the core, checked pixel by \
          pixel in `verification/B-25b_shape_table.md`. This is the window's half: New shape \
@@ -16727,6 +16952,7 @@ mod contract {
         "property.drag_cancel",
         "property.drag_end",
         "property.drag_update",
+        "property.link",
         "property.separate",
         "property.set_base",
         "property.set_expression",
@@ -16890,6 +17116,17 @@ mod contract {
             "Leave it as it is",
             "media.relink",
             "encodeURIComponent(relinking) + '&cancel=1'",
+        ),
+        // B-27c: D-83's two whips.
+        (
+            "Value pick whip",
+            "property.link",
+            "'/property.link?' + whose(layer) + '&prop=' + prop + '&from_' + whoseId(id) + '&from_prop=' + to",
+        ),
+        (
+            "Parent pick whip",
+            "layer.set_parent",
+            "return ['Parent: ' + parent.name, '/layer.set_parent?layer=' + encodeURIComponent(layer.id)",
         ),
     ];
 
@@ -17122,6 +17359,8 @@ mod contract {
         ("path.remove_point", "a command the window answers"),
         // D-82, accepted on 2026-09-23 and built in the core by B-26b; B-26c put it in the window.
         ("layer.add_null", "a command the window answers"),
+        // D-83, accepted on 2026-09-23: the value whip; the parent whip sends `layer.set_parent`.
+        ("property.link", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -18771,10 +19010,11 @@ mod contract {
     ///
     /// `layer.move` joined it in W-22, the same drop for a layer's row, and left again in W-23
     /// when Ctrl+Shift+] and Ctrl+Shift+[ sent it to take a layer to the very front or back.
-    const MOUSE_ONLY: [&str; 1] = ["effect.move"];
+    // B-27c: the value whip is a drag. What it writes can be typed into the expression box.
+    const MOUSE_ONLY: [&str; 2] = ["effect.move", "property.link"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 34] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 36] = [
         (
             "dragging the border between two panels",
             "give one of them more of the window",
@@ -18957,6 +19197,18 @@ mod contract {
             "pulling a mask point's handle, or dragging out of a point with Alt held",
             "curve the path through that point, or straighten it again",
             "if (k.key === ']' || k.key === '[') {",
+        ),
+        // B-27c, D-83: the pick whips. A link is an expression, and the box takes it typed; a
+        // parent is the Parent list's.
+        (
+            "dragging a property's pick whip onto another property",
+            "link one to the other",
+            "text.title = 'The ' + prop + ' expression. Click away or press Ctrl+Enter to apply it, '",
+        ),
+        (
+            "dragging a layer's pick whip onto another layer",
+            "make that layer its parent",
+            "chooser.setAttribute('aria-label', 'Parent for ' + layer.name);",
         ),
     ];
 
