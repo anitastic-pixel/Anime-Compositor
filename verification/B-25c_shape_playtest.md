@@ -60,14 +60,27 @@ below changes the fixtures.
   set in its panel but not drawn on the picture.
 - A new shape is always named "Shape N" and grey (closed) or white (open). Change its colours in
   the panel after drawing.
-- The pen's points are straight corners, as they are for a mask. Pulling handles out while
+- ~~The pen's points are straight corners, as they are for a mask. Pulling handles out while
   placing a point, as After Effects allows, is not built. Curves come from the ellipse tool,
-  whose points' handles can be dragged.
-- A shape's key, like a mask's, cannot be dragged along its row, eased with F9, or opened in the
-  graph editor, and is always linear. That is the next piece of work, for masks and shapes both.
-  (B-24e, 2026-09-22, has since built the dragging and the easing: `verification/B-24e_path_key_playtest.md`.)
+  whose points' handles can be dragged.~~ Lifted by B-24j (passed 2026-09-23): the pen pressed
+  and dragged pulls a pair of handles, on a shape as on a mask.
+- ~~A shape's key, like a mask's, cannot be dragged along its row, eased with F9, or opened in the
+  graph editor, and is always linear.~~ Lifted by B-24e and B-24f (both passed 2026-09-23).
+- Since D-80 (2026-09-23, after this sheet was written) the pen's first click **on the outline of the
+  chosen shape** adds a point to it, and on one of its points takes that point off, rather than
+  starting a new shape, as in After Effects. In steps 5 to 7, start each new pen shape on empty
+  picture.
 
 ## Result
 
-Pass / fail, and what was seen if it failed:
+**Passed on 2026-09-23.** The owner played all fourteen steps and answered "1-14 works for B-25c
+now", after two faults the walk found were fixed the same day:
+
+- **Step 1: no pen.** The pointer was a crosshair. WebView2 does not draw a picture given as a
+  CSS cursor and shows the fallback, so the page now hides the pointer over the picture and draws
+  the pen itself; a first version lost it during a drag, which the owner caught, and it now
+  follows the pointer through one.
+- **A shape layer lagged heavily.** The window measured 12,976 ms for one frame. Shapes were
+  still drawn a sample at a time, the cost P-15 removed from masks; they now use P-15's method,
+  checked against the old one pixel for pixel.
 

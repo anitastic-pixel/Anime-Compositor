@@ -138,6 +138,7 @@
     grid-area: 1 / 1; place-self: start; margin: auto; max-width: none; max-height: none;
   }
   #boxes { max-width: 100%; max-height: 100%; pointer-events: none; overflow: visible; }
+  #pennib { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; display: none; line-height: 0; }
   /* Vector-effect keeps the outline one pixel wide however far the canvas has been scaled up:
      a draft frame is a quarter the size of the composition and is drawn four times larger than
      its pixels, and a box scaled with it would be a four-pixel slab. */
@@ -3741,6 +3742,8 @@ function useTool(which) {
   tool = which;
   penDraft = null;
   view.style.cursor = which === 'pen' ? PEN_CURSOR : which === 'select' ? '' : 'crosshair';
+  stage.style.cursor = which === 'pen' ? PEN_CURSOR : '';
+  if (which !== 'pen') penNib.style.display = 'none';
   const shapes = drawsShapes(selected());
   $('status').textContent = which === 'select' ? 'The selection tool.'
     : which === 'pen' ? (shapes
@@ -3753,12 +3756,24 @@ function useTool(which) {
 const masksOf = (layer) => (layer && layer.masks) || [];
 
 // B-25c: the pen over the picture is a pen, as After Effects shows it, its tip where the point
-// goes. The browser falls back to the crosshair where it cannot draw the picture.
-const PEN_CURSOR = 'url("data:image/svg+xml,' + encodeURIComponent(
-  '<svg xmlns="' + $('boxes').namespaceURI + '" width="24" height="24" viewBox="0 0 24 24">'
+// goes. WebView2 does not draw a picture given as a CSS cursor and shows its fallback instead
+// (WebView2Feedback #1925, #3388), so the page draws the pen: the system pointer is hidden over
+// the picture and this follows the hand, its tip at (2, 22) on the pointer.
+const PEN_CURSOR = 'none';
+const penNib = document.createElement('div');
+penNib.id = 'pennib';
+penNib.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24">'
   + '<path d="M2 22 L5 13 L15 3 L21 9 L11 19 Z" fill="white" stroke="black" stroke-width="1.2" stroke-linejoin="round"/>'
   + '<path d="M2 22 L8 16 M13 5 L19 11" stroke="black" stroke-width="1.2"/>'
-  + '<circle cx="8.5" cy="15.5" r="1.3" fill="black"/></svg>') + '") 2 22, crosshair';
+  + '<circle cx="8.5" cy="15.5" r="1.3" fill="black"/></svg>';
+document.body.append(penNib);
+document.addEventListener('pointermove', (e) => {
+  // A drag hands the pointer to the stage (setPointerCapture), so the pen follows it there too.
+  const show = tool === 'pen' && (e.target === view || e.target === stage);
+  penNib.style.display = show ? 'block' : 'none';
+  if (show) penNib.style.transform = 'translate(' + (e.clientX - 2) + 'px,' + (e.clientY - 22) + 'px)';
+});
+stage.addEventListener('pointerleave', () => { penNib.style.display = 'none'; });
 
 // B-25c: on a shape layer (D-78) the picture's tools draw its shapes rather than its masks: the
 // same paths, the same points and handles, the other list and the other command. Its masks are

@@ -552,7 +552,7 @@ pub fn distance_to_path(path: &[(f64, f64)], closed: bool, x: f64, y: f64) -> f6
 /// Lifted out of [`distance_to_path`] so that the expanded mask's band, which asks the same
 /// question of a few edges rather than of all of them, asks it in exactly the same arithmetic.
 /// Two callers, one expression.
-fn distance_to_segment((x0, y0): (f64, f64), (x1, y1): (f64, f64), x: f64, y: f64) -> f64 {
+pub(crate) fn distance_to_segment((x0, y0): (f64, f64), (x1, y1): (f64, f64), x: f64, y: f64) -> f64 {
     let (dx, dy) = (x1 - x0, y1 - y0);
     let run = dx * dx + dy * dy;
     let t = if run == 0.0 {
@@ -611,7 +611,7 @@ pub fn pixel_coverage(vertices: &[(f64, f64)], x: usize, y: usize) -> f32 {
 ///
 /// **Rows are worked out in parallel.** Every row reads the outline and writes only its own
 /// pixels, so the threads share nothing and the answer does not depend on how the work was split.
-fn scanline_field(outline: &[(f64, f64)], w: usize, h: usize, radius: usize) -> Vec<f32> {
+pub(crate) fn scanline_field(outline: &[(f64, f64)], w: usize, h: usize, radius: usize) -> Vec<f32> {
     let n = SAMPLES_PER_SIDE;
     let mut field = vec![0.0f32; w * h];
     if outline.len() < 2 {

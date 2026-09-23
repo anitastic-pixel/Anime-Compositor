@@ -194,11 +194,18 @@ impl Shape {
     }
 }
 
-/// Coverage of every pixel of a `width` by `height` picture, from ADR-016's grid.
+/// Coverage of every pixel of a `width` by `height` picture, from ADR-016's grid, a sample at a
+/// time.
 ///
 /// The sample for grid cell (i, j) of pixel (x, y) is at `(x + (i + 0.5)/4, y + (j + 0.5)/4)`,
 /// which is [`crate::mask::pixel_coverage`]'s rule written once more because what counts as
 /// inside differs — there it is a polygon, here it is a polygon *or* a distance.
+///
+/// B-25c playtest, 2026-09-23: this was how a shape was drawn until the owner's window measured
+/// 12,976 ms for one frame of a shape layer - every sample asking every edge, on one thread, the
+/// cost P-15 took out of masks. [`draw`] now uses P-15's fill and [`stroke_field`]; this stays as
+/// the reference the test below holds them to.
+#[cfg(test)]
 fn field(width: usize, height: usize, inside: impl Fn(f64, f64) -> bool) -> Vec<f32> {
     let n = SAMPLES_PER_SIDE;
     let mut out = Vec::with_capacity(width * height);
@@ -258,18 +265,117 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
         if let Some(fill) = shape.fill {
             // An open path is closed for the purpose of filling it, by a straight line from its
             // last point to its first: the even-odd ray already wraps, so nothing is added here.
-            let f = field(width, height, |x, y| {
-                crate::mask::point_inside(&outline, x, y)
-            });
+            let f = crate::mask::scanline_field(&outline, width, height, 0);
             paint(data, &f, fill.color, fill.opacity);
         }
         if let Some(stroke) = shape.stroke {
-            let radius = stroke.width_px / 2.0;
-            let f = field(width, height, |x, y| {
-                crate::mask::distance_to_path(&outline, shape.closed, x, y) <= radius
-            });
+            let f = stroke_field(&outline, shape.closed, width, height, stroke.width_px / 2.0);
             paint(data, &f, stroke.color, stroke.opacity);
         }
     }
     picture
+}
+
+/// Every pixel's stroke coverage: the samples within `reach` of the path.
+///
+/// P-15's band, which [`crate::mask`] uses for an expanded mask, asked of a stroke: an edge whose
+/// run of y lies more than `reach` above or below a sample row is further than `reach` from every
+/// sample on it, and one whose run of x lies more than `reach` beside a sample is further than
+/// that from the sample, so neither can put it in the stroke. What is left is asked in
+/// [`crate::mask::distance_to_segment`]'s arithmetic, which is `distance_to_path`'s, and the
+/// nearest of them is the same nearest, so the answer is the one a sample at a time gave, not an
+/// approximation; `the_fast_fields_are_the_slow_ones` below holds it to that. Rows run across the
+/// thread pool, each writing only its own pixels.
+fn stroke_field(path: &[(f64, f64)], closed: bool, w: usize, h: usize, reach: f64) -> Vec<f32> {
+    use rayon::prelude::*;
+    let n = SAMPLES_PER_SIDE;
+    let mut field = vec![0.0f32; w * h];
+    let points = path.len();
+    if points == 0 {
+        return field;
+    }
+    // One point is a segment from it to itself, which is what `distance_to_path` measures then.
+    let segments: Vec<((f64, f64), (f64, f64))> = match points {
+        1 => vec![(path[0], path[0])],
+        _ => (0..if closed { points } else { points - 1 })
+            .map(|i| (path[i], path[(i + 1) % points]))
+            .collect(),
+    };
+    field.par_chunks_mut(w).enumerate().for_each_init(
+        || (Vec::new(), vec![0u32; w]),
+        |(band, hits), (yi, row)| {
+            hits.iter_mut().for_each(|hit| *hit = 0);
+            for j in 0..n {
+                let sy = yi as f64 + (j as f64 + 0.5) / n as f64;
+                band.clear();
+                for &(a, b) in &segments {
+                    let (low, high) = if a.1 <= b.1 { (a.1, b.1) } else { (b.1, a.1) };
+                    if low - reach <= sy && sy <= high + reach {
+                        let (left, right) = if a.0 <= b.0 { (a.0, b.0) } else { (b.0, a.0) };
+                        band.push((a, b, left, right));
+                    }
+                }
+                if band.is_empty() {
+                    continue;
+                }
+                for (xi, hit) in hits.iter_mut().enumerate() {
+                    for i in 0..n {
+                        let sx = xi as f64 + (i as f64 + 0.5) / n as f64;
+                        let mut nearest = f64::INFINITY;
+                        for &(a, b, left, right) in band.iter() {
+                            if sx < left - reach || sx > right + reach {
+                                continue;
+                            }
+                            nearest = nearest.min(crate::mask::distance_to_segment(a, b, sx, sy));
+                        }
+                        if nearest <= reach {
+                            *hit += 1;
+                        }
+                    }
+                }
+            }
+            for (v, hit) in row.iter_mut().zip(hits.iter()) {
+                *v = *hit as f32 / (n * n) as f32;
+            }
+        },
+    );
+    field
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The fill and the stroke as [`draw`] now works them out, against the sample-at-a-time
+    /// [`field`] they replaced, pixel for pixel and with no tolerance: a star that crosses itself,
+    /// open and closed, a two-point line, one point and a path with nothing in it.
+    #[test]
+    fn the_fast_fields_are_the_slow_ones() {
+        let (w, h) = (61, 47);
+        let star: Vec<(f64, f64)> = (0..7)
+            .map(|k| {
+                let a = k as f64 * std::f64::consts::TAU * 3.0 / 7.0 + 0.3;
+                (30.3 + 21.7 * a.cos(), 23.1 + 18.9 * a.sin())
+            })
+            .collect();
+        let cases: [(&[(f64, f64)], bool); 5] = [
+            (&star, true),
+            (&star, false),
+            (&[(3.2, 40.5), (57.9, 6.25)], false),
+            (&[(20.5, 20.5)], true),
+            (&[], true),
+        ];
+        for (path, closed) in cases {
+            let fill = crate::mask::scanline_field(path, w, h, 0);
+            let slow = field(w, h, |x, y| crate::mask::point_inside(path, x, y));
+            assert_eq!(fill, slow, "fill of {path:?}");
+            for reach in [0.5, 2.0, 7.25] {
+                let fast = stroke_field(path, closed, w, h, reach);
+                let slow = field(w, h, |x, y| {
+                    crate::mask::distance_to_path(path, closed, x, y) <= reach
+                });
+                assert_eq!(fast, slow, "stroke {reach} of {path:?}, closed {closed}");
+            }
+        }
+    }
 }
