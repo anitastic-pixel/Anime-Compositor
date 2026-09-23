@@ -32,5 +32,8 @@ Whether the pen lands on the segment a person meant, and whether the shape looks
 | which one Undo does, to the base and to both keys | base 6; frame 0 holds 6; frame 4 holds 6 | base 6; frame 0 holds 6; frame 4 holds 6 | pass |
 | a list naming a point the path has not got is refused whole: nothing comes off | This path has 6 points, so it has no point 7. \| base 6; frame 0 holds 6; frame 4 holds 6 | This path has 6 points, so it has no point 7. \| base 6; frame 0 holds 6; frame 4 holds 6 | pass |
 | and a list given to the other command is refused, since each added point is a place along its own segment | A point is added one at a time, because each one is a place along its own segment. Say at= one point. | A point is added one at a time, because each one is a place along its own segment. Say at= one point. | pass |
+| a box turned a quarter and doubled in two steps of one drag is one thing to undo | 1 | 1 | pass |
+| and the key at frame 4 holds the last step: every point turned and twice as far out | 0.0,600.0 -100.0,600.0 -150.0,600.0 -175.0,600.0 -200.0,600.0 -200.0,0.0 | 0.0,600.0 -100.0,600.0 -150.0,600.0 -175.0,600.0 -200.0,600.0 -200.0,0.0 | pass |
+| one Undo puts the shape back as it was before the box | 300.0,0.0 300.0,50.0 300.0,75.0 300.0,87.5 300.0,100.0 0.0,100.0 | 300.0,0.0 300.0,50.0 300.0,75.0 300.0,87.5 300.0,100.0 0.0,100.0 | pass |
 
-**20 of 20 checks pass.**
+**23 of 23 checks pass.**

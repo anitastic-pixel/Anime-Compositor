@@ -12727,6 +12727,62 @@ mod editing {
             ),
         );
 
+        // B-24k, D-81: the free transform box. Every step of one drag of it sends the whole path,
+        // each point and each handle through the same turn and scale; that arithmetic is the
+        // page's and its sheet's to judge. What these rows hold is the bargain underneath: a
+        // whole drag of the box on a keyed path is one thing to undo, lands at its frame as the
+        // last step sent it, and one Undo puts the shape back.
+        let was: Vec<(f64, f64)> = shape_at(&viewer, 4)
+            .iter()
+            .map(|p| {
+                let (x, y) = p.split_once(',').expect("x,y");
+                (x.parse().expect("x"), y.parse().expect("y"))
+            })
+            .collect();
+        // A quarter turn about the corner at nothing, and bigger by `by`; the + 0.0 keeps a
+        // turned nothing from printing as -0.0.
+        let turned = |by: f64| {
+            was.iter()
+                .map(|&(x, y)| (-y * by + 0.0, x * by + 0.0))
+                .collect::<Vec<_>>()
+        };
+        let before = held(&viewer).document.undo_labels().len();
+        for by in [1.5, 2.0] {
+            let points = turned(by)
+                .iter()
+                .map(|(x, y)| format!("{x},{y},0,{},0,{}", 10.0 * by, -10.0 * by))
+                .collect::<Vec<_>>()
+                .join(";");
+            run(
+                &viewer,
+                &format!("mask.set_path?layer={cel}&mask=0&frame=4&drag=1&points={points}"),
+            );
+        }
+        run(&viewer, "property.drag_end");
+        report.check(
+            "a box turned a quarter and doubled in two steps of one drag is one thing to undo",
+            "1",
+            (held(&viewer).document.undo_labels().len() - before).to_string(),
+        );
+        report.check(
+            "and the key at frame 4 holds the last step: every point turned and twice as far out",
+            turned(2.0)
+                .iter()
+                .map(|(x, y)| format!("{x:?},{y:?}"))
+                .collect::<Vec<_>>()
+                .join(" "),
+            shape_at(&viewer, 4).join(" "),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "one Undo puts the shape back as it was before the box",
+            was.iter()
+                .map(|(x, y)| format!("{x:?},{y:?}"))
+                .collect::<Vec<_>>()
+                .join(" "),
+            shape_at(&viewer, 4).join(" "),
+        );
+
         write_artifact(
             &report,
             "verification/B-24h_panel_table.md",
