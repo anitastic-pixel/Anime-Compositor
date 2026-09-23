@@ -161,6 +161,54 @@ pub fn owner_name(comp: &Composition, target: &Target) -> String {
     }
 }
 
+/// D-83's pick whip: the text that makes `to`'s `to_prop` read `from`'s `from_prop`, or the
+/// sentence that says why it cannot. A layer is named by its id, as D-59 names it, in After
+/// Effects' own words; two numbers onto one takes x, and one onto two uses it for both.
+pub fn link(
+    comp: &Composition,
+    from: &Target,
+    from_prop: Prop,
+    to: &Target,
+    to_prop: Prop,
+) -> Result<String, String> {
+    if from == to && from_prop == to_prop {
+        return Err("A property cannot be linked to itself.".to_string());
+    }
+    let readable = |t: &Target, p: Prop| match t {
+        Target::Camera => CAMERA_PROPS.contains(&p),
+        Target::Layer(_) => LAYER_PROPS[2..].contains(&p),
+    };
+    if !readable(from, from_prop) {
+        return Err(format!(
+            "An expression cannot read {from_prop}, so nothing can link to it."
+        ));
+    }
+    if property(comp, to, to_prop).is_err() {
+        return Err(format!(
+            "{} has no {to_prop} to link.",
+            owner_name(comp, to)
+        ));
+    }
+    let text = match from {
+        Target::Camera => format!("thisComp.activeCamera.{from_prop}"),
+        Target::Layer(id) => {
+            if comp.layer(id).is_none() {
+                return Err(format!("{id} is not a layer in this composition."));
+            }
+            let name = match from_prop {
+                Prop::Anchor => "anchorPoint",
+                p => p.as_str(),
+            };
+            format!("thisComp.layer(\"{id}\").transform.{name}")
+        }
+    };
+    Ok(match (dims(from_prop), dims(to_prop)) {
+        (2, 1) => format!("{text}[0]"),
+        (1, 2) => format!("temp = {text};\n[temp, temp]"),
+        _ => text,
+    })
+}
+
 const LAYER_PROPS: [Prop; 8] = [
     Prop::PositionX,
     Prop::PositionY,

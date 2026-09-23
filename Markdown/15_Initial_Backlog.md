@@ -252,13 +252,13 @@ B-26a / the rule and its fixtures before code: D-82 in document 14, FX-NULL-001 
 
 B-26b / the core, once D-82 is accepted: the `null` kind in the model and the file, left out of every frame, the ten refusals, `layer.add_null`, and a table that walks FX-NULL-001 to 029. **Built on 2026-09-23:** `tests/b26b_null.rs` writes `verification/B-26b_null_table.md`, 34 of 34 checks.
 
-B-26c / the window: New Null in the Layer menu (Ctrl+Alt+Shift+Y), its outline and anchor on the picture, its grey strip on the timeline, Ctrl+Alt+Y no longer answering with Shift held, and a playtest sheet. **Built on 2026-09-23:** `verification/B-26c_panel_table.md`, 10 of 10, and `verification/B-26c_null_playtest.md`, 11 steps, awaiting the owner.
+B-26c / the window: New Null in the Layer menu (Ctrl+Alt+Shift+Y), its outline and anchor on the picture, its grey strip on the timeline, Ctrl+Alt+Y no longer answering with Shift held, and a playtest sheet. **Built on 2026-09-23:** `verification/B-26c_panel_table.md`, 10 of 10, and `verification/B-26c_null_playtest.md`, 11 steps. **Passed by the owner on 2026-09-23** ("pass for null playlist, it works").
 
 B-27 / the pick whip, asked for by the owner on 2026-09-23 ("I want to be able to alt click, then click drag from stopwatch to other layers' or null value of say position, so that one is parent, etc connected like AE does"), split as B-26 was, and put ahead of R-01 at the owner's "proceed".
 
-B-27a / the rule and its fixtures before code: D-83 in document 14, FX-WHIP-001 to 020 in document 25, from `tools/pickwhip_reference.py`, which writes `Fixtures/pickwhip/`. **Written on 2026-09-23; awaiting the owner's decision on D-83.**
+B-27a / the rule and its fixtures before code: D-83 in document 14, FX-WHIP-001 to 020 in document 25, from `tools/pickwhip_reference.py`, which writes `Fixtures/pickwhip/`. **Written on 2026-09-23; D-83 accepted by the owner the same day ("proceed").**
 
-B-27b / the core, once D-83 is accepted: `property.link`, which writes a link's text by D-83's rule as one step of history and refuses a property linked to itself, and a table that walks FX-WHIP-001 to 020.
+B-27b / the core, once D-83 is accepted: `property.link`, which writes a link's text by D-83's rule as one step of history and refuses a property linked to itself, and a table that walks FX-WHIP-001 to 020. **Built on 2026-09-23:** `expr::link` writes the text; `tests/b27b_pickwhip.rs` sets it as the expression, checks it is one step that Undo takes back, evaluates it on five frames, and checks the link survives a rename and a save; `verification/B-27b_pickwhip_table.md`, 109 of 109 checks.
 
 B-27c / the window: the parent whip on each layer's row and beside the Parent list, the value whip beside an expression box, the line that follows the hand, the lit row and its label, Escape to cancel, and a playtest sheet.
 
