@@ -951,6 +951,78 @@ Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SOL-001's file with 
 - FX-SOL-028: A height that is not a whole number.
 - FX-SOL-029: A raster layer carrying a solid record.
 
+## Null layer fixtures
+
+**D-82, proposed on 2026-09-23; nothing answers to these until the owner accepts it.** Every case is a composition 6 by 2 at 24 fps, three frames long, from the projects in `Fixtures/null/`. The one drawing, `bg`, is the solid fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom, centred. A null's anchor is (50, 50), the middle of its 100 by 100 outline, and it stands at (52, 50) unless a case says otherwise, so a layer parented to it is carried two pixels right. Layers are listed bottom first. Each cell is R G B A of the finished frame, linear and premultiplied.
+
+**Every number below is produced by `tools/null_reference.py`**, which carries the drawing's corner through the parent chain with `tools/parent_reference.py`'s four steps and lays it down by whole pixels, so nothing is resampled. The same numbers are in `Fixtures/null/expected_null.json`. Tolerance 1e-6. FX-NULL-020 to 029 have no frames: each is FX-NULL-002's file with one change, and a build must refuse it whole.
+
+FX-NULL-001: A null on its own, switched on: every pixel transparent.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-NULL-002: A null switched on above the red and grey drawing: the drawing, untouched.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-NULL-003: The drawing parented to a null that stands two pixels right: the drawing moves two pixels right, and columns 0 and 1 are empty.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-NULL-004: The same with the null switched off: the same frame.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-NULL-005: The same with the null alive on frame 1 only: every frame is moved.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+| 1, 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 1, 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+| 2, 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 2, 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-NULL-006: The same with the null at a tenth opacity: the drawing stays opaque, as opacity does not pass to a child.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-NULL-007: A null parented to a null, each a pixel right: the drawing moves two, as in FX-NULL-003.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-NULL-002's file with one change:
+
+- FX-NULL-020: A null that names an asset.
+- FX-NULL-021: A null with exposures.
+- FX-NULL-022: A null with a source offset.
+- FX-NULL-023: A null carrying a solid record.
+- FX-NULL-024: A null carrying shapes.
+- FX-NULL-025: A null with a mask.
+- FX-NULL-026: A null with an effect.
+- FX-NULL-027: A null with a matte of its own.
+- FX-NULL-028: A null with a blend mode other than normal.
+- FX-NULL-029: A drawing whose matte is a null.
+
 ## Mask fixtures
 
 **D-77, accepted by the owner on 2026-09-19**, built in the core by B-24b, put in the window by B-24c and set moving by B-24d. Every case is a composition 6 by 2 at 24 fps: three frames long where the mask stands still, and five where its path moves (FX-MSK-031 to 035), from the projects in `Fixtures/masks/`. The one drawing, `bg`, is the adjustment fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom. One raster layer carries the masks; nothing else is on it, so every cell is the drawing multiplied by the coverage the masks work out to. Each cell is R G B A of the finished frame, linear and premultiplied.

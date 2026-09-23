@@ -246,6 +246,14 @@ B-24k / the free transform box around a mask, **proposed on 2026-09-23** and del
 
 B-24l / the free transform box's limits, **built on 2026-09-23 against D-81a**, the second half of the owner's answer to B-24k. The box holds several masks (Shift and a double-click), has keys (arrows move; keypad + and - turn, and scale with Alt), and Undo brings the box back with the shape. Skew, perspective, a whole-layer box and a saved box stay out, as in After Effects. On the way, B-24g's drag queue was found dropping the last step of all but one layer in a several-layer drag; it now keeps each property's newest request. `verification/B-24h_panel_table.md` is 26 of 26; `verification/B-24l_box_limits_playtest.md` is the owner's sheet.
 
+B-26 / null layers, asked for by the owner on 2026-09-23 ("think we should add a null layer just in case?"), split as B-23 was, and put ahead of R-01 at the owner's "proceed".
+
+B-26a / the rule and its fixtures before code: D-82 in document 14, FX-NULL-001 to 007 and 020 to 029 in document 25, from `tools/null_reference.py`. **Written on 2026-09-23; D-82 awaits the owner.**
+
+B-26b / the core, once D-82 is accepted: the `null` kind in the model and the file, left out of every frame, the ten refusals, `layer.add_null`, and a table that walks FX-NULL-001 to 029.
+
+B-26c / the window: New Null in the Layer menu (Ctrl+Alt+Shift+Y), its outline and anchor on the picture, its grey strip on the timeline, Ctrl+Alt+Y no longer answering with Shift held, and a playtest sheet.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
