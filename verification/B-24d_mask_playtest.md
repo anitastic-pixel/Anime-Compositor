@@ -71,3 +71,8 @@ the record of what was true when it was written:
 ## What to answer
 
 "works", or which step number did something else and what it did.
+
+## Result
+
+**Passed on 2026-09-22.** The owner played all ten steps on the build P-15 left and answered
+"works", with nothing reported beside the steps.
