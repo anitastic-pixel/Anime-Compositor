@@ -66,15 +66,21 @@ the selection tool. Nothing below changes the fixtures.
 ## Known limits
 
 - Skew and perspective are not provided; D-81 includes move, scale and turn only.
-- The box holds one mask at a time: it cannot go around several masks at once, or around a
-  whole layer. The layer's own handles do the whole-layer job.
-- The box has no keyboard keys of its own. The arrow keys and **[** and **]** on the chosen
-  points still work as B-24i and B-24j built them.
+- ~~The box holds one mask at a time: it cannot go around several masks at once~~, or around a
+  whole layer. The layer's own handles do the whole-layer job. *(Several masks: lifted by
+  D-81a, `verification/B-24l_box_limits_playtest.md`.)*
+- ~~The box has no keyboard keys of its own.~~ The arrow keys and **[** and **]** on the chosen
+  points still work as B-24i and B-24j built them. *(Lifted by D-81a.)*
 - If every point in the box lies on one straight line, the box has no width (or no height) in
   that direction, so a square pulled that way does not scale anything.
-- Undoing a turn puts the mask back but leaves the box at its turned angle, so it sits looser
-  around the mask until it is closed and opened again.
+- ~~Undoing a turn puts the mask back but leaves the box at its turned angle, so it sits looser
+  around the mask until it is closed and opened again.~~ *(Lifted by D-81a.)*
 - Whether the box is up is not saved with the project.
+
+## Result
+
+**Passed on 2026-09-23**, all fourteen steps, the owner answering "works; work on limits". The
+second half of that answer is D-81a and B-24l.
 
 ## What to answer
 

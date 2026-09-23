@@ -35,5 +35,8 @@ Whether the pen lands on the segment a person meant, and whether the shape looks
 | a box turned a quarter and doubled in two steps of one drag is one thing to undo | 1 | 1 | pass |
 | and the key at frame 4 holds the last step: every point turned and twice as far out | 0.0,600.0 -100.0,600.0 -150.0,600.0 -175.0,600.0 -200.0,600.0 -200.0,0.0 | 0.0,600.0 -100.0,600.0 -150.0,600.0 -175.0,600.0 -200.0,600.0 -200.0,0.0 | pass |
 | one Undo puts the shape back as it was before the box | 300.0,0.0 300.0,50.0 300.0,75.0 300.0,87.5 300.0,100.0 0.0,100.0 | 300.0,0.0 300.0,50.0 300.0,75.0 300.0,87.5 300.0,100.0 0.0,100.0 | pass |
+| a box round two masks, dragged 20 pixels in two steps, is one thing to undo | 1 | 1 | pass |
+| and both masks moved the whole 20: the first mask's first point, and the second mask | 320.0,0.0 \| 20.0,0.0 30.0,0.0 30.0,10.0 | 320.0,0.0 \| 20.0,0.0 30.0,0.0 30.0,10.0 | pass |
+| one Undo puts both back | 300.0,0.0 \| 0.0,0.0 10.0,0.0 10.0,10.0 | 300.0,0.0 \| 0.0,0.0 10.0,0.0 10.0,10.0 | pass |
 
-**23 of 23 checks pass.**
+**26 of 26 checks pass.**

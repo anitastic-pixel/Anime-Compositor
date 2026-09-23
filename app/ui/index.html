@@ -3490,7 +3490,7 @@ function drawBoxes() {
   if (space) {
     const heldPoint = document.activeElement && document.activeElement.__mask;
     pathsOf(shaper).forEach((mask, at) => {
-      const points = maskPull && maskPull.at === at ? maskPull.points : maskPath(shaper, at);
+      const points = pulledPath(shaper, at);
       const shape = svgEl(mask.closed === false ? 'polyline' : 'polygon');
       shape.setAttribute('class', at === maskPicked ? 'maskline' : 'maskline other');
       shape.setAttribute('points', outlineOf(points, mask.closed !== false)
@@ -3548,6 +3548,10 @@ function drawBoxes() {
         // Both change how many points the path holds, so both change the path and every key on
         // it at once, and neither goes into the key under the playhead.
         mark.onkeydown = (k) => {
+          // D-81a: with the free transform box up, the arrows and the keypad's plus and minus are
+          // the box's, and go on to the window's own keys, which move it and what it holds.
+          if (freeBoxOn(shaper) && (k.key.startsWith('Arrow') || k.code === 'NumpadAdd'
+            || k.code === 'NumpadSubtract')) return;
           const which = '?layer=' + encodeURIComponent(shaper.id)
             + '&prop=' + (drawsShapes(shaper) ? 'shape:' : 'mask:') + at;
           // B-24i: the keys act on every chosen point, and on this one whether it is chosen or
@@ -3746,8 +3750,11 @@ let tool = 'select';
 // nothing here reaches the file until a command is sent.
 let maskPicked = 0;
 let penDraft = null;
-// A point or a handle being pulled: which mask, and the whole path as it stands under the hand.
+// A point or a handle being pulled: the whole path of each mask being pulled, by its place in the
+// list, as it stands under the hand. B-24k: several at once, for a free transform box round two.
 let maskPull = null;
+const pulledPath = (layer, at) => (maskPull && maskPull.paths.has(at)
+  ? maskPull.paths.get(at) : maskPath(layer, at));
 // B-24g: the point or handle last pressed or tabbed to, lit until another is. It is remembered by
 // layer, mask, point and which handle, so a stale one simply never matches again.
 //
@@ -3779,25 +3786,55 @@ const smoothPoint = (p) => {
 let maskNudge = Promise.resolve();
 
 // B-24k, D-81: After Effects' free transform box around a mask's or a shape's points. Remembered
-// as `{ layer, at, points: [i...], angle, anchor }`, the anchor in the layer's own pixels. The box
-// itself is worked out afresh from the points every time: the smallest rectangle around them lined
-// up with `angle`, which starts at nothing and follows every turn, so a turned mask keeps a box
-// turned with it rather than a bigger upright one. Nothing of it is saved.
+// as `{ layer, parts: [{ at, points: [i...] }], angle, anchor, key, seen }`, the anchor in the
+// layer's own pixels. The box itself is worked out afresh from the points every time: the
+// smallest rectangle around them lined up with `angle`, which starts at nothing and follows every
+// turn, so a turned mask keeps a box turned with it rather than a bigger upright one. Nothing of
+// it is saved.
+//
+// D-81a: `parts` is one entry a mask, because Shift and a double-click on another mask's outline
+// takes that one into the box too. `seen` is the turn and the anchor the box had for each shape
+// the points have been in while it was up, so that Undo and Redo, which bring a shape back, bring
+// its box back with it; a shape the box never made gets an upright box with the anchor at its
+// middle, as a box just opened has.
 let freeBox = null;
 const turnBy = (a, [x, y]) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
+const freeBoxKey = (paths, parts) => parts.map(({ at, points }) => points
+  .map((i) => paths.get(at)[i].map((n) => Math.round(n * 100)).join(',')).join(';')).join('|');
+// The paths the box holds, by mask, as they stand under the hand.
+const freeBoxPaths = (layer, fb) => new Map(fb.parts.map(({ at }) => [at, pulledPath(layer, at)]));
+// The tightest box round the points at `angle`, in the box's own lined-up pixels.
+function boxAround(paths, parts, angle) {
+  const local = parts.flatMap(({ at, points }) => points
+    .map((i) => turnBy(-angle, paths.get(at)[i])));
+  const us = local.map((p) => p[0]);
+  const vs = local.map((p) => p[1]);
+  return { x0: Math.min(...us), y0: Math.min(...vs), x1: Math.max(...us), y1: Math.max(...vs) };
+}
+// What the box is now remembered as having, for the shape the points are in now.
+function rememberFreeBox(layer, paths = freeBoxPaths(layer, freeBox)) {
+  freeBox.key = freeBoxKey(paths, freeBox.parts);
+  freeBox.seen.set(freeBox.key, { angle: freeBox.angle, anchor: freeBox.anchor.slice() });
+}
 // Another tool, layer or mask chosen puts the box away for good, as D-81 has it, rather than
 // leaving it to come back when the first is chosen again.
 function freeBoxOn(layer) {
   const fb = freeBox;
   if (!fb) return null;
-  const points = tool === 'select' && layer && layer.id === fb.layer && fb.at === maskPicked
-    && pathsOf(layer)[fb.at]
-    ? maskPull && maskPull.at === fb.at ? maskPull.points : maskPath(layer, fb.at) : null;
-  if (!points || fb.points.some((i) => !points[i])) { freeBox = null; return null; }
-  const local = fb.points.map((i) => turnBy(-fb.angle, points[i]));
-  const us = local.map((p) => p[0]);
-  const vs = local.map((p) => p[1]);
-  return { ...fb, x0: Math.min(...us), y0: Math.min(...vs), x1: Math.max(...us), y1: Math.max(...vs) };
+  const whole = tool === 'select' && layer && layer.id === fb.layer
+    && fb.parts.some(({ at }) => at === maskPicked)
+    && fb.parts.every(({ at, points }) => pathsOf(layer)[at]
+      && points.every((i) => pulledPath(layer, at)[i]));
+  if (!whole) { freeBox = null; return null; }
+  const paths = freeBoxPaths(layer, fb);
+  if (!maskPull && freeBoxKey(paths, fb.parts) !== fb.key) {
+    const known = fb.seen.get(freeBoxKey(paths, fb.parts));
+    fb.angle = known ? known.angle : 0;
+    const box = boxAround(paths, fb.parts, fb.angle);
+    fb.anchor = known ? known.anchor.slice() : [(box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2];
+    rememberFreeBox(layer);
+  }
+  return { ...fb, ...boxAround(paths, fb.parts, fb.angle) };
 }
 // The eight squares: `sx` and `sy` say which side each is on, -1 the low one, 1 the high one and 0
 // the middle, and `u`, `v` where it is in the box's own lined-up pixels.
@@ -3825,32 +3862,38 @@ function freeBoxZone(layer, space, x, y, unit) {
 }
 // The points given, or every point of the mask being worked on, put in a box lined up with the
 // picture, its anchor at the middle. The points in it become the chosen ones, as in After Effects.
-function openFreeBox(layer, which) {
+// D-81a: `keep` is the masks of a box already up that this one takes in beside the new one.
+function openFreeBox(layer, which, keep = []) {
   const points = maskPath(layer, maskPicked);
   const inBox = which && which.length >= 2 ? which : points.map((_, i) => i);
-  const xs = inBox.map((i) => points[i][0]);
-  const ys = inBox.map((i) => points[i][1]);
   if (tool !== 'select') useTool('select');
+  const parts = [...keep.filter(({ at }) => at !== maskPicked), { at: maskPicked, points: inBox }];
+  const box = boxAround(new Map(parts.map(({ at }) => [at, maskPath(layer, at)])), parts, 0);
   freeBox = {
-    layer: layer.id, at: maskPicked, points: inBox, angle: 0,
-    anchor: [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2],
+    layer: layer.id, parts, angle: 0, seen: new Map(),
+    anchor: [(box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2],
   };
+  rememberFreeBox(layer);
   choosePoints(layer, maskPicked, inBox);
-  $('status').textContent = 'Free transform: drag a square to scale, just outside the box to turn, '
-    + 'inside it to move, the cross-hair to move what it turns about. Enter puts it away.';
+  $('status').textContent = (parts.length > 1 ? 'Free transform round ' + parts.length + ' masks: ' : 'Free transform: ')
+    + 'drag a square to scale, just outside the box to turn, inside it to move, the cross-hair '
+    + 'to move what it turns about. Shift and a double-click on another mask adds it. '
+    + 'Enter puts it away.';
   drawBoxes();
 }
 // Every point the box holds, and the anchor with them, taken through one map: `m` its four
 // numbers, a b over c d, and `fixed` the one place it leaves where it was. A handle is an offset,
 // so it is turned and scaled and never moved, and a line stays a line, so a smooth point stays one.
-function mapFreeBox(points, which, [a, b, c, d], fixed, anchor) {
+function mapFreeBox(paths, parts, [a, b, c, d], fixed, anchor) {
   const [e, f] = [fixed[0] - a * fixed[0] - b * fixed[1], fixed[1] - c * fixed[0] - d * fixed[1]];
   const map = (x, y, by = 1) => [a * x + b * y + e * by, c * x + d * y + f * by];
-  for (const i of which) {
-    const p = points[i];
-    [p[0], p[1]] = map(p[0], p[1]);
-    [p[2], p[3]] = map(p[2], p[3], 0);
-    [p[4], p[5]] = map(p[4], p[5], 0);
+  for (const { at, points } of parts) {
+    for (const i of points) {
+      const p = paths.get(at)[i];
+      [p[0], p[1]] = map(p[0], p[1]);
+      [p[2], p[3]] = map(p[2], p[3], 0);
+      [p[4], p[5]] = map(p[4], p[5], 0);
+    }
   }
   freeBox.anchor = map(...anchor);
 }
@@ -4045,7 +4088,7 @@ function sendMaskPath(layer, at, points, how = '') {
   const send = how ? dragSend : command;
   return send((shapes ? '/shape.set_path' : '/mask.set_path') + '?layer='
     + encodeURIComponent(layer.id) + (shapes ? '&shape=' : '&mask=') + at + '&frame=' + frame
-    + how + maskQuery(points));
+    + how + maskQuery(points), 'path ' + at);
 }
 
 // A mask drawn. The tool goes back to the selection tool afterwards, as After Effects' shape
@@ -4296,7 +4339,8 @@ stage.onpointerdown = (e) => {
     stage.setPointerCapture(down.pointerId);
     const during = (layer, prop, values) => dragSend('/property.drag_update?layer='
       + encodeURIComponent(layer.id) + '&prop=' + prop
-      + '&value=' + encodeURIComponent(values.map(number).join(',')) + '&frame=' + frame);
+      + '&value=' + encodeURIComponent(values.map(number).join(',')) + '&frame=' + frame,
+    layer.id + ' ' + prop);
     const escape = (k) => { if (k.key === 'Escape') stop(true); };
     const stop = (cancelled) => {
       dragging = false;
@@ -4448,13 +4492,17 @@ stage.onpointerdown = (e) => {
   // B-24k: `ended` hears whether the pull was taken back, for the box's anchor and turn, which
   // are the page's own and which no drag_cancel puts back. Escape here is finished with, so that
   // taking back a pull does not also let the chosen points or the box go.
+  // D-81a: `at` may be a list of masks, for a box round several; `move` is then handed every one
+  // of their paths, by mask, rather than the one.
   const pullPath = (down, at, move, ended = () => {}) => {
     down.preventDefault();
     stage.setPointerCapture(down.pointerId);
-    const was = maskPath(layer, at);
+    const ats = [].concat(at);
+    const was = new Map(ats.map((a) => [a, maskPath(layer, a)]));
+    const fresh = () => new Map(ats.map((a) => [a, was.get(a).map((p) => p.slice())]));
     const from = shaping.toLayer(...atCanvas(down));
     dragging = true;
-    maskPull = { at, points: was.map((p) => p.slice()) };
+    maskPull = { paths: fresh() };
     const escape = (k) => { if (k.key === 'Escape') { k.preventDefault(); stop(true); } };
     const stop = (cancelled) => {
       dragging = false;
@@ -4468,12 +4516,12 @@ stage.onpointerdown = (e) => {
       afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end');
     };
     stage.onpointermove = (m) => {
-      const points = was.map((p) => p.slice());
-      move(points, shaping.toLayer(...atCanvas(m)), from, m);
-      maskPull.points = points;
+      const paths = fresh();
+      move(Array.isArray(at) ? paths : paths.get(at), shaping.toLayer(...atCanvas(m)), from, m);
+      maskPull.paths = paths;
       maskPull.moved = true;
       drawBoxes();
-      sendMaskPath(layer, at, points, '&drag=1');
+      for (const [a, points] of paths) sendMaskPath(layer, a, points, '&drag=1');
     };
     stage.onpointerup = () => stop(false);
     window.addEventListener('keydown', escape, true);
@@ -4494,21 +4542,37 @@ stage.onpointerdown = (e) => {
   // box ahead of the vertices while it is up. Every step is worked out from the box, the anchor
   // and the turn as they stood at the press, so nothing drifts, and a press far away from the box
   // puts it away and goes on to be whatever press it would have been.
+  // D-81a: Shift on another mask's outline keeps the box up and does nothing else, because Shift
+  // and a double-click there is how that mask is taken into it, and the first press of that
+  // double-click would otherwise put the box away or take the layer out of the selection.
   const boxAt = shaping ? freeBoxZone(layer, shaping, x, y, unit) : null;
-  if (boxAt && boxAt.zone === 'away') { freeBox = null; drawBoxes(); }
+  if (boxAt && boxAt.zone === 'away') {
+    if (e.shiftKey && pathsOf(layer).some((_, a) => {
+      const near = nearestOnPath(layer, a, shaping, x, y);
+      return near && near.away <= 6 * unit;
+    })) { e.preventDefault(); return; }
+    freeBox = null;
+    drawBoxes();
+  }
   else if (boxAt) {
     const { fbox } = boxAt;
+    const ats = fbox.parts.map(({ at }) => at);
     const start = { anchor: fbox.anchor.slice(), angle: fbox.angle };
     const ended = (cancelled) => {
       turning = false;
       if (cancelled) Object.assign(freeBox, start);
+      else rememberFreeBox(layer);
     };
     if (boxAt.zone === 'anchor') {
       // The anchor alone: nothing is drawn differently, so nothing is sent.
       e.preventDefault();
       stage.setPointerCapture(e.pointerId);
       stage.onpointermove = (m) => { freeBox.anchor = shaping.toLayer(...atCanvas(m)); drawBoxes(); };
-      stage.onpointerup = () => { stage.onpointermove = null; stage.onpointerup = null; };
+      stage.onpointerup = () => {
+        stage.onpointermove = null;
+        stage.onpointerup = null;
+        if (freeBox) rememberFreeBox(layer);
+      };
       return;
     }
     if (boxAt.zone === 'square') {
@@ -4516,7 +4580,7 @@ stage.onpointerdown = (e) => {
       // pixels. A side scales one way; Shift on a corner keeps the proportions. A side of no
       // length has nothing to scale and stays as it is rather than dividing by nothing.
       const { sx, sy, u, v } = boxAt.square;
-      pullPath(e, fbox.at, (points, to, from, m) => {
+      pullPath(e, ats, (paths, to, from, m) => {
         const [tu, tv] = turnBy(-start.angle, to);
         const [fu, fv] = turnBy(-start.angle, from);
         const fix = m.ctrlKey ? turnBy(-start.angle, start.anchor)
@@ -4530,28 +4594,30 @@ stage.onpointerdown = (e) => {
           return turnBy(start.angle, [fx * a, fy * b]);
         };
         const [[a, c], [b, d]] = [column([1, 0]), column([0, 1])];
-        mapFreeBox(points, fbox.points, [a, b, c, d], turnBy(start.angle, fix), start.anchor);
+        mapFreeBox(paths, fbox.parts, [a, b, c, d], turnBy(start.angle, fix), start.anchor);
       }, ended);
       return;
     }
     if (boxAt.zone === 'turn') {
       // Turned about the anchor; Shift holds the turn to steps of 45 degrees.
       turning = true;
-      pullPath(e, fbox.at, (points, to, from, m) => {
+      pullPath(e, ats, (paths, to, from, m) => {
         const [ax, ay] = start.anchor;
         let by = Math.atan2(to[1] - ay, to[0] - ax) - Math.atan2(from[1] - ay, from[0] - ax);
         if (m.shiftKey) by = Math.round(by / (Math.PI / 4)) * (Math.PI / 4);
         const [cos, sin] = [Math.cos(by), Math.sin(by)];
-        mapFreeBox(points, fbox.points, [cos, -sin, sin, cos], start.anchor, start.anchor);
+        mapFreeBox(paths, fbox.parts, [cos, -sin, sin, cos], start.anchor, start.anchor);
         freeBox.angle = start.angle + by;
       }, ended);
       return;
     }
     // Inside: every point in the box moves, and Shift keeps the move to one direction.
-    pullPath(e, fbox.at, (points, to, from, m) => {
+    pullPath(e, ats, (paths, to, from, m) => {
       let [dx, dy] = [to[0] - from[0], to[1] - from[1]];
       if (m.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
-      for (const i of fbox.points) { points[i][0] += dx; points[i][1] += dy; }
+      for (const { at, points } of fbox.parts) {
+        for (const i of points) { paths.get(at)[i][0] += dx; paths.get(at)[i][1] += dy; }
+      }
       freeBox.anchor = [start.anchor[0] + dx, start.anchor[1] + dy];
     }, ended);
     return;
@@ -4750,20 +4816,26 @@ stage.onpointerdown = (e) => {
 // B-24k, D-81: a double-click on the outline or a point of the mask being worked on puts the free
 // transform box around the whole of it, and one away from a box that is up puts it away. Neither
 // sends anything, which is why this can sit beside the press rather than inside it.
+// D-81a: on another mask's outline it is After Effects' again: that mask becomes the one worked
+// on, in a box of its own, or with Shift taken into the box already up beside the others.
 stage.ondblclick = (e) => {
   const layer = selected();
-  const space = tool === 'select' && layer && !layer.locked && pathsOf(layer)[maskPicked]
+  const space = tool === 'select' && layer && !layer.locked && pathsOf(layer).length
     ? layerSpace(layer) : null;
   if (!space) return;
   const [x, y] = atCanvas(e);
   const unit = perScreenPixel();
   const zone = freeBoxZone(layer, space, x, y, unit);
-  if (zone && zone.zone !== 'away') return;
-  const onPoint = maskPath(layer, maskPicked).some((p) => Math.hypot(
+  if (zone && zone.zone !== 'away' && !e.shiftKey) return;
+  const onPoint = !!pathsOf(layer)[maskPicked] && maskPath(layer, maskPicked).some((p) => Math.hypot(
     ...space.toFrame(p[0], p[1]).map((q, j) => q - [x, y][j])) <= 6 * unit);
-  const near = nearestOnPath(layer, maskPicked, space, x, y);
-  if (onPoint || (near && near.away <= 6 * unit)) openFreeBox(layer);
-  else if (freeBox) { freeBox = null; drawBoxes(); }
+  const onLine = (at) => { const near = nearestOnPath(layer, at, space, x, y); return near && near.away <= 6 * unit; };
+  const order = [maskPicked, ...pathsOf(layer).map((_, at) => at).filter((at) => at !== maskPicked)];
+  const at = onPoint ? maskPicked : order.find((a) => pathsOf(layer)[a] && onLine(a));
+  if (at === undefined) { if (freeBox && !e.shiftKey) { freeBox = null; drawBoxes(); } return; }
+  const keep = e.shiftKey && freeBoxOn(layer) ? freeBox.parts : [];
+  if (at !== maskPicked) { maskPicked = at; drawLayers(); drawInspector(); }
+  openFreeBox(layer, null, keep);
 };
 
 // B-24k: what the pointer shows over the box, as After Effects shows it: the curved arrow just
@@ -7193,8 +7265,13 @@ $('checker').onclick = () => command('/viewer.toggle_checkerboard');
 // `drag_end` must not overtake the update it follows, so `afterDrag` waits for the queue to empty
 // before the transaction is closed, and it goes through `command`, which brings the document and
 // the panels back as it always did.
+//
+// B-24k, D-81a: the newest waiting request is kept for each thing being dragged, named by `key`,
+// and not one for the whole drag. A gesture that moves three layers or two masks sends one
+// request for each at every step, and keeping only the newest of those dropped the others' last
+// step, so all but one of them stopped short of where the hand let go.
 let dragFlight = null;
-let dragNext = null;
+const dragNext = new Map();
 // P-15, 2026-09-22: where a drag update's time actually goes, split four ways and reported in
 // milliseconds when the hand lets go. The owner reported that dragging a mask point still lags
 // after B-24g, and no measurement in `verification/` can say why: P-01 stops at a buffer in
@@ -7212,8 +7289,8 @@ let dragNext = null;
 // until a drag ends, so an ordinary sitting never sees it.
 let dragWatch = null;
 const middle = (xs) => xs.length ? [...xs].sort((a, b) => a - b)[xs.length >> 1] : 0;
-function dragSend(what) {
-  if (dragFlight) { dragNext = what; return dragFlight; }
+function dragSend(what, key = '') {
+  if (dragFlight) { dragNext.set(key, what); return dragFlight; }
   dragWatch = { command: [], window: [], trip: [], paint: [] };
   dragFlight = (async () => {
     let request = what;
@@ -7228,8 +7305,9 @@ function dragSend(what) {
         $('report').className = 'dropped';
       }
       show(FRAMES + '/frame/' + frame + '?q=' + quality);
-      request = dragNext;
-      dragNext = null;
+      const [waiting] = dragNext.keys();
+      request = dragNext.get(waiting);
+      dragNext.delete(waiting);
     }
     dragFlight = null;
   })();
@@ -7637,6 +7715,43 @@ addEventListener('keydown', (e) => {
     const owner = selected();
     if (owner && !owner.locked && pathsOf(owner)[maskPicked]) openFreeBox(owner, chosenPoints(owner, maskPicked));
     else $('status').textContent = 'Choose a layer with a mask or a shape first: the box goes around its points.';
+  }
+  // D-81a: the box without a mouse, which After Effects' box has none of and document 05 wants.
+  // The arrows move what it holds a pixel, Shift ten; the keypad's plus and minus turn it a degree
+  // about its anchor, Shift ten, and with Alt scale it a percent, Shift ten, which are After
+  // Effects' own keys for turning and scaling a layer. One press is one thing to undo however
+  // many masks the box holds, which is why it goes through a drag of its own.
+  else if (!e.ctrlKey && !dragging && freeBoxOn(selected())
+    && (e.key.startsWith('Arrow') || e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) {
+    e.preventDefault();
+    const owner = selected();
+    const step = e.shiftKey ? 10 : 1;
+    const sign = e.code === 'NumpadSubtract' ? -1 : 1;
+    const by = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    const alt = e.altKey;
+    maskNudge = maskNudge.then(() => {
+      const fbox = freeBoxOn(owner);
+      if (!fbox) return;
+      const paths = freeBoxPaths(owner, fbox);
+      const anchor = fbox.anchor.slice();
+      if (by) {
+        for (const { at, points } of fbox.parts) {
+          for (const i of points) { paths.get(at)[i][0] += by[0] * step; paths.get(at)[i][1] += by[1] * step; }
+        }
+        freeBox.anchor = [anchor[0] + by[0] * step, anchor[1] + by[1] * step];
+      } else if (alt) {
+        const s = 1 + sign * step / 100;
+        mapFreeBox(paths, fbox.parts, [s, 0, 0, s], anchor, anchor);
+      } else {
+        const turn = sign * step * Math.PI / 180;
+        const [cos, sin] = [Math.cos(turn), Math.sin(turn)];
+        mapFreeBox(paths, fbox.parts, [cos, -sin, sin, cos], anchor, anchor);
+        freeBox.angle += turn;
+      }
+      rememberFreeBox(owner, paths);
+      for (const [at, points] of paths) sendMaskPath(owner, at, points, '&drag=1');
+      return afterDrag('/property.drag_end');
+    });
   }
   else if (e.ctrlKey) { /* leave every other accelerator alone */ }
   // W-22: Shift+F3 swaps the timeline and the graph, as After Effects' does.

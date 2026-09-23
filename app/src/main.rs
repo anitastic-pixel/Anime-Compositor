@@ -12783,6 +12783,64 @@ mod editing {
             shape_at(&viewer, 4).join(" "),
         );
 
+        // D-81a: a box round two masks. Every step of its drag sends both paths, and the drag is
+        // still one thing to undo, with both masks landing and both coming back together.
+        run(
+            &viewer,
+            &format!("mask.add?layer={cel}&points=0,0,0,0,0,0;10,0,0,0,0,0;10,10,0,0,0,0"),
+        );
+        let second = |viewer: &Mutex<Viewer>| {
+            let body = boxes(viewer, 4, None).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the boxes answer is JSON");
+            answer["values"][&cel]["masks"][1]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(|p| format!("{},{}", p[0], p[1]))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        let before = held(&viewer).document.undo_labels().len();
+        for by in [5, 20] {
+            run(
+                &viewer,
+                &format!(
+                    "mask.set_path?layer={cel}&mask=1&frame=4&drag=1&points=\
+                     {by},0,0,0,0,0;{},0,0,0,0,0;{},10,0,0,0,0",
+                    by + 10,
+                    by + 10
+                ),
+            );
+            let moved = was
+                .iter()
+                .map(|(x, y)| format!("{},{y},0,0,0,0", x + by as f64))
+                .collect::<Vec<_>>()
+                .join(";");
+            run(
+                &viewer,
+                &format!("mask.set_path?layer={cel}&mask=0&frame=4&drag=1&points={moved}"),
+            );
+        }
+        run(&viewer, "property.drag_end");
+        report.check(
+            "a box round two masks, dragged 20 pixels in two steps, is one thing to undo",
+            "1",
+            (held(&viewer).document.undo_labels().len() - before).to_string(),
+        );
+        report.check(
+            "and both masks moved the whole 20: the first mask's first point, and the second mask",
+            format!("{:?},{:?} | 20.0,0.0 30.0,0.0 30.0,10.0", was[0].0 + 20.0, was[0].1),
+            format!("{} | {}", shape_at(&viewer, 4)[0], second(&viewer)),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "one Undo puts both back",
+            format!("{:?},{:?} | 0.0,0.0 10.0,0.0 10.0,10.0", was[0].0, was[0].1),
+            format!("{} | {}", shape_at(&viewer, 4)[0], second(&viewer)),
+        );
+
         write_artifact(
             &report,
             "verification/B-24h_panel_table.md",
