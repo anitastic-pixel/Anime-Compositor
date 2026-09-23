@@ -30,4 +30,13 @@ with only greys and one bright red to spend comes out grey, with no red dots.
 
 ## Result
 
-(for the owner)
+**Passed on 2026-09-23.** The owner looked at the before/after picture and `dithered.gif`, and
+exported the reference shot as a dithered GIF from the window (step 3): "I think it worked well
+for a gif", then "yes" to steps 1 and 2.
+
+The agent checked the owner's export (1920x1080, 14 frames, 10,649,332 bytes). The sky is an
+even grain with no bands. It then looked for a pixel standing out sharply from a smooth patch
+around it: 49 in all 14 frames, none in the first frame, at most 24 in one. Every one is in the
+pink tree, where `Fixtures/reference_shot/layer1/layer1_000.png` has darker flecks of its own. The
+GIF draws them in the nearest darker colour its palette holds, a browner rose than the painting.
+They are not B-22c's red dots. The canopy's main pink comes out flat, as in the first known limit.
