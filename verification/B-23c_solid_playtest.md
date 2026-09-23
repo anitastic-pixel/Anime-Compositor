@@ -60,7 +60,7 @@ Nothing below changes the fixtures.
 - The picker works in the screen's 256 levels. A colour written into a file by hand between two
   of them is kept and drawn exactly (D-74); the swatch shows the nearest level.
 - Colour and size are not animated (D-74): they have no stopwatch, and Scale is what grows a
-  solid over time. Whether they should be keyable is D-76, proposed and awaiting the owner.
+  solid over time. Whether they should be keyable was D-76, which the owner declined on 2026-09-23.
   A new solid is always mid grey; After Effects remembers the last colour, this does not.
 - A solid is drawn whole: one of 8192 by 8192 takes a gigabyte while it is drawn (D-74).
 
@@ -68,7 +68,7 @@ Nothing below changes the fixtures.
 
 "B-23c playtest works", 2026-09-19. The owner asked for Width and Height to be draggable,
 which step 6 above now covers, and asked whether the colour and size could be keyed: that is
-D-76, proposed and awaiting them.
+D-76, proposed and awaiting them. The owner declined D-76 on 2026-09-23: they are not keyed.
 
 ## What to answer
 
