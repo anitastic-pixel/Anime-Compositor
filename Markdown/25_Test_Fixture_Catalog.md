@@ -1118,6 +1118,179 @@ Where nothing is written:
 
 - FX-WHIP-020: Target's Position dropped on its own Position. The window sends nothing, and `property.link` asked for it directly refuses it in a sentence and leaves the project as it was.
 
+## Timesheet fixtures
+
+**D-84, proposed on 2026-09-23.** Each case is a cut's folder under `Fixtures/xdts/`, named after the case (FX-XDTS-001 is `fx_xdts_001`), holding one XDTS timesheet and the drawings for its columns. **No real timesheet was available, so every sheet is synthetic**, written by `tools/xdts_reference.py` from CELSYS's public specification. The same tool reads each folder by D-84's rules, on its own and not from any other reader, and writes what it must become into `Fixtures/xdts/expected_xdts.json`: the composition (name, length, 24 frames a second, and size), each layer from the bottom up (name, track, exposures as start, end and drawing, the drawing files, and the `timesheet` record), and the notes. A build passes a case when all of that matches exactly, with the notes compared by ID and facts in any order.
+
+Every drawing is 160 by 90 and blank but for one 16-pixel square in its column's colour (A red, B green, C blue, D yellow). The square's row says the column and its distance to the right says the drawing number, so a cut played in the window shows its timing.
+
+**How to read the lines below.** Each column is printed as the frames it shows, from frame 0 onward: a number is the drawing on that frame, and `x` is nothing. A timesheet is read the same way, down the page. Notes are the IDs in the table at the end, with their facts.
+
+- FX-XDTS-001: One column on ones: a new drawing every frame.
+  - A: `1 2 3 4 5 6`
+- FX-XDTS-002: On twos: each drawing written once and held for two frames. The sheet says nothing on the frames between, and a drawing holds until the next entry.
+  - A: `1 1 2 2 3 3 4 4`
+- FX-XDTS-003: FX-XDTS-002 with SYMBOL_HYPHEN written on every held frame, as the specification writes a held line of dialogue. The same timing.
+  - A: `1 1 2 2 3 3 4 4`
+- FX-XDTS-004: A long hold: the last drawing written holds to the end of the sheet.
+  - A: `1 1 1 2 2 2 2 2 2 2 2 2`
+- FX-XDTS-005: Blank cells (SYMBOL_NULL_CELL, the X on a paper sheet): the column shows nothing from there until the next drawing.
+  - A: `1 1 1 x x 2 2 x x x`
+- FX-XDTS-006: A column that starts late: nothing is shown before its first entry.
+  - A: `x x x x 1 1 1 1`
+- FX-XDTS-007: Drawings reused out of order, as a cycle goes 1, 2, 3, 2, 1.
+  - A: `1 1 2 2 3 3 2 2 1 1`
+- FX-XDTS-008: The same drawing written twice in a row is one exposure, not two.
+  - A: `1 1 1 1 2 2`
+- FX-XDTS-009: Three columns, written in the file in the order 2, 0, 1: they stack by track number, 0 at the bottom, whatever the file order. A is on threes, B on twos, C on ones.
+  - C: `1 2 3 4 5 6`
+  - B: `1 1 2 2 3 3`
+  - A: `1 1 1 2 2 2`
+- FX-XDTS-010: No folders: loose files beside the sheet named for their column, with each of the four separators D-84 accepts.
+  - D: `1 1`
+  - C: `1 1`
+  - B: `1 1`
+  - A: `1 2`
+- FX-XDTS-011: Both a folder and loose files for column A: the folder is used, and the loose files are named as not used.
+  - A: `1 2`
+  - note `{"id": "TIMESHEET_NOT_USED", "names": ["A_0001.png", "A_0002.png"]}`
+- FX-XDTS-012: A column named in lower case finds a folder named in upper case.
+  - a: `1 1`
+- FX-XDTS-013: The two tick marks change nothing that is shown: the drawing before each holds through it, and each is reported as a mark on its frames.
+  - A: `1 1 2 2`
+  - note `{"id": "TIMESHEET_MARK", "column": "A", "mark": "inbetween", "frames": [1]}`
+  - note `{"id": "TIMESHEET_MARK", "column": "A", "mark": "reverse sheet", "frames": [3]}`
+- FX-XDTS-014: A sheet with a dialogue column and a camerawork column: the cells are read and the other two are reported as not read.
+  - A: `1 1 1 1`
+  - note `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}`
+  - note `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "camerawork", "tracks": 1}`
+- FX-XDTS-015: Two timetables in one file: the first is read, the second is named as not read.
+  - A: `1 1`
+  - note `{"id": "TIMESHEET_TABLE_NOT_READ", "tables": ["c015 retake"]}`
+  - note `{"id": "TIMESHEET_DRAWING_UNUSED", "column": "A", "drawings": [2]}`
+- FX-XDTS-016: A version other than 5 is read anyway, and reported.
+  - A: `1 1`
+  - note `{"id": "TIMESHEET_VERSION", "version": 4}`
+- FX-XDTS-017: A sheet saved with a byte-order mark and Windows line endings reads as any other.
+  - A: `1 1`
+- FX-XDTS-018: A timetable with no name: the composition is named after the sheet's file.
+  - A: `1 1`
+- FX-XDTS-020: The sheet calls for drawing 2, which is not in A's folder. The timing is kept, so those frames will say MEDIA_SEQUENCE_GAP when drawn, and the import names the drawing.
+  - A: `1 1 2 2 3 3`
+  - note `{"id": "TIMESHEET_DRAWING_MISSING", "column": "A", "drawings": [2]}`
+- FX-XDTS-021: A's folder holds drawings 2 and 4, which the sheet never shows.
+  - A: `1 1 3 3`
+  - note `{"id": "TIMESHEET_DRAWING_UNUSED", "column": "A", "drawings": [2, 4]}`
+- FX-XDTS-022: Column B has no folder and no loose files: A becomes a layer and B does not, and the import says so.
+  - A: `1 1`
+  - note `{"id": "TIMESHEET_COLUMN_NO_DRAWINGS", "column": "B"}`
+- FX-XDTS-023: A background folder and a background still beside the sheet match no column, and are named as not used. A text file is not a drawing and is not mentioned.
+  - A: `1 1`
+  - note `{"id": "TIMESHEET_NOT_USED", "names": ["BG", "BG.png"]}`
+- FX-XDTS-024: A cell that is not a whole number (`3a`): the column is blank from there to its next entry, and the value and frame are reported.
+  - A: `1 1 x x 2 2`
+  - note `{"id": "TIMESHEET_CELL_UNREADABLE", "column": "A", "frame": 2, "value": "3a"}`
+  - note `{"id": "TIMESHEET_DRAWING_UNUSED", "column": "A", "drawings": [3]}`
+- FX-XDTS-025: Entries the sheet cannot use: a second entry on frame 2, and one on frame 6 of a 4-frame sheet. Both are left out and reported.
+  - A: `1 1 2 2`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "A", "frames": [6], "reason": "outside the sheet"}`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "A", "frames": [2], "reason": "a second entry on the same frame"}`
+  - note `{"id": "TIMESHEET_DRAWING_UNUSED", "column": "A", "drawings": [3, 4]}`
+- FX-XDTS-026: Column B holds only blank cells: it makes no layer, and its folder is named as not used.
+  - A: `1 1`
+  - note `{"id": "TIMESHEET_COLUMN_EMPTY", "column": "B"}`
+  - note `{"id": "TIMESHEET_NOT_USED", "names": ["B"]}`
+- FX-XDTS-027: Track 1 has no name in the sheet, so no drawings can be found for it and it makes no layer.
+  - A: `1 1`
+  - note `{"id": "TIMESHEET_COLUMN_UNNAMED", "track": 1}`
+
+Nothing is imported from these, and the ID is the refusal:
+
+- FX-XDTS-030: The folder holds no timesheet. `TIMESHEET_NOT_FOUND`
+- FX-XDTS-031: The folder holds two timesheets, and which one is meant is the person's to say. `TIMESHEET_NOT_FOUND`
+- FX-XDTS-032: The first line is not the XDTS line: this is bare JSON. `TIMESHEET_UNREADABLE`
+- FX-XDTS-033: The first line is right and what follows is not JSON. `TIMESHEET_UNREADABLE`
+- FX-XDTS-034: The sheet has a dialogue column and no cell column. `TIMESHEET_NO_CELLS`; note `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}`
+- FX-XDTS-035: The sheet's length is 0 frames. `TIMESHEET_UNREADABLE`
+- FX-XDTS-036: No column has any drawings beside the sheet, so no layer can be made. `TIMESHEET_NO_CELLS`; note `{"id": "TIMESHEET_COLUMN_NO_DRAWINGS", "column": "A"}`
+
+### FX-XDTS-040, the sample cut
+
+Two seconds of a made-up cut, `Fixtures/xdts/fx_xdts_040`, made to be played and learned from. It is the one B-28c's playtest uses. A is a body on twos that stops, holds and steps back; B is a mouth that moves while a line of dialogue runs, blank from frame 16 to 29 while the body holds; C is an effect that comes in late, goes, and comes back at frame 40 with a tick mark on frame 41. The sheet also has one line of dialogue and one camera instruction, which are not read, and a background still, `BG.png`, which is on no column. Below is what it must show, a frame to a row, as a paper timesheet is laid out (the top of the stack is the right-hand column):
+
+| frame | A | B | C |
+| --- | --- | --- | --- |
+| 0 | 1 | 1 | x |
+| 1 | 1 | 1 | x |
+| 2 | 2 | 1 | x |
+| 3 | 2 | 2 | x |
+| 4 | 3 | 2 | x |
+| 5 | 3 | 2 | x |
+| 6 | 4 | 3 | x |
+| 7 | 4 | 2 | x |
+| 8 | 5 | 1 | x |
+| 9 | 5 | 1 | x |
+| 10 | 6 | 1 | x |
+| 11 | 6 | 2 | x |
+| 12 | 7 | 2 | x |
+| 13 | 7 | 2 | x |
+| 14 | 8 | 3 | x |
+| 15 | 8 | 2 | x |
+| 16 | 8 | x | x |
+| 17 | 8 | x | x |
+| 18 | 8 | x | x |
+| 19 | 8 | x | x |
+| 20 | 8 | x | 1 |
+| 21 | 8 | x | 2 |
+| 22 | 8 | x | 3 |
+| 23 | 8 | x | 4 |
+| 24 | 7 | x | 5 |
+| 25 | 7 | x | 5 |
+| 26 | 6 | x | 6 |
+| 27 | 6 | x | 6 |
+| 28 | 5 | x | x |
+| 29 | 5 | x | x |
+| 30 | 4 | 1 | x |
+| 31 | 4 | 1 | x |
+| 32 | 3 | 1 | x |
+| 33 | 3 | 2 | x |
+| 34 | 2 | 2 | x |
+| 35 | 2 | 2 | x |
+| 36 | 1 | 3 | x |
+| 37 | 1 | 3 | x |
+| 38 | 1 | 3 | x |
+| 39 | 1 | 1 | x |
+| 40 | 1 | 1 | 1 |
+| 41 | 1 | 1 | 1 |
+| 42 | 1 | 1 | 2 |
+| 43 | 1 | 1 | 2 |
+| 44 | 1 | 1 | 2 |
+| 45 | 1 | 1 | 2 |
+| 46 | 1 | 1 | 2 |
+| 47 | 1 | 1 | 2 |
+
+Its notes: `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}`, `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "camerawork", "tracks": 1}`, `{"id": "TIMESHEET_MARK", "column": "C", "mark": "inbetween", "frames": [41]}`, `{"id": "TIMESHEET_NOT_USED", "names": ["BG.png"]}`.
+
+### The notes
+
+| ID | Severity | Meaning | Required behavior |
+| --- | --- | --- | --- |
+| TIMESHEET_NOT_FOUND | ERROR | The chosen folder holds no `.xdts` file, or more than one | import nothing; name what was found |
+| TIMESHEET_UNREADABLE | ERROR | Not XDTS: the first line is wrong, the rest is not JSON, there is no timetable, or its length is not a number of frames | import nothing; say which |
+| TIMESHEET_NO_CELLS | ERROR | No drawing column, or none that can become a layer | import nothing; the other notes say why |
+| TIMESHEET_VERSION | WARNING | The file's version is not 5 | read it anyway; name the version |
+| TIMESHEET_TABLE_NOT_READ | INFO | The file has more than one timetable | read the first; name the others |
+| TIMESHEET_FIELD_NOT_READ | INFO | A dialogue, camerawork or unknown field | read the drawing columns; name the field and its column count |
+| TIMESHEET_COLUMN_UNNAMED | WARNING | A drawing column has no name, so its drawings cannot be found | make no layer for it; name its track number |
+| TIMESHEET_ENTRY_IGNORED | WARNING | An entry past the end of the sheet, or a second entry on one frame | leave it out; name the column, frames and reason |
+| TIMESHEET_CELL_UNREADABLE | WARNING | A cell that is not a whole number or a symbol | the column is blank from there to its next entry; name the column, frame and value |
+| TIMESHEET_MARK | INFO | A tick mark | change nothing shown; name the column, mark and frames |
+| TIMESHEET_COLUMN_EMPTY | INFO | A drawing column that never shows a drawing | make no layer for it |
+| TIMESHEET_COLUMN_NO_DRAWINGS | WARNING | No folder and no loose files for a column | make no layer for it; name the column |
+| TIMESHEET_DRAWING_MISSING | WARNING | The sheet calls for a drawing its column does not have | keep the timing; name the drawings |
+| TIMESHEET_DRAWING_UNUSED | INFO | A column has drawings the sheet never shows | name the drawings |
+| TIMESHEET_NOT_USED | INFO | A folder or drawing beside the sheet that no column used | name them |
+
 ## Mask fixtures
 
 **D-77, accepted by the owner on 2026-09-19**, built in the core by B-24b, put in the window by B-24c and set moving by B-24d. Every case is a composition 6 by 2 at 24 fps: three frames long where the mask stands still, and five where its path moves (FX-MSK-031 to 035), from the projects in `Fixtures/masks/`. The one drawing, `bg`, is the adjustment fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom. One raster layer carries the masks; nothing else is on it, so every cell is the drawing multiplied by the coverage the masks work out to. Each cell is R G B A of the finished frame, linear and premultiplied.

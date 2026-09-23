@@ -12,7 +12,7 @@ Stage G1-rest: deliver R-04 masks and mattes and R-05 the three effects, each on
 
 Stage G2: deliver R-12 flat planes, camera and parenting, then R-13 bounded expressions. Requires G1 passing and measured memory headroom.
 
-Stage G3: production conveniences. Precompositions, adjustment layers, richer masks, EXR, packaging, anime-specific processing. Prioritized by observed shot work, never by catalog size. EXR and packaging are done (B-15, B-16). On 2026-09-17 the owner chose foundations first (D-64, D-65): adjustment layers, precompositions and the graph editor's gaps, in that order; anime-specific processing waits for work on the effects list.
+Stage G3: production conveniences. Precompositions, adjustment layers, richer masks, EXR, packaging, anime-specific processing. Prioritized by observed shot work, never by catalog size. EXR and packaging are done (B-15, B-16). On 2026-09-17 the owner chose foundations first (D-64, D-65): adjustment layers, precompositions and the graph editor's gaps, in that order; anime-specific processing waits for work on the effects list. Reading a cut's XDTS timesheet into a composition (document 15's R-01) is proposed as D-84 on 2026-09-23, at the owner's word and ahead of the real sheets document 31's AR-08 asks for, as B-28.
 
 ## Why G1 was split
 

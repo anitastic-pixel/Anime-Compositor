@@ -1,0 +1,980 @@
+exchangeDigitalTimeSheet Save Data
+{
+ "header": {
+  "cut": "1",
+  "scene": "1"
+ },
+ "timeTables": [
+  {
+   "fields": [
+    {
+     "fieldId": 0,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 2,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 4,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "3"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 6,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "4"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 8,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "5"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 10,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "6"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 12,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "7"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 14,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "8"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 16,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "8"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 24,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "7"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 26,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "6"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 28,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "5"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 30,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "4"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 32,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "3"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 34,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 36,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "trackNo": 1,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 3,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 6,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "3"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 7,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 8,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 11,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 14,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "3"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 15,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 16,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_NULL_CELL"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 30,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 33,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 36,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "3"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 39,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "trackNo": 2,
+       "frames": [
+        {
+         "frame": 20,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 21,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 22,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "3"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 23,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "4"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 24,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "5"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 26,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "6"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 28,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_NULL_CELL"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 40,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 41,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_TICK_1"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 42,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "fieldId": 3,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "MIKA",
+            "Over here!"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 1,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 2,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 3,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 4,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 5,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 6,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 7,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 8,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 9,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 10,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 11,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 12,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 13,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 14,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 15,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "fieldId": 5,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 20,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "FOLLOW"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 21,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 22,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 23,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 24,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 25,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 26,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 27,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 28,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 29,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 30,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 31,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 32,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 33,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 34,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 35,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 36,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 37,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 38,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 39,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 40,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 41,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 42,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 43,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 44,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 45,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 46,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 47,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "duration": 48,
+   "name": "s01 c012",
+   "timeTableHeaders": [
+    {
+     "fieldId": 0,
+     "names": [
+      "A",
+      "B",
+      "C"
+     ]
+    }
+   ]
+  }
+ ],
+ "version": 5
+}

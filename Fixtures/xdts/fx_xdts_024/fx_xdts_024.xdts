@@ -1,0 +1,67 @@
+exchangeDigitalTimeSheet Save Data
+{
+ "header": {
+  "cut": "1",
+  "scene": "1"
+ },
+ "timeTables": [
+  {
+   "fields": [
+    {
+     "fieldId": 0,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 2,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "3a"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 4,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "2"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "duration": 6,
+   "name": "c024",
+   "timeTableHeaders": [
+    {
+     "fieldId": 0,
+     "names": [
+      "A"
+     ]
+    }
+   ]
+  }
+ ],
+ "version": 5
+}

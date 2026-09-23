@@ -1,0 +1,143 @@
+exchangeDigitalTimeSheet Save Data
+{
+ "header": {
+  "cut": "1",
+  "scene": "1"
+ },
+ "timeTables": [
+  {
+   "fields": [
+    {
+     "fieldId": 0,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "fieldId": 3,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "MIKA",
+            "Wait!"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 1,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 2,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "fieldId": 5,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "PAN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 1,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 2,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 3,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "duration": 4,
+   "name": "c014",
+   "timeTableHeaders": [
+    {
+     "fieldId": 0,
+     "names": [
+      "A"
+     ]
+    }
+   ]
+  }
+ ],
+ "version": 5
+}

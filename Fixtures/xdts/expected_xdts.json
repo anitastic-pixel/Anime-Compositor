@@ -1,0 +1,1638 @@
+{
+ "frame_rate": 24,
+ "cases": {
+  "FX-XDTS-001": {
+   "says": "One column on ones: a new drawing every frame.",
+   "folder": "fx_xdts_001",
+   "composition": {
+    "name": "c001",
+    "duration": 6,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       2,
+       2
+      ],
+      [
+       2,
+       3,
+       3
+      ],
+      [
+       3,
+       4,
+       4
+      ],
+      [
+       4,
+       5,
+       5
+      ],
+      [
+       5,
+       6,
+       6
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png",
+      "3": "A/A_0003.png",
+      "4": "A/A_0004.png",
+      "5": "A/A_0005.png",
+      "6": "A/A_0006.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_001.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-002": {
+   "says": "On twos: each drawing written once and held for two frames. The sheet says nothing on the frames between, and a drawing holds until the next entry.",
+   "folder": "fx_xdts_002",
+   "composition": {
+    "name": "c002",
+    "duration": 8,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       2
+      ],
+      [
+       4,
+       6,
+       3
+      ],
+      [
+       6,
+       8,
+       4
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png",
+      "3": "A/A_0003.png",
+      "4": "A/A_0004.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_002.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-003": {
+   "says": "FX-XDTS-002 with SYMBOL_HYPHEN written on every held frame, as the specification writes a held line of dialogue. The same timing.",
+   "folder": "fx_xdts_003",
+   "composition": {
+    "name": "c003",
+    "duration": 8,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       2
+      ],
+      [
+       4,
+       6,
+       3
+      ],
+      [
+       6,
+       8,
+       4
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png",
+      "3": "A/A_0003.png",
+      "4": "A/A_0004.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_003.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-004": {
+   "says": "A long hold: the last drawing written holds to the end of the sheet.",
+   "folder": "fx_xdts_004",
+   "composition": {
+    "name": "c004",
+    "duration": 12,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       3,
+       1
+      ],
+      [
+       3,
+       12,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_004.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-005": {
+   "says": "Blank cells (SYMBOL_NULL_CELL, the X on a paper sheet): the column shows nothing from there until the next drawing.",
+   "folder": "fx_xdts_005",
+   "composition": {
+    "name": "c005",
+    "duration": 10,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       3,
+       1
+      ],
+      [
+       5,
+       7,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_005.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-006": {
+   "says": "A column that starts late: nothing is shown before its first entry.",
+   "folder": "fx_xdts_006",
+   "composition": {
+    "name": "c006",
+    "duration": 8,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       4,
+       8,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_006.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-007": {
+   "says": "Drawings reused out of order, as a cycle goes 1, 2, 3, 2, 1.",
+   "folder": "fx_xdts_007",
+   "composition": {
+    "name": "c007",
+    "duration": 10,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       2
+      ],
+      [
+       4,
+       6,
+       3
+      ],
+      [
+       6,
+       8,
+       2
+      ],
+      [
+       8,
+       10,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png",
+      "3": "A/A_0003.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_007.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-008": {
+   "says": "The same drawing written twice in a row is one exposure, not two.",
+   "folder": "fx_xdts_008",
+   "composition": {
+    "name": "c008",
+    "duration": 6,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       4,
+       1
+      ],
+      [
+       4,
+       6,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_008.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-009": {
+   "says": "Three columns, written in the file in the order 2, 0, 1: they stack by track number, 0 at the bottom, whatever the file order. A is on threes, B on twos, C on ones.",
+   "folder": "fx_xdts_009",
+   "composition": {
+    "name": "c009",
+    "duration": 6,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       3,
+       1
+      ],
+      [
+       3,
+       6,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_009.xdts",
+      "column": "A",
+      "track": 0
+     }
+    },
+    {
+     "name": "B",
+     "track": 1,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       2
+      ],
+      [
+       4,
+       6,
+       3
+      ]
+     ],
+     "drawings": {
+      "1": "B/B_0001.png",
+      "2": "B/B_0002.png",
+      "3": "B/B_0003.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_009.xdts",
+      "column": "B",
+      "track": 1
+     }
+    },
+    {
+     "name": "C",
+     "track": 2,
+     "spans": [
+      [
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       2,
+       2
+      ],
+      [
+       2,
+       3,
+       3
+      ],
+      [
+       3,
+       4,
+       4
+      ],
+      [
+       4,
+       5,
+       5
+      ],
+      [
+       5,
+       6,
+       6
+      ]
+     ],
+     "drawings": {
+      "1": "C/C_0001.png",
+      "2": "C/C_0002.png",
+      "3": "C/C_0003.png",
+      "4": "C/C_0004.png",
+      "5": "C/C_0005.png",
+      "6": "C/C_0006.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_009.xdts",
+      "column": "C",
+      "track": 2
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-010": {
+   "says": "No folders: loose files beside the sheet named for their column, with each of the four separators D-84 accepts.",
+   "folder": "fx_xdts_010",
+   "composition": {
+    "name": "c010",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       2,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A_0001.png",
+      "2": "A_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_010.xdts",
+      "column": "A",
+      "track": 0
+     }
+    },
+    {
+     "name": "B",
+     "track": 1,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "B-0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_010.xdts",
+      "column": "B",
+      "track": 1
+     }
+    },
+    {
+     "name": "C",
+     "track": 2,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "C.0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_010.xdts",
+      "column": "C",
+      "track": 2
+     }
+    },
+    {
+     "name": "D",
+     "track": 3,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "D 0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_010.xdts",
+      "column": "D",
+      "track": 3
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-011": {
+   "says": "Both a folder and loose files for column A: the folder is used, and the loose files are named as not used.",
+   "folder": "fx_xdts_011",
+   "composition": {
+    "name": "c011",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       1,
+       1
+      ],
+      [
+       1,
+       2,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_011.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_NOT_USED",
+     "names": [
+      "A_0001.png",
+      "A_0002.png"
+     ]
+    }
+   ]
+  },
+  "FX-XDTS-012": {
+   "says": "A column named in lower case finds a folder named in upper case.",
+   "folder": "fx_xdts_012",
+   "composition": {
+    "name": "c012",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "a",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_012.xdts",
+      "column": "a",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-013": {
+   "says": "The two tick marks change nothing that is shown: the drawing before each holds through it, and each is reported as a mark on its frames.",
+   "folder": "fx_xdts_013",
+   "composition": {
+    "name": "c013",
+    "duration": 4,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_013.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_MARK",
+     "column": "A",
+     "mark": "inbetween",
+     "frames": [
+      1
+     ]
+    },
+    {
+     "id": "TIMESHEET_MARK",
+     "column": "A",
+     "mark": "reverse sheet",
+     "frames": [
+      3
+     ]
+    }
+   ]
+  },
+  "FX-XDTS-014": {
+   "says": "A sheet with a dialogue column and a camerawork column: the cells are read and the other two are reported as not read.",
+   "folder": "fx_xdts_014",
+   "composition": {
+    "name": "c014",
+    "duration": 4,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       4,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_014.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_FIELD_NOT_READ",
+     "field": "dialogue",
+     "tracks": 1
+    },
+    {
+     "id": "TIMESHEET_FIELD_NOT_READ",
+     "field": "camerawork",
+     "tracks": 1
+    }
+   ]
+  },
+  "FX-XDTS-015": {
+   "says": "Two timetables in one file: the first is read, the second is named as not read.",
+   "folder": "fx_xdts_015",
+   "composition": {
+    "name": "c015",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_015.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_TABLE_NOT_READ",
+     "tables": [
+      "c015 retake"
+     ]
+    },
+    {
+     "id": "TIMESHEET_DRAWING_UNUSED",
+     "column": "A",
+     "drawings": [
+      2
+     ]
+    }
+   ]
+  },
+  "FX-XDTS-016": {
+   "says": "A version other than 5 is read anyway, and reported.",
+   "folder": "fx_xdts_016",
+   "composition": {
+    "name": "c016",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_016.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_VERSION",
+     "version": 4
+    }
+   ]
+  },
+  "FX-XDTS-017": {
+   "says": "A sheet saved with a byte-order mark and Windows line endings reads as any other.",
+   "folder": "fx_xdts_017",
+   "composition": {
+    "name": "c017",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_017.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-018": {
+   "says": "A timetable with no name: the composition is named after the sheet's file.",
+   "folder": "fx_xdts_018",
+   "composition": {
+    "name": "fx_xdts_018",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_018.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": []
+  },
+  "FX-XDTS-020": {
+   "says": "The sheet calls for drawing 2, which is not in A's folder. The timing is kept, so those frames will say MEDIA_SEQUENCE_GAP when drawn, and the import names the drawing.",
+   "folder": "fx_xdts_020",
+   "composition": {
+    "name": "c020",
+    "duration": 6,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       2
+      ],
+      [
+       4,
+       6,
+       3
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "3": "A/A_0003.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_020.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_DRAWING_MISSING",
+     "column": "A",
+     "drawings": [
+      2
+     ]
+    }
+   ]
+  },
+  "FX-XDTS-021": {
+   "says": "A's folder holds drawings 2 and 4, which the sheet never shows.",
+   "folder": "fx_xdts_021",
+   "composition": {
+    "name": "c021",
+    "duration": 4,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       3
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png",
+      "3": "A/A_0003.png",
+      "4": "A/A_0004.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_021.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_DRAWING_UNUSED",
+     "column": "A",
+     "drawings": [
+      2,
+      4
+     ]
+    }
+   ]
+  },
+  "FX-XDTS-022": {
+   "says": "Column B has no folder and no loose files: A becomes a layer and B does not, and the import says so.",
+   "folder": "fx_xdts_022",
+   "composition": {
+    "name": "c022",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_022.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_COLUMN_NO_DRAWINGS",
+     "column": "B"
+    }
+   ]
+  },
+  "FX-XDTS-023": {
+   "says": "A background folder and a background still beside the sheet match no column, and are named as not used. A text file is not a drawing and is not mentioned.",
+   "folder": "fx_xdts_023",
+   "composition": {
+    "name": "c023",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_023.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_NOT_USED",
+     "names": [
+      "BG",
+      "BG.png"
+     ]
+    }
+   ]
+  },
+  "FX-XDTS-024": {
+   "says": "A cell that is not a whole number (`3a`): the column is blank from there to its next entry, and the value and frame are reported.",
+   "folder": "fx_xdts_024",
+   "composition": {
+    "name": "c024",
+    "duration": 6,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       4,
+       6,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png",
+      "3": "A/A_0003.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_024.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_CELL_UNREADABLE",
+     "column": "A",
+     "frame": 2,
+     "value": "3a"
+    },
+    {
+     "id": "TIMESHEET_DRAWING_UNUSED",
+     "column": "A",
+     "drawings": [
+      3
+     ]
+    }
+   ]
+  },
+  "FX-XDTS-025": {
+   "says": "Entries the sheet cannot use: a second entry on frame 2, and one on frame 6 of a 4-frame sheet. Both are left out and reported.",
+   "folder": "fx_xdts_025",
+   "composition": {
+    "name": "c025",
+    "duration": 4,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png",
+      "3": "A/A_0003.png",
+      "4": "A/A_0004.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_025.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_ENTRY_IGNORED",
+     "column": "A",
+     "frames": [
+      6
+     ],
+     "reason": "outside the sheet"
+    },
+    {
+     "id": "TIMESHEET_ENTRY_IGNORED",
+     "column": "A",
+     "frames": [
+      2
+     ],
+     "reason": "a second entry on the same frame"
+    },
+    {
+     "id": "TIMESHEET_DRAWING_UNUSED",
+     "column": "A",
+     "drawings": [
+      3,
+      4
+     ]
+    }
+   ]
+  },
+  "FX-XDTS-026": {
+   "says": "Column B holds only blank cells: it makes no layer, and its folder is named as not used.",
+   "folder": "fx_xdts_026",
+   "composition": {
+    "name": "c026",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_026.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_COLUMN_EMPTY",
+     "column": "B"
+    },
+    {
+     "id": "TIMESHEET_NOT_USED",
+     "names": [
+      "B"
+     ]
+    }
+   ]
+  },
+  "FX-XDTS-027": {
+   "says": "Track 1 has no name in the sheet, so no drawings can be found for it and it makes no layer.",
+   "folder": "fx_xdts_027",
+   "composition": {
+    "name": "c027",
+    "duration": 2,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_027.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_COLUMN_UNNAMED",
+     "track": 1
+    }
+   ]
+  },
+  "FX-XDTS-040": {
+   "says": "The sample cut: two seconds, three columns, dialogue, camerawork and a background.",
+   "folder": "fx_xdts_040",
+   "composition": {
+    "name": "s01 c012",
+    "duration": 48,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       2
+      ],
+      [
+       4,
+       6,
+       3
+      ],
+      [
+       6,
+       8,
+       4
+      ],
+      [
+       8,
+       10,
+       5
+      ],
+      [
+       10,
+       12,
+       6
+      ],
+      [
+       12,
+       14,
+       7
+      ],
+      [
+       14,
+       24,
+       8
+      ],
+      [
+       24,
+       26,
+       7
+      ],
+      [
+       26,
+       28,
+       6
+      ],
+      [
+       28,
+       30,
+       5
+      ],
+      [
+       30,
+       32,
+       4
+      ],
+      [
+       32,
+       34,
+       3
+      ],
+      [
+       34,
+       36,
+       2
+      ],
+      [
+       36,
+       48,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png",
+      "3": "A/A_0003.png",
+      "4": "A/A_0004.png",
+      "5": "A/A_0005.png",
+      "6": "A/A_0006.png",
+      "7": "A/A_0007.png",
+      "8": "A/A_0008.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_040.xdts",
+      "column": "A",
+      "track": 0
+     }
+    },
+    {
+     "name": "B",
+     "track": 1,
+     "spans": [
+      [
+       0,
+       3,
+       1
+      ],
+      [
+       3,
+       6,
+       2
+      ],
+      [
+       6,
+       7,
+       3
+      ],
+      [
+       7,
+       8,
+       2
+      ],
+      [
+       8,
+       11,
+       1
+      ],
+      [
+       11,
+       14,
+       2
+      ],
+      [
+       14,
+       15,
+       3
+      ],
+      [
+       15,
+       16,
+       2
+      ],
+      [
+       30,
+       33,
+       1
+      ],
+      [
+       33,
+       36,
+       2
+      ],
+      [
+       36,
+       39,
+       3
+      ],
+      [
+       39,
+       48,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "B/B_0001.png",
+      "2": "B/B_0002.png",
+      "3": "B/B_0003.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_040.xdts",
+      "column": "B",
+      "track": 1
+     }
+    },
+    {
+     "name": "C",
+     "track": 2,
+     "spans": [
+      [
+       20,
+       21,
+       1
+      ],
+      [
+       21,
+       22,
+       2
+      ],
+      [
+       22,
+       23,
+       3
+      ],
+      [
+       23,
+       24,
+       4
+      ],
+      [
+       24,
+       26,
+       5
+      ],
+      [
+       26,
+       28,
+       6
+      ],
+      [
+       40,
+       42,
+       1
+      ],
+      [
+       42,
+       48,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "C/C_0001.png",
+      "2": "C/C_0002.png",
+      "3": "C/C_0003.png",
+      "4": "C/C_0004.png",
+      "5": "C/C_0005.png",
+      "6": "C/C_0006.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_040.xdts",
+      "column": "C",
+      "track": 2
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_FIELD_NOT_READ",
+     "field": "dialogue",
+     "tracks": 1
+    },
+    {
+     "id": "TIMESHEET_FIELD_NOT_READ",
+     "field": "camerawork",
+     "tracks": 1
+    },
+    {
+     "id": "TIMESHEET_MARK",
+     "column": "C",
+     "mark": "inbetween",
+     "frames": [
+      41
+     ]
+    },
+    {
+     "id": "TIMESHEET_NOT_USED",
+     "names": [
+      "BG.png"
+     ]
+    }
+   ]
+  }
+ },
+ "refused": {
+  "FX-XDTS-030": {
+   "says": "The folder holds no timesheet.",
+   "folder": "fx_xdts_030",
+   "refused": "TIMESHEET_NOT_FOUND",
+   "sheets": [],
+   "notes": []
+  },
+  "FX-XDTS-031": {
+   "says": "The folder holds two timesheets, and which one is meant is the person's to say.",
+   "folder": "fx_xdts_031",
+   "refused": "TIMESHEET_NOT_FOUND",
+   "sheets": [
+    "fx_xdts_031a.xdts",
+    "fx_xdts_031b.xdts"
+   ],
+   "notes": []
+  },
+  "FX-XDTS-032": {
+   "says": "The first line is not the XDTS line: this is bare JSON.",
+   "folder": "fx_xdts_032",
+   "refused": "TIMESHEET_UNREADABLE",
+   "reason": "the first line is not exchangeDigitalTimeSheet Save Data",
+   "notes": []
+  },
+  "FX-XDTS-033": {
+   "says": "The first line is right and what follows is not JSON.",
+   "folder": "fx_xdts_033",
+   "refused": "TIMESHEET_UNREADABLE",
+   "reason": "what follows the first line is not JSON",
+   "notes": []
+  },
+  "FX-XDTS-034": {
+   "says": "The sheet has a dialogue column and no cell column.",
+   "folder": "fx_xdts_034",
+   "refused": "TIMESHEET_NO_CELLS",
+   "notes": [
+    {
+     "id": "TIMESHEET_FIELD_NOT_READ",
+     "field": "dialogue",
+     "tracks": 1
+    }
+   ]
+  },
+  "FX-XDTS-035": {
+   "says": "The sheet's length is 0 frames.",
+   "folder": "fx_xdts_035",
+   "refused": "TIMESHEET_UNREADABLE",
+   "reason": "its length is not a number of frames",
+   "notes": []
+  },
+  "FX-XDTS-036": {
+   "says": "No column has any drawings beside the sheet, so no layer can be made.",
+   "folder": "fx_xdts_036",
+   "refused": "TIMESHEET_NO_CELLS",
+   "notes": [
+    {
+     "id": "TIMESHEET_COLUMN_NO_DRAWINGS",
+     "column": "A"
+    }
+   ]
+  }
+ }
+}
