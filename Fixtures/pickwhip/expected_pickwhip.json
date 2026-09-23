@@ -1,0 +1,851 @@
+{
+ "tolerance": 1e-06,
+ "project": "pickwhip_project.json",
+ "frames": [
+  0,
+  12,
+  24,
+  36,
+  48
+ ],
+ "cases": {
+  "FX-WHIP-001": {
+   "says": "Target's Position whipped to Null 1's Position: two numbers onto two.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "position"
+     ],
+     "destination": [
+      "layer-target",
+      "position"
+     ],
+     "text": "thisComp.layer(\"null-1\").transform.position"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": [
+      960,
+      540
+     ],
+     "linked": [
+      960,
+      540
+     ],
+     "error": null
+    },
+    "12": {
+     "source": [
+      1080.0,
+      480.0
+     ],
+     "linked": [
+      1080.0,
+      480.0
+     ],
+     "error": null
+    },
+    "24": {
+     "source": [
+      1200.0,
+      420.0
+     ],
+     "linked": [
+      1200.0,
+      420.0
+     ],
+     "error": null
+    },
+    "36": {
+     "source": [
+      1320.0,
+      360.0
+     ],
+     "linked": [
+      1320.0,
+      360.0
+     ],
+     "error": null
+    },
+    "48": {
+     "source": [
+      1440,
+      300
+     ],
+     "linked": [
+      1440,
+      300
+     ],
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-002": {
+   "says": "Target's Rotation whipped to Null 1's Rotation: one number onto one.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "rotation"
+     ],
+     "destination": [
+      "layer-target",
+      "rotation"
+     ],
+     "text": "thisComp.layer(\"null-1\").transform.rotation"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": 0,
+     "linked": 0,
+     "error": null
+    },
+    "12": {
+     "source": 45.0,
+     "linked": 45.0,
+     "error": null
+    },
+    "24": {
+     "source": 90.0,
+     "linked": 90.0,
+     "error": null
+    },
+    "36": {
+     "source": 135.0,
+     "linked": 135.0,
+     "error": null
+    },
+    "48": {
+     "source": 180,
+     "linked": 180,
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-003": {
+   "says": "Target's Rotation whipped to Null 1's Position: two numbers onto one takes the first, x.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "position"
+     ],
+     "destination": [
+      "layer-target",
+      "rotation"
+     ],
+     "text": "thisComp.layer(\"null-1\").transform.position[0]"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": [
+      960,
+      540
+     ],
+     "linked": 960,
+     "error": null
+    },
+    "12": {
+     "source": [
+      1080.0,
+      480.0
+     ],
+     "linked": 1080.0,
+     "error": null
+    },
+    "24": {
+     "source": [
+      1200.0,
+      420.0
+     ],
+     "linked": 1200.0,
+     "error": null
+    },
+    "36": {
+     "source": [
+      1320.0,
+      360.0
+     ],
+     "linked": 1320.0,
+     "error": null
+    },
+    "48": {
+     "source": [
+      1440,
+      300
+     ],
+     "linked": 1440,
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-004": {
+   "says": "Target's Scale whipped to Null 1's Rotation: one number onto two uses it for both.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "rotation"
+     ],
+     "destination": [
+      "layer-target",
+      "scale"
+     ],
+     "text": "temp = thisComp.layer(\"null-1\").transform.rotation;\n[temp, temp]"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": 0,
+     "linked": [
+      0,
+      0
+     ],
+     "error": null
+    },
+    "12": {
+     "source": 45.0,
+     "linked": [
+      45.0,
+      45.0
+     ],
+     "error": null
+    },
+    "24": {
+     "source": 90.0,
+     "linked": [
+      90.0,
+      90.0
+     ],
+     "error": null
+    },
+    "36": {
+     "source": 135.0,
+     "linked": [
+      135.0,
+      135.0
+     ],
+     "error": null
+    },
+    "48": {
+     "source": 180,
+     "linked": [
+      180,
+      180
+     ],
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-005": {
+   "says": "Target's Opacity whipped to Null 1's Opacity: the same percentage, though the file keeps 0 to 1 and an expression 0 to 100.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "opacity"
+     ],
+     "destination": [
+      "layer-target",
+      "opacity"
+     ],
+     "text": "thisComp.layer(\"null-1\").transform.opacity"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": 1.0,
+     "linked": 1.0,
+     "error": null
+    },
+    "12": {
+     "source": 0.8125,
+     "linked": 0.8125,
+     "error": null
+    },
+    "24": {
+     "source": 0.625,
+     "linked": 0.625,
+     "error": null
+    },
+    "36": {
+     "source": 0.4375,
+     "linked": 0.4375,
+     "error": null
+    },
+    "48": {
+     "source": 0.25,
+     "linked": 0.25,
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-006": {
+   "says": "Target's Position whipped to Null 1's Anchor Point: written anchorPoint, as After Effects writes it.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "anchor"
+     ],
+     "destination": [
+      "layer-target",
+      "position"
+     ],
+     "text": "thisComp.layer(\"null-1\").transform.anchorPoint"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": [
+      50,
+      50
+     ],
+     "linked": [
+      50,
+      50
+     ],
+     "error": null
+    },
+    "12": {
+     "source": [
+      37.5,
+      62.5
+     ],
+     "linked": [
+      37.5,
+      62.5
+     ],
+     "error": null
+    },
+    "24": {
+     "source": [
+      25.0,
+      75.0
+     ],
+     "linked": [
+      25.0,
+      75.0
+     ],
+     "error": null
+    },
+    "36": {
+     "source": [
+      12.5,
+      87.5
+     ],
+     "linked": [
+      12.5,
+      87.5
+     ],
+     "error": null
+    },
+    "48": {
+     "source": [
+      0,
+      100
+     ],
+     "linked": [
+      0,
+      100
+     ],
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-007": {
+   "says": "Target's Scale whipped to Null 1's Scale, which is keyed on both numbers.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "scale"
+     ],
+     "destination": [
+      "layer-target",
+      "scale"
+     ],
+     "text": "thisComp.layer(\"null-1\").transform.scale"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": [
+      100,
+      100
+     ],
+     "linked": [
+      100,
+      100
+     ],
+     "error": null
+    },
+    "12": {
+     "source": [
+      87.5,
+      125.0
+     ],
+     "linked": [
+      87.5,
+      125.0
+     ],
+     "error": null
+    },
+    "24": {
+     "source": [
+      75.0,
+      150.0
+     ],
+     "linked": [
+      75.0,
+      150.0
+     ],
+     "error": null
+    },
+    "36": {
+     "source": [
+      62.5,
+      175.0
+     ],
+     "linked": [
+      62.5,
+      175.0
+     ],
+     "error": null
+    },
+    "48": {
+     "source": [
+      50,
+      200
+     ],
+     "linked": [
+      50,
+      200
+     ],
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-008": {
+   "says": "Target's Position whipped to the camera's Position, which already has a wiggle: the link reads the wiggled value, not the keys.",
+   "drops": [
+    {
+     "source": [
+      "camera",
+      "position"
+     ],
+     "destination": [
+      "layer-target",
+      "position"
+     ],
+     "text": "thisComp.activeCamera.position"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": [
+      969.4336249008326,
+      547.6315259802685
+     ],
+     "linked": [
+      969.4336249008326,
+      547.6315259802685
+     ],
+     "error": null
+    },
+    "12": {
+     "source": [
+      966.7653177123977,
+      548.3560595722439
+     ],
+     "linked": [
+      966.7653177123977,
+      548.3560595722439
+     ],
+     "error": null
+    },
+    "24": {
+     "source": [
+      964.097010523963,
+      549.0805931642192
+     ],
+     "linked": [
+      964.097010523963,
+      549.0805931642192
+     ],
+     "error": null
+    },
+    "36": {
+     "source": [
+      965.7600662308878,
+      539.7250084969057
+     ],
+     "linked": [
+      965.7600662308878,
+      539.7250084969057
+     ],
+     "error": null
+    },
+    "48": {
+     "source": [
+      967.4231219378125,
+      530.3694238295922
+     ],
+     "linked": [
+      967.4231219378125,
+      530.3694238295922
+     ],
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-009": {
+   "says": "The camera's Depth whipped to Null 1's Rotation: a whip can start on the camera.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "rotation"
+     ],
+     "destination": [
+      "camera",
+      "depth"
+     ],
+     "text": "thisComp.layer(\"null-1\").transform.rotation"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": 0,
+     "linked": 0,
+     "error": null
+    },
+    "12": {
+     "source": 45.0,
+     "linked": 45.0,
+     "error": null
+    },
+    "24": {
+     "source": 90.0,
+     "linked": 90.0,
+     "error": null
+    },
+    "36": {
+     "source": 135.0,
+     "linked": 135.0,
+     "error": null
+    },
+    "48": {
+     "source": 180,
+     "linked": 180,
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-010": {
+   "says": "Null 1's Position whipped to Trail's Position: a whip can start on a null, and reads a layer that is itself an expression.",
+   "drops": [
+    {
+     "source": [
+      "layer-trail",
+      "position"
+     ],
+     "destination": [
+      "null-1",
+      "position"
+     ],
+     "text": "thisComp.layer(\"layer-trail\").transform.position"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": [
+      0,
+      540
+     ],
+     "linked": [
+      0,
+      540
+     ],
+     "error": null
+    },
+    "12": {
+     "source": [
+      240.0,
+      540.0
+     ],
+     "linked": [
+      240.0,
+      540.0
+     ],
+     "error": null
+    },
+    "24": {
+     "source": [
+      720.0,
+      540.0
+     ],
+     "linked": [
+      720.0,
+      540.0
+     ],
+     "error": null
+    },
+    "36": {
+     "source": [
+      1200.0,
+      540.0
+     ],
+     "linked": [
+      1200.0,
+      540.0
+     ],
+     "error": null
+    },
+    "48": {
+     "source": [
+      1680.0,
+      540.0
+     ],
+     "linked": [
+      1680.0,
+      540.0
+     ],
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-011": {
+   "says": "Shake's Position, which already has a wiggle, whipped to Null 1's Position: the drop replaces the old text whole.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "position"
+     ],
+     "destination": [
+      "layer-shake",
+      "position"
+     ],
+     "text": "thisComp.layer(\"null-1\").transform.position"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": [
+      960,
+      540
+     ],
+     "linked": [
+      960,
+      540
+     ],
+     "error": null
+    },
+    "12": {
+     "source": [
+      1080.0,
+      480.0
+     ],
+     "linked": [
+      1080.0,
+      480.0
+     ],
+     "error": null
+    },
+    "24": {
+     "source": [
+      1200.0,
+      420.0
+     ],
+     "linked": [
+      1200.0,
+      420.0
+     ],
+     "error": null
+    },
+    "36": {
+     "source": [
+      1320.0,
+      360.0
+     ],
+     "linked": [
+      1320.0,
+      360.0
+     ],
+     "error": null
+    },
+    "48": {
+     "source": [
+      1440,
+      300
+     ],
+     "linked": [
+      1440,
+      300
+     ],
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-012": {
+   "says": "Target's Position whipped to the camera's Depth, which is keyed: one number onto two, from the camera.",
+   "drops": [
+    {
+     "source": [
+      "camera",
+      "depth"
+     ],
+     "destination": [
+      "layer-target",
+      "position"
+     ],
+     "text": "temp = thisComp.activeCamera.depth;\n[temp, temp]"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": -1920,
+     "linked": [
+      -1920,
+      -1920
+     ],
+     "error": null
+    },
+    "12": {
+     "source": -1680.0,
+     "linked": [
+      -1680.0,
+      -1680.0
+     ],
+     "error": null
+    },
+    "24": {
+     "source": -1440.0,
+     "linked": [
+      -1440.0,
+      -1440.0
+     ],
+     "error": null
+    },
+    "36": {
+     "source": -1200.0,
+     "linked": [
+      -1200.0,
+      -1200.0
+     ],
+     "error": null
+    },
+    "48": {
+     "source": -960,
+     "linked": [
+      -960,
+      -960
+     ],
+     "error": null
+    }
+   }
+  },
+  "FX-WHIP-013": {
+   "says": "Target's Position whipped to Null 1's, then Null 1's back to Target's: the second drop is written, both ask for each other, and each falls back to its keys with EXPRESSION_CYCLE, as any expression loop does under D-59.",
+   "drops": [
+    {
+     "source": [
+      "null-1",
+      "position"
+     ],
+     "destination": [
+      "layer-target",
+      "position"
+     ],
+     "text": "thisComp.layer(\"null-1\").transform.position"
+    },
+    {
+     "source": [
+      "layer-target",
+      "position"
+     ],
+     "destination": [
+      "null-1",
+      "position"
+     ],
+     "text": "thisComp.layer(\"layer-target\").transform.position"
+    }
+   ],
+   "frames": {
+    "0": {
+     "source": [
+      960,
+      540
+     ],
+     "linked": [
+      960,
+      540
+     ],
+     "error": "EXPRESSION_CYCLE"
+    },
+    "12": {
+     "source": [
+      1080.0,
+      480.0
+     ],
+     "linked": [
+      960,
+      540
+     ],
+     "error": "EXPRESSION_CYCLE"
+    },
+    "24": {
+     "source": [
+      1200.0,
+      420.0
+     ],
+     "linked": [
+      960,
+      540
+     ],
+     "error": "EXPRESSION_CYCLE"
+    },
+    "36": {
+     "source": [
+      1320.0,
+      360.0
+     ],
+     "linked": [
+      960,
+      540
+     ],
+     "error": "EXPRESSION_CYCLE"
+    },
+    "48": {
+     "source": [
+      1440,
+      300
+     ],
+     "linked": [
+      960,
+      540
+     ],
+     "error": "EXPRESSION_CYCLE"
+    }
+   }
+  }
+ },
+ "nothing": {
+  "FX-WHIP-020": {
+   "says": "Target's Position dropped on its own Position: nothing is written.",
+   "source": [
+    "layer-target",
+    "position"
+   ],
+   "destination": [
+    "layer-target",
+    "position"
+   ]
+  }
+ }
+}

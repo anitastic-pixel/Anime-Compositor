@@ -1,0 +1,801 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-expressions",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-cel",
+      "kind": "image_sequence",
+      "name": "Cel",
+      "pattern": "cel_####.png",
+      "frames": {
+        "1": "media/cel_0001.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 1920,
+      "height": 1080,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 49,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 49
+      },
+      "camera": {
+        "position": {
+          "base": [
+            960,
+            540
+          ],
+          "keyframes": [],
+          "expression": {
+            "text": "wiggle(1, 10)",
+            "enabled": true
+          }
+        },
+        "depth": {
+          "base": -1920,
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": -1920,
+              "interp": "linear"
+            },
+            {
+              "frame": 48,
+              "value": -960,
+              "interp": "linear"
+            }
+          ]
+        },
+        "zoom": {
+          "base": 1920,
+          "keyframes": []
+        }
+      },
+      "layer_order": [
+        "layer-spin",
+        "layer-follow",
+        "layer-shake",
+        "layer-shake-twos",
+        "layer-lead",
+        "layer-trail",
+        "layer-loop",
+        "layer-fade",
+        "layer-off",
+        "null-1",
+        "layer-target"
+      ],
+      "layers": [
+        {
+          "id": "layer-spin",
+          "kind": "raster",
+          "name": "Spin",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": [],
+              "expression": {
+                "text": "time * 90",
+                "enabled": true
+              }
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-follow",
+          "kind": "raster",
+          "name": "Follow",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": [],
+              "expression": {
+                "text": "thisComp.layer(\"layer-spin\").transform.rotation * -1",
+                "enabled": true
+              }
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-shake",
+          "kind": "raster",
+          "name": "Shake",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": [],
+              "expression": {
+                "text": "wiggle(2, 30)",
+                "enabled": true
+              }
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-shake-twos",
+          "kind": "raster",
+          "name": "Shake on threes",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": [],
+              "expression": {
+                "text": "posterizeTime(8)\nwiggle(2, 30)",
+                "enabled": true
+              }
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-lead",
+          "kind": "raster",
+          "name": "Lead",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                540
+              ],
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": [
+                    0,
+                    540
+                  ],
+                  "interp": "linear"
+                },
+                {
+                  "frame": 48,
+                  "value": [
+                    1920,
+                    540
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-trail",
+          "kind": "raster",
+          "name": "Trail",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                540
+              ],
+              "keyframes": [],
+              "expression": {
+                "text": "// a quarter of a second behind the lead\nthisComp.layer(\"layer-lead\").position.valueAtTime(time - 0.25)",
+                "enabled": true
+              }
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-loop",
+          "kind": "raster",
+          "name": "Loop",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": 0,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 12,
+                  "value": 90,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 24,
+                  "value": 30,
+                  "interp": "linear"
+                }
+              ],
+              "expression": {
+                "text": "loopOut(\"pingpong\")",
+                "enabled": true
+              }
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-fade",
+          "kind": "raster",
+          "name": "Fade",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": [],
+              "expression": {
+                "text": "linear(time, 0, 1, 0, 100)",
+                "enabled": true
+              }
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-off",
+          "kind": "raster",
+          "name": "Switched off",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": [],
+              "expression": {
+                "text": "50",
+                "enabled": false
+              }
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "null-1",
+          "kind": "null",
+          "name": "Null 1",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "transform": {
+            "anchor": {
+              "base": [
+                50,
+                50
+              ],
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": [
+                    50,
+                    50
+                  ],
+                  "interp": "linear"
+                },
+                {
+                  "frame": 48,
+                  "value": [
+                    0,
+                    100
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": [
+                    960,
+                    540
+                  ],
+                  "interp": "linear"
+                },
+                {
+                  "frame": 48,
+                  "value": [
+                    1440,
+                    300
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": [
+                    100,
+                    100
+                  ],
+                  "interp": "linear"
+                },
+                {
+                  "frame": 48,
+                  "value": [
+                    50,
+                    200
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": 0,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 48,
+                  "value": 180,
+                  "interp": "linear"
+                }
+              ]
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": 1,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 48,
+                  "value": 0.25,
+                  "interp": "linear"
+                }
+              ]
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-target",
+          "kind": "raster",
+          "name": "Target",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 49,
+              "drawing_number": 1
+            }
+          ],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        }
+      ]
+    }
+  ]
+}

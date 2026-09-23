@@ -1023,6 +1023,101 @@ Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-NULL-002's file with
 - FX-NULL-028: A null with a blend mode other than normal.
 - FX-NULL-029: A drawing whose matte is a null.
 
+## Pick whip fixtures
+
+**D-83, proposed on 2026-09-23 and not yet accepted.** Nothing is built against these until the owner accepts D-83. Each case is one or two drops of the value whip on `Fixtures/pickwhip/pickwhip_project.json`, which is D-59's expression project (`Fixtures/projects/expression_project.json`) with two layers more: **Null 1** (`null-1`), a null whose anchor, position, scale, rotation and opacity are each keyed from frame 0 to frame 48, and **Target** (`layer-target`), a drawing standing still at the centre. The camera's depth is keyed from -1920 to -960 over the same frames; its position still has D-59's wiggle.
+
+**Every number below is produced by `tools/pickwhip_reference.py`**, which writes each drop's text by D-83's rule and evaluates it with `tools/expression_reference.py`, D-59's second implementation. The same text and numbers are in `Fixtures/pickwhip/expected_pickwhip.json`. Tolerance 1e-6. "source" is the property the drop reads and "linked" the property that now reads it, both in the file's own units, so an opacity reads 0 to 1 here although the expression sees 0 to 100. A build passes a case when it writes the text exactly and every linked value matches.
+
+FX-WHIP-001 to 012, one drop each, in words:
+
+- FX-WHIP-001: Target's Position whipped to Null 1's Position: two numbers onto two.
+- FX-WHIP-002: Target's Rotation whipped to Null 1's Rotation: one number onto one.
+- FX-WHIP-003: Target's Rotation whipped to Null 1's Position: two numbers onto one takes the first, x.
+- FX-WHIP-004: Target's Scale whipped to Null 1's Rotation: one number onto two uses it for both.
+- FX-WHIP-005: Target's Opacity whipped to Null 1's Opacity: the same percentage, though the file keeps 0 to 1 and an expression 0 to 100.
+- FX-WHIP-006: Target's Position whipped to Null 1's Anchor Point: written anchorPoint, as After Effects writes it.
+- FX-WHIP-007: Target's Scale whipped to Null 1's Scale, which is keyed on both numbers.
+- FX-WHIP-008: Target's Position whipped to the camera's Position, which already has a wiggle: the link reads the wiggled value, not the keys.
+- FX-WHIP-009: The camera's Depth whipped to Null 1's Rotation: a whip can start on the camera.
+- FX-WHIP-010: Null 1's Position whipped to Trail's Position: a whip can start on a null, and reads a layer that is itself an expression.
+- FX-WHIP-011: Shake's Position, which already has a wiggle, whipped to Null 1's Position: the drop replaces the old text whole.
+- FX-WHIP-012: Target's Position whipped to the camera's Depth, which is keyed: one number onto two, from the camera.
+
+FX-WHIP-013 is two drops, and shows a loop is written and then diagnosed rather than refused: Target's Position whipped to Null 1's, then Null 1's back to Target's: the second drop is written, both ask for each other, and each falls back to its keys with EXPRESSION_CYCLE, as any expression loop does under D-59.
+
+| case | drop | text written | frame | source | linked | error |
+| --- | --- | --- | --- | --- | --- | --- |
+| FX-WHIP-001 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 0 | (960, 540) | (960, 540) | none |
+| FX-WHIP-001 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 12 | (1080, 480) | (1080, 480) | none |
+| FX-WHIP-001 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 24 | (1200, 420) | (1200, 420) | none |
+| FX-WHIP-001 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 36 | (1320, 360) | (1320, 360) | none |
+| FX-WHIP-001 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 48 | (1440, 300) | (1440, 300) | none |
+| FX-WHIP-002 | layer-target rotation to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 0 | 0 | 0 | none |
+| FX-WHIP-002 | layer-target rotation to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 12 | 45 | 45 | none |
+| FX-WHIP-002 | layer-target rotation to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 24 | 90 | 90 | none |
+| FX-WHIP-002 | layer-target rotation to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 36 | 135 | 135 | none |
+| FX-WHIP-002 | layer-target rotation to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 48 | 180 | 180 | none |
+| FX-WHIP-003 | layer-target rotation to null-1 position | `thisComp.layer("null-1").transform.position[0]` | 0 | (960, 540) | 960 | none |
+| FX-WHIP-003 | layer-target rotation to null-1 position | `thisComp.layer("null-1").transform.position[0]` | 12 | (1080, 480) | 1080 | none |
+| FX-WHIP-003 | layer-target rotation to null-1 position | `thisComp.layer("null-1").transform.position[0]` | 24 | (1200, 420) | 1200 | none |
+| FX-WHIP-003 | layer-target rotation to null-1 position | `thisComp.layer("null-1").transform.position[0]` | 36 | (1320, 360) | 1320 | none |
+| FX-WHIP-003 | layer-target rotation to null-1 position | `thisComp.layer("null-1").transform.position[0]` | 48 | (1440, 300) | 1440 | none |
+| FX-WHIP-004 | layer-target scale to null-1 rotation | `temp = thisComp.layer("null-1").transform.rotation; [temp, temp]` | 0 | 0 | (0, 0) | none |
+| FX-WHIP-004 | layer-target scale to null-1 rotation | `temp = thisComp.layer("null-1").transform.rotation; [temp, temp]` | 12 | 45 | (45, 45) | none |
+| FX-WHIP-004 | layer-target scale to null-1 rotation | `temp = thisComp.layer("null-1").transform.rotation; [temp, temp]` | 24 | 90 | (90, 90) | none |
+| FX-WHIP-004 | layer-target scale to null-1 rotation | `temp = thisComp.layer("null-1").transform.rotation; [temp, temp]` | 36 | 135 | (135, 135) | none |
+| FX-WHIP-004 | layer-target scale to null-1 rotation | `temp = thisComp.layer("null-1").transform.rotation; [temp, temp]` | 48 | 180 | (180, 180) | none |
+| FX-WHIP-005 | layer-target opacity to null-1 opacity | `thisComp.layer("null-1").transform.opacity` | 0 | 1 | 1 | none |
+| FX-WHIP-005 | layer-target opacity to null-1 opacity | `thisComp.layer("null-1").transform.opacity` | 12 | 0.8125 | 0.8125 | none |
+| FX-WHIP-005 | layer-target opacity to null-1 opacity | `thisComp.layer("null-1").transform.opacity` | 24 | 0.625 | 0.625 | none |
+| FX-WHIP-005 | layer-target opacity to null-1 opacity | `thisComp.layer("null-1").transform.opacity` | 36 | 0.4375 | 0.4375 | none |
+| FX-WHIP-005 | layer-target opacity to null-1 opacity | `thisComp.layer("null-1").transform.opacity` | 48 | 0.25 | 0.25 | none |
+| FX-WHIP-006 | layer-target position to null-1 anchor | `thisComp.layer("null-1").transform.anchorPoint` | 0 | (50, 50) | (50, 50) | none |
+| FX-WHIP-006 | layer-target position to null-1 anchor | `thisComp.layer("null-1").transform.anchorPoint` | 12 | (37.5, 62.5) | (37.5, 62.5) | none |
+| FX-WHIP-006 | layer-target position to null-1 anchor | `thisComp.layer("null-1").transform.anchorPoint` | 24 | (25, 75) | (25, 75) | none |
+| FX-WHIP-006 | layer-target position to null-1 anchor | `thisComp.layer("null-1").transform.anchorPoint` | 36 | (12.5, 87.5) | (12.5, 87.5) | none |
+| FX-WHIP-006 | layer-target position to null-1 anchor | `thisComp.layer("null-1").transform.anchorPoint` | 48 | (0, 100) | (0, 100) | none |
+| FX-WHIP-007 | layer-target scale to null-1 scale | `thisComp.layer("null-1").transform.scale` | 0 | (100, 100) | (100, 100) | none |
+| FX-WHIP-007 | layer-target scale to null-1 scale | `thisComp.layer("null-1").transform.scale` | 12 | (87.5, 125) | (87.5, 125) | none |
+| FX-WHIP-007 | layer-target scale to null-1 scale | `thisComp.layer("null-1").transform.scale` | 24 | (75, 150) | (75, 150) | none |
+| FX-WHIP-007 | layer-target scale to null-1 scale | `thisComp.layer("null-1").transform.scale` | 36 | (62.5, 175) | (62.5, 175) | none |
+| FX-WHIP-007 | layer-target scale to null-1 scale | `thisComp.layer("null-1").transform.scale` | 48 | (50, 200) | (50, 200) | none |
+| FX-WHIP-008 | layer-target position to camera position | `thisComp.activeCamera.position` | 0 | (969.4336249008326, 547.6315259802685) | (969.4336249008326, 547.6315259802685) | none |
+| FX-WHIP-008 | layer-target position to camera position | `thisComp.activeCamera.position` | 12 | (966.7653177123977, 548.3560595722439) | (966.7653177123977, 548.3560595722439) | none |
+| FX-WHIP-008 | layer-target position to camera position | `thisComp.activeCamera.position` | 24 | (964.097010523963, 549.0805931642192) | (964.097010523963, 549.0805931642192) | none |
+| FX-WHIP-008 | layer-target position to camera position | `thisComp.activeCamera.position` | 36 | (965.7600662308878, 539.7250084969057) | (965.7600662308878, 539.7250084969057) | none |
+| FX-WHIP-008 | layer-target position to camera position | `thisComp.activeCamera.position` | 48 | (967.4231219378125, 530.3694238295922) | (967.4231219378125, 530.3694238295922) | none |
+| FX-WHIP-009 | camera depth to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 0 | 0 | 0 | none |
+| FX-WHIP-009 | camera depth to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 12 | 45 | 45 | none |
+| FX-WHIP-009 | camera depth to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 24 | 90 | 90 | none |
+| FX-WHIP-009 | camera depth to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 36 | 135 | 135 | none |
+| FX-WHIP-009 | camera depth to null-1 rotation | `thisComp.layer("null-1").transform.rotation` | 48 | 180 | 180 | none |
+| FX-WHIP-010 | null-1 position to layer-trail position | `thisComp.layer("layer-trail").transform.position` | 0 | (0, 540) | (0, 540) | none |
+| FX-WHIP-010 | null-1 position to layer-trail position | `thisComp.layer("layer-trail").transform.position` | 12 | (240, 540) | (240, 540) | none |
+| FX-WHIP-010 | null-1 position to layer-trail position | `thisComp.layer("layer-trail").transform.position` | 24 | (720, 540) | (720, 540) | none |
+| FX-WHIP-010 | null-1 position to layer-trail position | `thisComp.layer("layer-trail").transform.position` | 36 | (1200, 540) | (1200, 540) | none |
+| FX-WHIP-010 | null-1 position to layer-trail position | `thisComp.layer("layer-trail").transform.position` | 48 | (1680, 540) | (1680, 540) | none |
+| FX-WHIP-011 | layer-shake position to null-1 position | `thisComp.layer("null-1").transform.position` | 0 | (960, 540) | (960, 540) | none |
+| FX-WHIP-011 | layer-shake position to null-1 position | `thisComp.layer("null-1").transform.position` | 12 | (1080, 480) | (1080, 480) | none |
+| FX-WHIP-011 | layer-shake position to null-1 position | `thisComp.layer("null-1").transform.position` | 24 | (1200, 420) | (1200, 420) | none |
+| FX-WHIP-011 | layer-shake position to null-1 position | `thisComp.layer("null-1").transform.position` | 36 | (1320, 360) | (1320, 360) | none |
+| FX-WHIP-011 | layer-shake position to null-1 position | `thisComp.layer("null-1").transform.position` | 48 | (1440, 300) | (1440, 300) | none |
+| FX-WHIP-012 | layer-target position to camera depth | `temp = thisComp.activeCamera.depth; [temp, temp]` | 0 | -1920 | (-1920, -1920) | none |
+| FX-WHIP-012 | layer-target position to camera depth | `temp = thisComp.activeCamera.depth; [temp, temp]` | 12 | -1680 | (-1680, -1680) | none |
+| FX-WHIP-012 | layer-target position to camera depth | `temp = thisComp.activeCamera.depth; [temp, temp]` | 24 | -1440 | (-1440, -1440) | none |
+| FX-WHIP-012 | layer-target position to camera depth | `temp = thisComp.activeCamera.depth; [temp, temp]` | 36 | -1200 | (-1200, -1200) | none |
+| FX-WHIP-012 | layer-target position to camera depth | `temp = thisComp.activeCamera.depth; [temp, temp]` | 48 | -960 | (-960, -960) | none |
+| FX-WHIP-013 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 0 | (960, 540) | (960, 540) | EXPRESSION_CYCLE |
+| FX-WHIP-013 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 12 | (1080, 480) | (960, 540) | EXPRESSION_CYCLE |
+| FX-WHIP-013 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 24 | (1200, 420) | (960, 540) | EXPRESSION_CYCLE |
+| FX-WHIP-013 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 36 | (1320, 360) | (960, 540) | EXPRESSION_CYCLE |
+| FX-WHIP-013 | layer-target position to null-1 position | `thisComp.layer("null-1").transform.position` | 48 | (1440, 300) | (960, 540) | EXPRESSION_CYCLE |
+
+Where nothing is written:
+
+- FX-WHIP-020: Target's Position dropped on its own Position. The window sends nothing, and `property.link` asked for it directly refuses it in a sentence and leaves the project as it was.
+
 ## Mask fixtures
 
 **D-77, accepted by the owner on 2026-09-19**, built in the core by B-24b, put in the window by B-24c and set moving by B-24d. Every case is a composition 6 by 2 at 24 fps: three frames long where the mask stands still, and five where its path moves (FX-MSK-031 to 035), from the projects in `Fixtures/masks/`. The one drawing, `bg`, is the adjustment fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom. One raster layer carries the masks; nothing else is on it, so every cell is the drawing multiplied by the coverage the masks work out to. Each cell is R G B A of the finished frame, linear and premultiplied.
