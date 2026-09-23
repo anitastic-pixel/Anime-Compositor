@@ -51,12 +51,18 @@ copy. Nothing below changes the fixtures.
 
 ## Known limits
 
-- A mask's key cannot be **dragged** along its row, eased with **F9**, or opened in the graph
-  editor. Those take a property's keys and a path's key is not one of them. To change when a
-  shape arrives, take the key off at one frame and set it at another.
-- A key is always **linear**. A file that holds an eased path key is read, kept, saved and drawn
-  eased — the core does all three, and `FX-MSK-033` proves it — but the window has no way to set
-  one yet.
+Two of these were written on 2026-09-20 and **lifted on 2026-09-22 by B-24e and B-24f**, which
+were built out of this sheet. They are struck through rather than deleted, because this page is
+the record of what was true when it was written:
+
+- ~~A mask's key cannot be **dragged** along its row, eased with **F9**, or opened in the graph
+  editor.~~ It can, and so can the rest of what a property's key answers to: chosen with other
+  keys, moved with the arrows, deleted, copied and pasted, right-clicked, and graphed.
+  `verification/B-24e_path_key_playtest.md` and `verification/B-24f_path_key_playtest.md` are
+  those two sheets, and they are the ones to play for this.
+- ~~A key is always **linear**, because the window has no way to set an ease.~~ F9 sets one and
+  Ctrl+Alt+G holds it, which is what B-24e built. What the core always did — read, keep, save
+  and draw an eased path key, as `FX-MSK-033` proves — the window can now ask for.
 - Adding or removing a **point** on a path that has keys is refused, because a path's points are
   the path's and every key holds them all. Draw the shape you want first and key it afterwards.
 - One Undo entry per change still reads "Set mask of N points", whatever the change was: the
