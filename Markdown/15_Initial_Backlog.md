@@ -248,9 +248,9 @@ B-24l / the free transform box's limits, **built on 2026-09-23 against D-81a**, 
 
 B-26 / null layers, asked for by the owner on 2026-09-23 ("think we should add a null layer just in case?"), split as B-23 was, and put ahead of R-01 at the owner's "proceed".
 
-B-26a / the rule and its fixtures before code: D-82 in document 14, FX-NULL-001 to 007 and 020 to 029 in document 25, from `tools/null_reference.py`. **Written on 2026-09-23; D-82 awaits the owner.**
+B-26a / the rule and its fixtures before code: D-82 in document 14, FX-NULL-001 to 007 and 020 to 029 in document 25, from `tools/null_reference.py`. **Written on 2026-09-23; D-82 accepted by the owner the same day ("proceed").**
 
-B-26b / the core, once D-82 is accepted: the `null` kind in the model and the file, left out of every frame, the ten refusals, `layer.add_null`, and a table that walks FX-NULL-001 to 029.
+B-26b / the core, once D-82 is accepted: the `null` kind in the model and the file, left out of every frame, the ten refusals, `layer.add_null`, and a table that walks FX-NULL-001 to 029. **Built on 2026-09-23:** `tests/b26b_null.rs` writes `verification/B-26b_null_table.md`, 34 of 34 checks.
 
 B-26c / the window: New Null in the Layer menu (Ctrl+Alt+Shift+Y), its outline and anchor on the picture, its grey strip on the timeline, Ctrl+Alt+Y no longer answering with Shift held, and a playtest sheet.
 

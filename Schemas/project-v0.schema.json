@@ -757,6 +757,59 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "null"
+              }
+            }
+          },
+          "then": {
+            "description": "D-82: a null layer is never drawn. It has no drawing, no mask, no effect, no matte of its own and blend mode normal.",
+            "properties": {
+              "blend_mode": {
+                "const": "normal"
+              },
+              "effects": {
+                "maxItems": 0
+              },
+              "masks": {
+                "maxItems": 0
+              },
+              "mask": {
+                "type": "null"
+              },
+              "matte": {
+                "type": "null"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "asset_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "composition_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "exposure_spans"
+                  ]
+                },
+                {
+                  "required": [
+                    "source_offset_frames"
+                  ]
+                }
+              ]
+            }
+          }
         }
       ],
       "properties": {
@@ -770,7 +823,8 @@
             "composition",
             "audio",
             "solid",
-            "shape"
+            "shape",
+            "null"
           ]
         },
         "name": {

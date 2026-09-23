@@ -34,7 +34,7 @@ The window and the commands are B-25c and are not in this table.
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-SHP-020: A shape layer that names an asset. | ProjectSchemaInvalid: At /compositions/0/layers/0/asset_id: expected no asset_id on an adjustment, composition, solid or shape layer, which has no drawing of its own (D-66, D-67, D-74, D-78). | yes |
+| FX-SHP-020: A shape layer that names an asset. | ProjectSchemaInvalid: At /compositions/0/layers/0/asset_id: expected no asset_id on an adjustment, composition, solid, shape or null layer, which has no drawing of its own (D-66, D-67, D-74, D-78, D-82). | yes |
 | FX-SHP-021: A shape layer with exposures. | ProjectSchemaInvalid: At /compositions/0/layers/0/exposure_spans: expected no exposure_spans on a shape layer, whose drawing is the shapes it carries (D-78). | yes |
 | FX-SHP-022: A shape layer with a source offset. | ProjectSchemaInvalid: At /compositions/0/layers/0/source_offset_frames: expected no source_offset_frames on a shape layer, whose drawing is the shapes it carries (D-78). | yes |
 | FX-SHP-023: A `shapes` key that is not a list. | ProjectSchemaInvalid: At /compositions/0/layers/0/shapes: expected an array. | yes |

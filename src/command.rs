@@ -1654,6 +1654,27 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "D-71: gain_db belongs to an audio layer.",
                 ));
             }
+            // D-82: a null has a place and no picture, so nothing that works on a picture.
+            let on_a_picture = match command {
+                Command::SetBlendMode { mode, .. } => *mode != BlendMode::Normal,
+                Command::SetMatte { matte, .. } => matte.is_some(),
+                Command::SetMasks { masks, .. } => !masks.is_empty(),
+                Command::SetSolid { .. }
+                | Command::SetExposureSpans { .. }
+                | Command::SetShapes { .. }
+                | Command::AddEffect { .. } => true,
+                _ => false,
+            };
+            if layer.kind == crate::model::LayerKind::Null && on_a_picture {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" is a null, which is never drawn, so it has no picture for that \
+                         to work on.",
+                        layer.name
+                    ),
+                    "D-82: a null has no mask, effect, matte, drawing or blend mode.",
+                ));
+            }
         }
         // D-71: nothing rides on, or is cut out by, a layer that has no place and no picture.
         let rides = match command {
@@ -1672,6 +1693,21 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     ),
                     "D-71: an audio layer has no place and no picture.",
                 ));
+            }
+        }
+        // D-82: a null can be a parent, and that is all it is for; it has no picture to be a
+        // matte with.
+        if let Command::SetMatte { matte: Some(m), .. } = command {
+            if let Some(other) = comp.layer(m) {
+                if other.kind == crate::model::LayerKind::Null {
+                    return Err(reject(
+                        &format!(
+                            "\"{}\" is a null, which is never drawn, so it cannot be a matte.",
+                            other.name
+                        ),
+                        "D-82: a null has no picture.",
+                    ));
+                }
             }
         }
     }
@@ -1694,6 +1730,20 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                         layer.name
                     ),
                     "D-74: a solid layer's drawing is its solid record.",
+                ));
+            }
+            // D-82: a null arrives with nothing that works on a picture, as a file must.
+            if layer.kind == crate::model::LayerKind::Null
+                && (!layer.masks.is_empty()
+                    || !layer.effects.is_empty()
+                    || layer.matte.is_some()
+                    || layer.blend_mode != BlendMode::Normal
+                    || !layer.exposure_spans.is_empty()
+                    || !layer.shapes.is_empty())
+            {
+                return Err(reject(
+                    &format!("\"{}\" is a null, which carries nothing that is drawn.", layer.name),
+                    "D-82: a null has no mask, effect, matte, drawing or blend mode.",
                 ));
             }
             if let Some(p) = layer.solid.as_ref().and_then(|s| s.problem()) {

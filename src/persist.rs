@@ -752,7 +752,11 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     // D-66: an adjustment layer has no drawing, so the three keys about one are not written.
     // D-74: nor are they for a solid, whose drawing is its `solid` record.
     // D-78: nor for a shape layer, whose drawing is its `shapes` list.
-    if layer.is_adjustment() || layer.solid.is_some() || layer.kind == LayerKind::Shape {
+    // D-82: nor for a null, which has none at all.
+    if layer.is_adjustment()
+        || layer.solid.is_some()
+        || matches!(layer.kind, LayerKind::Shape | LayerKind::Null)
+    {
         owned.retain(|(key, _)| {
             !matches!(*key, "asset_id" | "source_offset_frames" | "exposure_spans")
         });
@@ -1462,8 +1466,9 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["raster", "adjustment", "composition", "audio", "solid", "shape"],
+        &["raster", "adjustment", "composition", "audio", "solid", "shape", "null"],
     )? {
+        "null" => LayerKind::Null,
         "solid" => LayerKind::Solid,
         "shape" => LayerKind::Shape,
         "audio" => LayerKind::Audio,
@@ -1481,8 +1486,8 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         if v.get("asset_id").is_some() {
             return Err(invalid(
                 &format!("{pointer}/asset_id"),
-                "no asset_id on an adjustment, composition, solid or shape layer, which has no \
-                 drawing of its own (D-66, D-67, D-74, D-78)",
+                "no asset_id on an adjustment, composition, solid, shape or null layer, which \
+                 has no drawing of its own (D-66, D-67, D-74, D-78, D-82)",
             ));
         }
         Id::new("")
@@ -1560,10 +1565,21 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             "no shapes on a layer whose kind is not shape (D-78)",
         ));
     }
+    // D-82: a null has no drawing at all, so nothing about one.
+    if kind == LayerKind::Null {
+        for key in ["exposure_spans", "source_offset_frames"] {
+            if v.get(key).is_some() {
+                return Err(invalid(
+                    &format!("{pointer}/{key}"),
+                    &format!("no {key} on a null layer, which is never drawn (D-82)"),
+                ));
+            }
+        }
+    }
     let source_offset_frames = match v.get("source_offset_frames") {
         None if matches!(
             kind,
-            LayerKind::Adjustment | LayerKind::Solid | LayerKind::Shape
+            LayerKind::Adjustment | LayerKind::Solid | LayerKind::Shape | LayerKind::Null
         ) =>
         {
             0
@@ -1927,6 +1943,22 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             &format!("{pointer}/blend_mode"),
             "normal, the one blend mode an adjustment layer has (D-66)",
         ));
+    }
+    // D-82: a null has no picture, so nothing that works on one (FX-NULL-025 to 028).
+    if kind == LayerKind::Null {
+        let carried = [
+            ("masks", !masks.is_empty()),
+            ("effects", !effects.is_empty()),
+            ("matte", matte.is_some()),
+            ("blend_mode", blend_mode != BlendMode::Normal),
+        ];
+        if let Some((key, _)) = carried.iter().find(|(_, has)| *has) {
+            return Err(invalid(
+                &format!("{pointer}/{key}"),
+                "no mask, effect or matte on a null layer, and blend mode normal, because it \
+                 is never drawn (D-82)",
+            ));
+        }
     }
 
     Ok(Layer {
@@ -2723,6 +2755,21 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
                             "layer {} not to have the audio layer {other} as its parent or matte \
                              (D-71)",
                             layer.id
+                        ),
+                    ));
+                }
+            }
+            // D-82: a null has no picture to cut anything out by (FX-NULL-029).
+            if let Some(matte) = &layer.matte {
+                if composition
+                    .layer(&matte.layer_id)
+                    .is_some_and(|l| l.kind == LayerKind::Null)
+                {
+                    return Err(invalid(
+                        &format!("/compositions/{}/layers", composition.id),
+                        &format!(
+                            "layer {} not to have the null layer {} as its matte (D-82)",
+                            layer.id, matte.layer_id
                         ),
                     ));
                 }

@@ -21,7 +21,7 @@ D-74, accepted by the owner on 2026-09-19. Every expected pixel is `Fixtures/sol
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-SOL-020: A solid that names an asset. | ProjectSchemaInvalid: At /compositions/0/layers/0/asset_id: expected no asset_id on an adjustment, composition, solid or shape layer, which has no drawing of its own (D-66, D-67, D-74, D-78). | yes |
+| FX-SOL-020: A solid that names an asset. | ProjectSchemaInvalid: At /compositions/0/layers/0/asset_id: expected no asset_id on an adjustment, composition, solid, shape or null layer, which has no drawing of its own (D-66, D-67, D-74, D-78, D-82). | yes |
 | FX-SOL-021: A solid with exposures. | ProjectSchemaInvalid: At /compositions/0/layers/0/exposure_spans: expected no exposure_spans on a solid layer, which has one drawing of one colour (D-74). | yes |
 | FX-SOL-022: A solid with a source offset. | ProjectSchemaInvalid: At /compositions/0/layers/0/source_offset_frames: expected no source_offset_frames on a solid layer, which has one drawing of one colour (D-74). | yes |
 | FX-SOL-023: A solid with no solid record. | ProjectSchemaInvalid: At /compositions/0/layers/0/solid: expected this field to be present. | yes |

@@ -638,7 +638,11 @@ fn resolve_layer(
     above: &mut Vec<Id>,
 ) -> Option<ResolvedLayer> {
     // D-71: an audio layer draws nothing, so no frame is any different for it (FX-AUD-020).
-    if layer.kind == crate::model::LayerKind::Audio {
+    // D-82: nor does a null, whatever its switch, opacity or timing say (FX-NULL-001, 002).
+    if matches!(
+        layer.kind,
+        crate::model::LayerKind::Audio | crate::model::LayerKind::Null
+    ) {
         return None;
     }
     // D-67: a composition layer's drawing is the inner composition, rendered at the layer's

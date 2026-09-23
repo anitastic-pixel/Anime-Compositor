@@ -707,6 +707,8 @@ pub enum LayerKind {
     Solid,
     /// D-78: a list of drawn shapes, held in [`Layer::shapes`], in the composition's own space.
     Shape,
+    /// D-82: never drawn. It has a transform and is there to be a parent.
+    Null,
 }
 
 impl LayerKind {
@@ -718,6 +720,7 @@ impl LayerKind {
             LayerKind::Audio => "audio",
             LayerKind::Solid => "solid",
             LayerKind::Shape => "shape",
+            LayerKind::Null => "null",
         }
     }
 }
@@ -958,11 +961,34 @@ impl Layer {
         layer
     }
 
+    /// D-82: a layer that is never drawn, whose outline is 100 by 100 in its own space. Its
+    /// anchor is the middle of that outline and its position the centre of the `width` by
+    /// `height` composition it goes into.
+    pub fn null(
+        id: Id,
+        name: impl Into<String>,
+        width: u32,
+        height: u32,
+        in_frame: i32,
+        out_frame: i32,
+    ) -> Self {
+        let mut layer = Layer::new(id, name, Id::new(""), in_frame, out_frame);
+        layer.kind = LayerKind::Null;
+        layer.transform.anchor = Property::constant(Value::Vec2(50.0, 50.0));
+        layer.transform.position =
+            Property::constant(Value::Vec2(width as f64 / 2.0, height as f64 / 2.0));
+        layer
+    }
+
     /// True of the kinds that name no asset: nothing looks an asset up for them.
     pub fn has_no_drawing(&self) -> bool {
         matches!(
             self.kind,
-            LayerKind::Adjustment | LayerKind::Composition | LayerKind::Solid | LayerKind::Shape
+            LayerKind::Adjustment
+                | LayerKind::Composition
+                | LayerKind::Solid
+                | LayerKind::Shape
+                | LayerKind::Null
         )
     }
 
