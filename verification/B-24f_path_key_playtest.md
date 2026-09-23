@@ -57,5 +57,6 @@ now have two key marks each.
 
 ## Result
 
-Pass / fail, and what was seen if it failed:
+PASS. Run by the owner on 2026-09-23: "works". All ten steps behaved as written, the graph in
+step 9 included.
 

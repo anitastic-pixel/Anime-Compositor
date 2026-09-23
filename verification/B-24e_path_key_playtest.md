@@ -54,5 +54,6 @@ B-24f, on 2026-09-22, lifted all three: `verification/B-24f_path_key_playtest.md
 
 ## Result
 
-Pass / fail, and what was seen if it failed:
+PASS. Run by the owner on 2026-09-23: "works". All ten steps behaved as written, with step 7
+read as B-24f rewrote it — the drop on another key is refused and both keys stay where they are.
 

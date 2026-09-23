@@ -85,7 +85,7 @@ FX-MSK-001 is the one that says nothing moved: it is the rectangle B-06 drew, wr
 | --- | --- | --- |
 | mask.set with two masks: both land, in order, with their modes | Ok(()); ["add", "subtract"] | yes |
 | and one undo gives back the file as it was | the same project | yes |
-| and the step is named for what it did | Set 2 masks | yes |
+| and the step is named for what it did | Add a mask | yes |
 | mask.set with an opacity of 1.5: COMMAND_INVALID_VALUE, in a sentence, and nothing changes | Err((CommandInvalidValue, "Mask \"Mask 1\" was given an opacity of 1.5, which is not from 0 to 1.")) | yes |
 | mask.set with a feather of -1: COMMAND_INVALID_VALUE, in a sentence, and nothing changes | Err((CommandInvalidValue, "Mask \"Mask 1\" was given a feather of -1 pixels, which is below 0.")) | yes |
 | mask.set with an expansion of 9000: COMMAND_INVALID_VALUE, in a sentence, and nothing changes | Err((CommandInvalidValue, "Mask \"Mask 1\" was given an expansion of 9000 pixels, which is past 8192 either way.")) | yes |

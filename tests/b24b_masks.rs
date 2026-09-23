@@ -317,10 +317,13 @@ fn b24b_masks() {
         })
         .map(|c| c.label.clone())
         .unwrap_or_default();
+    // B-24h: the step used to be named "Set 2 masks", after the command rather than the change.
+    // It is now read off the list as it was: this one puts a second mask on a layer that had
+    // one, and both are named "Mask 1", so there is no name to draw and it says so plainly.
     t.row(
         "and the step is named for what it did",
         &name,
-        name == "Set 2 masks",
+        name == "Add a mask",
     );
     document.undo();
     for (what, bad) in [

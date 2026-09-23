@@ -3475,8 +3475,12 @@ function drawBoxes() {
   // its own pixels to the frame, so there is nothing to draw and nothing to press.
   const shaper = selected();
   const space = shaper ? layerSpace(shaper) : null;
-  const litPoint = (layer, at, i, which) => !!maskPointPicked && maskPointPicked.layer === layer.id
-    && maskPointPicked.at === at && maskPointPicked.i === i && maskPointPicked.which === which;
+  // B-24i: every chosen point is lit, and the chosen handle with them.
+  const litPoint = (layer, at, i, which) => (which < 0
+    ? chosenPoints(layer, at).includes(i)
+    : !!maskPointPicked && maskPointPicked.layer === layer.id && maskPointPicked.at === at
+      && !!maskPointPicked.handle && maskPointPicked.handle.i === i
+      && maskPointPicked.handle.which === which);
   let refocusPoint = null;
   if (space) {
     const heldPoint = document.activeElement && document.activeElement.__mask;
@@ -3518,16 +3522,81 @@ function drawBoxes() {
         mark.setAttribute('tabindex', 0);
         mark.setAttribute('role', 'slider');
         mark.setAttribute('aria-label', 'Point ' + (i + 1) + ' of ' + mask.name + ' on '
-          + shaper.name + '. Drag it, or use the arrow keys; Shift moves ten pixels.');
+          + shaper.name + '. Drag it, or use the arrow keys; Shift moves ten pixels. '
+          + 'Plus adds a point after it, minus takes it off. '
+          + 'Delete takes off every chosen point, and the bracket keys curve the path '
+          + 'through this one or straighten it.');
         mark.__mask = { at, i };
+        // B-24i: tabbing to a point chooses it and lets the others go, unless it is one of the
+        // others already - a point given the keyboard back at the end of a drag must not undo
+        // the choice that drag was made of.
         mark.onfocus = () => {
-          maskPointPicked = { layer: shaper.id, at, i, which: -1 };
+          if (chosenPoints(shaper, at).includes(i)) return;
+          choosePoints(shaper, at, [i]);
           drawBoxes();
         };
         // A pixel a press, in the layer's own pixels, queued the way the motion path's handles
         // are: a held arrow key is every one of its steps, each read from the document the one
         // before it brought back rather than from this drawing.
+        // B-24h, D-79: and the two keys that do the Alt-click's job without a mouse. Plus cuts a
+        // point into the middle of the segment that leaves this one, minus takes this one off.
+        // Both change how many points the path holds, so both change the path and every key on
+        // it at once, and neither goes into the key under the playhead.
         mark.onkeydown = (k) => {
+          const which = '?layer=' + encodeURIComponent(shaper.id)
+            + '&prop=' + (drawsShapes(shaper) ? 'shape:' : 'mask:') + at;
+          // B-24i: the keys act on every chosen point, and on this one whether it is chosen or
+          // not, which is what the focus ring on it means.
+          const moving = [...new Set([...chosenPoints(shaper, at), i])].sort((a, b) => a - b);
+          if (k.key === '+' || k.key === '=' || k.key === '-' || k.key === '_') {
+            k.preventDefault();
+            k.stopPropagation();
+            if (k.key === '-' || k.key === '_') {
+              maskPointPicked = null;
+              command('/path.remove_point' + which + '&at=' + i);
+            } else {
+              choosePoints(shaper, at, [i + 1]);
+              command('/path.add_point' + which + '&at=' + i + '&t=0.5');
+            }
+            return;
+          }
+          // B-24i: Delete takes off every chosen point at once, in one thing to undo, which is
+          // what the box drawn around four of them is for.
+          if (k.key === 'Delete' || k.key === 'Backspace') {
+            k.preventDefault();
+            k.stopPropagation();
+            maskPointPicked = null;
+            command('/path.remove_point' + which + '&at=' + moving.join(','));
+            return;
+          }
+          // B-24j: and the two keys that curve the path through a point without a hand, since
+          // pulling a handle is a drag and a drag is a mouse. The handles lie along the line
+          // between the point's neighbours, which is the direction a smooth point's handles
+          // always take; each press lengthens or shortens both by a tenth of the way to them.
+          // Shortened to nothing the point is the corner it was.
+          if (k.key === ']' || k.key === '[') {
+            k.preventDefault();
+            k.stopPropagation();
+            maskNudge = maskNudge.then(() => {
+              const now = selected();
+              if (!pathsOf(now)[at]) return;
+              const points = maskPath(now, at);
+              const n = points.length;
+              const [before, after] = [points[(i + n - 1) % n], points[(i + 1) % n]];
+              const [dx, dy] = [after[0] - before[0], after[1] - before[1]];
+              const away = Math.hypot(dx, dy);
+              if (!away) return;
+              const p = points[i];
+              const held = Math.hypot(p[4], p[5]) || Math.hypot(p[2], p[3]);
+              const len = Math.max(0, held + (k.key === ']' ? 1 : -1) * away / 10);
+              p[4] = dx / away * len;
+              p[5] = dy / away * len;
+              p[2] = -p[4];
+              p[3] = -p[5];
+              return sendMaskPath(now, at, points);
+            });
+            return;
+          }
           const by = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[k.key];
           if (!by) return;
           k.preventDefault();
@@ -3538,8 +3607,11 @@ function drawBoxes() {
             const mask = pathsOf(now)[at];
             if (!mask) return;
             const points = maskPath(now, at);
-            points[i][0] += by[0] * step;
-            points[i][1] += by[1] * step;
+            for (const j of moving) {
+              if (!points[j]) continue;
+              points[j][0] += by[0] * step;
+              points[j][1] += by[1] * step;
+            }
             return sendMaskPath(now, at, points);
           });
         };
@@ -3637,7 +3709,32 @@ let penDraft = null;
 let maskPull = null;
 // B-24g: the point or handle last pressed or tabbed to, lit until another is. It is remembered by
 // layer, mask, point and which handle, so a stale one simply never matches again.
+//
+// B-24i, D-80: and several points at once, because After Effects chooses a set of vertices and
+// moves them together. What is remembered is `{ layer, at, points: [i...], handle }`: the points
+// chosen on one mask of one layer, and beside them the one handle chosen, which belongs to a
+// single point and is never a set.
 let maskPointPicked = null;
+const chosenPoints = (layer, at) => (maskPointPicked && layer && maskPointPicked.layer === layer.id
+  && maskPointPicked.at === at ? maskPointPicked.points : []);
+const choosePoints = (layer, at, points, handle = null) => {
+  maskPointPicked = {
+    layer: layer.id,
+    at,
+    points: [...new Set(points)].sort((a, b) => a - b),
+    handle,
+  };
+};
+// B-24j, D-80: whether a point is smooth. Nothing writes that down: a point is smooth when both
+// its handles are out and point opposite ways along one line, which is exactly what makes the
+// curve run through it without a corner. Read rather than stored, so a path drawn before any of
+// this still says the truth about itself and no file has to change.
+const smoothPoint = (p) => {
+  const [ix, iy, ox, oy] = [p[2], p[3], p[4], p[5]];
+  const [a, b] = [Math.hypot(ix, iy), Math.hypot(ox, oy)];
+  if (!a || !b) return false;
+  return Math.abs(ix * oy - iy * ox) <= 0.01 * a * b && ix * ox + iy * oy < 0;
+};
 let maskNudge = Promise.resolve();
 
 function useTool(which) {
@@ -3714,6 +3811,32 @@ function outlineOf(points, closed = true) {
     }
   }
   return out;
+}
+
+// B-24h: the nearest place on a path to a place on the frame, as the segment it lies on, how far
+// along that segment it is, and how far away it was. Thirty-two steps a segment, on the curve and
+// not beside it. It answers two questions: where a new point goes, and whether a press landed on
+// the outline at all.
+function nearestOnPath(layer, at, space, x, y) {
+  const points = maskPath(layer, at);
+  const n = points.length;
+  const closed = drawsShapes(layer) ? pathsOf(layer)[at].closed !== false : true;
+  const along = (a, d, t) => {
+    const u = 1 - t;
+    const b = [a[0] + a[4], a[1] + a[5]];
+    const c = [d[0] + d[2], d[1] + d[3]];
+    return [0, 1].map((j) => u * u * u * a[j] + 3 * u * u * t * b[j]
+      + 3 * u * t * t * c[j] + t * t * t * d[j]);
+  };
+  let best = null;
+  for (let i = 0; i < (closed ? n : n - 1); i++) {
+    for (let s = 1; s < 32; s++) {
+      const [px, py] = space.toFrame(...along(points[i], points[(i + 1) % n], s / 32));
+      const away = Math.hypot(x - px, y - py);
+      if (!best || away < best.away) best = { away, i, t: s / 32 };
+    }
+  }
+  return best;
 }
 
 // A rectangle and an ellipse as D-77 points: the rectangle four corners, the ellipse four points
@@ -4072,6 +4195,31 @@ stage.onpointerdown = (e) => {
     }
     const [lx, ly] = shaping.toLayer(x, y);
     if (tool === 'pen') {
+      // B-24j, D-80: with no path of its own under way, the pen over the mask being worked on is
+      // After Effects' add and delete vertex tools, which live under the pen there: on one of its
+      // points a click takes that point off, on the path between them a click puts one there, on
+      // the curve and not beside it. Either changes how many points the path holds, so it changes
+      // the path and every key on it at once and goes into no key, which is the whole of D-79.
+      if (!penDraft && pathsOf(layer)[maskPicked]) {
+        const at = maskPicked;
+        const which = '?layer=' + encodeURIComponent(layer.id)
+          + '&prop=' + (drawsShapes(layer) ? 'shape:' : 'mask:') + at;
+        const on = maskPath(layer, at).map((p, i) => ({ i, at: shaping.toFrame(p[0], p[1]) }))
+          .find((g) => Math.hypot(x - g.at[0], y - g.at[1]) <= 6 * unit);
+        if (on) {
+          maskPointPicked = null;
+          command('/path.remove_point' + which + '&at=' + on.i);
+          return;
+        }
+        const near = nearestOnPath(layer, at, shaping, x, y);
+        if (near && near.away <= 6 * unit) {
+          // The new point is the one chosen afterwards, which is where the pointer is and what
+          // the arrow keys would nudge next.
+          choosePoints(layer, at, [near.i + 1]);
+          command('/path.add_point' + which + '&at=' + near.i + '&t=' + number(near.t));
+          return;
+        }
+      }
       // A click places a point; a click on the first one closes the mask, which is how After
       // Effects' pen closes a path. Three points are the fewest that enclose anything, and the
       // core refuses fewer, so the first point does not close it before then.
@@ -4090,6 +4238,21 @@ stage.onpointerdown = (e) => {
           ? 'Place at least three points; then click the first to close the mask.'
           : 'Click the first point to close the mask, or Escape to start again.';
         drawBoxes();
+        // B-24j, D-80: holding on and dragging pulls a pair of handles out of the point just
+        // placed, mirrored about it, which is how After Effects' pen draws a curve as it goes.
+        // Letting go without moving leaves the corner the corner it was placed as.
+        const mine = penDraft[penDraft.length - 1];
+        stage.setPointerCapture(e.pointerId);
+        stage.onpointermove = (m) => {
+          if (!penDraft || !penDraft.includes(mine)) return;
+          const [mx, my] = shaping.toLayer(...atCanvas(m));
+          mine[4] = mx - mine[0];
+          mine[5] = my - mine[1];
+          mine[2] = -mine[4];
+          mine[3] = -mine[5];
+          drawBoxes();
+        };
+        stage.onpointerup = () => { stage.onpointermove = null; stage.onpointerup = null; };
       }
       return;
     }
@@ -4131,13 +4294,19 @@ stage.onpointerdown = (e) => {
       ...(p[4] || p[5] ? [{ i, which: 1, at: shaping.toFrame(p[0] + p[4], p[1] + p[5]) }] : []),
     ]) : [];
   const grabbed = pullable.find((g) => Math.hypot(x - g.at[0], y - g.at[1]) <= 6 * unit);
-  if (grabbed) {
-    e.preventDefault();
-    stage.setPointerCapture(e.pointerId);
-    maskPointPicked = { layer: layer.id, at: maskPicked, i: grabbed.i, which: grabbed.which };
-    drawBoxes();
-    const at = maskPicked;
+  const onMask = shaping && pathsOf(layer)[maskPicked] ? maskPicked : null;
+  // B-24i: one pull of a path, whatever it has hold of. `move` is handed a fresh copy of the path
+  // as it stood when the press began, where the pointer is now and where it started, both in the
+  // layer's own pixels, and the press itself for the keys held with it; every step is worked out
+  // from the path as it was and not from the step before, so nothing drifts. Everything else —
+  // the capture, Escape putting it back, and the whole pull being one entry in the history —
+  // is the bargain every drag in this window makes, and it is written here once because three
+  // gestures below make it: a set of points moved, a handle pulled, and a corner curved.
+  const pullPath = (down, at, move) => {
+    down.preventDefault();
+    stage.setPointerCapture(down.pointerId);
     const was = maskPath(layer, at);
+    const from = shaping.toLayer(...atCanvas(down));
     dragging = true;
     maskPull = { at, points: was.map((p) => p.slice()) };
     const escape = (k) => { if (k.key === 'Escape') stop(true); };
@@ -4152,19 +4321,107 @@ stage.onpointerdown = (e) => {
       afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end');
     };
     stage.onpointermove = (m) => {
-      const [mx, my] = shaping.toLayer(...atCanvas(m));
-      const point = maskPull.points[grabbed.i];
-      // The point carries its handles with it, because D-77 holds a handle as an offset from
-      // its own point; a handle moves alone.
-      if (grabbed.which < 0) { point[0] = mx; point[1] = my; }
-      else { point[2 + grabbed.which * 2] = mx - point[0]; point[3 + grabbed.which * 2] = my - point[1]; }
+      const points = was.map((p) => p.slice());
+      move(points, shaping.toLayer(...atCanvas(m)), from, m);
+      maskPull.points = points;
       maskPull.moved = true;
       drawBoxes();
-      sendMaskPath(layer, at, maskPull.points, '&drag=1');
+      sendMaskPath(layer, at, points, '&drag=1');
     };
     stage.onpointerup = () => stop(false);
     window.addEventListener('keydown', escape, true);
+  };
+  // B-24i: the chosen points travelling together, each by the same step, and Shift keeping that
+  // step to one direction as it does everywhere else on this picture. A point carries its handles
+  // with it, because D-77 holds a handle as an offset from its own point.
+  const moveChosen = (moving) => (points, to, from, m) => {
+    let [dx, dy] = [to[0] - from[0], to[1] - from[1]];
+    if (m.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+    for (const j of moving) {
+      if (!points[j]) continue;
+      points[j][0] += dx;
+      points[j][1] += dy;
+    }
+  };
+  if (onMask !== null && grabbed) {
+    const at = onMask;
+    const have = chosenPoints(layer, at);
+    // B-24j, D-80: Alt on a point converts it, which is After Effects' convert vertex tool. A
+    // curved point straightens at a click; a corner curves as the drag pulls a mirrored pair of
+    // handles out of it. That is why Alt and a click no longer add a point or take one off: the
+    // pen does that now, where After Effects keeps it.
+    if (e.altKey && grabbed.which < 0) {
+      choosePoints(layer, at, [grabbed.i]);
+      const p = maskPath(layer, at)[grabbed.i];
+      if (p[2] || p[3] || p[4] || p[5]) {
+        e.preventDefault();
+        const points = maskPath(layer, at);
+        points[grabbed.i] = [p[0], p[1], 0, 0, 0, 0];
+        drawBoxes();
+        sendMaskPath(layer, at, points);
+        return;
+      }
+      pullPath(e, at, (points, to) => {
+        const q = points[grabbed.i];
+        q[4] = to[0] - q[0];
+        q[5] = to[1] - q[1];
+        q[2] = -q[4];
+        q[3] = -q[5];
+      });
+      drawBoxes();
+      return;
+    }
+    // B-24i: Shift on a point takes it into the chosen set or out of it again, which is how
+    // After Effects chooses several. It is a choice and not a pull: nothing moves under it.
+    if (grabbed.which < 0 && e.shiftKey) {
+      e.preventDefault();
+      choosePoints(layer, at, have.includes(grabbed.i)
+        ? have.filter((j) => j !== grabbed.i) : [...have, grabbed.i]);
+      drawBoxes();
+      return;
+    }
+    if (grabbed.which < 0) {
+      // A point that is not already chosen becomes the whole of the choice; one that is keeps
+      // the others, because that is how a set of points is dragged together.
+      const moving = have.includes(grabbed.i) ? have : [grabbed.i];
+      choosePoints(layer, at, moving);
+      drawBoxes();
+      pullPath(e, at, moveChosen(moving));
+      return;
+    }
+    // B-24j: a handle. On a smooth point the other handle turns with it and keeps its own
+    // length, which is what makes the curve run through the point without a corner; Alt breaks
+    // the pair and moves this one alone, and afterwards the point is a corner with two handles,
+    // as After Effects leaves it.
+    choosePoints(layer, at, have.includes(grabbed.i) ? have : [grabbed.i],
+      { i: grabbed.i, which: grabbed.which });
+    drawBoxes();
+    const together = !e.altKey && smoothPoint(maskPath(layer, at)[grabbed.i]);
+    pullPath(e, at, (points, to) => {
+      const q = points[grabbed.i];
+      const [mine, other] = [2 + grabbed.which * 2, 2 + (1 - grabbed.which) * 2];
+      q[mine] = to[0] - q[0];
+      q[mine + 1] = to[1] - q[1];
+      if (!together) return;
+      const away = Math.hypot(q[mine], q[mine + 1]);
+      if (!away) return;
+      const len = Math.hypot(q[other], q[other + 1]);
+      q[other] = -q[mine] / away * len;
+      q[other + 1] = -q[mine + 1] / away * len;
+    });
     return;
+  }
+  // B-24i, D-80: a press on the mask's own outline, away from its points. It takes the whole
+  // path, as After Effects' selection tool does, and the drag moves every point of it together.
+  if (onMask !== null) {
+    const near = nearestOnPath(layer, onMask, shaping, x, y);
+    if (near && near.away <= 6 * unit) {
+      const moving = maskPath(layer, onMask).map((_, i) => i);
+      choosePoints(layer, onMask, moving);
+      drawBoxes();
+      pullPath(e, onMask, moveChosen(moving));
+      return;
+    }
   }
   // D-53: a path handle, first, because it is the smallest thing on the picture and would
   // otherwise be taken for the layer under it. The knob follows the pointer and nothing is sent
@@ -4224,8 +4481,16 @@ stage.onpointerdown = (e) => {
     // A marquee. Releasing it selects every layer whose box it touches — front-most first, so
     // the panels describe the one on top — added to the selection with Shift held and replacing
     // it otherwise. One that never moved is the click it always was.
+    //
+    // B-24i, D-80: with a mask's points showing, the box chooses points rather than layers, which
+    // is After Effects' rubber band over vertices. It is drawn from a part of the picture with no
+    // layer under it, and the dark around the frame is always such a part. A box that never moved
+    // is the click that lets the chosen points go, and the next one lets the layers go, so both
+    // are still reachable.
     e.preventDefault();
     const keep = e.shiftKey ? selection.slice() : [];
+    const pointing = onMask;
+    const keepPoints = e.shiftKey && pointing !== null ? chosenPoints(layer, pointing) : [];
     marquee = [x, y, x, y];
     stage.setPointerCapture(e.pointerId);
     stage.onpointermove = (m) => { marquee = [x, y, ...atCanvas(m)]; drawBoxes(); };
@@ -4236,6 +4501,15 @@ stage.onpointerdown = (e) => {
       const [y0, y1] = [Math.min(y, marquee[3]), Math.max(y, marquee[3])];
       marquee = null;
       const moved = x1 - x0 > 2 * unit || y1 - y0 > 2 * unit;
+      if (pointing !== null && (moved || chosenPoints(layer, pointing).length)) {
+        const inside = !moved ? [] : maskPath(layer, pointing)
+          .map((p, i) => [i, shaping.toFrame(p[0], p[1])])
+          .filter(([, p]) => p[0] >= x0 && p[0] <= x1 && p[1] >= y0 && p[1] <= y1)
+          .map(([i]) => i);
+        choosePoints(layer, pointing, [...keepPoints, ...inside]);
+        drawBoxes();
+        return;
+      }
       const caught = !moved ? [] : boxes.filter((box) => {
         const xs = box.corners.filter((_, i) => i % 2 === 0);
         const ys = box.corners.filter((_, i) => i % 2 === 1);
@@ -7122,7 +7396,22 @@ addEventListener('keydown', (e) => {
   // destructive commands." The target is the row that is visibly selected, and the button that
   // does the same thing names it too.
   // W-19: with keys chosen, as in After Effects, Delete removes those keys and not their layer.
-  else if (e.key === 'Delete') { e.preventDefault(); if (pickedKeys.size) removeKeys(); else $('dellayer').click(); }
+  // B-24i: and with a mask's points chosen, Delete takes those points off rather than the layer
+  // they are drawn on, the same way chosen keys already take themselves off. All of them in one
+  // request, because four points taken off by one press is one thing to undo.
+  else if (e.key === 'Delete') {
+    e.preventDefault();
+    const owner = selected();
+    const points = owner ? chosenPoints(owner, maskPicked) : [];
+    if (pickedKeys.size) removeKeys();
+    else if (points.length && owner && pathsOf(owner)[maskPicked]) {
+      maskPointPicked = null;
+      command('/path.remove_point?layer=' + encodeURIComponent(owner.id)
+        + '&prop=' + (drawsShapes(owner) ? 'shape:' : 'mask:') + maskPicked
+        + '&at=' + points.join(','));
+    }
+    else $('dellayer').click();
+  }
   else if (e.key === ' ') { e.preventDefault(); $('play').click(); }
   // W-20: Home and End the first and last frame; Page Up and Page Down a frame, and Shift with
   // them or the arrows ten; Alt with the arrows nudges the chosen keys, as After Effects has them.
@@ -7149,7 +7438,13 @@ addEventListener('keydown', (e) => {
   }
   else if (e.key === 'Enter' && !el) { e.preventDefault(); beginRename(); }
   else if (e.key === 'Escape' && (penDraft || tool !== 'select')) { e.preventDefault(); useTool('select'); }
-  else if (e.key === 'Escape') { if (!dragging) { pickKey(null, false); choose([]); } }
+  // B-24i: Escape lets the chosen points go before it lets the selection go, so that a person who
+  // has just chosen four of them can change their mind without losing the layer as well.
+  else if (e.key === 'Escape') {
+    if (dragging) return;
+    if (maskPointPicked) { maskPointPicked = null; drawBoxes(); }
+    else { pickKey(null, false); choose([]); }
+  }
   else if (e.key === ',') zoomTo(shownScale() / 1.15, ...stageCentre());
   else if (e.key === '.') zoomTo(shownScale() * 1.15, ...stageCentre());
   else if (e.altKey && (e.key === 'PageUp' || e.key === 'PageDown')) { e.preventDefault(); shiftLayers((e.key === 'PageUp' ? -1 : 1) * (e.shiftKey ? 10 : 1)); }

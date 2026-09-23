@@ -99,6 +99,8 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `media.relink` can be asked for without a mouse | yes | yes | pass |
 | `new` can be asked for without a mouse | yes | yes | pass |
 | `open` can be asked for without a mouse | yes | yes | pass |
+| `path.add_point` can be asked for without a mouse | yes | yes | pass |
+| `path.remove_point` can be asked for without a mouse | yes | yes | pass |
 | `play` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_cancel` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_end` can be asked for without a mouse | yes | yes | pass |
@@ -153,5 +155,8 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | right clicking an empty place on the timeline is not the only way to paste keys or layers there, add a key, a layer or a marker, or open the settings | true | true | pass |
 | drawing a mask with the pen, the rectangle or the ellipse is not the only way to put a mask on the layer | true | true | pass |
 | dragging a mask point or one of its handles is not the only way to move it | true | true | pass |
+| the pen over a mask's path, or over one of its points is not the only way to add a point there, or take that point off | true | true | pass |
+| dragging a box across a mask's points, or Shift-clicking them one by one is not the only way to choose several of them and move or delete them together | true | true | pass |
+| pulling a mask point's handle, or dragging out of a point with Alt held is not the only way to curve the path through that point, or straighten it again | true | true | pass |
 
-**124 of 124 checks pass.**
+**129 of 129 checks pass.**

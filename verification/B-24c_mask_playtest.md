@@ -77,6 +77,9 @@ copy. Nothing below changes the fixtures.
   `verification/B-24d_mask_playtest.md`.*
 - One Undo entry per change reads "Set mask of 4 points", whatever the change was: the core
   takes the whole list of masks as one command, so it names the shape and not the setting.
+  *B-24h, built on 2026-09-22, removed this limit: an entry now says what changed — "Draw Mask
+  1", "Move a point of Mask 1", "Set Mask 1's feather to 6 px" — worked out from the masks as
+  they were. See `verification/B-24h_path_point_playtest.md`.*
 - The tools draw on the layer that is chosen, and only where that layer is on this frame. A
   layer outside its own in and out points has nothing to draw on and says so.
 - No free-hand or rounded-rectangle tool, no feather that varies along the path, no mask

@@ -2189,6 +2189,8 @@ const ANSWERS: &[&str] = &[
     "mask.set_path",
     "media.import",
     "media.relink",
+    "path.add_point",
+    "path.remove_point",
     "property.drag_cancel",
     "property.drag_end",
     "property.drag_update",
@@ -4265,6 +4267,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         Err(said) => return Some(said),
                     }
                 }
+                // B-24h, D-79: a point added to a path, or taken off it. Not a path edit like
+                // the others: it changes how many points the path has, so it changes the base
+                // and every key on it at once rather than the key under the playhead.
+                "path.add_point" | "path.remove_point" => {
+                    let Some(which) = parameter(query, "prop").as_deref().and_then(path_prop)
+                    else {
+                        return Some(
+                            "Which path? Say prop=mask:0 for the layer's first mask, or \
+                             prop=shape:0 for its first shape."
+                                .to_string(),
+                        );
+                    };
+                    match path_point_command(id, query, composition, layer, which) {
+                        Ok(command) => command,
+                        Err(said) => return Some(said),
+                    }
+                }
                 "keyframe.add_remove" => {
                     let Some(prop) = parameter(query, "prop").as_deref().and_then(property) else {
                         return Some(
@@ -5546,6 +5565,90 @@ fn path_key_command(
             _ => keys[at.ok_or_else(missing)?].interp = interp_parameter(query)?,
         }
         Ok(())
+    })
+}
+
+/// B-24h: D-79's two requests about a path's points, one added and one taken off.
+///
+/// `at` names a point of the path. For `path.add_point` it is the point the new one comes after,
+/// and `t` is the fraction along the segment that starts there, more than 0 and less than 1;
+/// `mask::insert_point` cuts that segment where D-79 says, on the base and on every key. For
+/// `path.remove_point` it is the point to take off, and it comes off the base and off every key.
+///
+/// Both change how many points the path holds, which is why neither can go the way a pulled
+/// point goes -- into the key under the playhead. A key holding a different number of points
+/// from the base is the one thing D-77 cannot interpolate, and the core refuses it.
+///
+/// An open shape has no segment after its last point, so `at` may not name it.
+///
+/// B-24i, D-80: `path.remove_point` takes several points separated by commas, because several
+/// points can be chosen at once and taking four off has to be one thing to undo rather than
+/// four. They come off from the highest index down, so the lower ones go on meaning what they
+/// meant while the higher ones are going. `path.add_point` stays one point: there is no gesture
+/// that asks for several, and a segment cut twice is two different fractions.
+fn path_point_command(
+    id: &str,
+    query: Option<&str>,
+    composition: Id,
+    layer: &Layer,
+    which: (bool, usize),
+) -> Result<Command, String> {
+    let (shape, at_path) = which;
+    let ats: Vec<usize> = parameter(query, "at")
+        .and_then(|v| {
+            v.split(',')
+                .map(|one| one.trim().parse::<usize>().ok())
+                .collect::<Option<Vec<usize>>>()
+        })
+        .filter(|ats| !ats.is_empty())
+        .ok_or_else(|| "Which point? Say at=0 for the first.".to_string())?;
+    let at = ats[0];
+    let t = match parameter(query, "t") {
+        None => 0.5,
+        Some(text) => text
+            .trim()
+            .parse::<f64>()
+            .ok()
+            .filter(|t| *t > 0.0 && *t < 1.0)
+            .ok_or_else(|| {
+                format!(
+                    "\"{}\" is not a place along a segment. It is a fraction, more than 0 and \
+                     less than 1.",
+                    text.trim()
+                )
+            })?,
+    };
+    let open = shape && layer.shapes.get(at_path).is_some_and(|s| !s.closed);
+    with_path(composition, layer, which, |base, keys| {
+        let last = base.len().saturating_sub(1 + open as usize);
+        match id {
+            "path.add_point" if ats.len() > 1 => Err("A point is added one at a time, because \
+                 each one is a place along its own segment. Say at= one point."
+                .to_string()),
+            "path.add_point" if at > last => Err(match open {
+                true => format!("This path ends at point {last}, so nothing starts after {at}."),
+                false => format!("This path has {} points, so it has no point {at}.", base.len()),
+            }),
+            "path.add_point" => {
+                anime_compositor::mask::insert_point(base, keys, at, t);
+                Ok(())
+            }
+            _ => {
+                let mut taken: Vec<usize> = ats.clone();
+                taken.sort_unstable();
+                taken.dedup();
+                if let Some(&past) = taken.iter().find(|&&a| a >= base.len()) {
+                    return Err(format!(
+                        "This path has {} points, so it has no point {past}.",
+                        base.len()
+                    ));
+                }
+                for at in taken.iter().rev() {
+                    anime_compositor::mask::remove_point(base, keys, *at);
+                }
+                Ok(())
+            }
+        }
     })
 }
 
@@ -12125,7 +12228,7 @@ mod editing {
         );
         report.check(
             "Undo says what it would take back",
-            "Set mask of 4 points",
+            "Draw Mask 1",
             held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
         );
         // An ellipse, as the ellipse tool draws one: four points with the handles that round it.
@@ -12397,6 +12500,239 @@ mod editing {
             "B-24d: a mask's path set moving, from the window",
             MASK_KEY_PANEL_INTRO,
             MASK_KEY_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// B-24h: a point added to a path or taken off it, from the window, on a path that moves.
+    /// The core's half is `verification/B-24h_path_point_table.md`; this is what the window
+    /// does with it, and what it says when the request cannot be granted.
+    #[test]
+    fn a_path_gains_and_loses_a_point_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cel = shown_layer(&viewer, "Cel")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        // How many points the base holds and how many each key holds. D-77 needs these equal,
+        // and keeping them equal is the whole of what D-79 asks the window for.
+        let counts = |viewer: &Mutex<Viewer>| {
+            let layer = shown_layer(viewer, "Cel");
+            let held = |v: &serde_json::Value| v["points"].as_array().map_or(0, |p| p.len());
+            let keys: Vec<String> = layer["masks"][0]["path"]["keyframes"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(|k| format!("frame {} holds {}", k["frame"], held(&k["value"])))
+                .collect();
+            match keys.is_empty() {
+                true => format!("base {}", held(&layer["masks"][0]["path"]["base"])),
+                false => format!(
+                    "base {}; {}",
+                    held(&layer["masks"][0]["path"]["base"]),
+                    keys.join("; ")
+                ),
+            }
+        };
+        // The outline the renderer actually drew at a frame, point by point: the same answer the
+        // boxes come from, which is what the page draws its points on.
+        let shape_at = |viewer: &Mutex<Viewer>, frame: i32| {
+            let body = boxes(viewer, frame, None).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the boxes answer is JSON");
+            answer["values"][&cel]["masks"][0]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(|p| format!("{},{}", p[0], p[1]))
+                .collect::<Vec<_>>()
+        };
+
+        let square = "0,0,0,0,0,0;100,0,0,0,0,0;100,100,0,0,0,0;0,100,0,0,0,0";
+        run(&viewer, &format!("mask.add?layer={cel}&points={square}"));
+        report.check("a square drawn has four points", "base 4", counts(&viewer));
+        run(
+            &viewer,
+            &format!("path.add_point?layer={cel}&prop=mask:0&at=1&t=0.5"),
+        );
+        report.check(
+            "half way along the second segment, a fifth point appears there",
+            "base 5, at 0.0,0.0 100.0,0.0 100.0,50.0 100.0,100.0 0.0,100.0",
+            format!("{}, at {}", counts(&viewer), shape_at(&viewer, 0).join(" ")),
+        );
+        report.check(
+            "and Undo says what it would take back",
+            "Add a point to Mask 1",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+        run(&viewer, "edit.undo");
+        report.check("one Undo takes the point off again", "base 4", counts(&viewer));
+
+        // The same, on a path that is already moving: the reason D-79 exists.
+        run(
+            &viewer,
+            &format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"),
+        );
+        run(
+            &viewer,
+            &format!(
+                "mask.set_path?layer={cel}&mask=0&frame=4&points=\
+                 0,0,0,0,0,0;300,0,0,0,0,0;300,100,0,0,0,0;0,100,0,0,0,0"
+            ),
+        );
+        let between = shape_at(&viewer, 2).join(" ");
+        report.check(
+            "a path with two keys, drawn half way between them at frame 2",
+            "base 4; frame 0 holds 4; frame 4 holds 4, at 0.0,0.0 200.0,0.0 200.0,100.0 0.0,100.0",
+            format!("{}, at {between}", counts(&viewer)),
+        );
+        run(
+            &viewer,
+            &format!("path.add_point?layer={cel}&prop=mask:0&at=1&t=0.5"),
+        );
+        report.check(
+            "a point added goes on the base and on every key, which is what D-77 needs",
+            "base 5; frame 0 holds 5; frame 4 holds 5",
+            counts(&viewer),
+        );
+        let mut without_it = shape_at(&viewer, 2);
+        without_it.remove(2);
+        report.check(
+            "and the shape between the keys does not move: the other four points are where they were",
+            &between,
+            without_it.join(" "),
+        );
+        report.check(
+            "the new point is on the curve between the keys, half way along that segment",
+            "200.0,50.0",
+            shape_at(&viewer, 2)[2].clone(),
+        );
+        run(
+            &viewer,
+            &format!("path.remove_point?layer={cel}&prop=mask:0&at=2"),
+        );
+        report.check(
+            "taken off again, it comes off the base and off every key together",
+            "base 4; frame 0 holds 4; frame 4 holds 4",
+            counts(&viewer),
+        );
+        report.check(
+            "and Undo says that too",
+            "Remove a point from Mask 1",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+        report.check(
+            "a point the path has not got is refused, and the window says how many it has",
+            "This path has 4 points, so it has no point 9.",
+            run(&viewer, &format!("path.add_point?layer={cel}&prop=mask:0&at=9")),
+        );
+        report.check(
+            "a place that is not along a segment is refused",
+            "\"1.5\" is not a place along a segment. It is a fraction, more than 0 and less than 1.",
+            run(
+                &viewer,
+                &format!("path.add_point?layer={cel}&prop=mask:0&at=1&t=1.5"),
+            ),
+        );
+        report.check(
+            "a request that names no path is refused",
+            "Which path? Say prop=mask:0 for the layer's first mask, or prop=shape:0 for its \
+             first shape.",
+            run(&viewer, &format!("path.add_point?layer={cel}&at=1")),
+        );
+        report.check(
+            "and a path taken below three points is refused, by the rule this build already had",
+            "A mask needs at least three points, and this one has 2. Add points until the shape \
+             closes on an area.",
+            {
+                run(
+                    &viewer,
+                    &format!("path.remove_point?layer={cel}&prop=mask:0&at=0"),
+                );
+                run(
+                    &viewer,
+                    &format!("path.remove_point?layer={cel}&prop=mask:0&at=0"),
+                )
+            },
+        );
+
+        // B-24i, D-80: several points chosen at once. Delete takes all of them off in one
+        // request, because one press has to be one thing to undo, and a list that names a point
+        // the path has not got is refused whole rather than half granted.
+        for at in [0, 1, 2] {
+            run(
+                &viewer,
+                &format!("path.add_point?layer={cel}&prop=mask:0&at={at}&t=0.5"),
+            );
+        }
+        report.check(
+            "three points put back on, so the path has six",
+            "base 6; frame 0 holds 6; frame 4 holds 6",
+            counts(&viewer),
+        );
+        report.check(
+            "three of them named at once come off together, down to the three a mask needs",
+            "base 3; frame 0 holds 3; frame 4 holds 3",
+            {
+                run(
+                    &viewer,
+                    &format!("path.remove_point?layer={cel}&prop=mask:0&at=1,3,5"),
+                );
+                counts(&viewer)
+            },
+        );
+        report.check(
+            "and Undo offers to take back all three of them, once",
+            "Remove 3 points from Mask 1",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "which one Undo does, to the base and to both keys",
+            "base 6; frame 0 holds 6; frame 4 holds 6",
+            counts(&viewer),
+        );
+        report.check(
+            "a list naming a point the path has not got is refused whole: nothing comes off",
+            "This path has 6 points, so it has no point 7. | base 6; frame 0 holds 6; frame 4 holds 6",
+            format!(
+                "{} | {}",
+                run(
+                    &viewer,
+                    &format!("path.remove_point?layer={cel}&prop=mask:0&at=1,7")
+                ),
+                counts(&viewer)
+            ),
+        );
+        report.check(
+            "and a list given to the other command is refused, since each added point is a place \
+             along its own segment",
+            "A point is added one at a time, because each one is a place along its own segment. \
+             Say at= one point.",
+            run(
+                &viewer,
+                &format!("path.add_point?layer={cel}&prop=mask:0&at=1,2&t=0.5"),
+            ),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-24h_panel_table.md",
+            "B-24h: a point added to a path, from the window",
+            PATH_POINT_PANEL_INTRO,
+            PATH_POINT_PANEL_NOTES,
         );
         let failed: Vec<&String> = report
             .rows
@@ -14176,6 +14512,29 @@ mod editing {
          or eased from the graph editor yet: `keyframe.move`, F9 and the graph take a \
          property's keys, and a path's key is not one of those. The stopwatch, the marks and \
          the frame the shape is set at are what B-24d builds.",
+    ];
+
+    const PATH_POINT_PANEL_INTRO: &[&str] = &[
+        "B-24d wrote down a limit: a point could not be added to or taken off a path that had \
+         keys, because a path's points are the path's and every key holds them all. D-79 lifts \
+         it by doing both at once - the point is cut into the base and into every key at the \
+         same place along the same segment - and the page reaches it with the pen over the \
+         path to add one, the pen over a point to take it off, and Delete to take off every \
+         point chosen at once (D-80, B-24j: Alt and a click converts a point now, as it does \
+         in After Effects, so the pen carries adding and taking off, where After Effects \
+         keeps them).",
+        "Every row calls what the window calls, on \
+         `Fixtures/projects/cel_holds_project.json`, and reads back what the page is given: how \
+         many points the base and each key hold, and the outline at a frame off the same answer \
+         the boxes come from, which is what the renderer actually drew.",
+    ];
+
+    const PATH_POINT_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhether the pen lands on the segment a person \
+         meant, and whether the shape looks unmoved on the picture afterwards. That is \
+         `verification/B-24h_path_point_playtest.md`, for a person. That the curve itself does \
+         not move, to fourteen decimal places, and that the drawn pixels move by no more than \
+         flattening, is the core's, in `verification/B-24h_path_point_table.md`.",
     ];
 
     const PATH_KEY_PANEL_INTRO: &[&str] = &[
@@ -16038,6 +16397,8 @@ mod contract {
         "mask.set_path",
         "media.import",
         "media.relink",
+        "path.add_point",
+        "path.remove_point",
         "property.drag_cancel",
         "property.drag_end",
         "property.drag_update",
@@ -16425,6 +16786,10 @@ mod contract {
         ("shape.set_path", "a command the window answers"),
         ("shape.set", "a command the window answers"),
         ("shape.delete", "a command the window answers"),
+        // D-79, accepted on 2026-09-22: one pair for both kinds of path, since a mask's points
+        // and a shape's are the same points.
+        ("path.add_point", "a command the window answers"),
+        ("path.remove_point", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -16665,7 +17030,9 @@ mod contract {
             let arm = match keys.find(key) {
                 Some(at) => {
                     let rest = &keys[at..];
-                    &rest[..rest.find("else if").unwrap_or(rest.len())]
+                    // The next key's arm starts at the handler's own indent; an arm may nest
+                    // an else if of its own, as Delete does for chosen mask points (B-24i).
+                    &rest[..rest.find("\n  else if").unwrap_or(rest.len())]
                 }
                 None => "",
             };
@@ -18072,7 +18439,7 @@ mod contract {
     const MOUSE_ONLY: [&str; 1] = ["effect.move"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
-    const MOUSE_GESTURES: [(&str, &str, &str); 31] = [
+    const MOUSE_GESTURES: [(&str, &str, &str); 34] = [
         (
             "dragging the border between two panels",
             "give one of them more of the window",
@@ -18230,6 +18597,31 @@ mod contract {
             "dragging a mask point or one of its handles",
             "move it",
             "'Point ' + (i + 1) + ' of ' + mask.name",
+        ),
+        // B-24h: and the third mask gesture. Plus and minus on a point that has been tabbed to
+        // add a point after it or take it off, which is what the pen does with one.
+        (
+            "the pen over a mask's path, or over one of its points",
+            "add a point there, or take that point off",
+            "command('/path.add_point' + which + '&at=' + i + '&t=0.5');",
+        ),
+        // B-24i, D-80: choosing several points at once. A box drawn round four of them, or Shift
+        // and a click on each, is a hand; the keyboard chooses the point it has tabbed to, and
+        // every key below acts on the chosen points and on that one alike, so the same work is
+        // done a point at a time.
+        (
+            "dragging a box across a mask's points, or Shift-clicking them one by one",
+            "choose several of them and move or delete them together",
+            "const moving = [...new Set([...chosenPoints(shaper, at), i])].sort((a, b) => a - b);",
+        ),
+        // B-24j, D-80: curving the path. Pulling a handle is a drag and Alt and a drag out of a
+        // corner is a drag, so the brackets on a point that has been tabbed to lengthen and
+        // shorten its pair of handles along the line between its neighbours, which is the
+        // direction a smooth point's handles take anyway.
+        (
+            "pulling a mask point's handle, or dragging out of a point with Alt held",
+            "curve the path through that point, or straighten it again",
+            "if (k.key === ']' || k.key === '[') {",
         ),
     ];
 

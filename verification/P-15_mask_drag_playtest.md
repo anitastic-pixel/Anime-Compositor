@@ -127,5 +127,7 @@ threads are between five and ten times of that; the rest is the rule.
 
 ## Result
 
-Pass / fail, the four numbers from step 2, and what was seen if it failed:
+**Passed on 2026-09-23.** The owner played all ten steps on the build of 2026-09-23 and answered
+"1 thru 5 pass" for this sheet and the four walked with it (B-24g, B-24h, B-24i, B-24j), with
+nothing reported beside the steps. The four numbers step 2 asks for were not reported.
 

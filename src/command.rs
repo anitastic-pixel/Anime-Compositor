@@ -471,6 +471,33 @@ impl Command {
         }
     }
 
+    /// The label a user would see in a history panel, given the project the command changed.
+    ///
+    /// B-24h: `SetMasks` takes the whole list of masks, because document 19's rules are about the
+    /// list and not about one point in it, and a payload that holds everything cannot say which
+    /// part of it the person touched -- so every mask edit there has ever been read "Set mask of
+    /// N points", whether it was a mask drawn, a point pulled, a feather set or a key put down.
+    /// The list as it was is the missing half. Comparing the two says what actually happened, and
+    /// says it from the change itself rather than from what the window claimed it was sending.
+    ///
+    /// Every other command carries its own answer and falls through to `label`. Shapes are not
+    /// done here: D-78's list has the same shape of problem and will want the same treatment,
+    /// which is a second call site and not this one.
+    pub fn label_in(&self, before: &Project) -> String {
+        match self {
+            Command::SetMasks {
+                composition,
+                layer_id,
+                masks,
+            } => before
+                .composition(composition)
+                .and_then(|c| c.layer(layer_id))
+                .map(|layer| mask_change(&layer.masks, masks))
+                .unwrap_or_else(|| self.label()),
+            _ => self.label(),
+        }
+    }
+
     /// The label a user would see in a history panel, in their words rather than the model's.
     pub fn label(&self) -> String {
         match self {
@@ -877,6 +904,136 @@ impl Command {
     }
 }
 
+/// B-24h: what one `SetMasks` did, read off the list as it was and the list it became.
+///
+/// First difference wins, and they are asked in the order a person would notice them: a mask
+/// drawn or deleted, then a point added or taken off, then the keys, then the shape, then the
+/// settings. Two masks changed at once is not something the window can send -- every one of its
+/// requests changes one -- so it is answered by the count and left there.
+fn mask_change(was: &[crate::mask::Mask], now: &[crate::mask::Mask]) -> String {
+    if now.len() != was.len() {
+        let (more, fewer) = (now.len() > was.len(), now.len() < was.len());
+        let named = |a: &[crate::mask::Mask], b: &[crate::mask::Mask]| {
+            a.iter()
+                .find(|m| !b.iter().any(|o| o.name == m.name))
+                .map(|m| m.name.clone())
+        };
+        return match (more, named(now, was), named(was, now)) {
+            (true, Some(name), _) => format!("Draw {name}"),
+            (true, None, _) => "Add a mask".to_string(),
+            (_, _, Some(name)) if fewer => format!("Delete {name}"),
+            _ => "Delete a mask".to_string(),
+        };
+    }
+    let changed: Vec<usize> = (0..now.len()).filter(|&i| was[i] != now[i]).collect();
+    let [only] = changed[..] else {
+        return match changed.len() {
+            0 => "Leave the masks as they were".to_string(),
+            n => format!("Change {n} masks"),
+        };
+    };
+    let (a, b) = (&was[only], &now[only]);
+    let name = &b.name;
+    if a.name != b.name {
+        return format!("Rename {} to {}", a.name, b.name);
+    }
+    if a.points.len() != b.points.len() {
+        let n = b.points.len().abs_diff(a.points.len());
+        let points = if n == 1 {
+            "a point".to_string()
+        } else {
+            format!("{n} points")
+        };
+        return match b.points.len() > a.points.len() {
+            true => format!("Add {points} to {name}"),
+            false => format!("Remove {points} from {name}"),
+        };
+    }
+    if a.keys.len() != b.keys.len() {
+        let frame = |long: &[crate::mask::MaskKey], short: &[crate::mask::MaskKey]| {
+            long.iter()
+                .find(|k| !short.iter().any(|o| o.frame == k.frame))
+                .map(|k| k.frame)
+        };
+        return match (a.keys.is_empty(), b.keys.is_empty()) {
+            (true, _) => format!("Start {name}'s path moving"),
+            (_, true) => format!("Stop {name}'s path moving"),
+            _ if b.keys.len() > a.keys.len() => match frame(&b.keys, &a.keys) {
+                Some(f) => format!("Key {name}'s path at frame {f}"),
+                None => format!("Key {name}'s path"),
+            },
+            _ => match frame(&a.keys, &b.keys) {
+                Some(f) => format!("Remove {name}'s path key at frame {f}"),
+                None => format!("Remove a path key from {name}"),
+            },
+        };
+    }
+    if a.keys != b.keys {
+        let moved = a.keys.iter().zip(&b.keys).find(|(x, y)| x.frame != y.frame);
+        if let Some((x, y)) = moved {
+            return format!("Move {name}'s path key from frame {} to {}", x.frame, y.frame);
+        }
+        let eased = a.keys.iter().zip(&b.keys).find(|(x, y)| x.interp != y.interp);
+        if let Some((_, y)) = eased {
+            return format!("Change the ease on {name}'s path key at frame {}", y.frame);
+        }
+        let at = a
+            .keys
+            .iter()
+            .zip(&b.keys)
+            .find(|(x, y)| x.points != y.points)
+            .map(|(x, y)| (x, y, x.frame));
+        return match at {
+            Some((x, y, frame)) if x.points.iter().zip(&y.points).filter(|(p, q)| p != q).count() == 1 => {
+                format!("Move a point of {name} at frame {frame}")
+            }
+            Some((x, y, frame))
+                if x.points.iter().zip(&y.points).filter(|(p, q)| p != q).count() < y.points.len() =>
+            {
+                let n = x.points.iter().zip(&y.points).filter(|(p, q)| p != q).count();
+                format!("Move {n} points of {name} at frame {frame}")
+            }
+            Some((_, _, frame)) => format!("Move {name}'s path at frame {frame}"),
+            None => format!("Change {name}'s path keys"),
+        };
+    }
+    if a.points != b.points {
+        let moved = a.points.iter().zip(&b.points).filter(|(p, q)| p != q).count();
+        // B-24i: several points can be dragged together now, so the entry counts them. All of
+        // them is the whole path, which is what a person would call it.
+        return match moved {
+            1 => format!("Move a point of {name}"),
+            n if n < b.points.len() => format!("Move {n} points of {name}"),
+            _ => format!("Move {name}'s path"),
+        };
+    }
+    if a.mode != b.mode {
+        return format!("Set {name} to {}", b.mode.as_str());
+    }
+    if a.opacity != b.opacity {
+        return format!("Set {name}'s opacity to {:.0}%", b.opacity * 100.0);
+    }
+    if a.feather_px != b.feather_px {
+        return format!("Set {name}'s feather to {} px", b.feather_px);
+    }
+    if a.expansion_px != b.expansion_px {
+        return format!("Set {name}'s expansion to {} px", b.expansion_px);
+    }
+    if a.inverted != b.inverted {
+        return match b.inverted {
+            true => format!("Invert {name}"),
+            false => format!("Stop inverting {name}"),
+        };
+    }
+    if a.enabled != b.enabled {
+        return match b.enabled {
+            true => format!("Switch {name} on"),
+            false => format!("Switch {name} off"),
+        };
+    }
+    format!("Change {name}")
+}
+
 /// One entry in the undo or redo stack.
 ///
 /// Document 26 lists what it must hold: "command ID, human-readable label, affected stable
@@ -1022,9 +1179,9 @@ impl Document {
         let record = Record {
             command_id: first.command_id(),
             label: if commands.len() == 1 {
-                first.label()
+                first.label_in(&before)
             } else {
-                format!("{} and {} more", first.label(), commands.len() - 1)
+                format!("{} and {} more", first.label_in(&before), commands.len() - 1)
             },
             affected: commands.iter().flat_map(Command::affected).collect(),
             source_revision: self.revision - 1,
@@ -1103,8 +1260,8 @@ impl Document {
         self.undo.push(Record {
             command_id: first.command_id(),
             label: match drag.commands.len() {
-                1 => first.label(),
-                n => format!("{} and {} more", first.label(), n - 1),
+                1 => first.label_in(&drag.before),
+                n => format!("{} and {} more", first.label_in(&drag.before), n - 1),
             },
             affected,
             source_revision: self.revision - 1,

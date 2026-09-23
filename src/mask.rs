@@ -309,6 +309,82 @@ pub fn points_at(base: &[MaskPoint], keys: &[MaskKey], frame: i32) -> Vec<MaskPo
         .collect()
 }
 
+/// D-79: add a point to a path, and to every key on it, without moving the curve.
+///
+/// The segment that starts at `after` is cut at `t`, a fraction from 0 to 1 along it, by de
+/// Casteljau's construction: the four control points are taken apart at `t` and put back as two
+/// segments whose curve, joined, is the curve there was. The four handles this changes -- the
+/// out handle of `after`, both handles of the new point, and the in handle of the point that
+/// followed -- are the only numbers touched, so the path before `after` and after the new point
+/// is not merely equal, it is the same numbers.
+///
+/// Every key is cut at the same place, which is what D-79 asks for and what keeps the count D-77
+/// requires: every key holds as many points as the base. Each key is cut on its *own* control
+/// points, so each key keeps its own shape. The shape between two keys keeps its shape too, and
+/// not by accident: document 20 interpolates a path by moving each control point a fraction of
+/// the way, and de Casteljau's cut is itself a weighted sum of control points, so cutting two
+/// keys and then interpolating gives the same numbers as interpolating and then cutting.
+///
+/// A segment with no handles at either end is a straight line, and cutting it leaves a corner
+/// with no handles rather than two handles along the line: the same line, and a point a person
+/// can go on dragging as a corner.
+pub fn insert_point(base: &mut Vec<MaskPoint>, keys: &mut [MaskKey], after: usize, t: f64) {
+    cut(base, after, t);
+    for key in keys {
+        cut(&mut key.points, after, t);
+    }
+}
+
+/// One outline cut. `after` is a point of it; the segment that starts there gains the new point.
+fn cut(points: &mut Vec<MaskPoint>, after: usize, t: f64) {
+    let n = points.len();
+    if n < 2 || after >= n {
+        return;
+    }
+    let next = (after + 1) % n;
+    let (p0, p1) = (points[after], points[next]);
+    let lerp = |a: (f64, f64), b: (f64, f64)| (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
+    let off = |a: (f64, f64), b: (f64, f64)| (a.0 - b.0, a.1 - b.1);
+    let a = p0.point;
+    let b = (a.0 + p0.out_handle.0, a.1 + p0.out_handle.1);
+    let d = p1.point;
+    let c = (d.0 + p1.in_handle.0, d.1 + p1.in_handle.1);
+    let (ab, bc, cd) = (lerp(a, b), lerp(b, c), lerp(c, d));
+    let (abc, bcd) = (lerp(ab, bc), lerp(bc, cd));
+    let middle = lerp(abc, bcd);
+    let straight = p0.out_handle == (0.0, 0.0) && p1.in_handle == (0.0, 0.0);
+    let new = if straight {
+        MaskPoint::corner(middle.0, middle.1)
+    } else {
+        points[after].out_handle = off(ab, a);
+        points[next].in_handle = off(cd, d);
+        MaskPoint {
+            point: middle,
+            in_handle: off(abc, middle),
+            out_handle: off(bcd, middle),
+        }
+    };
+    points.insert(after + 1, new);
+}
+
+/// D-79: take a point off a path, and the same point off every key on it.
+///
+/// The shape changes, which is the point of asking; what does not change is the agreement D-77
+/// rests on, that every key holds as many points as the base. Nothing is done about a path left
+/// with fewer than three points: that is not a mask, and the core refuses it with the sentence
+/// it already has for one.
+pub fn remove_point(base: &mut Vec<MaskPoint>, keys: &mut [MaskKey], at: usize) {
+    if at >= base.len() {
+        return;
+    }
+    base.remove(at);
+    for key in keys {
+        if at < key.points.len() {
+            key.points.remove(at);
+        }
+    }
+}
+
 /// D-77's flattening, with the one difference D-78's open path makes.
 ///
 /// A closed path has a segment from its last point back to its first; an open one does not, so

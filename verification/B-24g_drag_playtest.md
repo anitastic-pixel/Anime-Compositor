@@ -59,5 +59,7 @@ hollow, with a white edge, and so is a handle. Nothing else about pressing a poi
 
 ## Result
 
-Pass / fail, and what was seen if it failed:
+**Passed on 2026-09-23.** The owner played all ten steps on the build of 2026-09-23 and answered
+"1 thru 5 pass" for this sheet and the four walked with it (P-15, B-24h, B-24i, B-24j), with
+nothing reported beside the steps.
 

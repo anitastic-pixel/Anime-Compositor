@@ -14,7 +14,7 @@ What a mask looks like on the picture and on the timeline, whether the pen close
 |---|---|---|---|
 | the drawing layer starts with no masks | none | none | pass |
 | New mask, the pen and the two shape tools all send mask.add, and the first is Mask 1 | Mask 1 add 4 points, opacity 1, feather 0, expansion 0 | Mask 1 add 4 points, opacity 1, feather 0, expansion 0 | pass |
-| Undo says what it would take back | Set mask of 4 points | Set mask of 4 points | pass |
+| Undo says what it would take back | Draw Mask 1 | Draw Mask 1 | pass |
 | a second one is Mask 2, and the ellipse keeps its handles | Mask 1 add 4 points, opacity 1, feather 0, expansion 0; Mask 2 add 4 points, opacity 1, feather 0, expansion 0 | Mask 1 add 4 points, opacity 1, feather 0, expansion 0; Mask 2 add 4 points, opacity 1, feather 0, expansion 0 | pass |
 | the curved point really is curved: its outgoing handle is the one that was drawn | [265.096,0] | [265.096,0] | pass |
 | moving one point moves that point and no other | [100,0] then [1920,0] | [100,0] then [1920,0] | pass |

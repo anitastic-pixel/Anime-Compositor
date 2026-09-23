@@ -65,7 +65,7 @@ Until today a file with keys on a path opened, was kept and was drawn at its bas
 | --- | --- | --- |
 | a key holding a different number of points is refused, with MASK_INVALID_OUTLINE | MaskInvalidOutline: D-77 interpolates a path point by point, so every key on it holds the same points as the path itself, one key to a frame. The masks are unchanged. | yes |
 | two keys at one frame are refused the same way | MaskInvalidOutline: D-77 interpolates a path point by point, so every key on it holds the same points as the path itself, one key to a frame. The masks are unchanged. | yes |
-| keys given out of order are accepted and kept in frame order | Ok("Set mask of 4 points"); frames [0, 4] | yes |
+| keys given out of order are accepted and kept in frame order | Ok("Start Mask 1's path moving"); frames [0, 4] | yes |
 | and one undo gives back the mask as it was | the same project | yes |
 
 ## Result

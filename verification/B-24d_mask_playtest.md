@@ -51,9 +51,10 @@ copy. Nothing below changes the fixtures.
 
 ## Known limits
 
-Two of these were written on 2026-09-20 and **lifted on 2026-09-22 by B-24e and B-24f**, which
-were built out of this sheet. They are struck through rather than deleted, because this page is
-the record of what was true when it was written:
+All four were written on 2026-09-20 and **all four are lifted**: the first two on 2026-09-22 by
+B-24e and B-24f, the last two the same day by B-24h, each built out of this sheet. They are
+struck through rather than deleted, because this page is the record of what was true when it was
+written:
 
 - ~~A mask's key cannot be **dragged** along its row, eased with **F9**, or opened in the graph
   editor.~~ It can, and so can the rest of what a property's key answers to: chosen with other
@@ -63,10 +64,17 @@ the record of what was true when it was written:
 - ~~A key is always **linear**, because the window has no way to set an ease.~~ F9 sets one and
   Ctrl+Alt+G holds it, which is what B-24e built. What the core always did — read, keep, save
   and draw an eased path key, as `FX-MSK-033` proves — the window can now ask for.
-- Adding or removing a **point** on a path that has keys is refused, because a path's points are
-  the path's and every key holds them all. Draw the shape you want first and key it afterwards.
-- One Undo entry per change still reads "Set mask of N points", whatever the change was: the
-  core takes the whole list of masks as one command.
+- ~~Adding or removing a **point** on a path that has keys is refused, because a path's points
+  are the path's and every key holds them all. Draw the shape you want first and key it
+  afterwards.~~ **Alt and a click** on the path adds a point where you pointed; Alt and a click
+  on a point takes it off. It goes on the base and on every key at once, which is why it is
+  allowed now, and the shape does not move when it happens — at a key or anywhere between two of
+  them. D-79 is the rule, and `verification/B-24h_path_point_playtest.md` is the sheet.
+- ~~One Undo entry per change still reads "Set mask of N points", whatever the change was: the
+  core takes the whole list of masks as one command.~~ An entry now names the change — "Add a
+  point to Mask 1", "Move a point of Face at frame 6", "Set Mask 1's feather to 6 px" — worked
+  out from the masks as they were rather than from what the window says about itself. Also
+  B-24h; step 6 of its sheet is where to look.
 
 ## What to answer
 
