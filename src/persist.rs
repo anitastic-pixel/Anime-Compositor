@@ -187,6 +187,10 @@ const KEY_ORDER: &[&str] = &[
     "effects",
     "parent",
     "depth",
+    "timesheet",
+    "sheet",
+    "column",
+    "track",
     "instance_id",
     "type_id",
     "parameters",
@@ -807,6 +811,17 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     }
     if layer.shy || base.is_some_and(|b| b.get("shy").is_some()) {
         owned.push(("shy", J::from(layer.shy)));
+    }
+    // D-84's record, written the way `parent` is.
+    match &layer.timesheet {
+        Some(t) => owned.push((
+            "timesheet",
+            serde_json::json!({"sheet": t.sheet, "column": t.column, "track": t.track}),
+        )),
+        None if base.is_some_and(|b| b.get("timesheet").is_some()) => {
+            owned.push(("timesheet", J::Null))
+        }
+        None => {}
     }
     merge(base, owned)
 }
@@ -1668,6 +1683,32 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         Some(p) => Some(as_id(p, &format!("{pointer}/parent"))?),
     };
 
+    // D-84. Absent on every layer that was not made from a timesheet column.
+    let timesheet = match v.get("timesheet") {
+        None | Some(J::Null) => None,
+        Some(t) => {
+            let at = format!("{pointer}/timesheet");
+            let text = |key: &str| {
+                t.get(key)
+                    .and_then(J::as_str)
+                    .map(str::to_string)
+                    .ok_or_else(|| {
+                        invalid(&format!("{at}/{key}"), "a timesheet record's text (D-84)")
+                    })
+            };
+            Some(crate::model::Timesheet {
+                sheet: text("sheet")?,
+                column: text("column")?,
+                track: t.get("track").and_then(J::as_i64).ok_or_else(|| {
+                    invalid(
+                        &format!("{at}/track"),
+                        "a timesheet column's whole number (D-84)",
+                    )
+                })?,
+            })
+        }
+    };
+
     // D-58. Absent means the layer sits on the depth-0 plane, which is what every project
     // written before the camera existed means and why those files still open unchanged. A
     // property and not a plain number, because a depth is keyed like any other number: a
@@ -1988,6 +2029,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         gain_db: 0.0,
         solid,
         shapes,
+        timesheet,
     })
 }
 

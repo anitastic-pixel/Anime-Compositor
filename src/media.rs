@@ -386,7 +386,10 @@ pub fn import_sequence(files: &[PathBuf]) -> ImportResult {
 ///
 /// An EXR is read whole, because its `MEDIA_EXR_ADJUSTED` reasons (D-62) include counts of
 /// samples, and import is where a person should hear them.
-fn file_size(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> Result<(u32, u32), Diagnostic> {
+pub(crate) fn file_size(
+    path: &Path,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(u32, u32), Diagnostic> {
     if is_other_format(path) {
         return open_other(path).map(|picture| (picture.width(), picture.height()));
     }

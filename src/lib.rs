@@ -35,6 +35,7 @@ pub mod render;
 pub mod sha256;
 pub mod shape;
 pub mod time;
+pub mod timesheet;
 pub mod trace;
 
 /// How the RGB channels of a buffer are encoded.

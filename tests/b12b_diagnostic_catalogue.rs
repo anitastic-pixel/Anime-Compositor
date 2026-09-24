@@ -251,6 +251,86 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "MEDIA_AUDIO_UNREADABLE",
         "B-20b_audio_table.md",
     ),
+    (
+        DiagnosticId::TimesheetNotFound,
+        "TIMESHEET_NOT_FOUND",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetUnreadable,
+        "TIMESHEET_UNREADABLE",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetNoCells,
+        "TIMESHEET_NO_CELLS",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetVersion,
+        "TIMESHEET_VERSION",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetTableNotRead,
+        "TIMESHEET_TABLE_NOT_READ",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetFieldNotRead,
+        "TIMESHEET_FIELD_NOT_READ",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetColumnUnnamed,
+        "TIMESHEET_COLUMN_UNNAMED",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetEntryIgnored,
+        "TIMESHEET_ENTRY_IGNORED",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetEntryCarriedIn,
+        "TIMESHEET_ENTRY_CARRIED_IN",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetCellUnreadable,
+        "TIMESHEET_CELL_UNREADABLE",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetMark,
+        "TIMESHEET_MARK",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetColumnEmpty,
+        "TIMESHEET_COLUMN_EMPTY",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetColumnNoDrawings,
+        "TIMESHEET_COLUMN_NO_DRAWINGS",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetDrawingMissing,
+        "TIMESHEET_DRAWING_MISSING",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetDrawingUnused,
+        "TIMESHEET_DRAWING_UNUSED",
+        "B-28b_timesheet_table.md",
+    ),
+    (
+        DiagnosticId::TimesheetNotUsed,
+        "TIMESHEET_NOT_USED",
+        "B-28b_timesheet_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
@@ -320,7 +400,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "39 identifiers",
+        "55 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

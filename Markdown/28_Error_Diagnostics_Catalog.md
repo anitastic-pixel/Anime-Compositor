@@ -50,6 +50,22 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | PACKAGE_FILE_CHANGED | ERROR | A packaged file's size or SHA-256 differs from the manifest (D-61) | name the file; the drawing is still used as it is |
 | PACKAGE_MEDIA_EXCLUDED | INFO | A drawing the artist marked as not to be passed on is not in the package (D-61) | name the file and where it goes |
 | PACKAGE_FILE_UNVERIFIED | INFO | A drawing missing when packed is now present, with no hash to check it against (D-61) | name the file |
+| TIMESHEET_NOT_FOUND | ERROR | The chosen folder holds no `.xdts` file, or more than one (D-84) | import nothing; name what was found |
+| TIMESHEET_UNREADABLE | ERROR | Not XDTS: the first line is wrong, the rest is not JSON, there is no timetable, or its length is not a number of frames (D-84) | import nothing; say which |
+| TIMESHEET_NO_CELLS | ERROR | No drawing column, or none that can become a layer (D-84) | import nothing; the other notes say why |
+| TIMESHEET_VERSION | WARNING | The file's version is not 5 (D-84) | read it anyway; name the version |
+| TIMESHEET_TABLE_NOT_READ | INFO | The file has more than one timetable (D-84) | read the first; name the others |
+| TIMESHEET_FIELD_NOT_READ | INFO | A dialogue, camerawork or unknown field (D-84) | read the drawing columns; name the field and its column count |
+| TIMESHEET_COLUMN_UNNAMED | WARNING | A drawing column has no name, so its drawings cannot be found (D-84) | make no layer for it; name its track number |
+| TIMESHEET_ENTRY_IGNORED | WARNING | An entry past the end of the sheet, one before frame 0 that is not carried in, or a second entry on one frame (D-84) | leave it out; name the column, frames and reason |
+| TIMESHEET_ENTRY_CARRIED_IN | INFO | An entry before frame 0, which Clip Studio Paint can write and the specification does not allow (D-84) | the last one stands on frame 0 unless frame 0 has its own entry; name the column and its frame |
+| TIMESHEET_CELL_UNREADABLE | WARNING | A cell that is not a whole number or a symbol (D-84) | the column is blank from there to its next entry; name the column, frame and value |
+| TIMESHEET_MARK | INFO | A tick mark (D-84) | change nothing shown; name the column, mark and frames |
+| TIMESHEET_COLUMN_EMPTY | INFO | A drawing column that never shows a drawing (D-84) | make no layer for it |
+| TIMESHEET_COLUMN_NO_DRAWINGS | WARNING | No folder and no loose files for a column (D-84) | make no layer for it; name the column |
+| TIMESHEET_DRAWING_MISSING | WARNING | The sheet calls for a drawing its column does not have (D-84) | keep the timing; name the drawings |
+| TIMESHEET_DRAWING_UNUSED | INFO | A column has drawings the sheet never shows (D-84) | name the drawings |
+| TIMESHEET_NOT_USED | INFO | A folder or drawing beside the sheet that no column used (D-84) | name them |
 | DEPENDENCY_LICENSE_UNRESOLVED | ERROR for distribution | Required distribution review incomplete | block public package |
 
 ## Missing/unsupported render fallback

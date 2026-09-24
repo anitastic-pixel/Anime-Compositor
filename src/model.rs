@@ -817,6 +817,21 @@ pub struct Layer {
     /// which is why nothing here says one. A shape's path is D-77's record unchanged, so it may
     /// move exactly as a mask's path does.
     pub shapes: Vec<crate::shape::Shape>,
+    /// D-84: the timesheet column an imported cut made this layer from, and `None` on every
+    /// layer made any other way. A record of where the timing came from, which nothing reads
+    /// back into the timing: the exposures are the layer's own. Saved as `timesheet` only when
+    /// it is set, as `parent` is.
+    pub timesheet: Option<Timesheet>,
+}
+
+/// D-84: which column of which timesheet a layer's exposures were read from.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Timesheet {
+    /// The `.xdts` file's name, without its folder.
+    pub sheet: String,
+    pub column: String,
+    /// The column's `trackNo`, 0 at the bottom.
+    pub track: i64,
 }
 
 impl Layer {
@@ -852,6 +867,7 @@ impl Layer {
             gain_db: 0.0,
             solid: None,
             shapes: Vec::new(),
+            timesheet: None,
         }
     }
 

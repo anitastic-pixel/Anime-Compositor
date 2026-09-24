@@ -173,6 +173,38 @@ pub enum DiagnosticId {
     PackageMediaExcluded,
     /// Document 28, added by D-61: a file is present where the manifest recorded none, so nothing can vouch for it.
     PackageFileUnverified,
+    /// Document 28, added by D-84: the chosen folder holds no `.xdts` file, or more than one.
+    TimesheetNotFound,
+    /// Document 28, added by D-84: the timesheet is not XDTS, or has no timetable or length.
+    TimesheetUnreadable,
+    /// Document 28, added by D-84: no drawing column of the timesheet can become a layer.
+    TimesheetNoCells,
+    /// Document 28, added by D-84: the timesheet's version is not 5; it is read anyway.
+    TimesheetVersion,
+    /// Document 28, added by D-84: a timesheet's timetables after the first are not read.
+    TimesheetTableNotRead,
+    /// Document 28, added by D-84: a dialogue, camerawork or unknown field is not read.
+    TimesheetFieldNotRead,
+    /// Document 28, added by D-84: a drawing column with no name makes no layer.
+    TimesheetColumnUnnamed,
+    /// Document 28, added by D-84: an entry outside the sheet, or a second on one frame, is left out.
+    TimesheetEntryIgnored,
+    /// Document 28, added by D-84: an entry before frame 0 stands on frame 0.
+    TimesheetEntryCarriedIn,
+    /// Document 28, added by D-84: a cell that is not a whole number or a symbol reads as blank.
+    TimesheetCellUnreadable,
+    /// Document 28, added by D-84: a tick mark, which changes nothing shown.
+    TimesheetMark,
+    /// Document 28, added by D-84: a drawing column that never shows a drawing makes no layer.
+    TimesheetColumnEmpty,
+    /// Document 28, added by D-84: a column with no folder and no loose files makes no layer.
+    TimesheetColumnNoDrawings,
+    /// Document 28, added by D-84: the sheet calls for a drawing its column does not have.
+    TimesheetDrawingMissing,
+    /// Document 28, added by D-84: a column has drawings the sheet never shows.
+    TimesheetDrawingUnused,
+    /// Document 28, added by D-84: a folder or drawing beside the sheet that no column used.
+    TimesheetNotUsed,
 }
 
 impl DiagnosticId {
@@ -222,6 +254,22 @@ impl DiagnosticId {
             DiagnosticId::PackageFileChanged => "PACKAGE_FILE_CHANGED",
             DiagnosticId::PackageMediaExcluded => "PACKAGE_MEDIA_EXCLUDED",
             DiagnosticId::PackageFileUnverified => "PACKAGE_FILE_UNVERIFIED",
+            DiagnosticId::TimesheetNotFound => "TIMESHEET_NOT_FOUND",
+            DiagnosticId::TimesheetUnreadable => "TIMESHEET_UNREADABLE",
+            DiagnosticId::TimesheetNoCells => "TIMESHEET_NO_CELLS",
+            DiagnosticId::TimesheetVersion => "TIMESHEET_VERSION",
+            DiagnosticId::TimesheetTableNotRead => "TIMESHEET_TABLE_NOT_READ",
+            DiagnosticId::TimesheetFieldNotRead => "TIMESHEET_FIELD_NOT_READ",
+            DiagnosticId::TimesheetColumnUnnamed => "TIMESHEET_COLUMN_UNNAMED",
+            DiagnosticId::TimesheetEntryIgnored => "TIMESHEET_ENTRY_IGNORED",
+            DiagnosticId::TimesheetEntryCarriedIn => "TIMESHEET_ENTRY_CARRIED_IN",
+            DiagnosticId::TimesheetCellUnreadable => "TIMESHEET_CELL_UNREADABLE",
+            DiagnosticId::TimesheetMark => "TIMESHEET_MARK",
+            DiagnosticId::TimesheetColumnEmpty => "TIMESHEET_COLUMN_EMPTY",
+            DiagnosticId::TimesheetColumnNoDrawings => "TIMESHEET_COLUMN_NO_DRAWINGS",
+            DiagnosticId::TimesheetDrawingMissing => "TIMESHEET_DRAWING_MISSING",
+            DiagnosticId::TimesheetDrawingUnused => "TIMESHEET_DRAWING_UNUSED",
+            DiagnosticId::TimesheetNotUsed => "TIMESHEET_NOT_USED",
         }
     }
 
@@ -267,6 +315,22 @@ impl DiagnosticId {
                 | DiagnosticId::PackageFileChanged
                 | DiagnosticId::PackageMediaExcluded
                 | DiagnosticId::PackageFileUnverified
+                | DiagnosticId::TimesheetNotFound
+                | DiagnosticId::TimesheetUnreadable
+                | DiagnosticId::TimesheetNoCells
+                | DiagnosticId::TimesheetVersion
+                | DiagnosticId::TimesheetTableNotRead
+                | DiagnosticId::TimesheetFieldNotRead
+                | DiagnosticId::TimesheetColumnUnnamed
+                | DiagnosticId::TimesheetEntryIgnored
+                | DiagnosticId::TimesheetEntryCarriedIn
+                | DiagnosticId::TimesheetCellUnreadable
+                | DiagnosticId::TimesheetMark
+                | DiagnosticId::TimesheetColumnEmpty
+                | DiagnosticId::TimesheetColumnNoDrawings
+                | DiagnosticId::TimesheetDrawingMissing
+                | DiagnosticId::TimesheetDrawingUnused
+                | DiagnosticId::TimesheetNotUsed
         )
     }
 }

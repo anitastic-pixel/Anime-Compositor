@@ -52,6 +52,22 @@ One row per identifier this build can print, and the table where a person can re
 | `MEDIA_EXR_ADJUSTED` | yes | `verification/B-16b_exr_table.md` |
 | `MEDIA_AUDIO_CUT_SHORT` | yes | `verification/B-20b_audio_table.md` |
 | `MEDIA_AUDIO_UNREADABLE` | yes | `verification/B-20b_audio_table.md` |
+| `TIMESHEET_NOT_FOUND` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_UNREADABLE` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_NO_CELLS` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_VERSION` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_TABLE_NOT_READ` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_FIELD_NOT_READ` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_COLUMN_UNNAMED` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_ENTRY_IGNORED` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_ENTRY_CARRIED_IN` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_CELL_UNREADABLE` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_MARK` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_COLUMN_EMPTY` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_COLUMN_NO_DRAWINGS` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_DRAWING_MISSING` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_DRAWING_UNUSED` | yes | `verification/B-28b_timesheet_table.md` |
+| `TIMESHEET_NOT_USED` | yes | `verification/B-28b_timesheet_table.md` |
 
 ## What the catalogue promises and the build does not have
 
@@ -80,7 +96,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 39 identifiers | 39 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 55 identifiers | 55 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
@@ -213,12 +229,60 @@ One row per identifier this build can print, and the table where a person can re
 | MEDIA_AUDIO_UNREADABLE: the enum spells it the way the catalogue does | MEDIA_AUDIO_UNREADABLE | MEDIA_AUDIO_UNREADABLE | pass |
 | MEDIA_AUDIO_UNREADABLE: says truthfully whether document 28 lists it | true | true | pass |
 | MEDIA_AUDIO_UNREADABLE: a table somewhere shows a person this sentence | named in B-20b_audio_table.md | named in B-20b_audio_table.md | pass |
+| TIMESHEET_NOT_FOUND: the enum spells it the way the catalogue does | TIMESHEET_NOT_FOUND | TIMESHEET_NOT_FOUND | pass |
+| TIMESHEET_NOT_FOUND: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_NOT_FOUND: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_UNREADABLE: the enum spells it the way the catalogue does | TIMESHEET_UNREADABLE | TIMESHEET_UNREADABLE | pass |
+| TIMESHEET_UNREADABLE: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_UNREADABLE: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_NO_CELLS: the enum spells it the way the catalogue does | TIMESHEET_NO_CELLS | TIMESHEET_NO_CELLS | pass |
+| TIMESHEET_NO_CELLS: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_NO_CELLS: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_VERSION: the enum spells it the way the catalogue does | TIMESHEET_VERSION | TIMESHEET_VERSION | pass |
+| TIMESHEET_VERSION: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_VERSION: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_TABLE_NOT_READ: the enum spells it the way the catalogue does | TIMESHEET_TABLE_NOT_READ | TIMESHEET_TABLE_NOT_READ | pass |
+| TIMESHEET_TABLE_NOT_READ: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_TABLE_NOT_READ: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_FIELD_NOT_READ: the enum spells it the way the catalogue does | TIMESHEET_FIELD_NOT_READ | TIMESHEET_FIELD_NOT_READ | pass |
+| TIMESHEET_FIELD_NOT_READ: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_FIELD_NOT_READ: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_COLUMN_UNNAMED: the enum spells it the way the catalogue does | TIMESHEET_COLUMN_UNNAMED | TIMESHEET_COLUMN_UNNAMED | pass |
+| TIMESHEET_COLUMN_UNNAMED: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_COLUMN_UNNAMED: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_ENTRY_IGNORED: the enum spells it the way the catalogue does | TIMESHEET_ENTRY_IGNORED | TIMESHEET_ENTRY_IGNORED | pass |
+| TIMESHEET_ENTRY_IGNORED: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_ENTRY_IGNORED: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_ENTRY_CARRIED_IN: the enum spells it the way the catalogue does | TIMESHEET_ENTRY_CARRIED_IN | TIMESHEET_ENTRY_CARRIED_IN | pass |
+| TIMESHEET_ENTRY_CARRIED_IN: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_ENTRY_CARRIED_IN: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_CELL_UNREADABLE: the enum spells it the way the catalogue does | TIMESHEET_CELL_UNREADABLE | TIMESHEET_CELL_UNREADABLE | pass |
+| TIMESHEET_CELL_UNREADABLE: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_CELL_UNREADABLE: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_MARK: the enum spells it the way the catalogue does | TIMESHEET_MARK | TIMESHEET_MARK | pass |
+| TIMESHEET_MARK: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_MARK: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_COLUMN_EMPTY: the enum spells it the way the catalogue does | TIMESHEET_COLUMN_EMPTY | TIMESHEET_COLUMN_EMPTY | pass |
+| TIMESHEET_COLUMN_EMPTY: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_COLUMN_EMPTY: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_COLUMN_NO_DRAWINGS: the enum spells it the way the catalogue does | TIMESHEET_COLUMN_NO_DRAWINGS | TIMESHEET_COLUMN_NO_DRAWINGS | pass |
+| TIMESHEET_COLUMN_NO_DRAWINGS: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_COLUMN_NO_DRAWINGS: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_DRAWING_MISSING: the enum spells it the way the catalogue does | TIMESHEET_DRAWING_MISSING | TIMESHEET_DRAWING_MISSING | pass |
+| TIMESHEET_DRAWING_MISSING: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_DRAWING_MISSING: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_DRAWING_UNUSED: the enum spells it the way the catalogue does | TIMESHEET_DRAWING_UNUSED | TIMESHEET_DRAWING_UNUSED | pass |
+| TIMESHEET_DRAWING_UNUSED: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_DRAWING_UNUSED: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| TIMESHEET_NOT_USED: the enum spells it the way the catalogue does | TIMESHEET_NOT_USED | TIMESHEET_NOT_USED | pass |
+| TIMESHEET_NOT_USED: says truthfully whether document 28 lists it | true | true | pass |
+| TIMESHEET_NOT_USED: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
 | PROJECT_FEATURE_UNSUPPORTED is kept but raised by nothing | no source file raises it | no source file raises it | pass |
 | every catalogue entry is either built or written down as not built | none unaccounted for | none unaccounted for | pass |
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**137 of 137 checks pass.**
+**185 of 185 checks pass.**
 
 ## What this cannot cover
 
