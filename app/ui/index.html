@@ -721,6 +721,7 @@
     <div class="foot">
       <button id="newcomp">New composition&hellip;</button>
       <button id="import">Import drawings&hellip;</button>
+      <button id="importcut" title="A cut's folder: its .xdts timesheet and a folder of drawings for each column">Import cut&hellip;</button>
       <button id="relink">Relink&hellip;</button>
     </div>
   </section>
@@ -5787,6 +5788,9 @@ function drawInspector() {
     : layer.kind === 'composition' ? 'the composition ' + compName(layer.composition_id) : layer.asset_id);
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive'
     + (layer.source_offset_frames ? ', drawings offset by ' + layer.source_offset_frames : ''));
+  // D-84: where an imported cut's layer took its timing from. A record; nothing reads it back.
+  if (layer.timesheet) field(dl, 'Timesheet', layer.timesheet.sheet + ', column '
+    + layer.timesheet.column + ', track ' + layer.timesheet.track);
   // Document 19's five transform properties, in its order. What they are counted in and the
   // one conversion this panel makes are in `propScrubs`, which the timeline shares.
   // D-71: an audio layer has a level and nothing else: no transform, blend, mask, matte or parent.
@@ -7552,6 +7556,7 @@ function moveLayers(up) {
 $('up').onclick = () => moveLayers(true);
 $('down').onclick = () => moveLayers(false);
 $('import').onclick = () => command('/media.import');
+$('importcut').onclick = () => command('/timesheet.import');
 // W-01 step 3. The fields are read at the moment Create is pressed, not as they are typed: a
 // half-typed width is not a composition somebody asked for, and the core would refuse it in a
 // status line the person had not finished causing.

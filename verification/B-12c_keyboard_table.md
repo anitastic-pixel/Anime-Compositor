@@ -29,7 +29,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
+| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetlayout, save, saveas, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
@@ -124,6 +124,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `timeline.set_markers` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_work_end` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_work_start` can be asked for without a mouse | yes | yes | pass |
+| `timesheet.import` can be asked for without a mouse | yes | yes | pass |
 | `viewer.toggle_alpha` can be asked for without a mouse | yes | yes | pass |
 | `viewer.toggle_checkerboard` can be asked for without a mouse | yes | yes | pass |
 | dragging the border between two panels is not the only way to give one of them more of the window | true | true | pass |
@@ -163,4 +164,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**133 of 133 checks pass.**
+**134 of 134 checks pass.**

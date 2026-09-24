@@ -64,6 +64,7 @@ use anime_compositor::package::{self, Answer};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
 use anime_compositor::time::{ExposureSpan, FrameRate};
+use anime_compositor::timesheet;
 use anime_compositor::{AlphaMode, ColorSpace};
 use anime_compositor::{OutputAlpha, OutputDepth};
 use tauri::http::{Request, Response};
@@ -1724,6 +1725,50 @@ fn spoken(numbers: &[u32]) -> String {
     }
 }
 
+/// D-84's `timesheet.import`: the cut in the chosen folder, added as one entry to undo and put on
+/// screen. What the reading noticed goes to the notes list, as an import's does, and a folder
+/// nothing is imported from says why on the status line and in the notes.
+fn import_cut(viewer: &Mutex<Viewer>, folder: &Path) -> String {
+    let cut = match timesheet::read_cut(folder) {
+        Ok(cut) => cut,
+        Err(refused) => {
+            let refusal = refused.refusal.diagnostic();
+            let mut held = viewer.lock().expect("the viewer lock was poisoned");
+            held.notes.push(note(&refusal));
+            held.notes
+                .extend(refused.notes.iter().map(|n| note(&n.diagnostic())));
+            return format!("Nothing was imported. {}", sentence(&refusal));
+        }
+    };
+    let id = {
+        let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        let (id, commands) = timesheet::commands(&cut, held.document.project(), &held.root);
+        if let Err(diagnostic) = held.document.apply_all(commands) {
+            return sentence(&diagnostic);
+        }
+        held.notes
+            .extend(cut.notes.iter().map(|n| note(&n.diagnostic())));
+        held.notes.extend(cut.media.iter().map(note));
+        id
+    };
+    show(viewer, &id);
+    let told = cut.notes.len() + cut.media.len();
+    format!(
+        "{} is imported and open: {} {} from its timesheet, {} frames at {} frames a second, \
+         because a timesheet does not say its rate. {}Ctrl+Z takes it all back.",
+        cut.name,
+        cut.columns.len(),
+        if cut.columns.len() == 1 { "layer" } else { "layers" },
+        cut.duration,
+        timesheet::FRAME_RATE,
+        match told {
+            0 => String::new(),
+            1 => "1 note is below. ".to_string(),
+            n => format!("{n} notes are below. "),
+        }
+    )
+}
+
 /// Document 24's `media.import`: group the chosen files into one sequence and add it.
 ///
 /// The selection is the person's and is never widened here. Document 07: "Search only
@@ -2240,6 +2285,7 @@ const ANSWERS: &[&str] = &[
     "timeline.set_markers",
     "timeline.set_work_end",
     "timeline.set_work_start",
+    "timesheet.import",
     "viewer.toggle_alpha",
     "viewer.toggle_checkerboard",
 ];
@@ -3004,6 +3050,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                          the folder they are in."
                     .to_string(),
                 false => import(viewer, &files),
+            });
+        }
+        "timesheet.import" => {
+            return Some(match parameter(query, "folder") {
+                None => "Which cut? Choose the folder that holds its .xdts timesheet.".to_string(),
+                Some(folder) => import_cut(viewer, Path::new(&folder)),
             });
         }
         // W-22: After Effects' Ctrl+Shift+D. The layer ends on the frame before the one asked for
@@ -5978,6 +6030,23 @@ fn ask_what_to_import(app: &AppHandle) {
         });
 }
 
+/// D-84: ask for a cut's folder, the one holding its `.xdts` file, and import what is in it.
+fn ask_which_cut(app: &AppHandle) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Import a cut: choose the folder that holds its .xdts timesheet")
+        .pick_folder(move |chosen| {
+            let Some(folder) = chosen.and_then(|c| c.into_path().ok()) else {
+                return;
+            };
+            let viewer = handle.state::<Mutex<Viewer>>();
+            let said = import_cut(&viewer, &folder);
+            announce(&viewer, said);
+            refresh(&handle);
+        });
+}
+
 /// Ask which drawings a sequence should point at instead, and work out what that would do.
 ///
 /// Document 07: "Search only user-selected locations." Nothing here scans for a replacement; the
@@ -6075,6 +6144,14 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
     }
     if path == "media.import" && parameter(query, "file").is_none() {
         ask_what_to_import(app);
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "text/plain; charset=utf-8")
+            .body(Vec::new())
+            .expect("build the import response");
+    }
+    // D-84: Import cut with no folder named is the button, and asks for the folder in the same way.
+    if path == "timesheet.import" && parameter(query, "folder").is_none() {
+        ask_which_cut(app);
         return allow_the_page_to_read_this(Response::builder())
             .header("content-type", "text/plain; charset=utf-8")
             .body(Vec::new())
@@ -12420,6 +12497,225 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
     }
 
+    /// B-28c: a cut imported from its timesheet from the window, on D-84. The order is the
+    /// playtest sheet's.
+    #[test]
+    fn a_cut_is_imported_from_its_timesheet_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let cut = repo("Fixtures/xdts/fx_xdts_040");
+        let on_screen = |viewer: &Mutex<Viewer>| {
+            let held = held(viewer);
+            held.document
+                .project()
+                .composition(&held.composition)
+                .map_or("none".to_string(), |c| {
+                    format!(
+                        "{}, {} by {}, {} frames at {}/{}",
+                        c.name,
+                        c.width,
+                        c.height,
+                        c.duration_frames,
+                        c.frame_rate.numerator(),
+                        c.frame_rate.denominator()
+                    )
+                })
+        };
+        // The layer as the page is given it, from whichever composition is on screen.
+        let given = |viewer: &Mutex<Viewer>, name: &str| {
+            let answer: serde_json::Value =
+                serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+            let comp = held(viewer).composition.as_str().to_string();
+            answer["project"]["compositions"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|c| c["id"] == comp.as_str())
+                .and_then(|c| c["layers"].as_array())
+                .into_iter()
+                .flatten()
+                .find(|l| l["name"] == name)
+                .cloned()
+                .unwrap_or(serde_json::Value::Null)
+        };
+        // Each note's document 28 code, which follows the tab.
+        let codes = |viewer: &Mutex<Viewer>| {
+            held(viewer)
+                .notes
+                .iter()
+                .map(|n| {
+                    let after = n.split('\t').nth(1).unwrap_or("");
+                    after.split(' ').next().unwrap_or("").to_string()
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+
+        report.check(
+            "Import cut with no folder asks for one",
+            "Which cut? Choose the folder that holds its .xdts timesheet.",
+            run(&viewer, "timesheet.import"),
+        );
+        // The project's drawings are not on disk, and it says so in the notes on opening.
+        held(&viewer).notes.clear();
+        let said = run(&viewer, &format!("timesheet.import?folder={}", cut.display()));
+        report.check(
+            "choosing FX-XDTS-040's folder imports it and says what arrived",
+            "s01 c012 is imported and open: 3 layers from its timesheet, 48 frames at 24 frames a \
+             second, because a timesheet does not say its rate. 4 notes are below. Ctrl+Z takes \
+             it all back.",
+            &said,
+        );
+        report.check(
+            "the new composition is the one on screen, named from the sheet and the size of its drawings",
+            "s01 c012, 160 by 90, 48 frames at 24/1",
+            on_screen(&viewer),
+        );
+        report.check("a layer a column, track 0 at the bottom", "A, B, C", names(&viewer));
+        report.check(
+            "each layer's inspector is given where its timing came from",
+            "fx_xdts_040.xdts, column A, track 0; fx_xdts_040.xdts, column B, track 1; \
+             fx_xdts_040.xdts, column C, track 2",
+            ["A", "B", "C"]
+                .iter()
+                .map(|n| {
+                    let t = &given(&viewer, n)["timesheet"];
+                    format!(
+                        "{}, column {}, track {}",
+                        t["sheet"].as_str().unwrap_or("(none)"),
+                        t["column"].as_str().unwrap_or("(none)"),
+                        t["track"]
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; "),
+        );
+        report.check(
+            "the page shows that record as one line of the inspector",
+            "present",
+            if include_str!("../ui/index.html").contains("if (layer.timesheet) field(dl, 'Timesheet'")
+            {
+                "present"
+            } else {
+                "absent"
+            },
+        );
+        report.check(
+            "B's exposures reach the page as the sheet has them, blank from frame 16 to 29",
+            "0-3:1 3-6:2 6-7:3 7-8:2 8-11:1 11-14:2 14-15:3 15-16:2 30-33:1 33-36:2 36-39:3 39-48:1",
+            given(&viewer, "B")["exposure_spans"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|s| {
+                    format!(
+                        "{}-{}:{}",
+                        s["start_frame"], s["end_frame_exclusive"], s["drawing_number"]
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
+        // The drawings are on disk, so the picture is given an outline for each layer that shows
+        // one on a frame: on frame 20 A holds and C has come in, and B is blank.
+        let outlined = |frame: i32| {
+            let body = boxes(&viewer, frame, Some(PreviewQuality::Full)).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the boxes answer is JSON");
+            let ids: Vec<String> = answer["layers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|b| b["layer"].as_str().map(str::to_string))
+                .collect();
+            ["A", "B", "C"]
+                .iter()
+                .filter(|n| ids.iter().any(|id| given(&viewer, n)["id"] == id.as_str()))
+                .copied()
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        report.check(
+            "on frame 20 the picture outlines A and C, and B is blank",
+            "A, C",
+            outlined(20),
+        );
+        report.check("on frame 0 it outlines A and B, before C comes in", "A, B", outlined(0));
+        report.check(
+            "what was not read goes to the notes: dialogue, camerawork, C's tick mark and the background",
+            "TIMESHEET_FIELD_NOT_READ, TIMESHEET_FIELD_NOT_READ, TIMESHEET_MARK, TIMESHEET_NOT_USED",
+            codes(&viewer),
+        );
+        report.check(
+            "Undo names the import by its first step and the count of the rest",
+            "Import A_%04d.png and 3 more",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "one Ctrl+Z takes the whole cut away and goes back to the composition before it",
+            "Cel; 1 composition, 1 drawing",
+            {
+                let n = names(&viewer);
+                let held = held(&viewer);
+                let project = held.document.project();
+                format!(
+                    "{n}; {} composition{}, {} drawing{}",
+                    project.compositions.len(),
+                    if project.compositions.len() == 1 { "" } else { "s" },
+                    project.assets.len(),
+                    if project.assets.len() == 1 { "" } else { "s" }
+                )
+            },
+        );
+
+        held(&viewer).notes.clear();
+        let refused = run(
+            &viewer,
+            &format!(
+                "timesheet.import?folder={}",
+                repo("Fixtures/xdts/fx_xdts_031").display()
+            ),
+        );
+        report.check(
+            "a folder with two timesheets imports nothing and says why",
+            "Nothing was imported.",
+            refused.split(". ").next().map_or(String::new(), |s| format!("{s}.")),
+        );
+        report.check(
+            "and the refusal is in the notes with its code",
+            "TIMESHEET_NOT_FOUND",
+            codes(&viewer),
+        );
+        report.check(
+            "and nothing was added",
+            "Cel; 1 composition",
+            format!(
+                "{}; {} composition",
+                names(&viewer),
+                held(&viewer).document.project().compositions.len()
+            ),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-28c_panel_table.md",
+            "B-28c: a cut imported from its timesheet, in the window",
+            TIMESHEET_PANEL_INTRO,
+            TIMESHEET_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    }
+
     /// B-23c: the solid from the window, on D-74. The order is the playtest sheet's.
     #[test]
     fn a_solid_is_added_and_set_from_the_window() {
@@ -14999,6 +15295,26 @@ mod editing {
          the linked values are right is B-27b's table.",
     ];
 
+    const TIMESHEET_PANEL_INTRO: &[&str] = &[
+        "D-84 decided how a cut is read from its XDTS timesheet and B-28b built it in the core, \
+         checked against FX-XDTS-001 to 040 in `verification/B-28b_timesheet_table.md`. This is \
+         the window's half: Import cut in the media bin asks for a folder and sends \
+         `timesheet.import` with it, the new composition is put on screen, what the reading \
+         noticed goes to the notes and the summary to the status line, and a layer's inspector \
+         shows the column it came from.",
+        "Every row sends what the window sends, on `Fixtures/projects/cel_holds_project.json` \
+         and FX-XDTS-040, the sample cut, and reads back what the page is given. The cut's \
+         drawings are on disk, so the picture's outlines say which layers show a drawing on a \
+         frame.",
+    ];
+
+    const TIMESHEET_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nThe folder dialog itself, what the cut looks like \
+         playing, and whether the layer bars and the inspector line read well. That is \
+         `verification/B-28c_timesheet_playtest.md`, for a person. Whether every cut is read \
+         right is B-28b's table.",
+    ];
+
     const SHAPE_PANEL_INTRO: &[&str] = &[
         "D-78 decided what a shape layer is and B-25b built it in the core, checked pixel by \
          pixel in `verification/B-25b_shape_table.md`. This is the window's half: New shape \
@@ -16965,6 +17281,7 @@ mod contract {
         "timeline.set_markers",
         "timeline.set_work_end",
         "timeline.set_work_start",
+        "timesheet.import",
         "viewer.toggle_alpha",
         "viewer.toggle_checkerboard",
     ];
@@ -17106,6 +17423,11 @@ mod contract {
             "Relink drawings",
             "media.relink",
             "command('/media.relink?asset=' + encodeURIComponent(selectedAsset))",
+        ),
+        (
+            "Import cut",
+            "timesheet.import",
+            "$('importcut').onclick = () => command('/timesheet.import')",
         ),
         (
             "Apply the relink",
@@ -17361,6 +17683,8 @@ mod contract {
         ("layer.add_null", "a command the window answers"),
         // D-83, accepted on 2026-09-23: the value whip; the parent whip sends `layer.set_parent`.
         ("property.link", "a command the window answers"),
+        // D-84, accepted on 2026-09-24 and built in the core by B-28b; B-28c put it in the window.
+        ("timesheet.import", "a command the window answers"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -18233,6 +18557,11 @@ mod contract {
         run(&viewer, &format!("layer.set_gain?layer={sound_id}&value=-6"));
         // B-23c: and a solid, the only kind that carries `solid`.
         run(&viewer, "layer.add_solid");
+        // B-28c: and a cut imported from its timesheet, whose layers are the only ones that
+        // carry `timesheet`. The import puts the cut on screen, so the one before goes back.
+        let before_cut = held(&viewer).composition.clone();
+        import_cut(&viewer, &repo("Fixtures/xdts/fx_xdts_040"));
+        show(&viewer, &before_cut);
         // B-25c: and a shape layer with a shape, the only kind that carries `shapes`.
         run(&viewer, "layer.add_shape");
         let shape_id = held(&viewer)
@@ -18286,6 +18615,14 @@ mod contract {
             .and_then(|all| all.iter().find(|l| l["kind"] == "composition"))
             .cloned()
             .unwrap_or(serde_json::Value::Null);
+        let from_sheet = answer["project"]["compositions"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .flat_map(|c| c["layers"].as_array().into_iter().flatten())
+            .find(|l| l.get("timesheet").is_some())
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
 
         let node = |var: &str| -> serde_json::Value {
             match var {
@@ -18334,6 +18671,7 @@ mod contract {
                         "gain_db" => sound.get(&field),
                         "solid" => solid.get(&field),
                         "shapes" => shape.get(&field),
+                        "timesheet" => from_sheet.get(&field),
                         _ => None,
                     }) {
                         Some(_) => "present".to_string(),
@@ -18886,7 +19224,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 54] = [
+    const CONTROLS: [&str; 55] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -18919,6 +19257,7 @@ mod contract {
         "graphmode",
         "graphprop",
         "import",
+        "importcut",
         "makecomp",
         "newcomp",
         "notedetails",

@@ -69,6 +69,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | path.remove_point | Take one point off a mask's or a shape's path, or several named together, off the path and off every key it has at once (D-79, D-80; in the window since B-24h, 2026-09-22) | The pen on a point, Delete with points chosen, or - on a chosen point | yes |
 | layer.add_null | Add a null above the selected layer: never drawn, there to be a parent, at the composition's centre (D-82; in the window since B-26c, 2026-09-23) | Ctrl+Alt+Shift+Y | yes |
 | property.link | Link a property to another by the pick whip: writes the expression that reads it (D-83; in the window since B-27c, 2026-09-23) | drag the spiral beside the expression onto another property's row | yes |
+| timesheet.import | Import a cut from its folder: its `.xdts` timesheet and its columns' drawings become a new composition at 24 frames a second with a layer a column, opened (D-84; in the window since B-28c, 2026-09-24) | Import cut in the media bin | yes |
 | timeline.previous_frame | Step one composition frame back | Left | no |
 | timeline.next_frame | Step one composition frame forward | Right | no |
 | timeline.play_pause | Toggle work-area playback | Space | no |
