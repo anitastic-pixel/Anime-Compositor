@@ -1120,7 +1120,7 @@ Where nothing is written:
 
 ## Timesheet fixtures
 
-**D-84, proposed on 2026-09-23.** Each case is a cut's folder under `Fixtures/xdts/`, named after the case (FX-XDTS-001 is `fx_xdts_001`), holding one XDTS timesheet and the drawings for its columns. **No real timesheet was available, so every sheet is synthetic**, written by `tools/xdts_reference.py` from CELSYS's public specification. The same tool reads each folder by D-84's rules, on its own and not from any other reader, and writes what it must become into `Fixtures/xdts/expected_xdts.json`: the composition (name, length, 24 frames a second, and size), each layer from the bottom up (name, track, exposures as start, end and drawing, the drawing files, and the `timesheet` record), and the notes. A build passes a case when all of that matches exactly, with the notes compared by ID and facts in any order.
+**D-84, accepted on 2026-09-24 with FX-XDTS-028 added by its own check against OpenToonz.** Each case is a cut's folder under `Fixtures/xdts/`, named after the case (FX-XDTS-001 is `fx_xdts_001`), holding one XDTS timesheet and the drawings for its columns. **No real timesheet was available, so every sheet is synthetic**, written by `tools/xdts_reference.py` from CELSYS's public specification. The same tool reads each folder by D-84's rules, on its own and not from any other reader, and writes what it must become into `Fixtures/xdts/expected_xdts.json`: the composition (name, length, 24 frames a second, and size), each layer from the bottom up (name, track, exposures as start, end and drawing, the drawing files, and the `timesheet` record), and the notes. A build passes a case when all of that matches exactly, with the notes compared by ID and facts in any order.
 
 Every drawing is 160 by 90 and blank but for one 16-pixel square in its column's colour (A red, B green, C blue, D yellow). The square's row says the column and its distance to the right says the drawing number, so a cut played in the window shows its timing.
 
@@ -1203,6 +1203,12 @@ Every drawing is 160 by 90 and blank but for one 16-pixel square in its column's
 - FX-XDTS-027: Track 1 has no name in the sheet, so no drawings can be found for it and it makes no layer.
   - A: `1 1`
   - note `{"id": "TIMESHEET_COLUMN_UNNAMED", "track": 1}`
+- FX-XDTS-028: Clip Studio Paint can write a column's first drawing before frame 0, which the specification does not allow. As OpenToonz reads it, the last entry before frame 0 is shown from frame 0 until the column's next entry, and is reported; A's earlier one is left out. B has its own entry on frame 0, so its entry before it is left out.
+  - B: `2 2 2 2`
+  - A: `1 1 2 2`
+  - note `{"id": "TIMESHEET_ENTRY_CARRIED_IN", "column": "A", "frame": -1}`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "A", "frames": [-2], "reason": "outside the sheet"}`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "B", "frames": [-1], "reason": "outside the sheet"}`
 
 Nothing is imported from these, and the ID is the refusal:
 
@@ -1282,7 +1288,8 @@ Its notes: `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}
 | TIMESHEET_TABLE_NOT_READ | INFO | The file has more than one timetable | read the first; name the others |
 | TIMESHEET_FIELD_NOT_READ | INFO | A dialogue, camerawork or unknown field | read the drawing columns; name the field and its column count |
 | TIMESHEET_COLUMN_UNNAMED | WARNING | A drawing column has no name, so its drawings cannot be found | make no layer for it; name its track number |
-| TIMESHEET_ENTRY_IGNORED | WARNING | An entry past the end of the sheet, or a second entry on one frame | leave it out; name the column, frames and reason |
+| TIMESHEET_ENTRY_IGNORED | WARNING | An entry past the end of the sheet, one before frame 0 that is not carried in, or a second entry on one frame | leave it out; name the column, frames and reason |
+| TIMESHEET_ENTRY_CARRIED_IN | INFO | An entry before frame 0, which Clip Studio Paint can write and the specification does not allow | the last one stands on frame 0 unless frame 0 has its own entry; name the column and its frame |
 | TIMESHEET_CELL_UNREADABLE | WARNING | A cell that is not a whole number or a symbol | the column is blank from there to its next entry; name the column, frame and value |
 | TIMESHEET_MARK | INFO | A tick mark | change nothing shown; name the column, mark and frames |
 | TIMESHEET_COLUMN_EMPTY | INFO | A drawing column that never shows a drawing | make no layer for it |

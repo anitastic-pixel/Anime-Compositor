@@ -7,7 +7,9 @@ as the sheet says. This file is the reference for what document 25 pins against 
 **Nothing here was written from anyone's reader.** The format is CELSYS's public specification,
 "XDTS file format", dated 2018/11/29: a first line reading `exchangeDigitalTimeSheet Save Data`
 and JSON after it. How that JSON becomes layers is D-84's reading, which this file implements
-on its own, in `read_cut`, so that B-28b's Rust has something independent to agree with.
+on its own, in `read_cut`, so that B-28b's Rust has something independent to agree with. One
+rule came from a reader afterwards, by the owner's choice on 2026-09-24: an entry before frame
+0 is carried in, as OpenToonz carries in what Clip Studio Paint writes there (FX-XDTS-028).
 
 No real timesheet was available, so every sheet here is synthetic, written by `sheet()` from the
 specification's own structure. Every drawing is 160 by 90 and blank but for one 16-pixel square
@@ -168,10 +170,14 @@ def read_cut(folder):
             notes.append({"id": "TIMESHEET_COLUMN_UNNAMED", "track": no})
             continue
 
-        said, outside, twice = {}, [], []
-        for entry in sorted(t.get("frames", []), key=lambda e: e.get("frame", -1)):
-            f = entry.get("frame", -1)
-            if not 0 <= f < duration:
+        said, outside, twice, early = {}, [], [], []
+        entries = [e for e in t.get("frames", []) if type(e.get("frame")) is int]
+        for entry in sorted(entries, key=lambda e: e["frame"]):
+            f = entry["frame"]
+            if f < 0:
+                early.append(entry)
+                continue
+            if f >= duration:
                 outside.append(f)
                 continue
             if f in said:
@@ -180,6 +186,17 @@ def read_cut(folder):
             values = next((d.get("values") for d in entry.get("data", []) if d.get("id") == 0),
                           None)
             said[f] = values[0] if values else None
+        # Clip Studio Paint can write a column's first drawing before frame 0, which the
+        # specification does not allow. As OpenToonz reads it (xdtsio.cpp, since 23910493a1),
+        # the last entry before frame 0 stands on frame 0 unless frame 0 has its own.
+        if early and 0 not in said:
+            carried = early.pop()
+            values = next((d.get("values") for d in carried.get("data", []) if d.get("id") == 0),
+                          None)
+            said[0] = values[0] if values else None
+            notes.append({"id": "TIMESHEET_ENTRY_CARRIED_IN", "column": name,
+                          "frame": carried["frame"]})
+        outside = [e["frame"] for e in early] + outside
         if outside:
             notes.append({"id": "TIMESHEET_ENTRY_IGNORED", "column": name, "frames": outside,
                           "reason": "outside the sheet"})
@@ -376,6 +393,14 @@ CASES = {
                     "it makes no layer.",
                     sheet("c027", 2, [(0, "A", {0: "1"}), (1, None, {0: "1"})]),
                     folder_of("A", (1,))),
+    "FX-XDTS-028": ("Clip Studio Paint can write a column's first drawing before frame 0, which "
+                    "the specification does not allow. As OpenToonz reads it, the last entry "
+                    "before frame 0 is shown from frame 0 until the column's next entry, and "
+                    "is reported; A's earlier one is left out. B has its own entry on frame 0, "
+                    "so its entry before it is left out.",
+                    sheet("c028", 4, [(0, "A", {-2: "2", -1: "1", 2: "2"}),
+                                      (1, "B", {-1: "1", 0: "2"})]),
+                    folder_of("A", (1, 2)) + folder_of("B", (2,))),
 }
 
 # Nothing is imported from these. Each is (says, sheets, files), `sheets` being (name, text).
@@ -525,6 +550,7 @@ def main():
     assert spans["FX-XDTS-020"] == [[[0, 2, 1], [2, 4, 2], [4, 6, 3]]]
     assert spans["FX-XDTS-024"] == [[[0, 2, 1], [4, 6, 2]]]
     assert spans["FX-XDTS-025"] == [[[0, 2, 1], [2, 4, 2]]]
+    assert spans["FX-XDTS-028"] == [[[0, 2, 1], [2, 4, 2]], [[0, 4, 2]]]
     assert all(v["composition"]["width"] == SIZE[0] for v in c.values())
 
 

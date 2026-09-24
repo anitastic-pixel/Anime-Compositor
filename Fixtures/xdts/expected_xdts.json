@@ -1301,6 +1301,86 @@
     }
    ]
   },
+  "FX-XDTS-028": {
+   "says": "Clip Studio Paint can write a column's first drawing before frame 0, which the specification does not allow. As OpenToonz reads it, the last entry before frame 0 is shown from frame 0 until the column's next entry, and is reported; A's earlier one is left out. B has its own entry on frame 0, so its entry before it is left out.",
+   "folder": "fx_xdts_028",
+   "composition": {
+    "name": "c028",
+    "duration": 4,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       2,
+       1
+      ],
+      [
+       2,
+       4,
+       2
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png",
+      "2": "A/A_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_028.xdts",
+      "column": "A",
+      "track": 0
+     }
+    },
+    {
+     "name": "B",
+     "track": 1,
+     "spans": [
+      [
+       0,
+       4,
+       2
+      ]
+     ],
+     "drawings": {
+      "2": "B/B_0002.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_028.xdts",
+      "column": "B",
+      "track": 1
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_ENTRY_CARRIED_IN",
+     "column": "A",
+     "frame": -1
+    },
+    {
+     "id": "TIMESHEET_ENTRY_IGNORED",
+     "column": "A",
+     "frames": [
+      -2
+     ],
+     "reason": "outside the sheet"
+    },
+    {
+     "id": "TIMESHEET_ENTRY_IGNORED",
+     "column": "B",
+     "frames": [
+      -1
+     ],
+     "reason": "outside the sheet"
+    }
+   ]
+  },
   "FX-XDTS-040": {
    "says": "The sample cut: two seconds, three columns, dialogue, camerawork and a background.",
    "folder": "fx_xdts_040",

@@ -264,9 +264,9 @@ B-27c / the window: the parent whip on each layer's row and beside the Parent li
 
 B-28 / Import a cut from its XDTS timesheet, document 15's reuse entry R-01 taken up by the owner on 2026-09-23 ("let's proceed with the first build"), split as B-27 was. The owner has no real timesheets and chose it to prepare for learning how a timesheet drives a compositor, so the fixtures are synthetic and the sample cut is written to be learned from.
 
-B-28a / the rule and its fixtures before code: D-84 in document 14, FX-XDTS-001 to 040 in document 25, from `tools/xdts_reference.py`, which writes `Fixtures/xdts/`, and `research/2026-09-23_timesheet_primer.md` for the owner. **Written on 2026-09-23; D-84 awaits the owner.**
+B-28a / the rule and its fixtures before code: D-84 in document 14, FX-XDTS-001 to 040 in document 25, from `tools/xdts_reference.py`, which writes `Fixtures/xdts/`, and `research/2026-09-23_timesheet_primer.md` for the owner. **Written on 2026-09-23; D-84 accepted by the owner on 2026-09-24 ("cool, proceed"), and FX-XDTS-028 added the same day when B-28b's check against OpenToonz found Clip Studio Paint's entries before frame 0, which the owner chose to carry in.**
 
-B-28b / the core, once D-84 is accepted: first, a check of D-84's reading of holds against OpenToonz's BSD-3 reader, reported before any code, with the commit read; then the reader, the `timesheet` record on a layer in the model and the file, the fifteen TIMESHEET IDs in document 28, and a table that reads every FX-XDTS cut and compares it with `Fixtures/xdts/expected_xdts.json`.
+B-28b / the core, once D-84 is accepted: first, a check of D-84's reading of holds against OpenToonz's BSD-3 reader, reported before any code, with the commit read; then the reader, the `timesheet` record on a layer in the model and the file, the sixteen TIMESHEET IDs in document 28, and a table that reads every FX-XDTS cut and compares it with `Fixtures/xdts/expected_xdts.json`.
 
 B-28c / the window: Import Cut, which asks for a folder and sends `timesheet.import`; the notes in the notes list and the summary on the status line; the record shown as one line in a layer's inspector; the command in document 24; a panel table; and a playtest sheet on FX-XDTS-040.
 
