@@ -326,6 +326,67 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
         .expect("build the curve response")
 }
 
+/// D-84a: the composition on screen as a paper timesheet, for the Sheet tab.
+///
+/// A column for each layer that shows an image sequence, the bottom of the stack first because a
+/// paper sheet has it on the left, and a cell for each frame holding what the paper would: the
+/// drawing's number where it is first exposed, `|` where it holds, `x` where a blank run starts
+/// and `""` while it lasts, and `null` outside the layer's in and out. Every cell is the core's
+/// own `drawing_at` after `local_frame`, the two the picture is drawn from, so the sheet cannot
+/// disagree with the picture. Like `curve` it is a question whose answer changes nothing.
+fn sheet(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
+    use anime_compositor::time::ExposureMap;
+    let viewer = viewer.lock().expect("the viewer lock was poisoned");
+    let project = viewer.document.project();
+    let body = match project.composition(&viewer.composition) {
+        None => serde_json::json!({ "from": 0, "columns": [] }),
+        Some(comp) => {
+            let frames = comp.start_frame..comp.start_frame + comp.duration_frames as i32;
+            let columns: Vec<serde_json::Value> = comp
+                .layers_in_order()
+                .filter(|l| {
+                    project
+                        .assets
+                        .iter()
+                        .any(|a| a.id == l.asset_id && a.kind == AssetKind::ImageSequence)
+                })
+                .map(|l| {
+                    let timing = l.timing();
+                    // Spans the core refuses are refused when the project is opened, so a map
+                    // that cannot be made here is one no open project has.
+                    let map = ExposureMap::new(l.exposure_spans.clone()).ok();
+                    // The cell before: `None` outside the layer, `Some(None)` blank.
+                    let mut before: Option<Option<u32>> = None;
+                    let cells: Vec<serde_json::Value> = frames
+                        .clone()
+                        .map(|f| {
+                            let now = timing
+                                .local_frame(f)
+                                .map(|local| map.as_ref().and_then(|m| m.drawing_at(local)));
+                            let cell = match (now, before) {
+                                (None, _) => serde_json::Value::Null,
+                                (Some(n), Some(b)) if n == b => {
+                                    serde_json::json!(if n.is_some() { "|" } else { "" })
+                                }
+                                (Some(Some(n)), _) => serde_json::json!(n.to_string()),
+                                (Some(None), _) => serde_json::json!("x"),
+                            };
+                            before = now;
+                            cell
+                        })
+                        .collect();
+                    serde_json::json!({ "layer": l.id.as_str(), "name": l.name, "cells": cells })
+                })
+                .collect();
+            serde_json::json!({ "from": comp.start_frame, "columns": columns })
+        }
+    };
+    allow_the_page_to_read_this(Response::builder())
+        .header("content-type", "application/json; charset=utf-8")
+        .body(body.to_string().into_bytes())
+        .expect("build the sheet response")
+}
+
 fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) -> Response<Vec<u8>> {
     let taken = {
         let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
@@ -6386,6 +6447,10 @@ fn main() {
             // question as `boxes` above, on the same scheme, for the same reason.
             if request.uri().path().trim_matches('/') == "curve" {
                 return curve(&viewer, request.uri().query());
+            }
+            // D-84a: `/sheet`, the Sheet tab's grid, for the same reason again.
+            if request.uri().path().trim_matches('/') == "sheet" {
+                return sheet(&viewer);
             }
             match parse(request.uri().path(), request.uri().query()) {
                 Some((ask, quality)) => serve(&viewer, &export, ask, quality),
@@ -12497,6 +12562,185 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
     }
 
+    /// B-28d: the Sheet tab, on D-84a. FX-XDTS-040's grid, as the page is given it, against
+    /// document 25's table of what the cut must show, read from document 25 itself.
+    #[test]
+    fn the_sheet_tab_matches_the_fixture_catalogue() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        import_cut(&viewer, &repo("Fixtures/xdts/fx_xdts_040"));
+        let grid = |viewer: &Mutex<Viewer>| -> serde_json::Value {
+            serde_json::from_slice(&sheet(viewer).into_body()).expect("the sheet answer is JSON")
+        };
+        let columns = |g: &serde_json::Value| {
+            g["columns"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|c| c["name"].as_str().unwrap_or("").to_string())
+                .collect::<Vec<_>>()
+        };
+        // A column as written: `-` outside the layer and `.` for a blank that goes on.
+        let written = |g: &serde_json::Value, name: &str| {
+            g["columns"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|c| c["name"] == name)
+                .and_then(|c| c["cells"].as_array())
+                .into_iter()
+                .flatten()
+                .map(|cell| match cell.as_str() {
+                    None => "-",
+                    Some("") => ".",
+                    Some(mark) => mark,
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        // The drawing a cell stands for, which is what document 25's table has in it.
+        let shown = |g: &serde_json::Value, name: &str| -> Vec<String> {
+            let mut last = String::new();
+            written(g, name)
+                .split(' ')
+                .map(|mark| match mark {
+                    "|" => last.clone(),
+                    "x" | "." => "x".to_string(),
+                    "-" => "out".to_string(),
+                    number => {
+                        last = number.to_string();
+                        last.clone()
+                    }
+                })
+                .collect()
+        };
+
+        let g = grid(&viewer);
+        report.check(
+            "a column for each drawing layer, the bottom of the stack on the left",
+            "A, B, C",
+            columns(&g).join(", "),
+        );
+        report.check("the sheet starts at the composition's first frame", "0", g["from"].to_string());
+
+        let catalogue = std::fs::read_to_string(repo("Markdown/25_Test_Fixture_Catalog.md"))
+            .expect("read document 25");
+        let table = catalogue
+            .split("### FX-XDTS-040")
+            .nth(1)
+            .and_then(|rest| rest.split("Its notes").next())
+            .expect("document 25 has FX-XDTS-040's table");
+        let rows = table.lines().filter_map(|line| {
+            let cells: Vec<&str> =
+                line.trim().trim_matches('|').split('|').map(str::trim).collect();
+            cells.first()?.parse::<usize>().ok().map(|frame| (frame, cells[1..].to_vec()))
+        });
+        let by_column = ["A", "B", "C"].map(|name| shown(&g, name));
+        let mut read = 0;
+        for (frame, expected) in rows {
+            read += 1;
+            let pair = |cells: Vec<&str>| {
+                ["A", "B", "C"]
+                    .iter()
+                    .zip(cells)
+                    .map(|(n, c)| format!("{n} {c}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            report.check(
+                &format!("frame {frame}, as document 25 has it"),
+                pair(expected),
+                pair(
+                    by_column
+                        .iter()
+                        .map(|c| c.get(frame).map_or("(none)", String::as_str))
+                        .collect(),
+                ),
+            );
+        }
+        report.check("document 25's table has a row for each of the 48 frames", "48", read.to_string());
+
+        report.check(
+            "A as written: a number where a drawing starts and a line while it holds",
+            format!(
+                "1 | 2 | 3 | 4 | 5 | 6 | 7 | 8{} 7 | 6 | 5 | 4 | 3 | 2 | 1{}",
+                " |".repeat(9),
+                " |".repeat(11)
+            ),
+            written(&g, "A"),
+        );
+        report.check(
+            "B as written: a cross where the blank starts on frame 16, and nothing while it lasts",
+            format!(
+                "1 | | 2 | | 3 2 1 | | 2 | | 3 2 x{} 1 | | 2 | | 3 | | 1{}",
+                " .".repeat(13),
+                " |".repeat(8)
+            ),
+            written(&g, "B"),
+        );
+        report.check(
+            "C as written: blank from the start, in at 20, out at 28, back at 40",
+            format!(
+                "x{} 1 2 3 4 5 | 6 | x{} 1 | 2{}",
+                " .".repeat(19),
+                " .".repeat(11),
+                " |".repeat(5)
+            ),
+            written(&g, "C"),
+        );
+
+        let a = g["columns"][0]["layer"].as_str().unwrap_or("").to_string();
+        run(&viewer, &format!("layer.trim?layer={a}&in=4&out=44"));
+        report.check(
+            "A trimmed to frames 4 to 43: shaded outside, and its first frame in shows its number",
+            format!(
+                "- - - - 3 | 4 | 5 | 6 | 7 | 8{} 7 | 6 | 5 | 4 | 3 | 2 | 1{}{}",
+                " |".repeat(9),
+                " |".repeat(7),
+                " -".repeat(4)
+            ),
+            written(&grid(&viewer), "A"),
+        );
+        run(&viewer, "layer.add_solid");
+        report.check(
+            "a solid added to the cut has no column, because it has no drawings",
+            "4 layers; columns A, B, C",
+            format!(
+                "{} layers; columns {}",
+                names(&viewer).split(", ").count(),
+                columns(&grid(&viewer)).join(", ")
+            ),
+        );
+        let page = include_str!("../ui/index.html");
+        report.check(
+            "the page has the Sheet tab beside Timeline and Graph, and asks for the grid",
+            "present",
+            if page.contains("<button id=\"tabxsheet\"") && page.contains("FRAMES + '/sheet'") {
+                "present"
+            } else {
+                "absent"
+            },
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-28d_sheet_table.md",
+            "B-28d: the Sheet tab",
+            SHEET_PANEL_INTRO,
+            SHEET_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    }
+
     /// B-28c: a cut imported from its timesheet from the window, on D-84. The order is the
     /// playtest sheet's.
     #[test]
@@ -15315,6 +15559,24 @@ mod editing {
          right is B-28b's table.",
     ];
 
+    const SHEET_PANEL_INTRO: &[&str] = &[
+        "D-84a added a third tab to the timeline panel, Sheet, which shows the composition on \
+         screen as a paper timesheet: frames down the page and a column for each layer that \
+         shows drawings, the bottom of the stack on the left. The window works out every cell \
+         from the same answer the picture is drawn from, and the page lays the cells out.",
+        "The rows below import FX-XDTS-040, the sample cut, and read the grid the page is given. \
+         Each frame is compared with document 25's table for that cut, which this check reads \
+         from document 25 itself, so a change to either shows here. In the rows that show a \
+         column as written, `|` is a hold, `x` is where a blank starts, `.` is a blank that goes \
+         on, and `-` is outside the layer.",
+    ];
+
+    const SHEET_PANEL_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhat the tab looks like, whether the hold lines and the \
+         shading read as a paper sheet does, and whether clicking a row goes to that frame. That \
+         is `verification/B-28d_sheet_playtest.md`, for a person.",
+    ];
+
     const SHAPE_PANEL_INTRO: &[&str] = &[
         "D-78 decided what a shape layer is and B-25b built it in the core, checked pixel by \
          pixel in `verification/B-25b_shape_table.md`. This is the window's half: New shape \
@@ -17311,6 +17573,8 @@ mod contract {
         "recover",
         "save",
         "save-as",
+        // D-84a: the seventh on the frame scheme, the Sheet tab's grid.
+        "sheet",
         // D-71: the sixth on the frame scheme, one sound file's bytes for the page's decoder.
         "sound",
         "state",
@@ -17502,7 +17766,7 @@ mod contract {
             // `frame`, `at`, `play`, `boxes` and `curve` belong to the other scheme and are served
             // beside `fn frame`, not by the command shell, so there is no arm of that name to
             // look for.
-            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve" | "sound") {
+            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound") {
                 continue;
             }
             let arm = format!("\"{route}\"");
@@ -18895,7 +19159,7 @@ mod contract {
         };
         let shell: Vec<String> = ROUTES
             .iter()
-            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sound"))
+            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound"))
             .map(|route| route.to_string())
             .collect();
         report.check(
@@ -19224,7 +19488,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 55] = [
+    const CONTROLS: [&str; 56] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -19274,6 +19538,7 @@ mod contract {
         "shyswitch",
         "tabgraph",
         "tabsheet",
+        "tabxsheet",
         "timescroll",
         "timezoom",
         "toggle",

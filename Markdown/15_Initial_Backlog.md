@@ -270,6 +270,8 @@ B-28b / the core, once D-84 is accepted: first, a check of D-84's reading of hol
 
 B-28c / the window: Import Cut, which asks for a folder and sends `timesheet.import`; the notes in the notes list and the summary on the status line; the record shown as one line in a layer's inspector; the command in document 24; a panel table; and a playtest sheet on FX-XDTS-040. **Built on 2026-09-24:** Import cut... in the media bin asks for a folder and sends `timesheet.import`; the cut is opened, its notes go to the notes strip and a summary to the status line, and a layer's inspector has a Timesheet line. `verification/B-28c_panel_table.md` is 15 of 15, and `verification/B-28c_timesheet_playtest.md` awaits the owner.
 
+B-28d / the Sheet view, D-84a: the Sheet tab in the timeline panel, its grid worked out in the window's Rust side and asked for as `/sheet`, a panel table that compares FX-XDTS-040's sheet frame by frame with document 25's table, and a playtest sheet. **Written and built on 2026-09-24:** `verification/B-28d_sheet_table.md` is 57 of 57, and `verification/B-28d_sheet_playtest.md` awaits the owner.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.

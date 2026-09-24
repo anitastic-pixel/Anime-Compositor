@@ -268,6 +268,18 @@
   }
   .sheettab:focus-visible { outline: 2px solid #6ea8fe; outline-offset: 2px; }
   #graph { position: relative; overflow: hidden; padding: 6px 8px 8px; min-height: 180px; }
+  /* D-84a: the Sheet tab, a paper timesheet: frames down, a column a drawing layer. */
+  #xsheet { padding: 6px 8px 8px; }
+  #xsheet table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  #xsheet th, #xsheet td { border: 1px solid #333; padding: 0 8px; min-width: 40px; height: 18px; text-align: center; }
+  #xsheet th { position: sticky; top: 0; background: #262626; font-weight: normal; }
+  #xsheet td:first-child { color: #8a8f98; text-align: right; }
+  #xsheet tr { cursor: pointer; }
+  #xsheet tr.second td { border-bottom: 2px solid #8a8f98; }
+  #xsheet td.hold { background: linear-gradient(#ccc, #ccc) center / 2px 100% no-repeat; }
+  #xsheet td.out { background: repeating-linear-gradient(45deg, #1a1a1a 0 4px, #222 4px 8px); }
+  #xsheet tr.now td { background-color: #2b3f5c; }
+  #xsheet tr.now td.hold { background: linear-gradient(#ccc, #ccc) center / 2px 100% no-repeat, #2b3f5c; }
   #graph svg { display: block; width: 100%; height: 170px; touch-action: none; }
   #graph .plot { fill: none; stroke: #6ea8fe; stroke-width: 1.5; }
   #graph .plot.second { stroke: #7bd88f; }
@@ -790,6 +802,8 @@
   <div class="tab">
     <button id="tabsheet" class="sheettab" aria-pressed="true">Timeline</button>
     <button id="tabgraph" class="sheettab" aria-pressed="false">Graph</button>
+    <button id="tabxsheet" class="sheettab" aria-pressed="false"
+      title="The timing as a paper timesheet: frames down the page, a column for each drawing layer. Click a row to go to that frame.">Sheet</button>
     <span class="hint" id="sheethint">front layer first</span>
     <span class="tools">
       <input id="timezoom" type="range" min="0" max="100" step="1" value="0"
@@ -819,6 +833,7 @@
     </span>
   </div>
   <div id="graph" hidden></div>
+  <div id="xsheet" hidden></div>
   <div id="sheet">
     <div id="ruler"></div>
     <div id="tracks">
@@ -2033,6 +2048,7 @@ function movePlayhead() {
   // The graph has a playhead of its own and nothing else on it depends on the frame, so it is
   // redrawn from the samples already in hand rather than asked for again.
   if (graphing && plotted) drawGraph();
+  if (xsheeting) markXsheetRow();
 }
 
 // The other direction: a point on screen back to the frame under it. The playhead's own `left`
@@ -6340,6 +6356,7 @@ function drawEffects() {
 // curve in this page would be a second evaluator, and the day it disagreed with the one that
 // renders the picture the graph would still look perfectly correct.
 let graphing = false;    // the Graph tab is the one showing
+let xsheeting = false;   // D-84a: the Sheet tab is the one showing
 let graphProp = null;    // the property drawn, or null for the first one with keys on it
 let plotted = null;      // the last answer from `/curve`, or null
 let pulling = null;      // the handle under the pointer, while it is being pulled
@@ -7245,15 +7262,84 @@ function easeKeys(sides) {
 
 function showSheet(which) {
   graphing = which === 'graph';
-  $('sheet').hidden = graphing;
+  xsheeting = which === 'xsheet';
+  $('sheet').hidden = which !== 'sheet';
   $('graph').hidden = !graphing;
-  $('sheethint').hidden = graphing;
-  $('tabsheet').setAttribute('aria-pressed', String(!graphing));
+  $('xsheet').hidden = !xsheeting;
+  $('sheethint').hidden = which !== 'sheet';
+  $('tabsheet').setAttribute('aria-pressed', String(which === 'sheet'));
   $('tabgraph').setAttribute('aria-pressed', String(graphing));
+  $('tabxsheet').setAttribute('aria-pressed', String(xsheeting));
   askForCurve();
+  askForXsheet();
 }
 $('tabsheet').onclick = () => showSheet('sheet');
 $('tabgraph').onclick = () => showSheet('graph');
+$('tabxsheet').onclick = () => showSheet('xsheet');
+
+// D-84a: the Sheet tab. The window works out every cell from the core's own answer to which
+// drawing is on a frame, so the page only lays them out: a number where a drawing is first
+// exposed, a line down the cells that hold it, a cross where a blank starts, shading outside
+// the layer, and a heavier line under the last frame of each second.
+async function askForXsheet() {
+  if (!xsheeting) return;
+  let grid = null;
+  try {
+    const answer = await fetch(FRAMES + '/sheet');
+    if (answer.ok) grid = await answer.json();
+  } catch (e) {
+    grid = null;
+  }
+  drawXsheet(grid);
+}
+
+function drawXsheet(grid) {
+  const box = $('xsheet');
+  box.textContent = '';
+  const comp = composition();
+  if (!comp || !grid || !grid.columns.length) {
+    const hint = document.createElement('span');
+    hint.className = 'hint';
+    hint.textContent = 'No layer here shows drawings. A timesheet has a column for each image sequence.';
+    box.append(hint);
+    return;
+  }
+  const fps = Math.max(1, Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator));
+  const table = document.createElement('table');
+  const head = table.insertRow();
+  for (const name of ['frame', ...grid.columns.map((c) => c.name)]) {
+    const th = document.createElement('th');
+    th.textContent = name;
+    head.append(th);
+  }
+  for (let i = 0; i < grid.columns[0].cells.length; i++) {
+    const at = grid.from + i;
+    const row = table.insertRow();
+    row.dataset.frame = at;
+    if ((i + 1) % fps === 0) row.classList.add('second');
+    row.insertCell().textContent = at;
+    for (const column of grid.columns) {
+      const cell = row.insertCell();
+      const mark = column.cells[i];
+      if (mark === null) cell.className = 'out';
+      else if (mark === '|') cell.className = 'hold';
+      else cell.textContent = mark === 'x' ? '\u00d7' : mark;
+    }
+    row.onclick = () => seek(at);
+  }
+  box.append(table);
+  markXsheetRow();
+}
+
+function markXsheetRow() {
+  const box = $('xsheet');
+  for (const row of box.querySelectorAll('tr.now')) row.classList.remove('now');
+  const row = box.querySelector('tr[data-frame="' + frame + '"]');
+  if (row) {
+    row.classList.add('now');
+    row.scrollIntoView({ block: 'nearest' });
+  }
+}
 $('graphprop').onchange = (e) => { graphProp = e.target.value; askForCurve(); };
 $('graphmode').onclick = () => { speedGraph = !speedGraph; drawGraph(); };
 $('graphall').onclick = () => { graphAll = !graphAll; askForCurve(); };
@@ -7278,6 +7364,7 @@ function drawPanels() {
   drawExposures();
   drawEffects();
   askForCurve();
+  askForXsheet();
   const layer = selected();
   $('dellayer').disabled = !layer;
   $('up').disabled = !layer;
