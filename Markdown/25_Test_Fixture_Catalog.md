@@ -6478,6 +6478,62 @@ Frame 0: every pixel is the drawing's, unchanged.
 Frame 4: every pixel is the drawing's, unchanged.
 
 
+## Limit fixtures
+
+D-90, accepted on 2026-09-25. Every case is a project of one composition 6 by 2 at 24 fps, five frames long, in `Fixtures/limits/`: one of the adjustment fixtures' drawings, `bg` or `dot`, with an adjustment layer above it holding one effect. Values are linear premultiplied working values; each cell is red, green, blue and alpha.
+
+**Every number below is produced by `tools/limits_reference.py`**, which works each setting's value at the frame from document 20, holds it inside its range, and renders each pixel from document 21 through `tools/adjust_reference.py`, summing the blur in two dimensions at once. The same numbers are in `Fixtures/limits/expected_limits.json`. At 20 stops a value is about a million and at sigma 500 about a millionth, so the tolerance is relative: a sample agrees when it is within 1e-4 of the expected value's own size, and exactly when the expected value is 0. FX-LIMIT-006 to 010 hold a value past a limit: the file is read, the effect is kept as written, and every frame is the drawing's own, with the warning `EFFECT_PARAMETER_INVALID` (D-46).
+
+Commands, D-46: setting a blur's sigma to 501 is refused with "A Gaussian blur's sigma runs from 0 to 500, and this is 501.", and to -1 with "A Gaussian blur's sigma runs from 0 to 500, and this is -1."; setting exposure to 21 stops is refused with "Exposure runs from -20 to 20 stops, and this is 21.", and to -21 with "Exposure runs from -20 to 20 stops, and this is -21.". Each refusal leaves the effect, the document revision and the undo stack as they were. Sigma 500, 20 stops and -20 stops are accepted.
+
+FX-LIMIT-001: Exposure 20 stops, the top of its range: every colour 2^20 times as much, the coverage unchanged.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1048576 0 0 1 | 1048576 0 0 1 | 1048576 0 0 1 | 1048576 0 0 1 | 1048576 0 0 1 | 1048576 0 0 1 |
+| 0, 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 |
+
+FX-LIMIT-002: Exposure -20 stops, the bottom of its range: every colour 2^20 times less.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 9.53674316e-07 0 0 1 | 9.53674316e-07 0 0 1 | 9.53674316e-07 0 0 1 | 9.53674316e-07 0 0 1 | 9.53674316e-07 0 0 1 | 9.53674316e-07 0 0 1 |
+| 0, 1 | 2.05860615e-07 2.05860615e-07 2.05860615e-07 1 | 2.05860615e-07 2.05860615e-07 2.05860615e-07 1 | 2.05860615e-07 2.05860615e-07 2.05860615e-07 1 | 2.05860615e-07 2.05860615e-07 2.05860615e-07 1 | 2.05860615e-07 2.05860615e-07 2.05860615e-07 1 | 2.05860615e-07 2.05860615e-07 2.05860615e-07 1 |
+
+FX-LIMIT-003: A Gaussian blur of sigma 500, the top of its range: one pixel spread almost evenly over the frame and far past it.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 6.40054744e-07 6.40054744e-07 6.40054744e-07 6.40054744e-07 | 6.40058584e-07 6.40058584e-07 6.40058584e-07 6.40058584e-07 | 6.40059865e-07 6.40059865e-07 6.40059865e-07 6.40059865e-07 | 6.40058584e-07 6.40058584e-07 6.40058584e-07 6.40058584e-07 | 6.40054744e-07 6.40054744e-07 6.40054744e-07 6.40054744e-07 | 6.40048344e-07 6.40048344e-07 6.40048344e-07 6.40048344e-07 |
+| 0, 1 | 6.40053464e-07 6.40053464e-07 6.40053464e-07 6.40053464e-07 | 6.40057304e-07 6.40057304e-07 6.40057304e-07 6.40057304e-07 | 6.40058584e-07 6.40058584e-07 6.40058584e-07 6.40058584e-07 | 6.40057304e-07 6.40057304e-07 6.40057304e-07 6.40057304e-07 | 6.40053464e-07 6.40053464e-07 6.40053464e-07 6.40053464e-07 | 6.40047063e-07 6.40047063e-07 6.40047063e-07 6.40047063e-07 |
+
+FX-LIMIT-004: Exposure eased from 0 to 20 stops on the overshooting curve: past the middle it would pass 20, and is held at 20.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1, 0 | 451419.543 0 0 1 | 451419.543 0 0 1 | 451419.543 0 0 1 | 451419.543 0 0 1 | 451419.543 0 0 1 | 451419.543 0 0 1 |
+| 1, 1 | 97443.6483 97443.6483 97443.6483 1 | 97443.6483 97443.6483 97443.6483 1 | 97443.6483 97443.6483 97443.6483 1 | 97443.6483 97443.6483 97443.6483 1 | 97443.6483 97443.6483 97443.6483 1 | 97443.6483 97443.6483 97443.6483 1 |
+| 2, 0 | 1048576 0 0 1 | 1048576 0 0 1 | 1048576 0 0 1 | 1048576 0 0 1 | 1048576 0 0 1 | 1048576 0 0 1 |
+| 2, 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 | 226346.14 226346.14 226346.14 1 |
+
+FX-LIMIT-005: A blur eased from 0 to 500 on the overshooting curve: held at 500.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2, 0 | 6.40054744e-07 6.40054744e-07 6.40054744e-07 6.40054744e-07 | 6.40058584e-07 6.40058584e-07 6.40058584e-07 6.40058584e-07 | 6.40059865e-07 6.40059865e-07 6.40059865e-07 6.40059865e-07 | 6.40058584e-07 6.40058584e-07 6.40058584e-07 6.40058584e-07 | 6.40054744e-07 6.40054744e-07 6.40054744e-07 6.40054744e-07 | 6.40048344e-07 6.40048344e-07 6.40048344e-07 6.40048344e-07 |
+| 2, 1 | 6.40053464e-07 6.40053464e-07 6.40053464e-07 6.40053464e-07 | 6.40057304e-07 6.40057304e-07 6.40057304e-07 6.40057304e-07 | 6.40058584e-07 6.40058584e-07 6.40058584e-07 6.40058584e-07 | 6.40057304e-07 6.40057304e-07 6.40057304e-07 6.40057304e-07 | 6.40053464e-07 6.40053464e-07 6.40053464e-07 6.40053464e-07 | 6.40047063e-07 6.40047063e-07 6.40047063e-07 6.40047063e-07 |
+
+FX-LIMIT-006: Exposure 21 stops, one past the top. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the bg drawing, unchanged.
+
+FX-LIMIT-007: Exposure -21 stops, one past the bottom. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the bg drawing, unchanged.
+
+FX-LIMIT-008: Exposure 128 stops over a drawing that is mostly transparent: past the limit, so left out, where before it made every transparent pixel not-a-number. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the dot drawing, unchanged.
+
+FX-LIMIT-009: A Gaussian blur of sigma 501, one past the top. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the dot drawing, unchanged.
+
+FX-LIMIT-010: A blur keyed from 0 at frame 0 to 600 at frame 4: one key past the top, so left out of every frame, frame 0 as well. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the dot drawing, unchanged.
+
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
