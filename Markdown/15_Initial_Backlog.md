@@ -328,6 +328,8 @@ B-36 / Directional blur, D-92, the second of the batch. **B-36a is written on 20
 
 B-37 / Select colour, D-93, the third of the batch. **B-37a is written on 2026-09-25**: `verification/B-37a proposal/`, D-93 in document 14, the rule in document 21, FX-SELECT-001 to 016 in document 25 from `tools/select_color_reference.py`, which writes `Fixtures/select_color/`. **B-37b is built the same day**: `select_color` in `src/cel_fx.rs`, reusing D-88's colour test; added, it goes to the top of the stack below any selective colour blur, as line recolour does. `verification/B-37_select_color_table.md` is 70 of 70, every FX-SELECT frame within 1.9e-7 of the reference; every earlier effect table is unchanged. The owner's sheet is `verification/B-37_select_color_playtest.md`.
 
+B-38 / Line width, D-94, the fourth of the batch. **B-38a is written on 2026-09-25**: `verification/B-38a proposal/`, D-94 in document 14, the rule in document 21, FX-WIDTH-001 to 019 in document 25 from `tools/line_width_reference.py`, which writes `Fixtures/line_width/`.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
