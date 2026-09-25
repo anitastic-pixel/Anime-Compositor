@@ -20,40 +20,48 @@
 
 use crate::color::{linear_to_srgb, srgb_to_linear};
 use crate::WorkingBuffer;
+use rayon::prelude::*;
 
 /// D-86: the end of a run this long whose crossing edge is this long is a corner, kept sharp.
 const CORNER: isize = 4;
 
+/// One mix: the output pixel, the source pixel it takes colour from, and how much.
+type Mix = (usize, usize, f32);
+
 /// Smooth `source` in place. Softness 0 changes nothing.
-///
-/// ponytail: one thread, two passes over the whole cel; split the row pass by pairs of rows if
-/// P-11's table ever ranks it.
 pub(crate) fn line_smooth(source: &mut WorkingBuffer, softness: f64, threshold: f64) {
     let (w, h) = (source.width(), source.height());
     if softness <= 0.0 || w == 0 || h == 0 {
         return;
     }
-    let p: Vec<[f32; 4]> = source.data().chunks_exact(4).map(encoded).collect();
-    let mut s = Smooth {
-        o: p.clone(),
-        touched: vec![false; p.len()],
-        p,
+    let s = Smooth {
+        p: source.data().par_chunks_exact(4).map(encoded).collect(),
         threshold: (threshold / 255.0) as f32,
         slope: 50.0 / softness,
     };
     let (w, h) = (w as isize, h as isize);
-    for y in 0..h - 1 {
-        s.line(y, w, h, y * w, (y + 1) * w, 1, w, true);
-    }
-    for x in 0..w - 1 {
-        s.line(x, h, w, x, x + 1, w, 1, false);
-    }
-    // Only a mixed pixel comes back through the curve; every other keeps its value exactly.
-    for (i, px) in source.data_mut().chunks_exact_mut(4).enumerate() {
-        if s.touched[i] {
-            px.copy_from_slice(&working(s.o[i]));
+    // Which pixels mix, and with what, is read from the source alone, so every pair of rows and
+    // every pair of columns is worked out at once. The mixes are then made one at a time in the
+    // order one thread would make them, so the picture is the same to the bit.
+    let rows: Vec<Vec<Mix>> =
+        (0..h - 1).into_par_iter().map(|y| s.line(y, w, h, y * w, (y + 1) * w, 1, w, true)).collect();
+    let cols: Vec<Vec<Mix>> =
+        (0..w - 1).into_par_iter().map(|x| s.line(x, h, w, x, x + 1, w, 1, false)).collect();
+    let mut o = s.p.clone();
+    let mut touched = vec![false; o.len()];
+    for (out, other, area) in rows.into_iter().chain(cols).flatten() {
+        let b = s.p[other];
+        touched[out] = true;
+        for i in 0..4 {
+            o[out][i] = o[out][i] * (1.0 - area) + b[i] * area;
         }
     }
+    // Only a mixed pixel comes back through the curve; every other keeps its value exactly.
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        if touched[i] {
+            px.copy_from_slice(&working(o[i]));
+        }
+    });
 }
 
 /// D-86: the colour as a drawing program stores it, straight through the sRGB curve and
@@ -87,11 +95,12 @@ fn working(e: [f32; 4]) -> [f32; 4] {
 struct Smooth {
     /// The encoded source, read by both passes.
     p: Vec<[f32; 4]>,
-    /// The encoded output both passes mix into.
-    o: Vec<[f32; 4]>,
-    touched: Vec<bool>,
     threshold: f32,
     slope: f64,
+}
+
+fn mix(m: &mut Vec<Mix>, out: isize, other: isize, area: f64) {
+    m.push((out as usize, other as usize, area as f32));
 }
 
 impl Smooth {
@@ -99,14 +108,6 @@ impl Smooth {
     fn eq(&self, a: isize, b: isize) -> bool {
         let (a, b) = (self.p[a as usize], self.p[b as usize]);
         (0..4).all(|i| (a[i] - b[i]).abs() <= self.threshold)
-    }
-
-    fn mix(&mut self, out: isize, other: isize, area: f64) {
-        let (out, b, area) = (out as usize, self.p[other as usize], area as f32);
-        self.touched[out] = true;
-        for i in 0..4 {
-            self.o[out][i] = self.o[out][i] * (1.0 - area) + b[i] * area;
-        }
     }
 
     /// OpenToonz's checkNeighbourHood: when both diagonals could be joined, join the minority.
@@ -135,27 +136,29 @@ impl Smooth {
     /// OpenToonz's filterLine: the pixels under the slope take the other line's colour by the
     /// area of them the slope leaves on its side.
     #[allow(clippy::too_many_arguments)]
-    fn filter(&mut self, mut in_l: isize, mut in_u: isize, mut out: isize, ll: isize, step: isize, slope: f64, lower: bool) {
+    fn filter(m: &mut Vec<Mix>, mut in_l: isize, mut in_u: isize, mut out: isize, ll: isize, step: isize, slope: f64, lower: bool) {
         let mut h0 = 0.5;
         let base = h0 / slope;
         let end = (base.floor() as isize).min(ll);
         for _ in 0..end {
             let h1 = h0 - slope;
-            self.mix(out, if lower { in_u } else { in_l }, 0.5 * (h0 + h1));
+            mix(m, out, if lower { in_u } else { in_l }, 0.5 * (h0 + h1));
             in_l += step;
             in_u += step;
             out += step;
             h0 = h1;
         }
         if end < ll {
-            self.mix(out, if lower { in_u } else { in_l }, 0.5 * (base - end as f64) * h0);
+            mix(m, out, if lower { in_u } else { in_l }, 0.5 * (base - end as f64) * h0);
         }
     }
 
     /// OpenToonz's processLine for one pair of rows (or, turned, of columns), with D-86's corner
     /// guard at each end of a run.
     #[allow(clippy::too_many_arguments)]
-    fn line(&mut self, r: isize, lx: isize, ly: isize, l_row: isize, u_row: isize, dx: isize, dy: isize, do1: bool) {
+    fn line(&self, r: isize, lx: isize, ly: isize, l_row: isize, u_row: isize, dx: isize, dy: isize, do1: bool) -> Vec<Mix> {
+        let mut m = Vec::new();
+        let s = self;
         let r = r + 1;
         let off = u_row - l_row;
         let l_end = l_row + lx * dx;
@@ -189,7 +192,7 @@ impl Smooth {
                     && (unite_u && r > 1 && !(s.eq(l1, l1 - dy) && s.eq(l2, l2 - dy))
                         || r < ly - 1 && !(s.eq(u1, u1 + dy) && s.eq(u2, u2 + dy)))
         };
-        let right = |s: &mut Self, ll: isize, lr: isize, whole: bool| {
+        let right = |m: &mut Vec<Mix>, ll: isize, lr: isize, whole: bool| {
             let ur = lr + off;
             let len = (lr - ll) / dx;
             let (l1, u1) = (lr - dx, ur - dx);
@@ -206,11 +209,11 @@ impl Smooth {
                 if check_length(s, len, l1, u1, lr, ur, unite_u) {
                     let out = if unite_u { l1 } else { u1 };
                     let k = if whole { 2.0 } else { 1.0 };
-                    s.filter(l1, u1, out, len, -dx, slope / (len as f64 * k), unite_u);
+                    Self::filter(m, l1, u1, out, len, -dx, slope / (len as f64 * k), unite_u);
                 }
             }
         };
-        let left = |s: &mut Self, ll: isize, lr: isize, whole: bool| {
+        let left = |m: &mut Vec<Mix>, ll: isize, lr: isize, whole: bool| {
             let ul = ll + off;
             let len = (lr - ll) / dx;
             let (l0, u0) = (ll - dx, ul - dx);
@@ -227,7 +230,7 @@ impl Smooth {
                 if check_length(s, len, l0, u0, ll, ul, unite_u) {
                     let out = if unite_u { ll } else { ul };
                     let k = if whole { 2.0 } else { 1.0 };
-                    s.filter(ll, ul, out, len, dx, slope / (len as f64 * k), unite_u);
+                    Self::filter(m, ll, ul, out, len, dx, slope / (len as f64 * k), unite_u);
                 }
             }
         };
@@ -243,30 +246,31 @@ impl Smooth {
 
         let mut ll = l_row;
         let mut lr = l_end;
-        if !same(self, ll) {
-            lr = run_from(self, ll);
+        if !same(s, ll) {
+            lr = run_from(s, ll);
             if lr != l_end {
-                right(self, ll, lr, true);
+                right(&mut m, ll, lr, true);
             }
             ll = lr;
         }
-        while ll != l_end && same(self, ll) {
+        while ll != l_end && same(s, ll) {
             ll += dx;
         }
         while ll != l_end {
-            lr = run_from(self, ll);
+            lr = run_from(s, ll);
             if lr == l_end {
                 break;
             }
-            left(self, ll, lr, false);
-            right(self, ll, lr, false);
+            left(&mut m, ll, lr, false);
+            right(&mut m, ll, lr, false);
             ll = lr;
-            while ll != l_end && same(self, ll) {
+            while ll != l_end && same(s, ll) {
                 ll += dx;
             }
         }
         if ll != l_end {
-            left(self, ll, lr, true);
+            left(&mut m, ll, lr, true);
         }
+        m
     }
 }
