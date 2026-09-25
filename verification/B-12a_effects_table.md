@@ -38,6 +38,7 @@ A parameter over time. The settings here are constants, which is what document 1
 | a tint takes a colour and an amount together | {"amount":0.25,"color":[1,0,0]} | {"amount":0.25,"color":[1,0,0]} | pass |
 | an amount outside document 21's range is refused | A tint amount runs from 0 to 1, and this is 1.5. Choose a value inside the range. | A tint amount runs from 0 to 1, and this is 1.5. Choose a value inside the range. | pass |
 | a colour that is not three numbers is refused by the window | color needs three numbers, like 1, 0.5, 0. Not "1,0". | color needs three numbers, like 1, 0.5, 0. Not "1,0". | pass |
+| a colour with a word among its numbers is refused, not read as the other three | color needs three numbers, like 1, 0.5, 0. Not "1,abc,0,0.5". | color needs three numbers, like 1, 0.5, 0. Not "1,abc,0,0.5". | pass |
 | and the tint is as it was set | {"amount":0.25,"color":[1,0,0]} | {"amount":0.25,"color":[1,0,0]} | pass |
 | bypassing an effect says so | Bypass Blur | Bypass Blur | pass |
 | and the stack says which one is not running | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur bypassed, fx-2 core.tint on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur bypassed, fx-2 core.tint on | pass |
@@ -76,4 +77,4 @@ A parameter over time. The settings here are constants, which is what document 1
 | and the stack is the one that was built | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | pass |
 | undoing every effect edit gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**51 of 51 checks pass.**
+**52 of 52 checks pass.**

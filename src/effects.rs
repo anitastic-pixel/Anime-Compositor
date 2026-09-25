@@ -741,6 +741,7 @@ pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
     radius
 }
 
+#[derive(Clone, Copy)]
 enum Axis {
     X,
     Y,
@@ -757,6 +758,14 @@ enum Axis {
 /// asserts. `verification/P-01_frame_trace.md` is why the blur is the loop that got this: on the
 /// declared ten-layer fixture with everything warm, the effect stack is 65.2% of a draft frame
 /// and the tile loop beside it, already spread across this same pool, is 2.1%.
+///
+/// **A tap at a time along the whole row (P-16).** Destination pixel `x` takes source pixel
+/// `x + k - 2 * radius` at tap `k`, so each tap is one weighted source run added onto one
+/// destination run, which the compiler turns into wide instructions. Each pixel still starts at
+/// zero and receives its taps in ascending `k`, so the bits are the ones the pixel-at-a-time loop
+/// made, which `the_row_blur_is_the_pixel_blur` below holds to the old loop. A source run that is
+/// all zeros is skipped: adding zero to a sum that started at +0 and never becomes -0 changes no
+/// bit, and a character cel is mostly zeros.
 fn convolve(
     src: &[f32],
     src_w: usize,
@@ -766,15 +775,51 @@ fn convolve(
     weights: &[f32],
     axis: Axis,
 ) {
-    let src_h = src.len() / (src_w * 4);
+    let row = src_w * 4;
+    let src_h = src.len() / row;
+    // Each source row's shown extent, in floats: from its first nonzero sample's pixel to just
+    // past its last's. NaN is nonzero, so it is carried as the old loop carried it.
+    let extents: Vec<(usize, usize)> = src
+        .par_chunks(row)
+        .map(|s| {
+            let first = s.iter().position(|&v| v != 0.0).map_or(row, |i| i / 4 * 4);
+            let last = s.iter().rposition(|&v| v != 0.0).map_or(0, |i| i / 4 * 4 + 4);
+            (first, last.max(first))
+        })
+        .collect();
+    let span = 2 * radius;
     dst.par_chunks_mut(dst_w * 4)
         .enumerate()
         .for_each(|(y, out)| {
+            for (k, &weight) in weights.iter().enumerate() {
+                // The source row and where in `out` its pixel 0 lands.
+                let (sy, at) = match axis {
+                    Axis::X => (y, (span - k) * 4),
+                    Axis::Y => match (y + k).checked_sub(span) {
+                        Some(sy) if sy < src_h => (sy, 0),
+                        _ => continue,
+                    },
+                };
+                let (a, b) = extents[sy];
+                let s = &src[sy * row + a..sy * row + b];
+                for (o, &v) in out[at + a..at + b].iter_mut().zip(s) {
+                    *o += v * weight;
+                }
+            }
+        });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The pixel-at-a-time pass P-13 left, kept only to hold the row pass to it.
+    fn pixel_convolve(src: &[f32], src_w: usize, dst: &mut [f32], dst_w: usize, radius: usize, weights: &[f32], axis: Axis) {
+        let src_h = src.len() / (src_w * 4);
+        for (y, out) in dst.chunks_mut(dst_w * 4).enumerate() {
             for x in 0..dst_w {
                 let mut acc = [0.0f32; 4];
                 for (k, &weight) in weights.iter().enumerate() {
-                    // `k - radius` is the offset from the centre; the centre of destination pixel
-                    // (x, y) sits at source pixel (x - radius) or (y - radius) on the blurred axis.
                     let offset = k as isize - radius as isize;
                     let (sx, sy) = match axis {
                         Axis::X => (x as isize - radius as isize + offset, y as isize),
@@ -788,8 +833,42 @@ fn convolve(
                         acc[c] += src[i + c] * weight;
                     }
                 }
-                let o = x * 4;
-                out[o..o + 4].copy_from_slice(&acc);
+                out[x * 4..x * 4 + 4].copy_from_slice(&acc);
             }
-        });
+        }
+    }
+
+    /// Every bit, over cels with empty rows, empty runs, a lone pixel at each edge, negative and
+    /// huge values, and a buffer narrower than the kernel.
+    #[test]
+    fn the_row_blur_is_the_pixel_blur() {
+        for (w, h, sigma) in [(37, 23, 1.3), (5, 4, 4.0), (64, 9, 0.2), (1, 1, 2.0), (40, 41, 7.7)] {
+            let mut src = vec![0.0f32; w * h * 4];
+            for (i, v) in src.iter_mut().enumerate() {
+                let (x, y) = (i / 4 % w, i / 4 / w);
+                *v = match (x * 7 + y * 13 + i % 4) % 11 {
+                    _ if y % 5 == 2 || (x > w / 3 && x < w / 2) => 0.0,
+                    0 => -0.75,
+                    1 => 3.0e6,
+                    n => n as f32 / 9.0,
+                };
+            }
+            src[0] = 0.5;
+            let last = src.len() - 1;
+            src[last] = 0.25;
+            let weights = gaussian_weights(sigma);
+            let r = kernel_radius(sigma);
+            for axis in [Axis::X, Axis::Y] {
+                let (dw, dh) = match axis {
+                    Axis::X => (w + 2 * r, h),
+                    Axis::Y => (w, h + 2 * r),
+                };
+                let (mut fast, mut slow) = (vec![0.0f32; dw * dh * 4], vec![0.0f32; dw * dh * 4]);
+                convolve(&src, w, &mut fast, dw, r, &weights, axis);
+                pixel_convolve(&src, w, &mut slow, dw, r, &weights, axis);
+                let bits = |v: &[f32]| v.iter().map(|f| f.to_bits()).collect::<Vec<_>>();
+                assert_eq!(bits(&fast), bits(&slow), "{w}x{h} at sigma {sigma}");
+            }
+        }
+    }
 }

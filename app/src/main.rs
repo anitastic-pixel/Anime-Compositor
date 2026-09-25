@@ -2438,8 +2438,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             };
             let parts: Vec<f64> = text
                 .split(',')
-                .filter_map(|p| p.trim().parse::<f64>().ok())
-                .collect();
+                .map(|p| p.trim().parse::<f64>())
+                .collect::<Result<_, _>>()
+                .unwrap_or_default();
             let [r, g, b] = parts[..] else {
                 return Err(format!(
                     "color needs three numbers, like 1, 0.5, 0. Not \"{text}\"."
@@ -8907,6 +8908,16 @@ mod editing {
             run(
                 &viewer,
                 "effect.set_parameters?layer=layer-cel&effect=fx-2&color=1,0&amount=0.25",
+            ),
+        );
+        // The audit of 2026-09-25: a part that was not a number used to be dropped before the
+        // count, so four parts with one word among them passed as three numbers.
+        report.check(
+            "a colour with a word among its numbers is refused, not read as the other three",
+            "color needs three numbers, like 1, 0.5, 0. Not \"1,abc,0,0.5\".",
+            run(
+                &viewer,
+                "effect.set_parameters?layer=layer-cel&effect=fx-2&color=1,abc,0,0.5&amount=0.25",
             ),
         );
         report.check(

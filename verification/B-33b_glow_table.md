@@ -157,7 +157,8 @@ D-89, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/glo
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | an adjustment layer's radius 12 is radius 3 on the quarter-size draft frame, and its threshold 60 and intensity 2 stay as they are | [(3.0, 60.0, 2.0)] | yes |
+| an adjustment layer's radius 1200, out of range, stays 1200 on the draft frame, so the draft leaves it out as the export does | [(1200.0, 60.0, 2.0)] | yes |
 
 ## Result
 
-126 of 126 checks pass.
+127 of 127 checks pass.

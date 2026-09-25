@@ -419,45 +419,57 @@ fn b33_glow() {
     let adjust = persist::load(&repo("Fixtures/adjust/fx_adj_007.json"))
         .unwrap()
         .document;
-    let mut log = FrameLog::new(8);
-    let mut plan = plan_frame(
-        adjust.project(),
-        &Id::new(MAIN),
-        0,
-        &repo("Fixtures/adjust"),
-        &mut log,
-    )
-    .unwrap();
-    for layer in &mut plan.layers {
-        for instance in layer.adjust.iter_mut().flatten() {
-            instance.effect = Glow {
-                radius: 12.0,
-                threshold: 60.0,
-                intensity: 2.0,
-                ..PLAIN
+    let draft = |radius: f64| -> Vec<(f64, f64, f64)> {
+        let mut log = FrameLog::new(8);
+        let mut plan = plan_frame(
+            adjust.project(),
+            &Id::new(MAIN),
+            0,
+            &repo("Fixtures/adjust"),
+            &mut log,
+        )
+        .unwrap();
+        for layer in &mut plan.layers {
+            for instance in layer.adjust.iter_mut().flatten() {
+                instance.effect = Glow {
+                    radius,
+                    threshold: 60.0,
+                    intensity: 2.0,
+                    ..PLAIN
+                }
+                .effect();
             }
-            .effect();
         }
-    }
-    let scaled: Vec<(f64, f64, f64)> = scale_plan(plan, PreviewQuality::Draft)
-        .layers
-        .iter()
-        .flat_map(|l| l.adjust.iter().flatten())
-        .filter_map(|i| match i.effect {
-            Effect::Glow {
-                radius,
-                threshold,
-                intensity,
-                ..
-            } => Some((radius, threshold, intensity)),
-            _ => None,
-        })
-        .collect();
+        scale_plan(plan, PreviewQuality::Draft)
+            .layers
+            .iter()
+            .flat_map(|l| l.adjust.iter().flatten())
+            .filter_map(|i| match i.effect {
+                Effect::Glow {
+                    radius,
+                    threshold,
+                    intensity,
+                    ..
+                } => Some((radius, threshold, intensity)),
+                _ => None,
+            })
+            .collect()
+    };
+    let scaled = draft(12.0);
     t.row(
         "an adjustment layer's radius 12 is radius 3 on the quarter-size draft frame, and its \
          threshold 60 and intensity 2 stay as they are",
         &format!("{scaled:?}"),
         scaled == [(3.0, 60.0, 2.0)],
+    );
+    // The audit of 2026-09-25: a radius out of range was scaled back inside it, so the draft
+    // drew a glow the export leaves out.
+    let scaled = draft(1200.0);
+    t.row(
+        "an adjustment layer's radius 1200, out of range, stays 1200 on the draft frame, so the \
+         draft leaves it out as the export does",
+        &format!("{scaled:?}"),
+        scaled == [(1200.0, 60.0, 2.0)],
     );
 
     t.out.push_str(&format!(

@@ -1070,9 +1070,11 @@ fn resolve_rest(
         None => {
             let mut stack = effects.clone();
             if pre != 1.0 {
-                for instance in &mut stack {
+                // An invalid setting is left as it is, so it is bypassed as it is at full size.
+                for instance in stack.iter_mut().filter(|i| i.effect.is_valid()) {
                     match &mut instance.effect {
                         crate::effects::Effect::GaussianBlur { sigma_px } => *sigma_px /= pre,
+                        crate::effects::Effect::SelectiveColorBlur { blur, .. } => *blur /= pre,
                         crate::effects::Effect::Glow { radius, .. } => *radius /= pre,
                         _ => {}
                     }
