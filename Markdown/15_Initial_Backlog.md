@@ -294,6 +294,14 @@ B-30b / the core: `core.line_smooth` in the effect model with its two settings, 
 
 B-30c / the window: Line Smoothing in the Effects panel's list with its Softness and Threshold boxes, a panel table, and a playtest sheet on a real drawing. **Built on 2026-09-25**: `verification/B-12a_effects_table.md` checks it lands at the top of the stack at softness 50 and threshold 10, `verification/B-12b_state_fields_table.md` (75 of 75) that the two boxes are the settings the command reads, and `verification/B-30c_line_smooth_playtest.md` is the sheet, on `verification/B-30c_line_smooth_drawing.png`. **Passed by the owner on 2026-09-25 ("works")**, after the agent also rendered two of the owner's own drawings through it at softness 0, 50 and 100 and judged 50 the right default. B-30 is done.
 
+B-31 / Selective colour blur, the first of document 15's reuse entry R-03, the cel colour operations, taken up by the owner on 2026-09-25 ("Selective colour blur"), as the fifth effect in the Effects panel.
+
+B-31a / the rule and its fixtures before code: the proposal's three pictures in `verification/B-31a proposal/`, D-87 in document 14, the rule in document 21, FX-SELBLUR-001 to 024 in document 25 from `tools/selblur_reference.py`, which writes `Fixtures/selblur/`, and F's Plugins' licence in `docs/third_party/F-s-PluginsProjects-LICENSE.txt`. **Written on 2026-09-25; D-87 accepted by the owner the same day ("accept").**
+
+B-31b / the core: `core.selective_color_blur` in the effect model with its two settings, their ranges and the blur's keys, the port with F's Plugins' notice, the file reading and writing it, `effect.add` putting it at the top of the stack and Line Smoothing below it, the packaged build carrying F's Plugins' licence, and a table that renders every FX-SELBLUR case against `Fixtures/selblur/expected_selblur.json`.
+
+B-31c / the window: Selective Colour Blur in the Effects panel's list with its Blur box and up to eight colour boxes, a panel table, and a playtest sheet on a real drawing.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
@@ -304,7 +312,7 @@ R-01 / The exposure timesheet read (XDTS). PROPOSED, and the highest value of th
 
 R-02 / Line smoothing. PROPOSED. OpenToonz `common/trop/tantialias.cpp` is about four hundred lines of BSD-3 and uses the published method that OLM's page says OLM Smoother uses. `loilo-inc/smooth` and its OpenFX port `cr-market/anime-smoother-ofx` are Apache-2.0 and a different method, which makes them a second opinion rather than a second copy. This is document 31's D-06 and its G3a. OLM's own tools are Apache-2.0 but ship as built plugins only, so there is no OLM source to take. **Taken up on 2026-09-25 as B-30, under D-86 (accepted).**
 
-R-03 / The cel colour operations. PROPOSED. `bryful/F-s-PluginsProjects` is MIT and holds about forty effects by a working anime creator; `cr-market/FsPluginsOFX` ports eight of them, including main-line repaint, selective colour blur and select colour, in a form separated from the After Effects SDK. This is document 31's D-06, D-07 and D-09. The smallest useful first behaviour is one operation, not the set.
+R-03 / The cel colour operations. PROPOSED. `bryful/F-s-PluginsProjects` is MIT and holds about forty effects by a working anime creator; `cr-market/FsPluginsOFX` ports eight of them, including main-line repaint, selective colour blur and select colour, in a form separated from the After Effects SDK. This is document 31's D-06, D-07 and D-09. The smallest useful first behaviour is one operation, not the set. **Taken up on 2026-09-25 as B-31, selective colour blur first, under D-87 (accepted).**
 
 R-04 / The blur and glow family. PROPOSED, and last of the four because the existing Gaussian blur already covers part of it. OpenToonz `stdfx` holds directional, radial, rotate, line and motion blur, erode and dilate, glow, bloom and glare, and the RGB and HSV keys, all BSD-3, and its `igs_*` cores depend on nothing but the C++ standard library. This is document 31's D-07, D-08 and D-10.
 
