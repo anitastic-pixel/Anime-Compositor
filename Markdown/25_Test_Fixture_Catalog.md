@@ -2436,63 +2436,47 @@ FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matri
 
 ## Sheet printing fixtures
 
-**D-84d, accepted by the owner on 2026-09-24 ("proceed").** Each case is the printable page the window writes for the composition on screen. A page holds six seconds as two halves of three seconds, left then right; "frames a to b" is the rows a half has, empty past the cut's end. The length is seconds + frames. Every printed cell is the cell the Sheet shows on screen for that frame and column, and each half has the Sheet's columns in its order.
+**D-84d, accepted by the owner on 2026-09-24 ("proceed"), and D-84e, accepted the same day ("proceed").** Each case is the printable page the window writes for the composition on screen, at 6 seconds a page and in black unless it says otherwise. At 6 seconds a page, a page holds two halves of three seconds, left then right; at 3, one column of three seconds. On paper, frames are counted from 1 (D-84e): "rows 1 to 72" are the cut's first 72 frames, and the Sheet on screen's frame 0 is row 1. Rows past the cut's end are empty. "Seconds" are the numbers in the sec column, each beside the row that ends its second. The length is seconds + frames. Every printed cell is the cell the Sheet shows on screen for that frame and column, and each half has the Sheet's columns in its order.
 
 - FX-PRINT-001: The sample cut, FX-XDTS-040, imported: one page.
-  - Header: `s01 c012`, `Sheet 1 of 1`, `2 + 0`, `24 fps`
-  - Page 1: left half frames 0 to 71, right half frames 72 to 143
-  - Columns: frame, Dialogue, A, B, C, Camera
-  - End line under frame 47
-- FX-PRINT-002: The sample cut made 300 frames long (Composition Settings, length 300): three pages, the last mostly empty.
-  - Header: `s01 c012`, `Sheet 1 of 3` to `Sheet 3 of 3`, `12 + 12`, `24 fps`
-  - Page 1: frames 0 to 71 and 72 to 143; page 2: 144 to 215 and 216 to 287; page 3: 288 to 359 and 360 to 431
-  - End line under frame 299
-- FX-PRINT-003: The sample cut at 30 frames a second (Composition Settings, frame rate 30): a page holds 180 frames.
-  - Header: `s01 c012`, `Sheet 1 of 1`, `1 + 18`, `30 fps`
-  - Page 1: left half frames 0 to 89, right half frames 90 to 179
-  - End line under frame 47
-- FX-PRINT-004: A composition with only a solid layer: nothing to print.
-  - Print... is not offered; Ctrl+P says `There is nothing to print: no layer here shows drawings.`
-  - `/sheet/print` writes no pages
-
-## Proposed sheet fixtures, not yet in the catalogue
-
-**Proposed by D-84e, D-84f and D-84g on 2026-09-24, awaiting the owner.** Once the owner accepts each decision, its cases replace and add to the Sheet printing and Sheet writing fixtures above. Until then those fixtures and their tests stay as written. On paper, frames are counted from 1 (D-84e): "rows 1 to 72" are the cut's first 72 frames, and the Sheet on screen's frame 0 is row 1. "Beside" is the sec column on the row a second ends.
-
-### D-84e, the paper sheet
-
-- FX-PRINT-001 becomes: The sample cut, FX-XDTS-040, imported: one page at 6 seconds a page, in black.
   - Header: `s01 c012`, `Sheet 1 of 1`, `2 + 0`, `24 fps`
   - Page 1: left half rows 1 to 72, right half rows 73 to 144
   - Columns: sec, frame, Action, Dialogue, A, B, C, three empty, Camera
   - End line under row 48
-  - Seconds: 1 to 3 beside rows 24, 48 and 72; 4 to 6 beside rows 96, 120 and 144
-- FX-PRINT-002 becomes: The sample cut made 300 frames long: three pages, the last mostly empty.
+  - Seconds: 1 to 6, beside rows 24, 48, 72 and so on to 144
+- FX-PRINT-002: The sample cut made 300 frames long (Composition Settings, length 300): three pages, the last mostly empty.
   - Header: `s01 c012`, `Sheet 1 of 3` to `Sheet 3 of 3`, `12 + 12`, `24 fps`
   - Page 1: rows 1 to 72 and 73 to 144; page 2: 145 to 216 and 217 to 288; page 3: 289 to 360 and 361 to 432
   - End line under row 300
-  - Seconds: page 1, 1 to 6; page 2, 7 to 12; page 3, 13 to 18
-- FX-PRINT-003 becomes: The sample cut at 30 frames a second: a page holds 180 frames.
+  - Seconds: 1 to 18, beside rows 24, 48, 72 and so on to 432
+- FX-PRINT-003: The sample cut at 30 frames a second (Composition Settings, frame rate 30): a page holds 180 frames.
   - Header: `s01 c012`, `Sheet 1 of 1`, `1 + 18`, `30 fps`
   - Page 1: left half rows 1 to 90, right half rows 91 to 180
   - End line under row 48
-  - Seconds: 1 to 6 beside rows 30, 60, 90, 120, 150 and 180
-- FX-PRINT-005, new: The sample cut at 3 seconds a page: one page of one column.
+  - Seconds: 1 to 6, beside rows 30, 60, 90 and so on to 180
+- FX-PRINT-004: A composition with only a solid layer: nothing to print.
+  - Print... is not offered; Ctrl+P says `There is nothing to print: no layer here shows drawings.`
+  - `/sheet/print` writes no pages
+- FX-PRINT-005: The sample cut at 3 seconds a page: one page of one column.
   - Header: `s01 c012`, `Sheet 1 of 1`, `2 + 0`, `24 fps`
   - Page 1: rows 1 to 72
   - End line under row 48
-  - Seconds: 1 to 3 beside rows 24, 48 and 72
-- FX-PRINT-006, new: The sample cut made 300 frames long, at 3 seconds a page: five pages.
+  - Seconds: 1 to 3, beside rows 24, 48 and 72
+- FX-PRINT-006: The sample cut made 300 frames long, at 3 seconds a page: five pages.
   - Header: `s01 c012`, `Sheet 1 of 5` to `Sheet 5 of 5`, `12 + 12`, `24 fps`
   - Pages 1 to 5: rows 1 to 72, 73 to 144, 145 to 216, 217 to 288 and 289 to 360
   - End line under row 300
-  - Seconds: page 5, 13 to 15
-- FX-PRINT-007, new: The sample cut in red.
+  - Seconds: 1 to 15, beside rows 24, 48, 72 and so on to 360
+- FX-PRINT-007: The sample cut in red.
   - Red: the rules, the headings, the frame and second numbers, and the title block's labels
   - Black: the numbers, lines, crosses and words in the cells, and the title block's entries
   - Everything else as FX-PRINT-001
-- FX-PRINT-008, new: A choice the window does not offer, 4 seconds a page. Refused.
+- FX-PRINT-008: A choice the window does not offer, 4 seconds a page. Refused.
   - `/sheet/print` writes no pages and says `A page holds 6 or 3 seconds.`
+
+## Accepted sheet fixtures, moved in when built
+
+**Accepted with D-84f and D-84g by the owner on 2026-09-24 ("proceed").** Each decision's cases replace and add to the Sheet printing and Sheet writing fixtures above when its step is built: D-84f's with B-28i, D-84g's with B-28j. Until then those fixtures and their tests stay as written. On paper, frames are counted from 1, as the Sheet printing fixtures say.
 
 ### D-84f, the title block
 
