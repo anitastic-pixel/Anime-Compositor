@@ -298,6 +298,18 @@ impl Effect {
         }
     }
 
+    /// The name a person reads, the Effects panel's own: undo's list uses it.
+    pub fn name(&self) -> &str {
+        match self {
+            Effect::Exposure { .. } => "Exposure",
+            Effect::GaussianBlur { .. } => "Blur",
+            Effect::Tint { .. } => "Tint",
+            Effect::LineSmooth { .. } => "Line Smoothing",
+            Effect::SelectiveColorBlur { .. } => "Selective Colour Blur",
+            Effect::Unsupported { type_id } => type_id,
+        }
+    }
+
     pub fn type_id(&self) -> &str {
         match self {
             Effect::Exposure { .. } => EXPOSURE,

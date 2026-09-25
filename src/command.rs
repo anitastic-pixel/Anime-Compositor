@@ -509,6 +509,35 @@ impl Command {
                 .and_then(|c| c.layer(layer_id))
                 .map(|layer| mask_change(&layer.masks, masks))
                 .unwrap_or_else(|| self.label()),
+            // An effect named by its instance is named in words, from the stack as it was.
+            Command::RemoveEffect {
+                composition,
+                layer_id,
+                instance_id,
+            }
+            | Command::ReorderEffect {
+                composition,
+                layer_id,
+                instance_id,
+                ..
+            }
+            | Command::SetEffectEnabled {
+                composition,
+                layer_id,
+                instance_id,
+                ..
+            }
+            | Command::SetEffectKeys {
+                composition,
+                layer_id,
+                instance_id,
+                ..
+            } => before
+                .composition(composition)
+                .and_then(|c| c.layer(layer_id))
+                .and_then(|l| l.effects.iter().find(|e| &e.instance_id == instance_id))
+                .map(|e| self.effect_label(e.effect.name()))
+                .unwrap_or_else(|| self.label()),
             _ => self.label(),
         }
     }
@@ -647,7 +676,7 @@ impl Command {
                 1 => "Set one shape".to_string(),
                 n => format!("Set {n} shapes"),
             },
-            Command::AddEffect { effect, .. } => format!("Add {}", effect.type_id()),
+            Command::AddEffect { effect, .. } => format!("Add {}", effect.effect.name()),
             Command::RemoveEffect { instance_id, .. } => format!("Remove effect {instance_id}"),
             Command::ReorderEffect {
                 instance_id,
@@ -666,9 +695,25 @@ impl Command {
                 }
             }
             Command::SetEffectParameters { effect, .. } => {
-                format!("Change {} settings", effect.type_id())
+                format!("Change {} settings", effect.name())
             }
             Command::SetEffectKeys { setting, .. } => format!("Change the keys of {setting}"),
+        }
+    }
+
+    /// `label_in`'s words for an effect command, with the effect called `name`.
+    fn effect_label(&self, name: &str) -> String {
+        match self {
+            Command::RemoveEffect { .. } => format!("Remove {name}"),
+            Command::ReorderEffect { to_index, .. } => {
+                format!("Move {name} to position {to_index}")
+            }
+            Command::SetEffectEnabled { enabled: true, .. } => format!("Switch {name} on"),
+            Command::SetEffectEnabled { enabled: false, .. } => format!("Bypass {name}"),
+            Command::SetEffectKeys { setting, .. } => {
+                format!("Change the keys of {name}'s {setting}")
+            }
+            _ => self.label(),
         }
     }
 

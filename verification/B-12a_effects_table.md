@@ -25,10 +25,10 @@ A parameter over time. The settings here are constants, which is what document 1
 | Check | Expected | Actual | Result |
 |---|---|---|---|
 | the layer arrives with the effect no version of this build has | fx-unknown-1 vendor.future.effect on | fx-unknown-1 vendor.future.effect on | pass |
-| adding a blur says what was added, in the words undo will use | Add core.gaussian_blur | Add core.gaussian_blur | pass |
+| adding a blur says what was added, in the words undo will use | Add Blur | Add Blur | pass |
 | and it goes on the end of the stack, which is where it is evaluated last | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | pass |
 | a new effect starts at the setting that changes no pixels | {"sigma_px":0} | {"sigma_px":0} | pass |
-| setting the radius says which effect's settings changed | Change core.gaussian_blur settings | Change core.gaussian_blur settings | pass |
+| setting the radius says which effect's settings changed | Change Blur settings | Change Blur settings | pass |
 | and the panels are given the new radius back | {"sigma_px":4.5} | {"sigma_px":4.5} | pass |
 | a negative radius is refused in document 21's own words, not clamped | A Gaussian blur needs a sigma of zero or more, and this is -1. Choose a value inside the range. | A Gaussian blur needs a sigma of zero or more, and this is -1. Choose a value inside the range. | pass |
 | text that is not a number is refused by the window, before the core sees it | sigma_px needs a number. Not "wide". | sigma_px needs a number. Not "wide". | pass |
@@ -39,20 +39,20 @@ A parameter over time. The settings here are constants, which is what document 1
 | an amount outside document 21's range is refused | A tint amount runs from 0 to 1, and this is 1.5. Choose a value inside the range. | A tint amount runs from 0 to 1, and this is 1.5. Choose a value inside the range. | pass |
 | a colour that is not three numbers is refused by the window | color needs three numbers, like 1, 0.5, 0. Not "1,0". | color needs three numbers, like 1, 0.5, 0. Not "1,0". | pass |
 | and the tint is as it was set | {"amount":0.25,"color":[1,0,0]} | {"amount":0.25,"color":[1,0,0]} | pass |
-| bypassing an effect says so | Bypass effect fx-1 | Bypass effect fx-1 | pass |
+| bypassing an effect says so | Bypass Blur | Bypass Blur | pass |
 | and the stack says which one is not running | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur bypassed, fx-2 core.tint on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur bypassed, fx-2 core.tint on | pass |
 | a bypassed effect keeps its settings | {"sigma_px":4.5} | {"sigma_px":4.5} | pass |
-| switching it back on says that instead | Switch effect fx-1 on | Switch effect fx-1 on | pass |
-| the effect from another version can be bypassed like any other | Bypass effect fx-unknown-1 | Bypass effect fx-unknown-1 | pass |
+| switching it back on says that instead | Switch Blur on | Switch Blur on | pass |
+| the effect from another version can be bypassed like any other | Bypass vendor.future.effect | Bypass vendor.future.effect | pass |
 | but its settings cannot be changed from here, and it says why | vendor.future.effect is not an effect this build has, so its settings are kept as the file wrote them and cannot be changed here. | vendor.future.effect is not an effect this build has, so its settings are kept as the file wrote them and cannot be changed here. | pass |
 | and its settings are the ones the file wrote | {"strength":0.5} | {"strength":0.5} | pass |
-| deleting an effect from the middle of the stack names the one that went | Remove effect fx-2 | Remove effect fx-2 | pass |
+| deleting an effect from the middle of the stack names the one that went | Remove Tint | Remove Tint | pass |
 | and the rest of the stack is untouched, in the order it was in | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on | pass |
 | the gap a deleted effect left is not filled by the next one | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | pass |
-| moving an effect earlier says where it went | Move effect fx-3 to position 1 | Move effect fx-3 to position 1 | pass |
+| moving an effect earlier says where it went | Move Exposure to position 1 | Move Exposure to position 1 | pass |
 | and the stack is in the new order, with nothing else disturbed | fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-1 core.gaussian_blur on, fx-4 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-1 core.gaussian_blur on, fx-4 core.gaussian_blur on | pass |
 | moving it back later puts the stack where it was | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | pass |
-| moving an effect straight to a position says where it went | Move effect fx-4 to position 0 | Move effect fx-4 to position 0 | pass |
+| moving an effect straight to a position says where it went | Move Blur to position 0 | Move Blur to position 0 | pass |
 | and it is there, with the others closed up behind it | fx-4 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on | fx-4 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on, fx-3 core.exposure on | pass |
 | a position past the end is refused in words | Position 9 is past the end of a stack of 4 effects. | Position 9 is past the end of a stack of 4 effects. | pass |
 | and so is the position it already has, rather than written as a change | fx-4 is already at position 0. | fx-4 is already at position 0. | pass |

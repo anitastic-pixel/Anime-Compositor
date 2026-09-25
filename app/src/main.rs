@@ -8781,7 +8781,7 @@ mod editing {
         // ---- adding ----------------------------------------------------------------------------
         report.check(
             "adding a blur says what was added, in the words undo will use",
-            "Add core.gaussian_blur",
+            "Add Blur",
             run(
                 &viewer,
                 "effect.add?layer=layer-cel&type=core.gaussian_blur",
@@ -8801,7 +8801,7 @@ mod editing {
         // ---- settings ---------------------------------------------------------------------------
         report.check(
             "setting the radius says which effect's settings changed",
-            "Change core.gaussian_blur settings",
+            "Change Blur settings",
             run(
                 &viewer,
                 "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=4.5",
@@ -8886,7 +8886,7 @@ mod editing {
         // its settings, and the picture is drawn without it.
         report.check(
             "bypassing an effect says so",
-            "Bypass effect fx-1",
+            "Bypass Blur",
             run(&viewer, "effect.toggle_bypass?layer=layer-cel&effect=fx-1"),
         );
         report.check(
@@ -8902,7 +8902,7 @@ mod editing {
         );
         report.check(
             "switching it back on says that instead",
-            "Switch effect fx-1 on",
+            "Switch Blur on",
             run(&viewer, "effect.toggle_bypass?layer=layer-cel&effect=fx-1"),
         );
 
@@ -8913,7 +8913,7 @@ mod editing {
         // schema it has never seen.
         report.check(
             "the effect from another version can be bypassed like any other",
-            "Bypass effect fx-unknown-1",
+            "Bypass vendor.future.effect",
             run(
                 &viewer,
                 "effect.toggle_bypass?layer=layer-cel&effect=fx-unknown-1",
@@ -8942,7 +8942,7 @@ mod editing {
         run(&viewer, "effect.add?layer=layer-cel&type=core.exposure");
         report.check(
             "deleting an effect from the middle of the stack names the one that went",
-            "Remove effect fx-2",
+            "Remove Tint",
             run(&viewer, "effect.delete?layer=layer-cel&effect=fx-2"),
         );
         report.check(
@@ -8969,7 +8969,7 @@ mod editing {
         // add it again, which loses its settings on the way.
         report.check(
             "moving an effect earlier says where it went",
-            "Move effect fx-3 to position 1",
+            "Move Exposure to position 1",
             run(&viewer, "effect.move_up?layer=layer-cel&effect=fx-3"),
         );
         report.check(
@@ -8990,7 +8990,7 @@ mod editing {
         // W-07: a card dragged up or down the stack lands at one position, sent once.
         report.check(
             "moving an effect straight to a position says where it went",
-            "Move effect fx-4 to position 0",
+            "Move Blur to position 0",
             run(&viewer, "effect.move?layer=layer-cel&effect=fx-4&to=0"),
         );
         report.check(
