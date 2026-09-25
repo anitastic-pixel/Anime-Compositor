@@ -20814,7 +20814,8 @@ mod contract {
                 "layer-4",
             )["effects"]
                 .clone();
-            // Found by its type: line smoothing goes to the top of the stack (D-86), not the end.
+            // Found by its type: line smoothing and selective colour blur go to the top of the
+            // stack (D-86, D-87), not the end.
             let instance = effects
                 .as_array()
                 .and_then(|e| e.iter().rev().find(|e| e["type_id"] == *type_id))
@@ -20866,7 +20867,7 @@ mod contract {
     /// The effect identifiers the page's own tables name, and one full set of settings for each.
     ///
     /// Read off `EFFECT_PARAMS` and `EFFECT_NAMES` in the page by eye rather than by parser: this
-    /// is four effects and the parser to read a JavaScript object literal would be longer than
+    /// is five effects and the parser to read a JavaScript object literal would be longer than
     /// the list. The check is that the command reads these names, so an effect renamed on one
     /// side and not the other fails here.
     const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
@@ -20877,6 +20878,11 @@ mod contract {
             &[("color", "0.9, 0.7, 0.5"), ("amount", "0.3")],
         ),
         ("core.line_smooth", &[("softness", "60"), ("threshold", "12")]),
+        // The colours are drawn apart from EFFECT_PARAMS and sent as one list (D-87).
+        (
+            "core.selective_color_blur",
+            &[("blur", "12"), ("colors", "%23f6d6be,%23dba08e")],
+        ),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

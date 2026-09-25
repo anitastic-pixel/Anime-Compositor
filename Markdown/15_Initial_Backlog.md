@@ -300,7 +300,7 @@ B-31a / the rule and its fixtures before code: the proposal's three pictures in 
 
 B-31b / the core: `core.selective_color_blur` in the effect model with its two settings, their ranges and the blur's keys, the port with F's Plugins' notice, the file reading and writing it, `effect.add` putting it at the top of the stack and Line Smoothing below it, the packaged build carrying F's Plugins' licence, and a table that renders every FX-SELBLUR case against `Fixtures/selblur/expected_selblur.json`. **Built on 2026-09-25**: `verification/B-31b_selective_blur_table.md`, 69 of 69, every FX-SELBLUR case within 2.2e-7 of the reference. The window's own table, `verification/B-12a_effects_table.md`, checks that `effect.add` puts it at the top and Line Smoothing below it: 51 of 51.
 
-B-31c / the window: Selective Colour Blur in the Effects panel's list with its Blur box and up to eight colour boxes, a panel table, and a playtest sheet on a real drawing.
+B-31c / the window: Selective Colour Blur in the Effects panel's list with its Blur box and up to eight colour boxes, a panel table, and a playtest sheet on a real drawing. **Built on 2026-09-25**: the colours are swatches with their hex beside them, each removable, and an Add a colour picker while there are fewer than eight. `verification/B-12b_state_fields_table.md`, 77 of 77, checks the Blur box and the colour list are the settings the command reads. Playtest: `verification/B-31c_selective_blur_playtest.md`, on `verification/B-31c_selective_blur_drawing.png`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

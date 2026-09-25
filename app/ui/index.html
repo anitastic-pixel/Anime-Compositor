@@ -916,6 +916,7 @@
         <option value="core.exposure">Exposure</option>
         <option value="core.tint">Tint</option>
         <option value="core.line_smooth">Line Smoothing</option>
+        <option value="core.selective_color_blur">Selective Colour Blur</option>
       </select>
     </div>
   </section>
@@ -6208,7 +6209,7 @@ function drawCamera() {
   into.replaceChildren(dl);
 }
 
-// The four effects this build has, by the identifier the file uses. A type that is not here is
+// The five effects this build has, by the identifier the file uses. A type that is not here is
 // one from another version: it is listed by its own identifier and said to be unchangeable,
 // because document 19 requires an unknown effect to survive a load and save and never to be
 // silently dropped.
@@ -6217,6 +6218,7 @@ const EFFECT_NAMES = {
   'core.exposure': 'Exposure',
   'core.tint': 'Tint',
   'core.line_smooth': 'Line Smoothing',
+  'core.selective_color_blur': 'Selective Colour Blur',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6229,6 +6231,8 @@ const EFFECT_PARAMS = {
   // D-86.
   'core.line_smooth': [['softness', 'Softness, 0 to 100', 1, 0.5],
     ['threshold', 'Threshold, 0 to 255', 1, 0.5]],
+  // D-87. Its colours are not a number and are drawn apart, in effectRow.
+  'core.selective_color_blur': [['blur', 'Blur, 0 to 200', 1, 0.5]],
 };
 
 // Document 21 keeps the tint colour in linear light, and a colour picker speaks in sRGB. These
@@ -6407,6 +6411,10 @@ function effectRow(layer, fx, at, of) {
   const dl = document.createElement('dl');
   const fields = {};
   let pick = null;
+  // D-87: selective colour blur's chosen colours, which travel with every change as the
+  // numbers do. Kept here, not read back from the fields, because a swatch is removable.
+  const chosen = fx.type_id === 'core.selective_color_blur'
+    ? [...((fx.parameters || {}).colors || [])] : null;
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.
@@ -6421,6 +6429,7 @@ function effectRow(layer, fx, at, of) {
     }
     const parts = known.map(([name]) => '&' + name + '=' + encodeURIComponent(keyed(name)
       ? [].concat(propOf(layer, fxName(fx, name)).base).join(',') : typed(name)));
+    if (chosen) parts.push('&colors=' + encodeURIComponent(chosen.join(',')));
     command('/effect.set_parameters' + where + parts.join('') + extra);
   };
   // W-07: the fields are live. A keystroke, a pixel of drag on a handle and a move over the
@@ -6475,6 +6484,37 @@ function effectRow(layer, fx, at, of) {
       dd.append(input);
       fields[name].push(input);
     });
+    dl.append(dt, dd);
+  }
+  // D-87: a swatch per chosen colour, with its hex beside it, since the match is exact and the
+  // number is what a person checks. The file keeps sRGB as a drawing does, so the swatch needs
+  // none of the tint's conversion. Colours cannot be keyed.
+  if (chosen) {
+    const dt = Object.assign(document.createElement('dt'), { textContent: 'Colours, up to 8' });
+    const dd = document.createElement('dd');
+    chosen.forEach((hex, i) => {
+      const swatch = Object.assign(document.createElement('input'),
+        { type: 'color', value: hex, title: 'Pick the colour, or type its hex' });
+      swatch.setAttribute('aria-label', label + ' colour ' + (i + 1));
+      const words = Object.assign(document.createElement('span'), { textContent: hex + ' ' });
+      swatch.oninput = () => { chosen[i] = swatch.value; words.textContent = swatch.value + ' '; live(); };
+      swatch.onchange = () => close(false);
+      swatch.onblur = () => close(false);
+      dd.append(swatch, ' ', words, iconButton('✕', 'Remove the colour ' + hex,
+        () => { chosen.splice(i, 1); sendParameters(); }), ' ');
+    });
+    if (!chosen.length) {
+      dd.append(Object.assign(document.createElement('span'),
+        { className: 'mark', textContent: 'No colour chosen, so nothing changes. ' }));
+    }
+    if (chosen.length < 8) {
+      const add = Object.assign(document.createElement('input'), { type: 'color', value: '#ffffff' });
+      add.setAttribute('aria-label', 'Add a colour to ' + label);
+      add.onchange = () => { chosen.push(add.value); sendParameters(); };
+      const words = document.createElement('label');
+      words.append(add, ' Add a colour');
+      dd.append(words);
+    }
     dl.append(dt, dd);
   }
   box.append(dl);
