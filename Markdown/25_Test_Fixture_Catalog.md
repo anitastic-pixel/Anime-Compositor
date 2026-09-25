@@ -2455,6 +2455,96 @@ FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matri
   - Print... is not offered; Ctrl+P says `There is nothing to print: no layer here shows drawings.`
   - `/sheet/print` writes no pages
 
+## Proposed sheet fixtures, not yet in the catalogue
+
+**Proposed by D-84e, D-84f and D-84g on 2026-09-24, awaiting the owner.** Once the owner accepts each decision, its cases replace and add to the Sheet printing and Sheet writing fixtures above. Until then those fixtures and their tests stay as written. On paper, frames are counted from 1 (D-84e): "rows 1 to 72" are the cut's first 72 frames, and the Sheet on screen's frame 0 is row 1. "Beside" is the sec column on the row a second ends.
+
+### D-84e, the paper sheet
+
+- FX-PRINT-001 becomes: The sample cut, FX-XDTS-040, imported: one page at 6 seconds a page, in black.
+  - Header: `s01 c012`, `Sheet 1 of 1`, `2 + 0`, `24 fps`
+  - Page 1: left half rows 1 to 72, right half rows 73 to 144
+  - Columns: sec, frame, Action, Dialogue, A, B, C, three empty, Camera
+  - End line under row 48
+  - Seconds: 1 to 3 beside rows 24, 48 and 72; 4 to 6 beside rows 96, 120 and 144
+- FX-PRINT-002 becomes: The sample cut made 300 frames long: three pages, the last mostly empty.
+  - Header: `s01 c012`, `Sheet 1 of 3` to `Sheet 3 of 3`, `12 + 12`, `24 fps`
+  - Page 1: rows 1 to 72 and 73 to 144; page 2: 145 to 216 and 217 to 288; page 3: 289 to 360 and 361 to 432
+  - End line under row 300
+  - Seconds: page 1, 1 to 6; page 2, 7 to 12; page 3, 13 to 18
+- FX-PRINT-003 becomes: The sample cut at 30 frames a second: a page holds 180 frames.
+  - Header: `s01 c012`, `Sheet 1 of 1`, `1 + 18`, `30 fps`
+  - Page 1: left half rows 1 to 90, right half rows 91 to 180
+  - End line under row 48
+  - Seconds: 1 to 6 beside rows 30, 60, 90, 120, 150 and 180
+- FX-PRINT-005, new: The sample cut at 3 seconds a page: one page of one column.
+  - Header: `s01 c012`, `Sheet 1 of 1`, `2 + 0`, `24 fps`
+  - Page 1: rows 1 to 72
+  - End line under row 48
+  - Seconds: 1 to 3 beside rows 24, 48 and 72
+- FX-PRINT-006, new: The sample cut made 300 frames long, at 3 seconds a page: five pages.
+  - Header: `s01 c012`, `Sheet 1 of 5` to `Sheet 5 of 5`, `12 + 12`, `24 fps`
+  - Pages 1 to 5: rows 1 to 72, 73 to 144, 145 to 216, 217 to 288 and 289 to 360
+  - End line under row 300
+  - Seconds: page 5, 13 to 15
+- FX-PRINT-007, new: The sample cut in red.
+  - Red: the rules, the headings, the frame and second numbers, and the title block's labels
+  - Black: the numbers, lines, crosses and words in the cells, and the title block's entries
+  - Everything else as FX-PRINT-001
+- FX-PRINT-008, new: A choice the window does not offer, 4 seconds a page. Refused.
+  - `/sheet/print` writes no pages and says `A page holds 6 or 3 seconds.`
+
+### D-84f, the title block
+
+- FX-PRINT-001's header becomes: NAME `s01 c012`; EPISODE, SCENE, CUT and ANIMATOR empty; TIME `2 + 0`; RATE `24 fps`; SHEET `Sheet 1 of 1`; MEMO empty.
+- FX-PRINT-009, new: The sample cut with Episode `3`, Scene `1`, Cut `012` and Animator `K. Sato` written in Composition Settings.
+  - Header: NAME `s01 c012`, EPISODE `3`, SCENE `1`, CUT `012`, ANIMATOR `K. Sato`
+  - One Undo empties the four and leaves the rest of the composition's settings as they were
+- FX-PRINT-010, new: The same project saved and opened again.
+  - The four read back as written, and print as FX-PRINT-009
+  - Saved with the four empty, the file has no `sheet_details`
+
+### D-84g, the Action column and key drawings
+
+These use the Sheet writing cases' layer and lines. "Action" is what the Action column shows, frame by frame, with `.` for nothing; "Keys" is the layer's key drawings, and "Circled" the frames whose written number is circled.
+
+- FX-XDTS-040's Sheet becomes, left to right: frame, Action, Dialogue, A, B, C, Camera; Action is empty on every frame.
+- FX-SHEET-017, new: Words typed in an Action cell go on its one frame.
+  - Before: `1 1 2 2`; Action `. . . .`
+  - Do: write `raises` in Action on frame 1
+  - After: `1 1 2 2`; Action `. raises . .`
+- FX-SHEET-018, new: Writing on a frame with a note replaces it.
+  - Before: Action `. raises . .`
+  - Do: write `turns` in Action on frame 1
+  - After: Action `. turns . .`
+- FX-SHEET-019, new: Erasing a note.
+  - Before: Action `. raises . .`
+  - Do: erase Action on frame 1
+  - After: Action `. . . .`, and the composition saves no Action column
+- FX-SHEET-020, new: An Action cell with nothing in it has nothing to erase, and only spaces write nothing. Both refused.
+  - Before: Action `. . . .`
+  - Do: erase Action on frame 2; write `   ` in Action on frame 2
+  - After: Action `. . . .`
+- FX-SHEET-021, new: K on a number marks its drawing a key, circled everywhere its number is written.
+  - Before: `1 1 2 2 1 1 2 2`; Keys: none
+  - Do: press K on frame 2
+  - After: Keys: 2; Circled: frames 2 and 6
+- FX-SHEET-022, new: K on a key's number unmarks it.
+  - Before: `1 1 2 2 1 1 2 2`; Keys: 2
+  - Do: press K on frame 6
+  - After: Keys: none
+- FX-SHEET-023, new: A line, a cross or an empty cell cannot be marked. Refused.
+  - Before: `1 1 x x`; Keys: none
+  - Do: press K on frame 1; press K on frame 2; press K on frame 3
+  - After: Keys: none
+- FX-SHEET-024, new: A note and a key, saved and opened again, read back as they were; a layer with no keys saves no `key_drawings`.
+  - Before: `1 1 2 2`; Action `. raises . .`; Keys: 2
+  - Do: save, close and open
+  - After: `1 1 2 2`; Action `. raises . .`; Keys: 2
+- FX-PRINT-011, new: The sample cut with `jumps` written in Action on the Sheet's frame 20, and drawing 3 of A marked a key.
+  - Action: `jumps` on row 21, and nothing else in the column
+  - A: 3 circled on rows 5 and 33, where it is written; no other number circled
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
