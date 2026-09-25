@@ -977,6 +977,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             );
             params.insert("tolerance".into(), num(*tolerance));
         }
+        Effect::RadialBlur {
+            kind,
+            amount,
+            center,
+        } => {
+            params.insert("type".into(), J::from(kind.as_str()));
+            params.insert("amount".into(), num(*amount));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1236,25 +1248,28 @@ fn effect_number(params: Option<&J>, key: &str, at: &str) -> Result<f64, Diagnos
     as_f64(field(params, &at, key)?, &format!("{at}/{key}"))
 }
 
-/// The tint colour: three linear RGB numbers, in document 21's order.
-fn effect_color(params: Option<&J>, at: &str) -> Result<[f64; 3], Diagnostic> {
+/// A setting of `N` numbers: the tint colour, three linear RGB numbers in document 21's order,
+/// or D-95's centre, x then y. `what` names it for the fault.
+fn effect_array<const N: usize>(
+    params: Option<&J>,
+    key: &str,
+    what: &str,
+    at: &str,
+) -> Result<[f64; N], Diagnostic> {
     let params = effect_params(params, at)?;
-    let at = format!("{at}/parameters/color");
-    let color = as_array(field(params, &at, "color")?, &at)?;
-    if color.len() != 3 {
+    let at = format!("{at}/parameters/{key}");
+    let list = as_array(field(params, &at, key)?, &at)?;
+    if list.len() != N {
         return Err(invalid(
             &at,
-            &format!(
-                "a linear RGB triple, and this one has {} numbers",
-                color.len()
-            ),
+            &format!("{what}, and this one has {} numbers", list.len()),
         ));
     }
-    Ok([
-        as_f64(&color[0], &format!("{at}/0"))?,
-        as_f64(&color[1], &format!("{at}/1"))?,
-        as_f64(&color[2], &format!("{at}/2"))?,
-    ])
+    let mut out = [0.0; N];
+    for (i, v) in list.iter().enumerate() {
+        out[i] = as_f64(v, &format!("{at}/{i}"))?;
+    }
+    Ok(out)
 }
 
 /// D-87: the chosen colours, a list of strings, kept as written but in small letters. Whether
@@ -1302,6 +1317,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "direction",
         "length",
         "width",
+        "center",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -1315,7 +1331,11 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         }
         let base = field(record, &at, "base")?;
         let keys = as_array(field(record, &at, "keyframes")?, &format!("{at}/keyframes"))?;
-        let count = if name == "color" { 3 } else { 1 };
+        let (count, what) = match name {
+            "color" => (3, "a linear RGB triple"),
+            "center" => (2, "two numbers, x then y"),
+            _ => (1, ""),
+        };
         let mut track = Vec::new();
         for c in 0..count {
             // One channel's record: the same keys, each holding that channel's number.
@@ -1324,8 +1344,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
                     return Ok(v.clone());
                 }
                 match v.as_array() {
-                    Some(three) if three.len() == 3 => Ok(three[c].clone()),
-                    _ => Err(invalid(at, "a linear RGB triple")),
+                    Some(list) if list.len() == count => Ok(list[c].clone()),
+                    _ => Err(invalid(at, what)),
                 }
             };
             let mut channel_keys = Vec::new();
@@ -2089,6 +2109,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::DIRECTIONAL_BLUR,
                 crate::effects::SELECT_COLOR,
                 crate::effects::LINE_WIDTH,
+                crate::effects::RADIAL_BLUR,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2105,7 +2126,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     sigma_px: effect_number(params, "sigma_px", &at)?,
                 }),
                 crate::effects::TINT => Some(crate::effects::Effect::Tint {
-                    color: effect_color(params, &at)?,
+                    color: effect_array(params, "color", "a linear RGB triple", &at)?,
                     amount: effect_number(params, "amount", &at)?,
                 }),
                 crate::effects::LINE_SMOOTH => Some(crate::effects::Effect::LineSmooth {
@@ -2154,6 +2175,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     based_on: effect_word(params, "based_on", &at)?,
                     colors: effect_colors(params, &at)?,
                     tolerance: effect_number(params, "tolerance", &at)?,
+                }),
+                crate::effects::RADIAL_BLUR => Some(crate::effects::Effect::RadialBlur {
+                    kind: effect_word(params, "type", &at)?,
+                    amount: effect_number(params, "amount", &at)?,
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
                 }),
                 _ => None,
             };

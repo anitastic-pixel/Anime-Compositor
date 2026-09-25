@@ -48,7 +48,7 @@ use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
     Effect, EffectInstance, EffectKey, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, GLOW,
-    LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, SELECTIVE_COLOR_BLUR, SELECT_COLOR, TINT,
+    LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR, TINT,
 };
 use anime_compositor::export::{
     self, ExportChoices, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
@@ -2429,6 +2429,12 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             colors: Vec::new(),
             tolerance: 0.0,
         }),
+        // D-95: a small spin about the middle, so adding it shows it.
+        RADIAL_BLUR => Some(Effect::RadialBlur {
+            kind: "spin".to_string(),
+            amount: 10.0,
+            center: [50.0, 50.0],
+        }),
         _ => None,
     }
 }
@@ -2542,6 +2548,27 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             colors: colors()?,
             tolerance: number("tolerance")?,
         }),
+        // D-95: the centre as two numbers, x then y, as a tint's colour is three.
+        RADIAL_BLUR => {
+            let Some(text) = parameter(query, "center") else {
+                return Err("Where should the centre be?".to_string());
+            };
+            let parts: Vec<f64> = text
+                .split(',')
+                .map(|p| p.trim().parse::<f64>())
+                .collect::<Result<_, _>>()
+                .unwrap_or_default();
+            let [x, y] = parts[..] else {
+                return Err(format!(
+                    "center needs two numbers, like 50, 50. Not \"{text}\"."
+                ));
+            };
+            Ok(Effect::RadialBlur {
+                kind: word("type")?,
+                amount: number("amount")?,
+                center: [x, y],
+            })
+        }
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
         // to read them against, so they are left alone and said to be left alone.
@@ -5425,8 +5452,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         return Some(
                             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
                              core.line_smooth, core.selective_color_blur, core.glow, \
-                             core.line_recolor, core.directional_blur, core.select_color or \
-                             core.line_width."
+                             core.line_recolor, core.directional_blur, core.select_color, \
+                             core.line_width or core.radial_blur."
                                 .to_string(),
                         );
                     };
@@ -5435,7 +5462,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             "This build has no effect called {type_id}. It has \
                              core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
                              core.selective_color_blur, core.glow, core.line_recolor, \
-                             core.directional_blur, core.select_color and core.line_width."
+                             core.directional_blur, core.select_color, core.line_width and \
+                             core.radial_blur."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -9185,17 +9213,18 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the ten are named",
+            "an effect type this build does not have is refused, and the eleven are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
-             core.line_recolor, core.directional_blur, core.select_color and core.line_width.",
+             core.line_recolor, core.directional_blur, core.select_color, core.line_width and \
+             core.radial_blur.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
              core.line_smooth, core.selective_color_blur, core.glow, core.line_recolor, \
-             core.directional_blur, core.select_color or core.line_width.",
+             core.directional_blur, core.select_color, core.line_width or core.radial_blur.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -21037,6 +21066,11 @@ mod contract {
                 ("colors", "%231e1a24"),
                 ("based_on", "colors"),
             ],
+        ),
+        // D-95: the amount, the centre as two numbers, and the type.
+        (
+            "core.radial_blur",
+            &[("amount", "20"), ("center", "25,75"), ("type", "zoom")],
         ),
     ];
 

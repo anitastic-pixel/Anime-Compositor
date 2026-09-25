@@ -951,6 +951,7 @@
         <option value="core.directional_blur">Directional Blur</option>
         <option value="core.select_color">Select Colour</option>
         <option value="core.line_width">Line Width</option>
+        <option value="core.radial_blur">Radial Blur</option>
       </select>
     </div>
   </section>
@@ -6258,6 +6259,7 @@ const EFFECT_NAMES = {
   'core.directional_blur': 'Directional Blur',
   'core.select_color': 'Select Colour',
   'core.line_width': 'Line Width',
+  'core.radial_blur': 'Radial Blur',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6289,6 +6291,9 @@ const EFFECT_PARAMS = {
   // D-94: pixels thicker, or thinner below 0.
   'core.line_width': [['width', 'Width', 1, 0.5, '-20 to 20 px, below 0 thins'],
     ['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
+  // D-95: degrees of arc or per cent of the distance, and the centre as a share of the drawing.
+  'core.radial_blur': [['amount', 'Amount', 1, 0.5, '0 to 100'],
+    ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6313,6 +6318,10 @@ const EFFECT_WORDS = {
   'core.line_width': {
     choices: [['based_on', 'Width Of', [['shape', 'The whole shape'], ['colors', 'Chosen colours']]]],
     chosen: (w) => w.based_on === 'colors',
+  },
+  // D-95.
+  'core.radial_blur': {
+    choices: [['type', 'Type', [['spin', 'Spin'], ['zoom', 'Zoom']]]],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
@@ -6568,7 +6577,7 @@ function effectRow(layer, fx, at, of) {
       dd.append(pick);
     }
     values.forEach((value, i) => {
-      const part = count === 3 ? 'rgb'[i] : '';
+      const part = count === 3 ? 'rgb'[i] : count === 2 ? 'xy'[i] : '';
       const input = scrubValue({
         value,
         label: label + ' ' + words + (part ? ' ' + part : ''),

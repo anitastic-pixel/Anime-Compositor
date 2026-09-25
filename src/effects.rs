@@ -227,6 +227,14 @@ pub enum Effect {
         colors: Vec<String>,
         tolerance: f64,
     },
+    /// D-95: `kind`, the file's `type`, "spin" or "zoom"; `amount`, 0 to 100, degrees of arc
+    /// or per cent of the distance; and `center`, per cent of the drawing's width and height,
+    /// each -1000 to 1000.
+    RadialBlur {
+        kind: String,
+        amount: f64,
+        center: [f64; 2],
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -243,6 +251,7 @@ pub const LINE_RECOLOR: &str = "core.line_recolor";
 pub const DIRECTIONAL_BLUR: &str = "core.directional_blur";
 pub const SELECT_COLOR: &str = "core.select_color";
 pub const LINE_WIDTH: &str = "core.line_width";
+pub const RADIAL_BLUR: &str = "core.radial_blur";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -312,6 +321,10 @@ impl Effect {
             } => vec![
                 ("width", vec![width], -20.0, 20.0),
                 ("tolerance", vec![tolerance], 0.0, 255.0),
+            ],
+            Effect::RadialBlur { amount, center, .. } => vec![
+                ("amount", vec![amount], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
             Effect::Unsupported { .. } => vec![],
         }
@@ -383,6 +396,7 @@ impl Effect {
             Effect::DirectionalBlur { .. } => "Directional Blur",
             Effect::SelectColor { .. } => "Select Colour",
             Effect::LineWidth { .. } => "Line Width",
+            Effect::RadialBlur { .. } => "Radial Blur",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -399,6 +413,7 @@ impl Effect {
             Effect::DirectionalBlur { .. } => DIRECTIONAL_BLUR,
             Effect::SelectColor { .. } => SELECT_COLOR,
             Effect::LineWidth { .. } => LINE_WIDTH,
+            Effect::RadialBlur { .. } => RADIAL_BLUR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -553,6 +568,8 @@ impl Effect {
                     )
                 })
             }),
+            Effect::RadialBlur { kind, .. } => (!["spin", "zoom"].contains(&kind.as_str()))
+                .then(|| format!("{name}'s type is \"spin\" or \"zoom\", and this is \"{kind}\".")),
             _ => None,
         };
         own.or_else(|| {
@@ -779,6 +796,22 @@ pub fn apply_stack(
                 });
                 ox += r;
                 oy += r;
+            }
+            // D-95: the centre is a share of the drawing's own size, wherever an effect above
+            // has moved its corner in the buffer.
+            Effect::RadialBlur {
+                kind,
+                amount,
+                center,
+            } => {
+                let (w0, h0) = (source.width() - 2 * ox, source.height() - 2 * oy);
+                let c = (
+                    ox as f64 + center[0] / 100.0 * w0 as f64,
+                    oy as f64 + center[1] / 100.0 * h0 as f64,
+                );
+                crate::perf::time(crate::perf::Stage::EffectRadial, || {
+                    crate::blurs::radial_blur(source, kind == "spin", *amount, c)
+                })
             }
         }
     }
