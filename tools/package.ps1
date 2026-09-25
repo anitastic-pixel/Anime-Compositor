@@ -40,6 +40,8 @@ Put (Join-Path $root 'LICENSE-MIT') 'LICENSE-MIT'
 Put (Join-Path $root 'LICENSE-APACHE') 'LICENSE-APACHE'
 Put (Join-Path $root 'docs\DEPENDENCIES.md') 'DEPENDENCIES.md'
 Put (Join-Path $root 'docs\SUPPORTED_ENVELOPE.md') 'READ ME FIRST.md'
+# D-86: line smoothing is ported from OpenToonz, whose BSD licence asks for its text with the build.
+Put (Join-Path $root 'docs\third_party\OpenToonz-LICENSE.txt') 'Licenses\OpenToonz\LICENSE.txt'
 
 # Every dependency's licence text, whole. Document 10 asks that a distribution carry these, and a
 # summary of them is not one of them.

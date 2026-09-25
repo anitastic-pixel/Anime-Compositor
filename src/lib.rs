@@ -22,6 +22,7 @@ pub mod expr;
 pub mod film_out;
 pub mod mp4_out;
 pub mod keykind;
+mod line_smooth;
 pub mod exr_io;
 pub mod mask;
 pub mod media;

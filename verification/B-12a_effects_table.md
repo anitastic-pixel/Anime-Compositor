@@ -57,18 +57,20 @@ A parameter over time. The settings here are constants, which is what document 1
 | a position past the end is refused in words | Position 9 is past the end of a stack of 4 effects. | Position 9 is past the end of a stack of 4 effects. | pass |
 | and so is the position it already has, rather than written as a change | fx-4 is already at position 0. | fx-4 is already at position 0. | pass |
 | an effect this build does not have moves like any other | fx-1 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | fx-1 core.gaussian_blur on, fx-unknown-1 vendor.future.effect on, fx-3 core.exposure on, fx-4 core.gaussian_blur on | pass |
+| line smoothing is added at the top of the stack, not the bottom | fx-2 core.line_smooth on, fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | fx-2 core.line_smooth on, fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | pass |
+| and it starts at softness 50 and threshold 10 | {"softness":50,"threshold":10} | {"softness":50,"threshold":10} | pass |
 | an effect that is not on this layer is said, not silently ignored | fx-99 is not an effect on this layer. | fx-99 is not an effect on this layer. | pass |
 | no effect named at all is asked for | Which effect? Choose one in the effects list. | Which effect? Choose one in the effects list. | pass |
-| an effect type this build does not have is refused, and the three are named | This build has no effect called core.warp. It has core.gaussian_blur, core.exposure and core.tint. | This build has no effect called core.warp. It has core.gaussian_blur, core.exposure and core.tint. | pass |
-| adding without saying which effect asks | Which effect? Say core.gaussian_blur, core.exposure or core.tint. | Which effect? Say core.gaussian_blur, core.exposure or core.tint. | pass |
+| an effect type this build does not have is refused, and the four are named | This build has no effect called core.warp. It has core.gaussian_blur, core.exposure, core.tint and core.line_smooth. | This build has no effect called core.warp. It has core.gaussian_blur, core.exposure, core.tint and core.line_smooth. | pass |
+| adding without saying which effect asks | Which effect? Say core.gaussian_blur, core.exposure, core.tint or core.line_smooth. | Which effect? Say core.gaussian_blur, core.exposure, core.tint or core.line_smooth. | pass |
 | and a layer that is not in this composition is named | layer-gone is not a layer in this composition. | layer-gone is not a layer in this composition. | pass |
 | the first effect in the stack refuses to go earlier, in words | fx-unknown-1 is already first. | fx-unknown-1 is already first. | pass |
 | and the last one refuses to go later | fx-1 is already last. | fx-1 is already last. | pass |
-| none of those seven refusals put anything in the history | 19 | 19 | pass |
+| none of those seven refusals put anything in the history | 21 | 21 | pass |
 | a locked layer refuses an effect, and says which rule stopped it | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | pass |
 | and refuses a settings change too | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | pass |
-| and neither did the two the lock stopped | 20 | 20 | pass |
+| and neither did the two the lock stopped | 22 | 22 | pass |
 | and the stack is the one that was built | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on | pass |
 | undoing every effect edit gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**46 of 46 checks pass.**
+**48 of 48 checks pass.**

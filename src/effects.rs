@@ -143,6 +143,13 @@ impl EffectInstance {
             match &mut effect {
                 Effect::GaussianBlur { sigma_px } => *sigma_px = sigma_px.max(0.0),
                 Effect::Tint { amount, .. } => *amount = amount.clamp(0.0, 1.0),
+                Effect::LineSmooth {
+                    softness,
+                    threshold,
+                } => {
+                    *softness = softness.clamp(0.0, 100.0);
+                    *threshold = threshold.clamp(0.0, 255.0);
+                }
                 _ => {}
             }
         }
@@ -178,6 +185,8 @@ pub enum Effect {
     GaussianBlur { sigma_px: f64 },
     /// Document 21: "parameter color is linear RGB and amount `t` in 0..1."
     Tint { color: [f64; 3], amount: f64 },
+    /// D-86: "`softness`, 0 to 100 ... and `threshold`, 0 to 255". Document 21's line smoothing.
+    LineSmooth { softness: f64, threshold: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -187,6 +196,7 @@ pub enum Effect {
 pub const EXPOSURE: &str = "core.exposure";
 pub const GAUSSIAN_BLUR: &str = "core.gaussian_blur";
 pub const TINT: &str = "core.tint";
+pub const LINE_SMOOTH: &str = "core.line_smooth";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -212,7 +222,8 @@ impl Effect {
         match (self, name) {
             (Effect::Exposure { .. }, "stops")
             | (Effect::GaussianBlur { .. }, "sigma_px")
-            | (Effect::Tint { .. }, "amount") => Some(1),
+            | (Effect::Tint { .. }, "amount")
+            | (Effect::LineSmooth { .. }, "softness" | "threshold") => Some(1),
             (Effect::Tint { .. }, "color") => Some(3),
             _ => None,
         }
@@ -225,6 +236,8 @@ impl Effect {
             (Effect::GaussianBlur { sigma_px }, "sigma_px") => Some(vec![*sigma_px]),
             (Effect::Tint { amount, .. }, "amount") => Some(vec![*amount]),
             (Effect::Tint { color, .. }, "color") => Some(color.to_vec()),
+            (Effect::LineSmooth { softness, .. }, "softness") => Some(vec![*softness]),
+            (Effect::LineSmooth { threshold, .. }, "threshold") => Some(vec![*threshold]),
             _ => None,
         }
     }
@@ -244,6 +257,16 @@ impl Effect {
                     *amount = v[0]
                 }
             }
+            Effect::LineSmooth {
+                softness,
+                threshold,
+            } => {
+                if name == "softness" {
+                    *softness = v[0]
+                } else {
+                    *threshold = v[0]
+                }
+            }
             Effect::Unsupported { .. } => {}
         }
     }
@@ -253,6 +276,7 @@ impl Effect {
             Effect::Exposure { .. } => EXPOSURE,
             Effect::GaussianBlur { .. } => GAUSSIAN_BLUR,
             Effect::Tint { .. } => TINT,
+            Effect::LineSmooth { .. } => LINE_SMOOTH,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -285,6 +309,10 @@ impl Effect {
                     && amount.is_finite()
                     && (0.0..=1.0).contains(amount)
             }
+            Effect::LineSmooth {
+                softness,
+                threshold,
+            } => (0.0..=100.0).contains(softness) && (0.0..=255.0).contains(threshold),
             Effect::Unsupported { .. } => true,
         }
     }
@@ -301,6 +329,13 @@ impl Effect {
             Effect::Tint { amount, .. } => {
                 format!("A tint amount runs from 0 to 1, and this is {amount}.")
             }
+            Effect::LineSmooth {
+                softness,
+                threshold,
+            } => format!(
+                "Line smoothing's softness runs from 0 to 100 and its threshold from 0 to 255, \
+                 and these are {softness} and {threshold}."
+            ),
             Effect::Unsupported { type_id } => {
                 format!("{type_id} has no parameters this build checks.")
             }
@@ -394,6 +429,12 @@ pub fn apply_stack(
                 ox += r;
                 oy += r;
             }
+            Effect::LineSmooth {
+                softness,
+                threshold,
+            } => crate::perf::time(crate::perf::Stage::EffectSmooth, || {
+                crate::line_smooth::line_smooth(source, *softness, *threshold)
+            }),
         }
     }
     (ox, oy)

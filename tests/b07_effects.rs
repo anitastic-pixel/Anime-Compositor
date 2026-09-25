@@ -1097,6 +1097,7 @@ fn command_rules(report: &mut Report) {
                     Effect::Exposure { stops } => format!("{stops} stops"),
                     Effect::GaussianBlur { sigma_px } => format!("sigma {sigma_px}"),
                     Effect::Tint { amount, .. } => format!("amount {amount}"),
+                    Effect::LineSmooth { softness, .. } => format!("softness {softness}"),
                     Effect::Unsupported { .. } => "unknown".to_string(),
                 };
                 format!(

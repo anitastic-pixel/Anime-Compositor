@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, TINT,
+    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, LINE_SMOOTH, TINT,
 };
 use anime_compositor::export::{
     self, ExportChoices, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
@@ -2368,12 +2368,13 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
     said
 }
 
-/// The three effects of document 21, at the settings that change no pixels.
+/// The four effects of document 21, at the settings that change no pixels.
 ///
 /// Adding an effect and setting it are two commands rather than one, so that a stack can be
 /// built before any of it is tuned; starting each one at its identity means the picture does
 /// not jump the instant an effect is added, and the change a person then sees is the one they
-/// typed.
+/// typed. Line smoothing is the exception D-86 makes: it starts at softness 50 and threshold 10,
+/// because a line with its steps smoothed is the only reason to add it.
 fn new_effect(type_id: &str) -> Option<Effect> {
     match type_id {
         EXPOSURE => Some(Effect::Exposure { stops: 0.0 }),
@@ -2381,6 +2382,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         TINT => Some(Effect::Tint {
             color: [0.0, 0.0, 0.0],
             amount: 0.0,
+        }),
+        LINE_SMOOTH => Some(Effect::LineSmooth {
+            softness: 50.0,
+            threshold: 10.0,
         }),
         _ => None,
     }
@@ -2427,6 +2432,10 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 amount: number("amount")?,
             })
         }
+        LINE_SMOOTH => Ok(Effect::LineSmooth {
+            softness: number("softness")?,
+            threshold: number("threshold")?,
+        }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
         // to read them against, so they are left alone and said to be left alone.
@@ -5308,21 +5317,25 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "effect.add" => {
                     let Some(type_id) = parameter(query, "type") else {
                         return Some(
-                            "Which effect? Say core.gaussian_blur, core.exposure or core.tint."
+                            "Which effect? Say core.gaussian_blur, core.exposure, core.tint or \
+                             core.line_smooth."
                                 .to_string(),
                         );
                     };
                     let Some(effect) = new_effect(&type_id) else {
                         return Some(format!(
                             "This build has no effect called {type_id}. It has \
-                             core.gaussian_blur, core.exposure and core.tint."
+                             core.gaussian_blur, core.exposure, core.tint and core.line_smooth."
                         ));
                     };
+                    // D-86: smoothing finds steps, which a blur or tint before it would hide,
+                    // so it goes to the top of the stack.
+                    let top = matches!(effect, Effect::LineSmooth { .. });
                     Command::AddEffect {
                         composition,
                         layer_id,
                         effect: EffectInstance::new(unused_effect_id(project), effect),
-                        index: None,
+                        index: top.then_some(0),
                     }
                 }
                 // The other six all name an instance that is already on the layer, so the
@@ -8980,6 +8993,22 @@ mod editing {
         );
         run(&viewer, "effect.delete?layer=layer-cel&effect=fx-4");
         run(&viewer, "effect.delete?layer=layer-cel&effect=fx-3");
+        // D-86: smoothing finds steps a blur before it would hide, so it is added at the top.
+        report.check(
+            "line smoothing is added at the top of the stack, not the bottom",
+            "fx-2 core.line_smooth on, fx-unknown-1 vendor.future.effect on, \
+             fx-1 core.gaussian_blur on",
+            {
+                run(&viewer, "effect.add?layer=layer-cel&type=core.line_smooth");
+                stack(&viewer, l)
+            },
+        );
+        report.check(
+            "and it starts at softness 50 and threshold 10",
+            r#"{"softness":50,"threshold":10}"#,
+            settings(&viewer, l, "fx-2"),
+        );
+        run(&viewer, "effect.delete?layer=layer-cel&effect=fx-2");
 
         // ---- what the window refuses before the core sees it ------------------------------------------
         let depth = held(&viewer).document.undo_depth();
@@ -8994,14 +9023,15 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the three are named",
+            "an effect type this build does not have is refused, and the four are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
-             core.exposure and core.tint.",
+             core.exposure, core.tint and core.line_smooth.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
-            "Which effect? Say core.gaussian_blur, core.exposure or core.tint.",
+            "Which effect? Say core.gaussian_blur, core.exposure, core.tint or \
+             core.line_smooth.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(

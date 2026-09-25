@@ -889,6 +889,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             );
             params.insert("amount".into(), num(*amount));
         }
+        Effect::LineSmooth {
+            softness,
+            threshold,
+        } => {
+            params.insert("softness".into(), num(*softness));
+            params.insert("threshold".into(), num(*threshold));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1181,7 +1188,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         return Ok((None, tracks));
     };
     let mut plain = map.clone();
-    for name in ["stops", "sigma_px", "color", "amount"] {
+    for name in ["stops", "sigma_px", "color", "amount", "softness", "threshold"] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
         };
@@ -1961,6 +1968,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::EXPOSURE,
                 crate::effects::GAUSSIAN_BLUR,
                 crate::effects::TINT,
+                crate::effects::LINE_SMOOTH,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -1979,6 +1987,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::TINT => Some(crate::effects::Effect::Tint {
                     color: effect_color(params, &at)?,
                     amount: effect_number(params, "amount", &at)?,
+                }),
+                crate::effects::LINE_SMOOTH => Some(crate::effects::Effect::LineSmooth {
+                    softness: effect_number(params, "softness", &at)?,
+                    threshold: effect_number(params, "threshold", &at)?,
                 }),
                 _ => None,
             };

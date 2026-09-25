@@ -290,7 +290,7 @@ B-30 / Line smoothing, document 15's reuse entry R-02 taken up by the owner on 2
 
 B-30a / the rule and its fixtures before code: the proposal's three pictures in `verification/B-30a proposal/`, D-86 in document 14, the rule in document 21, FX-SMOOTH-001 to 022 in document 25 from `tools/smooth_reference.py`, which writes `Fixtures/smooth/`, and OpenToonz's licence in `docs/third_party/OpenToonz-LICENSE.txt`. **Written on 2026-09-25; D-86 accepted by the owner the same day ("proceed with B").**
 
-B-30b / the core: `core.line_smooth` in the effect model with its two settings, their ranges and their keys, the port with OpenToonz's notice, the file reading and writing it, `effect.add` putting it at the top of the stack, the packaged build carrying OpenToonz's licence, and a table that renders every FX-SMOOTH case against `Fixtures/smooth/expected_smooth.json`.
+B-30b / the core: `core.line_smooth` in the effect model with its two settings, their ranges and their keys, the port with OpenToonz's notice, the file reading and writing it, `effect.add` putting it at the top of the stack, the packaged build carrying OpenToonz's licence, and a table that renders every FX-SMOOTH case against `Fixtures/smooth/expected_smooth.json`. **Built on 2026-09-25**: `verification/B-30b_line_smooth_table.md`, 54 of 54, every FX-SMOOTH case within 2.5e-7 of the reference. The check that `effect.add` puts it at the top is the window's, and comes with B-30c.
 
 B-30c / the window: Line Smoothing in the Effects panel's list with its Softness and Threshold boxes, a panel table, and a playtest sheet on a real drawing.
 
