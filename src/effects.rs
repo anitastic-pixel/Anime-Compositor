@@ -246,6 +246,15 @@ pub enum Effect {
         length: f64,
         angle: f64,
     },
+    /// D-97: `colors` as D-87's; `tolerance` and `softness`, 0 to 255; and `match_by`, "rgb" or
+    /// "hue", written `match` in the file: the pixels near a chosen colour made transparent,
+    /// wholly within the tolerance and partly across the softness past it.
+    ColorKey {
+        colors: Vec<String>,
+        tolerance: f64,
+        softness: f64,
+        match_by: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -264,6 +273,7 @@ pub const SELECT_COLOR: &str = "core.select_color";
 pub const LINE_WIDTH: &str = "core.line_width";
 pub const RADIAL_BLUR: &str = "core.radial_blur";
 pub const BLOOM: &str = "core.bloom";
+pub const COLOR_KEY: &str = "core.color_key";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -352,6 +362,14 @@ impl Effect {
                 ("length", vec![length], 0.0, 500.0),
                 ("angle", vec![angle], -3600.0, 3600.0),
             ],
+            Effect::ColorKey {
+                tolerance,
+                softness,
+                ..
+            } => vec![
+                ("tolerance", vec![tolerance], 0.0, 255.0),
+                ("softness", vec![softness], 0.0, 255.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -428,6 +446,7 @@ impl Effect {
             Effect::LineWidth { .. } => "Line Width",
             Effect::RadialBlur { .. } => "Radial Blur",
             Effect::Bloom { .. } => "Bloom",
+            Effect::ColorKey { .. } => "Colour Key",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -446,6 +465,7 @@ impl Effect {
             Effect::LineWidth { .. } => LINE_WIDTH,
             Effect::RadialBlur { .. } => RADIAL_BLUR,
             Effect::Bloom { .. } => BLOOM,
+            Effect::ColorKey { .. } => COLOR_KEY,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -615,6 +635,13 @@ impl Effect {
                 format!(
                     "{name}'s streaks are \"none\", \"cross\" or \"star\", and this is \"{streaks}\"."
                 )
+            }),
+            Effect::ColorKey {
+                colors, match_by, ..
+            } => chosen(colors).or_else(|| {
+                (!["rgb", "hue"].contains(&match_by.as_str())).then(|| {
+                    format!("{name} matches by \"rgb\" or \"hue\", and this is \"{match_by}\".")
+                })
             }),
             _ => None,
         };
@@ -881,6 +908,14 @@ pub fn apply_stack(
                 ox += r;
                 oy += r;
             }
+            Effect::ColorKey {
+                colors,
+                tolerance,
+                softness,
+                match_by,
+            } => crate::perf::time(crate::perf::Stage::EffectColorKey, || {
+                crate::cel_fx::color_key(source, colors, *tolerance, *softness, match_by == "hue")
+            }),
         }
     }
     (ox, oy)

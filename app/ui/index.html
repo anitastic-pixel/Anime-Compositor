@@ -953,6 +953,7 @@
         <option value="core.line_width">Line Width</option>
         <option value="core.radial_blur">Radial Blur</option>
         <option value="core.bloom">Bloom</option>
+        <option value="core.color_key">Colour Key</option>
       </select>
     </div>
   </section>
@@ -6262,6 +6263,7 @@ const EFFECT_NAMES = {
   'core.line_width': 'Line Width',
   'core.radial_blur': 'Radial Blur',
   'core.bloom': 'Bloom',
+  'core.color_key': 'Colour Key',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6302,6 +6304,9 @@ const EFFECT_PARAMS = {
     ['intensity', 'Intensity', 1, 0.02, '0 to 10'],
     ['length', 'Streak Length', 1, 0.5, '0 to 500 px, used with streaks'],
     ['angle', 'Streak Angle', 1, 1, '-3600 to 3600 degrees, used with streaks']],
+  // D-97: past the tolerance, the softness is how far the fade reaches.
+  'core.color_key': [['tolerance', 'Tolerance', 1, 0.5, '0 to 255'],
+    ['softness', 'Softness', 1, 0.5, '0 to 255']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6334,6 +6339,11 @@ const EFFECT_WORDS = {
   // D-96.
   'core.bloom': {
     choices: [['streaks', 'Streaks', [['none', 'None'], ['cross', 'Cross'], ['star', 'Star']]]],
+  },
+  // D-97. The chosen colours are made transparent.
+  'core.color_key': {
+    choices: [['match', 'Match By', [['rgb', 'Red, green and blue'], ['hue', 'Hue']]]],
+    chosen: () => true,
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.

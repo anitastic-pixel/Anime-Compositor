@@ -47,8 +47,9 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, GLOW,
-    LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR, TINT,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
+    TINT,
 };
 use anime_compositor::export::{
     self, ExportChoices, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
@@ -2444,6 +2445,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             length: 60.0,
             angle: 0.0,
         }),
+        // D-97: no colour chosen, so adding it changes nothing until one is.
+        COLOR_KEY => Some(Effect::ColorKey {
+            colors: Vec::new(),
+            tolerance: 20.0,
+            softness: 20.0,
+            match_by: "rgb".to_string(),
+        }),
         _ => None,
     }
 }
@@ -2585,6 +2593,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             streaks: word("streaks")?,
             length: number("length")?,
             angle: number("angle")?,
+        }),
+        COLOR_KEY => Ok(Effect::ColorKey {
+            colors: colors()?,
+            tolerance: number("tolerance")?,
+            softness: number("softness")?,
+            match_by: word("match")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -5470,7 +5484,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
                              core.line_smooth, core.selective_color_blur, core.glow, \
                              core.line_recolor, core.directional_blur, core.select_color, \
-                             core.line_width, core.radial_blur or core.bloom."
+                             core.line_width, core.radial_blur, core.bloom or \
+                             core.color_key."
                                 .to_string(),
                         );
                     };
@@ -5480,7 +5495,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
                              core.selective_color_blur, core.glow, core.line_recolor, \
                              core.directional_blur, core.select_color, core.line_width, \
-                             core.radial_blur and core.bloom."
+                             core.radial_blur, core.bloom and core.color_key."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -5488,7 +5503,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     // smoothing finds steps a blur or tint before it would hide, so it goes to
                     // the top too, but below the selective colour blurs already there. D-91:
                     // line recolour matches exact colours as well, and goes there too, and
-                    // so do D-93's select colour and D-94's line width.
+                    // so do D-93's select colour, D-94's line width and D-97's colour key.
                     let selective = |e: &EffectInstance| {
                         matches!(e.effect, Effect::SelectiveColorBlur { .. })
                     };
@@ -5497,7 +5512,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         Effect::LineSmooth { .. }
                         | Effect::LineRecolor { .. }
                         | Effect::SelectColor { .. }
-                        | Effect::LineWidth { .. } => {
+                        | Effect::LineWidth { .. }
+                        | Effect::ColorKey { .. } => {
                             Some(layer.effects.iter().take_while(|e| selective(e)).count())
                         }
                         _ => None,
@@ -9230,19 +9246,19 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the twelve are named",
+            "an effect type this build does not have is refused, and the thirteen are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
-             core.radial_blur and core.bloom.",
+             core.radial_blur, core.bloom and core.color_key.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
              core.line_smooth, core.selective_color_blur, core.glow, core.line_recolor, \
-             core.directional_blur, core.select_color, core.line_width, core.radial_blur or \
-             core.bloom.",
+             core.directional_blur, core.select_color, core.line_width, core.radial_blur, \
+             core.bloom or core.color_key.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -21100,6 +21116,16 @@ mod contract {
                 ("length", "30"),
                 ("angle", "15"),
                 ("streaks", "star"),
+            ],
+        ),
+        // D-97: the colours and the match word are sent with the two numbers.
+        (
+            "core.color_key",
+            &[
+                ("tolerance", "30"),
+                ("softness", "10"),
+                ("colors", "%2300b140"),
+                ("match", "hue"),
             ],
         ),
     ];

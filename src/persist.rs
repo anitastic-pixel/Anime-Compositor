@@ -1004,6 +1004,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("length".into(), num(*length));
             params.insert("angle".into(), num(*angle));
         }
+        Effect::ColorKey {
+            colors,
+            tolerance,
+            softness,
+            match_by,
+        } => {
+            params.insert(
+                "colors".into(),
+                J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()),
+            );
+            params.insert("tolerance".into(), num(*tolerance));
+            params.insert("softness".into(), num(*softness));
+            params.insert("match".into(), J::from(match_by.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2127,6 +2141,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LINE_WIDTH,
                 crate::effects::RADIAL_BLUR,
                 crate::effects::BLOOM,
+                crate::effects::COLOR_KEY,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2205,6 +2220,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     streaks: effect_word(params, "streaks", &at)?,
                     length: effect_number(params, "length", &at)?,
                     angle: effect_number(params, "angle", &at)?,
+                }),
+                // D-97: match is read as written; "RGB" is not the word, and is reported.
+                crate::effects::COLOR_KEY => Some(crate::effects::Effect::ColorKey {
+                    colors: effect_colors(params, &at)?,
+                    tolerance: effect_number(params, "tolerance", &at)?,
+                    softness: effect_number(params, "softness", &at)?,
+                    match_by: effect_word(params, "match", &at)?,
                 }),
                 _ => None,
             };
