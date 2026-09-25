@@ -2434,6 +2434,27 @@ FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matri
 | --- | --- | --- | --- |
 | 1 | 1 | 1 | no |
 
+## Sheet printing fixtures
+
+**D-84d, proposed on 2026-09-24, awaiting the owner.** Each case is the printable page the window writes for the composition on screen. A page holds six seconds as two halves of three seconds, left then right; "frames a to b" is the rows a half has, empty past the cut's end. The length is seconds + frames. Every printed cell is the cell the Sheet shows on screen for that frame and column, and each half has the Sheet's columns in its order.
+
+- FX-PRINT-001: The sample cut, FX-XDTS-040, imported: one page.
+  - Header: `s01 c012`, `Sheet 1 of 1`, `2 + 0`, `24 fps`
+  - Page 1: left half frames 0 to 71, right half frames 72 to 143
+  - Columns: frame, Dialogue, A, B, C, Camera
+  - End line under frame 47
+- FX-PRINT-002: The sample cut made 300 frames long (Composition Settings, length 300): three pages, the last mostly empty.
+  - Header: `s01 c012`, `Sheet 1 of 3` to `Sheet 3 of 3`, `12 + 12`, `24 fps`
+  - Page 1: frames 0 to 71 and 72 to 143; page 2: 144 to 215 and 216 to 287; page 3: 288 to 359 and 360 to 431
+  - End line under frame 299
+- FX-PRINT-003: The sample cut at 30 frames a second (Composition Settings, frame rate 30): a page holds 180 frames.
+  - Header: `s01 c012`, `Sheet 1 of 1`, `1 + 18`, `30 fps`
+  - Page 1: left half frames 0 to 89, right half frames 90 to 179
+  - End line under frame 47
+- FX-PRINT-004: A composition with only a solid layer: nothing to print.
+  - Print... is not offered; Ctrl+P says `There is nothing to print: no layer here shows drawings.`
+  - `/sheet/print` writes no pages
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
