@@ -1284,7 +1284,7 @@ Two seconds of a made-up cut, `Fixtures/xdts/fx_xdts_040`, made to be played and
 
 Its notes: `{"id": "TIMESHEET_MARK", "column": "C", "mark": "inbetween", "frames": [41]}`, `{"id": "TIMESHEET_NOT_USED", "names": ["BG.png"]}`.
 
-Its text columns (D-84c): dialogue column Dialogue, frames 0 to 15 `["MIKA", "Over here!"]`; camera column Camera, frames 20 to 47 `["FOLLOW"]`. Its Sheet, left to right, is frame, Dialogue, A, B, C, Camera. Dialogue shows `MIKA Over here!` on frame 0 and a line on frames 1 to 15; Camera shows `FOLLOW` on frame 20 and a line on frames 21 to 47; both are empty on every other frame.
+Its text columns (D-84c): dialogue column Dialogue, frames 0 to 15 `["MIKA", "Over here!"]`; camera column Camera, frames 20 to 47 `["FOLLOW"]`. Its Sheet, left to right, is frame, Action, Dialogue, A, B, C, Camera (D-84g). Action is empty on every frame. Dialogue shows `MIKA Over here!` on frame 0 and a line on frames 1 to 15; Camera shows `FOLLOW` on frame 20 and a line on frames 21 to 47; both are empty on every other frame.
 
 ### The notes
 
@@ -1380,6 +1380,41 @@ Its text columns (D-84c): dialogue column Dialogue, frames 0 to 15 `["MIKA", "Ov
   - Before: `1 1 2 2`
   - Do: write a on frame 2
   - After: `1 1 2 2`
+
+**D-84g, accepted by the owner on 2026-09-24 ("proceed").** These use the same layer and lines. "Action" is what the Action column shows, frame by frame, with `.` for nothing; "Keys" is the layer's key drawings, and "Circled" the frames whose written number is circled. "Write `raises` in Action on frame 1" is typing it in the Action cell on frame 1 and pressing Enter; "erase Action on frame 1" is Delete there; "press K on frame 2" is K with the layer's cell on frame 2 chosen. Several things done are separated by `;`.
+
+- FX-SHEET-017: Words typed in an Action cell go on its one frame.
+  - Before: `1 1 2 2`; Action `. . . .`
+  - Do: write `raises` in Action on frame 1
+  - After: `1 1 2 2`; Action `. raises . .`
+- FX-SHEET-018: Writing on a frame with a note replaces it.
+  - Before: Action `. raises . .`
+  - Do: write `turns` in Action on frame 1
+  - After: Action `. turns . .`
+- FX-SHEET-019: Erasing a note.
+  - Before: Action `. raises . .`
+  - Do: erase Action on frame 1
+  - After: Action `. . . .`, and the composition saves no Action column
+- FX-SHEET-020: An Action cell with nothing in it has nothing to erase, and only spaces write nothing. Both refused.
+  - Before: Action `. . . .`
+  - Do: erase Action on frame 2; write `   ` in Action on frame 2
+  - After: Action `. . . .`
+- FX-SHEET-021: K on a number marks its drawing a key, circled everywhere its number is written.
+  - Before: `1 1 2 2 1 1 2 2`; Keys: none
+  - Do: press K on frame 2
+  - After: Keys: 2; Circled: frames 2 and 6
+- FX-SHEET-022: K on a key's number unmarks it.
+  - Before: `1 1 2 2 1 1 2 2`; Keys: 2
+  - Do: press K on frame 6
+  - After: Keys: none
+- FX-SHEET-023: A line, a cross or an empty cell cannot be marked. Refused.
+  - Before: `1 1 x x`; Keys: none
+  - Do: press K on frame 1; press K on frame 2; press K on frame 3
+  - After: Keys: none
+- FX-SHEET-024: A note and a key, saved and opened again, read back as they were; a layer with no keys saves no `key_drawings`.
+  - Before: `1 1 2 2`; Action `. raises . .`; Keys: 2
+  - Do: save, close and open
+  - After: `1 1 2 2`; Action `. raises . .`; Keys: 2
 
 ## Mask fixtures
 
@@ -2436,7 +2471,7 @@ FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matri
 
 ## Sheet printing fixtures
 
-**D-84d, accepted by the owner on 2026-09-24 ("proceed"), and D-84e and D-84f, accepted the same day ("proceed").** Each case is the printable page the window writes for the composition on screen, at 6 seconds a page and in black unless it says otherwise. At 6 seconds a page, a page holds two halves of three seconds, left then right; at 3, one column of three seconds. On paper, frames are counted from 1 (D-84e): "rows 1 to 72" are the cut's first 72 frames, and the Sheet on screen's frame 0 is row 1. Rows past the cut's end are empty. "Seconds" are the numbers in the sec column, each beside the row that ends its second. The length is seconds + frames. A header written as labels, NAME `s01 c012` and so on, names the title block's boxes (D-84f); one written as four values is NAME, SHEET, TIME and RATE, with the other boxes empty. Every printed cell is the cell the Sheet shows on screen for that frame and column, and each half has the Sheet's columns in its order.
+**D-84d, accepted by the owner on 2026-09-24 ("proceed"), and D-84e, D-84f and D-84g, accepted the same day ("proceed").** Each case is the printable page the window writes for the composition on screen, at 6 seconds a page and in black unless it says otherwise. At 6 seconds a page, a page holds two halves of three seconds, left then right; at 3, one column of three seconds. On paper, frames are counted from 1 (D-84e): "rows 1 to 72" are the cut's first 72 frames, and the Sheet on screen's frame 0 is row 1. Rows past the cut's end are empty. "Seconds" are the numbers in the sec column, each beside the row that ends its second. The length is seconds + frames. A header written as labels, NAME `s01 c012` and so on, names the title block's boxes (D-84f); one written as four values is NAME, SHEET, TIME and RATE, with the other boxes empty. Every printed cell is the cell the Sheet shows on screen for that frame and column, and each half has the Sheet's columns in its order.
 
 - FX-PRINT-001: The sample cut, FX-XDTS-040, imported: one page.
   - Header: NAME `s01 c012`; EPISODE, SCENE, CUT and ANIMATOR empty; TIME `2 + 0`; RATE `24 fps`; SHEET `Sheet 1 of 1`; MEMO empty
@@ -2479,49 +2514,7 @@ FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matri
 - FX-PRINT-010: The same project saved and opened again.
   - The four read back as written, and print as FX-PRINT-009
   - Saved with the four empty, the file has no `sheet_details`
-
-## Accepted sheet fixtures, moved in when built
-
-**Accepted with D-84f and D-84g by the owner on 2026-09-24 ("proceed").** Each decision's cases replace and add to the Sheet printing and Sheet writing fixtures above when its step is built: D-84f's with B-28i, now moved in, and D-84g's with B-28j. Until then those fixtures and their tests stay as written. On paper, frames are counted from 1, as the Sheet printing fixtures say.
-
-### D-84g, the Action column and key drawings
-
-These use the Sheet writing cases' layer and lines. "Action" is what the Action column shows, frame by frame, with `.` for nothing; "Keys" is the layer's key drawings, and "Circled" the frames whose written number is circled.
-
-- FX-XDTS-040's Sheet becomes, left to right: frame, Action, Dialogue, A, B, C, Camera; Action is empty on every frame.
-- FX-SHEET-017, new: Words typed in an Action cell go on its one frame.
-  - Before: `1 1 2 2`; Action `. . . .`
-  - Do: write `raises` in Action on frame 1
-  - After: `1 1 2 2`; Action `. raises . .`
-- FX-SHEET-018, new: Writing on a frame with a note replaces it.
-  - Before: Action `. raises . .`
-  - Do: write `turns` in Action on frame 1
-  - After: Action `. turns . .`
-- FX-SHEET-019, new: Erasing a note.
-  - Before: Action `. raises . .`
-  - Do: erase Action on frame 1
-  - After: Action `. . . .`, and the composition saves no Action column
-- FX-SHEET-020, new: An Action cell with nothing in it has nothing to erase, and only spaces write nothing. Both refused.
-  - Before: Action `. . . .`
-  - Do: erase Action on frame 2; write `   ` in Action on frame 2
-  - After: Action `. . . .`
-- FX-SHEET-021, new: K on a number marks its drawing a key, circled everywhere its number is written.
-  - Before: `1 1 2 2 1 1 2 2`; Keys: none
-  - Do: press K on frame 2
-  - After: Keys: 2; Circled: frames 2 and 6
-- FX-SHEET-022, new: K on a key's number unmarks it.
-  - Before: `1 1 2 2 1 1 2 2`; Keys: 2
-  - Do: press K on frame 6
-  - After: Keys: none
-- FX-SHEET-023, new: A line, a cross or an empty cell cannot be marked. Refused.
-  - Before: `1 1 x x`; Keys: none
-  - Do: press K on frame 1; press K on frame 2; press K on frame 3
-  - After: Keys: none
-- FX-SHEET-024, new: A note and a key, saved and opened again, read back as they were; a layer with no keys saves no `key_drawings`.
-  - Before: `1 1 2 2`; Action `. raises . .`; Keys: 2
-  - Do: save, close and open
-  - After: `1 1 2 2`; Action `. raises . .`; Keys: 2
-- FX-PRINT-011, new: The sample cut with `jumps` written in Action on the Sheet's frame 20, and drawing 3 of A marked a key.
+- FX-PRINT-011: The sample cut with `jumps` written in Action on the Sheet's frame 20, and drawing 3 of A marked a key.
   - Action: `jumps` on row 21, and nothing else in the column
   - A: 3 circled on rows 5 and 33, where it is written; no other number circled
 
