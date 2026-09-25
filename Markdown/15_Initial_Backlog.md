@@ -308,7 +308,7 @@ B-32a / the rule and its fixtures before code: D-88 in document 14, the rule in 
 
 B-32b / the core: the `tolerance` setting, its range and keys, the file reading and writing it only when it is not 0, and the B-31b table taking in the new cases. **Built on 2026-09-25**: `verification/B-31b_selective_blur_table.md`, 101 of 101.
 
-B-32c / the window: a Tolerance box under Blur on the card, and a playtest sheet. **Built on 2026-09-25**: `verification/B-12b_state_fields_table.md` checks the card sends the tolerance the command reads; playtest `verification/B-32c_tolerance_playtest.md`, on `verification/B-32c_tolerance_drawing.png`.
+B-32c / the window: a Tolerance box under Blur on the card, and a playtest sheet. **Built on 2026-09-25**: `verification/B-12b_state_fields_table.md` checks the card sends the tolerance the command reads; playtest `verification/B-32c_tolerance_playtest.md`, on `verification/B-32c_tolerance_drawing.png`. **Passed by the owner on 2026-09-25** ("works"). B-32 is done.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
