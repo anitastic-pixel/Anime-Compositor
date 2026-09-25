@@ -2436,7 +2436,7 @@ FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matri
 
 ## Sheet printing fixtures
 
-**D-84d, proposed on 2026-09-24, awaiting the owner.** Each case is the printable page the window writes for the composition on screen. A page holds six seconds as two halves of three seconds, left then right; "frames a to b" is the rows a half has, empty past the cut's end. The length is seconds + frames. Every printed cell is the cell the Sheet shows on screen for that frame and column, and each half has the Sheet's columns in its order.
+**D-84d, accepted by the owner on 2026-09-24 ("proceed").** Each case is the printable page the window writes for the composition on screen. A page holds six seconds as two halves of three seconds, left then right; "frames a to b" is the rows a half has, empty past the cut's end. The length is seconds + frames. Every printed cell is the cell the Sheet shows on screen for that frame and column, and each half has the Sheet's columns in its order.
 
 - FX-PRINT-001: The sample cut, FX-XDTS-040, imported: one page.
   - Header: `s01 c012`, `Sheet 1 of 1`, `2 + 0`, `24 fps`
