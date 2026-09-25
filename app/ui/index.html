@@ -947,6 +947,7 @@
         <option value="core.line_smooth">Line Smoothing</option>
         <option value="core.selective_color_blur">Selective Colour Blur</option>
         <option value="core.glow">Glow</option>
+        <option value="core.line_recolor">Line Recolour</option>
       </select>
     </div>
   </section>
@@ -6239,7 +6240,7 @@ function drawCamera() {
   into.replaceChildren(dl);
 }
 
-// The six effects this build has, by the identifier the file uses. A type that is not here is
+// The effects this build has, by the identifier the file uses. A type that is not here is
 // one from another version: it is listed by its own identifier and said to be unchangeable,
 // because document 19 requires an unknown effect to survive a load and save and never to be
 // silently dropped.
@@ -6250,6 +6251,7 @@ const EFFECT_NAMES = {
   'core.line_smooth': 'Line Smoothing',
   'core.selective_color_blur': 'Selective Colour Blur',
   'core.glow': 'Glow',
+  'core.line_recolor': 'Line Recolour',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6272,6 +6274,23 @@ const EFFECT_PARAMS = {
     ['radius', 'Glow Radius', 1, 0.5, '0 to 500'],
     ['intensity', 'Glow Intensity', 1, 0.02, '0 to 10'],
     ['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
+  // D-91. Its colours and its new colour are drawn apart, in effectRow.
+  'core.line_recolor': [['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
+};
+// Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
+// change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
+// colours, as [name, label], or [name, label, [none, one]] for a colour that may be left empty;
+// and `chosen`, when it has a list of chosen colours, saying when the list is shown.
+const EFFECT_WORDS = {
+  'core.selective_color_blur': { chosen: () => true },
+  // D-89. The colours show only when a glow is based on them, and are kept when it is not.
+  'core.glow': {
+    choices: [['based_on', 'Glow Based On', [['bright', 'Bright parts'], ['colors', 'Chosen colours']]],
+      ['operation', 'Glow Operation', [['add', 'Add'], ['screen', 'Screen']]]],
+    colours: [['tint', 'Glow Colours', ['Its own colours', 'One colour']]],
+    chosen: (w) => w.based_on === 'colors',
+  },
+  'core.line_recolor': { colours: [['new_color', 'New Colour']], chosen: () => true },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();
@@ -6458,15 +6477,13 @@ function effectRow(layer, fx, at, of) {
   const dl = document.createElement('dl');
   const fields = {};
   let pick = null;
-  // D-87: selective colour blur's chosen colours, which travel with every change as the
-  // numbers do. Kept here, not read back from the fields, because a swatch is removable.
-  const glow = fx.type_id === 'core.glow';
-  const chosen = fx.type_id === 'core.selective_color_blur' || glow
-    ? [...((fx.parameters || {}).colors || [])] : null;
-  // D-89: glow's words, which travel with every change as the numbers do.
-  const words = glow ? {
-    based_on: fx.parameters.based_on, operation: fx.parameters.operation, tint: fx.parameters.tint,
-  } : null;
+  // D-87: the chosen colours, which travel with every change as the numbers do. Kept here,
+  // not read back from the fields, because a swatch is removable. D-89 on: the words and single
+  // colours, the same way.
+  const spec = EFFECT_WORDS[fx.type_id] || {};
+  const chosen = spec.chosen ? [...((fx.parameters || {}).colors || [])] : null;
+  const words = {};
+  for (const [w] of [...(spec.choices || []), ...(spec.colours || [])]) words[w] = fx.parameters[w];
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.
@@ -6482,7 +6499,7 @@ function effectRow(layer, fx, at, of) {
     const parts = known.map(([name]) => '&' + name + '=' + encodeURIComponent(keyed(name)
       ? [].concat(propOf(layer, fxName(fx, name)).base).join(',') : typed(name)));
     if (chosen) parts.push('&colors=' + encodeURIComponent(chosen.join(',')));
-    if (words) for (const w in words) parts.push('&' + w + '=' + encodeURIComponent(words[w]));
+    for (const w in words) parts.push('&' + w + '=' + encodeURIComponent(words[w]));
     command('/effect.set_parameters' + where + parts.join('') + extra);
   };
   // W-07: the fields are live. A keystroke, a pixel of drag on a handle and a move over the
@@ -6568,45 +6585,42 @@ function effectRow(layer, fx, at, of) {
     };
     return text;
   };
-  // D-89: glow's two switches and its colour. A switch sends at once; each is one entry to undo.
-  // A switch sits on its label's line, as a number does, now the labels are short and give way;
-  // the colour, with its swatch and hex, gets the width of the card under its label.
-  if (words) {
-    const row = (title) => {
-      const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });
-      const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
-      return [dt, dd];
-    };
-    const choice = (name, title, options) => {
-      const dt = Object.assign(document.createElement('dt'), { textContent: title });
-      const dd = document.createElement('dd');
-      const select = document.createElement('select');
-      select.setAttribute('aria-label', label + ' ' + title);
-      for (const [value, text] of options) select.append(new Option(text, value));
-      select.value = words[name];
-      select.onchange = () => { words[name] = select.value; sendParameters(); };
-      dd.append(select);
-      dl.append(dt, dd);
-    };
-    choice('based_on', 'Glow Based On', [['bright', 'Bright parts'], ['colors', 'Chosen colours']]);
-    choice('operation', 'Glow Operation', [['add', 'Add'], ['screen', 'Screen']]);
-    const [dt, dd] = row('Glow Colours');
-    const own = document.createElement('select');
-    own.setAttribute('aria-label', label + ' Glow Colours');
-    own.append(new Option('Its own colours', ''), new Option('One colour', 'tint'));
-    own.value = words.tint ? 'tint' : '';
-    own.onchange = () => { words.tint = own.value ? '#ffffff' : ''; sendParameters(); };
-    dd.append(own);
-    if (words.tint) {
+  // D-89 on: an effect's switches and single colours. A switch sends at once; each is one entry
+  // to undo. A switch sits on its label's line, as a number does, now the labels are short and
+  // give way; a colour, with its swatch and hex, gets the width of the card under its label.
+  for (const [name, title, options] of spec.choices || []) {
+    const dt = Object.assign(document.createElement('dt'), { textContent: title });
+    const dd = document.createElement('dd');
+    const select = document.createElement('select');
+    select.setAttribute('aria-label', label + ' ' + title);
+    for (const [value, text] of options) select.append(new Option(text, value));
+    select.value = words[name];
+    select.onchange = () => { words[name] = select.value; sendParameters(); };
+    dd.append(select);
+    dl.append(dt, dd);
+  }
+  for (const [name, title, optional] of spec.colours || []) {
+    const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    // A colour that may be left empty has a switch between none and one.
+    if (optional) {
+      const own = document.createElement('select');
+      own.setAttribute('aria-label', label + ' ' + title);
+      own.append(new Option(optional[0], ''), new Option(optional[1], 'one'));
+      own.value = words[name] ? 'one' : '';
+      own.onchange = () => { words[name] = own.value ? '#ffffff' : ''; sendParameters(); };
+      dd.append(own, ' ');
+    }
+    if (words[name] || !optional) {
       const swatch = Object.assign(document.createElement('input'),
-        { type: 'color', value: words.tint, title: 'Pick the colour' });
-      swatch.setAttribute('aria-label', label + ' colour picker');
-      const text = hexBox(words.tint, label + ' colour',
-        (typed) => { words.tint = typed; sendParameters(); });
-      swatch.oninput = () => { words.tint = swatch.value; text.value = swatch.value; live(); };
+        { type: 'color', value: words[name] || '#000000', title: 'Pick the colour' });
+      swatch.setAttribute('aria-label', label + ' ' + title + ' picker');
+      const text = hexBox(words[name], label + ' ' + title,
+        (typed) => { words[name] = typed; sendParameters(); });
+      swatch.oninput = () => { words[name] = swatch.value; text.value = swatch.value; live(); };
       swatch.onchange = () => close(false);
       swatch.onblur = () => close(false);
-      dd.append(' ', swatch, ' ', text);
+      dd.append(swatch, ' ', text);
     }
     dl.append(dt, dd);
   }
@@ -6614,7 +6628,7 @@ function effectRow(layer, fx, at, of) {
   // number is what a person checks. The file keeps sRGB as a drawing does, so the swatch needs
   // none of the tint's conversion. Colours cannot be keyed. A glow shows them only when it is
   // based on chosen colours, and keeps them when it is not.
-  if (chosen && !(words && words.based_on !== 'colors')) {
+  if (chosen && spec.chosen(words)) {
     // Under its label, the width of the card: beside it, the panel left too little for a colour
     // and its ✕.
     const dt = Object.assign(document.createElement('dt'),

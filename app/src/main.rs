@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, GLOW, LINE_SMOOTH,
+    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, GLOW, LINE_RECOLOR, LINE_SMOOTH,
     SELECTIVE_COLOR_BLUR, TINT,
 };
 use anime_compositor::export::{
@@ -2378,6 +2378,7 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
 /// because a line with its steps smoothed is the only reason to add it. Selective colour blur
 /// starts at blur 12 with no colour chosen (D-87), which changes nothing until one is. Glow
 /// starts at After Effects' own defaults (D-89), because a glow nobody can see is no start.
+/// Line recolour starts with no colour chosen and red as the new one (D-91).
 fn new_effect(type_id: &str) -> Option<Effect> {
     match type_id {
         EXPOSURE => Some(Effect::Exposure { stops: 0.0 }),
@@ -2405,6 +2406,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             operation: "add".to_string(),
             tint: String::new(),
         }),
+        LINE_RECOLOR => Some(Effect::LineRecolor {
+            colors: Vec::new(),
+            tolerance: 0.0,
+            new_color: "#ff0000".to_string(),
+        }),
         _ => None,
     }
 }
@@ -2424,6 +2430,21 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         text.trim()
             .parse::<f64>()
             .map_err(|_| format!("{name} needs a number. Not \"{text}\"."))
+    };
+    // D-89 on: a word or a colour as written, in small letters; whether it is right is the
+    // core's check, in its words.
+    let word = |name: &str| -> Result<String, String> {
+        parameter(query, name)
+            .map(|t| t.trim().to_ascii_lowercase())
+            .ok_or_else(|| format!("What should {name} be set to?"))
+    };
+    // Chosen colours as one comma-separated list, empty for none.
+    let colors = || -> Result<Vec<String>, String> {
+        Ok(word("colors")?
+            .split(',')
+            .map(|c| c.trim().to_string())
+            .filter(|c| !c.is_empty())
+            .collect())
     };
     match type_id {
         EXPOSURE => Ok(Effect::Exposure {
@@ -2473,27 +2494,21 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         }
         // D-89: the words and colours as written, the colours as one comma-separated list and
         // the tint empty for none. Whether each is right is the core's check, in its words.
-        GLOW => {
-            let word = |name: &str| -> Result<String, String> {
-                parameter(query, name)
-                    .map(|t| t.trim().to_ascii_lowercase())
-                    .ok_or_else(|| format!("What should {name} be set to?"))
-            };
-            Ok(Effect::Glow {
-                based_on: word("based_on")?,
-                threshold: number("threshold")?,
-                colors: word("colors")?
-                    .split(',')
-                    .map(|c| c.trim().to_string())
-                    .filter(|c| !c.is_empty())
-                    .collect(),
-                tolerance: number("tolerance")?,
-                radius: number("radius")?,
-                intensity: number("intensity")?,
-                operation: word("operation")?,
-                tint: word("tint")?,
-            })
-        }
+        GLOW => Ok(Effect::Glow {
+            based_on: word("based_on")?,
+            threshold: number("threshold")?,
+            colors: colors()?,
+            tolerance: number("tolerance")?,
+            radius: number("radius")?,
+            intensity: number("intensity")?,
+            operation: word("operation")?,
+            tint: word("tint")?,
+        }),
+        LINE_RECOLOR => Ok(Effect::LineRecolor {
+            colors: colors()?,
+            tolerance: number("tolerance")?,
+            new_color: word("new_color")?,
+        }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
         // to read them against, so they are left alone and said to be left alone.
@@ -5376,7 +5391,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     let Some(type_id) = parameter(query, "type") else {
                         return Some(
                             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
-                             core.line_smooth, core.selective_color_blur or core.glow."
+                             core.line_smooth, core.selective_color_blur, core.glow or \
+                             core.line_recolor."
                                 .to_string(),
                         );
                     };
@@ -5384,19 +5400,20 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         return Some(format!(
                             "This build has no effect called {type_id}. It has \
                              core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
-                             core.selective_color_blur and core.glow."
+                             core.selective_color_blur, core.glow and core.line_recolor."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
                     // it would change, so it goes to the top of the stack. D-86 as amended:
                     // smoothing finds steps a blur or tint before it would hide, so it goes to
-                    // the top too, but below the selective colour blurs already there.
+                    // the top too, but below the selective colour blurs already there. D-91:
+                    // line recolour matches exact colours as well, and goes there too.
                     let selective = |e: &EffectInstance| {
                         matches!(e.effect, Effect::SelectiveColorBlur { .. })
                     };
                     let index = match effect {
                         Effect::SelectiveColorBlur { .. } => Some(0),
-                        Effect::LineSmooth { .. } => {
+                        Effect::LineSmooth { .. } | Effect::LineRecolor { .. } => {
                             Some(layer.effects.iter().take_while(|e| selective(e)).count())
                         }
                         _ => None,
@@ -9129,15 +9146,16 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the six are named",
+            "an effect type this build does not have is refused, and the seven are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
-             core.exposure, core.tint, core.line_smooth, core.selective_color_blur and core.glow.",
+             core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow \
+             and core.line_recolor.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
-             core.line_smooth, core.selective_color_blur or core.glow.",
+             core.line_smooth, core.selective_color_blur, core.glow or core.line_recolor.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -20946,6 +20964,15 @@ mod contract {
                 ("based_on", "bright"),
                 ("operation", "add"),
                 ("tint", "%23ff4000"),
+            ],
+        ),
+        // D-91: the colours and the new colour are drawn apart and sent with the tolerance.
+        (
+            "core.line_recolor",
+            &[
+                ("tolerance", "0"),
+                ("colors", "%231e1a24"),
+                ("new_color", "%236b3a1e"),
             ],
         ),
     ];

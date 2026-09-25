@@ -30,6 +30,30 @@ pub fn parse_hex(s: &str) -> Option<[u8; 3]> {
     Some([byte(0)?, byte(2)?, byte(4)?])
 }
 
+/// D-87's chosen colours as their 8-bit values; one that does not parse is left out, which the
+/// effect's own check has refused already.
+pub(crate) fn targets(colors: &[String]) -> Vec<[u8; 3]> {
+    colors.iter().filter_map(|c| parse_hex(c)).collect()
+}
+
+/// D-88: each of the 8-bit red, green and blue `q` is within `tolerance` of one target's.
+pub(crate) fn matches(q: [u8; 3], targets: &[[u8; 3]], tolerance: f64) -> bool {
+    targets
+        .iter()
+        .any(|t| (0..3).all(|i| (q[i] as f64 - t[i] as f64).abs() <= tolerance))
+}
+
+/// D-87 and D-88: a linear premultiplied pixel is chosen when it shows and its straight colour,
+/// through the sRGB curve and rounded to 8 bits as a drawing program stores it, matches.
+pub(crate) fn chosen(px: &[f32], targets: &[[u8; 3]], tolerance: f64) -> bool {
+    let a = px[3];
+    if a <= 0.0 {
+        return false;
+    }
+    let q = [0, 1, 2].map(|i| quantise_u8(linear_to_srgb(px[i] / a)));
+    matches(q, targets, tolerance)
+}
+
 /// Blur the chosen colours of `source` into each other, in place. `blur` is already inside
 /// 0..200, `tolerance` inside 0..255, and every colour already parses; blur 0, or no pixel
 /// chosen, changes nothing.
@@ -40,7 +64,7 @@ pub(crate) fn selective_color_blur(
     tolerance: f64,
 ) {
     let r = (blur + 0.5).floor() as usize;
-    let targets: Vec<[u8; 3]> = colors.iter().filter_map(|c| parse_hex(c)).collect();
+    let targets = targets(colors);
     let (w, h) = (source.width(), source.height());
     if r == 0 || targets.is_empty() || w == 0 || h == 0 {
         return;
@@ -58,9 +82,7 @@ pub(crate) fn selective_color_blur(
                 return ([0.0; 3], false);
             }
             let c = [0, 1, 2].map(|i| linear_to_srgb(px[i] / a));
-            let q = c.map(quantise_u8);
-            let near = |t: &[u8; 3]| (0..3).all(|i| (q[i] as f64 - t[i] as f64).abs() <= tolerance);
-            (c, targets.iter().any(near))
+            (c, matches(c.map(quantise_u8), &targets, tolerance))
         })
         .unzip();
     if !chosen.contains(&true) {

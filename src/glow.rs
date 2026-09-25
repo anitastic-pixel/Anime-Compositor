@@ -5,7 +5,7 @@
 //! rule worked a second way, and `tests/b33_glow.rs` holds this to its numbers.
 
 use crate::color::{linear_to_srgb, quantise_u8, srgb_to_linear};
-use crate::selective_blur::parse_hex;
+use crate::selective_blur::{matches, parse_hex, targets};
 use crate::WorkingBuffer;
 use rayon::prelude::*;
 
@@ -28,7 +28,7 @@ pub(crate) fn glow(
     if intensity == 0.0 || w == 0 || h == 0 {
         return 0;
     }
-    let targets: Vec<[u8; 3]> = colors.iter().filter_map(|c| parse_hex(c)).collect();
+    let targets = targets(colors);
     let tint = parse_hex(tint).map(|t| t.map(|v| srgb_to_linear(v as f32 / 255.0)));
 
     // (1) What glows and (2) the light it gives: the pixel itself, or the tint at its covering.
@@ -48,9 +48,7 @@ pub(crate) fn glow(
             let glows = if based_on == "bright" {
                 100.0 * *q.iter().max().unwrap() as f64 >= 255.0 * threshold
             } else {
-                targets
-                    .iter()
-                    .any(|t| (0..3).all(|i| (q[i] as f64 - t[i] as f64).abs() <= tolerance))
+                matches(q, &targets, tolerance)
             };
             if glows {
                 match tint {

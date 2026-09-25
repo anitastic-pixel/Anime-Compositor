@@ -935,6 +935,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("operation".into(), J::from(operation.as_str()));
             params.insert("tint".into(), J::from(tint.as_str()));
         }
+        Effect::LineRecolor {
+            colors,
+            tolerance,
+            new_color,
+        } => {
+            params.insert(
+                "colors".into(),
+                J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()),
+            );
+            params.insert("tolerance".into(), num(*tolerance));
+            params.insert("new_color".into(), J::from(new_color.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2040,6 +2052,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LINE_SMOOTH,
                 crate::effects::SELECTIVE_COLOR_BLUR,
                 crate::effects::GLOW,
+                crate::effects::LINE_RECOLOR,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2084,6 +2097,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     operation: effect_word(params, "operation", &at)?,
                     // D-89: a colour is read in small letters, as D-87's are.
                     tint: effect_word(params, "tint", &at)?.to_ascii_lowercase(),
+                }),
+                crate::effects::LINE_RECOLOR => Some(crate::effects::Effect::LineRecolor {
+                    colors: effect_colors(params, &at)?,
+                    tolerance: effect_number(params, "tolerance", &at)?,
+                    new_color: effect_word(params, "new_color", &at)?.to_ascii_lowercase(),
                 }),
                 _ => None,
             };

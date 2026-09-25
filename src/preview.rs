@@ -122,18 +122,10 @@ pub fn scale_plan(plan: FramePlan, quality: PreviewQuality) -> FramePlan {
             .into_iter()
             .map(|mut layer| {
                 layer.transform = layer.transform.then(Affine::scaling(s, s));
-                // D-66: an adjustment layer's blur runs on the smaller frame, so its sigma is
-                // smaller by the same factor. D-87's blur is a distance in pixels too. An invalid
-                // setting is left as it is, so the draft bypasses it as the export does rather
-                // than scaling it back inside its range.
-                for instance in layer.adjust.iter_mut().flatten().filter(|i| i.effect.is_valid()) {
-                    match &mut instance.effect {
-                        crate::effects::Effect::GaussianBlur { sigma_px } => *sigma_px *= s,
-                        crate::effects::Effect::SelectiveColorBlur { blur, .. } => *blur *= s,
-                        // D-89: the glow's radius is a distance in pixels too.
-                        crate::effects::Effect::Glow { radius, .. } => *radius *= s,
-                        _ => {}
-                    }
+                // D-66: an adjustment layer's effects run on the smaller frame, so a distance
+                // in pixels is smaller by the same factor.
+                for instance in layer.adjust.iter_mut().flatten() {
+                    instance.effect.scale_distances(|d| d * s);
                 }
                 layer
             })

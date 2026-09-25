@@ -1101,6 +1101,7 @@ fn command_rules(report: &mut Report) {
                     Effect::SelectiveColorBlur { blur, .. } => format!("blur {blur}"),
                     Effect::Glow { radius, .. } => format!("radius {radius}"),
                     Effect::Unsupported { .. } => "unknown".to_string(),
+                    _ => "a later effect".to_string(),
                 };
                 format!(
                     "{} {} {} {}",

@@ -76,6 +76,8 @@ pub enum Stage {
     EffectSelBlur,
     /// D-89's glow, whole-layer, per ADR-017.
     EffectGlow,
+    /// D-91's line recolour, whole-layer, per ADR-017.
+    EffectRecolor,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -87,7 +89,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 19] = [
+    pub const ALL: [Stage; 20] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -103,6 +105,7 @@ impl Stage {
         Stage::EffectSmooth,
         Stage::EffectSelBlur,
         Stage::EffectGlow,
+        Stage::EffectRecolor,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -127,6 +130,7 @@ impl Stage {
             Stage::EffectSmooth => "effect: line smoothing",
             Stage::EffectSelBlur => "effect: selective colour blur",
             Stage::EffectGlow => "effect: glow",
+            Stage::EffectRecolor => "effect: line recolour",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
@@ -134,28 +138,9 @@ impl Stage {
         }
     }
 
+    /// Its place in [`Stage::ALL`], which lists the stages in the order they are declared.
     fn index(self) -> usize {
-        match self {
-            Stage::LockWait => 0,
-            Stage::Prewarm => 1,
-            Stage::FileRead => 2,
-            Stage::Dequantise => 3,
-            Stage::ToLinear => 4,
-            Stage::CacheHit => 5,
-            Stage::CacheStore => 6,
-            Stage::Mask => 7,
-            Stage::EffectCopy => 8,
-            Stage::EffectExposure => 9,
-            Stage::EffectTint => 10,
-            Stage::EffectBlur => 11,
-            Stage::EffectSmooth => 12,
-            Stage::EffectSelBlur => 13,
-            Stage::EffectGlow => 14,
-            Stage::EffectCache => 15,
-            Stage::TileLoop => 16,
-            Stage::FrameAssembly => 17,
-            Stage::Encode => 18,
-        }
+        self as usize
     }
 }
 

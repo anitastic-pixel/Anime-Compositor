@@ -140,36 +140,10 @@ impl EffectInstance {
                     .collect();
                 effect.set(name, &v);
             }
-            match &mut effect {
-                Effect::Exposure { stops } => *stops = stops.clamp(-20.0, 20.0),
-                Effect::GaussianBlur { sigma_px } => *sigma_px = sigma_px.clamp(0.0, 500.0),
-                Effect::Tint { amount, .. } => *amount = amount.clamp(0.0, 1.0),
-                Effect::LineSmooth {
-                    softness,
-                    threshold,
-                } => {
-                    *softness = softness.clamp(0.0, 100.0);
-                    *threshold = threshold.clamp(0.0, 255.0);
+            for (_, slots, low, high) in effect.numbers() {
+                for v in slots {
+                    *v = v.clamp(low, high);
                 }
-                Effect::SelectiveColorBlur {
-                    blur, tolerance, ..
-                } => {
-                    *blur = blur.clamp(0.0, 200.0);
-                    *tolerance = tolerance.clamp(0.0, 255.0);
-                }
-                Effect::Glow {
-                    threshold,
-                    tolerance,
-                    radius,
-                    intensity,
-                    ..
-                } => {
-                    *threshold = threshold.clamp(0.0, 100.0);
-                    *tolerance = tolerance.clamp(0.0, 255.0);
-                    *radius = radius.clamp(0.0, 500.0);
-                    *intensity = intensity.clamp(0.0, 10.0);
-                }
-                _ => {}
             }
         }
         EffectInstance {
@@ -228,6 +202,13 @@ pub enum Effect {
         operation: String,
         tint: String,
     },
+    /// D-91: `colors` and `tolerance` as D-88's, and `new_color`, the colour `#rrggbb` the chosen
+    /// pixels become.
+    LineRecolor {
+        colors: Vec<String>,
+        tolerance: f64,
+        new_color: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -240,6 +221,7 @@ pub const TINT: &str = "core.tint";
 pub const LINE_SMOOTH: &str = "core.line_smooth";
 pub const SELECTIVE_COLOR_BLUR: &str = "core.selective_color_blur";
 pub const GLOW: &str = "core.glow";
+pub const LINE_RECOLOR: &str = "core.line_recolor";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -259,87 +241,99 @@ fn key_numbers(track: &[Property], i: usize) -> Vec<f64> {
 }
 
 impl Effect {
-    /// How many numbers the setting of this name holds, or `None` when this effect has no such
-    /// setting.
-    pub fn arity(&self, name: &str) -> Option<usize> {
-        match (self, name) {
-            (Effect::Exposure { .. }, "stops")
-            | (Effect::GaussianBlur { .. }, "sigma_px")
-            | (Effect::Tint { .. }, "amount")
-            | (Effect::LineSmooth { .. }, "softness" | "threshold")
-            | (Effect::SelectiveColorBlur { .. }, "blur" | "tolerance")
-            | (Effect::Glow { .. }, "threshold" | "tolerance" | "radius" | "intensity") => Some(1),
-            (Effect::Tint { .. }, "color") => Some(3),
-            _ => None,
-        }
-    }
-
-    /// The numbers the setting of this name holds, or `None` when this effect has no such setting.
-    pub fn get(&self, name: &str) -> Option<Vec<f64>> {
-        match (self, name) {
-            (Effect::Exposure { stops }, "stops") => Some(vec![*stops]),
-            (Effect::GaussianBlur { sigma_px }, "sigma_px") => Some(vec![*sigma_px]),
-            (Effect::Tint { amount, .. }, "amount") => Some(vec![*amount]),
-            (Effect::Tint { color, .. }, "color") => Some(color.to_vec()),
-            (Effect::LineSmooth { softness, .. }, "softness") => Some(vec![*softness]),
-            (Effect::LineSmooth { threshold, .. }, "threshold") => Some(vec![*threshold]),
-            (Effect::SelectiveColorBlur { blur, .. }, "blur") => Some(vec![*blur]),
-            (Effect::SelectiveColorBlur { tolerance, .. }, "tolerance") => Some(vec![*tolerance]),
-            (Effect::Glow { threshold, .. }, "threshold") => Some(vec![*threshold]),
-            (Effect::Glow { tolerance, .. }, "tolerance") => Some(vec![*tolerance]),
-            (Effect::Glow { radius, .. }, "radius") => Some(vec![*radius]),
-            (Effect::Glow { intensity, .. }, "intensity") => Some(vec![*intensity]),
-            _ => None,
-        }
-    }
-
-    /// Put `v` in the setting of this name. A name or a count that does not fit changes nothing.
-    pub fn set(&mut self, name: &str, v: &[f64]) {
-        if self.arity(name) != Some(v.len()) {
-            return;
-        }
+    /// Every setting that is numbers: its name in the file, its numbers, and the range document
+    /// 21 holds them to. The one table `arity`, `get`, `set`, `at` and the newer effects' range
+    /// sentences read, so a setting is named in one place.
+    fn numbers(&mut self) -> Vec<(&'static str, Vec<&mut f64>, f64, f64)> {
         match self {
-            Effect::Exposure { stops } => *stops = v[0],
-            Effect::GaussianBlur { sigma_px } => *sigma_px = v[0],
-            Effect::Tint { color, amount } => {
-                if v.len() == 3 {
-                    color.copy_from_slice(v)
-                } else {
-                    *amount = v[0]
-                }
-            }
+            // D-90: past 20 stops `2^e` soon overflows, and a sigma past 500 a machine's memory.
+            Effect::Exposure { stops } => vec![("stops", vec![stops], -20.0, 20.0)],
+            Effect::GaussianBlur { sigma_px } => vec![("sigma_px", vec![sigma_px], 0.0, 500.0)],
+            // A colour in linear light has no range but being a number.
+            Effect::Tint { color, amount } => vec![
+                ("color", color.iter_mut().collect(), f64::MIN, f64::MAX),
+                ("amount", vec![amount], 0.0, 1.0),
+            ],
             Effect::LineSmooth {
                 softness,
                 threshold,
-            } => {
-                if name == "softness" {
-                    *softness = v[0]
-                } else {
-                    *threshold = v[0]
-                }
-            }
+            } => vec![
+                ("softness", vec![softness], 0.0, 100.0),
+                ("threshold", vec![threshold], 0.0, 255.0),
+            ],
             Effect::SelectiveColorBlur {
                 blur, tolerance, ..
-            } => {
-                if name == "blur" {
-                    *blur = v[0]
-                } else {
-                    *tolerance = v[0]
-                }
-            }
+            } => vec![
+                ("blur", vec![blur], 0.0, 200.0),
+                ("tolerance", vec![tolerance], 0.0, 255.0),
+            ],
             Effect::Glow {
                 threshold,
                 tolerance,
                 radius,
                 intensity,
                 ..
-            } => match name {
-                "threshold" => *threshold = v[0],
-                "tolerance" => *tolerance = v[0],
-                "radius" => *radius = v[0],
-                _ => *intensity = v[0],
-            },
-            Effect::Unsupported { .. } => {}
+            } => vec![
+                ("threshold", vec![threshold], 0.0, 100.0),
+                ("tolerance", vec![tolerance], 0.0, 255.0),
+                ("radius", vec![radius], 0.0, 500.0),
+                ("intensity", vec![intensity], 0.0, 10.0),
+            ],
+            Effect::LineRecolor { tolerance, .. } => {
+                vec![("tolerance", vec![tolerance], 0.0, 255.0)]
+            }
+            Effect::Unsupported { .. } => vec![],
+        }
+    }
+
+    /// How many numbers the setting of this name holds, or `None` when this effect has no such
+    /// setting.
+    pub fn arity(&self, name: &str) -> Option<usize> {
+        let mut e = self.clone();
+        let n = e
+            .numbers()
+            .into_iter()
+            .find(|n| n.0 == name)
+            .map(|n| n.1.len());
+        n
+    }
+
+    /// The numbers the setting of this name holds, or `None` when this effect has no such setting.
+    pub fn get(&self, name: &str) -> Option<Vec<f64>> {
+        let mut e = self.clone();
+        let v = e
+            .numbers()
+            .into_iter()
+            .find(|n| n.0 == name)
+            .map(|n| n.1.into_iter().map(|v| *v).collect());
+        v
+    }
+
+    /// Put `v` in the setting of this name. A name or a count that does not fit changes nothing.
+    pub fn set(&mut self, name: &str, v: &[f64]) {
+        if let Some((_, slots, ..)) = self.numbers().into_iter().find(|n| n.0 == name) {
+            if slots.len() == v.len() {
+                for (slot, value) in slots.into_iter().zip(v) {
+                    *slot = *value;
+                }
+            }
+        }
+    }
+
+    /// Every setting that is a distance in pixels put through `scale`: a draft preview's
+    /// smaller frame (D-66), or a precomposition's picture drawn at another size (D-67). An
+    /// invalid setting is left as it is, so it is bypassed as it is at full size rather than
+    /// scaled back inside its range.
+    pub fn scale_distances(&mut self, scale: impl Fn(f64) -> f64) {
+        if !self.is_valid() {
+            return;
+        }
+        match self {
+            Effect::GaussianBlur { sigma_px } => *sigma_px = scale(*sigma_px),
+            // D-87's blur and D-89's radius are distances in pixels too.
+            Effect::SelectiveColorBlur { blur, .. } => *blur = scale(*blur),
+            Effect::Glow { radius, .. } => *radius = scale(*radius),
+            _ => {}
         }
     }
 
@@ -352,6 +346,7 @@ impl Effect {
             Effect::LineSmooth { .. } => "Line Smoothing",
             Effect::SelectiveColorBlur { .. } => "Selective Colour Blur",
             Effect::Glow { .. } => "Glow",
+            Effect::LineRecolor { .. } => "Line Recolour",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -364,6 +359,7 @@ impl Effect {
             Effect::LineSmooth { .. } => LINE_SMOOTH,
             Effect::SelectiveColorBlur { .. } => SELECTIVE_COLOR_BLUR,
             Effect::Glow { .. } => GLOW,
+            Effect::LineRecolor { .. } => LINE_RECOLOR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -415,6 +411,7 @@ impl Effect {
             }
             Effect::Glow { .. } => glow_fault(self).is_none(),
             Effect::Unsupported { .. } => true,
+            _ => self.fault().is_none(),
         }
     }
 
@@ -464,7 +461,61 @@ impl Effect {
             Effect::Unsupported { type_id } => {
                 format!("{type_id} has no parameters this build checks.")
             }
+            _ => self.fault().unwrap_or_default(),
         }
+    }
+
+    /// D-91 on: what is wrong with a newer effect's settings, as a sentence, or `None` when
+    /// nothing is. Its words and colours first, then its numbers from the one table.
+    fn fault(&self) -> Option<String> {
+        let name = self.name();
+        let hex = |c: &str| crate::selective_blur::parse_hex(c).is_some();
+        let chosen = |colors: &[String]| {
+            if colors.len() > 8 {
+                return Some(format!(
+                    "{name} takes up to eight colours, and this has {}.",
+                    colors.len()
+                ));
+            }
+            colors.iter().find(|c| !hex(c)).map(|bad| {
+                format!(
+                    "A chosen colour is written # and six hexadecimal digits, such as #f6d6be, \
+                     and this is \"{bad}\"."
+                )
+            })
+        };
+        let one = |setting: &str, c: &str| {
+            (!hex(c)).then(|| {
+                format!(
+                    "{name}'s {setting} is written # and six hexadecimal digits, such as \
+                     #ff4000, and this is \"{c}\"."
+                )
+            })
+        };
+        let own = match self {
+            Effect::LineRecolor {
+                colors, new_color, ..
+            } => chosen(colors).or_else(|| one("new colour", new_color)),
+            _ => None,
+        };
+        own.or_else(|| {
+            let mut e = self.clone();
+            let bad = e
+                .numbers()
+                .into_iter()
+                .find_map(|(setting, slots, low, high)| {
+                    slots
+                        .into_iter()
+                        .find(|v| !(low..=high).contains(&**v))
+                        .map(|v| {
+                            format!(
+                                "{name}'s {} runs from {low} to {high}, and this is {v}.",
+                                setting.replace('_', " ")
+                            )
+                        })
+                });
+            bad
+        })
     }
 }
 
@@ -633,6 +684,13 @@ pub fn apply_stack(
                 ox += r;
                 oy += r;
             }
+            Effect::LineRecolor {
+                colors,
+                tolerance,
+                new_color,
+            } => crate::perf::time(crate::perf::Stage::EffectRecolor, || {
+                crate::cel_fx::line_recolor(source, colors, *tolerance, new_color)
+            }),
         }
     }
     (ox, oy)
