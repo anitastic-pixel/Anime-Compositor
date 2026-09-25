@@ -332,6 +332,8 @@ B-38 / Line width, D-94, the fourth of the batch. **B-38a is written on 2026-09-
 
 B-39 / Radial blur, D-95, the fifth of the batch. **B-39a is written on 2026-09-25**: `verification/B-39a proposal/`, D-95 in document 14, the rule in document 21, FX-RADIAL-001 to 018 in document 25 from `tools/radial_blur_reference.py`, which writes `Fixtures/radial_blur/`. **B-39b is built the same day**: `radial_blur` in `src/blurs.rs`, the centre worked out in the drawing's own size inside the stack so an effect above that grew the layer does not move it, samples summed in double precision; the file and the panel take the centre as two numbers, keyable as a colour's three are. Added, it goes to the end of the stack. `verification/B-39_radial_blur_table.md` is 76 of 76, every FX-RADIAL frame within 2.5e-7 of the reference; every earlier effect table is unchanged. The owner's sheet is `verification/B-39_radial_blur_playtest.md`.
 
+B-40 / Bloom, D-96, the sixth of the batch. **B-40a is written on 2026-09-25**: `verification/B-40a proposal/`, D-96 in document 14, the rule in document 21, FX-BLOOM-001 to 028 in document 25 from `tools/bloom_reference.py`, which writes `Fixtures/bloom/`.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
