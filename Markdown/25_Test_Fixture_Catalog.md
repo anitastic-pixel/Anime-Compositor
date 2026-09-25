@@ -2436,10 +2436,10 @@ FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matri
 
 ## Sheet printing fixtures
 
-**D-84d, accepted by the owner on 2026-09-24 ("proceed"), and D-84e, accepted the same day ("proceed").** Each case is the printable page the window writes for the composition on screen, at 6 seconds a page and in black unless it says otherwise. At 6 seconds a page, a page holds two halves of three seconds, left then right; at 3, one column of three seconds. On paper, frames are counted from 1 (D-84e): "rows 1 to 72" are the cut's first 72 frames, and the Sheet on screen's frame 0 is row 1. Rows past the cut's end are empty. "Seconds" are the numbers in the sec column, each beside the row that ends its second. The length is seconds + frames. Every printed cell is the cell the Sheet shows on screen for that frame and column, and each half has the Sheet's columns in its order.
+**D-84d, accepted by the owner on 2026-09-24 ("proceed"), and D-84e and D-84f, accepted the same day ("proceed").** Each case is the printable page the window writes for the composition on screen, at 6 seconds a page and in black unless it says otherwise. At 6 seconds a page, a page holds two halves of three seconds, left then right; at 3, one column of three seconds. On paper, frames are counted from 1 (D-84e): "rows 1 to 72" are the cut's first 72 frames, and the Sheet on screen's frame 0 is row 1. Rows past the cut's end are empty. "Seconds" are the numbers in the sec column, each beside the row that ends its second. The length is seconds + frames. A header written as labels, NAME `s01 c012` and so on, names the title block's boxes (D-84f); one written as four values is NAME, SHEET, TIME and RATE, with the other boxes empty. Every printed cell is the cell the Sheet shows on screen for that frame and column, and each half has the Sheet's columns in its order.
 
 - FX-PRINT-001: The sample cut, FX-XDTS-040, imported: one page.
-  - Header: `s01 c012`, `Sheet 1 of 1`, `2 + 0`, `24 fps`
+  - Header: NAME `s01 c012`; EPISODE, SCENE, CUT and ANIMATOR empty; TIME `2 + 0`; RATE `24 fps`; SHEET `Sheet 1 of 1`; MEMO empty
   - Page 1: left half rows 1 to 72, right half rows 73 to 144
   - Columns: sec, frame, Action, Dialogue, A, B, C, three empty, Camera
   - End line under row 48
@@ -2473,20 +2473,16 @@ FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matri
   - Everything else as FX-PRINT-001
 - FX-PRINT-008: A choice the window does not offer, 4 seconds a page. Refused.
   - `/sheet/print` writes no pages and says `A page holds 6 or 3 seconds.`
+- FX-PRINT-009: The sample cut with Episode `3`, Scene `1`, Cut `012` and Animator `K. Sato` written in Composition Settings.
+  - Header: NAME `s01 c012`, EPISODE `3`, SCENE `1`, CUT `012`, ANIMATOR `K. Sato`
+  - One Undo empties the four and leaves the rest of the composition's settings as they were
+- FX-PRINT-010: The same project saved and opened again.
+  - The four read back as written, and print as FX-PRINT-009
+  - Saved with the four empty, the file has no `sheet_details`
 
 ## Accepted sheet fixtures, moved in when built
 
-**Accepted with D-84f and D-84g by the owner on 2026-09-24 ("proceed").** Each decision's cases replace and add to the Sheet printing and Sheet writing fixtures above when its step is built: D-84f's with B-28i, D-84g's with B-28j. Until then those fixtures and their tests stay as written. On paper, frames are counted from 1, as the Sheet printing fixtures say.
-
-### D-84f, the title block
-
-- FX-PRINT-001's header becomes: NAME `s01 c012`; EPISODE, SCENE, CUT and ANIMATOR empty; TIME `2 + 0`; RATE `24 fps`; SHEET `Sheet 1 of 1`; MEMO empty.
-- FX-PRINT-009, new: The sample cut with Episode `3`, Scene `1`, Cut `012` and Animator `K. Sato` written in Composition Settings.
-  - Header: NAME `s01 c012`, EPISODE `3`, SCENE `1`, CUT `012`, ANIMATOR `K. Sato`
-  - One Undo empties the four and leaves the rest of the composition's settings as they were
-- FX-PRINT-010, new: The same project saved and opened again.
-  - The four read back as written, and print as FX-PRINT-009
-  - Saved with the four empty, the file has no `sheet_details`
+**Accepted with D-84f and D-84g by the owner on 2026-09-24 ("proceed").** Each decision's cases replace and add to the Sheet printing and Sheet writing fixtures above when its step is built: D-84f's with B-28i, now moved in, and D-84g's with B-28j. Until then those fixtures and their tests stay as written. On paper, frames are counted from 1, as the Sheet printing fixtures say.
 
 ### D-84g, the Action column and key drawings
 
