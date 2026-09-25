@@ -38,8 +38,7 @@ colour.
 1. **In the list.** With the layer selected, open **Add effect...** under Effects. **Selective
    Colour Blur** is the last choice, after Line Smoothing.
 2. **Adding it.** Choose it. A card named Selective Colour Blur appears with a **Blur, 0 to
-   200** box at 12 and a **Colours** row that says no colour is chosen, followed by **Add a
-   colour:**, an empty box showing `#rrggbb`, the word "or" and a white swatch. The picture
+   200** box at 12 and a **Colours** row that says no colour is chosen, and below it **Add:**, an empty box showing `#rrggbb`, the word "or" and a white swatch. The picture
    does not change yet.
 3. **Choosing colours.** Click in the empty box, type `f6d6be` and press **Enter** (the `#` is
    optional). A swatch appears with a box holding `#f6d6be` beside it. Still no change in the

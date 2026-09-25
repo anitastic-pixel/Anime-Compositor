@@ -6521,8 +6521,11 @@ function effectRow(layer, fx, at, of) {
       swatch.oninput = () => { chosen[i] = swatch.value; words.value = swatch.value; live(); };
       swatch.onchange = () => close(false);
       swatch.onblur = () => close(false);
-      dd.append(swatch, ' ', words, ' ', iconButton('✕', 'Remove the colour ' + hex,
-        () => { chosen.splice(i, 1); sendParameters(); }), ' ');
+      // One line per colour, so a narrow panel cannot wrap a ✕ beside the next colour's swatch.
+      const line = Object.assign(document.createElement('div'), { style: 'white-space: nowrap' });
+      line.append(swatch, ' ', words, ' ', iconButton('✕', 'Remove the colour ' + hex,
+        () => { chosen.splice(i, 1); sendParameters(); }));
+      dd.append(line);
     });
     if (!chosen.length) {
       dd.append(Object.assign(document.createElement('span'),
@@ -6533,8 +6536,10 @@ function effectRow(layer, fx, at, of) {
       add.setAttribute('aria-label', 'Pick a colour to add to ' + label);
       add.title = 'Pick a colour to add';
       add.onchange = () => { chosen.push(add.value); sendParameters(); };
-      dd.append('Add a colour: ', hexBox('', 'Add a colour to ' + label,
+      const line = Object.assign(document.createElement('div'), { style: 'white-space: nowrap' });
+      line.append('Add: ', hexBox('', 'Add a colour to ' + label,
         (typed) => { chosen.push(typed); sendParameters(); }), ' or ', add);
+      dd.append(line);
     }
     dl.append(dt, dd);
   }
