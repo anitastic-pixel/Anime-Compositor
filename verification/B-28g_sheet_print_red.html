@@ -14,14 +14,20 @@
 #paper { font: 6.5pt/1 sans-serif; color: #000; background: #fff; }
 #paper .page { break-after: page; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: 10mm; }
 #paper .page:last-child { break-after: auto; }
-#paper header { display: flex; height: 11mm; flex: none; margin-bottom: 2mm; border: 1px solid #000; font-size: 10pt; }
-#paper header > * { display: flex; flex-direction: column; padding: 1mm 2mm; border-right: 1px solid #000; white-space: nowrap; }
+/* D-84f: two rows. NAME, EPISODE, SCENE, CUT, ANIMATOR above; TIME, RATE, SHEET, MEMO below. */
+#paper header { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 2fr; grid-template-rows: 9mm 9mm; flex: none; margin-bottom: 2mm; border: 1px solid #000; font-size: 10pt; }
+#paper header > * { display: flex; flex-direction: column; min-width: 0; overflow: hidden; padding: 1mm 2mm; border: 0 solid #000; border-width: 0 1px 1px 0; white-space: nowrap; }
 #paper header > ::before { font: normal 5.5pt sans-serif; color: #555; margin-bottom: auto; }
-#paper header .cut { flex: 2; } #paper header .cut::before { content: "CUT"; }
+#paper header .name { grid-column: span 2; } #paper header .name::before { content: "NAME"; }
+#paper header .episode::before { content: "EPISODE"; }
+#paper header .scene::before { content: "SCENE"; }
+#paper header .cut::before { content: "CUT"; }
+#paper header .animator { border-right-width: 0; } #paper header .animator::before { content: "ANIMATOR"; }
+#paper header .time, #paper header .rate, #paper header .sheet, #paper header .memo { border-bottom-width: 0; }
 #paper header .time::before { content: "TIME (sec + fr)"; }
 #paper header .rate::before { content: "RATE"; }
 #paper header .sheet::before { content: "SHEET"; }
-#paper header .memo { flex: 3; border-right: 0; } #paper header .memo::before { content: "MEMO"; }
+#paper header .memo { grid-column: span 3; border-right-width: 0; } #paper header .memo::before { content: "MEMO"; }
 #paper .halves { display: flex; gap: 4mm; flex: 1; min-height: 0; }
 #paper table { border-collapse: collapse; flex: 1; width: 0; table-layout: fixed; font-variant-numeric: tabular-nums; }
 #paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; overflow: hidden; }
@@ -51,7 +57,7 @@
 #paper * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
 </style></head><body><div id="paper" class="red">
-<section class="page"><header><b class="cut">s01 c012</b><span class="time">2 + 0</span><span class="rate">24 fps</span><span class="sheet">Sheet 1 of 1</span><span class="memo"></span></header><div class="halves">
+<section class="page"><header><b class="name">s01 c012</b><span class="episode"></span><span class="scene"></span><span class="cut"></span><span class="animator"></span><span class="time">2 + 0</span><span class="rate">24 fps</span><span class="sheet">Sheet 1 of 1</span><span class="memo"></span></header><div class="halves">
 <table data-first="1" data-last="72"><tr><th class="sec">sec</th><th class="frame">frame</th><th class="words">Action</th><th class="words">Dialogue</th><th>A</th><th>B</th><th>C</th><th></th><th></th><th></th><th class="words">Camera</th></tr>
 <tr data-row="1" class=""><td class="sec"></td><td class="frame">1</td><td></td><td class="words">MIKA Over here!</td><td>1</td><td>1</td><td>×</td><td></td><td></td><td></td><td></td></tr>
 <tr data-row="2" class=""><td class="sec"></td><td class="frame">2</td><td></td><td class="hold"></td><td class="hold"></td><td class="hold"></td><td></td><td></td><td></td><td></td><td></td></tr>

@@ -1377,3 +1377,27 @@ fn a_recovered_document_is_unsaved_against_the_project_on_disk() {
     // And the other way round: a snapshot that matches the file has nothing outstanding in it.
     assert!(!Document::recovered(saved.clone(), saved).is_dirty());
 }
+
+/// D-84f: the title block's four are strings. Anything else refuses the file and names the
+/// place; a key this build does not know inside `sheet_details` is kept and written back.
+#[test]
+fn sheet_details_refuse_a_non_string_and_keep_what_they_do_not_know() {
+    let with = |details: serde_json::Value| {
+        let mut root: serde_json::Value =
+            serde_json::from_str(&fixture("cel_holds_project")).expect("the fixture is JSON");
+        root["compositions"][0]["sheet_details"] = details;
+        root.to_string()
+    };
+    let refused = persist::load_str(&with(serde_json::json!({ "episode": 3 })))
+        .err()
+        .expect("a number where the episode is written is refused");
+    assert!(
+        refused.detail.contains("/compositions/0/sheet_details/episode"),
+        "the refusal names the place: {}",
+        refused.detail
+    );
+    let kept = persist::load_str(&with(serde_json::json!({ "cut": "012", "studio": "later" })))
+        .expect("an unknown key opens");
+    let written = persist::to_json(kept.document.project(), &kept.preserved);
+    assert!(written.contains("\"studio\": \"later\"") && written.contains("\"cut\": \"012\""), "{written}");
+}

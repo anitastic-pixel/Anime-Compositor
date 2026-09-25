@@ -1109,6 +1109,24 @@
             }
           }
         },
+        "sheet_details": {
+          "description": "D-84f: the printed Sheet's title block besides the name. Written only when one of them is.",
+          "type": "object",
+          "properties": {
+            "episode": {
+              "type": "string"
+            },
+            "scene": {
+              "type": "string"
+            },
+            "cut": {
+              "type": "string"
+            },
+            "animator": {
+              "type": "string"
+            }
+          }
+        },
         "camera": {
           "type": "object",
           "required": [

@@ -194,6 +194,11 @@ const KEY_ORDER: &[&str] = &[
     "sheet_text",
     "entries",
     "text",
+    "sheet_details",
+    "episode",
+    "scene",
+    "cut",
+    "animator",
     "instance_id",
     "type_id",
     "parameters",
@@ -998,7 +1003,31 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
             .collect();
         owned.push(("sheet_text", J::Array(columns)));
     }
-    merge(base, owned)
+    // D-84f: written only when one of the four is, or the file's own object holds keys this
+    // build does not know, which are kept.
+    let details = &composition.sheet_details;
+    let four = [
+        ("episode", &details.episode),
+        ("scene", &details.scene),
+        ("cut", &details.cut),
+        ("animator", &details.animator),
+    ];
+    let held = base.and_then(|b| b.get("sheet_details"));
+    let unknown = held
+        .and_then(J::as_object)
+        .is_some_and(|o| o.keys().any(|k| !four.iter().any(|(name, _)| name == k)));
+    let written = four.iter().any(|(_, text)| !text.is_empty());
+    let mut merged = merge(base, owned);
+    if written || unknown {
+        let object = merge(
+            held,
+            four.iter().map(|(name, text)| (*name, J::from(text.as_str()))).collect(),
+        );
+        merged["sheet_details"] = object;
+    } else if let Some(map) = merged.as_object_mut() {
+        map.remove("sheet_details");
+    }
+    merged
 }
 
 /// The project as the text that would be written to disk.
@@ -2594,6 +2623,24 @@ fn parse_composition(
                 entries,
             });
         }
+    }
+
+    // D-84f. A key this build does not know stays in the file, and is written back.
+    if let Some(details) = v.get("sheet_details") {
+        let at = format!("{pointer}/sheet_details");
+        as_object(details, &at)?;
+        let text = |key: &str| -> Result<String, _> {
+            match details.get(key) {
+                None => Ok(String::new()),
+                Some(s) => as_str(s, &format!("{at}/{key}")).map(str::to_string),
+            }
+        };
+        composition.sheet_details = crate::model::SheetDetails {
+            episode: text("episode")?,
+            scene: text("scene")?,
+            cut: text("cut")?,
+            animator: text("animator")?,
+        };
     }
 
     let order_at = format!("{pointer}/layer_order");

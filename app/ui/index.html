@@ -671,6 +671,10 @@
   #newcomposition[hidden] { display: none; }
   #ditherlabel[hidden] { display: none; }
   #newcomposition label { display: block; }
+  /* D-84f: the Sheet's four, only in Composition Settings. Their own grid rows, as the rest. */
+  #compsheet { display: contents; }
+  #compsheet[hidden] { display: none; }
+  #compsheet h3 { grid-column: 1 / -1; margin: 4px 0 0; font-size: inherit; }
   #newcomposition input { width: 100%; box-sizing: border-box; }
   #prefs label { display: block; }
   #printdialog {
@@ -696,14 +700,20 @@
 #paper { font: 6.5pt/1 sans-serif; color: #000; background: #fff; }
 #paper .page { break-after: page; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: 10mm; }
 #paper .page:last-child { break-after: auto; }
-#paper header { display: flex; height: 11mm; flex: none; margin-bottom: 2mm; border: 1px solid #000; font-size: 10pt; }
-#paper header > * { display: flex; flex-direction: column; padding: 1mm 2mm; border-right: 1px solid #000; white-space: nowrap; }
+/* D-84f: two rows. NAME, EPISODE, SCENE, CUT, ANIMATOR above; TIME, RATE, SHEET, MEMO below. */
+#paper header { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 2fr; grid-template-rows: 9mm 9mm; flex: none; margin-bottom: 2mm; border: 1px solid #000; font-size: 10pt; }
+#paper header > * { display: flex; flex-direction: column; min-width: 0; overflow: hidden; padding: 1mm 2mm; border: 0 solid #000; border-width: 0 1px 1px 0; white-space: nowrap; }
 #paper header > ::before { font: normal 5.5pt sans-serif; color: #555; margin-bottom: auto; }
-#paper header .cut { flex: 2; } #paper header .cut::before { content: "CUT"; }
+#paper header .name { grid-column: span 2; } #paper header .name::before { content: "NAME"; }
+#paper header .episode::before { content: "EPISODE"; }
+#paper header .scene::before { content: "SCENE"; }
+#paper header .cut::before { content: "CUT"; }
+#paper header .animator { border-right-width: 0; } #paper header .animator::before { content: "ANIMATOR"; }
+#paper header .time, #paper header .rate, #paper header .sheet, #paper header .memo { border-bottom-width: 0; }
 #paper header .time::before { content: "TIME (sec + fr)"; }
 #paper header .rate::before { content: "RATE"; }
 #paper header .sheet::before { content: "SHEET"; }
-#paper header .memo { flex: 3; border-right: 0; } #paper header .memo::before { content: "MEMO"; }
+#paper header .memo { grid-column: span 3; border-right-width: 0; } #paper header .memo::before { content: "MEMO"; }
 #paper .halves { display: flex; gap: 4mm; flex: 1; min-height: 0; }
 #paper table { border-collapse: collapse; flex: 1; width: 0; table-layout: fixed; font-variant-numeric: tabular-nums; }
 #paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; overflow: hidden; }
@@ -796,6 +806,17 @@
         <input id="compfps" type="number" min="1" value="24">
         <label for="compframes">Length in frames</label>
         <input id="compframes" type="number" min="1" value="240">
+        <div id="compsheet" hidden>
+          <h3>Sheet</h3>
+          <label for="compepisode">Episode</label>
+          <input id="compepisode" type="text">
+          <label for="compscene">Scene</label>
+          <input id="compscene" type="text">
+          <label for="compcut">Cut</label>
+          <input id="compcut" type="text">
+          <label for="companimator">Animator</label>
+          <input id="companimator" type="text">
+        </div>
         <button id="makecomp">Create it</button>
         <button id="cancelcomp">Leave it</button>
       </div>
@@ -7910,6 +7931,8 @@ $('importcut').onclick = () => command('/timesheet.import');
 // W-25: Ctrl+K opens the same form on the composition on screen, and its button then applies. The
 // rate is only sent if it was changed, so a 30000/1001 composition is not rounded by a new name.
 let settingComp = null;
+// D-84f: what the printed Sheet's title block says besides the name.
+const SHEET_DETAILS = [['episode', 'compepisode'], ['scene', 'compscene'], ['cut', 'compcut'], ['animator', 'companimator']];
 function compSettings() {
   const comp = composition();
   if (!comp) return;
@@ -7918,8 +7941,12 @@ function compSettings() {
   $('compheight').value = comp.height;
   $('compfps').value = number(comp.frame_rate.numerator / comp.frame_rate.denominator);
   $('compframes').value = comp.duration_frames;
+  const details = comp.sheet_details || {};
+  for (const [k, box] of SHEET_DETAILS) $(box).value = typeof details[k] === 'string' ? details[k] : '';
+  $('compsheet').hidden = false;
   settingComp = { fps: $('compfps').value };
   $('makecomp').textContent = 'Apply';
+  toFront('bin');
   $('newcomposition').hidden = false;
   $('compname').focus();
 }
@@ -8005,6 +8032,8 @@ function movePanel(id, place) {
   workspace.places[place].unshift(id);
   arrange();
 }
+// A form opened in a panel behind another, as the Project panel is in Timing, is brought into view.
+function toFront(id) { if ($(id).hidden) movePanel(id, $(id).parentElement.id); }
 const panelHandle = (target) => target instanceof Element
   && target.closest('.stack button, .place > .panel > .tab');
 const handlePanel = (handle) => handle.dataset.panel || handle.parentElement.id;
@@ -8106,12 +8135,13 @@ $('notedetails').onclick = () => {
 $('newcomp').onclick = () => {
   settingComp = null;
   $('makecomp').textContent = 'Create it';
+  $('compsheet').hidden = true;
   // W-26: a new composition starts at the sizes in Preferences.
   $('compname').value = 'New composition';
   for (const [f, , box] of PREF_FIELDS) $(box).value = prefs[f];
   const box = $('newcomposition');
   box.hidden = !box.hidden;
-  if (!box.hidden) $('compname').focus();
+  if (!box.hidden) { toFront('bin'); $('compname').focus(); }
 };
 $('cancelcomp').onclick = () => { $('newcomposition').hidden = true; };
 
@@ -8138,7 +8168,8 @@ $('makecomp').onclick = () => {
   settingComp = null;
   $('makecomp').textContent = 'Create it';
   $('newcomposition').hidden = true;
-  if (settings) command('/composition.set_settings?' + q + ($('compfps').value === settings.fps ? '' : fps));
+  const sheet = SHEET_DETAILS.map(([k, box]) => '&' + k + '=' + encodeURIComponent($(box).value)).join('');
+  if (settings) command('/composition.set_settings?' + q + sheet + ($('compfps').value === settings.fps ? '' : fps));
   else command('/composition.create?' + q + fps);
 };
 // W-02's three steps, one request each: ask what to point at, read what would change, then agree

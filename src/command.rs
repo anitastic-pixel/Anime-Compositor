@@ -170,6 +170,8 @@ pub enum Command {
         height: u32,
         frame_rate: FrameRate,
         duration_frames: u32,
+        /// D-84f: the title block's four, in the same step as the rest.
+        sheet_details: crate::model::SheetDetails,
     },
     ReorderLayer {
         composition: Id,
@@ -2001,6 +2003,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             height,
             frame_rate,
             duration_frames,
+            sheet_details,
             ..
         } => {
             let comp = comp_mut(project, &comp_id)?;
@@ -2019,6 +2022,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             comp.height = *height;
             comp.frame_rate = *frame_rate;
             comp.duration_frames = *duration_frames;
+            comp.sheet_details = sheet_details.clone();
             comp.work_area = comp
                 .work_area
                 .map(|(start, end)| (start, end.min(past)))

@@ -1051,8 +1051,20 @@ pub struct Composition {
     /// D-84c: the dialogue and camera columns of the timesheet the composition was imported
     /// from, in the order the Sheet shows them. Saved as `sheet_text` only when there are some.
     pub sheet_text: Vec<SheetText>,
+    /// D-84f: what the printed Sheet's title block says besides the name. Saved as
+    /// `sheet_details` only when one of them is written.
+    pub sheet_details: SheetDetails,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
+}
+
+/// D-84f: the title block's episode, scene, cut and animator, each empty until written.
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct SheetDetails {
+    pub episode: String,
+    pub scene: String,
+    pub cut: String,
+    pub animator: String,
 }
 
 /// D-84c: one text column of a timesheet: dialogue, camerawork, or a kind a later version
@@ -1103,6 +1115,7 @@ impl Composition {
             markers: Vec::new(),
             camera: None,
             sheet_text: Vec::new(),
+            sheet_details: SheetDetails::default(),
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }

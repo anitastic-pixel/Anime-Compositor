@@ -410,9 +410,18 @@ fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
     let halves = seconds / 3;
     let pages = duration.div_ceil(halves * half).max(1);
     let length = format!("{} + {}", duration / fps, duration % fps);
+    // D-84f: the title block's top row, the name and then the four Composition Settings writes.
+    let detail = |key: &str| escape(grid["details"][key].as_str().unwrap_or(""));
+    let top = format!(
+        "<b class=\"name\">{name}</b><span class=\"episode\">{}</span><span class=\"scene\">{}</span><span class=\"cut\">{}</span><span class=\"animator\">{}</span>",
+        detail("episode"),
+        detail("scene"),
+        detail("cut"),
+        detail("animator")
+    );
     for page in 0..pages {
         html.push_str(&format!(
-            "<section class=\"page\"><header><b class=\"cut\">{name}</b><span class=\"time\">{length}</span><span class=\"rate\">{fps} fps</span><span class=\"sheet\">Sheet {} of {pages}</span><span class=\"memo\"></span></header><div class=\"halves\">\n",
+            "<section class=\"page\"><header>{top}<span class=\"time\">{length}</span><span class=\"rate\">{fps} fps</span><span class=\"sheet\">Sheet {} of {pages}</span><span class=\"memo\"></span></header><div class=\"halves\">\n",
             page + 1
         ));
         for side in 0..halves {
@@ -541,7 +550,10 @@ fn sheet_grid(viewer: &Mutex<Viewer>) -> serde_json::Value {
                 })
                 .collect();
             serde_json::json!({ "from": comp.start_frame, "columns": columns, "text": text,
-                "name": comp.name, "duration": comp.duration_frames, "frame_rate": {
+                "name": comp.name, "details": { "episode": comp.sheet_details.episode,
+                    "scene": comp.sheet_details.scene, "cut": comp.sheet_details.cut,
+                    "animator": comp.sheet_details.animator },
+                "duration": comp.duration_frames, "frame_rate": {
                     "numerator": comp.frame_rate.numerator(), "denominator": comp.frame_rate.denominator() } })
         }
     }
@@ -2842,6 +2854,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     height,
                     frame_rate,
                     duration_frames: frames,
+                    // D-84f: a box the page does not send keeps what it says.
+                    sheet_details: anime_compositor::model::SheetDetails {
+                        episode: parameter(query, "episode").unwrap_or(comp.sheet_details.episode),
+                        scene: parameter(query, "scene").unwrap_or(comp.sheet_details.scene),
+                        cut: parameter(query, "cut").unwrap_or(comp.sheet_details.cut),
+                        animator: parameter(query, "animator").unwrap_or(comp.sheet_details.animator),
+                    },
                 },
             );
             // The clock is rebuilt from the new rate and length, as opening the composition does.
@@ -13169,7 +13188,7 @@ mod editing {
                 case.1.push((label.to_string(), said.to_string()));
             }
         }
-        report.check("document 25 has eight cases", "8", cases.len().to_string());
+        report.check("document 25 has ten cases", "10", cases.len().to_string());
         // "Everything else as FX-PRINT-001": that case's lines as well as its own.
         let cases: Vec<(String, Vec<(String, String)>)> = cases
             .iter()
@@ -13197,12 +13216,85 @@ mod editing {
                 .map(|rest| rest.split(close).next().unwrap_or("").to_string())
                 .collect()
         };
+        // D-84f: a header written as labels, "NAME `s01 c012`; EPISODE, SCENE, CUT and ANIMATOR
+        // empty; ...", against a page's title block: each box by its class, and the label the
+        // style prints on it.
+        let style = sheet_paper_style();
+        let labelled = |said: &str, page: &str| -> (String, String) {
+            let header = between(page, "<header>", "</header>").concat();
+            let mut wanted: Vec<(String, String)> = Vec::new();
+            let mut waiting: Vec<String> = Vec::new();
+            for (i, part) in said.split('`').enumerate() {
+                if i % 2 == 1 {
+                    if let Some(label) = waiting.pop() {
+                        wanted.push((label, part.to_string()));
+                    }
+                    waiting.clear();
+                    continue;
+                }
+                for word in part.split(|c: char| !c.is_alphanumeric()) {
+                    if word.len() > 1 && word.chars().all(|c| c.is_ascii_uppercase()) {
+                        waiting.push(word.to_string());
+                    } else if word == "empty" {
+                        wanted.extend(waiting.drain(..).map(|l| (l, String::new())));
+                    }
+                }
+            }
+            let got: Vec<(String, String)> = wanted
+                .iter()
+                .map(|(label, _)| {
+                    let class = label.to_lowercase();
+                    let boxes = between(&header, &format!("class=\"{class}\">"), "<");
+                    (
+                        if style.contains(&format!(".{class}::before {{ content: \"{label}")) {
+                            label.clone()
+                        } else {
+                            format!("{label} (unlabelled)")
+                        },
+                        if boxes.is_empty() { "(no box)".to_string() } else { boxes.concat() },
+                    )
+                })
+                .collect();
+            let show = |pairs: &[(String, String)]| {
+                pairs
+                    .iter()
+                    .map(|(l, v)| if v.is_empty() { format!("{l} empty") } else { format!("{l} {v}") })
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            };
+            (show(&wanted), show(&got))
+        };
+        // FX-PRINT-009's four, as its header names them after NAME.
+        let header_009 = cases
+            .iter()
+            .find(|(n, _)| n == "FX-PRINT-009")
+            .and_then(|(_, lines)| lines.iter().find(|(l, _)| l == "Header"))
+            .map(|(_, said)| said.clone())
+            .unwrap_or_default();
+        let written: Vec<String> = quoted(&header_009).into_iter().skip(1).collect();
+        let four = ["episode", "scene", "cut", "animator"];
+        let set_four = |values: &[String]| {
+            let q: Vec<String> = four
+                .iter()
+                .zip(values)
+                .map(|(k, v)| format!("{k}={}", v.replace(' ', "%20")))
+                .collect();
+            format!("composition.set_settings?{}", q.join("&"))
+        };
+        let shown_comp = |viewer: &Mutex<Viewer>| {
+            let held = held(viewer);
+            held.document.project().composition(&held.composition).cloned().expect("a composition on screen")
+        };
+        let saved_at = std::env::temp_dir().join("anime_compositor_b28i");
+        std::fs::create_dir_all(&saved_at).expect("a folder to save into");
+        let saved_at = saved_at.join("title_block_project.json");
         let source = repo("Fixtures/projects/cel_holds_project.json");
         let page = include_str!("../ui/index.html");
         for (name, lines) in &cases {
             let viewer = Mutex::new(
                 open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
             );
+            let mut unwritten = None;
             match name.as_str() {
                 n if n.starts_with("FX-PRINT-004") => {
                     run(&viewer, "composition.create");
@@ -13214,9 +13306,25 @@ mod editing {
                         run(&viewer, "composition.set_settings?frames=300");
                     } else if n == "FX-PRINT-003" {
                         run(&viewer, "composition.set_settings?fps=30");
+                    } else if n == "FX-PRINT-009" || n == "FX-PRINT-010" {
+                        unwritten = Some(shown_comp(&viewer));
+                        run(&viewer, &set_four(&written));
                     }
                 }
             }
+            // FX-PRINT-010: saved and opened again, looking at the same composition.
+            let mut saved_text = String::new();
+            let viewer = if name == "FX-PRINT-010" {
+                let id = held(&viewer).composition.clone();
+                save_as(&viewer, &saved_at);
+                saved_text = std::fs::read_to_string(&saved_at).expect("read the saved project");
+                let mut reopened = open(&saved_at)
+                    .unwrap_or_else(|d| panic!("open {}: {}", saved_at.display(), d.message));
+                reopened.composition = id;
+                Mutex::new(reopened)
+            } else {
+                viewer
+            };
             // D-84e: what the Print the Sheet window asks for, through the window's own answer.
             let query = match name.as_str() {
                 "FX-PRINT-005" | "FX-PRINT-006" => Some("seconds=3"),
@@ -13228,13 +13336,14 @@ mod editing {
             let paper = String::from_utf8(sheet_print(&viewer, query).body().clone())
                 .expect("the printable page is text");
             let pages = between(&paper, "<section class=\"page\"", "</section>");
-            // Each page's header fields in the order document 25 names them: cut, sheet, length,
-            // rate. Read by their class, since the page lays them out as a timesheet does.
+            // Each page's header fields in the order document 25 names them unlabelled: name,
+            // sheet, length, rate. Read by their class, since the page lays them out as a
+            // timesheet does.
             let headers: Vec<Vec<String>> = pages
                 .iter()
                 .map(|p| {
                     let header = between(p, "<header>", "</header>").concat();
-                    ["cut", "sheet", "time", "rate"]
+                    ["name", "sheet", "time", "rate"]
                         .iter()
                         .map(|field| {
                             between(&header, &format!("class=\"{field}\">"), "<").concat()
@@ -13304,6 +13413,46 @@ mod editing {
             }
             for (label, said) in lines {
                 match label.as_str() {
+                    "Header" if said.starts_with("NAME ") => {
+                        let (wanted, got) = labelled(said, pages.first().map_or("", String::as_str));
+                        report.check(&format!("{name}: the title block of the first page"), wanted, got);
+                    }
+                    "" if said.starts_with("One Undo") => {
+                        run(&viewer, "edit.undo");
+                        let after = shown_comp(&viewer);
+                        report.check(
+                            &format!("{name}: one Undo"),
+                            "the four empty, the rest as before",
+                            if after.sheet_details != Default::default() {
+                                "the four still written"
+                            } else if Some(&after) != unwritten.as_ref() {
+                                "something else changed"
+                            } else {
+                                "the four empty, the rest as before"
+                            },
+                        );
+                    }
+                    "" if said.starts_with("The four read back") => {
+                        let d = shown_comp(&viewer).sheet_details;
+                        report.check(
+                            &format!("{name}: the four, read back from the file"),
+                            written.join(", "),
+                            [d.episode, d.scene, d.cut, d.animator].join(", "),
+                        );
+                        let (wanted, got) = labelled(&header_009, pages.first().map_or("", String::as_str));
+                        report.check(&format!("{name}: printed as FX-PRINT-009"), wanted, got);
+                    }
+                    "" if said.starts_with("Saved with the four empty") => {
+                        run(&viewer, &set_four(&[String::new(), String::new(), String::new(), String::new()]));
+                        save_as(&viewer, &saved_at);
+                        let emptied = std::fs::read_to_string(&saved_at).expect("read the saved project");
+                        let has = |text: &str| if text.contains("\"sheet_details\"") { "has it" } else { "has none" };
+                        report.check(
+                            &format!("{name}: `sheet_details` in the file, with the four written and then empty"),
+                            "has it, then has none",
+                            format!("{}, then {}", has(&saved_text), has(&emptied)),
+                        );
+                    }
                     "Header" => {
                         let mut got: Vec<String> = Vec::new();
                         if let (Some(first), Some(last)) = (headers.first(), headers.last()) {
@@ -13504,6 +13653,7 @@ mod editing {
                 n if n.starts_with("FX-PRINT-003") => Some("verification/B-28g_sheet_print_30_fps.html"),
                 n if n.starts_with("FX-PRINT-005") => Some("verification/B-28g_sheet_print_3_seconds.html"),
                 n if n.starts_with("FX-PRINT-007") => Some("verification/B-28g_sheet_print_red.html"),
+                n if n.starts_with("FX-PRINT-009") => Some("verification/B-28g_sheet_print_title_block.html"),
                 _ => None,
             };
             if let Some(file) = keep {
@@ -16590,21 +16740,27 @@ mod editing {
          six seconds a page as two halves of three, a header on each, empty rows past the cut's \
          end and a heavy line under its last frame. D-84e lays it out as a studio's sheet: rows \
          counted from 1, each second's number beside its last row, an Action column, at least six \
-         cel columns, and a choice of 6 or 3 seconds a page, in black or red.",
+         cel columns, and a choice of 6 or 3 seconds a page, in black or red. D-84f gives it a \
+         title block of two rows: the name, episode, scene, cut and animator above, written in \
+         Composition Settings, and the length, rate, sheet and memo below.",
         "Each FX-PRINT case is read from document 25 itself, set up in the window, and checked \
          against the page the window writes: its header, its halves page by page, its columns and \
-         its second numbers and its end line. Every printed cell is then compared with the cell \
-         the Sheet shows on screen. The printable pages for FX-PRINT-001 to 003, 005 and 007 are \
-         kept beside this table as `B-28g_sheet_print_040.html`, \
-         `B-28g_sheet_print_300_frames.html`, `B-28g_sheet_print_30_fps.html`, \
-         `B-28g_sheet_print_3_seconds.html` and `B-28g_sheet_print_red.html`, to open in any \
+         its second numbers and its end line. A header written with labels is checked box by \
+         box, by the box's class and the label the style prints on it. FX-PRINT-009 is undone \
+         and FX-PRINT-010 saved, opened again, emptied and saved again, to read the file. Every \
+         printed cell is then compared with the cell the Sheet shows on screen. The printable \
+         pages for FX-PRINT-001 to 003, 005, 007 and 009 are kept beside this table as \
+         `B-28g_sheet_print_040.html`, `B-28g_sheet_print_300_frames.html`, \
+         `B-28g_sheet_print_30_fps.html`, `B-28g_sheet_print_3_seconds.html`, \
+         `B-28g_sheet_print_red.html` and `B-28g_sheet_print_title_block.html`, to open in any \
          browser.",
     ];
 
     const SHEET_PRINT_NOTES: &[&str] = &[
         "## What this does not cover\n\nWhat the paper looks like, whether the print dialog \
          opens, and whether a PDF saved from it holds the pages. That is \
-         `verification/B-28h_sheet_paper_playtest.md`, for a person.",
+         `verification/B-28h_sheet_paper_playtest.md` and \
+         `verification/B-28i_title_block_playtest.md`, for a person.",
     ];
 
     const SHEET_WRITING_INTRO: &[&str] = &[
@@ -19848,6 +20004,8 @@ mod contract {
             "camera.set_property?property=zoom&value=50",
             // B-18c: and a composition layer, the only kind that carries `composition_id`.
             "layer.precompose?layer=layer-1",
+            // B-28i: and D-84f's title block, written only when one of its four is.
+            "composition.set_settings?episode=3",
         ] {
             run(&viewer, edit);
         }
