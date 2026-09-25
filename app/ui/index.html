@@ -6233,8 +6233,9 @@ const EFFECT_PARAMS = {
   // D-86.
   'core.line_smooth': [['softness', 'Softness, 0 to 100', 1, 0.5],
     ['threshold', 'Threshold, 0 to 255', 1, 0.5]],
-  // D-87. Its colours are not a number and are drawn apart, in effectRow.
-  'core.selective_color_blur': [['blur', 'Blur, 0 to 200', 1, 0.5]],
+  // D-87. Its colours are not a number and are drawn apart, in effectRow. D-88: tolerance.
+  'core.selective_color_blur': [['blur', 'Blur, 0 to 200', 1, 0.5],
+    ['tolerance', 'Tolerance, 0 to 255', 1, 0.5]],
 };
 
 // Document 21 keeps the tint colour in linear light, and a colour picker speaks in sRGB. These
