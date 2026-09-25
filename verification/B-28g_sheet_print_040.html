@@ -1,23 +1,34 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>s01 c012</title><style>
-@page { margin: 10mm; }
-body { margin: 0; font: 6.5pt/1 sans-serif; color: #000; background: #fff; }
-.page { break-after: page; display: flex; flex-direction: column; height: 100vh; }
-.page:last-child { break-after: auto; }
-header { display: flex; gap: 8mm; font-size: 9pt; height: 6mm; }
-.halves { display: flex; gap: 4mm; flex: 1; }
-table { border-collapse: collapse; flex: 1; font-variant-numeric: tabular-nums; }
-th, td { border: 0.5px solid #666; padding: 0 2px; text-align: center; height: calc((100vh - 8mm) / (var(--rows) + 1)); box-sizing: border-box; }
-td:first-child { color: #444; text-align: right; }
-td.words { text-align: left; white-space: nowrap; overflow: hidden; max-width: 30mm; }
-td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
-td.out { background: #ddd; }
-tr.second td { border-bottom: 1.5px solid #000; }
-tr.end td { border-bottom: 3px double #000; }
-tr.past td:first-child { color: #aaa; }
-* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-</style></head><body>
-<section class="page" style="--rows: 72"><header><b>s01 c012</b><span>Sheet 1 of 1</span><span>2 + 0</span><span>24 fps</span></header><div class="halves">
+/* sheet paper: begin. D-84d: the Sheet on paper. Here, in the window's own style, since the
+   window's security policy refuses a style written at run time; the printable page the window
+   writes carries a copy of what is between begin and end. Everything is under #paper, so the
+   window's own look is untouched. No page margins, so the print dialog has no room for a date or
+   an address; each page keeps its own 10 mm instead. */
+@page { margin: 0; }
+@media print {
+  body { margin: 0; background: #fff; }
+  body > :not(#paper) { display: none !important; }
+  #paper { display: block !important; }
+}
+#paper { font: 6.5pt/1 sans-serif; color: #000; background: #fff; }
+#paper .page { break-after: page; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: 10mm; }
+#paper .page:last-child { break-after: auto; }
+#paper header { display: flex; gap: 8mm; font-size: 9pt; height: 6mm; flex: none; }
+#paper .halves { display: flex; gap: 4mm; flex: 1; min-height: 0; }
+#paper table { border-collapse: collapse; flex: 1; font-variant-numeric: tabular-nums; }
+#paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; }
+#paper td:first-child { color: #444; text-align: right; }
+#paper td.words { text-align: left; white-space: nowrap; overflow: hidden; max-width: 30mm; }
+#paper td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
+#paper td.out { background: #ddd; }
+#paper tr.second td { border-bottom: 1.5px solid #000; }
+#paper tr.end td { border-bottom: 3px double #000; }
+#paper tr.past td:first-child { color: #aaa; }
+#paper * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+</style></head><body><div id="paper">
+<section class="page"><header><b>s01 c012</b><span>Sheet 1 of 1</span><span>2 + 0</span><span>24 fps</span></header><div class="halves">
 <table data-first="0" data-last="71"><tr><th>frame</th><th>Dialogue</th><th>A</th><th>B</th><th>C</th><th>Camera</th></tr>
 <tr data-frame="0" class=""><td>0</td><td class="words">MIKA Over here!</td><td>1</td><td>1</td><td>×</td><td></td></tr>
 <tr data-frame="1" class=""><td>1</td><td class="hold"></td><td class="hold"></td><td class="hold"></td><td></td><td></td></tr>
@@ -167,4 +178,4 @@ tr.past td:first-child { color: #aaa; }
 <tr data-frame="143" class="second past"><td>143</td><td></td><td></td><td></td><td></td><td></td></tr>
 </table>
 </div></section>
-</body></html>
+</div></body></html>

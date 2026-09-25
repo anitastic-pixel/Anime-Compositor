@@ -369,11 +369,11 @@ fn sheet_paper(grid: &serde_json::Value) -> String {
     let drawings = list("columns");
     let name = escape(grid["name"].as_str().unwrap_or(""));
     let mut html = format!(
-        "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>{name}</title><style>\n{}\n</style></head><body>\n",
-        SHEET_PAPER_STYLE
+        "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>{name}</title><style>\n{}\n</style></head><body><div id=\"paper\">\n",
+        sheet_paper_style()
     );
     if drawings.is_empty() {
-        html.push_str("<p>There is nothing to print: no layer here shows drawings.</p>\n</body></html>\n");
+        html.push_str("<p>There is nothing to print: no layer here shows drawings.</p>\n</div></body></html>\n");
         return html;
     }
     let text = list("text");
@@ -396,7 +396,7 @@ fn sheet_paper(grid: &serde_json::Value) -> String {
     let length = format!("{} + {}", duration / fps, duration % fps);
     for page in 0..pages {
         html.push_str(&format!(
-            "<section class=\"page\" style=\"--rows: {half}\"><header><b>{name}</b><span>Sheet {} of {pages}</span><span>{length}</span><span>{fps} fps</span></header><div class=\"halves\">\n",
+            "<section class=\"page\"><header><b>{name}</b><span>Sheet {} of {pages}</span><span>{length}</span><span>{fps} fps</span></header><div class=\"halves\">\n",
             page + 1
         ));
         for side in 0..2 {
@@ -444,28 +444,19 @@ fn sheet_paper(grid: &serde_json::Value) -> String {
         }
         html.push_str("</div></section>\n");
     }
-    html.push_str("</body></html>\n");
+    html.push_str("</div></body></html>\n");
     html
 }
 
-/// Black on white, a page a sheet, the rows shared out down the height of whatever paper
-/// the print dialog has chosen (`100vh` is the printable height when printing).
-const SHEET_PAPER_STYLE: &str = "@page { margin: 10mm; }
-body { margin: 0; font: 6.5pt/1 sans-serif; color: #000; background: #fff; }
-.page { break-after: page; display: flex; flex-direction: column; height: 100vh; }
-.page:last-child { break-after: auto; }
-header { display: flex; gap: 8mm; font-size: 9pt; height: 6mm; }
-.halves { display: flex; gap: 4mm; flex: 1; }
-table { border-collapse: collapse; flex: 1; font-variant-numeric: tabular-nums; }
-th, td { border: 0.5px solid #666; padding: 0 2px; text-align: center; height: calc((100vh - 8mm) / (var(--rows) + 1)); box-sizing: border-box; }
-td:first-child { color: #444; text-align: right; }
-td.words { text-align: left; white-space: nowrap; overflow: hidden; max-width: 30mm; }
-td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
-td.out { background: #ddd; }
-tr.second td { border-bottom: 1.5px solid #000; }
-tr.end td { border-bottom: 3px double #000; }
-tr.past td:first-child { color: #aaa; }
-* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }";
+/// The paper's look, copied from the page's own style between its `sheet paper` marks. The
+/// window's content security policy refuses a style written into a page at run time, so the
+/// window prints from its own page; the copy is for the printable page opened on its own.
+fn sheet_paper_style() -> &'static str {
+    let page = include_str!("../ui/index.html");
+    let from = page.find("/* sheet paper: begin").expect("the page has the sheet paper style");
+    let to = page.find("/* sheet paper: end */").expect("the sheet paper style ends");
+    &page[from..to]
+}
 
 /// The Sheet's grid: `sheet` answers it to the page and `sheet_paper` prints it.
 fn sheet_grid(viewer: &Mutex<Viewer>) -> serde_json::Value {
@@ -13362,7 +13353,7 @@ mod editing {
             "the page prints what the window writes, and Ctrl+P asks for it",
             "present",
             if page.contains("FRAMES + '/sheet/print'")
-                && page.contains("paper.contentWindow.print()")
+                && page.contains("window.print()")
                 && page.contains("(e.key === 'p' || e.key === 'P')) { e.preventDefault(); printSheet(); }")
             {
                 "present"

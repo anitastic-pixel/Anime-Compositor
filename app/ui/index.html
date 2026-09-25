@@ -675,6 +675,33 @@
   #prefs label { display: block; }
   #prefs input { width: 100%; box-sizing: border-box; }
   #relinking p { margin: 0 0 6px; }
+/* sheet paper: begin. D-84d: the Sheet on paper. Here, in the window's own style, since the
+   window's security policy refuses a style written at run time; the printable page the window
+   writes carries a copy of what is between begin and end. Everything is under #paper, so the
+   window's own look is untouched. No page margins, so the print dialog has no room for a date or
+   an address; each page keeps its own 10 mm instead. */
+@page { margin: 0; }
+@media print {
+  body { margin: 0; background: #fff; }
+  body > :not(#paper) { display: none !important; }
+  #paper { display: block !important; }
+}
+#paper { font: 6.5pt/1 sans-serif; color: #000; background: #fff; }
+#paper .page { break-after: page; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: 10mm; }
+#paper .page:last-child { break-after: auto; }
+#paper header { display: flex; gap: 8mm; font-size: 9pt; height: 6mm; flex: none; }
+#paper .halves { display: flex; gap: 4mm; flex: 1; min-height: 0; }
+#paper table { border-collapse: collapse; flex: 1; font-variant-numeric: tabular-nums; }
+#paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; }
+#paper td:first-child { color: #444; text-align: right; }
+#paper td.words { text-align: left; white-space: nowrap; overflow: hidden; max-width: 30mm; }
+#paper td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
+#paper td.out { background: #ddd; }
+#paper tr.second td { border-bottom: 1.5px solid #000; }
+#paper tr.end td { border-bottom: 3px double #000; }
+#paper tr.past td:first-child { color: #aaa; }
+#paper * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+/* sheet paper: end */
 </style>
 </head>
 <body>
@@ -7463,8 +7490,9 @@ async function writeSheetCell(mark) {
     + '&mark=' + mark);
   if (sheetCell === at) moveSheetCell(0, 1);
 }
-// D-84d: the Sheet on paper. The window writes the whole printable page; it goes into a hidden
-// frame, and the system's print dialog prints that frame rather than the window.
+// D-84d: the Sheet on paper. The window writes the whole printable page; its pages are put into
+// this page, hidden, and the sheet paper style above shows only them when printing. Not a frame:
+// the window's security policy refuses a style written at run time, which printed a bare table.
 async function printSheet() {
   let page = '';
   try {
@@ -7473,18 +7501,18 @@ async function printSheet() {
   } catch (e) {
     page = '';
   }
-  if (!page.includes('<section class="page"')) {
+  const paper = new DOMParser().parseFromString(page, 'text/html').getElementById('paper');
+  if (!paper || !paper.querySelector('section.page')) {
     $('status').textContent = 'There is nothing to print: no layer here shows drawings.';
     return;
   }
-  const paper = document.createElement('iframe');
-  paper.style.cssText = 'position: fixed; width: 0; height: 0; border: 0; visibility: hidden';
-  paper.onload = () => {
-    paper.contentWindow.onafterprint = () => paper.remove();
-    paper.contentWindow.print();
-  };
-  paper.srcdoc = page;
-  document.body.append(paper);
+  // Made here and removed after printing, so not in the markup and not looked up with $().
+  const last = document.getElementById('paper');
+  if (last) last.remove();
+  paper.hidden = true;
+  document.body.append(document.adoptNode(paper));
+  window.addEventListener('afterprint', () => paper.remove(), { once: true });
+  window.print();
 }
 $('printsheet').onclick = printSheet;
 
