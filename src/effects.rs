@@ -141,7 +141,8 @@ impl EffectInstance {
                 effect.set(name, &v);
             }
             match &mut effect {
-                Effect::GaussianBlur { sigma_px } => *sigma_px = sigma_px.max(0.0),
+                Effect::Exposure { stops } => *stops = stops.clamp(-20.0, 20.0),
+                Effect::GaussianBlur { sigma_px } => *sigma_px = sigma_px.clamp(0.0, 500.0),
                 Effect::Tint { amount, .. } => *amount = amount.clamp(0.0, 1.0),
                 Effect::LineSmooth {
                     softness,
@@ -390,8 +391,9 @@ impl Effect {
     /// clamped. Clamping would accept a number and silently render a different one.
     pub fn is_valid(&self) -> bool {
         match self {
-            Effect::Exposure { stops } => stops.is_finite(),
-            Effect::GaussianBlur { sigma_px } => sigma_px.is_finite() && *sigma_px >= 0.0,
+            // D-90: past 20 stops `2^e` soon overflows, and a sigma past 500 a machine's memory.
+            Effect::Exposure { stops } => (-20.0..=20.0).contains(stops),
+            Effect::GaussianBlur { sigma_px } => (0.0..=500.0).contains(sigma_px),
             Effect::Tint { color, amount } => {
                 color.iter().all(|c| c.is_finite())
                     && amount.is_finite()
@@ -420,10 +422,10 @@ impl Effect {
     pub fn why_invalid(&self) -> String {
         match self {
             Effect::Exposure { stops } => {
-                format!("Exposure needs a finite number of stops, and this is {stops}.")
+                format!("Exposure runs from -20 to 20 stops, and this is {stops}.")
             }
             Effect::GaussianBlur { sigma_px } => {
-                format!("A Gaussian blur needs a sigma of zero or more, and this is {sigma_px}.")
+                format!("A Gaussian blur's sigma runs from 0 to 500, and this is {sigma_px}.")
             }
             Effect::Tint { amount, .. } => {
                 format!("A tint amount runs from 0 to 1, and this is {amount}.")

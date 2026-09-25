@@ -75,7 +75,7 @@ There is no user interface for effects yet: the commands exist and are checked h
 | an effect can be put at a chosen place in the stack | `first, one, two` | `first, one, two` | pass |
 | undo puts the stack back exactly as it was | `one, two` | `one, two` | pass |
 | a second effect with an instance ID already in use is refused | `COMMAND_INVALID_VALUE: This layer already has an effect called one.` | `COMMAND_INVALID_VALUE: This layer already has an effect called one.` | pass |
-| a negative sigma is refused rather than clamped | `EFFECT_PARAMETER_INVALID: A Gaussian blur needs a sigma of zero or more, and this is -1.` | `EFFECT_PARAMETER_INVALID: A Gaussian blur needs a sigma of zero or more, and this is -1.` | pass |
+| a negative sigma is refused rather than clamped | `EFFECT_PARAMETER_INVALID: A Gaussian blur's sigma runs from 0 to 500, and this is -1.` | `EFFECT_PARAMETER_INVALID: A Gaussian blur's sigma runs from 0 to 500, and this is -1.` | pass |
 | a tint amount above one is refused for the same reason | `EFFECT_PARAMETER_INVALID: A tint amount runs from 0 to 1, and this is 1.5.` | `EFFECT_PARAMETER_INVALID: A tint amount runs from 0 to 1, and this is 1.5.` | pass |
 | and a refused command leaves the stack alone | `one, two` | `one, two` | pass |
 | switching an effect off keeps it in the stack | `one, two; two is off` | `one, two; two is off` | pass |

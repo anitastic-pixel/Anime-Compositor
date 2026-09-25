@@ -11,7 +11,7 @@ Every row runs on `Fixtures/projects/unknown_effect_project.json`, whose one lay
 - **An effect this build does not have is kept, and is honest about it.** It can be bypassed and it can be deleted, because both are things a person decided. Its settings cannot be changed, because this build has never seen the schema they belong to, and the panel says so in a sentence rather than showing empty fields.
 - **A new effect starts at the setting that changes no pixels.** Adding a blur does not make the picture jump; the change a person then sees is the one they typed.
 - **Every setting travels on every change.** A tint is a colour and an amount, and a request that named only one would leave the other to a default - which would reset it. A missing setting is refused instead.
-- **Where a refusal comes from is visible in its words.** "needs a number" is the window, refusing text. "needs a sigma of zero or more" is the core, refusing a number document 21 has no meaning for. Both reach the status line the same way, and neither changes anything.
+- **Where a refusal comes from is visible in its words.** "needs a number" is the window, refusing text. "sigma runs from 0 to 500" is the core, refusing a number document 21 has no meaning for. Both reach the status line the same way, and neither changes anything.
 - **A gap left by a deleted effect is not filled.** Identifiers are counted from the highest in use, so an effect in the middle of a stack cannot be replaced by a different one wearing its identifier, and two runs of the same steps write the same file.
 
 ## What this does not cover
@@ -30,7 +30,7 @@ A parameter over time. The settings here are constants, which is what document 1
 | a new effect starts at the setting that changes no pixels | {"sigma_px":0} | {"sigma_px":0} | pass |
 | setting the radius says which effect's settings changed | Change Blur settings | Change Blur settings | pass |
 | and the panels are given the new radius back | {"sigma_px":4.5} | {"sigma_px":4.5} | pass |
-| a negative radius is refused in document 21's own words, not clamped | A Gaussian blur needs a sigma of zero or more, and this is -1. Choose a value inside the range. | A Gaussian blur needs a sigma of zero or more, and this is -1. Choose a value inside the range. | pass |
+| a negative radius is refused in document 21's own words, not clamped | A Gaussian blur's sigma runs from 0 to 500, and this is -1. Choose a value inside the range. | A Gaussian blur's sigma runs from 0 to 500, and this is -1. Choose a value inside the range. | pass |
 | text that is not a number is refused by the window, before the core sees it | sigma_px needs a number. Not "wide". | sigma_px needs a number. Not "wide". | pass |
 | a setting left out is refused rather than filled in from a default | What should sigma_px be set to? | What should sigma_px be set to? | pass |
 | none of those three refusals changed the radius | {"sigma_px":4.5} | {"sigma_px":4.5} | pass |

@@ -958,7 +958,7 @@ fn command_rules(report: &mut Report) {
     // build that clamped would accept the number the person typed and draw a different one.
     report.check(
         "a negative sigma is refused rather than clamped",
-        "EFFECT_PARAMETER_INVALID: A Gaussian blur needs a sigma of zero or more, and this is -1.",
+        "EFFECT_PARAMETER_INVALID: A Gaussian blur's sigma runs from 0 to 500, and this is -1.",
         outcome(
             doc.apply(add(
                 EffectInstance::new(Id::new("bad"), Effect::GaussianBlur { sigma_px: -1.0 }),

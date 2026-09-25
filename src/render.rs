@@ -404,6 +404,12 @@ fn adjust_frame(
                 }
                 let e = effected.pixel(x + ox, y + oy);
                 let i = x * 4;
+                // D-90: at full cover the answer is `E(B)` exactly. `b + (e - b)` rounds at
+                // `b`'s size, which is most of a value as small as 20 stops down leaves.
+                if c == 1.0 {
+                    row[i..i + 4].copy_from_slice(&e);
+                    continue;
+                }
                 for k in 0..4 {
                     let b = row[i + k];
                     row[i + k] = b + c * (e[k] - b);

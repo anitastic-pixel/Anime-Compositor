@@ -12,7 +12,7 @@ D-66, accepted by the owner on 2026-09-17. Every expected pixel is `Fixtures/adj
 | FX-ADJ-004 frame 0: A mask on the adjustment layer: only the left three columns. | largest difference 6.1e-8 | yes |
 | FX-ADJ-005 frame 0: Moved four pixels right: only the right two columns. | largest difference 6.1e-8 | yes |
 | FX-ADJ-006 frame 0: A matte-only layer shapes the adjustment: only the left three columns. | largest difference 6.1e-8 | yes |
-| FX-ADJ-007 frame 0: A blur spreads one pixel over the frame and is cut off at its edge. | largest difference 4.5e-8 | yes |
+| FX-ADJ-007 frame 0: A blur spreads one pixel over the frame and is cut off at its edge. | largest difference 1.6e-8 | yes |
 | FX-ADJ-008 frame 0: A full tint on a half-covered picture keeps its coverage. | largest difference 3.0e-8 | yes |
 | FX-ADJ-009 frame 0: Two adjustment layers, lower one first. | largest difference 3.1e-8 | yes |
 | FX-ADJ-010 frame 0: The same two, the other way up. | largest difference 3.1e-8 | yes |

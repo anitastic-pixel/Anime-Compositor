@@ -8850,8 +8850,8 @@ mod editing {
         let depth = held(&viewer).document.undo_depth();
         report.check(
             "a negative radius is refused in document 21's own words, not clamped",
-            "A Gaussian blur needs a sigma of zero or more, and this is -1. Choose a value \
-             inside the range.",
+            "A Gaussian blur's sigma runs from 0 to 500, and this is -1. Choose a value inside \
+             the range.",
             run(
                 &viewer,
                 "effect.set_parameters?layer=layer-cel&effect=fx-1&sigma_px=-1",
@@ -9253,8 +9253,8 @@ mod editing {
          typed.\n- **Every setting travels on every change.** A tint is a colour and an amount, \
          and a request that named only one would leave the other to a default - which would \
          reset it. A missing setting is refused instead.\n- **Where a refusal comes from is \
-         visible in its words.** \"needs a number\" is the window, refusing text. \"needs a sigma \
-         of zero or more\" is the core, refusing a number document 21 has no meaning for. Both \
+         visible in its words.** \"needs a number\" is the window, refusing text. \"sigma runs from \
+         0 to 500\" is the core, refusing a number document 21 has no meaning for. Both \
          reach the status line the same way, and neither changes anything.\n- **A gap left by a \
          deleted effect is not filled.** Identifiers are counted from the highest in use, so an \
          effect in the middle of a stack cannot be replaced by a different one wearing its \

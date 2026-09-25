@@ -6229,8 +6229,8 @@ const EFFECT_NAMES = {
 // whether the field takes one number or three, and how far one pixel of drag moves it. Document
 // 21 states the units, and they are the file's own here as everywhere else in this panel.
 const EFFECT_PARAMS = {
-  'core.gaussian_blur': [['sigma_px', 'Radius σ, in source pixels', 1, 0.1]],
-  'core.exposure': [['stops', 'Stops', 1, 0.02]],
+  'core.gaussian_blur': [['sigma_px', 'Radius σ, in source pixels, 0 to 500', 1, 0.1]],
+  'core.exposure': [['stops', 'Stops, -20 to 20', 1, 0.02]],
   'core.tint': [['color', 'Colour, linear RGB', 3, 0.01], ['amount', 'Amount, 0 to 1', 1, 0.01]],
   // D-86.
   'core.line_smooth': [['softness', 'Softness, 0 to 100', 1, 0.5],
