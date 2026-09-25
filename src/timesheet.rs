@@ -21,7 +21,7 @@ use serde_json::{json, Map, Value as J};
 use crate::command::Command;
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::media;
-use crate::model::{Asset, Composition, Id, Layer, Project, Timesheet};
+use crate::model::{Asset, Composition, Id, Layer, Project, SheetText, SheetTextEntry, Timesheet};
 use crate::time::{ExposureSpan, FrameRate};
 
 const MAGIC: &str = "exchangeDigitalTimeSheet Save Data";
@@ -58,6 +58,8 @@ pub struct Cut {
     pub width: u32,
     pub height: u32,
     pub columns: Vec<Column>,
+    /// D-84c: the dialogue columns, then the camera columns, each by track.
+    pub text: Vec<SheetText>,
     pub notes: Vec<Note>,
     /// What the drawing importer said about the columns' files: a file with no number, two
     /// files claiming one number, a size that differs.
@@ -197,6 +199,7 @@ pub fn read_cut(folder: &Path) -> Result<Cut, Refused> {
         ));
     }
     let mut tracks: Vec<&J> = Vec::new();
+    let (mut dialogue, mut camera): (Vec<&J>, Vec<&J>) = (Vec::new(), Vec::new());
     for field in table
         .get("fields")
         .and_then(J::as_array)
@@ -204,20 +207,24 @@ pub fn read_cut(folder: &Path) -> Result<Cut, Refused> {
         .flatten()
     {
         let columns = field.get("tracks").and_then(J::as_array);
-        if is(field.get("fieldId"), 0.0) {
-            tracks.extend(columns.into_iter().flatten());
-            continue;
-        }
-        let id = field.get("fieldId").cloned().unwrap_or(J::Null);
-        let name = match id.as_f64() {
-            Some(3.0) => "dialogue".to_string(),
-            Some(5.0) => "camerawork".to_string(),
-            _ => id.to_string(),
+        let id = field.get("fieldId");
+        let into = if is(id, 0.0) {
+            &mut tracks
+        } else if is(id, 3.0) {
+            &mut dialogue
+        } else if is(id, 5.0) {
+            &mut camera
+        } else {
+            {
+                let id = field.get("fieldId").cloned().unwrap_or(J::Null);
+                notes.push(note(
+                    DiagnosticId::TimesheetFieldNotRead,
+                    json!({ "field": id.to_string(), "tracks": columns.map_or(0, Vec::len) }),
+                ));
+                continue;
+            }
         };
-        notes.push(note(
-            DiagnosticId::TimesheetFieldNotRead,
-            json!({ "field": name, "tracks": columns.map_or(0, Vec::len) }),
-        ));
+        into.extend(columns.into_iter().flatten());
     }
     let names: Vec<J> = table
         .get("timeTableHeaders")
@@ -452,6 +459,8 @@ pub fn read_cut(folder: &Path) -> Result<Cut, Refused> {
     if columns.is_empty() {
         refuse!(DiagnosticId::TimesheetNoCells, {});
     }
+    let mut text = read_text(table, 3.0, "dialogue", "Dialogue", dialogue, duration, &mut notes);
+    text.extend(read_text(table, 5.0, "camera", "Camera", camera, duration, &mut notes));
 
     // The most common size among every drawing of every column, the first seen on a tie.
     let mut sizes: Vec<((u32, u32), usize)> = Vec::new();
@@ -481,9 +490,108 @@ pub fn read_cut(folder: &Path) -> Result<Cut, Refused> {
         width,
         height,
         columns,
+        text,
         notes,
         media: media_said,
     })
+}
+
+/// D-84c: a dialogue or camera field's tracks as text columns. An entry is the strings written
+/// on a frame and lasts through the SYMBOL_HYPHEN written on each frame straight after it, as
+/// the specification writes a held line.
+fn read_text(
+    table: &J,
+    field: f64,
+    kind: &str,
+    default: &str,
+    mut tracks: Vec<&J>,
+    duration: i32,
+    notes: &mut Vec<Note>,
+) -> Vec<SheetText> {
+    let names: Vec<J> = table
+        .get("timeTableHeaders")
+        .and_then(J::as_array)
+        .into_iter()
+        .flatten()
+        .find(|h| is(h.get("fieldId"), field))
+        .and_then(|h| h.get("names")?.as_array().cloned())
+        .unwrap_or_default();
+    let track_no = |t: &J| t.get("trackNo").and_then(J::as_i64).unwrap_or(0);
+    tracks.sort_by_key(|t| track_no(t));
+    let mut columns = Vec::new();
+    for t in tracks {
+        let no = track_no(t);
+        let name = usize::try_from(no)
+            .ok()
+            .and_then(|i| names.get(i)?.as_str())
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
+            .unwrap_or(default)
+            .to_string();
+        let mut frames: Vec<(i64, &J)> = t
+            .get("frames")
+            .and_then(J::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|e| Some((e.get("frame")?.as_i64()?, e)))
+            .collect();
+        frames.sort_by_key(|(f, _)| *f);
+        let (mut said, mut outside, mut twice) = (BTreeMap::new(), Vec::new(), Vec::new());
+        for (f, entry) in frames {
+            if !(0..duration as i64).contains(&f) {
+                outside.push(f);
+            } else if said.contains_key(&f) {
+                twice.push(f);
+            } else {
+                let values = entry
+                    .get("data")
+                    .and_then(J::as_array)
+                    .and_then(|d| d.iter().find(|d| is(d.get("id"), 0.0)))
+                    .and_then(|d| d.get("values")?.as_array().cloned());
+                said.insert(f, values);
+            }
+        }
+        let (mut entries, mut orphan, mut not_text) = (Vec::<SheetTextEntry>::new(), Vec::new(), Vec::new());
+        for (f, values) in said {
+            let strings: Option<Vec<String>> = values
+                .as_ref()
+                .filter(|v| !v.is_empty())
+                .and_then(|v| v.iter().map(|s| s.as_str().map(str::to_string)).collect());
+            match strings.as_deref() {
+                Some([one]) if one == HYPHEN => match entries.last_mut() {
+                    Some(e) if e.end_frame_exclusive as i64 == f => e.end_frame_exclusive += 1,
+                    _ => orphan.push(f),
+                },
+                Some([one]) if one == NULL_CELL => {}
+                Some(lines) => entries.push(SheetTextEntry {
+                    start_frame: f as i32,
+                    end_frame_exclusive: f as i32 + 1,
+                    text: lines.to_vec(),
+                }),
+                None => not_text.push(f),
+            }
+        }
+        for (frames, reason) in [
+            (outside, "outside the sheet"),
+            (twice, "a second entry on the same frame"),
+            (orphan, "a continuation with nothing before it"),
+            (not_text, "not text"),
+        ] {
+            if !frames.is_empty() {
+                notes.push(note(
+                    DiagnosticId::TimesheetEntryIgnored,
+                    json!({ "column": name, "frames": frames, "reason": reason }),
+                ));
+            }
+        }
+        columns.push(SheetText {
+            kind: kind.to_string(),
+            name,
+            track: no,
+            entries,
+        });
+    }
+    columns
 }
 
 /// One past the highest `<prefix>N` in use: counted as the window counts its IDs, so the same
@@ -518,6 +626,7 @@ pub fn commands(cut: &Cut, project: &Project, project_dir: &Path) -> (Id, Vec<Co
         0,
         cut.duration,
     );
+    composition.sheet_text = cut.text.clone();
     let mut commands = Vec::new();
     for (index, column) in cut.columns.iter().enumerate() {
         let frames = column
@@ -605,7 +714,7 @@ impl Note {
             D::TimesheetFieldNotRead => (
                 Severity::Info,
                 format!(
-                    "The {} field ({} columns) was not read; only drawing columns are.",
+                    "The {} field ({} columns) was not read; only drawing, dialogue and camera columns are.",
                     text("field"),
                     number("tracks")
                 ),

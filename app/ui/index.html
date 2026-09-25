@@ -306,6 +306,8 @@
   #xsheet td.chosen { outline: 2px solid #6aa0ff; outline-offset: -2px; }
   #xsheet:focus td.chosen { outline-color: #9cc2ff; }
   #xsheet td.typing { background: #1e1e1e; color: #fff; }
+  /* D-84c: a dialogue or camera column, its words in the cell where they start. */
+  #xsheet td.words { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: #e8d9a8; }
   #graph svg { display: block; width: 100%; height: 170px; touch-action: none; }
   #graph .plot { fill: none; stroke: #6ea8fe; stroke-width: 1.5; }
   #graph .plot.second { stroke: #7bd88f; }
@@ -7349,17 +7351,34 @@ function drawXsheet(grid) {
   const fps = Math.max(1, Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator));
   const table = document.createElement('table');
   const head = table.insertRow();
-  for (const name of ['frame', ...grid.columns.map((c) => c.name)]) {
+  // D-84c: as on paper, dialogue left of the drawings and camera, or any other kind, right.
+  const text = grid.text || [];
+  const left = text.filter((c) => c.kind === 'dialogue');
+  const right = text.filter((c) => c.kind !== 'dialogue');
+  for (const name of ['frame', ...[...left, ...grid.columns, ...right].map((c) => c.name)]) {
     const th = document.createElement('th');
     th.textContent = name;
     head.append(th);
   }
+  // Words where an entry starts, a line down the frames it lasts. Clicking one moves the
+  // playhead, as the row does; only drawing cells can be chosen and written.
+  const wordsCell = (row, column, i) => {
+    const cell = row.insertCell();
+    const said = column.cells[i];
+    if (said === '|') cell.className = 'hold';
+    else if (said) {
+      cell.className = 'words';
+      cell.textContent = said;
+      cell.title = column.name + ': ' + said;
+    }
+  };
   for (let i = 0; i < grid.columns[0].cells.length; i++) {
     const at = grid.from + i;
     const row = table.insertRow();
     row.dataset.frame = at;
     if ((i + 1) % fps === 0) row.classList.add('second');
     row.insertCell().textContent = at;
+    for (const column of left) wordsCell(row, column, i);
     for (const column of grid.columns) {
       const cell = row.insertCell();
       const mark = column.cells[i];
@@ -7379,6 +7398,7 @@ function drawXsheet(grid) {
         };
       }
     }
+    for (const column of right) wordsCell(row, column, i);
     row.onclick = () => seek(at);
   }
   box.append(table);

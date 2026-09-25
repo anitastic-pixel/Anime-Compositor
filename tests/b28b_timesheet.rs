@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Value as J};
 
 use anime_compositor::command::Document;
-use anime_compositor::model::{Id, Project};
+use anime_compositor::model::{Id, Project, SheetText};
 use anime_compositor::persist;
 use anime_compositor::timesheet::{self, Column, Note};
 
@@ -90,6 +90,14 @@ fn layer_json(folder: &Path, c: &Column) -> J {
 }
 
 /// A column's frames as document 25 prints them: its drawing on each frame, x for none.
+/// A text column as the reference writes it: entries as [start, end, text].
+fn text_json(c: &SheetText) -> J {
+    json!({"kind": c.kind, "name": c.name, "track": c.track,
+        "entries": c.entries.iter()
+            .map(|e| json!([e.start_frame, e.end_frame_exclusive, e.text]))
+            .collect::<Vec<_>>()})
+}
+
 fn sheet_line(c: &Column, duration: u32) -> String {
     let mut shown = vec!["x".to_string(); duration as usize];
     for s in &c.spans {
@@ -136,8 +144,10 @@ fn b28b_timesheet() {
             "frame_rate": timesheet::FRAME_RATE, "width": cut.width, "height": cut.height});
         let layers: Vec<J> = cut.columns.iter().map(|c| layer_json(&folder, c)).collect();
         let notes = sorted(cut.notes.iter().map(as_json));
+        let text: Vec<J> = cut.text.iter().map(text_json).collect();
         let ok = composition == case["composition"]
             && J::from(layers) == case["layers"]
+            && J::from(text) == case.get("text").cloned().unwrap_or(json!([]))
             && notes == sorted(case["notes"].as_array().unwrap().iter().cloned());
         let mut built = format!(
             "{} frames at {} by {}, named {}",
@@ -148,6 +158,14 @@ fn b28b_timesheet() {
                 "<br>{}: `{}`",
                 c.name,
                 sheet_line(c, cut.duration)
+            ));
+        }
+        for c in &cut.text {
+            built.push_str(&format!(
+                "<br>{} column {}: `{}`",
+                c.kind,
+                c.name,
+                text_json(c)["entries"]
             ));
         }
         for n in &cut.notes {
@@ -327,6 +345,55 @@ fn b28b_timesheet() {
         "the key is written once per imported layer, three times",
         &format!("{layer_count}"),
         layer_count == 3,
+    );
+    let text_written = &written_json["compositions"][0]["sheet_text"];
+    t.row(
+        "its dialogue and camera columns are written as `sheet_text` (D-84c)",
+        &format!("`{text_written}`"),
+        *text_written
+            == json!([
+                {"kind": "dialogue", "name": "Dialogue", "track": 0, "entries": [
+                    {"start_frame": 0, "end_frame_exclusive": 16, "text": ["MIKA", "Over here!"]}]},
+                {"kind": "camera", "name": "Camera", "track": 0, "entries": [
+                    {"start_frame": 20, "end_frame_exclusive": 48, "text": ["FOLLOW"]}]}
+            ]),
+    );
+    let mut other = project.clone();
+    if let Some(c) = other.compositions.first_mut() {
+        c.sheet_text.push(SheetText {
+            kind: "sound".into(),
+            name: "SE".into(),
+            track: 0,
+            entries: vec![],
+        });
+    }
+    let other_written = persist::to_json(&other, &persist::Preserved::default());
+    let kept = persist::load_str(&other_written).is_ok_and(|r| r.document.project() == &other);
+    t.row(
+        "a column of a kind this build does not know is kept and saved back",
+        if kept { "kept" } else { "lost or refused" },
+        kept,
+    );
+    let broken = written.replacen(
+        "\"end_frame_exclusive\": 16",
+        "\"end_frame_exclusive\": 0",
+        1,
+    );
+    let refused_text = persist::load_str(&broken).err().map(|d| d.id.as_str());
+    t.row(
+        "a text entry that ends before it starts is refused: PROJECT_SCHEMA_INVALID",
+        &format!("{refused_text:?}"),
+        refused_text == Some("PROJECT_SCHEMA_INVALID"),
+    );
+    let without = persist::to_json(&empty, &persist::Preserved::default());
+    t.row(
+        "a project with no text columns is written without the key",
+        if without.contains("sheet_text") {
+            "written"
+        } else {
+            "absent"
+        },
+        !without.contains("sheet_text"),
     );
     let bad = written.replacen("\"track\": 0", "\"track\": \"bottom\"", 1);
     let refused = persist::load_str(&bad).err().map(|d| d.id.as_str());

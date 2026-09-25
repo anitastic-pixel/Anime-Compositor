@@ -1048,8 +1048,31 @@ pub struct Composition {
     /// [`Camera::default_for`], which is what makes a layer start working in depth the moment it
     /// is given one, without anybody adding a camera first. Saved as `camera` only when set.
     pub camera: Option<Camera>,
+    /// D-84c: the dialogue and camera columns of the timesheet the composition was imported
+    /// from, in the order the Sheet shows them. Saved as `sheet_text` only when there are some.
+    pub sheet_text: Vec<SheetText>,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
+}
+
+/// D-84c: one text column of a timesheet: dialogue, camerawork, or a kind a later version
+/// writes, which is kept as it is.
+#[derive(Clone, PartialEq, Debug)]
+pub struct SheetText {
+    pub kind: String,
+    pub name: String,
+    /// The column's `trackNo` in its field.
+    pub track: i64,
+    pub entries: Vec<SheetTextEntry>,
+}
+
+/// A line of dialogue or a camera instruction, as the strings written for it, on the frames
+/// it lasts.
+#[derive(Clone, PartialEq, Debug)]
+pub struct SheetTextEntry {
+    pub start_frame: i32,
+    pub end_frame_exclusive: i32,
+    pub text: Vec<String>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -1079,6 +1102,7 @@ impl Composition {
             work_area: None,
             markers: Vec::new(),
             camera: None,
+            sheet_text: Vec::new(),
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }

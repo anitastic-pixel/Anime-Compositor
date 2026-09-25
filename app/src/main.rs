@@ -334,12 +334,16 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
 /// and `""` while it lasts, and `null` outside the layer's in and out. Every cell is the core's
 /// own `drawing_at` after `local_frame`, the two the picture is drawn from, so the sheet cannot
 /// disagree with the picture. Like `curve` it is a question whose answer changes nothing.
+///
+/// D-84c: `text` holds the dialogue and camera columns the cut was imported with, in the order
+/// kept, a cell for each frame of the sheet: the entry's strings joined by a space where it
+/// starts, `|` while it lasts, and `""` where there is none.
 fn sheet(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
     use anime_compositor::time::ExposureMap;
     let viewer = viewer.lock().expect("the viewer lock was poisoned");
     let project = viewer.document.project();
     let body = match project.composition(&viewer.composition) {
-        None => serde_json::json!({ "from": 0, "columns": [] }),
+        None => serde_json::json!({ "from": 0, "columns": [], "text": [] }),
         Some(comp) => {
             let frames = comp.start_frame..comp.start_frame + comp.duration_frames as i32;
             let columns: Vec<serde_json::Value> = comp
@@ -378,7 +382,24 @@ fn sheet(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
                     serde_json::json!({ "layer": l.id.as_str(), "name": l.name, "cells": cells })
                 })
                 .collect();
-            serde_json::json!({ "from": comp.start_frame, "columns": columns })
+            let text: Vec<serde_json::Value> = comp
+                .sheet_text
+                .iter()
+                .map(|column| {
+                    let mut cells = vec![String::new(); comp.duration_frames as usize];
+                    for e in &column.entries {
+                        for f in e.start_frame.max(0)..e.end_frame_exclusive.min(cells.len() as i32) {
+                            cells[f as usize] = if f == e.start_frame {
+                                e.text.join(" ")
+                            } else {
+                                "|".into()
+                            };
+                        }
+                    }
+                    serde_json::json!({ "kind": column.kind, "name": column.name, "cells": cells })
+                })
+                .collect();
+            serde_json::json!({ "from": comp.start_frame, "columns": columns, "text": text })
         }
     };
     allow_the_page_to_read_this(Response::builder())
@@ -12856,6 +12877,133 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
     }
 
+    /// B-28f: the dialogue and camera columns, on D-84c. FX-XDTS-040's text cells, as the page
+    /// is given them, against document 25's paragraph on what its Sheet shows.
+    #[test]
+    fn the_sheet_text_columns_match_the_fixture_catalogue() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        import_cut(&viewer, &repo("Fixtures/xdts/fx_xdts_040"));
+        let grid = |viewer: &Mutex<Viewer>| -> serde_json::Value {
+            serde_json::from_slice(&sheet(viewer).into_body()).expect("the sheet answer is JSON")
+        };
+        let g = grid(&viewer);
+        let text = g["text"].as_array().cloned().unwrap_or_default();
+        report.check(
+            "two text columns come with the cut: its dialogue, then its camera instruction",
+            "dialogue Dialogue, camera Camera",
+            text.iter()
+                .map(|c| format!("{} {}", c["kind"].as_str().unwrap_or(""), c["name"].as_str().unwrap_or("")))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        report.check(
+            "the drawing columns are as they were",
+            "A, B, C",
+            g["columns"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|c| c["name"].as_str().unwrap_or("").to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+
+        // Document 25: "<name> shows `<text>` on frame <s> and a line on frames <a> to <b>",
+        // twice, joined by "; ", and empty on every other frame.
+        let catalogue = std::fs::read_to_string(repo("Markdown/25_Test_Fixture_Catalog.md"))
+            .expect("read document 25");
+        let paragraph = catalogue
+            .lines()
+            .find(|l| l.starts_with("Its text columns (D-84c):"))
+            .expect("document 25 has FX-XDTS-040's text columns");
+        let order = paragraph
+            .split("left to right, is ")
+            .nth(1)
+            .and_then(|r| r.split(". ").next())
+            .unwrap_or("");
+        report.check(
+            "document 25's order, left to right: dialogue, the drawings bottom first, camera",
+            "frame, Dialogue, A, B, C, Camera",
+            order,
+        );
+        let shows = paragraph.split(". ").last().unwrap_or("");
+        let mut clauses = 0;
+        for clause in shows.split("; ") {
+            let Some((name, rest)) = clause.split_once(" shows `") else { continue };
+            let Some((said, rest)) = rest.split_once("` on frame ") else { continue };
+            let numbers: Vec<usize> = rest
+                .split(|c: char| !c.is_ascii_digit())
+                .filter_map(|n| n.parse().ok())
+                .collect();
+            let [start, from, to] = numbers[..] else { continue };
+            clauses += 1;
+            let expected: Vec<String> = (0..48)
+                .map(|f| match f {
+                    f if f == start => said.to_string(),
+                    f if (from..=to).contains(&f) => "|".to_string(),
+                    _ => ".".to_string(),
+                })
+                .collect();
+            let got: Vec<String> = text
+                .iter()
+                .find(|c| c["name"] == name)
+                .and_then(|c| c["cells"].as_array())
+                .into_iter()
+                .flatten()
+                .map(|cell| match cell.as_str().unwrap_or("?") {
+                    "" => ".".to_string(),
+                    other => other.to_string(),
+                })
+                .collect();
+            report.check(
+                &format!("{name}, frame by frame, as document 25 has it (`.` is an empty cell)"),
+                expected.join(" / "),
+                got.join(" / "),
+            );
+        }
+        report.check("document 25 describes both columns", "2", clauses.to_string());
+
+        let a = g["columns"][0]["layer"].as_str().unwrap_or("").to_string();
+        run(&viewer, &format!("exposure.write?layer={a}&frame=1&mark=3"));
+        report.check(
+            "writing into a drawing column leaves the text columns alone",
+            serde_json::Value::Array(text.clone()).to_string(),
+            grid(&viewer)["text"].to_string(),
+        );
+        run(&viewer, "edit.undo");
+        run(&viewer, "edit.undo");
+        report.check(
+            "undoing the write and then the import takes the text columns away with the cut",
+            "[]",
+            grid(&viewer)["text"].to_string(),
+        );
+        let page = include_str!("../ui/index.html");
+        report.check(
+            "the page draws the text columns it is given",
+            "present",
+            if page.contains("grid.text") { "present" } else { "absent" },
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-28f_sheet_text_table.md",
+            "B-28f: dialogue and camera columns",
+            SHEET_TEXT_INTRO,
+            SHEET_TEXT_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    }
+
     /// B-28e: writing into the Sheet, on D-84b. Every FX-SHEET case, read from document 25
     /// itself, played on the cel project's layer set up as the case's Before line.
     #[test]
@@ -13105,7 +13253,7 @@ mod editing {
         report.check(
             "choosing FX-XDTS-040's folder imports it and says what arrived",
             "s01 c012 is imported and open: 3 layers from its timesheet, 48 frames at 24 frames a \
-             second, because a timesheet does not say its rate. 4 notes are below. Ctrl+Z takes \
+             second, because a timesheet does not say its rate. 2 notes are below. Ctrl+Z takes \
              it all back.",
             &said,
         );
@@ -13185,8 +13333,8 @@ mod editing {
         );
         report.check("on frame 0 it outlines A and B, before C comes in", "A, B", outlined(0));
         report.check(
-            "what was not read goes to the notes: dialogue, camerawork, C's tick mark and the background",
-            "TIMESHEET_FIELD_NOT_READ, TIMESHEET_FIELD_NOT_READ, TIMESHEET_MARK, TIMESHEET_NOT_USED",
+            "what was not read goes to the notes: C's tick mark and the background (dialogue and camerawork are read since D-84c)",
+            "TIMESHEET_MARK, TIMESHEET_NOT_USED",
             codes(&viewer),
         );
         report.check(
@@ -15871,6 +16019,23 @@ mod editing {
         "## What this does not cover\n\nWhat the tab looks like, whether the hold lines and the \
          shading read as a paper sheet does, and whether clicking a row goes to that frame. That \
          is `verification/B-28d_sheet_playtest.md`, for a person.",
+    ];
+
+    const SHEET_TEXT_INTRO: &[&str] = &[
+        "D-84c reads a timesheet's dialogue and camera columns when a cut is imported, keeps them \
+         with the composition, and shows them in the Sheet as a paper sheet does: dialogue left \
+         of the drawings and camera right of them, a line or instruction written on the frame it \
+         starts with a line down the frames it lasts.",
+        "The rows below import FX-XDTS-040, the sample cut, and read the text cells the page is \
+         given. Each column is compared frame by frame with document 25's paragraph on that \
+         cut's Sheet, which this check reads from document 25 itself.",
+    ];
+
+    const SHEET_TEXT_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhere the columns sit on screen and whether they read \
+         as a paper sheet does, and whether clicking a text cell goes to that frame. That is \
+         `verification/B-28f_sheet_text_playtest.md`, for a person. Saving and reopening the \
+         columns is checked in `verification/B-28b_timesheet_table.md`.",
     ];
 
     const SHEET_WRITING_INTRO: &[&str] = &[

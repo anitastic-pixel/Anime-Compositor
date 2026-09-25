@@ -1060,6 +1060,55 @@
           ],
           "additionalProperties": false
         },
+        "sheet_text": {
+          "description": "D-84c: the dialogue and camera columns of the timesheet the composition was imported from.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "name",
+              "track",
+              "entries"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "track": {
+                "type": "integer"
+              },
+              "entries": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "start_frame",
+                    "end_frame_exclusive",
+                    "text"
+                  ],
+                  "properties": {
+                    "start_frame": {
+                      "type": "integer"
+                    },
+                    "end_frame_exclusive": {
+                      "type": "integer"
+                    },
+                    "text": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "camera": {
           "type": "object",
           "required": [

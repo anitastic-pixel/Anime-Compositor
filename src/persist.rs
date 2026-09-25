@@ -191,6 +191,9 @@ const KEY_ORDER: &[&str] = &[
     "sheet",
     "column",
     "track",
+    "sheet_text",
+    "entries",
+    "text",
     "instance_id",
     "type_id",
     "parameters",
@@ -210,7 +213,8 @@ const EXPRESSION_KEY_ORDER: &[&str] = &["text", "enabled"];
 fn order_for(map: &Map<String, J>) -> &'static [&'static str] {
     if map.contains_key("instance_id") {
         EFFECT_KEY_ORDER
-    } else if map.contains_key("text") {
+    } else if map.contains_key("text") && !map.contains_key("start_frame") {
+        // A D-84c sheet text entry has `text` too, and is ordered as the schema lists it.
         EXPRESSION_KEY_ORDER
     } else {
         KEY_ORDER
@@ -974,6 +978,25 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
             })
             .collect();
         owned.push(("markers", J::Array(markers)));
+    }
+    if !composition.sheet_text.is_empty() || base.is_some_and(|b| b.get("sheet_text").is_some()) {
+        let columns = composition
+            .sheet_text
+            .iter()
+            .map(|c| {
+                let entries: Vec<J> = c
+                    .entries
+                    .iter()
+                    .map(|e| {
+                        serde_json::json!({"start_frame": e.start_frame,
+                            "end_frame_exclusive": e.end_frame_exclusive, "text": e.text})
+                    })
+                    .collect();
+                serde_json::json!({"kind": c.kind, "name": c.name, "track": c.track,
+                    "entries": entries})
+            })
+            .collect();
+        owned.push(("sheet_text", J::Array(columns)));
     }
     merge(base, owned)
 }
@@ -2516,6 +2539,59 @@ fn parse_composition(
             composition.markers.push(crate::model::Marker {
                 frame: as_i32(field(marker, &here, "frame")?, &format!("{here}/frame"))?,
                 name: as_str(field(marker, &here, "name")?, &format!("{here}/name"))?.to_string(),
+            });
+        }
+    }
+    // D-84c. A kind this build does not know is kept as written.
+    if let Some(columns) = v.get("sheet_text") {
+        let at = format!("{pointer}/sheet_text");
+        for (i, column) in as_array(columns, &at)?.iter().enumerate() {
+            let here = format!("{at}/{i}");
+            as_object(column, &here)?;
+            let text = |key: &str| {
+                as_str(field(column, &here, key)?, &format!("{here}/{key}")).map(str::to_string)
+            };
+            let mut entries = Vec::new();
+            let entries_at = format!("{here}/entries");
+            for (j, entry) in as_array(field(column, &here, "entries")?, &entries_at)?
+                .iter()
+                .enumerate()
+            {
+                let there = format!("{entries_at}/{j}");
+                as_object(entry, &there)?;
+                let lines_at = format!("{there}/text");
+                let lines = as_array(field(entry, &there, "text")?, &lines_at)?
+                    .iter()
+                    .enumerate()
+                    .map(|(k, s)| as_str(s, &format!("{lines_at}/{k}")).map(str::to_string))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let start_frame = as_i32(
+                    field(entry, &there, "start_frame")?,
+                    &format!("{there}/start_frame"),
+                )?;
+                let end_frame_exclusive = as_i32(
+                    field(entry, &there, "end_frame_exclusive")?,
+                    &format!("{there}/end_frame_exclusive"),
+                )?;
+                if end_frame_exclusive <= start_frame {
+                    return Err(invalid(
+                        &there,
+                        "an entry that ends after it starts (D-84c)",
+                    ));
+                }
+                entries.push(crate::model::SheetTextEntry {
+                    start_frame,
+                    end_frame_exclusive,
+                    text: lines,
+                });
+            }
+            composition.sheet_text.push(crate::model::SheetText {
+                kind: text("kind")?,
+                name: text("name")?,
+                track: field(column, &here, "track")?.as_i64().ok_or_else(|| {
+                    invalid(&format!("{here}/track"), "a timesheet column's whole number (D-84c)")
+                })?,
+                entries,
             });
         }
     }

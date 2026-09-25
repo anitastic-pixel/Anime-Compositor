@@ -13,7 +13,7 @@ The folder dialog itself, what the cut looks like playing, and whether the layer
 | Check | Expected | Actual | Result |
 |---|---|---|---|
 | Import cut with no folder asks for one | Which cut? Choose the folder that holds its .xdts timesheet. | Which cut? Choose the folder that holds its .xdts timesheet. | pass |
-| choosing FX-XDTS-040's folder imports it and says what arrived | s01 c012 is imported and open: 3 layers from its timesheet, 48 frames at 24 frames a second, because a timesheet does not say its rate. 4 notes are below. Ctrl+Z takes it all back. | s01 c012 is imported and open: 3 layers from its timesheet, 48 frames at 24 frames a second, because a timesheet does not say its rate. 4 notes are below. Ctrl+Z takes it all back. | pass |
+| choosing FX-XDTS-040's folder imports it and says what arrived | s01 c012 is imported and open: 3 layers from its timesheet, 48 frames at 24 frames a second, because a timesheet does not say its rate. 2 notes are below. Ctrl+Z takes it all back. | s01 c012 is imported and open: 3 layers from its timesheet, 48 frames at 24 frames a second, because a timesheet does not say its rate. 2 notes are below. Ctrl+Z takes it all back. | pass |
 | the new composition is the one on screen, named from the sheet and the size of its drawings | s01 c012, 160 by 90, 48 frames at 24/1 | s01 c012, 160 by 90, 48 frames at 24/1 | pass |
 | a layer a column, track 0 at the bottom | A, B, C | A, B, C | pass |
 | each layer's inspector is given where its timing came from | fx_xdts_040.xdts, column A, track 0; fx_xdts_040.xdts, column B, track 1; fx_xdts_040.xdts, column C, track 2 | fx_xdts_040.xdts, column A, track 0; fx_xdts_040.xdts, column B, track 1; fx_xdts_040.xdts, column C, track 2 | pass |
@@ -21,7 +21,7 @@ The folder dialog itself, what the cut looks like playing, and whether the layer
 | B's exposures reach the page as the sheet has them, blank from frame 16 to 29 | 0-3:1 3-6:2 6-7:3 7-8:2 8-11:1 11-14:2 14-15:3 15-16:2 30-33:1 33-36:2 36-39:3 39-48:1 | 0-3:1 3-6:2 6-7:3 7-8:2 8-11:1 11-14:2 14-15:3 15-16:2 30-33:1 33-36:2 36-39:3 39-48:1 | pass |
 | on frame 20 the picture outlines A and C, and B is blank | A, C | A, C | pass |
 | on frame 0 it outlines A and B, before C comes in | A, B | A, B | pass |
-| what was not read goes to the notes: dialogue, camerawork, C's tick mark and the background | TIMESHEET_FIELD_NOT_READ, TIMESHEET_FIELD_NOT_READ, TIMESHEET_MARK, TIMESHEET_NOT_USED | TIMESHEET_FIELD_NOT_READ, TIMESHEET_FIELD_NOT_READ, TIMESHEET_MARK, TIMESHEET_NOT_USED | pass |
+| what was not read goes to the notes: C's tick mark and the background (dialogue and camerawork are read since D-84c) | TIMESHEET_MARK, TIMESHEET_NOT_USED | TIMESHEET_MARK, TIMESHEET_NOT_USED | pass |
 | Undo names the import by its first step and the count of the rest | Import A_%04d.png and 3 more | Import A_%04d.png and 3 more | pass |
 | one Ctrl+Z takes the whole cut away and goes back to the composition before it | Cel; 1 composition, 1 drawing | Cel; 1 composition, 1 drawing | pass |
 | a folder with two timesheets imports nothing and says why | Nothing was imported. | Nothing was imported. | pass |
