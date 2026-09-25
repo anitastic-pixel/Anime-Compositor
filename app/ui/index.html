@@ -302,6 +302,10 @@
   #xsheet td.out { background: repeating-linear-gradient(45deg, #1a1a1a 0 4px, #222 4px 8px); }
   #xsheet tr.now td { background-color: #2b3f5c; }
   #xsheet tr.now td.hold { background: linear-gradient(#ccc, #ccc) center / 2px 100% no-repeat, #2b3f5c; }
+  #xsheet:focus { outline: none; }
+  #xsheet td.chosen { outline: 2px solid #6aa0ff; outline-offset: -2px; }
+  #xsheet:focus td.chosen { outline-color: #9cc2ff; }
+  #xsheet td.typing { background: #1e1e1e; color: #fff; }
   #graph svg { display: block; width: 100%; height: 170px; touch-action: none; }
   #graph .plot { fill: none; stroke: #6ea8fe; stroke-width: 1.5; }
   #graph .plot.second { stroke: #7bd88f; }
@@ -880,8 +884,8 @@
 </section>
 <!-- D-85: the Sheet is a panel of its own, so it can stand as a column beside the viewer. -->
 <section class="panel" id="sheetpanel">
-  <div class="tab">Sheet<span class="hint">the timing as a paper timesheet: click a row to go to that frame</span></div>
-  <div id="xsheet"></div>
+  <div class="tab">Sheet<span class="hint">the timing as a paper timesheet: click a cell, then type a number and Enter, x for a cross, or Delete to erase</span></div>
+  <div id="xsheet" tabindex="0"></div>
 </section>
 </div>
 <div id="bar">
@@ -7326,9 +7330,14 @@ async function askForXsheet() {
   drawXsheet(grid);
 }
 
+let lastGrid = null;     // D-84b: the sheet as last drawn, for moving the chosen cell
+let sheetCell = null;    // the chosen cell, { layer, frame }
+let sheetTyped = '';     // digits typed into it and not yet written
+
 function drawXsheet(grid) {
   const box = $('xsheet');
   box.textContent = '';
+  lastGrid = grid;
   const comp = composition();
   if (!comp || !grid || !grid.columns.length) {
     const hint = document.createElement('span');
@@ -7357,6 +7366,18 @@ function drawXsheet(grid) {
       if (mark === null) cell.className = 'out';
       else if (mark === '|') cell.className = 'hold';
       else cell.textContent = mark === 'x' ? '\u00d7' : mark;
+      cell.dataset.layer = column.layer;
+      cell.dataset.mark = cell.textContent;
+      // D-84b: a shaded cell, outside the layer, cannot be chosen. The row's own click still
+      // moves the playhead there.
+      if (mark !== null) {
+        cell.onclick = () => {
+          sheetCell = { layer: column.layer, frame: at };
+          sheetTyped = '';
+          box.focus({ preventScroll: true });
+          markXsheetCell();
+        };
+      }
     }
     row.onclick = () => seek(at);
   }
@@ -7372,7 +7393,65 @@ function markXsheetRow() {
     row.classList.add('now');
     row.scrollIntoView({ block: 'nearest' });
   }
+  markXsheetCell();
 }
+
+// The chosen cell has an outline, and while digits are being typed they stand in its place.
+function markXsheetCell() {
+  const box = $('xsheet');
+  for (const td of box.querySelectorAll('td.chosen')) {
+    td.classList.remove('chosen', 'typing');
+    td.textContent = td.dataset.mark;
+  }
+  if (!sheetCell) return;
+  const row = box.querySelector('tr[data-frame="' + sheetCell.frame + '"]');
+  const td = row && [...row.cells].find((c) => c.dataset.layer === sheetCell.layer);
+  if (!td) return;
+  td.classList.add('chosen');
+  if (sheetTyped) {
+    td.classList.add('typing');
+    td.textContent = sheetTyped;
+  }
+}
+
+// Across the columns or down the frames, onto a cell inside its layer, taking the playhead
+// with it as a click on the row does. A shaded cell stops it.
+function moveSheetCell(across, down) {
+  if (!sheetCell || !lastGrid) return;
+  const c = lastGrid.columns.findIndex((col) => col.layer === sheetCell.layer) + across;
+  const column = lastGrid.columns[c];
+  const i = sheetCell.frame - lastGrid.from + down;
+  if (!column || i < 0 || i >= column.cells.length || column.cells[i] === null) return;
+  sheetTyped = '';
+  sheetCell = { layer: column.layer, frame: lastGrid.from + i };
+  seek(sheetCell.frame);
+  markXsheetCell();
+}
+
+// D-84b: writing a cell. The window works out what the mark means for the layer's exposures,
+// and one cell is one entry to undo. After it the chosen cell moves down, as a pencil does.
+// A key answered here is finished with, so the accelerators below never see it; Space and
+// anything with Ctrl go on to them, so Space still plays and Ctrl+Z still undoes.
+async function writeSheetCell(mark) {
+  const at = sheetCell;
+  sheetTyped = '';
+  await command('/exposure.write?layer=' + encodeURIComponent(at.layer) + '&frame=' + at.frame
+    + '&mark=' + mark);
+  if (sheetCell === at) moveSheetCell(0, 1);
+}
+$('xsheet').onkeydown = (e) => {
+  if (!sheetCell || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (/^[0-9]$/.test(e.key)) { sheetTyped += e.key; markXsheetCell(); }
+  else if (e.key === 'Enter') { if (sheetTyped) writeSheetCell(sheetTyped); else moveSheetCell(0, 1); }
+  else if (e.key === 'x' || e.key === 'X') writeSheetCell('x');
+  else if (e.key === 'Backspace' && sheetTyped) { sheetTyped = sheetTyped.slice(0, -1); markXsheetCell(); }
+  else if (e.key === 'Delete' || e.key === 'Backspace') writeSheetCell('erase');
+  else if (e.key === 'Escape') { sheetTyped = ''; markXsheetCell(); }
+  else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') moveSheetCell(0, e.key === 'ArrowUp' ? -1 : 1);
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') moveSheetCell(e.key === 'ArrowLeft' ? -1 : 1, 0);
+  else return;
+  e.preventDefault();
+};
 $('graphprop').onchange = (e) => { graphProp = e.target.value; askForCurve(); };
 $('graphmode').onclick = () => { speedGraph = !speedGraph; drawGraph(); };
 $('graphall').onclick = () => { graphAll = !graphAll; askForCurve(); };

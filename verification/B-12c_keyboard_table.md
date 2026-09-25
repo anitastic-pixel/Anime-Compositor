@@ -29,10 +29,11 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetworkspace, save, saveas, saveworkspace, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, workspace, workspacename, zoomer | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetworkspace, save, saveas, saveworkspace, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, workspace, workspacename, zoomer | pass |
+| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetworkspace, save, saveas, saveworkspace, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, workspace, workspacename, xsheet, zoomer | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, recent, recovery, redo, relink, resetworkspace, save, saveas, saveworkspace, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, workspace, workspacename, xsheet, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
+| the Sheet, whose cells take typing (D-84b) is put into the Tab order by hand | true | true | pass |
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
 | the keys the window answers with nothing focused are the ones written down here | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, Q, R, S, Space, T, U, V, Y, Z, [, ] | *, ,, -, ., 1, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, Q, R, S, Space, T, U, V, Y, Z, [, ] | pass |
@@ -58,6 +59,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `effect.toggle_bypass` can be asked for without a mouse | yes | yes | pass |
 | `export` can be asked for without a mouse | yes | yes | pass |
 | `exposure.set_span` can be asked for without a mouse | yes | yes | pass |
+| `exposure.write` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.add_remove` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.move` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_interp` can be asked for without a mouse | yes | yes | pass |
@@ -165,4 +167,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**135 of 135 checks pass.**
+**137 of 137 checks pass.**

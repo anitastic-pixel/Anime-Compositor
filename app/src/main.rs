@@ -2287,6 +2287,7 @@ const ANSWERS: &[&str] = &[
     "effect.set_parameters",
     "effect.toggle_bypass",
     "exposure.set_span",
+    "exposure.write",
     "keyframe.add_remove",
     "keyframe.move",
     "keyframe.set_interp",
@@ -4852,6 +4853,120 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             {
                                 absent = Some(drawing_number);
                             }
+                        }
+                    }
+                    Command::SetExposureSpans {
+                        composition,
+                        layer_id,
+                        spans,
+                    }
+                }
+                // D-84b: a cell of the Sheet written as on paper. A number or a cross lasts
+                // from its frame until the next thing written below it, so it replaces what the
+                // frames showed up to where that changes; erasing one lets what is written above
+                // it run on through the same frames. The rest of the column is left as it was,
+                // and all of it is one `SetExposureSpans`, so one cell is one entry to undo.
+                "exposure.write" => {
+                    use anime_compositor::time::ExposureMap;
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let timing = layer.timing();
+                    let Some(here) = timing.local_frame(frame) else {
+                        return Some(format!(
+                            "Frame {frame} is outside {}, where its cells are shaded.",
+                            layer.name
+                        ));
+                    };
+                    // The layer's frames as the sheet shows them, and past its out point as
+                    // far as its exposures go, so a drawing held off the end is replaced whole.
+                    let first = timing.source_offset_frames;
+                    let limit = layer
+                        .exposure_spans
+                        .iter()
+                        .map(|s| s.end_frame_exclusive)
+                        .fold(timing.out_frame - timing.in_frame + first, i32::max);
+                    let map = ExposureMap::new(layer.exposure_spans.clone()).ok();
+                    let shows = |f: i32| map.as_ref().and_then(|m| m.drawing_at(f));
+                    let now = shows(here);
+                    // The sheet's first cell always has something written in it; above it,
+                    // on paper, there is nothing.
+                    let above = if here == first { None } else { shows(here - 1) };
+                    let written = here == first || above != now;
+                    let mark = parameter(query, "mark").unwrap_or_default();
+                    let new = match mark.as_str() {
+                        "erase" if !written => {
+                            return Some(format!(
+                                "Nothing is written on frame {frame} of {} to erase: it {}.",
+                                layer.name,
+                                if now.is_some() {
+                                    "holds the drawing above it"
+                                } else {
+                                    "is part of the blank above it"
+                                }
+                            ))
+                        }
+                        "erase" => above,
+                        "x" => None,
+                        number => match number.parse::<u32>() {
+                            Ok(n) => Some(n),
+                            Err(_) => {
+                                return Some(format!(
+                                    "A cell takes a drawing number, x or an erase. Not \
+                                     \"{number}\"."
+                                ))
+                            }
+                        },
+                    };
+                    if new == now {
+                        return Some(format!(
+                            "Frame {frame} of {} already shows {}.",
+                            layer.name,
+                            now.map_or("nothing".to_string(), |n| format!("drawing {n}"))
+                        ));
+                    }
+                    let mut end = here + 1;
+                    while end < limit && shows(end) == now {
+                        end += 1;
+                    }
+                    // What lies either side of `here..end` is kept, cut where it overlaps.
+                    let mut spans = Vec::new();
+                    for s in &layer.exposure_spans {
+                        if s.start_frame < here {
+                            spans.push(ExposureSpan {
+                                end_frame_exclusive: s.end_frame_exclusive.min(here),
+                                ..*s
+                            });
+                        }
+                        if s.end_frame_exclusive > end {
+                            spans.push(ExposureSpan {
+                                start_frame: s.start_frame.max(end),
+                                ..*s
+                            });
+                        }
+                    }
+                    if let Some(drawing_number) = new {
+                        // The same drawing straight above runs on, rather than being exposed
+                        // again, which is what an erase means and what writing it again reads as.
+                        match spans.iter_mut().find(|s| {
+                            s.end_frame_exclusive == here && s.drawing_number == drawing_number
+                        }) {
+                            Some(s) => s.end_frame_exclusive = end,
+                            None => spans.push(ExposureSpan {
+                                start_frame: here,
+                                end_frame_exclusive: end,
+                                drawing_number,
+                            }),
+                        }
+                        spans.sort_by_key(|s| s.start_frame);
+                        if !project
+                            .assets
+                            .iter()
+                            .find(|a| a.id == layer.asset_id)
+                            .is_some_and(|a| a.frames.contains_key(&drawing_number))
+                        {
+                            absent = Some(drawing_number);
                         }
                     }
                     Command::SetExposureSpans {
@@ -12741,6 +12856,187 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
     }
 
+    /// B-28e: writing into the Sheet, on D-84b. Every FX-SHEET case, read from document 25
+    /// itself, played on the cel project's layer set up as the case's Before line.
+    #[test]
+    fn writing_into_the_sheet_matches_the_fixture_catalogue() {
+        let mut report = Report { rows: Vec::new() };
+        let catalogue = std::fs::read_to_string(repo("Markdown/25_Test_Fixture_Catalog.md"))
+            .expect("read document 25");
+        let section = catalogue
+            .split("## Sheet writing fixtures")
+            .nth(1)
+            .and_then(|rest| rest.split("\n## ").next())
+            .expect("document 25 has the sheet writing fixtures");
+        // Each case: its name, what it says, Before, Do, After and Exposures.
+        let mut cases: Vec<[String; 6]> = Vec::new();
+        for line in section.lines().map(str::trim) {
+            if let Some(rest) = line.strip_prefix("- FX-SHEET-") {
+                let (number, says) = rest.split_once(": ").unwrap_or((rest, ""));
+                let mut case: [String; 6] = Default::default();
+                case[0] = format!("FX-SHEET-{number}");
+                case[1] = says.to_string();
+                cases.push(case);
+            } else if let Some(case) = cases.last_mut() {
+                for (i, key) in ["- Before:", "- Do:", "- After:", "- Exposures:"].iter().enumerate() {
+                    if let Some(value) = line.strip_prefix(key) {
+                        case[i + 2] = value.trim().trim_matches('`').to_string();
+                    }
+                }
+            }
+        }
+        report.check("document 25 has sixteen cases", "16", cases.len().to_string());
+
+        let template: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(repo("Fixtures/projects/cel_holds_project.json"))
+                .expect("read the cel project"),
+        )
+        .expect("the cel project is JSON");
+        let folder = std::env::temp_dir().join("anime_compositor_b28e");
+        std::fs::create_dir_all(&folder).expect("make the scratch folder");
+        // The layer's column as document 25 writes a line: the drawing on each frame, `x` for
+        // nothing and `-` outside the layer.
+        let shown = |viewer: &Mutex<Viewer>| {
+            let grid: serde_json::Value =
+                serde_json::from_slice(&sheet(viewer).into_body()).expect("the sheet answer is JSON");
+            let mut last = String::new();
+            grid["columns"][0]["cells"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|cell| match cell.as_str() {
+                    None => "-".to_string(),
+                    Some("") | Some("x") => "x".to_string(),
+                    Some("|") => last.clone(),
+                    Some(number) => {
+                        last = number.to_string();
+                        last.clone()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        let depth = |viewer: &Mutex<Viewer>| held(viewer).document.undo_depth();
+        let exposures = |viewer: &Mutex<Viewer>| {
+            let held = held(viewer);
+            held.document
+                .project()
+                .composition(&held.composition)
+                .and_then(|c| c.layer(&Id::new("layer-cel")))
+                .map_or(0, |l| l.exposure_spans.len())
+        };
+
+        for [name, says, before, action, after, count] in &cases {
+            // Before's line as exposures: a number the frame before also has holds, unless a
+            // `/` between them starts a second exposure of it.
+            let marks: Vec<&str> = before.split(' ').collect();
+            let in_frame = marks.iter().take_while(|m| **m == "-").count() as i32;
+            let mut spans: Vec<serde_json::Value> = Vec::new();
+            let (mut frame, mut split, mut last) = (0, false, "");
+            for mark in &marks {
+                if *mark == "/" {
+                    split = true;
+                    continue;
+                }
+                if let Ok(drawing) = mark.parse::<u32>() {
+                    let local = frame - in_frame;
+                    if last == *mark && !split {
+                        spans.last_mut().expect("a held exposure")["end_frame_exclusive"] =
+                            serde_json::json!(local + 1);
+                    } else {
+                        spans.push(serde_json::json!({
+                            "start_frame": local,
+                            "end_frame_exclusive": local + 1,
+                            "drawing_number": drawing,
+                        }));
+                    }
+                }
+                (last, split) = (mark, false);
+                frame += 1;
+            }
+            let mut project = template.clone();
+            project["assets"][0]["frames"] = (1..=9)
+                .map(|n| (n.to_string(), serde_json::json!(format!("media/cel_{n:04}.png"))))
+                .collect::<serde_json::Map<_, _>>()
+                .into();
+            let comp = &mut project["compositions"][0];
+            comp["duration_frames"] = serde_json::json!(frame);
+            comp["work_area"]["end_frame_exclusive"] = serde_json::json!(frame);
+            comp["layers"][0]["in_frame"] = serde_json::json!(in_frame);
+            comp["layers"][0]["out_frame"] = serde_json::json!(frame);
+            comp["layers"][0]["exposure_spans"] = serde_json::json!(spans);
+            let path = folder.join(format!("{name}.json"));
+            std::fs::write(&path, project.to_string()).expect("write the case");
+            let viewer = Mutex::new(
+                open(&path).unwrap_or_else(|d| panic!("open {name}: {}", d.message)),
+            );
+
+            let words: Vec<&str> = action.split(' ').collect();
+            let (mark, at) = match words.as_slice() {
+                ["write", mark, "on", "frame", at] => (*mark, *at),
+                ["erase", "frame", at] => ("erase", *at),
+                _ => panic!("{name}: cannot read \"{action}\""),
+            };
+            let was = depth(&viewer);
+            let said = run(
+                &viewer,
+                &format!("exposure.write?layer=layer-cel&frame={at}&mark={mark}"),
+            );
+            let entries = depth(&viewer) - was;
+            let now = shown(&viewer);
+            let kept = exposures(&viewer);
+            if entries > 0 {
+                run(&viewer, "edit.undo");
+            }
+            let plain = before.replace(" /", "");
+            let with_count = |n: String| if count.is_empty() { String::new() } else { format!("; exposures: {n}") };
+            report.check(
+                &format!("{name}: {says}"),
+                format!(
+                    "{after}{}; {} in the history; Undo gives {plain}",
+                    with_count(count.clone()),
+                    if *after == plain { 0 } else { 1 }
+                ),
+                format!("{now}{}; {entries} in the history; Undo gives {}", with_count(kept.to_string()), shown(&viewer)),
+            );
+            let answer = match name.as_str() {
+                "FX-SHEET-009" => "Nothing is written on frame 1 of Cel to erase: it holds the drawing above it.",
+                "FX-SHEET-011" => "Frame 2 of Cel already shows drawing 1.",
+                "FX-SHEET-014" => "Frame 0 is outside Cel, where its cells are shaded.",
+                "FX-SHEET-015" => "Drawing 12 is not in this sequence, so the frames exposing it stay empty; no neighbouring drawing is put there instead.",
+                "FX-SHEET-016" => "A cell takes a drawing number, x or an erase. Not \"a\".",
+                _ => continue,
+            };
+            report.check(
+                &format!("{name}: what the window says"),
+                answer,
+                if said.ends_with(answer) { answer } else { &said },
+            );
+        }
+
+        let page = include_str!("../ui/index.html");
+        report.check(
+            "the page writes a cell with exposure.write",
+            "present",
+            if page.contains("'/exposure.write?layer='") { "present" } else { "absent" },
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-28e_sheet_writing_table.md",
+            "B-28e: writing into the Sheet",
+            SHEET_WRITING_INTRO,
+            SHEET_WRITING_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    }
+
     /// B-28c: a cut imported from its timesheet from the window, on D-84. The order is the
     /// playtest sheet's.
     #[test]
@@ -15577,6 +15873,25 @@ mod editing {
          is `verification/B-28d_sheet_playtest.md`, for a person.",
     ];
 
+    const SHEET_WRITING_INTRO: &[&str] = &[
+        "D-84b lets a cell of the Sheet be written as on paper: a number or a cross lasts until \
+         the next thing written below it, and erasing one lets what is above it run on. The page \
+         sends `exposure.write` with the layer, the frame and the mark, and the window works out \
+         the layer's new exposures and makes them one entry in the history.",
+        "Each row is one of document 25's FX-SHEET cases, read from document 25 itself. The \
+         layer is set up as the case's Before line, the cell is written as its Do line says, and \
+         the row reads the Sheet back as a line, as document 25 writes one: the drawing on each \
+         frame, `x` for nothing and `-` outside the layer. It then counts the entries the write \
+         put in the history, and undoes it to check that Before comes back. A case that is \
+         refused, or that changes nothing, must put nothing in the history.",
+    ];
+
+    const SHEET_WRITING_NOTES: &[&str] = &[
+        "## What this does not cover\n\nTyping in the cells: choosing one, the digits, Enter, x, \
+         Delete, the arrows and Escape, and the chosen cell moving down after a write. That is \
+         `verification/B-28e_sheet_writing_playtest.md`, for a person.",
+    ];
+
     const SHAPE_PANEL_INTRO: &[&str] = &[
         "D-78 decided what a shape layer is and B-25b built it in the core, checked pixel by \
          pixel in `verification/B-25b_shape_table.md`. This is the window's half: New shape \
@@ -17485,6 +17800,7 @@ mod contract {
         "effect.set_parameters",
         "effect.toggle_bypass",
         "exposure.set_span",
+        "exposure.write",
         "keyframe.add_remove",
         "keyframe.move",
         "keyframe.set_interp",
@@ -17956,6 +18272,8 @@ mod contract {
         ("timeline.set_work_end", "a command the window answers"),
         ("timeline.set_markers", "a command the window answers"),
         ("exposure.set_span", "a command the window answers"),
+        // D-84b, accepted on 2026-09-24; B-28e built it, from the Sheet.
+        ("exposure.write", "a command the window answers"),
         ("property.set_base", "a command the window answers"),
         ("keyframe.add_remove", "a command the window answers"),
         ("keyframe.move", "a command the window answers"),
@@ -19390,11 +19708,13 @@ mod contract {
         );
         // A button, a select and a checkbox are stops on the Tab order because the browser makes
         // them so. A span or a div with a click handler is not, and that is the shape this row
-        // exists to catch.
+        // exists to catch, unless its markup puts it in the Tab order by hand, as D-84b's Sheet
+        // does so that its cells can be written from the keyboard.
         let not_focusable: Vec<String> = named
             .iter()
             .map(|id| (id, tag_of(&page, id)))
             .filter(|(_, tag)| !matches!(tag.as_str(), "button" | "select" | "input"))
+            .filter(|(id, _)| !page.contains(&format!("id=\"{id}\" tabindex=\"0\"")))
             .map(|(id, tag)| format!("{id} is a {tag}"))
             .collect();
         report.check(
@@ -19413,6 +19733,7 @@ mod contract {
                 "  li.tabIndex = 0;",
             ),
             ("the number a drag changes", "  handle.tabIndex = 0;"),
+            ("the Sheet, whose cells take typing (D-84b)", "<div id=\"xsheet\" tabindex=\"0\">"),
         ] {
             report.check(
                 &format!("{what} is put into the Tab order by hand"),
@@ -19488,7 +19809,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 58] = [
+    const CONTROLS: [&str; 59] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -19546,6 +19867,7 @@ mod contract {
         "up",
         "workspace",
         "workspacename",
+        "xsheet",
         "zoomer",
     ];
 
