@@ -6524,22 +6524,28 @@ function effectRow(layer, fx, at, of) {
     return text;
   };
   // D-89: glow's two switches and its colour. A switch sends at once; each is one entry to undo.
+  // Each under its label, the width of the card, as the colours are: beside the numbers' long
+  // labels the panel cut the menus off, which the B-33c playtest photographed.
   if (words) {
-    const choice = (name, title, options) => {
+    const row = (title) => {
       const dt = Object.assign(document.createElement('dt'), { textContent: title });
+      dt.style.gridColumn = '1 / -1';
+      const dd = Object.assign(document.createElement('dd'), { style: 'grid-column: 1 / -1' });
+      return [dt, dd];
+    };
+    const choice = (name, title, options) => {
+      const [dt, dd] = row(title);
       const select = document.createElement('select');
       select.setAttribute('aria-label', label + ' ' + title);
       for (const [value, text] of options) select.append(new Option(text, value));
       select.value = words[name];
       select.onchange = () => { words[name] = select.value; sendParameters(); };
-      const dd = document.createElement('dd');
       dd.append(select);
       dl.append(dt, dd);
     };
     choice('based_on', 'Glow Based On', [['bright', 'Bright parts'], ['colors', 'Chosen colours']]);
     choice('operation', 'Glow Operation', [['add', 'Add'], ['screen', 'Screen']]);
-    const dt = Object.assign(document.createElement('dt'), { textContent: 'Glow Colours' });
-    const dd = document.createElement('dd');
+    const [dt, dd] = row('Glow Colours');
     const own = document.createElement('select');
     own.setAttribute('aria-label', label + ' Glow Colours');
     own.append(new Option('Its own colours', ''), new Option('One colour', 'tint'));
