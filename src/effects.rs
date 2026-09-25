@@ -209,6 +209,9 @@ pub enum Effect {
         tolerance: f64,
         new_color: String,
     },
+    /// D-92: `direction`, degrees clockwise from up, -3600 to 3600, and `length`, the whole
+    /// streak in pixels, 0 to 500.
+    DirectionalBlur { direction: f64, length: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -222,6 +225,7 @@ pub const LINE_SMOOTH: &str = "core.line_smooth";
 pub const SELECTIVE_COLOR_BLUR: &str = "core.selective_color_blur";
 pub const GLOW: &str = "core.glow";
 pub const LINE_RECOLOR: &str = "core.line_recolor";
+pub const DIRECTIONAL_BLUR: &str = "core.directional_blur";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -282,6 +286,10 @@ impl Effect {
             Effect::LineRecolor { tolerance, .. } => {
                 vec![("tolerance", vec![tolerance], 0.0, 255.0)]
             }
+            Effect::DirectionalBlur { direction, length } => vec![
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("length", vec![length], 0.0, 500.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -333,6 +341,7 @@ impl Effect {
             // D-87's blur and D-89's radius are distances in pixels too.
             Effect::SelectiveColorBlur { blur, .. } => *blur = scale(*blur),
             Effect::Glow { radius, .. } => *radius = scale(*radius),
+            Effect::DirectionalBlur { length, .. } => *length = scale(*length),
             _ => {}
         }
     }
@@ -347,6 +356,7 @@ impl Effect {
             Effect::SelectiveColorBlur { .. } => "Selective Colour Blur",
             Effect::Glow { .. } => "Glow",
             Effect::LineRecolor { .. } => "Line Recolour",
+            Effect::DirectionalBlur { .. } => "Directional Blur",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -360,6 +370,7 @@ impl Effect {
             Effect::SelectiveColorBlur { .. } => SELECTIVE_COLOR_BLUR,
             Effect::Glow { .. } => GLOW,
             Effect::LineRecolor { .. } => LINE_RECOLOR,
+            Effect::DirectionalBlur { .. } => DIRECTIONAL_BLUR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -376,6 +387,8 @@ impl Effect {
             Effect::GaussianBlur { sigma_px } => kernel_radius(*sigma_px),
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
             Effect::Glow { radius, .. } => kernel_radius(*radius / 3.0),
+            // D-92: half the streak, on each side.
+            Effect::DirectionalBlur { length, .. } => (*length / 2.0).ceil() as usize,
             _ => 0,
         }
     }
@@ -691,6 +704,13 @@ pub fn apply_stack(
             } => crate::perf::time(crate::perf::Stage::EffectRecolor, || {
                 crate::cel_fx::line_recolor(source, colors, *tolerance, new_color)
             }),
+            Effect::DirectionalBlur { direction, length } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
+                    crate::blurs::directional_blur(source, *direction, *length)
+                });
+                ox += r;
+                oy += r;
+            }
         }
     }
     (ox, oy)

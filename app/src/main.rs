@@ -47,8 +47,8 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, GLOW, LINE_RECOLOR, LINE_SMOOTH,
-    SELECTIVE_COLOR_BLUR, TINT,
+    Effect, EffectInstance, EffectKey, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, GLOW,
+    LINE_RECOLOR, LINE_SMOOTH, SELECTIVE_COLOR_BLUR, TINT,
 };
 use anime_compositor::export::{
     self, ExportChoices, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
@@ -2378,7 +2378,8 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
 /// because a line with its steps smoothed is the only reason to add it. Selective colour blur
 /// starts at blur 12 with no colour chosen (D-87), which changes nothing until one is. Glow
 /// starts at After Effects' own defaults (D-89), because a glow nobody can see is no start.
-/// Line recolour starts with no colour chosen and red as the new one (D-91).
+/// Line recolour starts with no colour chosen and red as the new one (D-91). Directional blur
+/// starts at a streak of 10 pixels up and down (D-92), as a glow does, so adding it shows it.
 fn new_effect(type_id: &str) -> Option<Effect> {
     match type_id {
         EXPOSURE => Some(Effect::Exposure { stops: 0.0 }),
@@ -2410,6 +2411,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             colors: Vec::new(),
             tolerance: 0.0,
             new_color: "#ff0000".to_string(),
+        }),
+        DIRECTIONAL_BLUR => Some(Effect::DirectionalBlur {
+            direction: 0.0,
+            length: 10.0,
         }),
         _ => None,
     }
@@ -2508,6 +2513,10 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             colors: colors()?,
             tolerance: number("tolerance")?,
             new_color: word("new_color")?,
+        }),
+        DIRECTIONAL_BLUR => Ok(Effect::DirectionalBlur {
+            direction: number("direction")?,
+            length: number("length")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -5391,8 +5400,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     let Some(type_id) = parameter(query, "type") else {
                         return Some(
                             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
-                             core.line_smooth, core.selective_color_blur, core.glow or \
-                             core.line_recolor."
+                             core.line_smooth, core.selective_color_blur, core.glow, \
+                             core.line_recolor or core.directional_blur."
                                 .to_string(),
                         );
                     };
@@ -5400,7 +5409,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         return Some(format!(
                             "This build has no effect called {type_id}. It has \
                              core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
-                             core.selective_color_blur, core.glow and core.line_recolor."
+                             core.selective_color_blur, core.glow, core.line_recolor and \
+                             core.directional_blur."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -9146,16 +9156,17 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the seven are named",
+            "an effect type this build does not have is refused, and the eight are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
-             core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow \
-             and core.line_recolor.",
+             core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
+             core.line_recolor and core.directional_blur.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
-             core.line_smooth, core.selective_color_blur, core.glow or core.line_recolor.",
+             core.line_smooth, core.selective_color_blur, core.glow, core.line_recolor or \
+             core.directional_blur.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -20974,6 +20985,10 @@ mod contract {
                 ("colors", "%231e1a24"),
                 ("new_color", "%236b3a1e"),
             ],
+        ),
+        (
+            "core.directional_blur",
+            &[("direction", "45"), ("length", "10")],
         ),
     ];
 

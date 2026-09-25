@@ -78,6 +78,8 @@ pub enum Stage {
     EffectGlow,
     /// D-91's line recolour, whole-layer, per ADR-017.
     EffectRecolor,
+    /// D-92's directional blur, whole-layer, per ADR-017.
+    EffectDirBlur,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -89,7 +91,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 20] = [
+    pub const ALL: [Stage; 21] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -106,6 +108,7 @@ impl Stage {
         Stage::EffectSelBlur,
         Stage::EffectGlow,
         Stage::EffectRecolor,
+        Stage::EffectDirBlur,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -131,6 +134,7 @@ impl Stage {
             Stage::EffectSelBlur => "effect: selective colour blur",
             Stage::EffectGlow => "effect: glow",
             Stage::EffectRecolor => "effect: line recolour",
+            Stage::EffectDirBlur => "effect: directional blur",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

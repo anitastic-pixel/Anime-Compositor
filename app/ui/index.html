@@ -948,6 +948,7 @@
         <option value="core.selective_color_blur">Selective Colour Blur</option>
         <option value="core.glow">Glow</option>
         <option value="core.line_recolor">Line Recolour</option>
+        <option value="core.directional_blur">Directional Blur</option>
       </select>
     </div>
   </section>
@@ -6252,6 +6253,7 @@ const EFFECT_NAMES = {
   'core.selective_color_blur': 'Selective Colour Blur',
   'core.glow': 'Glow',
   'core.line_recolor': 'Line Recolour',
+  'core.directional_blur': 'Directional Blur',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6276,6 +6278,9 @@ const EFFECT_PARAMS = {
     ['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
   // D-91. Its colours and its new colour are drawn apart, in effectRow.
   'core.line_recolor': [['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
+  // D-92: degrees clockwise from up, and the whole streak in pixels.
+  'core.directional_blur': [['direction', 'Direction', 1, 1, '-3600 to 3600 degrees, 0 is up and down'],
+    ['length', 'Length', 1, 0.5, '0 to 500 px']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

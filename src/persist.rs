@@ -947,6 +947,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("tolerance".into(), num(*tolerance));
             params.insert("new_color".into(), J::from(new_color.as_str()));
         }
+        Effect::DirectionalBlur { direction, length } => {
+            params.insert("direction".into(), num(*direction));
+            params.insert("length".into(), num(*length));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1269,6 +1273,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "tolerance",
         "radius",
         "intensity",
+        "direction",
+        "length",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2053,6 +2059,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::SELECTIVE_COLOR_BLUR,
                 crate::effects::GLOW,
                 crate::effects::LINE_RECOLOR,
+                crate::effects::DIRECTIONAL_BLUR,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2102,6 +2109,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     colors: effect_colors(params, &at)?,
                     tolerance: effect_number(params, "tolerance", &at)?,
                     new_color: effect_word(params, "new_color", &at)?.to_ascii_lowercase(),
+                }),
+                crate::effects::DIRECTIONAL_BLUR => Some(crate::effects::Effect::DirectionalBlur {
+                    direction: effect_number(params, "direction", &at)?,
+                    length: effect_number(params, "length", &at)?,
                 }),
                 _ => None,
             };

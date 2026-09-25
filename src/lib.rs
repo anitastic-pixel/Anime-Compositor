@@ -11,6 +11,7 @@ use rayon::prelude::*;
 
 pub mod audio;
 pub mod cache;
+mod blurs;
 mod cel_fx;
 pub mod color;
 pub mod command;
