@@ -656,6 +656,8 @@
   .effect .head button { padding: 0 4px; border-color: transparent; background: transparent; }
   .effect .head .blank { display: inline-block; width: 1.4em; }
   .effect dl { margin-top: 4px; }
+  /* D-87's hex boxes: seven characters, so a colour and its ✕ fit the panel's width. */
+  .effect input.hex { width: calc(7ch + 14px); }
   .effect input[type=color] {
     width: 2.4em; height: 1.7em; padding: 0 1px; vertical-align: middle;
     border: 1px solid #4a4a4a; border-radius: 3px; background: #141414;
@@ -6491,13 +6493,16 @@ function effectRow(layer, fx, at, of) {
   // none of the tint's conversion. Colours cannot be keyed.
   if (chosen) {
     const dt = Object.assign(document.createElement('dt'), { textContent: 'Colours, up to 8' });
-    const dd = document.createElement('dd');
+    // Under its label, the width of the card: beside it, the panel left too little for a colour
+    // and its ✕.
+    dt.style.gridColumn = '1 / -1';
+    const dd = Object.assign(document.createElement('dd'), { style: 'grid-column: 1 / -1' });
     // The hex is typed, because the Windows colour window has no box for one and the match is
     // exact. Enter or leaving the box sends it, the # optional; Escape puts it back. The panel
     // is not redrawn under the typing, as with a number being typed.
     const hexBox = (value, aria, done) => {
       const text = Object.assign(document.createElement('input'),
-        { type: 'text', value, size: 8, placeholder: '#rrggbb', spellcheck: false });
+        { type: 'text', className: 'hex', value, placeholder: '#rrggbb', spellcheck: false });
       text.setAttribute('aria-label', aria);
       text.onfocus = () => { dragging = true; };
       text.onkeydown = (e) => {
@@ -6536,7 +6541,7 @@ function effectRow(layer, fx, at, of) {
       add.setAttribute('aria-label', 'Pick a colour to add to ' + label);
       add.title = 'Pick a colour to add';
       add.onchange = () => { chosen.push(add.value); sendParameters(); };
-      const line = Object.assign(document.createElement('div'), { style: 'white-space: nowrap' });
+      const line = document.createElement('div');
       line.append('Add: ', hexBox('', 'Add a colour to ' + label,
         (typed) => { chosen.push(typed); sendParameters(); }), ' or ', add);
       dd.append(line);
