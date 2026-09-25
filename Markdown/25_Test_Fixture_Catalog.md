@@ -1298,6 +1298,79 @@ Its notes: `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}
 | TIMESHEET_DRAWING_UNUSED | INFO | A column has drawings the sheet never shows | name the drawings |
 | TIMESHEET_NOT_USED | INFO | A folder or drawing beside the sheet that no column used | name them |
 
+## Sheet writing fixtures
+
+**D-84b, proposed on 2026-09-24.** Each case is one layer showing an image sequence that has drawings 1 to 9, in a composition as long as the case's lines, at 24 frames a second and starting at frame 0. A line is what the layer shows from frame 0 onward, as in the timesheet fixtures above: a number is the drawing on that frame, `x` is nothing, and `-` is outside the layer. In a Before line, `/` between two frames of the same drawing means a second exposure of it starts there. "Write 5 on frame 2" is typing 5 in that layer's cell on frame 2 and pressing Enter; "write x" is the cross; "erase frame 2" is Delete on that cell. "Exposures" is how many the layer has after, where the case is about that. A case that is refused changes nothing and puts nothing in the history. Every other case is one entry in the history, and Undo puts Before back.
+
+- FX-SHEET-001: A number written on a hold starts that drawing there. It lasts until the next thing written below it.
+  - Before: `1 1 1 1 2 2 2 2`
+  - Do: write 5 on frame 2
+  - After: `1 1 5 5 2 2 2 2`
+- FX-SHEET-002: A number written on a number replaces it, for as long as the old one lasted.
+  - Before: `1 1 1 1 2 2 2 2`
+  - Do: write 7 on frame 4
+  - After: `1 1 1 1 7 7 7 7`
+- FX-SHEET-003: A cross written on a hold: nothing is shown from there to the next thing written.
+  - Before: `1 1 1 1 2 2 2 2`
+  - Do: write x on frame 2
+  - After: `1 1 x x 2 2 2 2`
+- FX-SHEET-004: A number written inside a blank ends the blank there.
+  - Before: `1 1 x x x x 2 2`
+  - Do: write 3 on frame 3
+  - After: `1 1 x 3 3 3 2 2`
+- FX-SHEET-005: A number written on a cross replaces the blank it started.
+  - Before: `1 1 x x 2 2`
+  - Do: write 4 on frame 2
+  - After: `1 1 4 4 2 2`
+- FX-SHEET-006: Erasing a number: the drawing above runs on through its frames, as one longer exposure.
+  - Before: `1 1 2 2 3 3`
+  - Do: erase frame 2
+  - After: `1 1 1 1 3 3`
+  - Exposures: 2
+- FX-SHEET-007: Erasing a cross: the drawing above runs on through the blank.
+  - Before: `1 1 x x 2 2`
+  - Do: erase frame 2
+  - After: `1 1 1 1 2 2`
+  - Exposures: 2
+- FX-SHEET-008: Erasing the first thing written: with nothing above it, those frames go blank.
+  - Before: `1 1 2 2`
+  - Do: erase frame 0
+  - After: `x x 2 2`
+- FX-SHEET-009: A held frame has nothing written on it to erase. Refused.
+  - Before: `1 1 2 2`
+  - Do: erase frame 1
+  - After: `1 1 2 2`
+- FX-SHEET-010: A number written in a blank that runs to the end of the layer lasts to the end.
+  - Before: `1 1 2 2 x x x x`
+  - Do: write 3 on frame 5
+  - After: `1 1 2 2 x 3 3 3`
+- FX-SHEET-011: Writing the drawing a frame already shows changes nothing, and nothing goes in the history.
+  - Before: `1 1 1 1`
+  - Do: write 1 on frame 2
+  - After: `1 1 1 1`
+  - Exposures: 1
+- FX-SHEET-012: The rest of the column is left as it was, even two exposures of one drawing side by side.
+  - Before: `1 1 / 1 1 2 2`
+  - Do: write 5 on frame 4
+  - After: `1 1 1 1 5 5`
+  - Exposures: 3
+- FX-SHEET-013: A layer that starts at frame 2: the cell on frame 3 is the layer's second frame.
+  - Before: `- - 1 1 2 2`
+  - Do: write 5 on frame 3
+  - After: `- - 1 5 2 2`
+- FX-SHEET-014: The same layer: a frame before it starts cannot be written. Refused.
+  - Before: `- - 1 1 2 2`
+  - Do: write 5 on frame 0
+  - After: `- - 1 1 2 2`
+- FX-SHEET-015: A drawing the sequence does not have is written anyway, and the answer names it.
+  - Before: `1 1 2 2`
+  - Do: write 12 on frame 2
+  - After: `1 1 12 12`
+- FX-SHEET-016: Anything but a whole number, a cross or an erase is refused.
+  - Before: `1 1 2 2`
+  - Do: write a on frame 2
+  - After: `1 1 2 2`
+
 ## Mask fixtures
 
 **D-77, accepted by the owner on 2026-09-19**, built in the core by B-24b, put in the window by B-24c and set moving by B-24d. Every case is a composition 6 by 2 at 24 fps: three frames long where the mask stands still, and five where its path moves (FX-MSK-031 to 035), from the projects in `Fixtures/masks/`. The one drawing, `bg`, is the adjustment fixtures' own: opaque, red on the top row and sRGB grey 128 on the bottom. One raster layer carries the masks; nothing else is on it, so every cell is the drawing multiplied by the coverage the masks work out to. Each cell is R G B A of the finished frame, linear and premultiplied.
