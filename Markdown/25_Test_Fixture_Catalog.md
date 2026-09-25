@@ -2518,6 +2518,318 @@ FX-FMT-060: An MP4 says what its colour is: BT.709 primaries, transfer and matri
   - Action: `jumps` on row 21, and nothing else in the column
   - A: 3 circled on rows 5 and 33, where it is written; no other number circled
 
+## Line smoothing fixtures
+
+D-86, accepted on 2026-09-25. Every case is a project of one composition 12 by 8 at 24 fps, five frames long, in `Fixtures/smooth/`, holding one drawing the same size with `core.line_smooth` on it; the drawings are in `Fixtures/smooth/media/`. Softness is 50 and threshold 10 unless the case says. Values are linear premultiplied working values, as in every section above, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.
+
+**Every number below is produced by `tools/smooth_reference.py`**, which ports OpenToonz's method in double precision and adds D-86's changes, and is checked against a second port written for the proposal on 300 random drawings. The same numbers are in `Fixtures/smooth/expected_smooth.json`. Tolerance 2e-5, since the build works in single precision through the sRGB curve twice.
+
+**Worked by hand.** In FX-SMOOTH-001, row 4 is white on its left six pixels and black on its right six, with white above and black below, so each half is a run of 6 that reaches the edge of the picture. The slope starts at a half at the step and falls by 1/12 a pixel, so the pixel `k` places from the step, on either side, is mixed with the other colour by `0.5 - (2k + 1)/24`: 0.4583, 0.375, 0.2917, 0.2083, 0.125 and 0.0417 of the way, in encoded values. At softness 100 (FX-SMOOTH-003) it falls half as fast and the mix is `0.5 - (2k + 1)/48`, so the pixels at the ends of the row are still mixed by 0.2708. The tool checks both against its own numbers. The other cases are checked by what they claim: nothing two rows from the line changes (004), the box is unchanged and would not be without the guard (005), red and blue mix to encoded values that add to one with green 0 (007), and every pixel that shows on nothing has the line's own straight colour (008, 009).
+
+FX-SMOOTH-001: One step between white and black, softness 50: row 4 turns into an even slope across the whole row, and no other row changes.
+
+Frame 0, the 12 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 0, 4 | 1 1 1 1 | 0.9078199 0.9078199 0.9078199 1 |
+| 1, 4 | 1 1 1 1 | 0.7388447 0.7388447 0.7388447 1 |
+| 2, 4 | 1 1 1 1 | 0.589799 0.589799 0.589799 1 |
+| 3, 4 | 1 1 1 1 | 0.4599475 0.4599475 0.4599475 1 |
+| 4, 4 | 1 1 1 1 | 0.3485102 0.3485102 0.3485102 1 |
+| 5, 4 | 1 1 1 1 | 0.2546539 0.2546539 0.2546539 1 |
+| 6, 4 | 0 0 0 1 | 0.1774814 0.1774814 0.1774814 1 |
+| 7, 4 | 0 0 0 1 | 0.1160161 0.1160161 0.1160161 1 |
+| 8, 4 | 0 0 0 1 | 0.0691804 0.0691804 0.0691804 1 |
+| 9, 4 | 0 0 0 1 | 0.03576087 0.03576087 0.03576087 1 |
+| 10, 4 | 0 0 0 1 | 0.01434987 0.01434987 0.01434987 1 |
+| 11, 4 | 0 0 0 1 | 0.003227441 0.003227441 0.003227441 1 |
+
+FX-SMOOTH-002: The same at softness 0: the drawing, untouched.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+FX-SMOOTH-003: The same at softness 100: the slope falls half as fast, so it is still part of the way down at both ends of the row; row 4 only.
+
+Frame 0, the 12 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 0, 4 | 1 1 1 1 | 0.4906527 0.4906527 0.4906527 1 |
+| 1, 4 | 1 1 1 1 | 0.4303934 0.4303934 0.4303934 1 |
+| 2, 4 | 1 1 1 1 | 0.3746878 0.3746878 0.3746878 1 |
+| 3, 4 | 1 1 1 1 | 0.3234318 0.3234318 0.3234318 1 |
+| 4, 4 | 1 1 1 1 | 0.2765176 0.2765176 0.2765176 1 |
+| 5, 4 | 1 1 1 1 | 0.2338333 0.2338333 0.2338333 1 |
+| 6, 4 | 0 0 0 1 | 0.1952623 0.1952623 0.1952623 1 |
+| 7, 4 | 0 0 0 1 | 0.1606827 0.1606827 0.1606827 1 |
+| 8, 4 | 0 0 0 1 | 0.1299668 0.1299668 0.1299668 1 |
+| 9, 4 | 0 0 0 1 | 0.1029804 0.1029804 0.1029804 1 |
+| 10, 4 | 0 0 0 1 | 0.07958143 0.07958143 0.07958143 1 |
+| 11, 4 | 0 0 0 1 | 0.05961881 0.05961881 0.05961881 1 |
+
+FX-SMOOTH-004: A one-pixel black line stepping down every three pixels: each step is softened, and a pixel two rows from the line is untouched.
+
+Frame 0, the 26 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 0, 1 | 0 0 0 1 | 0.007628138 0.007628138 0.007628138 1 |
+| 1, 1 | 0 0 0 1 | 0.05087609 0.05087609 0.05087609 1 |
+| 2, 1 | 0 0 0 1 | 0.14485 0.14485 0.14485 1 |
+| 3, 1 | 1 1 1 1 | 0.4019778 0.4019778 0.4019778 1 |
+| 4, 1 | 1 1 1 1 | 0.9078199 0.9078199 0.9078199 1 |
+| 0, 2 | 1 1 1 1 | 0.8207967 0.8207967 0.8207967 1 |
+| 1, 2 | 1 1 1 1 | 0.5225216 0.5225216 0.5225216 1 |
+| 2, 2 | 1 1 1 1 | 0.2994389 0.2994389 0.2994389 1 |
+| 3, 2 | 0 0 0 1 | 0.09084171 0.09084171 0.09084171 1 |
+| 4, 2 | 0 0 0 1 | 0.00740039 0.00740039 0.00740039 1 |
+| 5, 2 | 0 0 0 1 | 0.09084171 0.09084171 0.09084171 1 |
+| 6, 2 | 1 1 1 1 | 0.4019778 0.4019778 0.4019778 1 |
+| 7, 2 | 1 1 1 1 | 0.9078199 0.9078199 0.9078199 1 |
+| 4, 3 | 1 1 1 1 | 0.9078199 0.9078199 0.9078199 1 |
+| 5, 3 | 1 1 1 1 | 0.4019778 0.4019778 0.4019778 1 |
+| 6, 3 | 0 0 0 1 | 0.09084171 0.09084171 0.09084171 1 |
+| 7, 3 | 0 0 0 1 | 0.00740039 0.00740039 0.00740039 1 |
+| 8, 3 | 0 0 0 1 | 0.09084171 0.09084171 0.09084171 1 |
+| 9, 3 | 1 1 1 1 | 0.2994389 0.2994389 0.2994389 1 |
+| 10, 3 | 1 1 1 1 | 0.5225216 0.5225216 0.5225216 1 |
+| 11, 3 | 1 1 1 1 | 0.8207967 0.8207967 0.8207967 1 |
+| 7, 4 | 1 1 1 1 | 0.9078199 0.9078199 0.9078199 1 |
+| 8, 4 | 1 1 1 1 | 0.4019778 0.4019778 0.4019778 1 |
+| 9, 4 | 0 0 0 1 | 0.14485 0.14485 0.14485 1 |
+| 10, 4 | 0 0 0 1 | 0.05087609 0.05087609 0.05087609 1 |
+| 11, 4 | 0 0 0 1 | 0.007628138 0.007628138 0.007628138 1 |
+
+FX-SMOOTH-005: A black box six by four: straight edges and corners of 4 or more, so nothing changes.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+FX-SMOOTH-006: A black box three by three: its corners are shorter than 4 and are rounded.
+
+Frame 0, the 8 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 4, 2 | 0 0 0 1 | 0.2691129 0.2691129 0.2691129 1 |
+| 5, 2 | 0 0 0 1 | 0.00740039 0.00740039 0.00740039 1 |
+| 6, 2 | 0 0 0 1 | 0.2691129 0.2691129 0.2691129 1 |
+| 4, 3 | 0 0 0 1 | 0.00740039 0.00740039 0.00740039 1 |
+| 6, 3 | 0 0 0 1 | 0.00740039 0.00740039 0.00740039 1 |
+| 4, 4 | 0 0 0 1 | 0.2691129 0.2691129 0.2691129 1 |
+| 5, 4 | 0 0 0 1 | 0.00740039 0.00740039 0.00740039 1 |
+| 6, 4 | 0 0 0 1 | 0.2691129 0.2691129 0.2691129 1 |
+
+FX-SMOOTH-007: A red line on blue: every pixel is red, blue or a mix of the two, never darker.
+
+Frame 0, the 26 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 0, 1 | 1 0 0 1 | 0.8207967 0 0.007628138 1 |
+| 1, 1 | 1 0 0 1 | 0.5225216 0 0.05087609 1 |
+| 2, 1 | 1 0 0 1 | 0.2994389 0 0.14485 1 |
+| 3, 1 | 0 0 1 1 | 0.09084171 0 0.4019778 1 |
+| 4, 1 | 0 0 1 1 | 0.003227441 0 0.9078199 1 |
+| 0, 2 | 0 0 1 1 | 0.007628138 0 0.8207967 1 |
+| 1, 2 | 0 0 1 1 | 0.05087609 0 0.5225216 1 |
+| 2, 2 | 0 0 1 1 | 0.14485 0 0.2994389 1 |
+| 3, 2 | 1 0 0 1 | 0.4019778 0 0.09084171 1 |
+| 4, 2 | 1 0 0 1 | 0.8243209 0 0.00740039 1 |
+| 5, 2 | 1 0 0 1 | 0.4019778 0 0.09084171 1 |
+| 6, 2 | 0 0 1 1 | 0.09084171 0 0.4019778 1 |
+| 7, 2 | 0 0 1 1 | 0.003227441 0 0.9078199 1 |
+| 4, 3 | 0 0 1 1 | 0.003227441 0 0.9078199 1 |
+| 5, 3 | 0 0 1 1 | 0.09084171 0 0.4019778 1 |
+| 6, 3 | 1 0 0 1 | 0.4019778 0 0.09084171 1 |
+| 7, 3 | 1 0 0 1 | 0.8243209 0 0.00740039 1 |
+| 8, 3 | 1 0 0 1 | 0.4019778 0 0.09084171 1 |
+| 9, 3 | 0 0 1 1 | 0.14485 0 0.2994389 1 |
+| 10, 3 | 0 0 1 1 | 0.05087609 0 0.5225216 1 |
+| 11, 3 | 0 0 1 1 | 0.007628138 0 0.8207967 1 |
+| 7, 4 | 0 0 1 1 | 0.003227441 0 0.9078199 1 |
+| 8, 4 | 0 0 1 1 | 0.09084171 0 0.4019778 1 |
+| 9, 4 | 1 0 0 1 | 0.2994389 0 0.14485 1 |
+| 10, 4 | 1 0 0 1 | 0.5225216 0 0.05087609 1 |
+| 11, 4 | 1 0 0 1 | 0.8207967 0 0.007628138 1 |
+
+FX-SMOOTH-008: A black line on nothing: the softened pixels are black, partly covering, with no grey or white fringe.
+
+Frame 0, the 26 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 0, 1 | 0 0 0 1 | 0 0 0 0.9166667 |
+| 1, 1 | 0 0 0 1 | 0 0 0 0.75 |
+| 2, 1 | 0 0 0 1 | 0 0 0 0.5833333 |
+| 3, 1 | 0 0 0 0 | 0 0 0 0.3333333 |
+| 4, 1 | 0 0 0 0 | 0 0 0 0.04166667 |
+| 0, 2 | 0 0 0 0 | 0 0 0 0.08333333 |
+| 1, 2 | 0 0 0 0 | 0 0 0 0.25 |
+| 2, 2 | 0 0 0 0 | 0 0 0 0.4166667 |
+| 3, 2 | 0 0 0 1 | 0 0 0 0.6666667 |
+| 4, 2 | 0 0 0 1 | 0 0 0 0.9184028 |
+| 5, 2 | 0 0 0 1 | 0 0 0 0.6666667 |
+| 6, 2 | 0 0 0 0 | 0 0 0 0.3333333 |
+| 7, 2 | 0 0 0 0 | 0 0 0 0.04166667 |
+| 4, 3 | 0 0 0 0 | 0 0 0 0.04166667 |
+| 5, 3 | 0 0 0 0 | 0 0 0 0.3333333 |
+| 6, 3 | 0 0 0 1 | 0 0 0 0.6666667 |
+| 7, 3 | 0 0 0 1 | 0 0 0 0.9184028 |
+| 8, 3 | 0 0 0 1 | 0 0 0 0.6666667 |
+| 9, 3 | 0 0 0 0 | 0 0 0 0.4166667 |
+| 10, 3 | 0 0 0 0 | 0 0 0 0.25 |
+| 11, 3 | 0 0 0 0 | 0 0 0 0.08333333 |
+| 7, 4 | 0 0 0 0 | 0 0 0 0.04166667 |
+| 8, 4 | 0 0 0 0 | 0 0 0 0.3333333 |
+| 9, 4 | 0 0 0 1 | 0 0 0 0.5833333 |
+| 10, 4 | 0 0 0 1 | 0 0 0 0.75 |
+| 11, 4 | 0 0 0 1 | 0 0 0 0.9166667 |
+
+FX-SMOOTH-009: A red line on nothing: every pixel that shows is the line's red.
+
+Frame 0, the 26 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 0, 1 | 1 0 0 1 | 0.9166667 0 0 0.9166667 |
+| 1, 1 | 1 0 0 1 | 0.75 0 0 0.75 |
+| 2, 1 | 1 0 0 1 | 0.5833333 0 0 0.5833333 |
+| 3, 1 | 0 0 0 0 | 0.3333333 0 0 0.3333333 |
+| 4, 1 | 0 0 0 0 | 0.04166667 0 0 0.04166667 |
+| 0, 2 | 0 0 0 0 | 0.08333333 0 0 0.08333333 |
+| 1, 2 | 0 0 0 0 | 0.25 0 0 0.25 |
+| 2, 2 | 0 0 0 0 | 0.4166667 0 0 0.4166667 |
+| 3, 2 | 1 0 0 1 | 0.6666667 0 0 0.6666667 |
+| 4, 2 | 1 0 0 1 | 0.9184028 0 0 0.9184028 |
+| 5, 2 | 1 0 0 1 | 0.6666667 0 0 0.6666667 |
+| 6, 2 | 0 0 0 0 | 0.3333333 0 0 0.3333333 |
+| 7, 2 | 0 0 0 0 | 0.04166667 0 0 0.04166667 |
+| 4, 3 | 0 0 0 0 | 0.04166667 0 0 0.04166667 |
+| 5, 3 | 0 0 0 0 | 0.3333333 0 0 0.3333333 |
+| 6, 3 | 1 0 0 1 | 0.6666667 0 0 0.6666667 |
+| 7, 3 | 1 0 0 1 | 0.9184028 0 0 0.9184028 |
+| 8, 3 | 1 0 0 1 | 0.6666667 0 0 0.6666667 |
+| 9, 3 | 0 0 0 0 | 0.4166667 0 0 0.4166667 |
+| 10, 3 | 0 0 0 0 | 0.25 0 0 0.25 |
+| 11, 3 | 0 0 0 0 | 0.08333333 0 0 0.08333333 |
+| 7, 4 | 0 0 0 0 | 0.04166667 0 0 0.04166667 |
+| 8, 4 | 0 0 0 0 | 0.3333333 0 0 0.3333333 |
+| 9, 4 | 1 0 0 1 | 0.5833333 0 0 0.5833333 |
+| 10, 4 | 1 0 0 1 | 0.75 0 0 0.75 |
+| 11, 4 | 1 0 0 1 | 0.9166667 0 0 0.9166667 |
+
+FX-SMOOTH-010: Two skin colours six apart, threshold 10: one colour to the rule, so nothing changes.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+FX-SMOOTH-011: The same at threshold 0: two colours, and their step is softened.
+
+Frame 0, the 12 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 0, 4 | 0.9559734 0.6724432 0.4910208 1 | 0.9538023 0.6706751 0.4895493 1 |
+| 1, 4 | 0.9559734 0.6724432 0.4910208 1 | 0.9494689 0.6671472 0.4866138 1 |
+| 2, 4 | 0.9559734 0.6724432 0.4910208 1 | 0.945147 0.6636301 0.4836886 1 |
+| 3, 4 | 0.9559734 0.6724432 0.4910208 1 | 0.9408366 0.6601239 0.4807738 1 |
+| 4, 4 | 0.9559734 0.6724432 0.4910208 1 | 0.9365377 0.6566285 0.4778692 1 |
+| 5, 4 | 0.9559734 0.6724432 0.4910208 1 | 0.9322503 0.6531439 0.4749748 1 |
+| 6, 4 | 0.9046612 0.6307571 0.456411 1 | 0.9279743 0.6496701 0.4720907 1 |
+| 7, 4 | 0.9046612 0.6307571 0.456411 1 | 0.9237098 0.6462071 0.4692169 1 |
+| 8, 4 | 0.9046612 0.6307571 0.456411 1 | 0.9194568 0.6427549 0.4663533 1 |
+| 9, 4 | 0.9046612 0.6307571 0.456411 1 | 0.9152152 0.6393135 0.4634999 1 |
+| 10, 4 | 0.9046612 0.6307571 0.456411 1 | 0.910985 0.6358829 0.4606567 1 |
+| 11, 4 | 0.9046612 0.6307571 0.456411 1 | 0.9067663 0.632463 0.4578237 1 |
+
+FX-SMOOTH-012: Softness keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 is FX-SMOOTH-002, frame 2 is FX-SMOOTH-001, frame 4 is FX-SMOOTH-003.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 2, the 12 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 0, 4 | 1 1 1 1 | 0.9078199 0.9078199 0.9078199 1 |
+| 1, 4 | 1 1 1 1 | 0.7388447 0.7388447 0.7388447 1 |
+| 2, 4 | 1 1 1 1 | 0.589799 0.589799 0.589799 1 |
+| 3, 4 | 1 1 1 1 | 0.4599475 0.4599475 0.4599475 1 |
+| 4, 4 | 1 1 1 1 | 0.3485102 0.3485102 0.3485102 1 |
+| 5, 4 | 1 1 1 1 | 0.2546539 0.2546539 0.2546539 1 |
+| 6, 4 | 0 0 0 1 | 0.1774814 0.1774814 0.1774814 1 |
+| 7, 4 | 0 0 0 1 | 0.1160161 0.1160161 0.1160161 1 |
+| 8, 4 | 0 0 0 1 | 0.0691804 0.0691804 0.0691804 1 |
+| 9, 4 | 0 0 0 1 | 0.03576087 0.03576087 0.03576087 1 |
+| 10, 4 | 0 0 0 1 | 0.01434987 0.01434987 0.01434987 1 |
+| 11, 4 | 0 0 0 1 | 0.003227441 0.003227441 0.003227441 1 |
+
+Frame 4, the 12 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 0, 4 | 1 1 1 1 | 0.4906527 0.4906527 0.4906527 1 |
+| 1, 4 | 1 1 1 1 | 0.4303934 0.4303934 0.4303934 1 |
+| 2, 4 | 1 1 1 1 | 0.3746878 0.3746878 0.3746878 1 |
+| 3, 4 | 1 1 1 1 | 0.3234318 0.3234318 0.3234318 1 |
+| 4, 4 | 1 1 1 1 | 0.2765176 0.2765176 0.2765176 1 |
+| 5, 4 | 1 1 1 1 | 0.2338333 0.2338333 0.2338333 1 |
+| 6, 4 | 0 0 0 1 | 0.1952623 0.1952623 0.1952623 1 |
+| 7, 4 | 0 0 0 1 | 0.1606827 0.1606827 0.1606827 1 |
+| 8, 4 | 0 0 0 1 | 0.1299668 0.1299668 0.1299668 1 |
+| 9, 4 | 0 0 0 1 | 0.1029804 0.1029804 0.1029804 1 |
+| 10, 4 | 0 0 0 1 | 0.07958143 0.07958143 0.07958143 1 |
+| 11, 4 | 0 0 0 1 | 0.05961881 0.05961881 0.05961881 1 |
+
+FX-SMOOTH-013: FX-SMOOTH-001 moved two pixels right: the same smoothed drawing, moved; the smoothing is done on the drawing's own pixels before it is moved.
+
+Frame 0, the 10 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 2, 4 | 1 1 1 1 | 0.9078199 0.9078199 0.9078199 1 |
+| 3, 4 | 1 1 1 1 | 0.7388447 0.7388447 0.7388447 1 |
+| 4, 4 | 1 1 1 1 | 0.589799 0.589799 0.589799 1 |
+| 5, 4 | 1 1 1 1 | 0.4599475 0.4599475 0.4599475 1 |
+| 6, 4 | 1 1 1 1 | 0.3485102 0.3485102 0.3485102 1 |
+| 7, 4 | 1 1 1 1 | 0.2546539 0.2546539 0.2546539 1 |
+| 8, 4 | 0 0 0 1 | 0.1774814 0.1774814 0.1774814 1 |
+| 9, 4 | 0 0 0 1 | 0.1160161 0.1160161 0.1160161 1 |
+| 10, 4 | 0 0 0 1 | 0.0691804 0.0691804 0.0691804 1 |
+| 11, 4 | 0 0 0 1 | 0.03576087 0.03576087 0.03576087 1 |
+
+Frame 3, the 10 pixels that change:
+
+| x, y | drawing | smoothed |
+| --- | --- | --- |
+| 2, 4 | 1 1 1 1 | 0.9078199 0.9078199 0.9078199 1 |
+| 3, 4 | 1 1 1 1 | 0.7388447 0.7388447 0.7388447 1 |
+| 4, 4 | 1 1 1 1 | 0.589799 0.589799 0.589799 1 |
+| 5, 4 | 1 1 1 1 | 0.4599475 0.4599475 0.4599475 1 |
+| 6, 4 | 1 1 1 1 | 0.3485102 0.3485102 0.3485102 1 |
+| 7, 4 | 1 1 1 1 | 0.2546539 0.2546539 0.2546539 1 |
+| 8, 4 | 0 0 0 1 | 0.1774814 0.1774814 0.1774814 1 |
+| 9, 4 | 0 0 0 1 | 0.1160161 0.1160161 0.1160161 1 |
+| 10, 4 | 0 0 0 1 | 0.0691804 0.0691804 0.0691804 1 |
+| 11, 4 | 0 0 0 1 | 0.03576087 0.03576087 0.03576087 1 |
+
+FX-SMOOTH-020: Softness 150, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SMOOTH-021: Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SMOOTH-022: Softness keyed to 120 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

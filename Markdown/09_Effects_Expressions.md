@@ -19,7 +19,7 @@ Suggested tests: zero exposure is identity; zero-radius blur is identity; blur o
 
 ## Expansion priorities
 
-After G1, investigate levels/curves, hue/saturation, thresholded glow, directional blur, color selection/keying, line recolor, morphology, distance-based gradients and edge smoothing. Promote only those that solve observed W-01/W-03 tasks.
+After G1, investigate levels/curves, hue/saturation, thresholded glow, directional blur, color selection/keying, line recolor, morphology, distance-based gradients and edge smoothing. Edge smoothing was promoted on 2026-09-25 as D-86, line smoothing. Promote only those that solve observed W-01/W-03 tasks.
 
 OLM's published catalog includes smoothing, cel-oriented blur, color keying, directional blur and highlight effects [S-01]. This supports researching those categories; it does not establish a required clone list or universal studio preference.
 
