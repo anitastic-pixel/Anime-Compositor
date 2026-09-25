@@ -72,6 +72,8 @@ pub enum Stage {
     EffectBlur,
     /// D-86's line smoothing, whole-layer, per ADR-017.
     EffectSmooth,
+    /// D-87's selective colour blur, whole-layer, per ADR-017.
+    EffectSelBlur,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -83,7 +85,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 17] = [
+    pub const ALL: [Stage; 18] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -97,6 +99,7 @@ impl Stage {
         Stage::EffectTint,
         Stage::EffectBlur,
         Stage::EffectSmooth,
+        Stage::EffectSelBlur,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -119,6 +122,7 @@ impl Stage {
             Stage::EffectTint => "effect: tint",
             Stage::EffectBlur => "effect: gaussian blur",
             Stage::EffectSmooth => "effect: line smoothing",
+            Stage::EffectSelBlur => "effect: selective colour blur",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
@@ -141,10 +145,11 @@ impl Stage {
             Stage::EffectTint => 10,
             Stage::EffectBlur => 11,
             Stage::EffectSmooth => 12,
-            Stage::EffectCache => 13,
-            Stage::TileLoop => 14,
-            Stage::FrameAssembly => 15,
-            Stage::Encode => 16,
+            Stage::EffectSelBlur => 13,
+            Stage::EffectCache => 14,
+            Stage::TileLoop => 15,
+            Stage::FrameAssembly => 16,
+            Stage::Encode => 17,
         }
     }
 }

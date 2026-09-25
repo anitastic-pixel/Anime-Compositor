@@ -42,6 +42,8 @@ Put (Join-Path $root 'docs\DEPENDENCIES.md') 'DEPENDENCIES.md'
 Put (Join-Path $root 'docs\SUPPORTED_ENVELOPE.md') 'READ ME FIRST.md'
 # D-86: line smoothing is ported from OpenToonz, whose BSD licence asks for its text with the build.
 Put (Join-Path $root 'docs\third_party\OpenToonz-LICENSE.txt') 'Licenses\OpenToonz\LICENSE.txt'
+# D-87: selective colour blur is ported from F's Plugins, whose MIT licence asks for its notice.
+Put (Join-Path $root 'docs\third_party\F-s-PluginsProjects-LICENSE.txt') 'Licenses\F-s-PluginsProjects\LICENSE.txt'
 
 # Every dependency's licence text, whole. Document 10 asks that a distribution carry these, and a
 # summary of them is not one of them.

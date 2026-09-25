@@ -896,6 +896,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("threshold".into(), num(*threshold));
         }
+        Effect::SelectiveColorBlur { blur, colors } => {
+            params.insert("blur".into(), num(*blur));
+            params.insert(
+                "colors".into(),
+                J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()),
+            );
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1176,6 +1183,18 @@ fn effect_color(params: Option<&J>, at: &str) -> Result<[f64; 3], Diagnostic> {
     ])
 }
 
+/// D-87: the chosen colours, a list of strings, kept as written but in small letters. Whether
+/// each is a colour is the effect's own check (D-46), not the file's shape.
+fn effect_colors(params: Option<&J>, at: &str) -> Result<Vec<String>, Diagnostic> {
+    let params = effect_params(params, at)?;
+    let at = format!("{at}/parameters/colors");
+    as_array(field(params, &at, "colors")?, &at)?
+        .iter()
+        .enumerate()
+        .map(|(i, c)| Ok(as_str(c, &format!("{at}/{i}"))?.to_ascii_lowercase()))
+        .collect()
+}
+
 /// D-68: a setting written as a property record, `{"base", "keyframes"}`, in place of a plain
 /// value. Handed back are the parameters with every such record replaced by its base, which is
 /// what the readers above take, and the keys of each setting that has any. A colour's record
@@ -1188,7 +1207,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         return Ok((None, tracks));
     };
     let mut plain = map.clone();
-    for name in ["stops", "sigma_px", "color", "amount", "softness", "threshold"] {
+    for name in ["stops", "sigma_px", "color", "amount", "softness", "threshold", "blur"] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
         };
@@ -1969,6 +1988,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::GAUSSIAN_BLUR,
                 crate::effects::TINT,
                 crate::effects::LINE_SMOOTH,
+                crate::effects::SELECTIVE_COLOR_BLUR,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -1992,6 +2012,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     softness: effect_number(params, "softness", &at)?,
                     threshold: effect_number(params, "threshold", &at)?,
                 }),
+                crate::effects::SELECTIVE_COLOR_BLUR => {
+                    Some(crate::effects::Effect::SelectiveColorBlur {
+                        blur: effect_number(params, "blur", &at)?,
+                        colors: effect_colors(params, &at)?,
+                    })
+                }
                 _ => None,
             };
             let effect_value = match parsed {

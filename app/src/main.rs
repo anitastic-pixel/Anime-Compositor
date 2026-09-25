@@ -47,7 +47,8 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, LINE_SMOOTH, TINT,
+    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, LINE_SMOOTH, SELECTIVE_COLOR_BLUR,
+    TINT,
 };
 use anime_compositor::export::{
     self, ExportChoices, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
@@ -2368,13 +2369,14 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
     said
 }
 
-/// The four effects of document 21, at the settings that change no pixels.
+/// The five effects of document 21, at the settings that change no pixels.
 ///
 /// Adding an effect and setting it are two commands rather than one, so that a stack can be
 /// built before any of it is tuned; starting each one at its identity means the picture does
 /// not jump the instant an effect is added, and the change a person then sees is the one they
 /// typed. Line smoothing is the exception D-86 makes: it starts at softness 50 and threshold 10,
-/// because a line with its steps smoothed is the only reason to add it.
+/// because a line with its steps smoothed is the only reason to add it. Selective colour blur
+/// starts at blur 12 with no colour chosen (D-87), which changes nothing until one is.
 fn new_effect(type_id: &str) -> Option<Effect> {
     match type_id {
         EXPOSURE => Some(Effect::Exposure { stops: 0.0 }),
@@ -2386,6 +2388,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         LINE_SMOOTH => Some(Effect::LineSmooth {
             softness: 50.0,
             threshold: 10.0,
+        }),
+        SELECTIVE_COLOR_BLUR => Some(Effect::SelectiveColorBlur {
+            blur: 12.0,
+            colors: Vec::new(),
         }),
         _ => None,
     }
@@ -2436,6 +2442,21 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             softness: number("softness")?,
             threshold: number("threshold")?,
         }),
+        // D-87: the chosen colours as one comma-separated list, empty for none. Whether each
+        // is a colour is the core's check, in its words.
+        SELECTIVE_COLOR_BLUR => {
+            let Some(text) = parameter(query, "colors") else {
+                return Err("Which colours should be blurred?".to_string());
+            };
+            Ok(Effect::SelectiveColorBlur {
+                blur: number("blur")?,
+                colors: text
+                    .split(',')
+                    .map(|c| c.trim().to_ascii_lowercase())
+                    .filter(|c| !c.is_empty())
+                    .collect(),
+            })
+        }
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
         // to read them against, so they are left alone and said to be left alone.
@@ -5317,25 +5338,37 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "effect.add" => {
                     let Some(type_id) = parameter(query, "type") else {
                         return Some(
-                            "Which effect? Say core.gaussian_blur, core.exposure, core.tint or \
-                             core.line_smooth."
+                            "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
+                             core.line_smooth or core.selective_color_blur."
                                 .to_string(),
                         );
                     };
                     let Some(effect) = new_effect(&type_id) else {
                         return Some(format!(
                             "This build has no effect called {type_id}. It has \
-                             core.gaussian_blur, core.exposure, core.tint and core.line_smooth."
+                             core.gaussian_blur, core.exposure, core.tint, core.line_smooth and \
+                             core.selective_color_blur."
                         ));
                     };
-                    // D-86: smoothing finds steps, which a blur or tint before it would hide,
-                    // so it goes to the top of the stack.
-                    let top = matches!(effect, Effect::LineSmooth { .. });
+                    // D-87: selective colour blur matches exact colours, which anything before
+                    // it would change, so it goes to the top of the stack. D-86 as amended:
+                    // smoothing finds steps a blur or tint before it would hide, so it goes to
+                    // the top too, but below the selective colour blurs already there.
+                    let selective = |e: &EffectInstance| {
+                        matches!(e.effect, Effect::SelectiveColorBlur { .. })
+                    };
+                    let index = match effect {
+                        Effect::SelectiveColorBlur { .. } => Some(0),
+                        Effect::LineSmooth { .. } => {
+                            Some(layer.effects.iter().take_while(|e| selective(e)).count())
+                        }
+                        _ => None,
+                    };
                     Command::AddEffect {
                         composition,
                         layer_id,
                         effect: EffectInstance::new(unused_effect_id(project), effect),
-                        index: top.then_some(0),
+                        index,
                     }
                 }
                 // The other six all name an instance that is already on the layer, so the
@@ -9008,7 +9041,33 @@ mod editing {
             r#"{"softness":50,"threshold":10}"#,
             settings(&viewer, l, "fx-2"),
         );
+        // D-87: selective colour blur matches exact colours, so it goes above even smoothing.
+        report.check(
+            "selective colour blur is added at the very top, above line smoothing",
+            "fx-3 core.selective_color_blur on, fx-2 core.line_smooth on, \
+             fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on",
+            {
+                run(&viewer, "effect.add?layer=layer-cel&type=core.selective_color_blur");
+                stack(&viewer, l)
+            },
+        );
+        report.check(
+            "and it starts at blur 12 with no colour chosen",
+            r#"{"blur":12,"colors":[]}"#,
+            settings(&viewer, l, "fx-3"),
+        );
         run(&viewer, "effect.delete?layer=layer-cel&effect=fx-2");
+        report.check(
+            "line smoothing added now goes below the selective colour blur, not above it",
+            "fx-3 core.selective_color_blur on, fx-4 core.line_smooth on, \
+             fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on",
+            {
+                run(&viewer, "effect.add?layer=layer-cel&type=core.line_smooth");
+                stack(&viewer, l)
+            },
+        );
+        run(&viewer, "effect.delete?layer=layer-cel&effect=fx-4");
+        run(&viewer, "effect.delete?layer=layer-cel&effect=fx-3");
 
         // ---- what the window refuses before the core sees it ------------------------------------------
         let depth = held(&viewer).document.undo_depth();
@@ -9023,15 +9082,15 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the four are named",
+            "an effect type this build does not have is refused, and the five are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
-             core.exposure, core.tint and core.line_smooth.",
+             core.exposure, core.tint, core.line_smooth and core.selective_color_blur.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
-            "Which effect? Say core.gaussian_blur, core.exposure, core.tint or \
-             core.line_smooth.",
+            "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
+             core.line_smooth or core.selective_color_blur.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
