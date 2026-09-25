@@ -167,6 +167,8 @@ Line recolour (D-91, accepted on 2026-09-25): parameters `colors`, 0 to 8 colour
 
 Directional blur (D-92, accepted on 2026-09-25): parameters `direction` in -3600..3600 degrees and `length` in 0..500 pixels, each held inside its range at each frame and not rounded. `tools/directional_blur_reference.py` is the reference. With `u = (sin direction, -cos direction)`, exactly `(0, -1)`, `(1, 0)`, `(0, 1)` or `(-1, 0)` when the direction is a whole multiple of 90 degrees, `n = ceil(length) + 1` and `t_k = -length / 2 + k * length / (n - 1)` for `k = 0..n-1` (`t_0 = 0` when `n = 1`), the output at the pixel whose centre is `c` is `(1 / n) * sum_k bilinear(input, c + t_k * u)`, the bilinear sample of this document's transform, from pixel centres and transparent outside the input, on premultiplied RGBA alike. Its bounds expansion is `ceil(length / 2)`. FX-DIRBLUR-001 to 015 pin it.
 
+Select colour (D-93, accepted on 2026-09-25): parameters `colors`, `tolerance` in 0..255 held inside its range at each frame, and `keep`, exactly `chosen` or `others`. `tools/select_color_reference.py` is the reference. With no colour the output is the input. Otherwise a pixel is chosen by D-88's test, and the output is the input pixel when `chosen(p)` equals `keep == chosen`, and transparent `(0, 0, 0, 0)` when not. FX-SELECT-001 to 016 pin it.
+
 ## Evaluation bounds and ROI
 
 Every effect declares input bounds expansion. Transform/mask/matte operations declare the region they can affect. Cache keys include all parameters that alter pixels or bounds. An optimization may skip pixels outside ROI only if output equals full-frame reference math within test tolerance.

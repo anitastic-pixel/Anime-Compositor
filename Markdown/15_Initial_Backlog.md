@@ -326,6 +326,8 @@ B-35 / Line recolour, D-91, the first of the seven effects the owner asked for a
 
 B-36 / Directional blur, D-92, the second of the batch. **B-36a is written on 2026-09-25**: `verification/B-36a proposal/`, D-92 in document 14, the rule in document 21, FX-DIRBLUR-001 to 015 in document 25 from `tools/directional_blur_reference.py`, which writes `Fixtures/directional_blur/`. **B-36b is built the same day**: `src/blurs.rs`, reusing the transform's bilinear sampler, the layer grown by half the length on each side and a draft preview scaling the length. `verification/B-36_directional_blur_table.md` is 66 of 66, every FX-DIRBLUR frame within 2.2e-7 of the reference; every earlier effect table is unchanged. The owner's sheet is `verification/B-36_directional_blur_playtest.md`.
 
+B-37 / Select colour, D-93, the third of the batch. **B-37a is written on 2026-09-25**: `verification/B-37a proposal/`, D-93 in document 14, the rule in document 21, FX-SELECT-001 to 016 in document 25 from `tools/select_color_reference.py`, which writes `Fixtures/select_color/`.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.

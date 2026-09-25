@@ -8031,6 +8031,501 @@ Frame 0: every pixel is the drawing's, unchanged.
 Frame 4: every pixel is the drawing's, unchanged.
 
 
+## Select colour fixtures
+
+D-93, accepted on 2026-09-25. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/select_color/`, holding one drawing the same size with `core.select_color` on it; the drawing is line recolour's, `Fixtures/select_color/media/face.png`: a box of line `#1e1a24` in columns 2 to 13 and rows 2 to 7, filled with skin `#f6d6be`, with the line at half covering down its left side in column 1 and a red trace line `#c82828` across row 5, columns 4 to 11. Unless the case says: the line chosen, tolerance 0, keep `chosen`. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.
+
+**Every number below is produced by `tools/select_color_reference.py`**, which works D-93's rule in double precision. The same numbers are in `Fixtures/select_color/expected_select_color.json`. Tolerance 2e-5.
+
+**Checked by what they claim.** The tool checks each case's claim on its numbers: keep chosen and keep others split the drawing between them pixel for pixel, the half-covering edge kept at half (001, 002); no colour leaves the drawing exactly, whichever is kept (003, 004); the trace line chosen too keeps it (005); capitals choose the same (006); the keyed tolerance keeps nothing until it reaches 10 (007); moved, the same frame moves (008); and tolerance 255 with keep others leaves nothing (009).
+
+FX-SELECT-001: The line chosen, keep chosen: only the box's line and its half-covering edge are left, the edge still half covering; the skin and the trace line become transparent.
+
+Frame 0:
+
+Row 0: unchanged.
+
+Row 1: unchanged.
+
+Row 2: unchanged.
+
+Row 3, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 5 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 4, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 5 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 5, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 5 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 6 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 7 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 8 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 9 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 10 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 11 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 6, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 5 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 7: unchanged.
+
+Row 8: unchanged.
+
+Row 9: unchanged.
+
+FX-SELECT-002: The line chosen, keep others: the line and its edge become transparent, and the skin and the trace line are left.
+
+Frame 0:
+
+Row 0: unchanged.
+
+Row 1: unchanged.
+
+Row 2, the 13 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 3 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 10 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 11 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 12 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 3, the 3 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 4, the 3 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 5, the 3 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 6, the 3 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 7, the 13 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 3 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 10 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 11 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 12 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 8: unchanged.
+
+Row 9: unchanged.
+
+FX-SELECT-003: No colour chosen, keep chosen: the drawing, untouched.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+FX-SELECT-004: No colour chosen, keep others: the drawing, untouched.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+FX-SELECT-005: The line and the trace line chosen, keep chosen: both lines are left, and only the skin goes.
+
+Frame 0:
+
+Row 0: unchanged.
+
+Row 1: unchanged.
+
+Row 2: unchanged.
+
+Row 3, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 5 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 4, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 5 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 5, the 2 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 6, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 5 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 7: unchanged.
+
+Row 8: unchanged.
+
+Row 9: unchanged.
+
+FX-SELECT-006: FX-SELECT-001 with the colour written in capitals: the same.
+
+Frame 0: the same as FX-SELECT-001 frame 0.
+
+FX-SELECT-007: #28242e chosen, 10 above the line on every channel, keep chosen, tolerance keyed from 0 at frame 0 to 20 at frame 4, linear: frames 0 and 1 choose nothing and so keep nothing, and the frame is empty; frame 2, at exactly 10, is FX-SELECT-001, and so is frame 4.
+
+Frame 0:
+
+Row 0: unchanged.
+
+Row 1: unchanged.
+
+Row 2, the 13 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 3 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 10 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 11 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 12 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 3, the 13 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 5 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 4, the 13 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 5 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 5, the 13 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 5 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 6 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 7 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 8 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 9 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 10 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 11 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 6, the 13 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 3 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 4 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 5 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 7, the 13 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 1 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+| 2 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 3 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 10 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 11 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 12 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 8: unchanged.
+
+Row 9: unchanged.
+
+Frame 1: the same as FX-SELECT-007 frame 0.
+
+Frame 2: the same as FX-SELECT-001 frame 0.
+
+Frame 4: the same as FX-SELECT-001 frame 0.
+
+FX-SELECT-008: FX-SELECT-001 moved three pixels right: the same, moved.
+
+Frame 0:
+
+Row 0: unchanged.
+
+Row 1: unchanged.
+
+Row 2: unchanged.
+
+Row 3, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 13 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 14 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 15 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 4, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 13 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 14 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 15 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 5, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 8 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 9 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 10 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 11 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 12 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 13 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 14 | 0.5775804 0.02121901 0.02121901 1 | 0 0 0 0 |
+| 15 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 6, the 10 pixels that change:
+
+| x | drawing | select |
+| --- | --- | --- |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 11 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 13 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 14 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 15 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+
+Row 7: unchanged.
+
+Row 8: unchanged.
+
+Row 9: unchanged.
+
+Frame 3: the same as FX-SELECT-008 frame 0.
+
+FX-SELECT-009: Tolerance 255, keep others: every pixel that shows is chosen, so the frame is empty.
+
+Frame 0: the same as FX-SELECT-007 frame 0.
+
+FX-SELECT-010: Tolerance 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SELECT-011: Tolerance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SELECT-012: Tolerance keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SELECT-013: Nine colours, one more than eight. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SELECT-014: A colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SELECT-015: Keep "both", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SELECT-016: Keep "Chosen", in a capital, which is kept as written and is not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
