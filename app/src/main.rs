@@ -345,19 +345,24 @@ fn sheet(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
         .expect("build the sheet response")
 }
 
-/// D-84d: `/sheet/print`, the Sheet as paper for the system's print dialog. The window writes
-/// the whole page, so what prints is the Sheet's own cells and a table can read the pages.
-fn sheet_print(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
+/// D-84d: `/sheet/print?seconds=&colour=`, the Sheet as paper for the system's print dialog.
+/// The window writes the whole page, so what prints is the Sheet's own cells and a table can read
+/// the pages. D-84e: 6 seconds a page unless asked for 3, black unless asked for red.
+fn sheet_print(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
+    let seconds = parameter(query, "seconds").map_or(6, |s| s.parse().unwrap_or(0));
+    let red = parameter(query, "colour").as_deref() == Some("red");
     allow_the_page_to_read_this(Response::builder())
         .header("content-type", "text/html; charset=utf-8")
-        .body(sheet_paper(&sheet_grid(viewer)).into_bytes())
+        .body(sheet_paper(&sheet_grid(viewer), seconds, red).into_bytes())
         .expect("build the printable sheet")
 }
 
 /// The printable page for a grid from `sheet_grid`. A page holds six seconds as two halves of
-/// three, left then right, as a Japanese A4 timesheet does; rows past the cut's end are empty
-/// and a heavy line goes under its last frame. A grid with no drawing columns has no pages.
-fn sheet_paper(grid: &serde_json::Value) -> String {
+/// three, left then right, as a Japanese A4 timesheet does, or three seconds in one; rows past
+/// the cut's end are empty and a heavy line goes under its last frame. D-84e: frames are counted
+/// from 1 on paper, whatever the Sheet on screen starts at, with each second's number beside its
+/// last row. A grid with no drawing columns, or a page of other than 6 or 3 seconds, has no pages.
+fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
     let escape = |text: &str| {
         text.replace('&', "&amp;")
             .replace('<', "&lt;")
@@ -369,42 +374,53 @@ fn sheet_paper(grid: &serde_json::Value) -> String {
     let drawings = list("columns");
     let name = escape(grid["name"].as_str().unwrap_or(""));
     let mut html = format!(
-        "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>{name}</title><style>\n{}\n</style></head><body><div id=\"paper\">\n",
-        sheet_paper_style()
+        "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>{name}</title><style>\n{}\n</style></head><body><div id=\"paper\"{}>\n",
+        sheet_paper_style(),
+        if red { " class=\"red\"" } else { "" }
     );
     if drawings.is_empty() {
         html.push_str("<p>There is nothing to print: no layer here shows drawings.</p>\n</div></body></html>\n");
         return html;
     }
+    if seconds != 6 && seconds != 3 {
+        html.push_str("<p>A page holds 6 or 3 seconds.</p>\n</div></body></html>\n");
+        return html;
+    }
     let text = list("text");
-    // As on screen: dialogue left of the drawings, camera and anything else right of them.
-    let columns: Vec<(&serde_json::Value, bool)> = text
-        .iter()
-        .filter(|c| c["kind"] == "dialogue")
-        .map(|c| (c, true))
-        .chain(drawings.iter().map(|c| (c, false)))
-        .chain(text.iter().filter(|c| c["kind"] != "dialogue").map(|c| (c, true)))
-        .collect();
+    // D-84e: as a studio's sheet: Action, then dialogue, the drawings in at least six cel
+    // columns, then camera and anything else. Action is empty unless the Sheet has one.
+    let action = serde_json::json!({ "name": "Action" });
+    let cel = serde_json::json!({ "name": "" });
+    let mut columns: Vec<(&serde_json::Value, bool)> =
+        vec![(text.iter().find(|c| c["kind"] == "action").unwrap_or(&action), true)];
+    columns.extend(text.iter().filter(|c| c["kind"] == "dialogue").map(|c| (c, true)));
+    columns.extend(drawings.iter().map(|c| (c, false)));
+    columns.extend((drawings.len()..6).map(|_| (&cel, false)));
+    columns.extend(
+        text.iter()
+            .filter(|c| c["kind"] != "dialogue" && c["kind"] != "action")
+            .map(|c| (c, true)),
+    );
     let rate = &grid["frame_rate"];
     let fps = (rate["numerator"].as_f64().unwrap_or(24.0) / rate["denominator"].as_f64().unwrap_or(1.0))
         .round()
         .max(1.0) as usize;
     let duration = grid["duration"].as_u64().unwrap_or(0) as usize;
-    let from = grid["from"].as_i64().unwrap_or(0);
     let half = 3 * fps;
-    let pages = duration.div_ceil(2 * half).max(1);
+    let halves = seconds / 3;
+    let pages = duration.div_ceil(halves * half).max(1);
     let length = format!("{} + {}", duration / fps, duration % fps);
     for page in 0..pages {
         html.push_str(&format!(
             "<section class=\"page\"><header><b class=\"cut\">{name}</b><span class=\"time\">{length}</span><span class=\"rate\">{fps} fps</span><span class=\"sheet\">Sheet {} of {pages}</span><span class=\"memo\"></span></header><div class=\"halves\">\n",
             page + 1
         ));
-        for side in 0..2 {
-            let first = (page * 2 + side) * half;
+        for side in 0..halves {
+            let first = (page * halves + side) * half;
             html.push_str(&format!(
-                "<table data-first=\"{}\" data-last=\"{}\"><tr><th class=\"frame\">frame</th>",
-                from + first as i64,
-                from + (first + half - 1) as i64
+                "<table data-first=\"{}\" data-last=\"{}\"><tr><th class=\"sec\">sec</th><th class=\"frame\">frame</th>",
+                first + 1,
+                first + half
             ));
             for (c, words) in &columns {
                 let class = if *words { " class=\"words\"" } else { "" };
@@ -424,11 +440,12 @@ fn sheet_paper(grid: &serde_json::Value) -> String {
                 if i >= duration {
                     class.push("past");
                 }
+                let second = if (i + 1) % fps == 0 { ((i + 1) / fps).to_string() } else { String::new() };
                 html.push_str(&format!(
-                    "<tr data-frame=\"{}\" class=\"{}\"><td>{}</td>",
-                    from + i as i64,
+                    "<tr data-row=\"{}\" class=\"{}\"><td class=\"sec\">{second}</td><td class=\"frame\">{}</td>",
+                    i + 1,
                     class.join(" "),
-                    from + i as i64
+                    i + 1
                 ));
                 for (c, words) in &columns {
                     let cell = if i < duration { c["cells"].get(i) } else { None };
@@ -6712,7 +6729,7 @@ fn main() {
             }
             // D-84d: `/sheet/print`, the same grid as a page to print.
             if request.uri().path().trim_matches('/') == "sheet/print" {
-                return sheet_print(&viewer);
+                return sheet_print(&viewer, request.uri().query());
             }
             match parse(request.uri().path(), request.uri().query()) {
                 Some((ask, quality)) => serve(&viewer, &export, ask, quality),
@@ -13152,7 +13169,23 @@ mod editing {
                 case.1.push((label.to_string(), said.to_string()));
             }
         }
-        report.check("document 25 has four cases", "4", cases.len().to_string());
+        report.check("document 25 has eight cases", "8", cases.len().to_string());
+        // "Everything else as FX-PRINT-001": that case's lines as well as its own.
+        let cases: Vec<(String, Vec<(String, String)>)> = cases
+            .iter()
+            .map(|(name, lines)| {
+                let mut all = lines.clone();
+                for (_, said) in lines {
+                    if let Some((_, more)) = said
+                        .strip_prefix("Everything else as ")
+                        .and_then(|other| cases.iter().find(|(n, _)| n == other))
+                    {
+                        all.extend(more.iter().cloned());
+                    }
+                }
+                (name.clone(), all)
+            })
+            .collect();
 
         let quoted = |text: &str| -> Vec<String> {
             text.split('`').skip(1).step_by(2).map(str::to_string).collect()
@@ -13177,15 +13210,23 @@ mod editing {
                 }
                 n => {
                     import_cut(&viewer, &repo("Fixtures/xdts/fx_xdts_040"));
-                    if n.starts_with("FX-PRINT-002") {
+                    if n == "FX-PRINT-002" || n == "FX-PRINT-006" {
                         run(&viewer, "composition.set_settings?frames=300");
-                    } else if n.starts_with("FX-PRINT-003") {
+                    } else if n == "FX-PRINT-003" {
                         run(&viewer, "composition.set_settings?fps=30");
                     }
                 }
             }
+            // D-84e: what the Print the Sheet window asks for, through the window's own answer.
+            let query = match name.as_str() {
+                "FX-PRINT-005" | "FX-PRINT-006" => Some("seconds=3"),
+                "FX-PRINT-007" => Some("colour=red"),
+                "FX-PRINT-008" => Some("seconds=4"),
+                _ => None,
+            };
             let grid = sheet_grid(&viewer);
-            let paper = sheet_paper(&grid);
+            let paper = String::from_utf8(sheet_print(&viewer, query).body().clone())
+                .expect("the printable page is text");
             let pages = between(&paper, "<section class=\"page\"", "</section>");
             // Each page's header fields in the order document 25 names them: cut, sheet, length,
             // rate. Read by their class, since the page lays them out as a timesheet does.
@@ -13238,6 +13279,29 @@ mod editing {
                 );
                 continue;
             }
+            if name == "FX-PRINT-008" {
+                let message = lines
+                    .iter()
+                    .flat_map(|(l, said)| quoted(&format!("{l}: {said}")))
+                    .last()
+                    .unwrap_or_default();
+                report.check(
+                    &format!("{name}: `/sheet/print` writes no pages, and says why"),
+                    format!("0 pages, {message}"),
+                    format!(
+                        "{} pages, {}",
+                        pages.len(),
+                        if paper.contains(&message) { &message } else { "(not said)" }
+                    ),
+                );
+                let offered = between(page, "<select id=\"printseconds\">", "</select>").concat();
+                report.check(
+                    &format!("{name}: the Print the Sheet window offers 6 and 3 seconds a page"),
+                    "6 and 3",
+                    between(&offered, "<option value=\"", "\"").join(" and "),
+                );
+                continue;
+            }
             for (label, said) in lines {
                 match label.as_str() {
                     "Header" => {
@@ -13257,14 +13321,92 @@ mod editing {
                     }
                     "Columns" => {
                         let first = between(&paper, "<table", "</tr>").first().cloned().unwrap_or_default();
+                        // Empty headings side by side are counted, as document 25 writes them.
+                        let count = ["", "one", "two", "three", "four", "five", "six"];
+                        let mut shown: Vec<String> = Vec::new();
+                        let mut blanks = 0;
+                        for th in between(&first, "<th", "</th>") {
+                            let heading = th.split_once('>').map_or("", |(_, name)| name);
+                            if heading.is_empty() {
+                                blanks += 1;
+                                continue;
+                            }
+                            if blanks > 0 {
+                                shown.push(format!("{} empty", count.get(blanks).unwrap_or(&"many")));
+                                blanks = 0;
+                            }
+                            shown.push(heading.to_string());
+                        }
+                        if blanks > 0 {
+                            shown.push(format!("{} empty", count.get(blanks).unwrap_or(&"many")));
+                        }
                         report.check(
                             &format!("{name}: each half's columns, left to right"),
                             said.clone(),
-                            between(&first, "<th", "</th>")
-                                .iter()
-                                .map(|th| th.split_once('>').map_or("", |(_, name)| name))
+                            shown.join(", "),
+                        );
+                    }
+                    "Seconds" => {
+                        // "a to b, beside rows r1, r2 ... to rN": second a beside r1, each next
+                        // one a step of r2 - r1 further on, and b beside rN.
+                        let n: Vec<usize> = said
+                            .split(|c: char| !c.is_ascii_digit())
+                            .filter_map(|w| w.parse().ok())
+                            .collect();
+                        let expected = match n[..] {
+                            [a, b, r1, r2, .., last] if r1 + (b - a) * (r2 - r1) == last => (a..=b)
+                                .map(|s| format!("{s} at {}", r1 + (s - a) * (r2 - r1)))
                                 .collect::<Vec<_>>()
                                 .join(", "),
+                            _ => format!("(document 25's line does not add up: {said})"),
+                        };
+                        let got: Vec<String> = between(&paper, "<tr data-row=\"", "</td>")
+                            .iter()
+                            .filter_map(|t| {
+                                let second = t.rsplit('>').next().unwrap_or("");
+                                (!second.is_empty())
+                                    .then(|| format!("{second} at {}", t.split('"').next().unwrap_or("")))
+                            })
+                            .collect();
+                        report.check(
+                            &format!("{name}: each second's number, beside its last row"),
+                            expected,
+                            got.join(", "),
+                        );
+                    }
+                    "Red" => {
+                        report.check(
+                            &format!("{name}: the paper is printed red"),
+                            "red",
+                            if paper.contains("<div id=\"paper\" class=\"red\">") { "red" } else { "black" },
+                        );
+                        // What the red style colours: its text colour and its lines, by what
+                        // they are drawn on. The marks and title entries are named by neither.
+                        let named = |what: &str| -> String {
+                            let mut on: Vec<String> = sheet_paper_style()
+                                .lines()
+                                .filter(|l| l.starts_with("#paper.red "))
+                                .filter_map(|l| l.split_once(" { "))
+                                .filter(|(_, rule)| rule.starts_with(what))
+                                .flat_map(|(selectors, _)| selectors.split(", "))
+                                .map(|s| {
+                                    let s = s.trim_start_matches("#paper.red ");
+                                    s.trim_start_matches("tr.past ").trim_start_matches("tr ").to_string()
+                                })
+                                .collect();
+                            on.sort();
+                            on.dedup();
+                            on.join(", ")
+                        };
+                        report.check(
+                            &format!("{name}: red text: the headings, the title labels, the frame and second numbers"),
+                            "header > ::before, td.frame, td.sec, th",
+                            named("color:"),
+                        );
+                        report.check(
+                            &format!("{name}: red lines: the title block's and the table's rules"),
+                            "header, header > *, td, th",
+                            named("border-color:"),
                         );
                     }
                     _ if label.starts_with("Page") => {
@@ -13295,7 +13437,7 @@ mod editing {
                 format!("{l} {said}").contains("End line").then(|| format!("{l}{said}"))
             }) {
                 let wanted = end.rsplit(' ').next().unwrap_or("").to_string();
-                let got: Vec<String> = between(&paper, "<tr data-frame=\"", ">")
+                let got: Vec<String> = between(&paper, "<tr data-row=\"", ">")
                     .iter()
                     .filter(|t| t.contains("end\"") || t.contains("end "))
                     .map(|t| t.split('"').next().unwrap_or("").to_string())
@@ -13303,23 +13445,29 @@ mod editing {
                 report.check(&format!("{name}: the heavy line under the last frame"), wanted, got.join(", "));
             }
 
-            // Every printed cell against the Sheet's, in the Sheet's order: dialogue, drawings,
-            // then the rest.
+            // Every printed cell against the Sheet's, in D-84e's order: Action, dialogue, the
+            // drawings padded to six cel columns, then the rest. Row 1 is the Sheet's first frame.
             let empty = Vec::new();
             let text = grid["text"].as_array().unwrap_or(&empty);
-            let order: Vec<&serde_json::Value> = text
-                .iter()
-                .filter(|c| c["kind"] == "dialogue")
-                .chain(grid["columns"].as_array().unwrap_or(&empty))
-                .chain(text.iter().filter(|c| c["kind"] != "dialogue"))
+            let drawings = grid["columns"].as_array().unwrap_or(&empty);
+            let order: Vec<Option<&serde_json::Value>> = std::iter::once(text.iter().find(|c| c["kind"] == "action"))
+                .chain(text.iter().filter(|c| c["kind"] == "dialogue").map(Some))
+                .chain(drawings.iter().map(Some))
+                .chain((drawings.len()..6).map(|_| None))
+                .chain(text.iter().filter(|c| c["kind"] != "dialogue" && c["kind"] != "action").map(Some))
                 .collect();
             let duration = grid["duration"].as_u64().unwrap_or(0) as usize;
             let (mut compared, mut differ) = (0, Vec::new());
-            for row in between(&paper, "<tr data-frame=\"", "</tr>") {
-                let frame: usize = row.split('"').next().and_then(|f| f.parse().ok()).unwrap_or(usize::MAX);
+            for row in between(&paper, "<tr data-row=\"", "</tr>") {
+                let frame: usize = row
+                    .split('"')
+                    .next()
+                    .and_then(|r| r.parse::<usize>().ok())
+                    .and_then(|r| r.checked_sub(1))
+                    .unwrap_or(usize::MAX);
                 let cells: Vec<serde_json::Value> = row
                     .split("<td")
-                    .skip(2)
+                    .skip(3)
                     .map(|td| {
                         let (attrs, rest) = td.split_once('>').unwrap_or(("", ""));
                         let inner = rest.split("</td>").next().unwrap_or("");
@@ -13331,15 +13479,17 @@ mod editing {
                         }
                     })
                     .collect();
+                if cells.len() != order.len() {
+                    differ.push(format!("frame {frame} has {} cells, not {}", cells.len(), order.len()));
+                }
                 for (column, cell) in order.iter().zip(&cells) {
-                    let wanted = if frame < duration {
-                        column["cells"].get(frame).cloned().unwrap_or(serde_json::json!(""))
-                    } else {
-                        serde_json::json!("")
-                    };
+                    let wanted = column
+                        .filter(|_| frame < duration)
+                        .and_then(|c| c["cells"].get(frame).cloned())
+                        .unwrap_or(serde_json::json!(""));
                     compared += 1;
                     if &wanted != cell {
-                        differ.push(format!("frame {frame} {}", column["name"]));
+                        differ.push(format!("frame {frame} {}", column.map_or(&serde_json::json!("(empty)"), |c| &c["name"])));
                     }
                 }
             }
@@ -13352,6 +13502,8 @@ mod editing {
                 n if n.starts_with("FX-PRINT-001") => Some("verification/B-28g_sheet_print_040.html"),
                 n if n.starts_with("FX-PRINT-002") => Some("verification/B-28g_sheet_print_300_frames.html"),
                 n if n.starts_with("FX-PRINT-003") => Some("verification/B-28g_sheet_print_30_fps.html"),
+                n if n.starts_with("FX-PRINT-005") => Some("verification/B-28g_sheet_print_3_seconds.html"),
+                n if n.starts_with("FX-PRINT-007") => Some("verification/B-28g_sheet_print_red.html"),
                 _ => None,
             };
             if let Some(file) = keep {
@@ -13366,13 +13518,13 @@ mod editing {
         );
         std::fs::write(
             repo("verification/B-28g_sheet_print_reference_shot.html"),
-            sheet_paper(&sheet_grid(&viewer)),
+            sheet_paper(&sheet_grid(&viewer), 6, false),
         )
         .expect("write the printable page");
         report.check(
             "the page prints what the window writes, and Ctrl+P asks for it",
             "present",
-            if page.contains("FRAMES + '/sheet/print'")
+            if page.contains("FRAMES + '/sheet/print?seconds='")
                 && page.contains("window.print()")
                 && page.contains("(e.key === 'p' || e.key === 'P')) { e.preventDefault(); printSheet(); }")
             {
@@ -16436,19 +16588,23 @@ mod editing {
         "D-84d prints the Sheet as a paper timesheet through the system's print dialog, which can \
          also save a PDF. The window writes the whole printable page from the Sheet's own cells: \
          six seconds a page as two halves of three, a header on each, empty rows past the cut's \
-         end and a heavy line under its last frame.",
+         end and a heavy line under its last frame. D-84e lays it out as a studio's sheet: rows \
+         counted from 1, each second's number beside its last row, an Action column, at least six \
+         cel columns, and a choice of 6 or 3 seconds a page, in black or red.",
         "Each FX-PRINT case is read from document 25 itself, set up in the window, and checked \
          against the page the window writes: its header, its halves page by page, its columns and \
-         its end line. Every printed cell is then compared with the cell the Sheet shows on \
-         screen. The printable pages for FX-PRINT-001 to 003 are kept beside this table as \
-         `B-28g_sheet_print_040.html`, `B-28g_sheet_print_300_frames.html` and \
-         `B-28g_sheet_print_30_fps.html`, to open in any browser.",
+         its second numbers and its end line. Every printed cell is then compared with the cell \
+         the Sheet shows on screen. The printable pages for FX-PRINT-001 to 003, 005 and 007 are \
+         kept beside this table as `B-28g_sheet_print_040.html`, \
+         `B-28g_sheet_print_300_frames.html`, `B-28g_sheet_print_30_fps.html`, \
+         `B-28g_sheet_print_3_seconds.html` and `B-28g_sheet_print_red.html`, to open in any \
+         browser.",
     ];
 
     const SHEET_PRINT_NOTES: &[&str] = &[
         "## What this does not cover\n\nWhat the paper looks like, whether the print dialog \
          opens, and whether a PDF saved from it holds the pages. That is \
-         `verification/B-28g_sheet_print_playtest.md`, for a person.",
+         `verification/B-28h_sheet_paper_playtest.md`, for a person.",
     ];
 
     const SHEET_WRITING_INTRO: &[&str] = &[
@@ -20391,7 +20547,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 60] = [
+    const CONTROLS: [&str; 62] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -20405,6 +20561,7 @@ mod contract {
         "back",
         "cancelcomp",
         "cancelexport",
+        "cancelprint",
         "cancelrelink",
         "checker",
         "checkpackage",
@@ -20431,6 +20588,7 @@ mod contract {
         "open",
         "play",
         "preferences",
+        "printnow",
         "printsheet",
         "recent",
         "recovery",

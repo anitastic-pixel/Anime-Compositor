@@ -673,6 +673,13 @@
   #newcomposition label { display: block; }
   #newcomposition input { width: 100%; box-sizing: border-box; }
   #prefs label { display: block; }
+  #printdialog {
+    background: #1e1e1e; color: #d0d0d4; border: 1px solid #7a8ba0; border-radius: 4px;
+    padding: 10px 14px;
+  }
+  #printdialog::backdrop { background: rgb(0 0 0 / 0.5); }
+  #printdialog h2 { margin-top: 0; }
+  #printdialog label { display: block; margin: 8px 0 2px; }
   #prefs input { width: 100%; box-sizing: border-box; }
   #relinking p { margin: 0 0 6px; }
 /* sheet paper: begin. D-84d: the Sheet on paper. Here, in the window's own style, since the
@@ -701,19 +708,28 @@
 #paper table { border-collapse: collapse; flex: 1; width: 0; table-layout: fixed; font-variant-numeric: tabular-nums; }
 #paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; overflow: hidden; }
 #paper th { font-size: 7pt; height: 5mm; }
-#paper th.frame { width: 8mm; }
-#paper th.words { width: 20mm; }
+#paper th.sec, #paper th.frame { font-size: 5.5pt; font-weight: normal; }
+#paper th.sec { width: 5mm; }
+#paper th.frame { width: 7mm; }
+#paper th.words { width: 13mm; }
+#paper table:only-child th.words { width: 28mm; }
 #paper td { height: 2.4mm; line-height: 2.4mm; font-size: 7.5pt; font-weight: bold; }
-#paper td:first-child { font-size: 6pt; font-weight: normal; color: #444; text-align: right; }
-#paper td.words { font-size: 6.5pt; font-weight: normal; text-align: left; white-space: nowrap; }
+#paper td.sec { font-size: 6.5pt; padding: 0; }
+#paper td.frame { font-size: 6pt; font-weight: normal; color: #444; text-align: right; }
+#paper td.words { font-size: 5.5pt; font-weight: normal; text-align: left; white-space: nowrap; }
 #paper tr.half td { border-bottom: 0.75px solid #000; }
-#paper tr.half td:first-child::before { content: "\25B6"; float: left; font-size: 5pt; }
+#paper tr.half td.sec::before { content: "\25B6"; font-size: 5pt; }
 #paper td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
 #paper td.out { background: #ddd; }
 #paper tr.second td { border-bottom: 2px solid #000; }
-#paper tr.second td:first-child { font-weight: bold; color: #000; }
+#paper tr.second td.frame { font-weight: bold; color: #000; }
 #paper tr.end td { border-bottom: 3px double #000; }
-#paper tr.past td:first-child { color: #aaa; }
+#paper tr.past td.frame, #paper tr.past td.sec { color: #aaa; }
+/* D-84e: red, as a studio's printed form: its rules, headings, frame and second numbers and
+   title labels. What is written into it, the marks and the title entries, stays black. */
+#paper.red header, #paper.red header > *, #paper.red tr th, #paper.red tr td { border-color: #d6453a; }
+#paper.red th, #paper.red header > ::before, #paper.red tr td.frame, #paper.red tr td.sec { color: #d6453a; }
+#paper.red tr.past td.frame, #paper.red tr.past td.sec { color: #eeaaa4; }
 #paper * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 /* sheet paper: end */
 </style>
@@ -933,6 +949,21 @@
   <div id="xsheet" tabindex="0"></div>
 </section>
 </div>
+<!-- D-84e: how to print the Sheet. The browser's own dialog, so Escape leaves it. -->
+<dialog id="printdialog" aria-labelledby="printtitle">
+  <h2 id="printtitle">Print the Sheet</h2>
+  <label for="printseconds">A page holds</label>
+  <select id="printseconds">
+    <option value="6">6 seconds, in two columns of 3</option>
+    <option value="3">3 seconds, in one column</option>
+  </select>
+  <label for="printcolour">Printed in</label>
+  <select id="printcolour">
+    <option value="black">black</option>
+    <option value="red">red, as a studio's printed sheet, with the marks in black</option>
+  </select>
+  <p><button id="printnow">Print&hellip;</button> <button id="cancelprint">Leave it</button></p>
+</dialog>
 <div id="bar">
   <span id="status"></span>
   <span id="autosaved"></span>
@@ -7507,17 +7538,41 @@ async function writeSheetCell(mark) {
 // D-84d: the Sheet on paper. The window writes the whole printable page; its pages are put into
 // this page, hidden, and the sheet paper style above shows only them when printing. Not a frame:
 // the window's security policy refuses a style written at run time, which printed a bare table.
+// D-84e: Print... and Ctrl+P first ask how: 6 or 3 seconds a page, black or red. The choice
+// belongs to this window, as the preferences do, and not to the project.
 async function printSheet() {
+  let grid = null;
+  try {
+    const answer = await fetch(FRAMES + '/sheet');
+    if (answer.ok) grid = await answer.json();
+  } catch (e) {
+    grid = null;
+  }
+  if (!composition() || !grid || !grid.columns || !grid.columns.length) {
+    $('status').textContent = 'There is nothing to print: no layer here shows drawings.';
+    return;
+  }
+  $('printseconds').value = prefs.printSeconds === '3' ? '3' : '6';
+  $('printcolour').value = prefs.printColour === 'red' ? 'red' : 'black';
+  if (!$('printdialog').open) $('printdialog').showModal();
+}
+async function printNow() {
+  prefs.printSeconds = $('printseconds').value;
+  prefs.printColour = $('printcolour').value;
+  savePrefs();
+  $('printdialog').close();
   let page = '';
   try {
-    const answer = await fetch(FRAMES + '/sheet/print');
+    const answer = await fetch(FRAMES + '/sheet/print?seconds=' + prefs.printSeconds
+      + '&colour=' + prefs.printColour);
     if (answer.ok) page = await answer.text();
   } catch (e) {
     page = '';
   }
   const paper = new DOMParser().parseFromString(page, 'text/html').getElementById('paper');
   if (!paper || !paper.querySelector('section.page')) {
-    $('status').textContent = 'There is nothing to print: no layer here shows drawings.';
+    $('status').textContent = (paper && paper.textContent.trim())
+      || 'There is nothing to print: no layer here shows drawings.';
     return;
   }
   // Made here and removed after printing, so not in the markup and not looked up with $().
@@ -7529,6 +7584,8 @@ async function printSheet() {
   window.print();
 }
 $('printsheet').onclick = printSheet;
+$('printnow').onclick = printNow;
+$('cancelprint').onclick = () => $('printdialog').close();
 
 $('xsheet').onkeydown = (e) => {
   if (!sheetCell || e.ctrlKey || e.altKey || e.metaKey) return;
@@ -8218,6 +8275,12 @@ addEventListener('keydown', (e) => {
   // preventing the default. Without this line the same press also reached the accelerators and
   // started playback, which is a photograph of a layer being selected and the shot playing.
   if (e.defaultPrevented) return;
+  // D-84e: while Print the Sheet is open, its own controls have every key, and Ctrl+P does not
+  // print the window behind it.
+  if ($('printdialog').open) {
+    if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) e.preventDefault();
+    return;
+  }
   const el = e.target instanceof Element
     ? e.target.closest('button, select, input, textarea, .scrub, [contenteditable]') : null;
   const typing = renaming || (el && ((el.tagName === 'INPUT' && el.type !== 'checkbox')
