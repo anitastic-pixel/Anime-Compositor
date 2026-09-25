@@ -93,5 +93,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - stops - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.tint` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, amount - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.line_smooth` is an effect this build has | added | added | pass |
+| and the settings it sends for it - softness, threshold - are the ones the command reads | accepted | accepted | pass |
 
-**73 of 73 checks pass.**
+**75 of 75 checks pass.**

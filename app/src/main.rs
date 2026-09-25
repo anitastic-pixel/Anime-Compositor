@@ -20755,8 +20755,11 @@ mod contract {
                 "layer-4",
             )["effects"]
                 .clone();
-            let instance = effects[effects.as_array().map_or(0, |e| e.len() - 1)]["instance_id"]
-                .as_str()
+            // Found by its type: line smoothing goes to the top of the stack (D-86), not the end.
+            let instance = effects
+                .as_array()
+                .and_then(|e| e.iter().rev().find(|e| e["type_id"] == *type_id))
+                .and_then(|e| e["instance_id"].as_str())
                 .expect("the effect just added has an identifier")
                 .to_string();
             let sent = params
@@ -20804,7 +20807,7 @@ mod contract {
     /// The effect identifiers the page's own tables name, and one full set of settings for each.
     ///
     /// Read off `EFFECT_PARAMS` and `EFFECT_NAMES` in the page by eye rather than by parser: this
-    /// is three effects and the parser to read a JavaScript object literal would be longer than
+    /// is four effects and the parser to read a JavaScript object literal would be longer than
     /// the list. The check is that the command reads these names, so an effect renamed on one
     /// side and not the other fails here.
     const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
@@ -20814,6 +20817,7 @@ mod contract {
             "core.tint",
             &[("color", "0.9, 0.7, 0.5"), ("amount", "0.3")],
         ),
+        ("core.line_smooth", &[("softness", "60"), ("threshold", "12")]),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

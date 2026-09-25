@@ -915,6 +915,7 @@
         <option value="core.gaussian_blur">Blur</option>
         <option value="core.exposure">Exposure</option>
         <option value="core.tint">Tint</option>
+        <option value="core.line_smooth">Line Smoothing</option>
       </select>
     </div>
   </section>
@@ -6207,7 +6208,7 @@ function drawCamera() {
   into.replaceChildren(dl);
 }
 
-// The three effects this build has, by the identifier the file uses. A type that is not here is
+// The four effects this build has, by the identifier the file uses. A type that is not here is
 // one from another version: it is listed by its own identifier and said to be unchangeable,
 // because document 19 requires an unknown effect to survive a load and save and never to be
 // silently dropped.
@@ -6215,6 +6216,7 @@ const EFFECT_NAMES = {
   'core.gaussian_blur': 'Blur',
   'core.exposure': 'Exposure',
   'core.tint': 'Tint',
+  'core.line_smooth': 'Line Smoothing',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6224,6 +6226,9 @@ const EFFECT_PARAMS = {
   'core.gaussian_blur': [['sigma_px', 'Radius σ, in source pixels', 1, 0.1]],
   'core.exposure': [['stops', 'Stops', 1, 0.02]],
   'core.tint': [['color', 'Colour, linear RGB', 3, 0.01], ['amount', 'Amount, 0 to 1', 1, 0.01]],
+  // D-86.
+  'core.line_smooth': [['softness', 'Softness, 0 to 100', 1, 0.5],
+    ['threshold', 'Threshold, 0 to 255', 1, 0.5]],
 };
 
 // Document 21 keeps the tint colour in linear light, and a colour picker speaks in sRGB. These
