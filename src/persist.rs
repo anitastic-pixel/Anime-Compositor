@@ -951,6 +951,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("direction".into(), num(*direction));
             params.insert("length".into(), num(*length));
         }
+        Effect::SelectColor {
+            colors,
+            tolerance,
+            keep,
+        } => {
+            params.insert(
+                "colors".into(),
+                J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()),
+            );
+            params.insert("tolerance".into(), num(*tolerance));
+            params.insert("keep".into(), J::from(keep.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2060,6 +2072,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::GLOW,
                 crate::effects::LINE_RECOLOR,
                 crate::effects::DIRECTIONAL_BLUR,
+                crate::effects::SELECT_COLOR,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2113,6 +2126,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::DIRECTIONAL_BLUR => Some(crate::effects::Effect::DirectionalBlur {
                     direction: effect_number(params, "direction", &at)?,
                     length: effect_number(params, "length", &at)?,
+                }),
+                // D-93: keep is read as written; "Chosen" is not the word, and is reported.
+                crate::effects::SELECT_COLOR => Some(crate::effects::Effect::SelectColor {
+                    colors: effect_colors(params, &at)?,
+                    tolerance: effect_number(params, "tolerance", &at)?,
+                    keep: effect_word(params, "keep", &at)?,
                 }),
                 _ => None,
             };

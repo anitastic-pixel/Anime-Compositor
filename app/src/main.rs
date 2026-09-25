@@ -48,7 +48,7 @@ use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
     Effect, EffectInstance, EffectKey, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, GLOW,
-    LINE_RECOLOR, LINE_SMOOTH, SELECTIVE_COLOR_BLUR, TINT,
+    LINE_RECOLOR, LINE_SMOOTH, SELECTIVE_COLOR_BLUR, SELECT_COLOR, TINT,
 };
 use anime_compositor::export::{
     self, ExportChoices, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
@@ -2416,6 +2416,12 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             direction: 0.0,
             length: 10.0,
         }),
+        // D-93: no colour chosen, so adding it changes nothing until one is.
+        SELECT_COLOR => Some(Effect::SelectColor {
+            colors: Vec::new(),
+            tolerance: 0.0,
+            keep: "chosen".to_string(),
+        }),
         _ => None,
     }
 }
@@ -2517,6 +2523,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         DIRECTIONAL_BLUR => Ok(Effect::DirectionalBlur {
             direction: number("direction")?,
             length: number("length")?,
+        }),
+        SELECT_COLOR => Ok(Effect::SelectColor {
+            colors: colors()?,
+            tolerance: number("tolerance")?,
+            keep: word("keep")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -5401,7 +5412,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         return Some(
                             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
                              core.line_smooth, core.selective_color_blur, core.glow, \
-                             core.line_recolor or core.directional_blur."
+                             core.line_recolor, core.directional_blur or core.select_color."
                                 .to_string(),
                         );
                     };
@@ -5409,21 +5420,24 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         return Some(format!(
                             "This build has no effect called {type_id}. It has \
                              core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
-                             core.selective_color_blur, core.glow, core.line_recolor and \
-                             core.directional_blur."
+                             core.selective_color_blur, core.glow, core.line_recolor, \
+                             core.directional_blur and core.select_color."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
                     // it would change, so it goes to the top of the stack. D-86 as amended:
                     // smoothing finds steps a blur or tint before it would hide, so it goes to
                     // the top too, but below the selective colour blurs already there. D-91:
-                    // line recolour matches exact colours as well, and goes there too.
+                    // line recolour matches exact colours as well, and goes there too, and
+                    // so does D-93's select colour.
                     let selective = |e: &EffectInstance| {
                         matches!(e.effect, Effect::SelectiveColorBlur { .. })
                     };
                     let index = match effect {
                         Effect::SelectiveColorBlur { .. } => Some(0),
-                        Effect::LineSmooth { .. } | Effect::LineRecolor { .. } => {
+                        Effect::LineSmooth { .. }
+                        | Effect::LineRecolor { .. }
+                        | Effect::SelectColor { .. } => {
                             Some(layer.effects.iter().take_while(|e| selective(e)).count())
                         }
                         _ => None,
@@ -9156,17 +9170,17 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the eight are named",
+            "an effect type this build does not have is refused, and the nine are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
-             core.line_recolor and core.directional_blur.",
+             core.line_recolor, core.directional_blur and core.select_color.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
-             core.line_smooth, core.selective_color_blur, core.glow, core.line_recolor or \
-             core.directional_blur.",
+             core.line_smooth, core.selective_color_blur, core.glow, core.line_recolor, \
+             core.directional_blur or core.select_color.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -20989,6 +21003,15 @@ mod contract {
         (
             "core.directional_blur",
             &[("direction", "45"), ("length", "10")],
+        ),
+        // D-93: the colours and the keep word are sent with the tolerance.
+        (
+            "core.select_color",
+            &[
+                ("tolerance", "0"),
+                ("colors", "%231e1a24"),
+                ("keep", "others"),
+            ],
         ),
     ];
 

@@ -1,7 +1,9 @@
-//! The cel colour effects, each a pixel at a time on a layer's own pixels: D-91's line recolour.
+//! The cel colour effects, each a pixel at a time on a layer's own pixels: D-91's line recolour
+//! and D-93's select colour.
 //!
-//! This program's own methods; nothing is ported. `tools/recolor_reference.py` is the same rule
-//! worked a second way, and `tests/b35_line_recolor.rs` holds this to its numbers.
+//! This program's own methods; nothing is ported. `tools/recolor_reference.py` and
+//! `tools/select_color_reference.py` are the same rules worked a second way, and
+//! `tests/b35_line_recolor.rs` and `tests/b37_select_color.rs` hold these to their numbers.
 
 use crate::color::srgb_to_linear;
 use crate::selective_blur::{chosen, parse_hex, targets};
@@ -28,6 +30,25 @@ pub(crate) fn line_recolor(
         if chosen(px, &targets, tolerance) {
             let a = px[3];
             px[..3].copy_from_slice(&[new[0] * a, new[1] * a, new[2] * a]);
+        }
+    });
+}
+
+/// D-93: a pixel is kept when whether it is chosen matches `keep_chosen`, and made transparent
+/// when not. The settings are already valid; no colour chosen changes nothing.
+pub(crate) fn select_color(
+    source: &mut WorkingBuffer,
+    colors: &[String],
+    tolerance: f64,
+    keep_chosen: bool,
+) {
+    let targets = targets(colors);
+    if targets.is_empty() {
+        return;
+    }
+    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        if chosen(px, &targets, tolerance) != keep_chosen {
+            px.fill(0.0);
         }
     });
 }

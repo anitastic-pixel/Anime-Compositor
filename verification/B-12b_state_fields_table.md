@@ -103,5 +103,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - tolerance, colors, new_color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.directional_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - direction, length - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.select_color` is an effect this build has | added | added | pass |
+| and the settings it sends for it - tolerance, colors, keep - are the ones the command reads | accepted | accepted | pass |
 
-**83 of 83 checks pass.**
+**85 of 85 checks pass.**

@@ -212,6 +212,13 @@ pub enum Effect {
     /// D-92: `direction`, degrees clockwise from up, -3600 to 3600, and `length`, the whole
     /// streak in pixels, 0 to 500.
     DirectionalBlur { direction: f64, length: f64 },
+    /// D-93: `colors` and `tolerance` as D-88's, and `keep`, "chosen" or "others": the pixels
+    /// kept, every other one made transparent.
+    SelectColor {
+        colors: Vec<String>,
+        tolerance: f64,
+        keep: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -226,6 +233,7 @@ pub const SELECTIVE_COLOR_BLUR: &str = "core.selective_color_blur";
 pub const GLOW: &str = "core.glow";
 pub const LINE_RECOLOR: &str = "core.line_recolor";
 pub const DIRECTIONAL_BLUR: &str = "core.directional_blur";
+pub const SELECT_COLOR: &str = "core.select_color";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -283,7 +291,7 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 500.0),
                 ("intensity", vec![intensity], 0.0, 10.0),
             ],
-            Effect::LineRecolor { tolerance, .. } => {
+            Effect::LineRecolor { tolerance, .. } | Effect::SelectColor { tolerance, .. } => {
                 vec![("tolerance", vec![tolerance], 0.0, 255.0)]
             }
             Effect::DirectionalBlur { direction, length } => vec![
@@ -357,6 +365,7 @@ impl Effect {
             Effect::Glow { .. } => "Glow",
             Effect::LineRecolor { .. } => "Line Recolour",
             Effect::DirectionalBlur { .. } => "Directional Blur",
+            Effect::SelectColor { .. } => "Select Colour",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -371,6 +380,7 @@ impl Effect {
             Effect::Glow { .. } => GLOW,
             Effect::LineRecolor { .. } => LINE_RECOLOR,
             Effect::DirectionalBlur { .. } => DIRECTIONAL_BLUR,
+            Effect::SelectColor { .. } => SELECT_COLOR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -509,6 +519,11 @@ impl Effect {
             Effect::LineRecolor {
                 colors, new_color, ..
             } => chosen(colors).or_else(|| one("new colour", new_color)),
+            Effect::SelectColor { colors, keep, .. } => chosen(colors).or_else(|| {
+                (!["chosen", "others"].contains(&keep.as_str())).then(|| {
+                    format!("{name} keeps \"chosen\" or \"others\", and this is \"{keep}\".")
+                })
+            }),
             _ => None,
         };
         own.or_else(|| {
@@ -711,6 +726,13 @@ pub fn apply_stack(
                 ox += r;
                 oy += r;
             }
+            Effect::SelectColor {
+                colors,
+                tolerance,
+                keep,
+            } => crate::perf::time(crate::perf::Stage::EffectSelect, || {
+                crate::cel_fx::select_color(source, colors, *tolerance, keep == "chosen")
+            }),
         }
     }
     (ox, oy)
