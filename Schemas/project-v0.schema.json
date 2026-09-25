@@ -938,6 +938,14 @@
             }
           ]
         },
+        "key_drawings": {
+          "description": "D-84g: the drawings marked as keys, by number. Written only when there are some.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
         "timesheet": {
           "description": "D-84: the timesheet column an imported cut made this layer from.",
           "anyOf": [

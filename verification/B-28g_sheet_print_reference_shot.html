@@ -45,6 +45,9 @@
 #paper tr.half td.sec::before { content: "\25B6"; font-size: 5pt; }
 #paper td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
 #paper td.out { background: #ddd; }
+/* D-84g: a key drawing's number, circled as an animator circles it. */
+#paper td.key { position: relative; }
+#paper td.key::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4.4mm; height: 2.9mm; transform: translate(-50%, -50%); border: 0.75px solid #000; border-radius: 50%; box-sizing: border-box; }
 #paper tr.second td { border-bottom: 2px solid #000; }
 #paper tr.second td.frame { font-weight: bold; color: #000; }
 #paper tr.end td { border-bottom: 3px double #000; }

@@ -822,6 +822,10 @@ pub struct Layer {
     /// back into the timing: the exposures are the layer's own. Saved as `timesheet` only when
     /// it is set, as `parent` is.
     pub timesheet: Option<Timesheet>,
+    /// D-84g: the drawings marked as keys, by number, in order. Every cell where one of them is
+    /// written is circled on the Sheet and on paper. A number the drawings do not have is kept.
+    /// Saved as `key_drawings` only when there are some.
+    pub key_drawings: Vec<u32>,
 }
 
 /// D-84: which column of which timesheet a layer's exposures were read from.
@@ -868,6 +872,7 @@ impl Layer {
             solid: None,
             shapes: Vec::new(),
             timesheet: None,
+            key_drawings: Vec::new(),
         }
     }
 

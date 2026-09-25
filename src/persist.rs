@@ -191,6 +191,7 @@ const KEY_ORDER: &[&str] = &[
     "sheet",
     "column",
     "track",
+    "key_drawings",
     "sheet_text",
     "entries",
     "text",
@@ -832,7 +833,17 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         }
         None => {}
     }
-    merge(base, owned)
+    // D-84g: written only when there are some.
+    if !layer.key_drawings.is_empty() {
+        owned.push(("key_drawings", J::from(layer.key_drawings.clone())));
+    }
+    let mut merged = merge(base, owned);
+    if layer.key_drawings.is_empty() {
+        if let Some(map) = merged.as_object_mut() {
+            map.remove("key_drawings");
+        }
+    }
+    merged
 }
 
 /// The effect record this instance was read from, so that keys this build does not know about
@@ -1761,6 +1772,19 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         }
     };
 
+    // D-84g. Absent on a layer with no key drawings.
+    let key_drawings = match v.get("key_drawings") {
+        None => Vec::new(),
+        Some(list) => {
+            let at = format!("{pointer}/key_drawings");
+            as_array(list, &at)?
+                .iter()
+                .enumerate()
+                .map(|(i, n)| as_u32(n, &format!("{at}/{i}")))
+                .collect::<Result<Vec<_>, _>>()?
+        }
+    };
+
     // D-58. Absent means the layer sits on the depth-0 plane, which is what every project
     // written before the camera existed means and why those files still open unchanged. A
     // property and not a plain number, because a depth is keyed like any other number: a
@@ -2082,6 +2106,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         solid,
         shapes,
         timesheet,
+        key_drawings,
     })
 }
 

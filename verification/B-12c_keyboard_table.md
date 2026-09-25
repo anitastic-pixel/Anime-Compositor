@@ -59,6 +59,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `effect.toggle_bypass` can be asked for without a mouse | yes | yes | pass |
 | `export` can be asked for without a mouse | yes | yes | pass |
 | `exposure.set_span` can be asked for without a mouse | yes | yes | pass |
+| `exposure.toggle_key` can be asked for without a mouse | yes | yes | pass |
 | `exposure.write` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.add_remove` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.move` can be asked for without a mouse | yes | yes | pass |
@@ -122,6 +123,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `shape.set` can be asked for without a mouse | yes | yes | pass |
 | `shape.set_path` can be asked for without a mouse | yes | yes | pass |
 | `sheet` can be asked for without a mouse | yes | yes | pass |
+| `sheet.write_action` can be asked for without a mouse | yes | yes | pass |
 | `solid.set` can be asked for without a mouse | yes | yes | pass |
 | `sound` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_markers` can be asked for without a mouse | yes | yes | pass |
@@ -167,4 +169,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**137 of 137 checks pass.**
+**139 of 139 checks pass.**

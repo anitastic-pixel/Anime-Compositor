@@ -308,6 +308,9 @@
   #xsheet td.typing { background: #1e1e1e; color: #fff; }
   /* D-84c: a dialogue or camera column, its words in the cell where they start. */
   #xsheet td.words { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: #e8d9a8; }
+  /* D-84g: a key drawing's number, circled wherever it is written. */
+  #xsheet td.key { position: relative; }
+  #xsheet td.key::after { content: ""; position: absolute; left: 50%; top: 50%; width: 24px; height: 16px; transform: translate(-50%, -50%); border: 1px solid #e8d9a8; border-radius: 50%; pointer-events: none; }
   #graph svg { display: block; width: 100%; height: 170px; touch-action: none; }
   #graph .plot { fill: none; stroke: #6ea8fe; stroke-width: 1.5; }
   #graph .plot.second { stroke: #7bd88f; }
@@ -731,6 +734,9 @@
 #paper tr.half td.sec::before { content: "\25B6"; font-size: 5pt; }
 #paper td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
 #paper td.out { background: #ddd; }
+/* D-84g: a key drawing's number, circled as an animator circles it. */
+#paper td.key { position: relative; }
+#paper td.key::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4.4mm; height: 2.9mm; transform: translate(-50%, -50%); border: 0.75px solid #000; border-radius: 50%; box-sizing: border-box; }
 #paper tr.second td { border-bottom: 2px solid #000; }
 #paper tr.second td.frame { font-weight: bold; color: #000; }
 #paper tr.end td { border-bottom: 3px double #000; }
@@ -7431,6 +7437,7 @@ async function askForXsheet() {
 let lastGrid = null;     // D-84b: the sheet as last drawn, for moving the chosen cell
 let sheetCell = null;    // the chosen cell, { layer, frame }
 let sheetTyped = '';     // digits typed into it and not yet written
+const ACTION = '#action'; // D-84g: the chosen cell's layer when it is the Action column's
 
 function drawXsheet(grid) {
   const box = $('xsheet');
@@ -7449,9 +7456,10 @@ function drawXsheet(grid) {
   const table = document.createElement('table');
   const head = table.insertRow();
   // D-84c: as on paper, dialogue left of the drawings and camera, or any other kind, right.
+  // D-84g: Action leftmost of all.
   const text = grid.text || [];
-  const left = text.filter((c) => c.kind === 'dialogue');
-  const right = text.filter((c) => c.kind !== 'dialogue');
+  const left = [...text.filter((c) => c.kind === 'action'), ...text.filter((c) => c.kind === 'dialogue')];
+  const right = text.filter((c) => c.kind !== 'dialogue' && c.kind !== 'action');
   for (const name of ['frame', ...[...left, ...grid.columns, ...right].map((c) => c.name)]) {
     const th = document.createElement('th');
     th.textContent = name;
@@ -7475,13 +7483,28 @@ function drawXsheet(grid) {
     row.dataset.frame = at;
     if ((i + 1) % fps === 0) row.classList.add('second');
     row.insertCell().textContent = at;
-    for (const column of left) wordsCell(row, column, i);
+    for (const column of left) {
+      wordsCell(row, column, i);
+      // D-84g: an Action cell is chosen and typed into like a drawing cell.
+      if (column.kind !== 'action') continue;
+      const cell = row.cells[row.cells.length - 1];
+      cell.dataset.layer = ACTION;
+      cell.dataset.mark = cell.textContent;
+      cell.onclick = () => {
+        sheetCell = { layer: ACTION, frame: at };
+        sheetTyped = '';
+        box.focus({ preventScroll: true });
+        markXsheetCell();
+      };
+    }
     for (const column of grid.columns) {
       const cell = row.insertCell();
       const mark = column.cells[i];
       if (mark === null) cell.className = 'out';
       else if (mark === '|') cell.className = 'hold';
       else cell.textContent = mark === 'x' ? '\u00d7' : mark;
+      // D-84g: a key drawing's number is circled wherever it is written.
+      if ((column.keys || []).some((n) => String(n) === mark)) cell.classList.add('key');
       cell.dataset.layer = column.layer;
       cell.dataset.mark = cell.textContent;
       // D-84b: a shaded cell, outside the layer, cannot be chosen. The row's own click still
@@ -7535,8 +7558,11 @@ function markXsheetCell() {
 // with it as a click on the row does. A shaded cell stops it.
 function moveSheetCell(across, down) {
   if (!sheetCell || !lastGrid) return;
-  const c = lastGrid.columns.findIndex((col) => col.layer === sheetCell.layer) + across;
-  const column = lastGrid.columns[c];
+  // D-84g: the Action column is the first stop, left of the drawings.
+  const action = (lastGrid.text || []).find((col) => col.kind === 'action');
+  const columns = [{ layer: ACTION, cells: action ? action.cells : [] }, ...lastGrid.columns];
+  const c = columns.findIndex((col) => col.layer === sheetCell.layer) + across;
+  const column = columns[c];
   const i = sheetCell.frame - lastGrid.from + down;
   if (!column || i < 0 || i >= column.cells.length || column.cells[i] === null) return;
   sheetTyped = '';
@@ -7555,6 +7581,15 @@ async function writeSheetCell(mark) {
   await command('/exposure.write?layer=' + encodeURIComponent(at.layer) + '&frame=' + at.frame
     + '&mark=' + mark);
   if (sheetCell === at) moveSheetCell(0, 1);
+}
+// D-84g: an Action note, written with Enter and erased with Delete (no text). It moves down
+// after a write, as a drawing cell does.
+async function writeAction(words) {
+  const at = sheetCell;
+  sheetTyped = '';
+  await command('/sheet.write_action?frame=' + at.frame
+    + (words === null ? '' : '&text=' + encodeURIComponent(words)));
+  if (sheetCell === at && words !== null) moveSheetCell(0, 1);
 }
 // D-84d: the Sheet on paper. The window writes the whole printable page; its pages are put into
 // this page, hidden, and the sheet paper style above shows only them when printing. Not a frame:
@@ -7610,7 +7645,26 @@ $('cancelprint').onclick = () => $('printdialog').close();
 
 $('xsheet').onkeydown = (e) => {
   if (!sheetCell || e.ctrlKey || e.altKey || e.metaKey) return;
+  // D-84g: an Action cell takes any letter; Space only once something is typed, so Space on an
+  // untouched cell still plays.
+  if (sheetCell.layer === ACTION) {
+    if (e.key === 'Enter') { if (sheetTyped) writeAction(sheetTyped); else moveSheetCell(0, 1); }
+    else if (e.key === 'Backspace' && sheetTyped) { sheetTyped = sheetTyped.slice(0, -1); markXsheetCell(); }
+    else if (e.key === 'Delete' || e.key === 'Backspace') writeAction(null);
+    else if (e.key === 'Escape') { sheetTyped = ''; markXsheetCell(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') moveSheetCell(0, e.key === 'ArrowUp' ? -1 : 1);
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') moveSheetCell(e.key === 'ArrowLeft' ? -1 : 1, 0);
+    else if (e.key.length === 1 && (e.key !== ' ' || sheetTyped)) { sheetTyped += e.key; markXsheetCell(); }
+    else return;
+    e.preventDefault();
+    return;
+  }
   if (/^[0-9]$/.test(e.key)) { sheetTyped += e.key; markXsheetCell(); }
+  // D-84g: K marks the chosen number's drawing a key, or unmarks it, rather than jumping to the
+  // next keyframe.
+  else if (e.key === 'k' || e.key === 'K') {
+    command('/exposure.toggle_key?layer=' + encodeURIComponent(sheetCell.layer) + '&frame=' + sheetCell.frame);
+  }
   else if (e.key === 'Enter') { if (sheetTyped) writeSheetCell(sheetTyped); else moveSheetCell(0, 1); }
   else if (e.key === 'x' || e.key === 'X') writeSheetCell('x');
   else if (e.key === 'Backspace' && sheetTyped) { sheetTyped = sheetTyped.slice(0, -1); markXsheetCell(); }

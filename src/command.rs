@@ -336,6 +336,17 @@ pub enum Command {
         layer_id: Id,
         spans: Vec<ExposureSpan>,
     },
+    /// D-84g: a composition's text columns, the whole list, as `SetMarkers` takes its markers.
+    SetSheetText {
+        composition: Id,
+        columns: Vec<crate::model::SheetText>,
+    },
+    /// D-84g: the drawings of a layer marked as keys, the whole list.
+    SetKeyDrawings {
+        composition: Id,
+        layer_id: Id,
+        drawings: Vec<u32>,
+    },
     /// Set a layer's whole list of masks. B-06, widened to a list at D-77.
     ///
     /// The whole list is the unit of change, not one mask and not one point, for the reason
@@ -462,6 +473,8 @@ impl Command {
             Command::SetAudioGain { .. } => "SET_AUDIO_GAIN",
             Command::SetCameraProperty { .. } => "SET_CAMERA_PROPERTY",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
+            Command::SetSheetText { .. } => "SET_SHEET_TEXT",
+            Command::SetKeyDrawings { .. } => "SET_KEY_DRAWINGS",
             Command::SetMasks { .. } => "SET_MASKS",
             Command::SetShapes { .. } => "SET_SHAPES",
             Command::AddEffect { .. } => "ADD_EFFECT",
@@ -616,6 +629,14 @@ impl Command {
                 1 => "Set one exposure".to_string(),
                 n => format!("Set {n} exposures"),
             },
+            Command::SetSheetText { .. } => "Write on the Sheet".to_string(),
+            Command::SetKeyDrawings { drawings, .. } => match drawings.len() {
+                0 => "Clear the key drawings".to_string(),
+                _ => format!(
+                    "Set the key drawings to {}",
+                    drawings.iter().map(u32::to_string).collect::<Vec<_>>().join(", ")
+                ),
+            },
             Command::SetMasks { masks, .. } => match masks.len() {
                 0 => "Clear the masks".to_string(),
                 1 => format!("Set mask of {} points", masks[0].points.len()),
@@ -687,6 +708,8 @@ impl Command {
             | Command::SetAudioGain { composition, .. }
             | Command::SetCameraProperty { composition, .. }
             | Command::SetExposureSpans { composition, .. }
+            | Command::SetSheetText { composition, .. }
+            | Command::SetKeyDrawings { composition, .. }
             | Command::SetMasks { composition, .. }
             | Command::SetShapes { composition, .. }
             | Command::AddEffect { composition, .. }
@@ -710,6 +733,7 @@ impl Command {
             Command::AddLayer { layer, .. } => ids.push(layer.id.clone()),
             Command::SetWorkArea { .. }
             | Command::SetMarkers { .. }
+            | Command::SetSheetText { .. }
             | Command::SetCompositionSettings { .. } => {}
             Command::RemoveLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
@@ -723,6 +747,7 @@ impl Command {
             | Command::ShiftLayer { layer_id, .. }
             | Command::TrimLayer { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
+            | Command::SetKeyDrawings { layer_id, .. }
             | Command::SetMasks { layer_id, .. }
             | Command::SetShapes { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
@@ -881,6 +906,7 @@ impl Command {
             | Command::SetDepth { layer_id, .. }
             | Command::SetAudioGain { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
+            | Command::SetKeyDrawings { layer_id, .. }
             | Command::SetMasks { layer_id, .. }
             | Command::SetShapes { layer_id, .. }
             | Command::AddEffect { layer_id, .. }
@@ -2468,6 +2494,14 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 )
             })?;
             layer_mut(project, &comp_id, layer_id)?.exposure_spans = spans.clone();
+        }
+        Command::SetSheetText { columns, .. } => {
+            comp_mut(project, &comp_id)?.sheet_text = columns.clone();
+        }
+        Command::SetKeyDrawings {
+            layer_id, drawings, ..
+        } => {
+            layer_mut(project, &comp_id, layer_id)?.key_drawings = drawings.clone();
         }
         Command::SetMasks {
             layer_id, masks, ..

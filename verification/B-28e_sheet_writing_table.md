@@ -6,13 +6,15 @@ D-84b lets a cell of the Sheet be written as on paper: a number or a cross lasts
 
 Each row is one of document 25's FX-SHEET cases, read from document 25 itself. The layer is set up as the case's Before line, the cell is written as its Do line says, and the row reads the Sheet back as a line, as document 25 writes one: the drawing on each frame, `x` for nothing and `-` outside the layer. It then counts the entries the write put in the history, and undoes it to check that Before comes back. A case that is refused, or that changes nothing, must put nothing in the history.
 
+D-84g adds FX-SHEET-017 to 024. Their Before and After say what the Action column shows and which drawings are keys. Before's notes and keys are put there with the commands the Sheet sends, `sheet.write_action` and `exposure.toggle_key`; the case's Do is played the same way, and the row reads the Action column, the keys and the circled frames back. FX-SHEET-019 saves the case to check the file keeps no Action column, and FX-SHEET-024 saves, closes and opens it.
+
 ## What this does not cover
 
-Typing in the cells: choosing one, the digits, Enter, x, Delete, the arrows and Escape, and the chosen cell moving down after a write. That is `verification/B-28e_sheet_writing_playtest.md`, for a person.
+Typing in the cells: choosing one, the digits, Enter, x, Delete, the arrows and Escape, and the chosen cell moving down after a write. That is `verification/B-28e_sheet_writing_playtest.md`, for a person, and for the Action column and K, `verification/B-28j_action_keys_playtest.md`.
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 25 has sixteen cases | 16 | 16 | pass |
+| document 25 has twenty-four cases | 24 | 24 | pass |
 | FX-SHEET-001: A number written on a hold starts that drawing there. It lasts until the next thing written below it. | 1 1 5 5 2 2 2 2; 1 in the history; Undo gives 1 1 1 1 2 2 2 2 | 1 1 5 5 2 2 2 2; 1 in the history; Undo gives 1 1 1 1 2 2 2 2 | pass |
 | FX-SHEET-002: A number written on a number replaces it, for as long as the old one lasted. | 1 1 1 1 7 7 7 7; 1 in the history; Undo gives 1 1 1 1 2 2 2 2 | 1 1 1 1 7 7 7 7; 1 in the history; Undo gives 1 1 1 1 2 2 2 2 | pass |
 | FX-SHEET-003: A cross written on a hold: nothing is shown from there to the next thing written. | 1 1 x x 2 2 2 2; 1 in the history; Undo gives 1 1 1 1 2 2 2 2 | 1 1 x x 2 2 2 2; 1 in the history; Undo gives 1 1 1 1 2 2 2 2 | pass |
@@ -34,6 +36,19 @@ Typing in the cells: choosing one, the digits, Enter, x, Delete, the arrows and 
 | FX-SHEET-015: what the window says | Drawing 12 is not in this sequence, so the frames exposing it stay empty; no neighbouring drawing is put there instead. | Drawing 12 is not in this sequence, so the frames exposing it stay empty; no neighbouring drawing is put there instead. | pass |
 | FX-SHEET-016: Anything but a whole number, a cross or an erase is refused. | 1 1 2 2; 0 in the history; Undo gives 1 1 2 2 | 1 1 2 2; 0 in the history; Undo gives 1 1 2 2 | pass |
 | FX-SHEET-016: what the window says | A cell takes a drawing number, x or an erase. Not "a". | A cell takes a drawing number, x or an erase. Not "a". | pass |
+| FX-SHEET-017: Words typed in an Action cell go on its one frame. | `1 1 2 2`; Action `. raises . .`; 1 in the history; Undo gives `1 1 2 2`; Action `. . . .` | `1 1 2 2`; Action `. raises . .`; 1 in the history; Undo gives `1 1 2 2`; Action `. . . .` | pass |
+| FX-SHEET-018: Writing on a frame with a note replaces it. | Action `. turns . .`; 1 in the history; Undo gives Action `. raises . .` | Action `. turns . .`; 1 in the history; Undo gives Action `. raises . .` | pass |
+| FX-SHEET-019: Erasing a note. | Action `. . . .`, and the composition saves no Action column; 1 in the history; Undo gives Action `. raises . .` | Action `. . . .`, and the composition saves no Action column; 1 in the history; Undo gives Action `. raises . .` | pass |
+| FX-SHEET-020: An Action cell with nothing in it has nothing to erase, and only spaces write nothing. Both refused. | Action `. . . .`; 0 in the history; Undo gives Action `. . . .` | Action `. . . .`; 0 in the history; Undo gives Action `. . . .` | pass |
+| FX-SHEET-020: what the window says | Nothing is written in Action on frame 2 to erase. / An Action note needs words: spaces alone write nothing. | Nothing is written in Action on frame 2 to erase. / An Action note needs words: spaces alone write nothing. | pass |
+| FX-SHEET-021: K on a number marks its drawing a key, circled everywhere its number is written. | Keys: 2; Circled: frames 2 and 6; 1 in the history; Undo gives `1 1 2 2 1 1 2 2`; Keys: none | Keys: 2; Circled: frames 2 and 6; 1 in the history; Undo gives `1 1 2 2 1 1 2 2`; Keys: none | pass |
+| FX-SHEET-022: K on a key's number unmarks it. | Keys: none; 1 in the history; Undo gives `1 1 2 2 1 1 2 2`; Keys: 2 | Keys: none; 1 in the history; Undo gives `1 1 2 2 1 1 2 2`; Keys: 2 | pass |
+| FX-SHEET-023: A line, a cross or an empty cell cannot be marked. Refused. | Keys: none; 0 in the history; Undo gives `1 1 x x`; Keys: none | Keys: none; 0 in the history; Undo gives `1 1 x x`; Keys: none | pass |
+| FX-SHEET-023: what the window says | Frame 1 of Cel is a line holding the drawing above it. Press K on the number itself. / Frame 2 of Cel is a cross, which is no drawing to mark as a key. / Frame 3 of Cel is empty, under a cross, so it has no drawing to mark as a key. | Frame 1 of Cel is a line holding the drawing above it. Press K on the number itself. / Frame 2 of Cel is a cross, which is no drawing to mark as a key. / Frame 3 of Cel is empty, under a cross, so it has no drawing to mark as a key. | pass |
+| FX-SHEET-024: `key_drawings` in the saved file, for the one layer with keys | 1 | 1 | pass |
+| FX-SHEET-024: A note and a key, saved and opened again, read back as they were; a layer with no keys saves no `key_drawings`. | `1 1 2 2`; Action `. raises . .`; Keys: 2 | `1 1 2 2`; Action `. raises . .`; Keys: 2 | pass |
+| FX-SHEET-024: `key_drawings` in the saved file once the key is unmarked | 0 | 0 | pass |
 | the page writes a cell with exposure.write | present | present | pass |
+| the page writes Action with sheet.write_action, and K sends exposure.toggle_key | present | present | pass |
 
-**23 of 23 checks pass.**
+**36 of 36 checks pass.**

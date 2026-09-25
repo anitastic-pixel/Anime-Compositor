@@ -337,7 +337,8 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
 ///
 /// D-84c: `text` holds the dialogue and camera columns the cut was imported with, in the order
 /// kept, a cell for each frame of the sheet: the entry's strings joined by a space where it
-/// starts, `|` while it lasts, and `""` where there is none.
+/// starts, `|` while it lasts, and `""` where there is none. D-84g: the Action column is always
+/// among them, and each drawing column says its `keys`.
 fn sheet(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
     allow_the_page_to_read_this(Response::builder())
         .header("content-type", "application/json; charset=utf-8")
@@ -388,7 +389,7 @@ fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
     }
     let text = list("text");
     // D-84e: as a studio's sheet: Action, then dialogue, the drawings in at least six cel
-    // columns, then camera and anything else. Action is empty unless the Sheet has one.
+    // columns, then camera and anything else. D-84g: the grid always has an Action column.
     let action = serde_json::json!({ "name": "Action" });
     let cel = serde_json::json!({ "name": "" });
     let mut columns: Vec<(&serde_json::Value, bool)> =
@@ -464,7 +465,13 @@ fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
                         (Some(Some("|")), _) => "<td class=\"hold\"></td>".to_string(),
                         (Some(Some("x")), false) => "<td>\u{d7}</td>".to_string(),
                         (Some(Some(mark)), true) => format!("<td class=\"words\">{}</td>", escape(mark)),
-                        (Some(Some(mark)), false) => format!("<td>{}</td>", escape(mark)),
+                        // D-84g: a key drawing's number is circled wherever it is written.
+                        (Some(Some(mark)), false) => {
+                            let key = c["keys"].as_array().is_some_and(|keys| {
+                                keys.iter().any(|n| n.as_u64().map(|n| n.to_string()).as_deref() == Some(mark))
+                            });
+                            format!("<td{}>{}</td>", if key { " class=\"key\"" } else { "" }, escape(mark))
+                        }
                     });
                 }
                 html.push_str("</tr>\n");
@@ -529,12 +536,23 @@ fn sheet_grid(viewer: &Mutex<Viewer>) -> serde_json::Value {
                             cell
                         })
                         .collect();
-                    serde_json::json!({ "layer": l.id.as_str(), "name": l.name, "cells": cells })
+                    serde_json::json!({ "layer": l.id.as_str(), "name": l.name, "cells": cells,
+                        "keys": l.key_drawings })
                 })
                 .collect();
-            let text: Vec<serde_json::Value> = comp
-                .sheet_text
-                .iter()
+            // D-84g: the Action column is on every Sheet with drawings, empty until written in.
+            let action = anime_compositor::model::SheetText {
+                kind: "action".into(),
+                name: "Action".into(),
+                track: 0,
+                entries: Vec::new(),
+            };
+            let unwritten =
+                !columns.is_empty() && !comp.sheet_text.iter().any(|c| c.kind == "action");
+            let text: Vec<serde_json::Value> = unwritten
+                .then_some(&action)
+                .into_iter()
+                .chain(&comp.sheet_text)
                 .map(|column| {
                     let mut cells = vec![String::new(); comp.duration_frames as usize];
                     for e in &column.entries {
@@ -2459,6 +2477,7 @@ const ANSWERS: &[&str] = &[
     "effect.set_parameters",
     "effect.toggle_bypass",
     "exposure.set_span",
+    "exposure.toggle_key",
     "exposure.write",
     "keyframe.add_remove",
     "keyframe.move",
@@ -2515,6 +2534,7 @@ const ANSWERS: &[&str] = &[
     "shape.delete",
     "shape.set",
     "shape.set_path",
+    "sheet.write_action",
     "solid.set",
     "timeline.set_markers",
     "timeline.set_work_end",
@@ -3696,6 +3716,75 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         markers,
                     }
                 }
+            }
+        } else if id == "sheet.write_action" {
+            // D-84g: a note in the Action column sits on its one frame. Written on a note, it
+            // replaces it; erased (no `text`), it goes, and the column with it when it was the
+            // last. The whole list of text columns is one `SetSheetText`, one entry to undo.
+            let frame = match frame_parameter(query, "frame") {
+                Ok(frame) => frame,
+                Err(said) => return Some(said),
+            };
+            let at = frame - comp.start_frame;
+            if at < 0 || at >= comp.duration_frames as i32 {
+                return Some(format!("Frame {frame} is outside {}.", comp.name));
+            }
+            let mut columns = comp.sheet_text.clone();
+            let place = match columns.iter().position(|c| c.kind == "action") {
+                Some(place) => place,
+                None => {
+                    columns.insert(
+                        0,
+                        anime_compositor::model::SheetText {
+                            kind: "action".into(),
+                            name: "Action".into(),
+                            track: 0,
+                            entries: Vec::new(),
+                        },
+                    );
+                    0
+                }
+            };
+            let entries = &mut columns[place].entries;
+            let was = entries
+                .iter()
+                .position(|e| e.start_frame <= at && at < e.end_frame_exclusive);
+            match parameter(query, "text") {
+                None => {
+                    let Some(was) = was else {
+                        return Some(format!(
+                            "Nothing is written in Action on frame {frame} to erase."
+                        ));
+                    };
+                    entries.remove(was);
+                }
+                Some(text) => {
+                    let text = text.trim().to_string();
+                    if text.is_empty() {
+                        return Some(
+                            "An Action note needs words: spaces alone write nothing.".to_string(),
+                        );
+                    }
+                    if let Some(was) = was {
+                        if entries[was].text.join(" ") == text {
+                            return Some(format!("Action on frame {frame} already says {text}."));
+                        }
+                        entries.remove(was);
+                    }
+                    entries.push(anime_compositor::model::SheetTextEntry {
+                        start_frame: at,
+                        end_frame_exclusive: at + 1,
+                        text: vec![text],
+                    });
+                    entries.sort_by_key(|e| e.start_frame);
+                }
+            }
+            if columns[place].entries.is_empty() {
+                columns.remove(place);
+            }
+            Command::SetSheetText {
+                composition,
+                columns,
             }
         } else if id == "property.set_expression" {
             // B-14c: D-59's expression, on a layer's property or the camera's. `text` absent
@@ -5152,6 +5241,66 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         composition,
                         layer_id,
                         spans,
+                    }
+                }
+                // D-84g: K on a written number marks its drawing a key of the layer, or unmarks
+                // it, and every cell where that number is written is circled. A line, a cross
+                // or an empty cell has no number of its own to mark.
+                "exposure.toggle_key" => {
+                    use anime_compositor::time::ExposureMap;
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let timing = layer.timing();
+                    let Some(here) = timing.local_frame(frame) else {
+                        return Some(format!(
+                            "Frame {frame} is outside {}, where its cells are shaded.",
+                            layer.name
+                        ));
+                    };
+                    let map = ExposureMap::new(layer.exposure_spans.clone()).ok();
+                    let shows = |f: i32| map.as_ref().and_then(|m| m.drawing_at(f));
+                    let now = shows(here);
+                    let written = here == timing.source_offset_frames || shows(here - 1) != now;
+                    let drawing = match (now, written) {
+                        (Some(n), true) => n,
+                        (Some(_), false) => {
+                            return Some(format!(
+                                "Frame {frame} of {} is a line holding the drawing above it. \
+                                 Press K on the number itself.",
+                                layer.name
+                            ))
+                        }
+                        (None, true) => {
+                            return Some(format!(
+                                "Frame {frame} of {} is a cross, which is no drawing to mark as \
+                                 a key.",
+                                layer.name
+                            ))
+                        }
+                        (None, false) => {
+                            return Some(format!(
+                                "Frame {frame} of {} is empty, under a cross, so it has no \
+                                 drawing to mark as a key.",
+                                layer.name
+                            ))
+                        }
+                    };
+                    let mut drawings = layer.key_drawings.clone();
+                    match drawings.iter().position(|&d| d == drawing) {
+                        Some(i) => {
+                            drawings.remove(i);
+                        }
+                        None => {
+                            drawings.push(drawing);
+                            drawings.sort_unstable();
+                        }
+                    }
+                    Command::SetKeyDrawings {
+                        composition,
+                        layer_id,
+                        drawings,
                     }
                 }
                 // A new effect goes on the end of the stack, which document 21 evaluates last,
@@ -13055,8 +13204,8 @@ mod editing {
         let g = grid(&viewer);
         let text = g["text"].as_array().cloned().unwrap_or_default();
         report.check(
-            "two text columns come with the cut: its dialogue, then its camera instruction",
-            "dialogue Dialogue, camera Camera",
+            "three text columns: the Sheet's Action (D-84g), then the cut's dialogue and camera instruction",
+            "action Action, dialogue Dialogue, camera Camera",
             text.iter()
                 .map(|c| format!("{} {}", c["kind"].as_str().unwrap_or(""), c["name"].as_str().unwrap_or("")))
                 .collect::<Vec<_>>()
@@ -13086,11 +13235,31 @@ mod editing {
             .split("left to right, is ")
             .nth(1)
             .and_then(|r| r.split(". ").next())
-            .unwrap_or("");
+            .unwrap_or("")
+            .trim_end_matches(" (D-84g)");
+        // The page's order: Action and dialogue on the left, the drawings, then the rest.
+        let named = |c: &serde_json::Value| c["name"].as_str().unwrap_or("").to_string();
+        let drawn: Vec<String> = std::iter::once("frame".to_string())
+            .chain(text.iter().filter(|c| c["kind"] == "action").map(named))
+            .chain(text.iter().filter(|c| c["kind"] == "dialogue").map(named))
+            .chain(g["columns"].as_array().into_iter().flatten().map(named))
+            .chain(text.iter().filter(|c| c["kind"] != "action" && c["kind"] != "dialogue").map(named))
+            .collect();
         report.check(
-            "document 25's order, left to right: dialogue, the drawings bottom first, camera",
-            "frame, Dialogue, A, B, C, Camera",
+            "document 25's order, left to right, is the Sheet's: Action, dialogue, the drawings bottom first, camera",
             order,
+            drawn.join(", "),
+        );
+        report.check(
+            "Action is empty on every frame, as document 25 says",
+            if paragraph.contains("Action is empty on every frame.") { "48 empty cells" } else { "(document 25 does not say)" },
+            format!(
+                "{} empty cells",
+                text.iter()
+                    .find(|c| c["kind"] == "action")
+                    .and_then(|c| c["cells"].as_array())
+                    .map_or(0, |cells| cells.iter().filter(|c| c.as_str() == Some("")).count())
+            ),
         );
         let shows = paragraph.split(". ").last().unwrap_or("");
         let mut clauses = 0;
@@ -13138,10 +13307,21 @@ mod editing {
         );
         run(&viewer, "edit.undo");
         run(&viewer, "edit.undo");
+        // The composition shown then is the cel project's, which has drawings and so an empty
+        // Action column (D-84g).
         report.check(
-            "undoing the write and then the import takes the text columns away with the cut",
-            "[]",
-            grid(&viewer)["text"].to_string(),
+            "undoing the write and then the import takes the cut's text columns away with it",
+            "Action, nothing written",
+            grid(&viewer)["text"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|c| {
+                    let written = c["cells"].as_array().is_some_and(|cells| cells.iter().any(|x| x != ""));
+                    format!("{}, {}", named(c), if written { "written in" } else { "nothing written" })
+                })
+                .collect::<Vec<_>>()
+                .join("; "),
         );
         let page = include_str!("../ui/index.html");
         report.check(
@@ -13188,7 +13368,7 @@ mod editing {
                 case.1.push((label.to_string(), said.to_string()));
             }
         }
-        report.check("document 25 has ten cases", "10", cases.len().to_string());
+        report.check("document 25 has eleven cases", "11", cases.len().to_string());
         // "Everything else as FX-PRINT-001": that case's lines as well as its own.
         let cases: Vec<(String, Vec<(String, String)>)> = cases
             .iter()
@@ -13309,6 +13489,24 @@ mod editing {
                     } else if n == "FX-PRINT-009" || n == "FX-PRINT-010" {
                         unwritten = Some(shown_comp(&viewer));
                         run(&viewer, &set_four(&written));
+                    } else if n == "FX-PRINT-011" {
+                        // D-84g: `jumps` in Action on frame 20, and K on the first cell where
+                        // A's drawing 3 is written.
+                        run(&viewer, "sheet.write_action?frame=20&text=jumps");
+                        let g = sheet_grid(&viewer);
+                        let a = &g["columns"][0];
+                        let at = a["cells"]
+                            .as_array()
+                            .and_then(|cells| cells.iter().position(|c| c == "3"))
+                            .expect("A has drawing 3 written");
+                        run(
+                            &viewer,
+                            &format!(
+                                "exposure.toggle_key?layer={}&frame={}",
+                                a["layer"].as_str().unwrap_or(""),
+                                g["from"].as_i64().unwrap_or(0) + at as i64
+                            ),
+                        );
                     }
                 }
             }
@@ -13647,6 +13845,62 @@ mod editing {
                 "none differ",
                 if differ.is_empty() { "none differ".to_string() } else { differ.join(", ") },
             );
+            // D-84g: what is written in Action, and every circled cell, read off the paper.
+            if name == "FX-PRINT-011" {
+                let (mut noted, mut circled) = (Vec::new(), Vec::new());
+                for row in between(&paper, "<tr data-row=\"", "</tr>") {
+                    let r = row.split('"').next().unwrap_or("").to_string();
+                    for (column, td) in order.iter().zip(row.split("<td").skip(3)) {
+                        let (attrs, rest) = td.split_once('>').unwrap_or(("", ""));
+                        let inner = rest.split("</td>").next().unwrap_or("");
+                        let heading = column.map_or("", |c| c["name"].as_str().unwrap_or(""));
+                        if heading == "Action" && !inner.is_empty() {
+                            noted.push(format!("`{inner}` on row {r}"));
+                        }
+                        if attrs.contains("key") {
+                            circled.push((heading.to_string(), inner.to_string(), r.clone()));
+                        }
+                    }
+                }
+                for (label, said) in lines {
+                    if label == "Action" {
+                        report.check(
+                            &format!("{name}: what the Action column says on paper"),
+                            said.clone(),
+                            format!("{}, and nothing else in the column", noted.join(", ")),
+                        );
+                    } else if label == "A" {
+                        let n = said.split(' ').next().unwrap_or("");
+                        let written: Vec<String> = drawings
+                            .first()
+                            .and_then(|a| a["cells"].as_array())
+                            .into_iter()
+                            .flatten()
+                            .enumerate()
+                            .filter(|(_, c)| c.as_str() == Some(n))
+                            .map(|(i, _)| (i + 1).to_string())
+                            .collect();
+                        let on_a: Vec<String> = circled
+                            .iter()
+                            .filter(|(h, m, _)| h == "A" && m == n)
+                            .map(|(_, _, r)| r.clone())
+                            .collect();
+                        report.check(
+                            &format!("{name}: the circled numbers on paper"),
+                            said.clone(),
+                            if on_a.len() == circled.len() && on_a == written {
+                                format!("{n} circled on rows {}, where it is written; no other number circled", on_a.join(" and "))
+                            } else {
+                                format!(
+                                    "circled: {}; {n} written on A's rows {}",
+                                    circled.iter().map(|(h, m, r)| format!("{h} {m} on row {r}")).collect::<Vec<_>>().join(", "),
+                                    written.join(" and ")
+                                )
+                            },
+                        );
+                    }
+                }
+            }
             let keep = match name.as_str() {
                 n if n.starts_with("FX-PRINT-001") => Some("verification/B-28g_sheet_print_040.html"),
                 n if n.starts_with("FX-PRINT-002") => Some("verification/B-28g_sheet_print_300_frames.html"),
@@ -13654,6 +13908,7 @@ mod editing {
                 n if n.starts_with("FX-PRINT-005") => Some("verification/B-28g_sheet_print_3_seconds.html"),
                 n if n.starts_with("FX-PRINT-007") => Some("verification/B-28g_sheet_print_red.html"),
                 n if n.starts_with("FX-PRINT-009") => Some("verification/B-28g_sheet_print_title_block.html"),
+                n if n.starts_with("FX-PRINT-011") => Some("verification/B-28g_sheet_print_keys.html"),
                 _ => None,
             };
             if let Some(file) = keep {
@@ -13724,12 +13979,21 @@ mod editing {
             } else if let Some(case) = cases.last_mut() {
                 for (i, key) in ["- Before:", "- Do:", "- After:", "- Exposures:"].iter().enumerate() {
                     if let Some(value) = line.strip_prefix(key) {
-                        case[i + 2] = value.trim().trim_matches('`').to_string();
+                        // D-84g's Before and After have more than a line in backticks.
+                        case[i + 2] = if i == 0 || i == 2 {
+                            value.trim().to_string()
+                        } else {
+                            value.trim().trim_matches('`').to_string()
+                        };
                     }
                 }
             }
         }
-        report.check("document 25 has sixteen cases", "16", cases.len().to_string());
+        report.check("document 25 has twenty-four cases", "24", cases.len().to_string());
+        // D-84g's cases say what the Action column or the keys show, and are played below.
+        let (cases, d84g): (Vec<[String; 6]>, Vec<[String; 6]>) = cases
+            .into_iter()
+            .partition(|c| !c[2].contains("Action `") && !c[2].contains("Keys:"));
 
         let template: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(repo("Fixtures/projects/cel_holds_project.json"))
@@ -13770,7 +14034,8 @@ mod editing {
                 .map_or(0, |l| l.exposure_spans.len())
         };
 
-        for [name, says, before, action, after, count] in &cases {
+        // The cel project with its layer set up as a Before line, opened.
+        let set_up = |name: &str, before: &str| {
             // Before's line as exposures: a number the frame before also has holds, unless a
             // `/` between them starts a second exposure of it.
             let marks: Vec<&str> = before.split(' ').collect();
@@ -13811,10 +14076,12 @@ mod editing {
             comp["layers"][0]["exposure_spans"] = serde_json::json!(spans);
             let path = folder.join(format!("{name}.json"));
             std::fs::write(&path, project.to_string()).expect("write the case");
-            let viewer = Mutex::new(
-                open(&path).unwrap_or_else(|d| panic!("open {name}: {}", d.message)),
-            );
+            Mutex::new(open(&path).unwrap_or_else(|d| panic!("open {name}: {}", d.message)))
+        };
 
+        for [name, says, before, action, after, count] in &cases {
+            let (before, after) = (before.trim_matches('`'), after.trim_matches('`'));
+            let viewer = set_up(name, before);
             let words: Vec<&str> = action.split(' ').collect();
             let (mark, at) = match words.as_slice() {
                 ["write", mark, "on", "frame", at] => (*mark, *at),
@@ -13839,7 +14106,7 @@ mod editing {
                 format!(
                     "{after}{}; {} in the history; Undo gives {plain}",
                     with_count(count.clone()),
-                    if *after == plain { 0 } else { 1 }
+                    if after == plain { 0 } else { 1 }
                 ),
                 format!("{now}{}; {entries} in the history; Undo gives {}", with_count(kept.to_string()), shown(&viewer)),
             );
@@ -13858,11 +14125,224 @@ mod editing {
             );
         }
 
+        // D-84g. The Action column as document 25 writes it, `.` for an empty cell.
+        let noted = |viewer: &Mutex<Viewer>| {
+            let grid = sheet_grid(viewer);
+            grid["text"]
+                .as_array()
+                .and_then(|text| text.iter().find(|c| c["kind"] == "action"))
+                .and_then(|c| c["cells"].as_array())
+                .into_iter()
+                .flatten()
+                .map(|cell| match cell.as_str().unwrap_or("?") {
+                    "" => ".".to_string(),
+                    other => other.to_string(),
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        let keys = |viewer: &Mutex<Viewer>| {
+            let held = held(viewer);
+            let keys = held
+                .document
+                .project()
+                .composition(&held.composition)
+                .and_then(|c| c.layer(&Id::new("layer-cel")))
+                .map(|l| l.key_drawings.clone())
+                .unwrap_or_default();
+            if keys.is_empty() {
+                "none".to_string()
+            } else {
+                keys.iter().map(u32::to_string).collect::<Vec<_>>().join(" and ")
+            }
+        };
+        // The frames where the Sheet writes a number that is a key.
+        let circled = |viewer: &Mutex<Viewer>| {
+            let grid = sheet_grid(viewer);
+            let column = &grid["columns"][0];
+            let frames: Vec<String> = column["cells"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .enumerate()
+                .filter(|(_, cell)| {
+                    column["keys"].as_array().into_iter().flatten().any(|k| {
+                        cell.as_str() == Some(k.to_string().as_str())
+                    })
+                })
+                .map(|(i, _)| (grid["from"].as_i64().unwrap_or(0) + i as i64).to_string())
+                .collect();
+            match frames.len() {
+                0 => "none".to_string(),
+                1 => format!("frame {}", frames[0]),
+                _ => format!("frames {}", frames.join(" and ")),
+            }
+        };
+        // What a Before or After names, as the viewer shows it now. A claim after the Action
+        // line, that the composition saves no Action column, is read from a saved file.
+        let state = |template: &str, viewer: &Mutex<Viewer>, name: &str| {
+            template
+                .split("; ")
+                .map(|part| {
+                    if part.starts_with('`') {
+                        format!("`{}`", shown(viewer))
+                    } else if part.starts_with("Action `") {
+                        let claim = part.rsplit('`').next().unwrap_or("");
+                        let claim = if claim.contains("saves no Action column") {
+                            // Saved as `save_as` does, without taking the saved file up, which
+                            // would start the history again.
+                            let path = folder.join(format!("{name}_saved.json"));
+                            {
+                                let viewer = viewer.lock().expect("the viewer lock was poisoned");
+                                let to = path.parent().unwrap_or(Path::new("."));
+                                let mut copy = Document::new(persist::rebased(
+                                    viewer.document.project(),
+                                    &viewer.root,
+                                    to,
+                                ));
+                                persist::save(&path, &mut copy, &viewer.preserved)
+                                    .unwrap_or_else(|d| panic!("save {name}: {}", d.message));
+                            }
+                            let file = std::fs::read_to_string(&path).expect("read the saved case");
+                            if file.contains("\"Action\"") {
+                                ", and the composition saves an Action column"
+                            } else {
+                                claim
+                            }
+                        } else {
+                            claim
+                        };
+                        format!("Action `{}`{claim}", noted(viewer))
+                    } else if part.starts_with("Keys:") {
+                        format!("Keys: {}", keys(viewer))
+                    } else if part.starts_with("Circled:") {
+                        format!("Circled: {}", circled(viewer))
+                    } else {
+                        format!("(cannot read \"{part}\")")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        };
+        let written = |text: &str| text.replace(' ', "%20");
+        for [name, says, before, action, after, _] in &d84g {
+            // Before's drawing line, or `1 1 2 2` as long as its Action line.
+            let quoted = |part: &str| part.split('`').nth(1).unwrap_or("").to_string();
+            let parts: Vec<&str> = before.split("; ").collect();
+            let action_before = parts.iter().find(|p| p.starts_with("Action `")).map(|p| quoted(p));
+            let line = parts.iter().find(|p| p.starts_with('`')).map(|p| quoted(p)).unwrap_or_else(|| {
+                let n = action_before.as_deref().map_or(4, |a| a.split(' ').count());
+                ["1", "1", "2", "2"].iter().cycle().take(n).copied().collect::<Vec<_>>().join(" ")
+            });
+            let mut viewer = set_up(name, &line);
+            // Before's notes and keys, put there with the commands the Sheet sends.
+            for (frame, note) in action_before.iter().flat_map(|a| a.split(' ').enumerate()) {
+                if note != "." {
+                    run(&viewer, &format!("sheet.write_action?frame={frame}&text={}", written(note)));
+                }
+            }
+            if let Some(k) = parts.iter().find_map(|p| p.strip_prefix("Keys: ")).filter(|k| *k != "none") {
+                let at = line.split(' ').position(|m| m == k).expect("the key is written in Before");
+                run(&viewer, &format!("exposure.toggle_key?layer=layer-cel&frame={at}"));
+            }
+            let was = depth(&viewer);
+            let mut said = Vec::new();
+            let mut reopened = false;
+            for step in action.split("; ") {
+                let frame = step.rsplit(' ').next().unwrap_or("");
+                let query = if let Some(rest) = step.strip_prefix("write `") {
+                    format!("sheet.write_action?frame={frame}&text={}", written(rest.split('`').next().unwrap_or("")))
+                } else if step.starts_with("erase Action on frame ") {
+                    format!("sheet.write_action?frame={frame}")
+                } else if step.starts_with("press K on frame ") {
+                    format!("exposure.toggle_key?layer=layer-cel&frame={frame}")
+                } else if step == "save, close and open" {
+                    let path = folder.join(format!("{name}_saved.json"));
+                    save_as(&viewer, &path);
+                    let file = std::fs::read_to_string(&path).expect("read the saved case");
+                    report.check(
+                        &format!("{name}: `key_drawings` in the saved file, for the one layer with keys"),
+                        "1",
+                        file.matches("\"key_drawings\"").count().to_string(),
+                    );
+                    let id = held(&viewer).composition.clone();
+                    let mut again = open(&path).unwrap_or_else(|d| panic!("open {name} again: {}", d.message));
+                    again.composition = id;
+                    viewer = Mutex::new(again);
+                    reopened = true;
+                    continue;
+                } else {
+                    panic!("{name}: cannot read \"{step}\"")
+                };
+                said.push(run(&viewer, &query));
+            }
+            let now = state(after, &viewer, name);
+            if reopened {
+                report.check(&format!("{name}: {says}"), after.clone(), now);
+                // The key unmarked again, the layer has none to save.
+                let at = line.split(' ').position(|m| Some(m) == parts.iter().find_map(|p| p.strip_prefix("Keys: ")));
+                run(&viewer, &format!("exposure.toggle_key?layer=layer-cel&frame={}", at.unwrap_or(0)));
+                let path = folder.join(format!("{name}_no_keys.json"));
+                save_as(&viewer, &path);
+                report.check(
+                    &format!("{name}: `key_drawings` in the saved file once the key is unmarked"),
+                    "0",
+                    std::fs::read_to_string(&path).expect("read the saved case").matches("\"key_drawings\"").count().to_string(),
+                );
+                continue;
+            }
+            let entries = depth(&viewer).checked_sub(was).expect("the history grew or stayed");
+            for _ in 0..entries {
+                run(&viewer, "edit.undo");
+            }
+            // Refused: After says nothing Before did not.
+            let unchanged = after.split("; ").all(|p| before.split("; ").any(|q| q == p));
+            report.check(
+                &format!("{name}: {says}"),
+                format!(
+                    "{after}; {} in the history; Undo gives {before}",
+                    if unchanged { 0 } else { action.split("; ").count() }
+                ),
+                format!("{now}; {entries} in the history; Undo gives {}", state(before, &viewer, name)),
+            );
+            let answers: &[&str] = match name.as_str() {
+                "FX-SHEET-020" => &[
+                    "Nothing is written in Action on frame 2 to erase.",
+                    "An Action note needs words: spaces alone write nothing.",
+                ],
+                "FX-SHEET-023" => &[
+                    "Frame 1 of Cel is a line holding the drawing above it. Press K on the number itself.",
+                    "Frame 2 of Cel is a cross, which is no drawing to mark as a key.",
+                    "Frame 3 of Cel is empty, under a cross, so it has no drawing to mark as a key.",
+                ],
+                _ => continue,
+            };
+            report.check(
+                &format!("{name}: what the window says"),
+                answers.join(" / "),
+                answers
+                    .iter()
+                    .zip(&said)
+                    .map(|(a, s)| if s.ends_with(a) { a.to_string() } else { s.clone() })
+                    .collect::<Vec<_>>()
+                    .join(" / "),
+            );
+        }
+
         let page = include_str!("../ui/index.html");
         report.check(
             "the page writes a cell with exposure.write",
             "present",
             if page.contains("'/exposure.write?layer='") { "present" } else { "absent" },
+        );
+        report.check(
+            "the page writes Action with sheet.write_action, and K sends exposure.toggle_key",
+            "present",
+            if page.contains("'/sheet.write_action?frame='") && page.contains("'/exposure.toggle_key?layer='") {
+                "present"
+            } else {
+                "absent"
+            },
         );
 
         write_artifact(
@@ -16722,6 +17202,8 @@ mod editing {
          with the composition, and shows them in the Sheet as a paper sheet does: dialogue left \
          of the drawings and camera right of them, a line or instruction written on the frame it \
          starts with a line down the frames it lasts.",
+        "D-84g puts an Action column on every Sheet with drawings, left of the dialogue, empty \
+         until something is written in it.",
         "The rows below import FX-XDTS-040, the sample cut, and read the text cells the page is \
          given. Each column is compared frame by frame with document 25's paragraph on that \
          cut's Sheet, which this check reads from document 25 itself.",
@@ -16742,25 +17224,28 @@ mod editing {
          counted from 1, each second's number beside its last row, an Action column, at least six \
          cel columns, and a choice of 6 or 3 seconds a page, in black or red. D-84f gives it a \
          title block of two rows: the name, episode, scene, cut and animator above, written in \
-         Composition Settings, and the length, rate, sheet and memo below.",
+         Composition Settings, and the length, rate, sheet and memo below. D-84g prints what \
+         is written in Action and circles every number of a key drawing.",
         "Each FX-PRINT case is read from document 25 itself, set up in the window, and checked \
          against the page the window writes: its header, its halves page by page, its columns and \
          its second numbers and its end line. A header written with labels is checked box by \
          box, by the box's class and the label the style prints on it. FX-PRINT-009 is undone \
          and FX-PRINT-010 saved, opened again, emptied and saved again, to read the file. Every \
-         printed cell is then compared with the cell the Sheet shows on screen. The printable \
-         pages for FX-PRINT-001 to 003, 005, 007 and 009 are kept beside this table as \
+         printed cell is then compared with the cell the Sheet shows on screen. FX-PRINT-011 \
+         reads the Action column and every circled cell off the paper. The printable pages for \
+         FX-PRINT-001 to 003, 005, 007, 009 and 011 are kept beside this table as \
          `B-28g_sheet_print_040.html`, `B-28g_sheet_print_300_frames.html`, \
          `B-28g_sheet_print_30_fps.html`, `B-28g_sheet_print_3_seconds.html`, \
-         `B-28g_sheet_print_red.html` and `B-28g_sheet_print_title_block.html`, to open in any \
-         browser.",
+         `B-28g_sheet_print_red.html`, `B-28g_sheet_print_title_block.html` and \
+         `B-28g_sheet_print_keys.html`, to open in any browser.",
     ];
 
     const SHEET_PRINT_NOTES: &[&str] = &[
         "## What this does not cover\n\nWhat the paper looks like, whether the print dialog \
          opens, and whether a PDF saved from it holds the pages. That is \
-         `verification/B-28h_sheet_paper_playtest.md` and \
-         `verification/B-28i_title_block_playtest.md`, for a person.",
+         `verification/B-28h_sheet_paper_playtest.md`, \
+         `verification/B-28i_title_block_playtest.md` and \
+         `verification/B-28j_action_keys_playtest.md`, for a person.",
     ];
 
     const SHEET_WRITING_INTRO: &[&str] = &[
@@ -16774,12 +17259,19 @@ mod editing {
          frame, `x` for nothing and `-` outside the layer. It then counts the entries the write \
          put in the history, and undoes it to check that Before comes back. A case that is \
          refused, or that changes nothing, must put nothing in the history.",
+        "D-84g adds FX-SHEET-017 to 024. Their Before and After say what the Action column shows \
+         and which drawings are keys. Before's notes and keys are put there with the commands the \
+         Sheet sends, `sheet.write_action` and `exposure.toggle_key`; the case's Do is played \
+         the same way, and the row reads the Action column, the keys and the circled frames \
+         back. FX-SHEET-019 saves the case to check the file keeps no Action column, and \
+         FX-SHEET-024 saves, closes and opens it.",
     ];
 
     const SHEET_WRITING_NOTES: &[&str] = &[
         "## What this does not cover\n\nTyping in the cells: choosing one, the digits, Enter, x, \
          Delete, the arrows and Escape, and the chosen cell moving down after a write. That is \
-         `verification/B-28e_sheet_writing_playtest.md`, for a person.",
+         `verification/B-28e_sheet_writing_playtest.md`, for a person, and for the Action column \
+         and K, `verification/B-28j_action_keys_playtest.md`.",
     ];
 
     const SHAPE_PANEL_INTRO: &[&str] = &[
@@ -18690,6 +19182,7 @@ mod contract {
         "effect.set_parameters",
         "effect.toggle_bypass",
         "exposure.set_span",
+        "exposure.toggle_key",
         "exposure.write",
         "keyframe.add_remove",
         "keyframe.move",
@@ -18745,6 +19238,7 @@ mod contract {
         "shape.delete",
         "shape.set",
         "shape.set_path",
+        "sheet.write_action",
         "solid.set",
         "timeline.set_markers",
         "timeline.set_work_end",
@@ -19166,6 +19660,9 @@ mod contract {
         ("exposure.set_span", "a command the window answers"),
         // D-84b, accepted on 2026-09-24; B-28e built it, from the Sheet.
         ("exposure.write", "a command the window answers"),
+        // D-84g, accepted on 2026-09-24; B-28j built both, from the Sheet.
+        ("exposure.toggle_key", "a command the window answers"),
+        ("sheet.write_action", "a command the window answers"),
         ("property.set_base", "a command the window answers"),
         ("keyframe.add_remove", "a command the window answers"),
         ("keyframe.move", "a command the window answers"),
