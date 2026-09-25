@@ -316,7 +316,7 @@ B-33a / the rule and its fixtures before code: the proposal's five pictures in `
 
 B-33b / the core: `core.glow` in the effect model with its settings, their ranges and keys, its bounds growing by the radius, the file reading and writing it, the draft preview scaling its radius, and a table that renders every FX-GLOW case against `Fixtures/glow/expected_glow.json`. **Built on 2026-09-25: `verification/B-33b_glow_table.md`, 126 of 126 checks pass; every FX-GLOW frame within 5.4e-7 of its expected pixels, against the tolerance of 2e-5.**
 
-B-33c / the window: Glow in the Effects panel's list with its settings, the Bright parts or Chosen colours switch, the colour boxes and the tint, and a playtest sheet on the owner's purple flame.
+B-33c / the window: Glow in the Effects panel's list with its settings, the Bright parts or Chosen colours switch, the colour boxes and the tint, and a playtest sheet on the owner's purple flame. **Built on 2026-09-25: `verification/B-33c_glow_playtest.md`, with its test drawing `verification/B-33c_glow_drawing.png`; `verification/B-12b_state_fields_table.md` 79 of 79. Waiting for the owner's playtest.**
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

@@ -919,6 +919,7 @@
         <option value="core.tint">Tint</option>
         <option value="core.line_smooth">Line Smoothing</option>
         <option value="core.selective_color_blur">Selective Colour Blur</option>
+        <option value="core.glow">Glow</option>
       </select>
     </div>
   </section>
@@ -6211,7 +6212,7 @@ function drawCamera() {
   into.replaceChildren(dl);
 }
 
-// The five effects this build has, by the identifier the file uses. A type that is not here is
+// The six effects this build has, by the identifier the file uses. A type that is not here is
 // one from another version: it is listed by its own identifier and said to be unchangeable,
 // because document 19 requires an unknown effect to survive a load and save and never to be
 // silently dropped.
@@ -6221,6 +6222,7 @@ const EFFECT_NAMES = {
   'core.tint': 'Tint',
   'core.line_smooth': 'Line Smoothing',
   'core.selective_color_blur': 'Selective Colour Blur',
+  'core.glow': 'Glow',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6235,6 +6237,12 @@ const EFFECT_PARAMS = {
     ['threshold', 'Threshold, 0 to 255', 1, 0.5]],
   // D-87. Its colours are not a number and are drawn apart, in effectRow. D-88: tolerance.
   'core.selective_color_blur': [['blur', 'Blur, 0 to 200', 1, 0.5],
+    ['tolerance', 'Tolerance, 0 to 255', 1, 0.5]],
+  // D-89, named as After Effects names them. Its two switches, its colours and its tint are not
+  // numbers and are drawn apart, in effectRow; the tolerance is for its chosen colours.
+  'core.glow': [['threshold', 'Glow Threshold, 0 to 100', 1, 0.5],
+    ['radius', 'Glow Radius, 0 to 500', 1, 0.5],
+    ['intensity', 'Glow Intensity, 0 to 10', 1, 0.02],
     ['tolerance', 'Tolerance, 0 to 255', 1, 0.5]],
 };
 
@@ -6416,8 +6424,13 @@ function effectRow(layer, fx, at, of) {
   let pick = null;
   // D-87: selective colour blur's chosen colours, which travel with every change as the
   // numbers do. Kept here, not read back from the fields, because a swatch is removable.
-  const chosen = fx.type_id === 'core.selective_color_blur'
+  const glow = fx.type_id === 'core.glow';
+  const chosen = fx.type_id === 'core.selective_color_blur' || glow
     ? [...((fx.parameters || {}).colors || [])] : null;
+  // D-89: glow's words, which travel with every change as the numbers do.
+  const words = glow ? {
+    based_on: fx.parameters.based_on, operation: fx.parameters.operation, tint: fx.parameters.tint,
+  } : null;
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.
@@ -6433,6 +6446,7 @@ function effectRow(layer, fx, at, of) {
     const parts = known.map(([name]) => '&' + name + '=' + encodeURIComponent(keyed(name)
       ? [].concat(propOf(layer, fxName(fx, name)).base).join(',') : typed(name)));
     if (chosen) parts.push('&colors=' + encodeURIComponent(chosen.join(',')));
+    if (words) for (const w in words) parts.push('&' + w + '=' + encodeURIComponent(words[w]));
     command('/effect.set_parameters' + where + parts.join('') + extra);
   };
   // W-07: the fields are live. A keystroke, a pixel of drag on a handle and a move over the
@@ -6489,47 +6503,84 @@ function effectRow(layer, fx, at, of) {
     });
     dl.append(dt, dd);
   }
+  // The hex is typed, because the Windows colour window has no box for one and the match is
+  // exact. Enter or leaving the box sends it, the # optional; Escape puts it back. The panel
+  // is not redrawn under the typing, as with a number being typed.
+  const hexBox = (value, aria, done) => {
+    const text = Object.assign(document.createElement('input'),
+      { type: 'text', className: 'hex', value, placeholder: '#rrggbb', spellcheck: false });
+    text.setAttribute('aria-label', aria);
+    text.onfocus = () => { dragging = true; };
+    text.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') text.blur();
+      else if (e.key === 'Escape') { text.value = value; text.blur(); }
+    };
+    text.onblur = () => {
+      dragging = false;
+      const hex = text.value.trim().toLowerCase().replace(/^#?/, '#');
+      if (hex !== value && hex !== '#') done(hex);
+    };
+    return text;
+  };
+  // D-89: glow's two switches and its colour. A switch sends at once; each is one entry to undo.
+  if (words) {
+    const choice = (name, title, options) => {
+      const dt = Object.assign(document.createElement('dt'), { textContent: title });
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', label + ' ' + title);
+      for (const [value, text] of options) select.append(new Option(text, value));
+      select.value = words[name];
+      select.onchange = () => { words[name] = select.value; sendParameters(); };
+      const dd = document.createElement('dd');
+      dd.append(select);
+      dl.append(dt, dd);
+    };
+    choice('based_on', 'Glow Based On', [['bright', 'Bright parts'], ['colors', 'Chosen colours']]);
+    choice('operation', 'Glow Operation', [['add', 'Add'], ['screen', 'Screen']]);
+    const dt = Object.assign(document.createElement('dt'), { textContent: 'Glow Colours' });
+    const dd = document.createElement('dd');
+    const own = document.createElement('select');
+    own.setAttribute('aria-label', label + ' Glow Colours');
+    own.append(new Option('Its own colours', ''), new Option('One colour', 'tint'));
+    own.value = words.tint ? 'tint' : '';
+    own.onchange = () => { words.tint = own.value ? '#ffffff' : ''; sendParameters(); };
+    dd.append(own);
+    if (words.tint) {
+      const swatch = Object.assign(document.createElement('input'),
+        { type: 'color', value: words.tint, title: 'Pick the colour' });
+      swatch.setAttribute('aria-label', label + ' colour picker');
+      const text = hexBox(words.tint, label + ' colour',
+        (typed) => { words.tint = typed; sendParameters(); });
+      swatch.oninput = () => { words.tint = swatch.value; text.value = swatch.value; live(); };
+      swatch.onchange = () => close(false);
+      swatch.onblur = () => close(false);
+      dd.append(' ', swatch, ' ', text);
+    }
+    dl.append(dt, dd);
+  }
   // D-87: a swatch per chosen colour, with its hex beside it, since the match is exact and the
   // number is what a person checks. The file keeps sRGB as a drawing does, so the swatch needs
-  // none of the tint's conversion. Colours cannot be keyed.
-  if (chosen) {
+  // none of the tint's conversion. Colours cannot be keyed. A glow shows them only when it is
+  // based on chosen colours, and keeps them when it is not.
+  if (chosen && !(words && words.based_on !== 'colors')) {
     const dt = Object.assign(document.createElement('dt'), { textContent: 'Colours, up to 8' });
     // Under its label, the width of the card: beside it, the panel left too little for a colour
     // and its ✕.
     dt.style.gridColumn = '1 / -1';
     const dd = Object.assign(document.createElement('dd'), { style: 'grid-column: 1 / -1' });
-    // The hex is typed, because the Windows colour window has no box for one and the match is
-    // exact. Enter or leaving the box sends it, the # optional; Escape puts it back. The panel
-    // is not redrawn under the typing, as with a number being typed.
-    const hexBox = (value, aria, done) => {
-      const text = Object.assign(document.createElement('input'),
-        { type: 'text', className: 'hex', value, placeholder: '#rrggbb', spellcheck: false });
-      text.setAttribute('aria-label', aria);
-      text.onfocus = () => { dragging = true; };
-      text.onkeydown = (e) => {
-        e.stopPropagation();
-        if (e.key === 'Enter') text.blur();
-        else if (e.key === 'Escape') { text.value = value; text.blur(); }
-      };
-      text.onblur = () => {
-        dragging = false;
-        const hex = text.value.trim().toLowerCase().replace(/^#?/, '#');
-        if (hex !== value && hex !== '#') done(hex);
-      };
-      return text;
-    };
     chosen.forEach((hex, i) => {
       const swatch = Object.assign(document.createElement('input'),
         { type: 'color', value: hex, title: 'Pick the colour' });
       swatch.setAttribute('aria-label', label + ' colour ' + (i + 1) + ' picker');
-      const words = hexBox(hex, label + ' colour ' + (i + 1),
+      const text = hexBox(hex, label + ' colour ' + (i + 1),
         (typed) => { chosen[i] = typed; sendParameters(); });
-      swatch.oninput = () => { chosen[i] = swatch.value; words.value = swatch.value; live(); };
+      swatch.oninput = () => { chosen[i] = swatch.value; text.value = swatch.value; live(); };
       swatch.onchange = () => close(false);
       swatch.onblur = () => close(false);
       // One line per colour, so a narrow panel cannot wrap a ✕ beside the next colour's swatch.
       const line = Object.assign(document.createElement('div'), { style: 'white-space: nowrap' });
-      line.append(swatch, ' ', words, ' ', iconButton('✕', 'Remove the colour ' + hex,
+      line.append(swatch, ' ', text, ' ', iconButton('✕', 'Remove the colour ' + hex,
         () => { chosen.splice(i, 1); sendParameters(); }));
       dd.append(line);
     });

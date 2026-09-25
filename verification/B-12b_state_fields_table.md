@@ -97,5 +97,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - softness, threshold - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.selective_color_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - blur, colors, tolerance - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.glow` is an effect this build has | added | added | pass |
+| and the settings it sends for it - threshold, radius, intensity, tolerance, colors, based_on, operation, tint - are the ones the command reads | accepted | accepted | pass |
 
-**77 of 77 checks pass.**
+**79 of 79 checks pass.**

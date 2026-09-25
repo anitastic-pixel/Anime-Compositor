@@ -20923,6 +20923,20 @@ mod contract {
                 ("tolerance", "0"),
             ],
         ),
+        // D-89: the switches, the colours and the tint are drawn apart and sent with them.
+        (
+            "core.glow",
+            &[
+                ("threshold", "60"),
+                ("radius", "10"),
+                ("intensity", "1"),
+                ("tolerance", "0"),
+                ("colors", "%233c286e"),
+                ("based_on", "bright"),
+                ("operation", "add"),
+                ("tint", "%23ff4000"),
+            ],
+        ),
     ];
 
     const FIELDS_INTRO: &[&str] = &[
