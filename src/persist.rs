@@ -896,12 +896,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("threshold".into(), num(*threshold));
         }
-        Effect::SelectiveColorBlur { blur, colors } => {
+        Effect::SelectiveColorBlur {
+            blur,
+            colors,
+            tolerance,
+        } => {
             params.insert("blur".into(), num(*blur));
             params.insert(
                 "colors".into(),
                 J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()),
             );
+            // D-88: a tolerance of 0 is not written, so a file from before it saves the same.
+            if *tolerance != 0.0 || instance.tracks.contains_key("tolerance") {
+                params.insert("tolerance".into(), num(*tolerance));
+            } else {
+                params.remove("tolerance");
+            }
         }
         Effect::Unsupported { .. } => {}
     }
@@ -1207,7 +1217,16 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         return Ok((None, tracks));
     };
     let mut plain = map.clone();
-    for name in ["stops", "sigma_px", "color", "amount", "softness", "threshold", "blur"] {
+    for name in [
+        "stops",
+        "sigma_px",
+        "color",
+        "amount",
+        "softness",
+        "threshold",
+        "blur",
+        "tolerance",
+    ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
         };
@@ -2016,6 +2035,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     Some(crate::effects::Effect::SelectiveColorBlur {
                         blur: effect_number(params, "blur", &at)?,
                         colors: effect_colors(params, &at)?,
+                        // D-88: a file without it is from before it, and means exact.
+                        tolerance: match params.and_then(|p| p.get("tolerance")) {
+                            Some(_) => effect_number(params, "tolerance", &at)?,
+                            None => 0.0,
+                        },
                     })
                 }
                 _ => None,

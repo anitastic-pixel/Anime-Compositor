@@ -2392,6 +2392,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         SELECTIVE_COLOR_BLUR => Some(Effect::SelectiveColorBlur {
             blur: 12.0,
             colors: Vec::new(),
+            tolerance: 0.0,
         }),
         _ => None,
     }
@@ -2455,6 +2456,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                     .map(|c| c.trim().to_ascii_lowercase())
                     .filter(|c| !c.is_empty())
                     .collect(),
+                tolerance: number("tolerance")?,
             })
         }
         // Document 19 keeps an effect this build does not have rather than dropping it, and
@@ -20881,7 +20883,11 @@ mod contract {
         // The colours are drawn apart from EFFECT_PARAMS and sent as one list (D-87).
         (
             "core.selective_color_blur",
-            &[("blur", "12"), ("colors", "%23f6d6be,%23dba08e")],
+            &[
+                ("blur", "12"),
+                ("colors", "%23f6d6be,%23dba08e"),
+                ("tolerance", "0"),
+            ],
         ),
     ];
 

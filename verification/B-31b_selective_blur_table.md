@@ -1,8 +1,8 @@
 # B-31b: selective colour blur
 
-D-87, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/selblur/expected_selblur.json`, written by `tools/selblur_reference.py` before this code existed and printed in document 25 as FX-SELBLUR-001 to 024. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
+D-87, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/selblur/expected_selblur.json`, written by `tools/selblur_reference.py` before this code existed and printed in document 25 as FX-SELBLUR-001 to 024; D-88's tolerance, accepted the same day, adds 025 to 033. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
 
-## FX-SELBLUR-001 to 024 (document 25)
+## FX-SELBLUR-001 to 033 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -54,6 +54,28 @@ D-87, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/sel
 | FX-SELBLUR-024 frame 0: A colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SELBLUR-024 frame 4: A colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SELBLUR-024: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-SELBLUR-025 frame 0: Skin painted unevenly, a checkerboard of skin and skin one step off in blue, beside shadow, tolerance 0: the off pixels are not chosen and stop the softening, so the skin stays as painted except the exact skin pixel touching the shadow on every other row; the shadow goes soft. | largest difference 2.3e-7 | yes |
+| FX-SELBLUR-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SELBLUR-026 frame 0: The same at tolerance 1: every skin pixel is chosen, and the edge goes soft across the whole row, as in FX-SELBLUR-001. | largest difference 2.0e-7 | yes |
+| FX-SELBLUR-026: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SELBLUR-027 frame 0: FX-SELBLUR-008, the skin chosen one step off, at tolerance 1: the skin is chosen again, and this is FX-SELBLUR-001. | largest difference 2.0e-7 | yes |
+| FX-SELBLUR-027: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SELBLUR-028 frame 0: The same at tolerance 0.5: one step is more than half a step, so the skin is not chosen and nothing changes. The tolerance is not rounded. | largest difference 1.9e-7 | yes |
+| FX-SELBLUR-028: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SELBLUR-029 frame 0: Skin, shadow and highlight with skin and shadow chosen, tolerance 255: every colour that shows is chosen, the highlight too, so this is the three colours chosen at tolerance 0. | largest difference 2.0e-7 | yes |
+| FX-SELBLUR-029: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SELBLUR-030 frame 0: Skin and shadow with a black line between, tolerance 255: the line is chosen too, and goes soft. A large tolerance takes in the lines. | largest difference 2.0e-7 | yes |
+| FX-SELBLUR-030: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SELBLUR-031 frame 0: FX-SELBLUR-027 with the tolerance keyed from 0 at frame 0 to 2 at frame 4, linear: frame 0 is the drawing, frames 2 and 4 are FX-SELBLUR-001. | largest difference 1.9e-7 | yes |
+| FX-SELBLUR-031 frame 2: FX-SELBLUR-027 with the tolerance keyed from 0 at frame 0 to 2 at frame 4, linear: frame 0 is the drawing, frames 2 and 4 are FX-SELBLUR-001. | largest difference 2.0e-7 | yes |
+| FX-SELBLUR-031 frame 4: FX-SELBLUR-027 with the tolerance keyed from 0 at frame 0 to 2 at frame 4, linear: frame 0 is the drawing, frames 2 and 4 are FX-SELBLUR-001. | largest difference 2.0e-7 | yes |
+| FX-SELBLUR-031: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SELBLUR-032 frame 0: Tolerance 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SELBLUR-032 frame 4: Tolerance 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SELBLUR-032: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-SELBLUR-033 frame 0: Tolerance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SELBLUR-033 frame 4: Tolerance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SELBLUR-033: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## The file
 
@@ -64,7 +86,10 @@ D-87, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/sel
 | fx_selblur_020.json opened and saved holds what it held, out-of-range values and keys included | the same | yes |
 | fx_selblur_023.json opened and saved holds what it held, out-of-range values and keys included | the same | yes |
 | fx_selblur_024.json opened and saved holds what it held, out-of-range values and keys included | the same | yes |
+| fx_selblur_026.json opened and saved holds what it held, out-of-range values and keys included | the same | yes |
+| fx_selblur_031.json opened and saved holds what it held, out-of-range values and keys included | the same | yes |
 | fx_selblur_015.json, written in capitals, is saved in small letters (D-87) | ["#f6d6be","#dba08e"] | yes |
+| fx_selblur_001.json, from before D-88, is saved without a tolerance | None | yes |
 | a file with no `colors` at all is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with `colors` that is not a list is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a colour that is a number is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
@@ -78,9 +103,15 @@ D-87, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/sel
 | nine colours is refused with a sentence, and nothing changes | Selective colour blur takes up to eight colours, and this has 9. | yes |
 | the colour "#12345" is refused with a sentence, and nothing changes | A chosen colour is written # and six hexadecimal digits, such as #f6d6be, and this is "#12345". | yes |
 | blur keyed to 250 is refused with a sentence, and nothing changes | Selective colour blur's blur runs from 0 to 200, and this is 250. | yes |
+| tolerance 256 is refused with a sentence, and nothing changes | Selective colour blur's tolerance runs from 0 to 255, and this is 256. | yes |
+| tolerance -1 is refused with a sentence, and nothing changes | Selective colour blur's tolerance runs from 0 to 255, and this is -1. | yes |
+| tolerance keyed to 300 is refused with a sentence, and nothing changes | Selective colour blur's tolerance runs from 0 to 255, and this is 300. | yes |
 | blur 200 with eight colours, the ends of the ranges, are taken | taken | yes |
 | blur 0 with no colour, the ends of the ranges, are taken | taken | yes |
-| undo twice: frame 0 is the frame it was | byte-identical | yes |
+| tolerance 255, the ends of the ranges, are taken | taken | yes |
+| tolerance 0, the ends of the ranges, are taken | taken | yes |
+| undo four times: frame 0 is the frame it was | byte-identical | yes |
+| fx_selblur_026.json's tolerance 1 set back to 0 is saved without a tolerance (D-88) | None | yes |
 
 ## The frame does not depend on how it is cut up
 
@@ -93,7 +124,7 @@ D-87, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/sel
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| an adjustment layer's blur 12 is blur 3 on the quarter-size draft frame | [3.0] | yes |
+| an adjustment layer's blur 12 is blur 3 on the quarter-size draft frame, and its tolerance 20, a distance in colour, stays 20 (D-88) | [(3.0, 20.0)] | yes |
 
 ## The packaged build carries F's Plugins' licence
 
@@ -104,4 +135,4 @@ D-87, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/sel
 
 ## Result
 
-70 of 70 checks pass.
+101 of 101 checks pass.

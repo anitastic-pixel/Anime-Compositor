@@ -1,10 +1,10 @@
-//! B-31b: selective colour blur in the core, against D-87.
+//! B-31b: selective colour blur in the core, against D-87. B-32b: its tolerance, D-88.
 //!
 //! Writes `verification/B-31b_selective_blur_table.md`.
 //!
 //! Every expected pixel is `Fixtures/selblur/expected_selblur.json`, written by
 //! `tools/selblur_reference.py` before this code existed and printed in document 25 as
-//! FX-SELBLUR-001 to 024. Tolerance 2e-5. Nothing here is a snapshot of a run.
+//! FX-SELBLUR-001 to 033. Tolerance 2e-5. Nothing here is a snapshot of a run.
 //!
 //! Not here: Selective Colour Blur in the Effects panel, which is B-31c. `effect.add` putting it
 //! at the top of the stack is the window's command and is checked by the window's tests.
@@ -136,12 +136,13 @@ fn b31_selective_blur() {
         "# B-31b: selective colour blur\n\nD-87, accepted by the owner on 2026-09-25. Every \
          expected pixel is `Fixtures/selblur/expected_selblur.json`, written by \
          `tools/selblur_reference.py` before this code existed and printed in document 25 as \
-         FX-SELBLUR-001 to 024. The build's frame is compared sample by sample; the answer is \
+         FX-SELBLUR-001 to 024; D-88's tolerance, accepted the same day, adds 025 to 033. \
+         The build's frame is compared sample by sample; the answer is \
          the largest difference over all of them, against the catalogue's tolerance of 2e-5.\n",
     );
 
     // -----------------------------------------------------------------------------------
-    t.heading("FX-SELBLUR-001 to 024 (document 25)");
+    t.heading("FX-SELBLUR-001 to 033 (document 25)");
     for (name, case) in expected["cases"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
         let loaded = load(case["project"].as_str().unwrap());
@@ -184,6 +185,8 @@ fn b31_selective_blur() {
         "fx_selblur_020.json",
         "fx_selblur_023.json",
         "fx_selblur_024.json",
+        "fx_selblur_026.json",
+        "fx_selblur_031.json",
     ] {
         let original: J =
             serde_json::from_str(&fs::read_to_string(root().join(file)).unwrap()).unwrap();
@@ -200,6 +203,16 @@ fn b31_selective_blur() {
         "fx_selblur_015.json, written in capitals, is saved in small letters (D-87)",
         &colors.to_string(),
         colors == &serde_json::json!(["#f6d6be", "#dba08e"]),
+    );
+    let written = |file: &str| {
+        saved(&load(file))["compositions"][0]["layers"][0]["effects"][0]["parameters"]
+            .get("tolerance")
+            .cloned()
+    };
+    t.row(
+        "fx_selblur_001.json, from before D-88, is saved without a tolerance",
+        &format!("{:?}", written("fx_selblur_001.json")),
+        written("fx_selblur_001.json").is_none(),
     );
     for (what, parameters) in [
         ("no `colors` at all", r#"{"blur": 6}"#),
@@ -226,20 +239,22 @@ fn b31_selective_blur() {
     t.heading("Commands");
     let mut document = load("fx_selblur_001.json").document;
     let held = settings(&document);
-    let set = |blur: f64, colors: &[&str]| Command::SetEffectParameters {
+    let with = |blur: f64, colors: &[&str], tolerance: f64| Command::SetEffectParameters {
         composition: Id::new(MAIN),
         layer_id: Id::new("art"),
         instance_id: Id::new("fx-0-0"),
         effect: Effect::SelectiveColorBlur {
             blur,
             colors: colors.iter().map(|c| c.to_string()).collect(),
+            tolerance,
         },
     };
-    let keys = |values: &[(i32, f64)]| Command::SetEffectKeys {
+    let set = |blur: f64, colors: &[&str]| with(blur, colors, 0.0);
+    let keys_of = |setting: &str, values: &[(i32, f64)]| Command::SetEffectKeys {
         composition: Id::new(MAIN),
         layer_id: Id::new("art"),
         instance_id: Id::new("fx-0-0"),
-        setting: "blur".to_string(),
+        setting: setting.to_string(),
         keys: values
             .iter()
             .map(|&(frame, v)| EffectKey {
@@ -249,6 +264,7 @@ fn b31_selective_blur() {
             })
             .collect(),
     };
+    let keys = |values: &[(i32, f64)]| keys_of("blur", values);
     let skin = ["#f6d6be", "#dba08e"];
     let nine = ["#000001", "#000002", "#000003", "#000004", "#000005", "#000006", "#000007",
         "#000008", "#000009"];
@@ -258,6 +274,9 @@ fn b31_selective_blur() {
         ("nine colours", set(6.0, &nine)),
         ("the colour \"#12345\"", set(6.0, &["#12345"])),
         ("blur keyed to 250", keys(&[(0, 0.0), (4, 250.0)])),
+        ("tolerance 256", with(6.0, &skin, 256.0)),
+        ("tolerance -1", with(6.0, &skin, -1.0)),
+        ("tolerance keyed to 300", keys_of("tolerance", &[(0, 0.0), (4, 300.0)])),
     ] {
         let refused = document.apply(command).err();
         let untouched = settings(&document) == held;
@@ -272,6 +291,8 @@ fn b31_selective_blur() {
     for (what, command) in [
         ("blur 200 with eight colours", set(200.0, &nine[..8])),
         ("blur 0 with no colour", set(0.0, &[])),
+        ("tolerance 255", with(6.0, &skin, 255.0)),
+        ("tolerance 0", with(6.0, &skin, 0.0)),
     ] {
         let taken = document.apply(command).is_ok();
         t.row(
@@ -281,13 +302,25 @@ fn b31_selective_blur() {
         );
     }
     let before = render(&load("fx_selblur_001.json").document, 0, 64);
-    document.undo();
-    document.undo();
+    for _ in 0..4 {
+        document.undo();
+    }
     let same = render(&document, 0, 64).data() == before.data();
     t.row(
-        "undo twice: frame 0 is the frame it was",
+        "undo four times: frame 0 is the frame it was",
         if same { "byte-identical" } else { "differ" },
         same,
+    );
+
+    let mut loaded = load("fx_selblur_026.json");
+    let back = loaded.document.apply(with(6.0, &skin, 0.0)).is_ok();
+    let kept = saved(&loaded)["compositions"][0]["layers"][0]["effects"][0]["parameters"]
+        .get("tolerance")
+        .cloned();
+    t.row(
+        "fx_selblur_026.json's tolerance 1 set back to 0 is saved without a tolerance (D-88)",
+        &format!("{:?}", kept),
+        back && kept.is_none(),
     );
 
     // -----------------------------------------------------------------------------------
@@ -321,22 +354,26 @@ fn b31_selective_blur() {
             instance.effect = Effect::SelectiveColorBlur {
                 blur: 12.0,
                 colors: vec!["#f6d6be".to_string()],
+                tolerance: 20.0,
             };
         }
     }
-    let blurs: Vec<f64> = scale_plan(plan, PreviewQuality::Draft)
+    let blurs: Vec<(f64, f64)> = scale_plan(plan, PreviewQuality::Draft)
         .layers
         .iter()
         .flat_map(|l| l.adjust.iter().flatten())
         .filter_map(|i| match i.effect {
-            Effect::SelectiveColorBlur { blur, .. } => Some(blur),
+            Effect::SelectiveColorBlur {
+                blur, tolerance, ..
+            } => Some((blur, tolerance)),
             _ => None,
         })
         .collect();
     t.row(
-        "an adjustment layer's blur 12 is blur 3 on the quarter-size draft frame",
+        "an adjustment layer's blur 12 is blur 3 on the quarter-size draft frame, and its \
+         tolerance 20, a distance in colour, stays 20 (D-88)",
         &format!("{blurs:?}"),
-        blurs == [3.0],
+        blurs == [(3.0, 20.0)],
     );
 
     // -----------------------------------------------------------------------------------

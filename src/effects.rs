@@ -150,7 +150,12 @@ impl EffectInstance {
                     *softness = softness.clamp(0.0, 100.0);
                     *threshold = threshold.clamp(0.0, 255.0);
                 }
-                Effect::SelectiveColorBlur { blur, .. } => *blur = blur.clamp(0.0, 200.0),
+                Effect::SelectiveColorBlur {
+                    blur, tolerance, ..
+                } => {
+                    *blur = blur.clamp(0.0, 200.0);
+                    *tolerance = tolerance.clamp(0.0, 255.0);
+                }
                 _ => {}
             }
         }
@@ -189,8 +194,13 @@ pub enum Effect {
     /// D-86: "`softness`, 0 to 100 ... and `threshold`, 0 to 255". Document 21's line smoothing.
     LineSmooth { softness: f64, threshold: f64 },
     /// D-87: "`blur`, 0 to 200 pixels ... `colors`, the chosen colours, up to eight, each
-    /// written `"#rrggbb"`". Document 21's selective colour blur.
-    SelectiveColorBlur { blur: f64, colors: Vec<String> },
+    /// written `"#rrggbb"`". Document 21's selective colour blur. D-88: "`tolerance`, 0 to
+    /// 255, starting at 0, which is D-87 exactly".
+    SelectiveColorBlur {
+        blur: f64,
+        colors: Vec<String>,
+        tolerance: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -229,7 +239,7 @@ impl Effect {
             | (Effect::GaussianBlur { .. }, "sigma_px")
             | (Effect::Tint { .. }, "amount")
             | (Effect::LineSmooth { .. }, "softness" | "threshold")
-            | (Effect::SelectiveColorBlur { .. }, "blur") => Some(1),
+            | (Effect::SelectiveColorBlur { .. }, "blur" | "tolerance") => Some(1),
             (Effect::Tint { .. }, "color") => Some(3),
             _ => None,
         }
@@ -245,6 +255,7 @@ impl Effect {
             (Effect::LineSmooth { softness, .. }, "softness") => Some(vec![*softness]),
             (Effect::LineSmooth { threshold, .. }, "threshold") => Some(vec![*threshold]),
             (Effect::SelectiveColorBlur { blur, .. }, "blur") => Some(vec![*blur]),
+            (Effect::SelectiveColorBlur { tolerance, .. }, "tolerance") => Some(vec![*tolerance]),
             _ => None,
         }
     }
@@ -274,7 +285,15 @@ impl Effect {
                     *threshold = v[0]
                 }
             }
-            Effect::SelectiveColorBlur { blur, .. } => *blur = v[0],
+            Effect::SelectiveColorBlur {
+                blur, tolerance, ..
+            } => {
+                if name == "blur" {
+                    *blur = v[0]
+                } else {
+                    *tolerance = v[0]
+                }
+            }
             Effect::Unsupported { .. } => {}
         }
     }
@@ -322,8 +341,13 @@ impl Effect {
                 softness,
                 threshold,
             } => (0.0..=100.0).contains(softness) && (0.0..=255.0).contains(threshold),
-            Effect::SelectiveColorBlur { blur, colors } => {
+            Effect::SelectiveColorBlur {
+                blur,
+                colors,
+                tolerance,
+            } => {
                 (0.0..=200.0).contains(blur)
+                    && (0.0..=255.0).contains(tolerance)
                     && colors.len() <= 8
                     && colors.iter().all(|c| crate::selective_blur::parse_hex(c).is_some())
             }
@@ -350,7 +374,11 @@ impl Effect {
                 "Line smoothing's softness runs from 0 to 100 and its threshold from 0 to 255, \
                  and these are {softness} and {threshold}."
             ),
-            Effect::SelectiveColorBlur { blur, colors } => {
+            Effect::SelectiveColorBlur {
+                blur,
+                colors,
+                tolerance,
+            } => {
                 match colors.iter().find(|c| crate::selective_blur::parse_hex(c).is_none()) {
                     Some(bad) => format!(
                         "A chosen colour is written # and six hexadecimal digits, such as \
@@ -359,6 +387,10 @@ impl Effect {
                     None if colors.len() > 8 => format!(
                         "Selective colour blur takes up to eight colours, and this has {}.",
                         colors.len()
+                    ),
+                    None if !(0.0..=255.0).contains(tolerance) => format!(
+                        "Selective colour blur's tolerance runs from 0 to 255, and this is \
+                         {tolerance}."
                     ),
                     None => format!(
                         "Selective colour blur's blur runs from 0 to 200, and this is {blur}."
@@ -464,9 +496,13 @@ pub fn apply_stack(
             } => crate::perf::time(crate::perf::Stage::EffectSmooth, || {
                 crate::line_smooth::line_smooth(source, *softness, *threshold)
             }),
-            Effect::SelectiveColorBlur { blur, colors } => {
+            Effect::SelectiveColorBlur {
+                blur,
+                colors,
+                tolerance,
+            } => {
                 crate::perf::time(crate::perf::Stage::EffectSelBlur, || {
-                    crate::selective_blur::selective_color_blur(source, *blur, colors)
+                    crate::selective_blur::selective_color_blur(source, *blur, colors, *tolerance)
                 })
             }
         }

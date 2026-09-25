@@ -31,8 +31,14 @@ pub fn parse_hex(s: &str) -> Option<[u8; 3]> {
 }
 
 /// Blur the chosen colours of `source` into each other, in place. `blur` is already inside
-/// 0..200 and every colour already parses; blur 0, or no pixel chosen, changes nothing.
-pub(crate) fn selective_color_blur(source: &mut WorkingBuffer, blur: f64, colors: &[String]) {
+/// 0..200, `tolerance` inside 0..255, and every colour already parses; blur 0, or no pixel
+/// chosen, changes nothing.
+pub(crate) fn selective_color_blur(
+    source: &mut WorkingBuffer,
+    blur: f64,
+    colors: &[String],
+    tolerance: f64,
+) {
     let r = (blur + 0.5).floor() as usize;
     let targets: Vec<[u8; 3]> = colors.iter().filter_map(|c| parse_hex(c)).collect();
     let (w, h) = (source.width(), source.height());
@@ -40,8 +46,9 @@ pub(crate) fn selective_color_blur(source: &mut WorkingBuffer, blur: f64, colors
         return;
     }
     // Each pixel's straight colour through the sRGB curve, and whether it is chosen: it shows,
-    // and its 8-bit colour is one of the chosen ones exactly. D-87: a pixel that does not show
-    // is never chosen, whatever colour its zeros would make.
+    // and each of its 8-bit red, green and blue is within the tolerance of one chosen colour's
+    // (D-88; at 0, the colour exactly). D-87: a pixel that does not show is never chosen,
+    // whatever colour its zeros would make.
     let (enc, chosen): (Vec<[f32; 3]>, Vec<bool>) = source
         .data()
         .par_chunks_exact(4)
@@ -51,7 +58,9 @@ pub(crate) fn selective_color_blur(source: &mut WorkingBuffer, blur: f64, colors
                 return ([0.0; 3], false);
             }
             let c = [0, 1, 2].map(|i| linear_to_srgb(px[i] / a));
-            (c, targets.contains(&c.map(quantise_u8)))
+            let q = c.map(quantise_u8);
+            let near = |t: &[u8; 3]| (0..3).all(|i| (q[i] as f64 - t[i] as f64).abs() <= tolerance);
+            (c, targets.iter().any(near))
         })
         .unzip();
     if !chosen.contains(&true) {
