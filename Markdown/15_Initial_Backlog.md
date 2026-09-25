@@ -310,6 +310,14 @@ B-32b / the core: the `tolerance` setting, its range and keys, the file reading 
 
 B-32c / the window: a Tolerance box under Blur on the card, and a playtest sheet. **Built on 2026-09-25**: `verification/B-12b_state_fields_table.md` checks the card sends the tolerance the command reads; playtest `verification/B-32c_tolerance_playtest.md`, on `verification/B-32c_tolerance_drawing.png`. **Passed by the owner on 2026-09-25** ("works"). B-32 is done.
 
+B-33 / Glow, the first of document 15's reuse entry R-04, the blur and glow family, taken up by the owner on 2026-09-25 ("perfect! let's proceed"), modelled on After Effects' Glow, as the sixth effect in the Effects panel.
+
+B-33a / the rule and its fixtures before code: the proposal's five pictures in `verification/B-33a proposal/`, D-89 in document 14, the rule in document 21, FX-GLOW-001 to 033 in document 25 from `tools/glow_reference.py`, which writes `Fixtures/glow/`. **Written on 2026-09-25; D-89 proposed, waiting for the owner.**
+
+B-33b / the core: `core.glow` in the effect model with its settings, their ranges and keys, its bounds growing by the radius, the file reading and writing it, the draft preview scaling its radius, and a table that renders every FX-GLOW case against `Fixtures/glow/expected_glow.json`.
+
+B-33c / the window: Glow in the Effects panel's list with its settings, the Bright parts or Chosen colours switch, the colour boxes and the tint, and a playtest sheet on the owner's purple flame.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
@@ -322,7 +330,7 @@ R-02 / Line smoothing. PROPOSED. OpenToonz `common/trop/tantialias.cpp` is about
 
 R-03 / The cel colour operations. PROPOSED. `bryful/F-s-PluginsProjects` is MIT and holds about forty effects by a working anime creator; `cr-market/FsPluginsOFX` ports eight of them, including main-line repaint, selective colour blur and select colour, in a form separated from the After Effects SDK. This is document 31's D-06, D-07 and D-09. The smallest useful first behaviour is one operation, not the set. **Taken up on 2026-09-25 as B-31, selective colour blur first, under D-87 (accepted).**
 
-R-04 / The blur and glow family. PROPOSED, and last of the four because the existing Gaussian blur already covers part of it. OpenToonz `stdfx` holds directional, radial, rotate, line and motion blur, erode and dilate, glow, bloom and glare, and the RGB and HSV keys, all BSD-3, and its `igs_*` cores depend on nothing but the C++ standard library. This is document 31's D-07, D-08 and D-10.
+R-04 / The blur and glow family. PROPOSED, and last of the four because the existing Gaussian blur already covers part of it. OpenToonz `stdfx` holds directional, radial, rotate, line and motion blur, erode and dilate, glow, bloom and glare, and the RGB and HSV keys, all BSD-3, and its `igs_*` cores depend on nothing but the C++ standard library. This is document 31's D-07, D-08 and D-10. **Taken up on 2026-09-25 as B-33, glow first, under D-89 (proposed).**
 
 Not proposed, and why, so that the next reader does not re-derive it. Toon Dilate and distance gradation: no source exists, and OLM's page describes the method well enough that writing it is smaller than searching further. KiraKira and paraffin gradients: nothing was found at all. An OpenFX host: the ASWF headers and its HostSupport library are BSD-3 and would be the reference, but no Rust host exists and the job is large, so it stays where document 31 put it, at G3e behind a plugin the owner actually needs. Lottie: `velato` is a permissive Rust reader worth using as a model, but the format is only worth reading when vector interchange is in scope. A whole-application fork: refused in document 30 on 2026-09-22.
 
