@@ -950,6 +950,7 @@
         <option value="core.line_recolor">Line Recolour</option>
         <option value="core.directional_blur">Directional Blur</option>
         <option value="core.select_color">Select Colour</option>
+        <option value="core.line_width">Line Width</option>
       </select>
     </div>
   </section>
@@ -6256,6 +6257,7 @@ const EFFECT_NAMES = {
   'core.line_recolor': 'Line Recolour',
   'core.directional_blur': 'Directional Blur',
   'core.select_color': 'Select Colour',
+  'core.line_width': 'Line Width',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6284,6 +6286,9 @@ const EFFECT_PARAMS = {
   'core.directional_blur': [['direction', 'Direction', 1, 1, '-3600 to 3600 degrees, 0 is up and down'],
     ['length', 'Length', 1, 0.5, '0 to 500 px']],
   'core.select_color': [['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
+  // D-94: pixels thicker, or thinner below 0.
+  'core.line_width': [['width', 'Width', 1, 0.5, '-20 to 20 px, below 0 thins'],
+    ['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6303,6 +6308,11 @@ const EFFECT_WORDS = {
   'core.select_color': {
     choices: [['keep', 'Keep', [['chosen', 'Chosen colours'], ['others', 'Everything else']]]],
     chosen: () => true,
+  },
+  // D-94. The colours show only when it is based on them, and are kept when it is not.
+  'core.line_width': {
+    choices: [['based_on', 'Width Of', [['shape', 'The whole shape'], ['colors', 'Chosen colours']]]],
+    chosen: (w) => w.based_on === 'colors',
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.

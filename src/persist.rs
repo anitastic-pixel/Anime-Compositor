@@ -963,6 +963,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("tolerance".into(), num(*tolerance));
             params.insert("keep".into(), J::from(keep.as_str()));
         }
+        Effect::LineWidth {
+            width,
+            based_on,
+            colors,
+            tolerance,
+        } => {
+            params.insert("width".into(), num(*width));
+            params.insert("based_on".into(), J::from(based_on.as_str()));
+            params.insert(
+                "colors".into(),
+                J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()),
+            );
+            params.insert("tolerance".into(), num(*tolerance));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1287,6 +1301,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "intensity",
         "direction",
         "length",
+        "width",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2073,6 +2088,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LINE_RECOLOR,
                 crate::effects::DIRECTIONAL_BLUR,
                 crate::effects::SELECT_COLOR,
+                crate::effects::LINE_WIDTH,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2132,6 +2148,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     colors: effect_colors(params, &at)?,
                     tolerance: effect_number(params, "tolerance", &at)?,
                     keep: effect_word(params, "keep", &at)?,
+                }),
+                crate::effects::LINE_WIDTH => Some(crate::effects::Effect::LineWidth {
+                    width: effect_number(params, "width", &at)?,
+                    based_on: effect_word(params, "based_on", &at)?,
+                    colors: effect_colors(params, &at)?,
+                    tolerance: effect_number(params, "tolerance", &at)?,
                 }),
                 _ => None,
             };

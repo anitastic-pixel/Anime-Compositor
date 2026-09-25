@@ -13,6 +13,7 @@ pub mod audio;
 pub mod cache;
 mod blurs;
 mod cel_fx;
+mod line_width;
 pub mod color;
 pub mod command;
 pub mod compose;

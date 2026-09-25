@@ -105,5 +105,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - direction, length - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.select_color` is an effect this build has | added | added | pass |
 | and the settings it sends for it - tolerance, colors, keep - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.line_width` is an effect this build has | added | added | pass |
+| and the settings it sends for it - width, tolerance, colors, based_on - are the ones the command reads | accepted | accepted | pass |
 
-**85 of 85 checks pass.**
+**87 of 87 checks pass.**

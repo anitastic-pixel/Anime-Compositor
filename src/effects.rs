@@ -219,6 +219,14 @@ pub enum Effect {
         tolerance: f64,
         keep: String,
     },
+    /// D-94: `width`, -20 to 20 pixels, thicker or thinner; `based_on`, "shape" or "colors";
+    /// and `colors` and `tolerance` as D-88's, used when it is based on colours.
+    LineWidth {
+        width: f64,
+        based_on: String,
+        colors: Vec<String>,
+        tolerance: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -234,6 +242,7 @@ pub const GLOW: &str = "core.glow";
 pub const LINE_RECOLOR: &str = "core.line_recolor";
 pub const DIRECTIONAL_BLUR: &str = "core.directional_blur";
 pub const SELECT_COLOR: &str = "core.select_color";
+pub const LINE_WIDTH: &str = "core.line_width";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -298,6 +307,12 @@ impl Effect {
                 ("direction", vec![direction], -3600.0, 3600.0),
                 ("length", vec![length], 0.0, 500.0),
             ],
+            Effect::LineWidth {
+                width, tolerance, ..
+            } => vec![
+                ("width", vec![width], -20.0, 20.0),
+                ("tolerance", vec![tolerance], 0.0, 255.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -350,6 +365,7 @@ impl Effect {
             Effect::SelectiveColorBlur { blur, .. } => *blur = scale(*blur),
             Effect::Glow { radius, .. } => *radius = scale(*radius),
             Effect::DirectionalBlur { length, .. } => *length = scale(*length),
+            Effect::LineWidth { width, .. } => *width = scale(*width),
             _ => {}
         }
     }
@@ -366,6 +382,7 @@ impl Effect {
             Effect::LineRecolor { .. } => "Line Recolour",
             Effect::DirectionalBlur { .. } => "Directional Blur",
             Effect::SelectColor { .. } => "Select Colour",
+            Effect::LineWidth { .. } => "Line Width",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -381,6 +398,7 @@ impl Effect {
             Effect::LineRecolor { .. } => LINE_RECOLOR,
             Effect::DirectionalBlur { .. } => DIRECTIONAL_BLUR,
             Effect::SelectColor { .. } => SELECT_COLOR,
+            Effect::LineWidth { .. } => LINE_WIDTH,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -399,6 +417,8 @@ impl Effect {
             Effect::Glow { radius, .. } => kernel_radius(*radius / 3.0),
             // D-92: half the streak, on each side.
             Effect::DirectionalBlur { length, .. } => (*length / 2.0).ceil() as usize,
+            // D-94: a thicker line reaches its width further out; a thinner one nowhere.
+            Effect::LineWidth { width, .. } if *width > 0.0 => width.ceil() as usize,
             _ => 0,
         }
     }
@@ -522,6 +542,15 @@ impl Effect {
             Effect::SelectColor { colors, keep, .. } => chosen(colors).or_else(|| {
                 (!["chosen", "others"].contains(&keep.as_str())).then(|| {
                     format!("{name} keeps \"chosen\" or \"others\", and this is \"{keep}\".")
+                })
+            }),
+            Effect::LineWidth {
+                based_on, colors, ..
+            } => chosen(colors).or_else(|| {
+                (!["shape", "colors"].contains(&based_on.as_str())).then(|| {
+                    format!(
+                        "{name} is based on \"shape\" or \"colors\", and this is \"{based_on}\"."
+                    )
                 })
             }),
             _ => None,
@@ -733,6 +762,24 @@ pub fn apply_stack(
             } => crate::perf::time(crate::perf::Stage::EffectSelect, || {
                 crate::cel_fx::select_color(source, colors, *tolerance, keep == "chosen")
             }),
+            Effect::LineWidth {
+                width,
+                based_on,
+                colors,
+                tolerance,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectWidth, || {
+                    crate::line_width::line_width(
+                        source,
+                        *width,
+                        based_on == "shape",
+                        colors,
+                        *tolerance,
+                    )
+                });
+                ox += r;
+                oy += r;
+            }
         }
     }
     (ox, oy)
