@@ -44,6 +44,7 @@ FRAMES = 5
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "selblur"
 TOLERANCE = 2e-5  # document 25's default for a filter; see D-87
 MAX_BLUR, MAX_COLORS = 200, 8
+MAX_TOLERANCE = 255  # D-88
 
 
 # --- the rule -------------------------------------------------------------------------------
@@ -52,14 +53,16 @@ def hex_color(s):
     return tuple(int(s[i:i + 2], 16) for i in (1, 3, 5))
 
 
-def selective_blur(pixels, colors, blur):
+def selective_blur(pixels, colors, blur, tolerance=0):
     """Document 21's selective colour blur on a drawing's 8-bit straight pixels. Handed back is
     each pixel's straight encoded colour, 0 to 1, and its alpha, which never changes."""
     n = len(pixels)
     enc = [[v / 255 for v in p[:3]] for p in pixels]
     targets = {hex_color(c) for c in colors}
-    # A pixel is chosen when it shows at all and its colour is one of the chosen ones exactly.
-    chosen = [p[3] > 0 and tuple(p[:3]) in targets for p in pixels]
+    # A pixel is chosen when it shows at all and each of its red, green and blue is within the
+    # tolerance of one chosen colour's (D-88); at tolerance 0, the colour exactly (D-87).
+    chosen = [p[3] > 0 and any(all(abs(p[i] - t[i]) <= tolerance for i in range(3))
+                               for t in targets) for p in pixels]
     r = blur
     if r > 0 and any(chosen):
         zone = r / 3
@@ -121,6 +124,7 @@ LIGHT, LINE = (255, 243, 232, 255), (30, 26, 36, 255)
 SKIN_SOFT, SHADOW_SOFT = (246, 214, 190, 128), (219, 160, 142, 128)
 NONE = S.NONE
 SKIN_HEX, SHADOW_HEX, LIGHT_HEX = "#f6d6be", "#dba08e", "#fff3e8"
+SKIN_OFF, SKIN_OFF_HEX = (246, 214, 191, 255), "#f6d6bf"  # one step off in blue
 
 
 def cols(*spans):
@@ -145,19 +149,27 @@ DRAWINGS = {
                for x in range(W)] for y in range(H)],
     # Skin above a line falling one row every one and a half columns, shadow below.
     "diagonal": [[SHADOW if 2 * x > 3 * y else SKIN for x in range(W)] for y in range(H)],
+    # The halves with the skin painted unevenly, as a painted or antialiased drawing is: a
+    # checkerboard of skin and skin one step off in blue (D-88).
+    "speckled": [[(SKIN if (x + y) % 2 == 0 else SKIN_OFF) if x < 6 else SHADOW
+                  for x in range(W)] for y in range(H)],
 }
 
 
 # --- the cases ------------------------------------------------------------------------------
 
-def case(name, blur=6, colors=(SKIN_HEX, SHADOW_HEX), shift=0):
-    return {"drawing": name, "blur": blur, "colors": list(colors), "shift": shift}
+def case(name, blur=6, colors=(SKIN_HEX, SHADOW_HEX), shift=0, tolerance=0):
+    return {"drawing": name, "blur": blur, "colors": list(colors), "shift": shift,
+            "tolerance": tolerance}
 
 
 def render(c, frame_no):
     blur = round_half_up(min(MAX_BLUR, max(0.0, value_at(c["blur"], frame_no))))
+    # D-88: held inside its range and not rounded; a channel differs by a whole number of steps.
+    tolerance = min(MAX_TOLERANCE, max(0.0, value_at(c["tolerance"], frame_no)))
     pixels = [p for row in DRAWINGS[c["drawing"]] for p in row]
-    out = [working(p) for p in selective_blur(pixels, [s.lower() for s in c["colors"]], blur)]
+    out = [working(p) for p in selective_blur(pixels, [s.lower() for s in c["colors"]], blur,
+                                              tolerance)]
     s = c["shift"]
     return [out[y * W + x - s] if x >= s else [0.0] * 4 for y in range(H) for x in range(W)]
 
@@ -206,6 +218,32 @@ CASES = {
                        case("halves", colors=[]), [0]),
     "FX-SELBLUR-015": ("FX-SELBLUR-001 with its colours written in capitals: the same.",
                        case("halves", colors=[SKIN_HEX.upper(), SHADOW_HEX.upper()]), [0]),
+    # D-88: the tolerance.
+    "FX-SELBLUR-025": ("Skin painted unevenly, a checkerboard of skin and skin one step off in "
+                       "blue, beside shadow, tolerance 0: the off pixels are not chosen and stop the "
+                       "softening, so the skin stays as painted except the exact skin pixel "
+                       "touching the shadow on every other row; the shadow goes soft.",
+                       case("speckled"), [0]),
+    "FX-SELBLUR-026": ("The same at tolerance 1: every skin pixel is chosen, and the edge goes "
+                       "soft across the whole row, as in FX-SELBLUR-001.",
+                       case("speckled", tolerance=1), [0]),
+    "FX-SELBLUR-027": ("FX-SELBLUR-008, the skin chosen one step off, at tolerance 1: the skin is "
+                       "chosen again, and this is FX-SELBLUR-001.",
+                       case("halves", colors=[SKIN_OFF_HEX, SHADOW_HEX], tolerance=1), [0]),
+    "FX-SELBLUR-028": ("The same at tolerance 0.5: one step is more than half a step, so the skin "
+                       "is not chosen and nothing changes. The tolerance is not rounded.",
+                       case("halves", colors=[SKIN_OFF_HEX, SHADOW_HEX], tolerance=0.5), [0]),
+    "FX-SELBLUR-029": ("Skin, shadow and highlight with skin and shadow chosen, tolerance 255: "
+                       "every colour that shows is chosen, the highlight too, so this is the three "
+                       "colours chosen at tolerance 0.",
+                       case("stripes", tolerance=255), [0]),
+    "FX-SELBLUR-030": ("Skin and shadow with a black line between, tolerance 255: the line is "
+                       "chosen too, and goes soft. A large tolerance takes in the lines.",
+                       case("lined", tolerance=255), [0]),
+    "FX-SELBLUR-031": ("FX-SELBLUR-027 with the tolerance keyed from 0 at frame 0 to 2 at frame 4, "
+                       "linear: frame 0 is the drawing, frames 2 and 4 are FX-SELBLUR-001.",
+                       case("halves", colors=[SKIN_OFF_HEX, SHADOW_HEX],
+                            tolerance=keyed((0, 0), (4, 2))), [0, 2, 4]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -220,6 +258,8 @@ INVALID = {
                                                                         for i in range(7)])),
     "FX-SELBLUR-024": ("A colour written \"#12345\", one digit short.",
                        case("halves", colors=[SKIN_HEX, "#12345"])),
+    "FX-SELBLUR-032": ("Tolerance 256, above 255.", case("halves", tolerance=256)),
+    "FX-SELBLUR-033": ("Tolerance -1, below 0.", case("halves", tolerance=-1)),
 }
 
 
@@ -232,6 +272,10 @@ def project_json(fx, c):
     p["compositions"][0]["layers"][0]["effects"] = [{
         "instance_id": "fx-0-0", "type_id": "core.selective_color_blur", "enabled": True,
         "parameters": {"blur": setting_json(c["blur"]), "colors": c["colors"]}}]
+    # D-88: a tolerance of 0 is not written, so a file from before it reads and saves the same.
+    if c["tolerance"] != 0:
+        p["compositions"][0]["layers"][0]["effects"][0]["parameters"]["tolerance"] = \
+            setting_json(c["tolerance"])
     return p
 
 
@@ -329,6 +373,20 @@ def check(expected):
     assert c["FX-SELBLUR-013"]["0"] not in (plain["diagonal"], c["FX-SELBLUR-012"]["0"])
     assert c["FX-SELBLUR-014"]["0"] == plain["halves"]
     assert c["FX-SELBLUR-015"]["0"] == one
+
+    # D-88. 025: some pixels change, but fewer than at tolerance 1, where every pixel changes.
+    speck = plain["speckled"]
+    at0, at1 = c["FX-SELBLUR-025"]["0"], c["FX-SELBLUR-026"]["0"]
+    changed0 = sum(at0[i] != speck[i] for i in range(W * H))
+    assert 0 < changed0 < W * H, changed0
+    assert all(at1[i] != speck[i] for i in range(W * H))
+    assert c["FX-SELBLUR-027"]["0"] == one
+    assert c["FX-SELBLUR-028"]["0"] == plain["halves"]
+    assert c["FX-SELBLUR-029"]["0"] == render(case("stripes", colors=[SKIN_HEX, SHADOW_HEX,
+                                                                       LIGHT_HEX]), 0)
+    thirty = c["FX-SELBLUR-030"]["0"]
+    assert all(thirty[i] != plain["lined"][i] for i in range(W * H) if i % W == 6)
+    assert c["FX-SELBLUR-031"] == {"0": plain["halves"], "2": one, "4": one}
 
     # Every value stays a colour: none below nothing or above full.
     for name, frames in c.items():
