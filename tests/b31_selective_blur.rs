@@ -20,6 +20,7 @@ use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::{Effect, EffectKey};
 use anime_compositor::model::{Id, Interp};
 use anime_compositor::persist;
+use anime_compositor::preview::{scale_plan, PreviewQuality};
 use anime_compositor::WorkingBuffer;
 
 const MAIN: &str = "comp-main";
@@ -305,6 +306,38 @@ fn b31_selective_blur() {
             whole.data() == cut.data(),
         );
     }
+
+    // -----------------------------------------------------------------------------------
+    t.heading("The draft preview (D-66)");
+    // An adjustment layer's stack runs on the quarter-size frame, so its blur, a distance in
+    // pixels, shrinks with it as a Gaussian blur's sigma does. FX-ADJ-007 lends the layer.
+    let adjust = persist::load(&repo("Fixtures/adjust/fx_adj_007.json")).unwrap().document;
+    let mut log = FrameLog::new(8);
+    let mut plan =
+        plan_frame(adjust.project(), &Id::new(MAIN), 0, &repo("Fixtures/adjust"), &mut log)
+            .unwrap();
+    for layer in &mut plan.layers {
+        for instance in layer.adjust.iter_mut().flatten() {
+            instance.effect = Effect::SelectiveColorBlur {
+                blur: 12.0,
+                colors: vec!["#f6d6be".to_string()],
+            };
+        }
+    }
+    let blurs: Vec<f64> = scale_plan(plan, PreviewQuality::Draft)
+        .layers
+        .iter()
+        .flat_map(|l| l.adjust.iter().flatten())
+        .filter_map(|i| match i.effect {
+            Effect::SelectiveColorBlur { blur, .. } => Some(blur),
+            _ => None,
+        })
+        .collect();
+    t.row(
+        "an adjustment layer's blur 12 is blur 3 on the quarter-size draft frame",
+        &format!("{blurs:?}"),
+        blurs == [3.0],
+    );
 
     // -----------------------------------------------------------------------------------
     t.heading("The packaged build carries F's Plugins' licence");

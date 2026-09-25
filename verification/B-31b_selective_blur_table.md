@@ -89,6 +89,12 @@ D-87, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/sel
 | fx_selblur_005.json frame 3 in tiles of 1 and of 64 | byte-identical | yes |
 | fx_selblur_013.json frame 3 in tiles of 1 and of 64 | byte-identical | yes |
 
+## The draft preview (D-66)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| an adjustment layer's blur 12 is blur 3 on the quarter-size draft frame | [3.0] | yes |
+
 ## The packaged build carries F's Plugins' licence
 
 | Check | The build's answer | Matches |
@@ -98,4 +104,4 @@ D-87, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/sel
 
 ## Result
 
-69 of 69 checks pass.
+70 of 70 checks pass.
