@@ -6492,15 +6492,36 @@ function effectRow(layer, fx, at, of) {
   if (chosen) {
     const dt = Object.assign(document.createElement('dt'), { textContent: 'Colours, up to 8' });
     const dd = document.createElement('dd');
+    // The hex is typed, because the Windows colour window has no box for one and the match is
+    // exact. Enter or leaving the box sends it, the # optional; Escape puts it back. The panel
+    // is not redrawn under the typing, as with a number being typed.
+    const hexBox = (value, aria, done) => {
+      const text = Object.assign(document.createElement('input'),
+        { type: 'text', value, size: 8, placeholder: '#rrggbb', spellcheck: false });
+      text.setAttribute('aria-label', aria);
+      text.onfocus = () => { dragging = true; };
+      text.onkeydown = (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') text.blur();
+        else if (e.key === 'Escape') { text.value = value; text.blur(); }
+      };
+      text.onblur = () => {
+        dragging = false;
+        const hex = text.value.trim().toLowerCase().replace(/^#?/, '#');
+        if (hex !== value && hex !== '#') done(hex);
+      };
+      return text;
+    };
     chosen.forEach((hex, i) => {
       const swatch = Object.assign(document.createElement('input'),
-        { type: 'color', value: hex, title: 'Pick the colour, or type its hex' });
-      swatch.setAttribute('aria-label', label + ' colour ' + (i + 1));
-      const words = Object.assign(document.createElement('span'), { textContent: hex + ' ' });
-      swatch.oninput = () => { chosen[i] = swatch.value; words.textContent = swatch.value + ' '; live(); };
+        { type: 'color', value: hex, title: 'Pick the colour' });
+      swatch.setAttribute('aria-label', label + ' colour ' + (i + 1) + ' picker');
+      const words = hexBox(hex, label + ' colour ' + (i + 1),
+        (typed) => { chosen[i] = typed; sendParameters(); });
+      swatch.oninput = () => { chosen[i] = swatch.value; words.value = swatch.value; live(); };
       swatch.onchange = () => close(false);
       swatch.onblur = () => close(false);
-      dd.append(swatch, ' ', words, iconButton('✕', 'Remove the colour ' + hex,
+      dd.append(swatch, ' ', words, ' ', iconButton('✕', 'Remove the colour ' + hex,
         () => { chosen.splice(i, 1); sendParameters(); }), ' ');
     });
     if (!chosen.length) {
@@ -6509,11 +6530,11 @@ function effectRow(layer, fx, at, of) {
     }
     if (chosen.length < 8) {
       const add = Object.assign(document.createElement('input'), { type: 'color', value: '#ffffff' });
-      add.setAttribute('aria-label', 'Add a colour to ' + label);
+      add.setAttribute('aria-label', 'Pick a colour to add to ' + label);
+      add.title = 'Pick a colour to add';
       add.onchange = () => { chosen.push(add.value); sendParameters(); };
-      const words = document.createElement('label');
-      words.append(add, ' Add a colour');
-      dd.append(words);
+      dd.append('Add a colour: ', hexBox('', 'Add a colour to ' + label,
+        (typed) => { chosen.push(typed); sendParameters(); }), ' or ', add);
     }
     dl.append(dt, dd);
   }
