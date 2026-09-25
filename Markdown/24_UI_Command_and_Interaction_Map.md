@@ -70,6 +70,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.add_null | Add a null above the selected layer: never drawn, there to be a parent, at the composition's centre (D-82; in the window since B-26c, 2026-09-23) | Ctrl+Alt+Shift+Y | yes |
 | property.link | Link a property to another by the pick whip: writes the expression that reads it (D-83; in the window since B-27c, 2026-09-23) | drag the spiral beside the expression onto another property's row | yes |
 | timesheet.import | Import a cut from its folder: its `.xdts` timesheet and its columns' drawings become a new composition at 24 frames a second with a layer a column, opened (D-84; in the window since B-28c, 2026-09-24) | Import cut in the media bin | yes |
+| sheet.print | Print the Sheet as a paper timesheet, six seconds a page, or save it as a PDF, through the system print dialog; also Print... on the Sheet (D-84d; in the window since B-28g, 2026-09-24) | Ctrl+P | no |
 | timeline.previous_frame | Step one composition frame back | Left | no |
 | timeline.next_frame | Step one composition frame forward | Right | no |
 | timeline.play_pause | Toggle work-area playback | Space | no |

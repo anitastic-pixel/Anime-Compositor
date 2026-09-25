@@ -886,7 +886,9 @@
 </section>
 <!-- D-85: the Sheet is a panel of its own, so it can stand as a column beside the viewer. -->
 <section class="panel" id="sheetpanel">
-  <div class="tab">Sheet<span class="hint">the timing as a paper timesheet: click a cell, then type a number and Enter, x for a cross, or Delete to erase</span></div>
+  <div class="tab">Sheet<span class="hint">the timing as a paper timesheet: click a cell, then type a number and Enter, x for a cross, or Delete to erase</span>
+    <span class="tools"><button id="printsheet" class="sheettab" hidden
+      title="Print the Sheet as a paper timesheet, or save it as a PDF (Ctrl+P)">Print&hellip;</button></span></div>
   <div id="xsheet" tabindex="0"></div>
 </section>
 </div>
@@ -2841,6 +2843,7 @@ function palette() {
     ['New composition', 'Ctrl+Shift+N', { key: 'N', ctrlKey: true, shiftKey: true }],
     ['Import drawings', 'Ctrl+I', { key: 'i', ctrlKey: true }],
     ['Export PNG sequence', 'Ctrl+M', { key: 'm', ctrlKey: true }],
+    ['Print the Sheet', 'Ctrl+P', { key: 'p', ctrlKey: true }],
     ['Undo', 'Ctrl+Z', { key: 'z', ctrlKey: true }],
     ['Redo', 'Ctrl+Shift+Z', { key: 'Z', ctrlKey: true, shiftKey: true }],
     ['Add layer', 'Ctrl+Alt+L', { key: 'l', ctrlKey: true, altKey: true }],
@@ -7341,6 +7344,7 @@ function drawXsheet(grid) {
   box.textContent = '';
   lastGrid = grid;
   const comp = composition();
+  $('printsheet').hidden = !comp || !grid || !grid.columns.length;
   if (!comp || !grid || !grid.columns.length) {
     const hint = document.createElement('span');
     hint.className = 'hint';
@@ -7459,6 +7463,31 @@ async function writeSheetCell(mark) {
     + '&mark=' + mark);
   if (sheetCell === at) moveSheetCell(0, 1);
 }
+// D-84d: the Sheet on paper. The window writes the whole printable page; it goes into a hidden
+// frame, and the system's print dialog prints that frame rather than the window.
+async function printSheet() {
+  let page = '';
+  try {
+    const answer = await fetch(FRAMES + '/sheet/print');
+    if (answer.ok) page = await answer.text();
+  } catch (e) {
+    page = '';
+  }
+  if (!page.includes('<section class="page"')) {
+    $('status').textContent = 'There is nothing to print: no layer here shows drawings.';
+    return;
+  }
+  const paper = document.createElement('iframe');
+  paper.style.cssText = 'position: fixed; width: 0; height: 0; border: 0; visibility: hidden';
+  paper.onload = () => {
+    paper.contentWindow.onafterprint = () => paper.remove();
+    paper.contentWindow.print();
+  };
+  paper.srcdoc = page;
+  document.body.append(paper);
+}
+$('printsheet').onclick = printSheet;
+
 $('xsheet').onkeydown = (e) => {
   if (!sheetCell || e.ctrlKey || e.altKey || e.metaKey) return;
   if (/^[0-9]$/.test(e.key)) { sheetTyped += e.key; markXsheetCell(); }
@@ -8179,6 +8208,8 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); newProject(); }
   // W-24: document 24's command palette. By the key's place, as Shift changes the letter.
   else if (e.ctrlKey && e.shiftKey && e.code === 'KeyP') { e.preventDefault(); palette(); }
+  // D-84d: Ctrl+P prints the Sheet, from anywhere, since printing the window itself is no use.
+  else if (e.ctrlKey && !e.altKey && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); printSheet(); }
   // Document 24: Ctrl+Z undo, Ctrl+Shift+Z redo, Ctrl+Alt+L add layer, Ctrl+] and Ctrl+[ move
   // the selected layer toward the front and toward the back.
   else if (e.ctrlKey && (e.key === 'z' || e.key === 'Z')) {

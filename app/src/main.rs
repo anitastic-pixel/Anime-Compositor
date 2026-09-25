@@ -339,10 +339,140 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
 /// kept, a cell for each frame of the sheet: the entry's strings joined by a space where it
 /// starts, `|` while it lasts, and `""` where there is none.
 fn sheet(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
+    allow_the_page_to_read_this(Response::builder())
+        .header("content-type", "application/json; charset=utf-8")
+        .body(sheet_grid(viewer).to_string().into_bytes())
+        .expect("build the sheet response")
+}
+
+/// D-84d: `/sheet/print`, the Sheet as paper for the system's print dialog. The window writes
+/// the whole page, so what prints is the Sheet's own cells and a table can read the pages.
+fn sheet_print(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
+    allow_the_page_to_read_this(Response::builder())
+        .header("content-type", "text/html; charset=utf-8")
+        .body(sheet_paper(&sheet_grid(viewer)).into_bytes())
+        .expect("build the printable sheet")
+}
+
+/// The printable page for a grid from `sheet_grid`. A page holds six seconds as two halves of
+/// three, left then right, as a Japanese A4 timesheet does; rows past the cut's end are empty
+/// and a heavy line goes under its last frame. A grid with no drawing columns has no pages.
+fn sheet_paper(grid: &serde_json::Value) -> String {
+    let escape = |text: &str| {
+        text.replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;")
+    };
+    let empty = Vec::new();
+    let list = |key: &str| grid[key].as_array().unwrap_or(&empty).clone();
+    let drawings = list("columns");
+    let name = escape(grid["name"].as_str().unwrap_or(""));
+    let mut html = format!(
+        "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>{name}</title><style>\n{}\n</style></head><body>\n",
+        SHEET_PAPER_STYLE
+    );
+    if drawings.is_empty() {
+        html.push_str("<p>There is nothing to print: no layer here shows drawings.</p>\n</body></html>\n");
+        return html;
+    }
+    let text = list("text");
+    // As on screen: dialogue left of the drawings, camera and anything else right of them.
+    let columns: Vec<(&serde_json::Value, bool)> = text
+        .iter()
+        .filter(|c| c["kind"] == "dialogue")
+        .map(|c| (c, true))
+        .chain(drawings.iter().map(|c| (c, false)))
+        .chain(text.iter().filter(|c| c["kind"] != "dialogue").map(|c| (c, true)))
+        .collect();
+    let rate = &grid["frame_rate"];
+    let fps = (rate["numerator"].as_f64().unwrap_or(24.0) / rate["denominator"].as_f64().unwrap_or(1.0))
+        .round()
+        .max(1.0) as usize;
+    let duration = grid["duration"].as_u64().unwrap_or(0) as usize;
+    let from = grid["from"].as_i64().unwrap_or(0);
+    let half = 3 * fps;
+    let pages = duration.div_ceil(2 * half).max(1);
+    let length = format!("{} + {}", duration / fps, duration % fps);
+    for page in 0..pages {
+        html.push_str(&format!(
+            "<section class=\"page\" style=\"--rows: {half}\"><header><b>{name}</b><span>Sheet {} of {pages}</span><span>{length}</span><span>{fps} fps</span></header><div class=\"halves\">\n",
+            page + 1
+        ));
+        for side in 0..2 {
+            let first = (page * 2 + side) * half;
+            html.push_str(&format!(
+                "<table data-first=\"{}\" data-last=\"{}\"><tr><th>frame</th>",
+                from + first as i64,
+                from + (first + half - 1) as i64
+            ));
+            for (c, _) in &columns {
+                html.push_str(&format!("<th>{}</th>", escape(c["name"].as_str().unwrap_or(""))));
+            }
+            html.push_str("</tr>\n");
+            for i in first..first + half {
+                let mut class = Vec::new();
+                if (i + 1) % fps == 0 {
+                    class.push("second");
+                }
+                if i + 1 == duration {
+                    class.push("end");
+                }
+                if i >= duration {
+                    class.push("past");
+                }
+                html.push_str(&format!(
+                    "<tr data-frame=\"{}\" class=\"{}\"><td>{}</td>",
+                    from + i as i64,
+                    class.join(" "),
+                    from + i as i64
+                ));
+                for (c, words) in &columns {
+                    let cell = if i < duration { c["cells"].get(i) } else { None };
+                    html.push_str(&match (cell.map(|v| v.as_str()), words) {
+                        (None, _) | (Some(Some("")), _) => "<td></td>".to_string(),
+                        (Some(None), _) => "<td class=\"out\"></td>".to_string(),
+                        (Some(Some("|")), _) => "<td class=\"hold\"></td>".to_string(),
+                        (Some(Some("x")), false) => "<td>\u{d7}</td>".to_string(),
+                        (Some(Some(mark)), true) => format!("<td class=\"words\">{}</td>", escape(mark)),
+                        (Some(Some(mark)), false) => format!("<td>{}</td>", escape(mark)),
+                    });
+                }
+                html.push_str("</tr>\n");
+            }
+            html.push_str("</table>\n");
+        }
+        html.push_str("</div></section>\n");
+    }
+    html.push_str("</body></html>\n");
+    html
+}
+
+/// Black on white, a page a sheet, the rows shared out down the height of whatever paper
+/// the print dialog has chosen (`100vh` is the printable height when printing).
+const SHEET_PAPER_STYLE: &str = "@page { margin: 10mm; }
+body { margin: 0; font: 6.5pt/1 sans-serif; color: #000; background: #fff; }
+.page { break-after: page; display: flex; flex-direction: column; height: 100vh; }
+.page:last-child { break-after: auto; }
+header { display: flex; gap: 8mm; font-size: 9pt; height: 6mm; }
+.halves { display: flex; gap: 4mm; flex: 1; }
+table { border-collapse: collapse; flex: 1; font-variant-numeric: tabular-nums; }
+th, td { border: 0.5px solid #666; padding: 0 2px; text-align: center; height: calc((100vh - 8mm) / (var(--rows) + 1)); box-sizing: border-box; }
+td:first-child { color: #444; text-align: right; }
+td.words { text-align: left; white-space: nowrap; overflow: hidden; max-width: 30mm; }
+td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
+td.out { background: #ddd; }
+tr.second td { border-bottom: 1.5px solid #000; }
+tr.end td { border-bottom: 3px double #000; }
+tr.past td:first-child { color: #aaa; }
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }";
+
+/// The Sheet's grid: `sheet` answers it to the page and `sheet_paper` prints it.
+fn sheet_grid(viewer: &Mutex<Viewer>) -> serde_json::Value {
     use anime_compositor::time::ExposureMap;
     let viewer = viewer.lock().expect("the viewer lock was poisoned");
     let project = viewer.document.project();
-    let body = match project.composition(&viewer.composition) {
+    match project.composition(&viewer.composition) {
         None => serde_json::json!({ "from": 0, "columns": [], "text": [] }),
         Some(comp) => {
             let frames = comp.start_frame..comp.start_frame + comp.duration_frames as i32;
@@ -399,13 +529,11 @@ fn sheet(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
                     serde_json::json!({ "kind": column.kind, "name": column.name, "cells": cells })
                 })
                 .collect();
-            serde_json::json!({ "from": comp.start_frame, "columns": columns, "text": text })
+            serde_json::json!({ "from": comp.start_frame, "columns": columns, "text": text,
+                "name": comp.name, "duration": comp.duration_frames, "frame_rate": {
+                    "numerator": comp.frame_rate.numerator(), "denominator": comp.frame_rate.denominator() } })
         }
-    };
-    allow_the_page_to_read_this(Response::builder())
-        .header("content-type", "application/json; charset=utf-8")
-        .body(body.to_string().into_bytes())
-        .expect("build the sheet response")
+    }
 }
 
 fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) -> Response<Vec<u8>> {
@@ -6587,6 +6715,10 @@ fn main() {
             // D-84a: `/sheet`, the Sheet tab's grid, for the same reason again.
             if request.uri().path().trim_matches('/') == "sheet" {
                 return sheet(&viewer);
+            }
+            // D-84d: `/sheet/print`, the same grid as a page to print.
+            if request.uri().path().trim_matches('/') == "sheet/print" {
+                return sheet_print(&viewer);
             }
             match parse(request.uri().path(), request.uri().query()) {
                 Some((ask, quality)) => serve(&viewer, &export, ask, quality),
@@ -13004,6 +13136,257 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
     }
 
+    /// B-28g: printing the Sheet, on D-84d. Each FX-PRINT case, read from document 25 itself,
+    /// against the printable page the window writes, and every printed cell against the Sheet.
+    #[test]
+    fn the_printed_sheet_matches_the_fixture_catalogue() {
+        let mut report = Report { rows: Vec::new() };
+        let catalogue = std::fs::read_to_string(repo("Markdown/25_Test_Fixture_Catalog.md"))
+            .expect("read document 25");
+        let section = catalogue
+            .split("## Sheet printing fixtures")
+            .nth(1)
+            .and_then(|rest| rest.split("\n## ").next())
+            .expect("document 25 has the sheet printing fixtures");
+        // Each case: its name and what it says, then its lines by their label.
+        let mut cases: Vec<(String, Vec<(String, String)>)> = Vec::new();
+        for line in section.lines().map(str::trim) {
+            if let Some(rest) = line.strip_prefix("- FX-PRINT-") {
+                cases.push((format!("FX-PRINT-{}", rest.split(':').next().unwrap_or(rest)), Vec::new()));
+            } else if let (Some(rest), Some(case)) = (line.strip_prefix("- "), cases.last_mut()) {
+                let (label, said) = rest.split_once(": ").unwrap_or(("", rest));
+                case.1.push((label.to_string(), said.to_string()));
+            }
+        }
+        report.check("document 25 has four cases", "4", cases.len().to_string());
+
+        let quoted = |text: &str| -> Vec<String> {
+            text.split('`').skip(1).step_by(2).map(str::to_string).collect()
+        };
+        // The text between `open` and the next `close` after it, for each `open`.
+        let between = |text: &str, open: &str, close: &str| -> Vec<String> {
+            text.split(open)
+                .skip(1)
+                .map(|rest| rest.split(close).next().unwrap_or("").to_string())
+                .collect()
+        };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let page = include_str!("../ui/index.html");
+        for (name, lines) in &cases {
+            let viewer = Mutex::new(
+                open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+            );
+            match name.as_str() {
+                n if n.starts_with("FX-PRINT-004") => {
+                    run(&viewer, "composition.create");
+                    run(&viewer, "layer.add_solid");
+                }
+                n => {
+                    import_cut(&viewer, &repo("Fixtures/xdts/fx_xdts_040"));
+                    if n.starts_with("FX-PRINT-002") {
+                        run(&viewer, "composition.set_settings?frames=300");
+                    } else if n.starts_with("FX-PRINT-003") {
+                        run(&viewer, "composition.set_settings?fps=30");
+                    }
+                }
+            }
+            let grid = sheet_grid(&viewer);
+            let paper = sheet_paper(&grid);
+            let pages = between(&paper, "<section class=\"page\"", "</section>");
+            let headers: Vec<Vec<String>> = pages
+                .iter()
+                .map(|p| {
+                    let header = between(p, "<header>", "</header>").concat();
+                    header
+                        .split(|c| c == '<' || c == '>')
+                        .enumerate()
+                        .filter(|(i, t)| i % 2 == 0 && !t.is_empty())
+                        .map(|(_, t)| t.to_string())
+                        .collect()
+                })
+                .collect();
+            let halves: Vec<(String, String)> = between(&paper, "<table data-first=\"", "\">")
+                .iter()
+                .map(|t| {
+                    let (first, rest) = t.split_once('"').unwrap_or(("", ""));
+                    (first.to_string(), rest.rsplit('"').next().unwrap_or("").to_string())
+                })
+                .collect();
+            if name.starts_with("FX-PRINT-004") {
+                let message = lines.iter().find_map(|(l, said)| quoted(&format!("{l}: {said}")).first().cloned());
+                let message = message.unwrap_or_default();
+                report.check(
+                    &format!("{name}: `/sheet/print` writes no pages"),
+                    "0 pages",
+                    format!("{} pages", pages.len()),
+                );
+                report.check(
+                    &format!("{name}: the printable page and Ctrl+P say why"),
+                    format!("{message} / {message}"),
+                    format!(
+                        "{} / {}",
+                        if paper.contains(&message) { &message } else { "(not in the page)" },
+                        if page.contains(&format!("'{message}'")) { &message } else { "(not in the page)" }
+                    ),
+                );
+                report.check(
+                    &format!("{name}: Print... is not offered with no drawing columns"),
+                    "hidden",
+                    if page.contains("$('printsheet').hidden = !comp || !grid || !grid.columns.length")
+                        && grid["columns"].as_array().is_none_or(|c| c.is_empty())
+                    {
+                        "hidden"
+                    } else {
+                        "shown"
+                    },
+                );
+                continue;
+            }
+            for (label, said) in lines {
+                match label.as_str() {
+                    "Header" => {
+                        let mut got: Vec<String> = Vec::new();
+                        if let (Some(first), Some(last)) = (headers.first(), headers.last()) {
+                            got.extend(first.iter().take(2).cloned());
+                            if headers.len() > 1 {
+                                got.push(last.get(1).cloned().unwrap_or_default());
+                            }
+                            got.extend(first.iter().skip(2).cloned());
+                        }
+                        report.check(
+                            &format!("{name}: the header of the first page (and the last)"),
+                            quoted(said).join(", "),
+                            got.join(", "),
+                        );
+                    }
+                    "Columns" => {
+                        let first = between(&paper, "<table", "</tr>").first().cloned().unwrap_or_default();
+                        report.check(
+                            &format!("{name}: each half's columns, left to right"),
+                            said.clone(),
+                            between(&first, "<th>", "</th>").join(", "),
+                        );
+                    }
+                    _ if label.starts_with("Page") => {
+                        // Every number but the page numbers, in pairs.
+                        let mut numbers = Vec::new();
+                        let mut after_page = false;
+                        for word in said.split(|c: char| c.is_whitespace() || c == ',' || c == ';' || c == ':') {
+                            if word.eq_ignore_ascii_case("page") {
+                                after_page = true;
+                            } else if let Ok(n) = word.parse::<u32>() {
+                                if !after_page {
+                                    numbers.push(n);
+                                }
+                                after_page = false;
+                            }
+                        }
+                        let expected: Vec<String> = numbers.chunks(2).map(|c| format!("{} to {}", c[0], c.get(1).unwrap_or(&0))).collect();
+                        report.check(
+                            &format!("{name}: the halves, page by page, left then right"),
+                            expected.join(", "),
+                            halves.iter().map(|(a, b)| format!("{a} to {b}")).collect::<Vec<_>>().join(", "),
+                        );
+                    }
+                    _ => {}
+                }
+            }
+            if let Some(end) = lines.iter().find_map(|(l, said)| {
+                format!("{l} {said}").contains("End line").then(|| format!("{l}{said}"))
+            }) {
+                let wanted = end.rsplit(' ').next().unwrap_or("").to_string();
+                let got: Vec<String> = between(&paper, "<tr data-frame=\"", ">")
+                    .iter()
+                    .filter(|t| t.contains("end\"") || t.contains("end "))
+                    .map(|t| t.split('"').next().unwrap_or("").to_string())
+                    .collect();
+                report.check(&format!("{name}: the heavy line under the last frame"), wanted, got.join(", "));
+            }
+
+            // Every printed cell against the Sheet's, in the Sheet's order: dialogue, drawings,
+            // then the rest.
+            let empty = Vec::new();
+            let text = grid["text"].as_array().unwrap_or(&empty);
+            let order: Vec<&serde_json::Value> = text
+                .iter()
+                .filter(|c| c["kind"] == "dialogue")
+                .chain(grid["columns"].as_array().unwrap_or(&empty))
+                .chain(text.iter().filter(|c| c["kind"] != "dialogue"))
+                .collect();
+            let duration = grid["duration"].as_u64().unwrap_or(0) as usize;
+            let (mut compared, mut differ) = (0, Vec::new());
+            for row in between(&paper, "<tr data-frame=\"", "</tr>") {
+                let frame: usize = row.split('"').next().and_then(|f| f.parse().ok()).unwrap_or(usize::MAX);
+                let cells: Vec<serde_json::Value> = row
+                    .split("<td")
+                    .skip(2)
+                    .map(|td| {
+                        let (attrs, rest) = td.split_once('>').unwrap_or(("", ""));
+                        let inner = rest.split("</td>").next().unwrap_or("");
+                        match (attrs, inner) {
+                            (a, _) if a.contains("out") => serde_json::Value::Null,
+                            (a, _) if a.contains("hold") => serde_json::json!("|"),
+                            (_, "\u{d7}") => serde_json::json!("x"),
+                            (_, t) => serde_json::json!(t.replace("&amp;", "&")),
+                        }
+                    })
+                    .collect();
+                for (column, cell) in order.iter().zip(&cells) {
+                    let wanted = if frame < duration {
+                        column["cells"].get(frame).cloned().unwrap_or(serde_json::json!(""))
+                    } else {
+                        serde_json::json!("")
+                    };
+                    compared += 1;
+                    if &wanted != cell {
+                        differ.push(format!("frame {frame} {}", column["name"]));
+                    }
+                }
+            }
+            report.check(
+                &format!("{name}: every printed cell is the Sheet's own ({compared} cells, empty past the end)"),
+                "none differ",
+                if differ.is_empty() { "none differ".to_string() } else { differ.join(", ") },
+            );
+            let keep = match name.as_str() {
+                n if n.starts_with("FX-PRINT-001") => Some("verification/B-28g_sheet_print_040.html"),
+                n if n.starts_with("FX-PRINT-002") => Some("verification/B-28g_sheet_print_300_frames.html"),
+                n if n.starts_with("FX-PRINT-003") => Some("verification/B-28g_sheet_print_30_fps.html"),
+                _ => None,
+            };
+            if let Some(file) = keep {
+                std::fs::write(repo(file), &paper).expect("write the printable page");
+            }
+        }
+        report.check(
+            "the page prints what the window writes, and Ctrl+P asks for it",
+            "present",
+            if page.contains("FRAMES + '/sheet/print'")
+                && page.contains("paper.contentWindow.print()")
+                && page.contains("(e.key === 'p' || e.key === 'P')) { e.preventDefault(); printSheet(); }")
+            {
+                "present"
+            } else {
+                "absent"
+            },
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-28g_sheet_print_table.md",
+            "B-28g: printing the Sheet",
+            SHEET_PRINT_INTRO,
+            SHEET_PRINT_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    }
+
     /// B-28e: writing into the Sheet, on D-84b. Every FX-SHEET case, read from document 25
     /// itself, played on the cel project's layer set up as the case's Before line.
     #[test]
@@ -16038,6 +16421,25 @@ mod editing {
          columns is checked in `verification/B-28b_timesheet_table.md`.",
     ];
 
+    const SHEET_PRINT_INTRO: &[&str] = &[
+        "D-84d prints the Sheet as a paper timesheet through the system's print dialog, which can \
+         also save a PDF. The window writes the whole printable page from the Sheet's own cells: \
+         six seconds a page as two halves of three, a header on each, empty rows past the cut's \
+         end and a heavy line under its last frame.",
+        "Each FX-PRINT case is read from document 25 itself, set up in the window, and checked \
+         against the page the window writes: its header, its halves page by page, its columns and \
+         its end line. Every printed cell is then compared with the cell the Sheet shows on \
+         screen. The printable pages for FX-PRINT-001 to 003 are kept beside this table as \
+         `B-28g_sheet_print_040.html`, `B-28g_sheet_print_300_frames.html` and \
+         `B-28g_sheet_print_30_fps.html`, to open in any browser.",
+    ];
+
+    const SHEET_PRINT_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhat the paper looks like, whether the print dialog \
+         opens, and whether a PDF saved from it holds the pages. That is \
+         `verification/B-28g_sheet_print_playtest.md`, for a person.",
+    ];
+
     const SHEET_WRITING_INTRO: &[&str] = &[
         "D-84b lets a cell of the Sheet be written as on paper: a number or a cross lasts until \
          the next thing written below it, and erasing one lets what is above it run on. The page \
@@ -18430,6 +18832,8 @@ mod contract {
         ("property.link", "a command the window answers"),
         // D-84, accepted on 2026-09-24 and built in the core by B-28b; B-28c put it in the window.
         ("timesheet.import", "a command the window answers"),
+        // D-84d, accepted on 2026-09-24: B-28g. The page asks for `/sheet/print` and prints it.
+        ("sheet.print", "the page, with no request"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
@@ -18520,6 +18924,7 @@ mod contract {
         ("viewer.zoom_100", "Ctrl+1", "e.key === '1'"),
         ("export.sequence", "Ctrl+M", "e.key === 'm'"),
         ("app.command_palette", "Ctrl+Shift+P", "e.code === 'KeyP'"),
+        ("sheet.print", "Ctrl+P", "e.ctrlKey && !e.altKey && (e.key === 'p'"),
         ("composition.set_settings", "Ctrl+K", "e.code === 'KeyK'"),
         ("layer.copy", "Ctrl+C", "copyLayers()"),
         ("layer.paste", "Ctrl+V", "pasteLayers()"),
@@ -18720,6 +19125,7 @@ mod contract {
         "viewer.fit",
         "viewer.zoom_100",
         "app.command_palette",
+        "sheet.print",
     ];
 
     const MAP_INTRO: &[&str] = &[
@@ -19974,7 +20380,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 59] = [
+    const CONTROLS: [&str; 60] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -20014,6 +20420,7 @@ mod contract {
         "open",
         "play",
         "preferences",
+        "printsheet",
         "recent",
         "recovery",
         "redo",
