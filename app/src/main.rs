@@ -12716,9 +12716,9 @@ mod editing {
         );
         let page = include_str!("../ui/index.html");
         report.check(
-            "the page has the Sheet tab beside Timeline and Graph, and asks for the grid",
+            "the page has the Sheet as a panel of its own (D-85), and asks for the grid",
             "present",
-            if page.contains("<button id=\"tabxsheet\"") && page.contains("FRAMES + '/sheet'") {
+            if page.contains("<section class=\"panel\" id=\"sheetpanel\"") && page.contains("FRAMES + '/sheet'") {
                 "present"
             } else {
                 "absent"
@@ -19488,7 +19488,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 56] = [
+    const CONTROLS: [&str; 58] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -19532,18 +19532,20 @@ mod contract {
         "recovery",
         "redo",
         "relink",
-        "resetlayout",
+        "resetworkspace",
         "save",
         "saveas",
+        "saveworkspace",
         "shyswitch",
         "tabgraph",
         "tabsheet",
-        "tabxsheet",
         "timescroll",
         "timezoom",
         "toggle",
         "undo",
         "up",
+        "workspace",
+        "workspacename",
         "zoomer",
     ];
 

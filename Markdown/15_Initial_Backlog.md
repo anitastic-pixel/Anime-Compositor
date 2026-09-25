@@ -272,6 +272,8 @@ B-28c / the window: Import Cut, which asks for a folder and sends `timesheet.imp
 
 B-28d / the Sheet view, D-84a: the Sheet tab in the timeline panel, its grid worked out in the window's Rust side and asked for as `/sheet`, a panel table that compares FX-XDTS-040's sheet frame by frame with document 25's table, and a playtest sheet. **Written and built on 2026-09-24:** `verification/B-28d_sheet_table.md` is 57 of 57, and `verification/B-28d_sheet_playtest.md`, 12 steps. **Passed by the owner on 2026-09-24** ("nice, it works for both playtests").
 
+B-29 / workspaces, D-85: four places holding panels that move and stack, the Sheet as a panel of its own, and the Workspace list with Standard, Timing, Save workspace and Reset workspace. The page alone; no project file, fixture or command changes. **Built on 2026-09-24:** the full workspace run is 140 passed, 0 failed. `verification/B-12c_keyboard_table.md` lists the four new controls and loses the two retired ones. `verification/B-28d_sheet_table.md` is still 57 of 57, its page row now finding the Sheet panel. `verification/B-29_workspace_playtest.md`, 13 steps, is the check: no test here can run the page. It awaits the owner's playtest.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.

@@ -68,6 +68,6 @@ What the tab looks like, whether the hold lines and the shading read as a paper 
 | C as written: blank from the start, in at 20, out at 28, back at 40 | x . . . . . . . . . . . . . . . . . . . 1 2 3 4 5 \| 6 \| x . . . . . . . . . . . 1 \| 2 \| \| \| \| \| | x . . . . . . . . . . . . . . . . . . . 1 2 3 4 5 \| 6 \| x . . . . . . . . . . . 1 \| 2 \| \| \| \| \| | pass |
 | A trimmed to frames 4 to 43: shaded outside, and its first frame in shows its number | - - - - 3 \| 4 \| 5 \| 6 \| 7 \| 8 \| \| \| \| \| \| \| \| \| 7 \| 6 \| 5 \| 4 \| 3 \| 2 \| 1 \| \| \| \| \| \| \| - - - - | - - - - 3 \| 4 \| 5 \| 6 \| 7 \| 8 \| \| \| \| \| \| \| \| \| 7 \| 6 \| 5 \| 4 \| 3 \| 2 \| 1 \| \| \| \| \| \| \| - - - - | pass |
 | a solid added to the cut has no column, because it has no drawings | 4 layers; columns A, B, C | 4 layers; columns A, B, C | pass |
-| the page has the Sheet tab beside Timeline and Graph, and asks for the grid | present | present | pass |
+| the page has the Sheet as a panel of its own (D-85), and asks for the grid | present | present | pass |
 
 **57 of 57 checks pass.**

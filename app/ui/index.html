@@ -63,8 +63,10 @@
        composited shrinks rather than being cut and a panel drawn over another panel is worse than
        cut. A media query cannot do this job: -Scale zooms, so the viewport still measures its
        unzoomed width and the query never fires at the size that needs it. */
+    --leftcol: minmax(120px, var(--bin, 220px)); --leftsplit: 5px;
+    --rightcol: minmax(150px, var(--inspector, 280px)); --rightsplit: 5px;
     grid-template-columns:
-      minmax(120px, var(--bin, 220px)) 5px minmax(180px, 1fr) 5px minmax(150px, var(--inspector, 280px));
+      var(--leftcol) var(--leftsplit) minmax(180px, 1fr) var(--rightsplit) var(--rightcol);
     grid-template-rows: minmax(0, 1fr);
     background: #101010; overflow-x: auto;
   }
@@ -80,8 +82,28 @@
   .split:focus-visible { outline: 2px solid #6ea8fe; outline-offset: -2px; }
   /* Once the timeline's border has been pulled its height is the person's and the panels above
      give way to it, down to a floor that keeps the viewer's own controls on screen. */
-  body.sized #timeline { height: var(--sheet); max-height: none; }
+  body.sized #bottom { height: var(--sheet); }
   body.sized #work { min-height: 120px; }
+  /* D-85: the four places. Each holds panels with one in front, and a row of their names when
+     it holds more than one. The columns are placed by number so a place that has no panel can
+     fold away, border and all, without the others sliding into its column. The bottom keeps its
+     height whichever panel is in front, so bringing one forward never takes room from the viewer. */
+  #left { grid-column: 1; } #splitbin { grid-column: 2; } #centre { grid-column: 3; }
+  #splitinspector { grid-column: 4; } #right { grid-column: 5; }
+  .place { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: #1e1e1e; }
+  .place > .panel { flex: 1 1 0; }
+  .place > .panel[hidden], .stack[hidden] { display: none; }
+  #bottom { height: 33vh; min-height: 60px; }
+  body.noleft #work { --leftcol: 0px; --leftsplit: 0px; }
+  body.noright #work { --rightcol: 0px; --rightsplit: 0px; }
+  body.noleft #left, body.noleft #splitbin, body.noright #right, body.noright #splitinspector,
+  body.nobottom #bottom, body.nobottom #splitsheet { display: none; }
+  .stack { display: flex; gap: 2px; padding: 3px 4px 0; background: #181818; border-bottom: 1px solid #101010; }
+  .stack button { font-size: 11px; padding: 2px 10px; border-radius: 3px 3px 0 0; cursor: grab; }
+  .stack button[aria-pressed=true] { background: #2b2b2b; color: #e8e8ec; }
+  .place > .panel > .tab { cursor: grab; }
+  body.dropping, body.dropping * { cursor: grabbing !important; }
+  .place.drop { outline: 2px solid #6ea8fe; outline-offset: -2px; }
   /* A panel: a tab across the top saying what it is, a body that scrolls, and for two of them a
      row of controls along the bottom that act on what the panel holds. */
   .panel {
@@ -192,7 +214,7 @@
      and a strip allowed to grow without limit takes the whole window and the picture
      disappears. Each keeps at most a third and scrolls the rest, so the thing being composited
      is always on screen. */
-  #timeline, #bar { max-height: 33vh; overflow-y: auto; }
+  #bar { max-height: 33vh; overflow-y: auto; }
   /* The timeline: the layers down the left, time running left to right across the whole of the
      composition, and a playhead where the picture on screen is. It reads and never writes — an
      exposure is still set by typing the frame numbers under it — so nothing in here can change
@@ -269,7 +291,7 @@
   .sheettab:focus-visible { outline: 2px solid #6ea8fe; outline-offset: 2px; }
   #graph { position: relative; overflow: hidden; padding: 6px 8px 8px; min-height: 180px; }
   /* D-84a: the Sheet tab, a paper timesheet: frames down, a column a drawing layer. */
-  #xsheet { padding: 6px 8px 8px; }
+  #xsheet { padding: 6px 8px 8px; overflow: auto; min-height: 0; }
   #xsheet table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
   #xsheet th, #xsheet td { border: 1px solid #333; padding: 0 8px; min-width: 40px; height: 18px; text-align: center; }
   #xsheet th { position: sticky; top: 0; background: #262626; font-weight: normal; }
@@ -534,8 +556,9 @@
   body.maxed #work > :not(.max), body.maxed .split { display: none; }
   body.maxed #work { grid-template-columns: minmax(0, 1fr); }
   body.maxed #work:not(:has(.max)) { display: none; }
-  body.maxed #timeline.max { flex: 1; max-height: none; height: auto; }
-  body.maxed #timeline:not(.max) { display: none; }
+  body.maxed #work > .max { grid-column: 1 / -1; }
+  body.maxed #bottom.max { flex: 1; height: auto; }
+  body.maxed #bottom:not(.max) { display: none; }
   body.maxed #work { min-height: 0; }
   #layers .rowhead select.blend { margin-left: auto; flex: none; font-size: 11px; padding: 0; }
 
@@ -662,6 +685,12 @@
   <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
   <button id="preferences">Preferences&hellip;</button>
   <span class="sep"></span>
+  <!-- D-85: which panel is where, and how big the places are. Kept on this machine, not in the project. -->
+  <select id="workspace" aria-label="Workspace" title="Workspace: where each panel is. Right-click a panel's name or title bar to move it, or drag it onto another place"></select>
+  <button id="saveworkspace" title="Keep this arrangement of panels and sizes under a name">Save workspace&hellip;</button>
+  <input id="workspacename" hidden placeholder="Name it, then Enter" aria-label="The new workspace's name">
+  <button id="resetworkspace" title="Put this workspace back as it was built or saved">Reset workspace</button>
+  <span class="sep"></span>
   <button id="undo">Undo</button>
   <button id="redo">Redo</button>
   <span class="sep"></span>
@@ -685,6 +714,7 @@
   <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
 </div>
 <div id="work">
+  <div class="place" id="left"><nav class="stack" hidden></nav>
   <section class="panel" id="bin">
     <div class="tab">Project</div>
     <div class="body">
@@ -718,7 +748,6 @@
         <input id="preffps" type="number" min="1" value="24">
         <label for="prefframes">Length in frames</label>
         <input id="prefframes" type="number" min="1" value="240">
-        <button id="resetlayout">Put the panel sizes back</button>
         <button id="closeprefs">Close</button>
       </div>
       <h2>Drawings</h2>
@@ -737,8 +766,10 @@
       <button id="relink">Relink&hellip;</button>
     </div>
   </section>
+  </div>
   <div class="split col" id="splitbin" role="separator" aria-orientation="vertical" tabindex="0"
     aria-label="The border between the media bin and the viewer. Drag it, or use the arrow keys."></div>
+  <div class="place" id="centre"><nav class="stack" hidden></nav>
   <section class="panel" id="viewer">
     <div class="tab">Composition<span id="comp">&mdash;</span></div>
     <!-- The picture, and the selection drawn over it. The outline is a separate element
@@ -765,8 +796,10 @@
       <span id="zoomlabel">&mdash;</span>
     </div>
   </section>
+  </div>
   <div class="split col" id="splitinspector" role="separator" aria-orientation="vertical" tabindex="0"
     aria-label="The border between the viewer and the inspector. Drag it, or use the arrow keys."></div>
+  <div class="place" id="right"><nav class="stack" hidden></nav>
   <section class="panel" id="inspector">
     <div class="tab">Effect controls</div>
     <div class="body">
@@ -795,15 +828,15 @@
       </select>
     </div>
   </section>
+  </div>
 </div>
 <div class="split row" id="splitsheet" role="separator" aria-orientation="horizontal" tabindex="0"
   aria-label="The border above the timeline. Drag it, or use the arrow keys."></div>
+<div class="place" id="bottom"><nav class="stack" hidden></nav>
 <section class="panel" id="timeline">
   <div class="tab">
     <button id="tabsheet" class="sheettab" aria-pressed="true">Timeline</button>
     <button id="tabgraph" class="sheettab" aria-pressed="false">Graph</button>
-    <button id="tabxsheet" class="sheettab" aria-pressed="false"
-      title="The timing as a paper timesheet: frames down the page, a column for each drawing layer. Click a row to go to that frame.">Sheet</button>
     <span class="hint" id="sheethint">front layer first</span>
     <span class="tools">
       <input id="timezoom" type="range" min="0" max="100" step="1" value="0"
@@ -833,7 +866,6 @@
     </span>
   </div>
   <div id="graph" hidden></div>
-  <div id="xsheet" hidden></div>
   <div id="sheet">
     <div id="ruler"></div>
     <div id="tracks">
@@ -846,6 +878,12 @@
     aria-label="Slide along the zoomed timeline. The arrow keys move it too."
     title="Slide along the zoomed timeline">
 </section>
+<!-- D-85: the Sheet is a panel of its own, so it can stand as a column beside the viewer. -->
+<section class="panel" id="sheetpanel">
+  <div class="tab">Sheet<span class="hint">the timing as a paper timesheet: click a row to go to that frame</span></div>
+  <div id="xsheet"></div>
+</section>
+</div>
 <div id="bar">
   <span id="status"></span>
   <span id="autosaved"></span>
@@ -5135,9 +5173,9 @@ window.addEventListener('resize', applyZoom);
 // are kept in the browser's storage, not the file, and a file opened on another machine lays
 // the window out however that machine last had it.
 const BORDERS = {
-  splitbin: ['--bin', 'bin', 120, 1],
-  splitinspector: ['--inspector', 'inspector', 150, -1],
-  splitsheet: ['--sheet', 'timeline', 80, -1],
+  splitbin: ['--bin', 'left', 120, 1],
+  splitinspector: ['--inspector', 'right', 150, -1],
+  splitsheet: ['--sheet', 'bottom', 80, -1],
 };
 let layout = {};
 try { layout = JSON.parse(localStorage.getItem('layout') || '{}') || {}; } catch (e) { layout = {}; }
@@ -5156,9 +5194,9 @@ for (const [id, [prop, panel, min, sign]] of Object.entries(BORDERS)) {
   // The most a panel may take: the viewer keeps its 180px column beside the other side panel,
   // and the panels above the timeline keep the 120px floor the stylesheet gives them.
   const most = () => vertical
-    ? $('work').getBoundingClientRect().height + $('timeline').getBoundingClientRect().height - 120
+    ? $('work').getBoundingClientRect().height + $('bottom').getBoundingClientRect().height - 120
     : $('work').clientWidth - 180 - 10
-      - $(panel === 'bin' ? 'inspector' : 'bin').getBoundingClientRect().width;
+      - $(panel === 'left' ? 'right' : 'left').getBoundingClientRect().width;
   const measure = () => $(panel).getBoundingClientRect()[vertical ? 'height' : 'width'];
   const to = (px) => setSize(prop, Math.round(Math.min(most(), Math.max(min, px))));
   split.onpointerdown = (e) => {
@@ -6356,7 +6394,7 @@ function drawEffects() {
 // curve in this page would be a second evaluator, and the day it disagreed with the one that
 // renders the picture the graph would still look perfectly correct.
 let graphing = false;    // the Graph tab is the one showing
-let xsheeting = false;   // D-84a: the Sheet tab is the one showing
+let xsheeting = false;   // D-84a: the Sheet panel is in front of its place
 let graphProp = null;    // the property drawn, or null for the first one with keys on it
 let plotted = null;      // the last answer from `/curve`, or null
 let pulling = null;      // the handle under the pointer, while it is being pulled
@@ -7262,22 +7300,17 @@ function easeKeys(sides) {
 
 function showSheet(which) {
   graphing = which === 'graph';
-  xsheeting = which === 'xsheet';
-  $('sheet').hidden = which !== 'sheet';
+  $('sheet').hidden = graphing;
   $('graph').hidden = !graphing;
-  $('xsheet').hidden = !xsheeting;
-  $('sheethint').hidden = which !== 'sheet';
-  $('tabsheet').setAttribute('aria-pressed', String(which === 'sheet'));
+  $('sheethint').hidden = graphing;
+  $('tabsheet').setAttribute('aria-pressed', String(!graphing));
   $('tabgraph').setAttribute('aria-pressed', String(graphing));
-  $('tabxsheet').setAttribute('aria-pressed', String(xsheeting));
   askForCurve();
-  askForXsheet();
 }
 $('tabsheet').onclick = () => showSheet('sheet');
 $('tabgraph').onclick = () => showSheet('graph');
-$('tabxsheet').onclick = () => showSheet('xsheet');
 
-// D-84a: the Sheet tab. The window works out every cell from the core's own answer to which
+// D-84a: the Sheet, a panel of its own since D-85. The window works out every cell from the core's own answer to which
 // drawing is on a frame, so the page only lays them out: a number where a drawing is first
 // exposed, a line down the cells that hold it, a cross where a blank starts, shading outside
 // the layer, and a heavier line under the last frame of each second.
@@ -7669,17 +7702,173 @@ function showEffects() {
   if (selected()) $('effects').previousElementSibling.scrollIntoView({ block: 'start' });
 }
 
-// W-25: the ` key fills the window with the panel under the pointer, and again puts it back. The
+// W-25: the ` key fills the window with the place under the pointer, and again puts it back. The
 // layout the borders set is not touched, so nothing needs remembering.
 let pointerAt = null;
 addEventListener('pointermove', (e) => { pointerAt = e.target; }, true);
 function maximise() {
-  const was = document.querySelector('.panel.max');
+  const was = document.querySelector('.place.max');
   if (was) was.classList.remove('max');
-  else ((pointerAt instanceof Element && pointerAt.closest('.panel')) || $('viewer')).classList.add('max');
+  else ((pointerAt instanceof Element && pointerAt.closest('.place')) || $('viewer').closest('.place')).classList.add('max');
   document.body.classList.toggle('maxed', !was);
   applyZoom();
 }
+
+// D-85: workspaces. Four places, each holding panels with the first in front. A panel moves by
+// dragging its name or its title bar onto another place, or from the menu a right click on either
+// opens. A workspace is where each panel is and how big the places are, kept in the browser's
+// storage beside the sizes and never in the project, as W-13 keeps the sizes.
+const PANELS = { bin: 'Project', viewer: 'Composition', inspector: 'Effect controls', timeline: 'Timeline', sheetpanel: 'Sheet' };
+const PLACES = { left: 'the left', centre: 'the centre', right: 'the right', bottom: 'the bottom' };
+const BUILT_IN = {
+  Standard: { places: { left: ['bin'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline', 'sheetpanel'] }, sizes: {} },
+  Timing: { places: { left: ['sheetpanel', 'bin'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'] }, sizes: { '--bin': 320 } },
+};
+let savedWorkspaces = {};
+try { savedWorkspaces = JSON.parse(localStorage.getItem('workspaces') || '{}') || {}; } catch (e) { savedWorkspaces = {}; }
+let workspace = null;
+try { workspace = JSON.parse(localStorage.getItem('workspace')); } catch (e) { workspace = null; }
+if (!workspace || !(BUILT_IN[workspace.name] || savedWorkspaces[workspace.name])) {
+  workspace = { name: 'Standard', places: BUILT_IN.Standard.places };
+}
+// Every panel once: one listed twice keeps its first place, and one missing, as a panel added
+// since the workspace was saved would be, goes where Standard has it.
+function settle(places) {
+  const out = { left: [], centre: [], right: [], bottom: [] };
+  const seen = new Set();
+  for (const place of Object.keys(out)) {
+    for (const id of (places && Array.isArray(places[place]) && places[place]) || []) {
+      if (PANELS[id] && !seen.has(id)) { seen.add(id); out[place].push(id); }
+    }
+  }
+  for (const [place, ids] of Object.entries(BUILT_IN.Standard.places)) {
+    for (const id of ids) if (!seen.has(id)) out[place].push(id);
+  }
+  return out;
+}
+function arrange() {
+  workspace.places = settle(workspace.places);
+  for (const [place, ids] of Object.entries(workspace.places)) {
+    const box = $(place);
+    const strip = box.querySelector(':scope > .stack');
+    strip.textContent = '';
+    strip.hidden = ids.length < 2;
+    ids.forEach((id, i) => {
+      box.append($(id));
+      $(id).hidden = i > 0;
+      const name = document.createElement('button');
+      name.type = 'button';
+      name.textContent = PANELS[id];
+      name.dataset.panel = id;
+      name.setAttribute('aria-pressed', String(i === 0));
+      name.onclick = () => movePanel(id, place);
+      strip.append(name);
+    });
+    document.body.classList.toggle('no' + place, !ids.length);
+  }
+  try { localStorage.setItem('workspace', JSON.stringify(workspace)); } catch (e) { /* kept for this run only */ }
+  const was = xsheeting;
+  xsheeting = !$('sheetpanel').hidden;
+  if (xsheeting && !was) askForXsheet();
+  applyZoom();
+}
+// To the front of that place, from wherever it was.
+function movePanel(id, place) {
+  for (const ids of Object.values(workspace.places)) if (ids.includes(id)) ids.splice(ids.indexOf(id), 1);
+  workspace.places[place].unshift(id);
+  arrange();
+}
+const panelHandle = (target) => target instanceof Element
+  && target.closest('.stack button, .place > .panel > .tab');
+const handlePanel = (handle) => handle.dataset.panel || handle.parentElement.id;
+addEventListener('pointerdown', (e) => {
+  const handle = panelHandle(e.target);
+  if (e.button !== 0 || !handle) return;
+  // The timeline's title bar is full of its own controls, and they keep their clicks.
+  if (handle.classList.contains('tab') && e.target.closest('button, input, select, label')) return;
+  const id = handlePanel(handle);
+  const [x0, y0] = [e.clientX, e.clientY];
+  let lifted = false;
+  let over = null;
+  const move = (m) => {
+    if (!lifted && Math.hypot(m.clientX - x0, m.clientY - y0) < 8) return;
+    lifted = true;
+    document.body.classList.add('dropping');
+    const under = document.elementFromPoint(m.clientX, m.clientY);
+    const place = (under && under.closest('.place')) || null;
+    if (over !== place) {
+      if (over) over.classList.remove('drop');
+      if (place) place.classList.add('drop');
+      over = place;
+    }
+  };
+  const up = () => {
+    removeEventListener('pointermove', move, true);
+    removeEventListener('pointerup', up, true);
+    document.body.classList.remove('dropping');
+    if (over) over.classList.remove('drop');
+    if (lifted && over) movePanel(id, over.id);
+  };
+  addEventListener('pointermove', move, true);
+  addEventListener('pointerup', up, true);
+});
+addEventListener('contextmenu', (e) => {
+  const handle = panelHandle(e.target);
+  if (!handle || e.target.closest('input, select')) return;
+  e.preventDefault();
+  const id = handlePanel(handle);
+  const here = Object.keys(workspace.places).find((place) => workspace.places[place].includes(id));
+  popMenu(e.clientX, e.clientY, Object.entries(PLACES).map(([place, words]) =>
+    ['Move ' + PANELS[id] + ' to ' + words, '', () => movePanel(id, place), place !== here]));
+});
+function fillWorkspaces() {
+  const box = $('workspace');
+  box.textContent = '';
+  for (const name of [...Object.keys(BUILT_IN), ...Object.keys(savedWorkspaces)]) {
+    box.add(new Option('Workspace: ' + name, name, false, name === workspace.name));
+  }
+}
+// Lays a workspace out as it was built or saved, sizes and all.
+function useWorkspace(name) {
+  const chosen = BUILT_IN[name] || savedWorkspaces[name];
+  if (!chosen) return;
+  workspace = { name, places: JSON.parse(JSON.stringify(chosen.places || {})) };
+  for (const [prop] of Object.values(BORDERS)) {
+    const px = chosen.sizes && chosen.sizes[prop];
+    setSize(prop, Number.isFinite(px) && px > 0 ? px : null);
+  }
+  saveLayout();
+  arrange();
+  fillWorkspaces();
+}
+$('workspace').onchange = (e) => useWorkspace(e.target.value);
+$('resetworkspace').onclick = () => useWorkspace(workspace.name);
+$('saveworkspace').onclick = () => {
+  const box = $('workspacename');
+  box.hidden = false;
+  box.value = '';
+  box.focus();
+};
+$('workspacename').onkeydown = (e) => {
+  const box = e.target;
+  const name = box.value.trim();
+  if (e.key === 'Escape') { box.hidden = true; return; }
+  if (e.key !== 'Enter' || !name) return;
+  // A built-in workspace cannot be saved over, so Standard can always be had back.
+  if (BUILT_IN[name]) {
+    $('status').textContent = name + ' is built in and cannot be saved over. Give this one another name.';
+    return;
+  }
+  savedWorkspaces[name] = { places: JSON.parse(JSON.stringify(workspace.places)), sizes: { ...layout } };
+  try { localStorage.setItem('workspaces', JSON.stringify(savedWorkspaces)); } catch (err) { /* kept for this run only */ }
+  workspace.name = name;
+  box.hidden = true;
+  arrange();
+  fillWorkspaces();
+  $('status').textContent = 'Workspace ' + name + ' saved. Reset workspace now puts it back as it is.';
+};
+arrange();
+fillWorkspaces();
 
 $('notedetails').onclick = () => {
   const codes = $('notecodes');
@@ -7711,10 +7900,6 @@ for (const [f, box] of PREF_FIELDS) {
   });
 }
 $('closeprefs').onclick = () => { $('prefs').hidden = true; };
-$('resetlayout').onclick = () => {
-  for (const [prop] of Object.values(BORDERS)) setSize(prop, null);
-  saveLayout();
-};
 $('shyswitch').onclick = () => { prefs.hideShy = !prefs.hideShy; savePrefs(); drawLayers(); };
 $('makecomp').onclick = () => {
   const q = 'name=' + encodeURIComponent($('compname').value)
