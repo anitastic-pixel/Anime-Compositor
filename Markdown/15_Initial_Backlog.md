@@ -330,6 +330,8 @@ B-37 / Select colour, D-93, the third of the batch. **B-37a is written on 2026-0
 
 B-38 / Line width, D-94, the fourth of the batch. **B-38a is written on 2026-09-25**: `verification/B-38a proposal/`, D-94 in document 14, the rule in document 21, FX-WIDTH-001 to 019 in document 25 from `tools/line_width_reference.py`, which writes `Fixtures/line_width/`. **B-38b is built the same day**: `src/line_width.rs`, reusing D-88's colour test, the layer grown by the width on each side when it thickens and a draft preview scaling the width; added, it goes to the top of the stack below any selective colour blur, as line recolour does. `verification/B-38_line_width_table.md` is 81 of 81, every FX-WIDTH frame within 1.9e-7 of the reference; every earlier effect table is unchanged. The owner's sheet is `verification/B-38_line_width_playtest.md`.
 
+B-39 / Radial blur, D-95, the fifth of the batch. **B-39a is written on 2026-09-25**: `verification/B-39a proposal/`, D-95 in document 14, the rule in document 21, FX-RADIAL-001 to 018 in document 25 from `tools/radial_blur_reference.py`, which writes `Fixtures/radial_blur/`.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
