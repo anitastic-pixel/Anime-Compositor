@@ -723,7 +723,7 @@
    ]
   },
   "FX-XDTS-014": {
-   "says": "A sheet with a dialogue column and a camerawork column: the cells are read and the other two are reported as not read.",
+   "says": "A sheet with a dialogue column and a camerawork column: all three are read, the two text columns named Dialogue and Camera, since the headers name only the cells.",
    "folder": "fx_xdts_014",
    "composition": {
     "name": "c014",
@@ -753,16 +753,36 @@
      }
     }
    ],
-   "notes": [
+   "notes": [],
+   "text": [
     {
-     "id": "TIMESHEET_FIELD_NOT_READ",
-     "field": "dialogue",
-     "tracks": 1
+     "kind": "dialogue",
+     "name": "Dialogue",
+     "track": 0,
+     "entries": [
+      [
+       0,
+       3,
+       [
+        "MIKA",
+        "Wait!"
+       ]
+      ]
+     ]
     },
     {
-     "id": "TIMESHEET_FIELD_NOT_READ",
-     "field": "camerawork",
-     "tracks": 1
+     "kind": "camera",
+     "name": "Camera",
+     "track": 0,
+     "entries": [
+      [
+       0,
+       4,
+       [
+        "PAN"
+       ]
+      ]
+     ]
     }
    ]
   },
@@ -917,6 +937,94 @@
     }
    ],
    "notes": []
+  },
+  "FX-XDTS-019": {
+   "says": "Text columns as a sheet can write them: a line held with hyphens, a line on one frame, a cross after it, a hyphen with nothing before it, a number where text belongs, an entry past the end, and a field this program does not know.",
+   "folder": "fx_xdts_019",
+   "composition": {
+    "name": "c019",
+    "duration": 8,
+    "frame_rate": 24,
+    "width": 160,
+    "height": 90
+   },
+   "layers": [
+    {
+     "name": "A",
+     "track": 0,
+     "spans": [
+      [
+       0,
+       8,
+       1
+      ]
+     ],
+     "drawings": {
+      "1": "A/A_0001.png"
+     },
+     "timesheet": {
+      "sheet": "fx_xdts_019.xdts",
+      "column": "A",
+      "track": 0
+     }
+    }
+   ],
+   "notes": [
+    {
+     "id": "TIMESHEET_FIELD_NOT_READ",
+     "field": "7",
+     "tracks": 1
+    },
+    {
+     "id": "TIMESHEET_ENTRY_IGNORED",
+     "column": "S1",
+     "frames": [
+      9
+     ],
+     "reason": "outside the sheet"
+    },
+    {
+     "id": "TIMESHEET_ENTRY_IGNORED",
+     "column": "S1",
+     "frames": [
+      6
+     ],
+     "reason": "a continuation with nothing before it"
+    },
+    {
+     "id": "TIMESHEET_ENTRY_IGNORED",
+     "column": "S1",
+     "frames": [
+      7
+     ],
+     "reason": "not text"
+    }
+   ],
+   "text": [
+    {
+     "kind": "dialogue",
+     "name": "S1",
+     "track": 0,
+     "entries": [
+      [
+       0,
+       3,
+       [
+        "MIKA",
+        "Wait!"
+       ]
+      ],
+      [
+       4,
+       5,
+       [
+        "KAI",
+        "No."
+       ]
+      ]
+     ]
+    }
+   ]
   },
   "FX-XDTS-020": {
    "says": "The sheet calls for drawing 2, which is not in A's folder. The timing is kept, so those frames will say MEDIA_SEQUENCE_GAP when drawn, and the import names the drawing.",
@@ -1382,7 +1490,7 @@
    ]
   },
   "FX-XDTS-040": {
-   "says": "The sample cut: two seconds, three columns, dialogue, camerawork and a background.",
+   "says": "The sample cut: two seconds, three columns, a line of dialogue, a camera instruction and a background.",
    "folder": "fx_xdts_040",
    "composition": {
     "name": "s01 c012",
@@ -1626,16 +1734,6 @@
    ],
    "notes": [
     {
-     "id": "TIMESHEET_FIELD_NOT_READ",
-     "field": "dialogue",
-     "tracks": 1
-    },
-    {
-     "id": "TIMESHEET_FIELD_NOT_READ",
-     "field": "camerawork",
-     "tracks": 1
-    },
-    {
      "id": "TIMESHEET_MARK",
      "column": "C",
      "mark": "inbetween",
@@ -1647,6 +1745,37 @@
      "id": "TIMESHEET_NOT_USED",
      "names": [
       "BG.png"
+     ]
+    }
+   ],
+   "text": [
+    {
+     "kind": "dialogue",
+     "name": "Dialogue",
+     "track": 0,
+     "entries": [
+      [
+       0,
+       16,
+       [
+        "MIKA",
+        "Over here!"
+       ]
+      ]
+     ]
+    },
+    {
+     "kind": "camera",
+     "name": "Camera",
+     "track": 0,
+     "entries": [
+      [
+       20,
+       48,
+       [
+        "FOLLOW"
+       ]
+      ]
      ]
     }
    ]
@@ -1688,13 +1817,7 @@
    "says": "The sheet has a dialogue column and no cell column.",
    "folder": "fx_xdts_034",
    "refused": "TIMESHEET_NO_CELLS",
-   "notes": [
-    {
-     "id": "TIMESHEET_FIELD_NOT_READ",
-     "field": "dialogue",
-     "tracks": 1
-    }
-   ]
+   "notes": []
   },
   "FX-XDTS-035": {
    "says": "The sheet's length is 0 frames.",

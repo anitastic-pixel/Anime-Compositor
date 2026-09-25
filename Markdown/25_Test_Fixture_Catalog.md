@@ -1160,10 +1160,10 @@ Every drawing is 160 by 90 and blank but for one 16-pixel square in its column's
   - A: `1 1 2 2`
   - note `{"id": "TIMESHEET_MARK", "column": "A", "mark": "inbetween", "frames": [1]}`
   - note `{"id": "TIMESHEET_MARK", "column": "A", "mark": "reverse sheet", "frames": [3]}`
-- FX-XDTS-014: A sheet with a dialogue column and a camerawork column: the cells are read and the other two are reported as not read.
+- FX-XDTS-014: A sheet with a dialogue column and a camerawork column: all three are read, the two text columns named Dialogue and Camera, since the headers name only the cells.
   - A: `1 1 1 1`
-  - note `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}`
-  - note `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "camerawork", "tracks": 1}`
+  - dialogue column Dialogue: frames 0 to 2 `["MIKA", "Wait!"]`
+  - camera column Camera: frames 0 to 3 `["PAN"]`
 - FX-XDTS-015: Two timetables in one file: the first is read, the second is named as not read.
   - A: `1 1`
   - note `{"id": "TIMESHEET_TABLE_NOT_READ", "tables": ["c015 retake"]}`
@@ -1175,6 +1175,13 @@ Every drawing is 160 by 90 and blank but for one 16-pixel square in its column's
   - A: `1 1`
 - FX-XDTS-018: A timetable with no name: the composition is named after the sheet's file.
   - A: `1 1`
+- FX-XDTS-019: Text columns as a sheet can write them: a line held with hyphens, a line on one frame, a cross after it, a hyphen with nothing before it, a number where text belongs, an entry past the end, and a field this program does not know.
+  - A: `1 1 1 1 1 1 1 1`
+  - dialogue column S1: frames 0 to 2 `["MIKA", "Wait!"]`; frame 4 `["KAI", "No."]`
+  - note `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "7", "tracks": 1}`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "S1", "frames": [9], "reason": "outside the sheet"}`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "S1", "frames": [6], "reason": "a continuation with nothing before it"}`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "S1", "frames": [7], "reason": "not text"}`
 - FX-XDTS-020: The sheet calls for drawing 2, which is not in A's folder. The timing is kept, so those frames will say MEDIA_SEQUENCE_GAP when drawn, and the import names the drawing.
   - A: `1 1 2 2 3 3`
   - note `{"id": "TIMESHEET_DRAWING_MISSING", "column": "A", "drawings": [2]}`
@@ -1216,13 +1223,13 @@ Nothing is imported from these, and the ID is the refusal:
 - FX-XDTS-031: The folder holds two timesheets, and which one is meant is the person's to say. `TIMESHEET_NOT_FOUND`
 - FX-XDTS-032: The first line is not the XDTS line: this is bare JSON. `TIMESHEET_UNREADABLE`
 - FX-XDTS-033: The first line is right and what follows is not JSON. `TIMESHEET_UNREADABLE`
-- FX-XDTS-034: The sheet has a dialogue column and no cell column. `TIMESHEET_NO_CELLS`; note `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}`
+- FX-XDTS-034: The sheet has a dialogue column and no cell column. `TIMESHEET_NO_CELLS`
 - FX-XDTS-035: The sheet's length is 0 frames. `TIMESHEET_UNREADABLE`
 - FX-XDTS-036: No column has any drawings beside the sheet, so no layer can be made. `TIMESHEET_NO_CELLS`; note `{"id": "TIMESHEET_COLUMN_NO_DRAWINGS", "column": "A"}`
 
 ### FX-XDTS-040, the sample cut
 
-Two seconds of a made-up cut, `Fixtures/xdts/fx_xdts_040`, made to be played and learned from. It is the one B-28c's playtest uses. A is a body on twos that stops, holds and steps back; B is a mouth that moves while a line of dialogue runs, blank from frame 16 to 29 while the body holds; C is an effect that comes in late, goes, and comes back at frame 40 with a tick mark on frame 41. The sheet also has one line of dialogue and one camera instruction, which are not read, and a background still, `BG.png`, which is on no column. Below is what it must show, a frame to a row, as a paper timesheet is laid out (the top of the stack is the right-hand column):
+Two seconds of a made-up cut, `Fixtures/xdts/fx_xdts_040`, made to be played and learned from. It is the one B-28c's playtest uses. A is a body on twos that stops, holds and steps back; B is a mouth that moves while a line of dialogue runs, blank from frame 16 to 29 while the body holds; C is an effect that comes in late, goes, and comes back at frame 40 with a tick mark on frame 41. The sheet also has one line of dialogue and one camera instruction, which D-84c reads as text columns (below the table), and a background still, `BG.png`, which is on no column. Below is what it must show, a frame to a row, as a paper timesheet is laid out (the top of the stack is the right-hand column):
 
 | frame | A | B | C |
 | --- | --- | --- | --- |
@@ -1275,7 +1282,9 @@ Two seconds of a made-up cut, `Fixtures/xdts/fx_xdts_040`, made to be played and
 | 46 | 1 | 1 | 2 |
 | 47 | 1 | 1 | 2 |
 
-Its notes: `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}`, `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "camerawork", "tracks": 1}`, `{"id": "TIMESHEET_MARK", "column": "C", "mark": "inbetween", "frames": [41]}`, `{"id": "TIMESHEET_NOT_USED", "names": ["BG.png"]}`.
+Its notes: `{"id": "TIMESHEET_MARK", "column": "C", "mark": "inbetween", "frames": [41]}`, `{"id": "TIMESHEET_NOT_USED", "names": ["BG.png"]}`.
+
+Its text columns (D-84c): dialogue column Dialogue, frames 0 to 15 `["MIKA", "Over here!"]`; camera column Camera, frames 20 to 47 `["FOLLOW"]`. Its Sheet, left to right, is frame, Dialogue, A, B, C, Camera. Dialogue shows `MIKA Over here!` on frame 0 and a line on frames 1 to 15; Camera shows `FOLLOW` on frame 20 and a line on frames 21 to 47; both are empty on every other frame.
 
 ### The notes
 
@@ -1286,9 +1295,9 @@ Its notes: `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}
 | TIMESHEET_NO_CELLS | ERROR | No drawing column, or none that can become a layer | import nothing; the other notes say why |
 | TIMESHEET_VERSION | WARNING | The file's version is not 5 | read it anyway; name the version |
 | TIMESHEET_TABLE_NOT_READ | INFO | The file has more than one timetable | read the first; name the others |
-| TIMESHEET_FIELD_NOT_READ | INFO | A dialogue, camerawork or unknown field | read the drawing columns; name the field and its column count |
+| TIMESHEET_FIELD_NOT_READ | INFO | A field other than drawings, dialogue and camerawork (D-84c) | read the drawing columns; name the field and its column count |
 | TIMESHEET_COLUMN_UNNAMED | WARNING | A drawing column has no name, so its drawings cannot be found | make no layer for it; name its track number |
-| TIMESHEET_ENTRY_IGNORED | WARNING | An entry past the end of the sheet, one before frame 0 that is not carried in, or a second entry on one frame | leave it out; name the column, frames and reason |
+| TIMESHEET_ENTRY_IGNORED | WARNING | An entry past the end of the sheet, one before frame 0 that is not carried in, or a second entry on one frame; in a dialogue or camera column also one before frame 0, a hyphen with nothing before it, or one that is not text (D-84c) | leave it out; name the column, frames and reason |
 | TIMESHEET_ENTRY_CARRIED_IN | INFO | An entry before frame 0, which Clip Studio Paint can write and the specification does not allow | the last one stands on frame 0 unless frame 0 has its own entry; name the column and its frame |
 | TIMESHEET_CELL_UNREADABLE | WARNING | A cell that is not a whole number or a symbol | the column is blank from there to its next entry; name the column, frame and value |
 | TIMESHEET_MARK | INFO | A tick mark | change nothing shown; name the column, mark and frames |
@@ -1298,28 +1307,6 @@ Its notes: `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}
 | TIMESHEET_DRAWING_UNUSED | INFO | A column has drawings the sheet never shows | name the drawings |
 | TIMESHEET_NOT_USED | INFO | A folder or drawing beside the sheet that no column used | name them |
 
-### Proposed by D-84c, not yet in the fixtures
-
-These replace and add to the expectations above once the owner accepts D-84c. Until then the fixtures and their tests stay as written above. Each comes from running the second reader, `tools/xdts_reference.py`, with D-84c's reading.
-
-- FX-XDTS-014 becomes: A sheet with a dialogue column and a camerawork column: all three are read, the two text columns named Dialogue and Camera, since the headers name only the cells.
-  - A: `1 1 1 1`
-  - dialogue column Dialogue: frames 0 to 2 `["MIKA", "Wait!"]`
-  - camera column Camera: frames 0 to 3 `["PAN"]`
-  - no notes; the two `TIMESHEET_FIELD_NOT_READ` notes go.
-- FX-XDTS-019, new: Text columns as a sheet can write them: a line held with hyphens, a line on one frame, a cross after it, a hyphen with nothing before it, a number where text belongs, an entry past the end, and a field this program does not know.
-  - A: `1 1 1 1 1 1 1 1`
-  - dialogue column S1: frames 0 to 2 `["MIKA", "Wait!"]`; frame 4 `["KAI", "No."]`
-  - note `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "7", "tracks": 1}`
-  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "S1", "frames": [9], "reason": "outside the sheet"}`
-  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "S1", "frames": [6], "reason": "a continuation with nothing before it"}`
-  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "S1", "frames": [7], "reason": "not text"}`
-- FX-XDTS-034 stays refused with `TIMESHEET_NO_CELLS` and loses its note: the dialogue column is read, and there is nothing to put it in.
-- FX-XDTS-040, the sample cut, gains its two text columns and loses the two `TIMESHEET_FIELD_NOT_READ` notes, keeping the other two:
-  - dialogue column Dialogue: frames 0 to 15 `["MIKA", "Over here!"]`
-  - camera column Camera: frames 20 to 47 `["FOLLOW"]`
-  - Its Sheet, left to right: frame, Dialogue, A, B, C, Camera. Dialogue shows `MIKA Over here!` on frame 0 and a line on frames 1 to 15; Camera shows `FOLLOW` on frame 20 and a line on frames 21 to 47; both are empty elsewhere.
-- TIMESHEET_FIELD_NOT_READ becomes "A field other than drawings, dialogue and camerawork", and TIMESHEET_ENTRY_IGNORED also covers a text entry that is a hyphen with nothing before it or is not text.
 
 ## Sheet writing fixtures
 

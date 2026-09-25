@@ -55,9 +55,9 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | TIMESHEET_NO_CELLS | ERROR | No drawing column, or none that can become a layer (D-84) | import nothing; the other notes say why |
 | TIMESHEET_VERSION | WARNING | The file's version is not 5 (D-84) | read it anyway; name the version |
 | TIMESHEET_TABLE_NOT_READ | INFO | The file has more than one timetable (D-84) | read the first; name the others |
-| TIMESHEET_FIELD_NOT_READ | INFO | A dialogue, camerawork or unknown field (D-84) | read the drawing columns; name the field and its column count |
+| TIMESHEET_FIELD_NOT_READ | INFO | A field other than drawings, dialogue and camerawork (D-84, D-84c) | read the drawing columns; name the field and its column count |
 | TIMESHEET_COLUMN_UNNAMED | WARNING | A drawing column has no name, so its drawings cannot be found (D-84) | make no layer for it; name its track number |
-| TIMESHEET_ENTRY_IGNORED | WARNING | An entry past the end of the sheet, one before frame 0 that is not carried in, or a second entry on one frame (D-84) | leave it out; name the column, frames and reason |
+| TIMESHEET_ENTRY_IGNORED | WARNING | An entry past the end of the sheet, one before frame 0 that is not carried in, or a second entry on one frame; in a dialogue or camera column also one before frame 0, a hyphen with nothing before it, or one that is not text (D-84, D-84c) | leave it out; name the column, frames and reason |
 | TIMESHEET_ENTRY_CARRIED_IN | INFO | An entry before frame 0, which Clip Studio Paint can write and the specification does not allow (D-84) | the last one stands on frame 0 unless frame 0 has its own entry; name the column and its frame |
 | TIMESHEET_CELL_UNREADABLE | WARNING | A cell that is not a whole number or a symbol (D-84) | the column is blank from there to its next entry; name the column, frame and value |
 | TIMESHEET_MARK | INFO | A tick mark (D-84) | change nothing shown; name the column, mark and frames |

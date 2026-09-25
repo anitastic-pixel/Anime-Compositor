@@ -1,0 +1,172 @@
+exchangeDigitalTimeSheet Save Data
+{
+ "header": {
+  "cut": "1",
+  "scene": "1"
+ },
+ "timeTables": [
+  {
+   "fields": [
+    {
+     "fieldId": 0,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "1"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "fieldId": 3,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "MIKA",
+            "Wait!"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 1,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 2,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 4,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "KAI",
+            "No."
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 5,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_NULL_CELL"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 6,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "SYMBOL_HYPHEN"
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 7,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            5
+           ]
+          }
+         ]
+        },
+        {
+         "frame": 9,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "Late"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "fieldId": 7,
+     "tracks": [
+      {
+       "trackNo": 0,
+       "frames": [
+        {
+         "frame": 0,
+         "data": [
+          {
+           "id": 0,
+           "values": [
+            "?"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "duration": 8,
+   "name": "c019",
+   "timeTableHeaders": [
+    {
+     "fieldId": 0,
+     "names": [
+      "A"
+     ]
+    },
+    {
+     "fieldId": 3,
+     "names": [
+      "S1"
+     ]
+    }
+   ]
+  }
+ ],
+ "version": 5
+}

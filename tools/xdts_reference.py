@@ -38,6 +38,9 @@ SIZE = (160, 90)
 NULL, HYPHEN = "SYMBOL_NULL_CELL", "SYMBOL_HYPHEN"
 TICKS = {"SYMBOL_TICK_1": "inbetween", "SYMBOL_TICK_2": "reverse sheet"}
 FIELDS = {0: "cells", 3: "dialogue", 5: "camerawork"}
+# D-84c: the two text fields, as the kind of column each becomes and its name when the
+# sheet's headers give none.
+TEXT = {3: ("dialogue", "Dialogue"), 5: ("camera", "Camera")}
 # What media.import reads: PNG, EXR (D-62) and D-72's formats.
 DRAWING = {".png", ".exr", ".jpg", ".jpeg", ".tif", ".tiff", ".tga", ".bmp", ".webp"}
 COLOURS = [(220, 40, 40), (40, 170, 60), (50, 90, 230), (230, 190, 30), (150, 60, 200)]
@@ -76,7 +79,7 @@ def cells(entries):
     return [(f, [v]) for f, v in (entries.items() if isinstance(entries, dict) else entries)]
 
 
-def sheet(name, duration, columns, extra_fields=(), version=5):
+def sheet(name, duration, columns, extra_fields=(), version=5, extra_headers=()):
     """`columns` is (trackNo, name, entries) in file order; a name of None is left out."""
     names = {}
     for no, col, _ in columns:
@@ -88,7 +91,8 @@ def sheet(name, duration, columns, extra_fields=(), version=5):
         + [{"fieldId": fid, "tracks": tracks} for fid, tracks in extra_fields],
         "duration": duration,
         "name": name,
-        "timeTableHeaders": [{"fieldId": 0, "names": header_names}],
+        "timeTableHeaders": [{"fieldId": 0, "names": header_names}]
+        + [{"fieldId": fid, "names": list(n)} for fid, n in extra_headers],
     }
     return {"header": {"cut": "1", "scene": "1"},
             "timeTables": [table], "version": version}
@@ -145,10 +149,12 @@ def read_cut(folder):
     if len(tables) > 1:
         notes.append({"id": "TIMESHEET_TABLE_NOT_READ",
                       "tables": [t.get("name", "") for t in tables[1:]]})
-    tracks = []
+    tracks, text_fields = [], []
     for field in table.get("fields", []):
         if field.get("fieldId") == 0:
             tracks += field.get("tracks", [])
+        elif field.get("fieldId") in TEXT:
+            text_fields.append(field)
         else:
             notes.append({"id": "TIMESHEET_FIELD_NOT_READ",
                           "field": FIELDS.get(field.get("fieldId"), str(field.get("fieldId"))),
@@ -272,12 +278,64 @@ def read_cut(folder):
         notes.append({"id": "TIMESHEET_NOT_USED", "names": left})
     if not layers:
         return refuse("TIMESHEET_NO_CELLS")
+    text = []
+    for fid in sorted(TEXT):
+        for field in (f for f in text_fields if f.get("fieldId") == fid):
+            text += read_text(fid, field, table, duration, notes)
     sizes = Counter(png_size(folder / p) for l in layers for p in l["drawings"].values())
     width, height = sizes.most_common(1)[0][0]
     return {"composition": {"name": table.get("name", "").strip() or sheet_path.stem,
                             "duration": duration, "frame_rate": FRAME_RATE,
                             "width": width, "height": height},
-            "layers": layers, "notes": notes}
+            "layers": layers, "notes": notes, **({"text": text} if text else {})}
+
+
+def read_text(fid, field, table, duration, notes):
+    """D-84c: a dialogue or camera field as text columns. An entry lasts from its frame
+    through the SYMBOL_HYPHEN written on each frame straight after it."""
+    kind, default = TEXT[fid]
+    names = next((h.get("names", []) for h in table.get("timeTableHeaders", [])
+                  if h.get("fieldId") == fid), [])
+    columns = []
+    for t in sorted(field.get("tracks", []), key=lambda t: t.get("trackNo", 0)):
+        no = t.get("trackNo", 0)
+        name = names[no].strip() if 0 <= no < len(names) and isinstance(names[no], str) else ""
+        name = name or default
+        said, outside, twice = {}, [], []
+        entries = [e for e in t.get("frames", []) if type(e.get("frame")) is int]
+        for entry in sorted(entries, key=lambda e: e["frame"]):
+            f = entry["frame"]
+            if not 0 <= f < duration:
+                outside.append(f)
+                continue
+            if f in said:
+                twice.append(f)
+                continue
+            said[f] = next((d.get("values") for d in entry.get("data", []) if d.get("id") == 0),
+                           None)
+        runs, orphan, not_text = [], [], []
+        for f in sorted(said):
+            v = said[f]
+            if v == [HYPHEN]:
+                if runs and runs[-1][1] == f:
+                    runs[-1][1] = f + 1
+                else:
+                    orphan.append(f)
+            elif v == [NULL]:
+                pass
+            elif isinstance(v, list) and v and all(isinstance(s, str) for s in v):
+                runs.append([f, f + 1, v])
+            else:
+                not_text.append(f)
+        for frames, reason in ((outside, "outside the sheet"),
+                               (twice, "a second entry on the same frame"),
+                               (orphan, "a continuation with nothing before it"),
+                               (not_text, "not text")):
+            if frames:
+                notes.append({"id": "TIMESHEET_ENTRY_IGNORED", "column": name,
+                              "frames": frames, "reason": reason})
+        columns.append({"kind": kind, "name": name, "track": no, "entries": runs})
+    return columns
 
 
 # --- The cases ----------------------------------------------------------------------------
@@ -341,8 +399,9 @@ CASES = {
                     sheet("c013", 4, [(0, "A", {0: "1", 1: "SYMBOL_TICK_1", 2: "2",
                                                 3: "SYMBOL_TICK_2"})]),
                     folder_of("A", (1, 2))),
-    "FX-XDTS-014": ("A sheet with a dialogue column and a camerawork column: the cells are read "
-                    "and the other two are reported as not read.",
+    "FX-XDTS-014": ("A sheet with a dialogue column and a camerawork column: all three are read, "
+                    "the two text columns named Dialogue and Camera, since the headers name "
+                    "only the cells.",
                     sheet("c014", 4, [(0, "A", {0: "1"})], extra_fields=[
                         (3, [track(0, [(0, ["MIKA", "Wait!"]), (1, [HYPHEN]), (2, [HYPHEN])])]),
                         (5, [track(0, [(0, ["PAN"]), (1, [HYPHEN]), (2, [HYPHEN]),
@@ -361,6 +420,17 @@ CASES = {
                     "any other.", sheet("c017", 2, [(0, "A", {0: "1"})]), folder_of("A", (1,))),
     "FX-XDTS-018": ("A timetable with no name: the composition is named after the sheet's file.",
                     sheet("", 2, [(0, "A", {0: "1"})]), folder_of("A", (1,))),
+    "FX-XDTS-019": ("Text columns as a sheet can write them: a line held with hyphens, a line on "
+                    "one frame, a cross after it, a hyphen with nothing before it, a number where "
+                    "text belongs, an entry past the end, and a field this program does not "
+                    "know.",
+                    sheet("c019", 8, [(0, "A", {0: "1"})], extra_fields=[
+                        (3, [track(0, [(0, ["MIKA", "Wait!"]), (1, [HYPHEN]), (2, [HYPHEN]),
+                                       (4, ["KAI", "No."]), (5, [NULL]), (6, [HYPHEN]),
+                                       (7, [5]), (9, ["Late"])])]),
+                        (7, [track(0, [(0, ["?"])])])],
+                          extra_headers=[(3, ["S1"])]),
+                    folder_of("A", (1,))),
     "FX-XDTS-020": ("The sheet calls for drawing 2, which is not in A's folder. The timing is "
                     "kept, so those frames will say MEDIA_SEQUENCE_GAP when drawn, and the "
                     "import names the drawing.",
@@ -434,7 +504,7 @@ REFUSED = {
 # FX-XDTS-040, the sample cut: two seconds of a made-up cut, to open, play and learn from. A
 # is a body on twos that holds for a beat, B a mouth that opens and closes on ones and threes
 # and is blank while the body turns, C an effect that comes in late. It has a line of
-# dialogue and a camera instruction, which are not read, and a background that is on no column.
+# dialogue and a camera instruction, which D-84c reads, and a background on no column.
 SAMPLE = sheet(
     "s01 c012", 48,
     [(0, "A", {0: "1", 2: "2", 4: "3", 6: "4", 8: "5", 10: "6", 12: "7", 14: "8",
@@ -489,8 +559,9 @@ def main():
     expected = {"frame_rate": FRAME_RATE, "cases": {}, "refused": {}}
 
     all_cases = dict(CASES)
-    all_cases["FX-XDTS-040"] = ("The sample cut: two seconds, three columns, dialogue, "
-                                "camerawork and a background.", SAMPLE, SAMPLE_FILES)
+    all_cases["FX-XDTS-040"] = ("The sample cut: two seconds, three columns, a line of "
+                                "dialogue, a camera instruction and a background.", SAMPLE,
+                                SAMPLE_FILES)
     for fx, (says, data, files) in all_cases.items():
         name = fx.lower().replace("-", "_")
         body = text(data)
@@ -518,6 +589,11 @@ def main():
         print(f"- {fx}: {case['says']}")
         for layer in reversed(case["layers"]):
             print(f"  - {layer['name']}: `{sheet_line(layer['spans'], case['composition']['duration'])}`")
+        for column in case.get("text", []):
+            print(f"  - {column['kind']} column {column['name']}: "
+                  + "; ".join(f"frames {s} to {e - 1} `{json.dumps(t, ensure_ascii=False)}`"
+                              if e - s > 1 else f"frame {s} `{json.dumps(t, ensure_ascii=False)}`"
+                              for s, e, t in column["entries"]))
         for note in case["notes"]:
             print(f"  - note `{json.dumps(note)}`")
     print()
@@ -534,6 +610,7 @@ def main():
         print(f"| {f} | " + " | ".join(line[f] for line in lines) + " |")
     for note in sample["notes"]:
         print(json.dumps(note))
+    print(json.dumps(sample["text"], ensure_ascii=False))
 
     # The claims the cases are there to make, checked on what was just read.
     c = {fx: v for fx, v in expected["cases"].items()}
@@ -552,6 +629,11 @@ def main():
     assert spans["FX-XDTS-025"] == [[[0, 2, 1], [2, 4, 2]]]
     assert spans["FX-XDTS-028"] == [[[0, 2, 1], [2, 4, 2]], [[0, 4, 2]]]
     assert all(v["composition"]["width"] == SIZE[0] for v in c.values())
+    assert c["FX-XDTS-040"]["text"] == [
+        {"kind": "dialogue", "name": "Dialogue", "track": 0,
+         "entries": [[0, 16, ["MIKA", "Over here!"]]]},
+        {"kind": "camera", "name": "Camera", "track": 0, "entries": [[20, 48, ["FOLLOW"]]]}]
+    assert [e[:2] for e in c["FX-XDTS-019"]["text"][0]["entries"]] == [[0, 3], [4, 5]]
 
 
 if __name__ == "__main__":
