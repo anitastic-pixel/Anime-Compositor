@@ -25,6 +25,7 @@ pub mod keykind;
 mod line_smooth;
 pub mod selective_blur;
 pub mod exr_io;
+mod glow;
 pub mod mask;
 pub mod media;
 pub mod model;

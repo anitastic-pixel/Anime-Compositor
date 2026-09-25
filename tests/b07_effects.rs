@@ -1099,6 +1099,7 @@ fn command_rules(report: &mut Report) {
                     Effect::Tint { amount, .. } => format!("amount {amount}"),
                     Effect::LineSmooth { softness, .. } => format!("softness {softness}"),
                     Effect::SelectiveColorBlur { blur, .. } => format!("blur {blur}"),
+                    Effect::Glow { radius, .. } => format!("radius {radius}"),
                     Effect::Unsupported { .. } => "unknown".to_string(),
                 };
                 format!(

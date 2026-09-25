@@ -1071,9 +1071,10 @@ fn resolve_rest(
             let mut stack = effects.clone();
             if pre != 1.0 {
                 for instance in &mut stack {
-                    if let crate::effects::Effect::GaussianBlur { sigma_px } = &mut instance.effect
-                    {
-                        *sigma_px /= pre;
+                    match &mut instance.effect {
+                        crate::effects::Effect::GaussianBlur { sigma_px } => *sigma_px /= pre,
+                        crate::effects::Effect::Glow { radius, .. } => *radius /= pre,
+                        _ => {}
                     }
                 }
             }

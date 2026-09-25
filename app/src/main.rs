@@ -47,8 +47,8 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, LINE_SMOOTH, SELECTIVE_COLOR_BLUR,
-    TINT,
+    Effect, EffectInstance, EffectKey, EXPOSURE, GAUSSIAN_BLUR, GLOW, LINE_SMOOTH,
+    SELECTIVE_COLOR_BLUR, TINT,
 };
 use anime_compositor::export::{
     self, ExportChoices, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
@@ -2376,7 +2376,8 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
 /// not jump the instant an effect is added, and the change a person then sees is the one they
 /// typed. Line smoothing is the exception D-86 makes: it starts at softness 50 and threshold 10,
 /// because a line with its steps smoothed is the only reason to add it. Selective colour blur
-/// starts at blur 12 with no colour chosen (D-87), which changes nothing until one is.
+/// starts at blur 12 with no colour chosen (D-87), which changes nothing until one is. Glow
+/// starts at After Effects' own defaults (D-89), because a glow nobody can see is no start.
 fn new_effect(type_id: &str) -> Option<Effect> {
     match type_id {
         EXPOSURE => Some(Effect::Exposure { stops: 0.0 }),
@@ -2393,6 +2394,16 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             blur: 12.0,
             colors: Vec::new(),
             tolerance: 0.0,
+        }),
+        GLOW => Some(Effect::Glow {
+            based_on: "bright".to_string(),
+            threshold: 60.0,
+            colors: Vec::new(),
+            tolerance: 0.0,
+            radius: 10.0,
+            intensity: 1.0,
+            operation: "add".to_string(),
+            tint: String::new(),
         }),
         _ => None,
     }
@@ -2457,6 +2468,29 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                     .filter(|c| !c.is_empty())
                     .collect(),
                 tolerance: number("tolerance")?,
+            })
+        }
+        // D-89: the words and colours as written, the colours as one comma-separated list and
+        // the tint empty for none. Whether each is right is the core's check, in its words.
+        GLOW => {
+            let word = |name: &str| -> Result<String, String> {
+                parameter(query, name)
+                    .map(|t| t.trim().to_ascii_lowercase())
+                    .ok_or_else(|| format!("What should {name} be set to?"))
+            };
+            Ok(Effect::Glow {
+                based_on: word("based_on")?,
+                threshold: number("threshold")?,
+                colors: word("colors")?
+                    .split(',')
+                    .map(|c| c.trim().to_string())
+                    .filter(|c| !c.is_empty())
+                    .collect(),
+                tolerance: number("tolerance")?,
+                radius: number("radius")?,
+                intensity: number("intensity")?,
+                operation: word("operation")?,
+                tint: word("tint")?,
             })
         }
         // Document 19 keeps an effect this build does not have rather than dropping it, and
@@ -5341,15 +5375,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     let Some(type_id) = parameter(query, "type") else {
                         return Some(
                             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
-                             core.line_smooth or core.selective_color_blur."
+                             core.line_smooth, core.selective_color_blur or core.glow."
                                 .to_string(),
                         );
                     };
                     let Some(effect) = new_effect(&type_id) else {
                         return Some(format!(
                             "This build has no effect called {type_id}. It has \
-                             core.gaussian_blur, core.exposure, core.tint, core.line_smooth and \
-                             core.selective_color_blur."
+                             core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
+                             core.selective_color_blur and core.glow."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -9084,15 +9118,15 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the five are named",
+            "an effect type this build does not have is refused, and the six are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
-             core.exposure, core.tint, core.line_smooth and core.selective_color_blur.",
+             core.exposure, core.tint, core.line_smooth, core.selective_color_blur and core.glow.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
-             core.line_smooth or core.selective_color_blur.",
+             core.line_smooth, core.selective_color_blur or core.glow.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(

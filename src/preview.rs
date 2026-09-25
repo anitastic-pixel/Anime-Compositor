@@ -128,6 +128,8 @@ pub fn scale_plan(plan: FramePlan, quality: PreviewQuality) -> FramePlan {
                     match &mut instance.effect {
                         crate::effects::Effect::GaussianBlur { sigma_px } => *sigma_px *= s,
                         crate::effects::Effect::SelectiveColorBlur { blur, .. } => *blur *= s,
+                        // D-89: the glow's radius is a distance in pixels too.
+                        crate::effects::Effect::Glow { radius, .. } => *radius *= s,
                         _ => {}
                     }
                 }

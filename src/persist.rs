@@ -913,6 +913,28 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.remove("tolerance");
             }
         }
+        Effect::Glow {
+            based_on,
+            threshold,
+            colors,
+            tolerance,
+            radius,
+            intensity,
+            operation,
+            tint,
+        } => {
+            params.insert("based_on".into(), J::from(based_on.as_str()));
+            params.insert("threshold".into(), num(*threshold));
+            params.insert(
+                "colors".into(),
+                J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()),
+            );
+            params.insert("tolerance".into(), num(*tolerance));
+            params.insert("radius".into(), num(*radius));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("operation".into(), J::from(operation.as_str()));
+            params.insert("tint".into(), J::from(tint.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1195,6 +1217,13 @@ fn effect_color(params: Option<&J>, at: &str) -> Result<[f64; 3], Diagnostic> {
 
 /// D-87: the chosen colours, a list of strings, kept as written but in small letters. Whether
 /// each is a colour is the effect's own check (D-46), not the file's shape.
+/// D-89: a setting that is a word, kept as written so a wrong one is reported, not lost.
+fn effect_word(params: Option<&J>, key: &str, at: &str) -> Result<String, Diagnostic> {
+    let params = effect_params(params, at)?;
+    let at = format!("{at}/parameters/{key}");
+    Ok(as_str(field(params, &at, key)?, &at)?.to_string())
+}
+
 fn effect_colors(params: Option<&J>, at: &str) -> Result<Vec<String>, Diagnostic> {
     let params = effect_params(params, at)?;
     let at = format!("{at}/parameters/colors");
@@ -1226,6 +1255,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "threshold",
         "blur",
         "tolerance",
+        "radius",
+        "intensity",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2008,6 +2039,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::TINT,
                 crate::effects::LINE_SMOOTH,
                 crate::effects::SELECTIVE_COLOR_BLUR,
+                crate::effects::GLOW,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2042,6 +2074,17 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                         },
                     })
                 }
+                crate::effects::GLOW => Some(crate::effects::Effect::Glow {
+                    based_on: effect_word(params, "based_on", &at)?,
+                    threshold: effect_number(params, "threshold", &at)?,
+                    colors: effect_colors(params, &at)?,
+                    tolerance: effect_number(params, "tolerance", &at)?,
+                    radius: effect_number(params, "radius", &at)?,
+                    intensity: effect_number(params, "intensity", &at)?,
+                    operation: effect_word(params, "operation", &at)?,
+                    // D-89: a colour is read in small letters, as D-87's are.
+                    tint: effect_word(params, "tint", &at)?.to_ascii_lowercase(),
+                }),
                 _ => None,
             };
             let effect_value = match parsed {

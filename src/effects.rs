@@ -156,6 +156,18 @@ impl EffectInstance {
                     *blur = blur.clamp(0.0, 200.0);
                     *tolerance = tolerance.clamp(0.0, 255.0);
                 }
+                Effect::Glow {
+                    threshold,
+                    tolerance,
+                    radius,
+                    intensity,
+                    ..
+                } => {
+                    *threshold = threshold.clamp(0.0, 100.0);
+                    *tolerance = tolerance.clamp(0.0, 255.0);
+                    *radius = radius.clamp(0.0, 500.0);
+                    *intensity = intensity.clamp(0.0, 10.0);
+                }
                 _ => {}
             }
         }
@@ -201,6 +213,20 @@ pub enum Effect {
         colors: Vec<String>,
         tolerance: f64,
     },
+    /// D-89: "`based_on`, Glow Based On, either Bright parts (`"bright"`) or Chosen colours
+    /// (`"colors"`)", `threshold` 0 to 100, `colors` and `tolerance` as D-88's, `radius` 0 to
+    /// 500, `intensity` 0 to 10, `operation` `"add"` or `"screen"`, and `tint`, empty or one
+    /// colour. The words are kept as written, so a file's wrong one is kept and reported.
+    Glow {
+        based_on: String,
+        threshold: f64,
+        colors: Vec<String>,
+        tolerance: f64,
+        radius: f64,
+        intensity: f64,
+        operation: String,
+        tint: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -212,6 +238,7 @@ pub const GAUSSIAN_BLUR: &str = "core.gaussian_blur";
 pub const TINT: &str = "core.tint";
 pub const LINE_SMOOTH: &str = "core.line_smooth";
 pub const SELECTIVE_COLOR_BLUR: &str = "core.selective_color_blur";
+pub const GLOW: &str = "core.glow";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -239,7 +266,8 @@ impl Effect {
             | (Effect::GaussianBlur { .. }, "sigma_px")
             | (Effect::Tint { .. }, "amount")
             | (Effect::LineSmooth { .. }, "softness" | "threshold")
-            | (Effect::SelectiveColorBlur { .. }, "blur" | "tolerance") => Some(1),
+            | (Effect::SelectiveColorBlur { .. }, "blur" | "tolerance")
+            | (Effect::Glow { .. }, "threshold" | "tolerance" | "radius" | "intensity") => Some(1),
             (Effect::Tint { .. }, "color") => Some(3),
             _ => None,
         }
@@ -256,6 +284,10 @@ impl Effect {
             (Effect::LineSmooth { threshold, .. }, "threshold") => Some(vec![*threshold]),
             (Effect::SelectiveColorBlur { blur, .. }, "blur") => Some(vec![*blur]),
             (Effect::SelectiveColorBlur { tolerance, .. }, "tolerance") => Some(vec![*tolerance]),
+            (Effect::Glow { threshold, .. }, "threshold") => Some(vec![*threshold]),
+            (Effect::Glow { tolerance, .. }, "tolerance") => Some(vec![*tolerance]),
+            (Effect::Glow { radius, .. }, "radius") => Some(vec![*radius]),
+            (Effect::Glow { intensity, .. }, "intensity") => Some(vec![*intensity]),
             _ => None,
         }
     }
@@ -294,6 +326,18 @@ impl Effect {
                     *tolerance = v[0]
                 }
             }
+            Effect::Glow {
+                threshold,
+                tolerance,
+                radius,
+                intensity,
+                ..
+            } => match name {
+                "threshold" => *threshold = v[0],
+                "tolerance" => *tolerance = v[0],
+                "radius" => *radius = v[0],
+                _ => *intensity = v[0],
+            },
             Effect::Unsupported { .. } => {}
         }
     }
@@ -306,6 +350,7 @@ impl Effect {
             Effect::Tint { .. } => "Tint",
             Effect::LineSmooth { .. } => "Line Smoothing",
             Effect::SelectiveColorBlur { .. } => "Selective Colour Blur",
+            Effect::Glow { .. } => "Glow",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -317,6 +362,7 @@ impl Effect {
             Effect::Tint { .. } => TINT,
             Effect::LineSmooth { .. } => LINE_SMOOTH,
             Effect::SelectiveColorBlur { .. } => SELECTIVE_COLOR_BLUR,
+            Effect::Glow { .. } => GLOW,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -331,6 +377,8 @@ impl Effect {
     pub fn bounds_expansion(&self) -> usize {
         match self {
             Effect::GaussianBlur { sigma_px } => kernel_radius(*sigma_px),
+            // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
+            Effect::Glow { radius, .. } => kernel_radius(*radius / 3.0),
             _ => 0,
         }
     }
@@ -363,6 +411,7 @@ impl Effect {
                     && colors.len() <= 8
                     && colors.iter().all(|c| crate::selective_blur::parse_hex(c).is_some())
             }
+            Effect::Glow { .. } => glow_fault(self).is_none(),
             Effect::Unsupported { .. } => true,
         }
     }
@@ -409,11 +458,57 @@ impl Effect {
                     ),
                 }
             }
+            Effect::Glow { .. } => glow_fault(self).unwrap_or_default(),
             Effect::Unsupported { type_id } => {
                 format!("{type_id} has no parameters this build checks.")
             }
         }
     }
+}
+
+/// D-89: what is wrong with a glow's settings, as a sentence, or `None` when nothing is.
+fn glow_fault(effect: &Effect) -> Option<String> {
+    let Effect::Glow {
+        based_on,
+        threshold,
+        colors,
+        tolerance,
+        radius,
+        intensity,
+        operation,
+        tint,
+    } = effect
+    else {
+        return None;
+    };
+    let hex = |c: &str| crate::selective_blur::parse_hex(c).is_some();
+    Some(if !["bright", "colors"].contains(&based_on.as_str()) {
+        format!("Glow is based on \"bright\" or \"colors\", and this is \"{based_on}\".")
+    } else if !["add", "screen"].contains(&operation.as_str()) {
+        format!("Glow's operation is \"add\" or \"screen\", and this is \"{operation}\".")
+    } else if !(0.0..=100.0).contains(threshold) {
+        format!("Glow's threshold runs from 0 to 100, and this is {threshold}.")
+    } else if !(0.0..=500.0).contains(radius) {
+        format!("Glow's radius runs from 0 to 500, and this is {radius}.")
+    } else if !(0.0..=10.0).contains(intensity) {
+        format!("Glow's intensity runs from 0 to 10, and this is {intensity}.")
+    } else if !(0.0..=255.0).contains(tolerance) {
+        format!("Glow's tolerance runs from 0 to 255, and this is {tolerance}.")
+    } else if colors.len() > 8 {
+        format!("Glow takes up to eight colours, and this has {}.", colors.len())
+    } else if let Some(bad) = colors.iter().find(|c| !hex(c)) {
+        format!(
+            "A chosen colour is written # and six hexadecimal digits, such as #f6d6be, and this \
+             is \"{bad}\"."
+        )
+    } else if !tint.is_empty() && !hex(tint) {
+        format!(
+            "Glow's colour is empty or written # and six hexadecimal digits, such as #ff4000, \
+             and this is \"{tint}\"."
+        )
+    } else {
+        return None;
+    })
 }
 
 /// Document 21: "kernel radius `ceil(3*sigma_px)`". Sigma zero gives radius zero, which is the
@@ -517,6 +612,25 @@ pub fn apply_stack(
                     crate::selective_blur::selective_color_blur(source, *blur, colors, *tolerance)
                 })
             }
+            Effect::Glow {
+                based_on,
+                threshold,
+                colors,
+                tolerance,
+                radius,
+                intensity,
+                operation,
+                tint,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectGlow, || {
+                    crate::glow::glow(
+                        source, based_on, *threshold, colors, *tolerance, *radius, *intensity,
+                        operation, tint,
+                    )
+                });
+                ox += r;
+                oy += r;
+            }
         }
     }
     (ox, oy)
@@ -589,7 +703,7 @@ fn tint(source: &mut WorkingBuffer, color: [f64; 3], amount: f64) {
 /// them, so a pixel near the edge is a weighted sum in which the missing neighbours contribute
 /// nothing -- and because the weights are not renormalised for them, an edge fades out rather
 /// than staying artificially bright.
-fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
+pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
     let radius = kernel_radius(sigma_px);
     if radius == 0 {
         return 0;
