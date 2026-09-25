@@ -689,15 +689,29 @@
 #paper { font: 6.5pt/1 sans-serif; color: #000; background: #fff; }
 #paper .page { break-after: page; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: 10mm; }
 #paper .page:last-child { break-after: auto; }
-#paper header { display: flex; gap: 8mm; font-size: 9pt; height: 6mm; flex: none; }
+#paper header { display: flex; height: 11mm; flex: none; margin-bottom: 2mm; border: 1px solid #000; font-size: 10pt; }
+#paper header > * { display: flex; flex-direction: column; padding: 1mm 2mm; border-right: 1px solid #000; white-space: nowrap; }
+#paper header > ::before { font: normal 5.5pt sans-serif; color: #555; margin-bottom: auto; }
+#paper header .cut { flex: 2; } #paper header .cut::before { content: "CUT"; }
+#paper header .time::before { content: "TIME (sec + fr)"; }
+#paper header .rate::before { content: "RATE"; }
+#paper header .sheet::before { content: "SHEET"; }
+#paper header .memo { flex: 3; border-right: 0; } #paper header .memo::before { content: "MEMO"; }
 #paper .halves { display: flex; gap: 4mm; flex: 1; min-height: 0; }
-#paper table { border-collapse: collapse; flex: 1; font-variant-numeric: tabular-nums; }
-#paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; }
-#paper td:first-child { color: #444; text-align: right; }
-#paper td.words { text-align: left; white-space: nowrap; overflow: hidden; max-width: 30mm; }
+#paper table { border-collapse: collapse; flex: 1; width: 0; table-layout: fixed; font-variant-numeric: tabular-nums; }
+#paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; overflow: hidden; }
+#paper th { font-size: 7pt; height: 5mm; }
+#paper th.frame { width: 8mm; }
+#paper th.words { width: 20mm; }
+#paper td { height: 2.4mm; line-height: 2.4mm; font-size: 7.5pt; font-weight: bold; }
+#paper td:first-child { font-size: 6pt; font-weight: normal; color: #444; text-align: right; }
+#paper td.words { font-size: 6.5pt; font-weight: normal; text-align: left; white-space: nowrap; }
+#paper tr.half td { border-bottom: 0.75px solid #000; }
+#paper tr.half td:first-child::before { content: "\25B6"; float: left; font-size: 5pt; }
 #paper td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
 #paper td.out { background: #ddd; }
-#paper tr.second td { border-bottom: 1.5px solid #000; }
+#paper tr.second td { border-bottom: 2px solid #000; }
+#paper tr.second td:first-child { font-weight: bold; color: #000; }
 #paper tr.end td { border-bottom: 3px double #000; }
 #paper tr.past td:first-child { color: #aaa; }
 #paper * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

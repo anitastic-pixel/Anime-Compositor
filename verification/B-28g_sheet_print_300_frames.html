@@ -14,22 +14,36 @@
 #paper { font: 6.5pt/1 sans-serif; color: #000; background: #fff; }
 #paper .page { break-after: page; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: 10mm; }
 #paper .page:last-child { break-after: auto; }
-#paper header { display: flex; gap: 8mm; font-size: 9pt; height: 6mm; flex: none; }
+#paper header { display: flex; height: 11mm; flex: none; margin-bottom: 2mm; border: 1px solid #000; font-size: 10pt; }
+#paper header > * { display: flex; flex-direction: column; padding: 1mm 2mm; border-right: 1px solid #000; white-space: nowrap; }
+#paper header > ::before { font: normal 5.5pt sans-serif; color: #555; margin-bottom: auto; }
+#paper header .cut { flex: 2; } #paper header .cut::before { content: "CUT"; }
+#paper header .time::before { content: "TIME (sec + fr)"; }
+#paper header .rate::before { content: "RATE"; }
+#paper header .sheet::before { content: "SHEET"; }
+#paper header .memo { flex: 3; border-right: 0; } #paper header .memo::before { content: "MEMO"; }
 #paper .halves { display: flex; gap: 4mm; flex: 1; min-height: 0; }
-#paper table { border-collapse: collapse; flex: 1; font-variant-numeric: tabular-nums; }
-#paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; }
-#paper td:first-child { color: #444; text-align: right; }
-#paper td.words { text-align: left; white-space: nowrap; overflow: hidden; max-width: 30mm; }
+#paper table { border-collapse: collapse; flex: 1; width: 0; table-layout: fixed; font-variant-numeric: tabular-nums; }
+#paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; overflow: hidden; }
+#paper th { font-size: 7pt; height: 5mm; }
+#paper th.frame { width: 8mm; }
+#paper th.words { width: 20mm; }
+#paper td { height: 2.4mm; line-height: 2.4mm; font-size: 7.5pt; font-weight: bold; }
+#paper td:first-child { font-size: 6pt; font-weight: normal; color: #444; text-align: right; }
+#paper td.words { font-size: 6.5pt; font-weight: normal; text-align: left; white-space: nowrap; }
+#paper tr.half td { border-bottom: 0.75px solid #000; }
+#paper tr.half td:first-child::before { content: "\25B6"; float: left; font-size: 5pt; }
 #paper td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
 #paper td.out { background: #ddd; }
-#paper tr.second td { border-bottom: 1.5px solid #000; }
+#paper tr.second td { border-bottom: 2px solid #000; }
+#paper tr.second td:first-child { font-weight: bold; color: #000; }
 #paper tr.end td { border-bottom: 3px double #000; }
 #paper tr.past td:first-child { color: #aaa; }
 #paper * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
 </style></head><body><div id="paper">
-<section class="page"><header><b>s01 c012</b><span>Sheet 1 of 3</span><span>12 + 12</span><span>24 fps</span></header><div class="halves">
-<table data-first="0" data-last="71"><tr><th>frame</th><th>Dialogue</th><th>A</th><th>B</th><th>C</th><th>Camera</th></tr>
+<section class="page"><header><b class="cut">s01 c012</b><span class="time">12 + 12</span><span class="rate">24 fps</span><span class="sheet">Sheet 1 of 3</span><span class="memo"></span></header><div class="halves">
+<table data-first="0" data-last="71"><tr><th class="frame">frame</th><th class="words">Dialogue</th><th>A</th><th>B</th><th>C</th><th class="words">Camera</th></tr>
 <tr data-frame="0" class=""><td>0</td><td class="words">MIKA Over here!</td><td>1</td><td>1</td><td>×</td><td></td></tr>
 <tr data-frame="1" class=""><td>1</td><td class="hold"></td><td class="hold"></td><td class="hold"></td><td></td><td></td></tr>
 <tr data-frame="2" class=""><td>2</td><td class="hold"></td><td>2</td><td class="hold"></td><td></td><td></td></tr>
@@ -41,7 +55,7 @@
 <tr data-frame="8" class=""><td>8</td><td class="hold"></td><td>5</td><td>1</td><td></td><td></td></tr>
 <tr data-frame="9" class=""><td>9</td><td class="hold"></td><td class="hold"></td><td class="hold"></td><td></td><td></td></tr>
 <tr data-frame="10" class=""><td>10</td><td class="hold"></td><td>6</td><td class="hold"></td><td></td><td></td></tr>
-<tr data-frame="11" class=""><td>11</td><td class="hold"></td><td class="hold"></td><td>2</td><td></td><td></td></tr>
+<tr data-frame="11" class="half"><td>11</td><td class="hold"></td><td class="hold"></td><td>2</td><td></td><td></td></tr>
 <tr data-frame="12" class=""><td>12</td><td class="hold"></td><td>7</td><td class="hold"></td><td></td><td></td></tr>
 <tr data-frame="13" class=""><td>13</td><td class="hold"></td><td class="hold"></td><td class="hold"></td><td></td><td></td></tr>
 <tr data-frame="14" class=""><td>14</td><td class="hold"></td><td>8</td><td>3</td><td></td><td></td></tr>
@@ -65,7 +79,7 @@
 <tr data-frame="32" class=""><td>32</td><td></td><td>3</td><td class="hold"></td><td></td><td class="hold"></td></tr>
 <tr data-frame="33" class=""><td>33</td><td></td><td class="hold"></td><td>2</td><td></td><td class="hold"></td></tr>
 <tr data-frame="34" class=""><td>34</td><td></td><td>2</td><td class="hold"></td><td></td><td class="hold"></td></tr>
-<tr data-frame="35" class=""><td>35</td><td></td><td class="hold"></td><td class="hold"></td><td></td><td class="hold"></td></tr>
+<tr data-frame="35" class="half"><td>35</td><td></td><td class="hold"></td><td class="hold"></td><td></td><td class="hold"></td></tr>
 <tr data-frame="36" class=""><td>36</td><td></td><td>1</td><td>3</td><td></td><td class="hold"></td></tr>
 <tr data-frame="37" class=""><td>37</td><td></td><td class="hold"></td><td class="hold"></td><td></td><td class="hold"></td></tr>
 <tr data-frame="38" class=""><td>38</td><td></td><td class="hold"></td><td class="hold"></td><td></td><td class="hold"></td></tr>
@@ -89,7 +103,7 @@
 <tr data-frame="56" class=""><td>56</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="57" class=""><td>57</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="58" class=""><td>58</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="59" class=""><td>59</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="59" class="half"><td>59</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="60" class=""><td>60</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="61" class=""><td>61</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="62" class=""><td>62</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -103,7 +117,7 @@
 <tr data-frame="70" class=""><td>70</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="71" class="second"><td>71</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 </table>
-<table data-first="72" data-last="143"><tr><th>frame</th><th>Dialogue</th><th>A</th><th>B</th><th>C</th><th>Camera</th></tr>
+<table data-first="72" data-last="143"><tr><th class="frame">frame</th><th class="words">Dialogue</th><th>A</th><th>B</th><th>C</th><th class="words">Camera</th></tr>
 <tr data-frame="72" class=""><td>72</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="73" class=""><td>73</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="74" class=""><td>74</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -115,7 +129,7 @@
 <tr data-frame="80" class=""><td>80</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="81" class=""><td>81</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="82" class=""><td>82</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="83" class=""><td>83</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="83" class="half"><td>83</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="84" class=""><td>84</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="85" class=""><td>85</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="86" class=""><td>86</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -139,7 +153,7 @@
 <tr data-frame="104" class=""><td>104</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="105" class=""><td>105</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="106" class=""><td>106</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="107" class=""><td>107</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="107" class="half"><td>107</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="108" class=""><td>108</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="109" class=""><td>109</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="110" class=""><td>110</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -163,7 +177,7 @@
 <tr data-frame="128" class=""><td>128</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="129" class=""><td>129</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="130" class=""><td>130</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="131" class=""><td>131</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="131" class="half"><td>131</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="132" class=""><td>132</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="133" class=""><td>133</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="134" class=""><td>134</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -178,8 +192,8 @@
 <tr data-frame="143" class="second"><td>143</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 </table>
 </div></section>
-<section class="page"><header><b>s01 c012</b><span>Sheet 2 of 3</span><span>12 + 12</span><span>24 fps</span></header><div class="halves">
-<table data-first="144" data-last="215"><tr><th>frame</th><th>Dialogue</th><th>A</th><th>B</th><th>C</th><th>Camera</th></tr>
+<section class="page"><header><b class="cut">s01 c012</b><span class="time">12 + 12</span><span class="rate">24 fps</span><span class="sheet">Sheet 2 of 3</span><span class="memo"></span></header><div class="halves">
+<table data-first="144" data-last="215"><tr><th class="frame">frame</th><th class="words">Dialogue</th><th>A</th><th>B</th><th>C</th><th class="words">Camera</th></tr>
 <tr data-frame="144" class=""><td>144</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="145" class=""><td>145</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="146" class=""><td>146</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -191,7 +205,7 @@
 <tr data-frame="152" class=""><td>152</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="153" class=""><td>153</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="154" class=""><td>154</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="155" class=""><td>155</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="155" class="half"><td>155</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="156" class=""><td>156</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="157" class=""><td>157</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="158" class=""><td>158</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -215,7 +229,7 @@
 <tr data-frame="176" class=""><td>176</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="177" class=""><td>177</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="178" class=""><td>178</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="179" class=""><td>179</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="179" class="half"><td>179</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="180" class=""><td>180</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="181" class=""><td>181</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="182" class=""><td>182</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -239,7 +253,7 @@
 <tr data-frame="200" class=""><td>200</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="201" class=""><td>201</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="202" class=""><td>202</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="203" class=""><td>203</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="203" class="half"><td>203</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="204" class=""><td>204</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="205" class=""><td>205</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="206" class=""><td>206</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -253,7 +267,7 @@
 <tr data-frame="214" class=""><td>214</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="215" class="second"><td>215</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 </table>
-<table data-first="216" data-last="287"><tr><th>frame</th><th>Dialogue</th><th>A</th><th>B</th><th>C</th><th>Camera</th></tr>
+<table data-first="216" data-last="287"><tr><th class="frame">frame</th><th class="words">Dialogue</th><th>A</th><th>B</th><th>C</th><th class="words">Camera</th></tr>
 <tr data-frame="216" class=""><td>216</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="217" class=""><td>217</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="218" class=""><td>218</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -265,7 +279,7 @@
 <tr data-frame="224" class=""><td>224</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="225" class=""><td>225</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="226" class=""><td>226</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="227" class=""><td>227</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="227" class="half"><td>227</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="228" class=""><td>228</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="229" class=""><td>229</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="230" class=""><td>230</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -289,7 +303,7 @@
 <tr data-frame="248" class=""><td>248</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="249" class=""><td>249</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="250" class=""><td>250</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="251" class=""><td>251</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="251" class="half"><td>251</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="252" class=""><td>252</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="253" class=""><td>253</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="254" class=""><td>254</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -313,7 +327,7 @@
 <tr data-frame="272" class=""><td>272</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="273" class=""><td>273</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="274" class=""><td>274</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="275" class=""><td>275</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="275" class="half"><td>275</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="276" class=""><td>276</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="277" class=""><td>277</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="278" class=""><td>278</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -328,8 +342,8 @@
 <tr data-frame="287" class="second"><td>287</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 </table>
 </div></section>
-<section class="page"><header><b>s01 c012</b><span>Sheet 3 of 3</span><span>12 + 12</span><span>24 fps</span></header><div class="halves">
-<table data-first="288" data-last="359"><tr><th>frame</th><th>Dialogue</th><th>A</th><th>B</th><th>C</th><th>Camera</th></tr>
+<section class="page"><header><b class="cut">s01 c012</b><span class="time">12 + 12</span><span class="rate">24 fps</span><span class="sheet">Sheet 3 of 3</span><span class="memo"></span></header><div class="halves">
+<table data-first="288" data-last="359"><tr><th class="frame">frame</th><th class="words">Dialogue</th><th>A</th><th>B</th><th>C</th><th class="words">Camera</th></tr>
 <tr data-frame="288" class=""><td>288</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="289" class=""><td>289</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="290" class=""><td>290</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
@@ -341,7 +355,7 @@
 <tr data-frame="296" class=""><td>296</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="297" class=""><td>297</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="298" class=""><td>298</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
-<tr data-frame="299" class="end"><td>299</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
+<tr data-frame="299" class="half end"><td>299</td><td></td><td class="out"></td><td class="out"></td><td class="out"></td><td></td></tr>
 <tr data-frame="300" class="past"><td>300</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="301" class="past"><td>301</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="302" class="past"><td>302</td><td></td><td></td><td></td><td></td><td></td></tr>
@@ -365,7 +379,7 @@
 <tr data-frame="320" class="past"><td>320</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="321" class="past"><td>321</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="322" class="past"><td>322</td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr data-frame="323" class="past"><td>323</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr data-frame="323" class="half past"><td>323</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="324" class="past"><td>324</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="325" class="past"><td>325</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="326" class="past"><td>326</td><td></td><td></td><td></td><td></td><td></td></tr>
@@ -389,7 +403,7 @@
 <tr data-frame="344" class="past"><td>344</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="345" class="past"><td>345</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="346" class="past"><td>346</td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr data-frame="347" class="past"><td>347</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr data-frame="347" class="half past"><td>347</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="348" class="past"><td>348</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="349" class="past"><td>349</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="350" class="past"><td>350</td><td></td><td></td><td></td><td></td><td></td></tr>
@@ -403,7 +417,7 @@
 <tr data-frame="358" class="past"><td>358</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="359" class="second past"><td>359</td><td></td><td></td><td></td><td></td><td></td></tr>
 </table>
-<table data-first="360" data-last="431"><tr><th>frame</th><th>Dialogue</th><th>A</th><th>B</th><th>C</th><th>Camera</th></tr>
+<table data-first="360" data-last="431"><tr><th class="frame">frame</th><th class="words">Dialogue</th><th>A</th><th>B</th><th>C</th><th class="words">Camera</th></tr>
 <tr data-frame="360" class="past"><td>360</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="361" class="past"><td>361</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="362" class="past"><td>362</td><td></td><td></td><td></td><td></td><td></td></tr>
@@ -415,7 +429,7 @@
 <tr data-frame="368" class="past"><td>368</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="369" class="past"><td>369</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="370" class="past"><td>370</td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr data-frame="371" class="past"><td>371</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr data-frame="371" class="half past"><td>371</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="372" class="past"><td>372</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="373" class="past"><td>373</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="374" class="past"><td>374</td><td></td><td></td><td></td><td></td><td></td></tr>
@@ -439,7 +453,7 @@
 <tr data-frame="392" class="past"><td>392</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="393" class="past"><td>393</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="394" class="past"><td>394</td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr data-frame="395" class="past"><td>395</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr data-frame="395" class="half past"><td>395</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="396" class="past"><td>396</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="397" class="past"><td>397</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="398" class="past"><td>398</td><td></td><td></td><td></td><td></td><td></td></tr>
@@ -463,7 +477,7 @@
 <tr data-frame="416" class="past"><td>416</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="417" class="past"><td>417</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="418" class="past"><td>418</td><td></td><td></td><td></td><td></td><td></td></tr>
-<tr data-frame="419" class="past"><td>419</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr data-frame="419" class="half past"><td>419</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="420" class="past"><td>420</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="421" class="past"><td>421</td><td></td><td></td><td></td><td></td><td></td></tr>
 <tr data-frame="422" class="past"><td>422</td><td></td><td></td><td></td><td></td><td></td></tr>

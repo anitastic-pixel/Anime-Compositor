@@ -7,8 +7,9 @@ The generated half is `verification/B-28g_sheet_print_table.md`. It reads FX-PRI
 from document 25 and checks each page the window writes: its header, its halves, its columns
 and its end line. It also checks that every printed cell is the same as the Sheet's. Three of
 those pages are kept beside it and open in any browser: `B-28g_sheet_print_040.html`,
-`B-28g_sheet_print_300_frames.html` and `B-28g_sheet_print_30_fps.html`. This sheet covers what
-the table cannot: the print dialog and the paper.
+`B-28g_sheet_print_300_frames.html` and `B-28g_sheet_print_30_fps.html`. A fourth,
+`B-28g_sheet_print_reference_shot.html`, is the project you printed at the first playtest, kept
+to look at. This sheet covers what the table cannot: the print dialog and the paper.
 
 ## Before you start
 
@@ -22,15 +23,17 @@ Choose **Workspace: Timing**, so the Sheet is the tall column on the left.
    Sheet, not of the whole window.
 3. **To PDF.** Choose **Microsoft Print to PDF** as the printer and print. Save the file anywhere
    and open it.
-4. **One page.** The PDF has one page. Its header reads **s01 c012**, **Sheet 1 of 1**,
-   **2 + 0** and **24 fps**.
+4. **One page.** The PDF has one page, with no date or address in its corners. Across its top is
+   a ruled title block of boxes, each with a small label: **CUT** s01 c012, **TIME (sec + fr)**
+   2 + 0, **RATE** 24 fps, **SHEET** Sheet 1 of 1, and an empty **MEMO** box to write in.
 5. **Two halves.** The left half runs from frame 0 to frame 71 and the right half from 72 to 143.
    Each half's headings are **frame, Dialogue, A, B, C, Camera**.
 6. **The marks.** The left half matches the Sheet on screen, row for row: the numbers, the hold
    lines, the crosses, **MIKA Over here!** at frame 0 and **FOLLOW** at frame 20.
-7. **The end.** A heavy double line runs under frame 47. The frame numbers after it are pale and
-   their rows are empty. A thinner black line marks the end of each second: under 23, 47, 71 and
-   so on.
+7. **The lines.** Every row is the same height. A thick black line marks the end of each second,
+   under 23, 47, 71 and so on, and those frame numbers are bold. A thin black line and a small
+   **▶** mark each half second, under 11, 35, 59 and so on. A heavy double line runs under frame
+   47, the end of the cut; the frame numbers after it are pale and their rows are empty.
 8. **Ctrl+P.** Close the dialog, click the viewer and press **Ctrl+P**. The same dialog opens on
    the Sheet.
 9. **A longer cut.** Open the composition settings (Ctrl+K), set the length to **300** and click

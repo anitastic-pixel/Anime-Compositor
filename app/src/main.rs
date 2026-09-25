@@ -396,24 +396,27 @@ fn sheet_paper(grid: &serde_json::Value) -> String {
     let length = format!("{} + {}", duration / fps, duration % fps);
     for page in 0..pages {
         html.push_str(&format!(
-            "<section class=\"page\"><header><b>{name}</b><span>Sheet {} of {pages}</span><span>{length}</span><span>{fps} fps</span></header><div class=\"halves\">\n",
+            "<section class=\"page\"><header><b class=\"cut\">{name}</b><span class=\"time\">{length}</span><span class=\"rate\">{fps} fps</span><span class=\"sheet\">Sheet {} of {pages}</span><span class=\"memo\"></span></header><div class=\"halves\">\n",
             page + 1
         ));
         for side in 0..2 {
             let first = (page * 2 + side) * half;
             html.push_str(&format!(
-                "<table data-first=\"{}\" data-last=\"{}\"><tr><th>frame</th>",
+                "<table data-first=\"{}\" data-last=\"{}\"><tr><th class=\"frame\">frame</th>",
                 from + first as i64,
                 from + (first + half - 1) as i64
             ));
-            for (c, _) in &columns {
-                html.push_str(&format!("<th>{}</th>", escape(c["name"].as_str().unwrap_or(""))));
+            for (c, words) in &columns {
+                let class = if *words { " class=\"words\"" } else { "" };
+                html.push_str(&format!("<th{class}>{}</th>", escape(c["name"].as_str().unwrap_or(""))));
             }
             html.push_str("</tr>\n");
             for i in first..first + half {
                 let mut class = Vec::new();
                 if (i + 1) % fps == 0 {
                     class.push("second");
+                } else if fps % 2 == 0 && (i + 1) % (fps / 2) == 0 {
+                    class.push("half");
                 }
                 if i + 1 == duration {
                     class.push("end");
@@ -13184,15 +13187,17 @@ mod editing {
             let grid = sheet_grid(&viewer);
             let paper = sheet_paper(&grid);
             let pages = between(&paper, "<section class=\"page\"", "</section>");
+            // Each page's header fields in the order document 25 names them: cut, sheet, length,
+            // rate. Read by their class, since the page lays them out as a timesheet does.
             let headers: Vec<Vec<String>> = pages
                 .iter()
                 .map(|p| {
                     let header = between(p, "<header>", "</header>").concat();
-                    header
-                        .split(|c| c == '<' || c == '>')
-                        .enumerate()
-                        .filter(|(i, t)| i % 2 == 0 && !t.is_empty())
-                        .map(|(_, t)| t.to_string())
+                    ["cut", "sheet", "time", "rate"]
+                        .iter()
+                        .map(|field| {
+                            between(&header, &format!("class=\"{field}\">"), "<").concat()
+                        })
                         .collect()
                 })
                 .collect();
@@ -13255,7 +13260,11 @@ mod editing {
                         report.check(
                             &format!("{name}: each half's columns, left to right"),
                             said.clone(),
-                            between(&first, "<th>", "</th>").join(", "),
+                            between(&first, "<th", "</th>")
+                                .iter()
+                                .map(|th| th.split_once('>').map_or("", |(_, name)| name))
+                                .collect::<Vec<_>>()
+                                .join(", "),
                         );
                     }
                     _ if label.starts_with("Page") => {
@@ -13349,6 +13358,17 @@ mod editing {
                 std::fs::write(repo(file), &paper).expect("write the printable page");
             }
         }
+        // Not a fixture case: the project the owner printed at the first playtest, four image
+        // sequences and no text columns, kept beside the table to look at.
+        let shot = repo("verification/B-08a_project.json");
+        let viewer = Mutex::new(
+            open(&shot).unwrap_or_else(|d| panic!("open {}: {}", shot.display(), d.message)),
+        );
+        std::fs::write(
+            repo("verification/B-28g_sheet_print_reference_shot.html"),
+            sheet_paper(&sheet_grid(&viewer)),
+        )
+        .expect("write the printable page");
         report.check(
             "the page prints what the window writes, and Ctrl+P asks for it",
             "present",
