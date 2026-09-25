@@ -334,6 +334,8 @@ B-39 / Radial blur, D-95, the fifth of the batch. **B-39a is written on 2026-09-
 
 B-40 / Bloom, D-96, the sixth of the batch. **B-40a is written on 2026-09-25**: `verification/B-40a proposal/`, D-96 in document 14, the rule in document 21, FX-BLOOM-001 to 028 in document 25 from `tools/bloom_reference.py`, which writes `Fixtures/bloom/`. **B-40b is built the same day**: `bloom` in `src/bloom.rs`, glow's bright test, the four blurs of the halo each placed by its own reach, and every streak line's tent of samples summed in double precision and divided once; the layer grows by the halo's reach or the streak length, whichever is more. Added, it goes to the end of the stack. `verification/B-40_bloom_table.md` is 106 of 106, every FX-BLOOM frame within 7.8e-7 of the reference; every earlier effect table is unchanged. The owner's sheet is `verification/B-40_bloom_playtest.md`.
 
+B-41 / Colour key, D-97, the last of the batch. **B-41a is written on 2026-09-25**: `verification/B-41a proposal/`, D-97 in document 14, the rule in document 21, FX-KEY-001 to 023 in document 25 from `tools/color_key_reference.py`, which writes `Fixtures/color_key/`.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
