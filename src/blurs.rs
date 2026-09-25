@@ -12,7 +12,7 @@ use rayon::prelude::*;
 
 /// One pixel's step along `direction`, in degrees clockwise from up. Exact at a whole quarter
 /// turn, so a streak straight across or straight down takes nothing from the lines beside it.
-fn along(direction: f64) -> (f64, f64) {
+pub(crate) fn along(direction: f64) -> (f64, f64) {
     let q = direction.rem_euclid(360.0);
     if q == 0.0 {
         (0.0, -1.0)

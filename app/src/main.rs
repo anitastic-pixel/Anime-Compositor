@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, GLOW,
+    Effect, EffectInstance, EffectKey, BLOOM, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, GLOW,
     LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR, TINT,
 };
 use anime_compositor::export::{
@@ -2435,6 +2435,15 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             amount: 10.0,
             center: [50.0, 50.0],
         }),
+        // D-96: its own starting settings, no streaks.
+        BLOOM => Some(Effect::Bloom {
+            threshold: 80.0,
+            radius: 20.0,
+            intensity: 1.0,
+            streaks: "none".to_string(),
+            length: 60.0,
+            angle: 0.0,
+        }),
         _ => None,
     }
 }
@@ -2569,6 +2578,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 center: [x, y],
             })
         }
+        BLOOM => Ok(Effect::Bloom {
+            threshold: number("threshold")?,
+            radius: number("radius")?,
+            intensity: number("intensity")?,
+            streaks: word("streaks")?,
+            length: number("length")?,
+            angle: number("angle")?,
+        }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
         // to read them against, so they are left alone and said to be left alone.
@@ -5453,7 +5470,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
                              core.line_smooth, core.selective_color_blur, core.glow, \
                              core.line_recolor, core.directional_blur, core.select_color, \
-                             core.line_width or core.radial_blur."
+                             core.line_width, core.radial_blur or core.bloom."
                                 .to_string(),
                         );
                     };
@@ -5462,8 +5479,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             "This build has no effect called {type_id}. It has \
                              core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
                              core.selective_color_blur, core.glow, core.line_recolor, \
-                             core.directional_blur, core.select_color, core.line_width and \
-                             core.radial_blur."
+                             core.directional_blur, core.select_color, core.line_width, \
+                             core.radial_blur and core.bloom."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -9213,18 +9230,19 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the eleven are named",
+            "an effect type this build does not have is refused, and the twelve are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
-             core.line_recolor, core.directional_blur, core.select_color, core.line_width and \
-             core.radial_blur.",
+             core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
+             core.radial_blur and core.bloom.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
              core.line_smooth, core.selective_color_blur, core.glow, core.line_recolor, \
-             core.directional_blur, core.select_color, core.line_width or core.radial_blur.",
+             core.directional_blur, core.select_color, core.line_width, core.radial_blur or \
+             core.bloom.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -21071,6 +21089,18 @@ mod contract {
         (
             "core.radial_blur",
             &[("amount", "20"), ("center", "25,75"), ("type", "zoom")],
+        ),
+        // D-96: the five numbers and the streaks word.
+        (
+            "core.bloom",
+            &[
+                ("threshold", "70"),
+                ("radius", "12"),
+                ("intensity", "1.5"),
+                ("length", "30"),
+                ("angle", "15"),
+                ("streaks", "star"),
+            ],
         ),
     ];
 

@@ -86,6 +86,8 @@ pub enum Stage {
     EffectWidth,
     /// D-95's radial blur, whole-layer, per ADR-017.
     EffectRadial,
+    /// D-96's bloom, whole-layer, per ADR-017.
+    EffectBloom,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -97,7 +99,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 24] = [
+    pub const ALL: [Stage; 25] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -118,6 +120,7 @@ impl Stage {
         Stage::EffectSelect,
         Stage::EffectWidth,
         Stage::EffectRadial,
+        Stage::EffectBloom,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -147,6 +150,7 @@ impl Stage {
             Stage::EffectSelect => "effect: select colour",
             Stage::EffectWidth => "effect: line width",
             Stage::EffectRadial => "effect: radial blur",
+            Stage::EffectBloom => "effect: bloom",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

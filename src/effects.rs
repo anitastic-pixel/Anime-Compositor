@@ -235,6 +235,17 @@ pub enum Effect {
         amount: f64,
         center: [f64; 2],
     },
+    /// D-96: `threshold`, 0 to 100, glow's bright test; `radius`, 0 to 500 pixels; `intensity`,
+    /// 0 to 10; `streaks`, "none", "cross" or "star"; `length`, 0 to 500 pixels each way; and
+    /// `angle`, -3600 to 3600 degrees clockwise from up.
+    Bloom {
+        threshold: f64,
+        radius: f64,
+        intensity: f64,
+        streaks: String,
+        length: f64,
+        angle: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -252,6 +263,7 @@ pub const DIRECTIONAL_BLUR: &str = "core.directional_blur";
 pub const SELECT_COLOR: &str = "core.select_color";
 pub const LINE_WIDTH: &str = "core.line_width";
 pub const RADIAL_BLUR: &str = "core.radial_blur";
+pub const BLOOM: &str = "core.bloom";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -326,6 +338,20 @@ impl Effect {
                 ("amount", vec![amount], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
+            Effect::Bloom {
+                threshold,
+                radius,
+                intensity,
+                length,
+                angle,
+                ..
+            } => vec![
+                ("threshold", vec![threshold], 0.0, 100.0),
+                ("radius", vec![radius], 0.0, 500.0),
+                ("intensity", vec![intensity], 0.0, 10.0),
+                ("length", vec![length], 0.0, 500.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -379,6 +405,10 @@ impl Effect {
             Effect::Glow { radius, .. } => *radius = scale(*radius),
             Effect::DirectionalBlur { length, .. } => *length = scale(*length),
             Effect::LineWidth { width, .. } => *width = scale(*width),
+            Effect::Bloom { radius, length, .. } => {
+                *radius = scale(*radius);
+                *length = scale(*length);
+            }
             _ => {}
         }
     }
@@ -397,6 +427,7 @@ impl Effect {
             Effect::SelectColor { .. } => "Select Colour",
             Effect::LineWidth { .. } => "Line Width",
             Effect::RadialBlur { .. } => "Radial Blur",
+            Effect::Bloom { .. } => "Bloom",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -414,6 +445,7 @@ impl Effect {
             Effect::SelectColor { .. } => SELECT_COLOR,
             Effect::LineWidth { .. } => LINE_WIDTH,
             Effect::RadialBlur { .. } => RADIAL_BLUR,
+            Effect::Bloom { .. } => BLOOM,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -434,6 +466,13 @@ impl Effect {
             Effect::DirectionalBlur { length, .. } => (*length / 2.0).ceil() as usize,
             // D-94: a thicker line reaches its width further out; a thinner one nowhere.
             Effect::LineWidth { width, .. } if *width > 0.0 => width.ceil() as usize,
+            // D-96: the widest blur's reach, or the streaks' length if that is more.
+            Effect::Bloom {
+                radius,
+                streaks,
+                length,
+                ..
+            } => crate::bloom::reach(*radius, crate::bloom::lines(streaks), *length),
             _ => 0,
         }
     }
@@ -570,6 +609,13 @@ impl Effect {
             }),
             Effect::RadialBlur { kind, .. } => (!["spin", "zoom"].contains(&kind.as_str()))
                 .then(|| format!("{name}'s type is \"spin\" or \"zoom\", and this is \"{kind}\".")),
+            Effect::Bloom { streaks, .. } => (!["none", "cross", "star"]
+                .contains(&streaks.as_str()))
+            .then(|| {
+                format!(
+                    "{name}'s streaks are \"none\", \"cross\" or \"star\", and this is \"{streaks}\"."
+                )
+            }),
             _ => None,
         };
         own.or_else(|| {
@@ -812,6 +858,28 @@ pub fn apply_stack(
                 crate::perf::time(crate::perf::Stage::EffectRadial, || {
                     crate::blurs::radial_blur(source, kind == "spin", *amount, c)
                 })
+            }
+            Effect::Bloom {
+                threshold,
+                radius,
+                intensity,
+                streaks,
+                length,
+                angle,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectBloom, || {
+                    crate::bloom::bloom(
+                        source,
+                        *threshold,
+                        *radius,
+                        *intensity,
+                        crate::bloom::lines(streaks),
+                        *length,
+                        *angle,
+                    )
+                });
+                ox += r;
+                oy += r;
             }
         }
     }

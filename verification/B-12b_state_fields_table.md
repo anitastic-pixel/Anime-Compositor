@@ -109,5 +109,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - width, tolerance, colors, based_on - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.radial_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, center, type - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.bloom` is an effect this build has | added | added | pass |
+| and the settings it sends for it - threshold, radius, intensity, length, angle, streaks - are the ones the command reads | accepted | accepted | pass |
 
-**89 of 89 checks pass.**
+**91 of 91 checks pass.**

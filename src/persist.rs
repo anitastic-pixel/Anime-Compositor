@@ -989,6 +989,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 J::Array(center.iter().map(|c| num(*c)).collect()),
             );
         }
+        Effect::Bloom {
+            threshold,
+            radius,
+            intensity,
+            streaks,
+            length,
+            angle,
+        } => {
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("radius".into(), num(*radius));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("streaks".into(), J::from(streaks.as_str()));
+            params.insert("length".into(), num(*length));
+            params.insert("angle".into(), num(*angle));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1318,6 +1333,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "length",
         "width",
         "center",
+        "angle",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2110,6 +2126,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::SELECT_COLOR,
                 crate::effects::LINE_WIDTH,
                 crate::effects::RADIAL_BLUR,
+                crate::effects::BLOOM,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2180,6 +2197,14 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     kind: effect_word(params, "type", &at)?,
                     amount: effect_number(params, "amount", &at)?,
                     center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                }),
+                crate::effects::BLOOM => Some(crate::effects::Effect::Bloom {
+                    threshold: effect_number(params, "threshold", &at)?,
+                    radius: effect_number(params, "radius", &at)?,
+                    intensity: effect_number(params, "intensity", &at)?,
+                    streaks: effect_word(params, "streaks", &at)?,
+                    length: effect_number(params, "length", &at)?,
+                    angle: effect_number(params, "angle", &at)?,
                 }),
                 _ => None,
             };
