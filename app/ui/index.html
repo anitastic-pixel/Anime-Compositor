@@ -655,7 +655,34 @@
   .effect .head .mark { color: #e8b06a; font-size: 11px; }
   .effect .head button { padding: 0 4px; border-color: transparent; background: transparent; }
   .effect .head .blank { display: inline-block; width: 1.4em; }
-  .effect dl { margin-top: 4px; }
+  /* The card as After Effects draws one: the label on the left, cut short with an ellipsis
+     before it can push the value off the card, and the value in a column of its own on the
+     right. The ranges are on hover. */
+  #inspector .effect dl {
+    margin-top: 4px; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: center;
+  }
+  #inspector .effect dt {
+    display: flex; align-items: center; gap: 2px; min-width: 0; white-space: nowrap;
+  }
+  #inspector .effect dt > span { overflow: hidden; text-overflow: ellipsis; }
+  #inspector .effect dd { text-align: right; }
+  #inspector .effect dd .scrub { min-width: 4em; text-align: right; }
+  #inspector .effect .wide { grid-column: 1 / -1; text-align: left; }
+  #inspector .effect dd.rgb {
+    grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 8px; color: #909096; padding-left: 1.6em;
+  }
+  #inspector .effect dd.rgb label { display: flex; gap: 4px; align-items: baseline; }
+  #inspector .effect dd.rgb .scrub { flex: 1; min-width: 0; }
+  /* The diamond, as #detail draws it: a glyph, not a boxed button. */
+  .effect .key {
+    font: inherit; padding: 0 3px; background: none; border: 0; color: #909096; cursor: pointer;
+  }
+  .effect .key.animated { color: #e8b06a; }
+  .effect .key:hover { color: #e8e8ea; }
+  /* The order and delete buttons stay quiet until the hand is on the card. */
+  .effect .head button { color: #75757c; }
+  .effect:hover .head button, .effect .head button:focus-visible { color: #c8c8cc; }
   /* D-87's hex boxes: seven characters, so a colour and its ✕ fit the panel's width. */
   .effect input.hex { width: calc(7ch + 14px); }
   .effect input[type=color] {
@@ -6226,25 +6253,28 @@ const EFFECT_NAMES = {
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
-// whether the field takes one number or three, and how far one pixel of drag moves it. Document
+// whether the field takes one number or three, how far one pixel of drag moves it, and the range
+// the core holds it to, which the label shows on hover so the row stays one short line. Document
 // 21 states the units, and they are the file's own here as everywhere else in this panel.
 const EFFECT_PARAMS = {
-  'core.gaussian_blur': [['sigma_px', 'Radius σ, in source pixels, 0 to 500', 1, 0.1]],
-  'core.exposure': [['stops', 'Stops, -20 to 20', 1, 0.02]],
-  'core.tint': [['color', 'Colour, linear RGB', 3, 0.01], ['amount', 'Amount, 0 to 1', 1, 0.01]],
+  'core.gaussian_blur': [['sigma_px', 'Radius σ (px)', 1, 0.1, '0 to 500 source pixels']],
+  'core.exposure': [['stops', 'Exposure (stops)', 1, 0.02, '-20 to 20 stops']],
+  'core.tint': [['color', 'Colour', 3, 0.01, 'linear RGB'], ['amount', 'Amount', 1, 0.01, '0 to 1']],
   // D-86.
-  'core.line_smooth': [['softness', 'Softness, 0 to 100', 1, 0.5],
-    ['threshold', 'Threshold, 0 to 255', 1, 0.5]],
+  'core.line_smooth': [['softness', 'Softness', 1, 0.5, '0 to 100'],
+    ['threshold', 'Threshold', 1, 0.5, '0 to 255']],
   // D-87. Its colours are not a number and are drawn apart, in effectRow. D-88: tolerance.
-  'core.selective_color_blur': [['blur', 'Blur, 0 to 200', 1, 0.5],
-    ['tolerance', 'Tolerance, 0 to 255', 1, 0.5]],
+  'core.selective_color_blur': [['blur', 'Blur', 1, 0.5, '0 to 200'],
+    ['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
   // D-89, named as After Effects names them. Its two switches, its colours and its tint are not
   // numbers and are drawn apart, in effectRow; the tolerance is for its chosen colours.
-  'core.glow': [['threshold', 'Glow Threshold, 0 to 100', 1, 0.5],
-    ['radius', 'Glow Radius, 0 to 500', 1, 0.5],
-    ['intensity', 'Glow Intensity, 0 to 10', 1, 0.02],
-    ['tolerance', 'Tolerance, 0 to 255', 1, 0.5]],
+  'core.glow': [['threshold', 'Glow Threshold', 1, 0.5, '0 to 100'],
+    ['radius', 'Glow Radius', 1, 0.5, '0 to 500'],
+    ['intensity', 'Glow Intensity', 1, 0.02, '0 to 10'],
+    ['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
 };
+// The effect cards folded shut, by instance, for as long as the window is open.
+const foldedEffects = new Set();
 
 // Document 21 keeps the tint colour in linear light, and a colour picker speaks in sRGB. These
 // are the two transfer functions of `src/color.rs`, so the swatch shows the colour the file
@@ -6392,7 +6422,12 @@ function effectRow(layer, fx, at, of) {
       if (to !== at) command('/effect.move' + where + '&to=' + to);
     };
   };
+  const folded = foldedEffects.has(fx.instance_id);
   head.append(
+    iconButton(folded ? '▸' : '▾', (folded ? 'Show ' : 'Hide ') + label + "'s settings", () => {
+      if (folded) foldedEffects.delete(fx.instance_id); else foldedEffects.add(fx.instance_id);
+      drawEffects();
+    }),
     iconButton(fx.enabled ? '●' : '○',
       (fx.enabled ? 'Bypass ' : 'Switch on ') + label,
       () => command('/effect.toggle_bypass' + where)),
@@ -6411,6 +6446,7 @@ function effectRow(layer, fx, at, of) {
       : blank(),
     iconButton('✕', 'Delete ' + label, () => command('/effect.delete' + where)));
   box.append(head);
+  if (folded) return box;
   if (!known) {
     box.append(Object.assign(document.createElement('p'), {
       className: 'empty',
@@ -6463,12 +6499,17 @@ function effectRow(layer, fx, at, of) {
     dragging = false;
     command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
   };
-  for (const [name, words, count, step] of known) {
+  for (const [name, words, count, step, range] of known) {
     const dt = document.createElement('dt');
+    dt.title = words + ', ' + range;
     // B-19d: the stopwatch a transform's property has, and the ease of a key on this frame.
     const ease = easeButton(layer, fxName(fx, name));
-    dt.append(keyButton(layer, fxName(fx, name)), ...(ease ? [ease] : []), ' ', words);
+    dt.append(keyButton(layer, fxName(fx, name)), ...(ease ? [ease] : []),
+      Object.assign(document.createElement('span'), { textContent: words }));
     const dd = document.createElement('dd');
+    // A colour is its swatch on the label's line and its three numbers on a line of their own,
+    // each named, where the three wrapped two and one round the swatch.
+    const rgb = count === 3 ? Object.assign(document.createElement('dd'), { className: 'rgb' }) : null;
     // What the setting is on the frame on screen, which is a keyed one's interpolated value.
     const values = transformValue(layer, fxName(fx, name)).map((v) => Number(v) || 0);
     fields[name] = [];
@@ -6484,24 +6525,28 @@ function effectRow(layer, fx, at, of) {
       };
       pick.onchange = () => close(false);
       pick.onblur = () => close(false);
-      dd.append(pick, ' ');
+      dd.append(pick);
     }
     values.forEach((value, i) => {
       const part = count === 3 ? 'rgb'[i] : '';
       const input = scrubValue({
         value,
         label: label + ' ' + words + (part ? ' ' + part : ''),
-        title: 'Drag to change ' + words + ', press to type it, or use the arrow keys',
+        title: 'Drag to change ' + words + ' (' + range + '), press to type it, or use the '
+          + 'arrow keys',
         step,
         live: () => live(name),
         done: (cancelled) => close(cancelled),
         commit: () => sendParameters('', name),
       });
-      if (i) dd.append(' ');
-      dd.append(input);
+      if (rgb) {
+        const cell = Object.assign(document.createElement('label'), { textContent: part.toUpperCase() + ' ' });
+        cell.append(input);
+        rgb.append(cell);
+      } else dd.append(input);
       fields[name].push(input);
     });
-    dl.append(dt, dd);
+    dl.append(dt, dd, ...(rgb ? [rgb] : []));
   }
   // The hex is typed, because the Windows colour window has no box for one and the match is
   // exact. Enter or leaving the box sends it, the # optional; Escape puts it back. The panel
@@ -6524,17 +6569,17 @@ function effectRow(layer, fx, at, of) {
     return text;
   };
   // D-89: glow's two switches and its colour. A switch sends at once; each is one entry to undo.
-  // Each under its label, the width of the card, as the colours are: beside the numbers' long
-  // labels the panel cut the menus off, which the B-33c playtest photographed.
+  // A switch sits on its label's line, as a number does, now the labels are short and give way;
+  // the colour, with its swatch and hex, gets the width of the card under its label.
   if (words) {
     const row = (title) => {
-      const dt = Object.assign(document.createElement('dt'), { textContent: title });
-      dt.style.gridColumn = '1 / -1';
-      const dd = Object.assign(document.createElement('dd'), { style: 'grid-column: 1 / -1' });
+      const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });
+      const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
       return [dt, dd];
     };
     const choice = (name, title, options) => {
-      const [dt, dd] = row(title);
+      const dt = Object.assign(document.createElement('dt'), { textContent: title });
+      const dd = document.createElement('dd');
       const select = document.createElement('select');
       select.setAttribute('aria-label', label + ' ' + title);
       for (const [value, text] of options) select.append(new Option(text, value));
@@ -6570,11 +6615,11 @@ function effectRow(layer, fx, at, of) {
   // none of the tint's conversion. Colours cannot be keyed. A glow shows them only when it is
   // based on chosen colours, and keeps them when it is not.
   if (chosen && !(words && words.based_on !== 'colors')) {
-    const dt = Object.assign(document.createElement('dt'), { textContent: 'Colours, up to 8' });
     // Under its label, the width of the card: beside it, the panel left too little for a colour
     // and its ✕.
-    dt.style.gridColumn = '1 / -1';
-    const dd = Object.assign(document.createElement('dd'), { style: 'grid-column: 1 / -1' });
+    const dt = Object.assign(document.createElement('dt'),
+      { textContent: 'Colours, up to 8', className: 'wide' });
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
     chosen.forEach((hex, i) => {
       const swatch = Object.assign(document.createElement('input'),
         { type: 'color', value: hex, title: 'Pick the colour' });
