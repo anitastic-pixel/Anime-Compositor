@@ -1298,6 +1298,29 @@ Its notes: `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "dialogue", "tracks": 1}
 | TIMESHEET_DRAWING_UNUSED | INFO | A column has drawings the sheet never shows | name the drawings |
 | TIMESHEET_NOT_USED | INFO | A folder or drawing beside the sheet that no column used | name them |
 
+### Proposed by D-84c, not yet in the fixtures
+
+These replace and add to the expectations above once the owner accepts D-84c. Until then the fixtures and their tests stay as written above. Each comes from running the second reader, `tools/xdts_reference.py`, with D-84c's reading.
+
+- FX-XDTS-014 becomes: A sheet with a dialogue column and a camerawork column: all three are read, the two text columns named Dialogue and Camera, since the headers name only the cells.
+  - A: `1 1 1 1`
+  - dialogue column Dialogue: frames 0 to 2 `["MIKA", "Wait!"]`
+  - camera column Camera: frames 0 to 3 `["PAN"]`
+  - no notes; the two `TIMESHEET_FIELD_NOT_READ` notes go.
+- FX-XDTS-019, new: Text columns as a sheet can write them: a line held with hyphens, a line on one frame, a cross after it, a hyphen with nothing before it, a number where text belongs, an entry past the end, and a field this program does not know.
+  - A: `1 1 1 1 1 1 1 1`
+  - dialogue column S1: frames 0 to 2 `["MIKA", "Wait!"]`; frame 4 `["KAI", "No."]`
+  - note `{"id": "TIMESHEET_FIELD_NOT_READ", "field": "7", "tracks": 1}`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "S1", "frames": [9], "reason": "outside the sheet"}`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "S1", "frames": [6], "reason": "a continuation with nothing before it"}`
+  - note `{"id": "TIMESHEET_ENTRY_IGNORED", "column": "S1", "frames": [7], "reason": "not text"}`
+- FX-XDTS-034 stays refused with `TIMESHEET_NO_CELLS` and loses its note: the dialogue column is read, and there is nothing to put it in.
+- FX-XDTS-040, the sample cut, gains its two text columns and loses the two `TIMESHEET_FIELD_NOT_READ` notes, keeping the other two:
+  - dialogue column Dialogue: frames 0 to 15 `["MIKA", "Over here!"]`
+  - camera column Camera: frames 20 to 47 `["FOLLOW"]`
+  - Its Sheet, left to right: frame, Dialogue, A, B, C, Camera. Dialogue shows `MIKA Over here!` on frame 0 and a line on frames 1 to 15; Camera shows `FOLLOW` on frame 20 and a line on frames 21 to 47; both are empty elsewhere.
+- TIMESHEET_FIELD_NOT_READ becomes "A field other than drawings, dialogue and camerawork", and TIMESHEET_ENTRY_IGNORED also covers a text entry that is a hyphen with nothing before it or is not text.
+
 ## Sheet writing fixtures
 
 **D-84b, proposed on 2026-09-24.** Each case is one layer showing an image sequence that has drawings 1 to 9, in a composition as long as the case's lines, at 24 frames a second and starting at frame 0. A line is what the layer shows from frame 0 onward, as in the timesheet fixtures above: a number is the drawing on that frame, `x` is nothing, and `-` is outside the layer. In a Before line, `/` between two frames of the same drawing means a second exposure of it starts there. "Write 5 on frame 2" is typing 5 in that layer's cell on frame 2 and pressing Enter; "write x" is the cross; "erase frame 2" is Delete on that cell. "Exposures" is how many the layer has after, where the case is about that. A case that is refused changes nothing and puts nothing in the history. Every other case is one entry in the history, and Undo puts Before back.
