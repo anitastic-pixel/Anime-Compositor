@@ -32,6 +32,13 @@ Fixtures are read-only to implementation work: this file is run when the specifi
 and never to make a build pass.
 
     python tools/bloom_reference.py
+
+**D-98, proposed and not accepted**, reads each streak line as D-98 reads a directional blur,
+run with `--d98`: it writes `expected_bloom_d98.json` beside the D-96 file and leaves that file
+alone. With h = max(|u_x|, |u_y|) * length, the columns (or rows, mostly down) j from the line's
+own are weighted max(0, h - |j|), divided by their sum, and a pixel is the straight mix of the
+two lines round its centre (`directional_blur_reference.line_mean`); with length 0 it is the
+light itself. The halo and everything else are D-96's.
 """
 
 import json
@@ -43,6 +50,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from adjust_reference import srgb_to_linear, prop  # noqa: E402
 from fxkey_reference import keyed, value_at, setting_json  # noqa: E402
 import glow_reference as G  # noqa: E402
+import directional_blur_reference as D  # noqa: E402
 import smooth_reference as S  # noqa: E402
 
 W, H = G.W, G.H
@@ -51,6 +59,7 @@ TOLERANCE = 2e-5  # document 25's default for a filter
 MAX_THRESHOLD, MAX_RADIUS, MAX_INTENSITY, MAX_LENGTH, MAX_ANGLE = 100, 500, 10, 500, 3600
 SCALES = (1, 0.5, 0.25, 0.125)
 LINES = {"none": 0, "cross": 2, "star": 4}
+RULE = {"d98": False}
 
 
 # --- the rule -------------------------------------------------------------------------------
@@ -131,6 +140,11 @@ def bloom(pixels, c, frame_no, shift):
             # 3. The streaks: tent-weighted samples along each line, the lines averaged.
             streak = [0.0] * 4
             for u in dirs:
+                if RULE["d98"]:
+                    line = streak_d98(light, u, length, dx, y)
+                    for ch in range(4):
+                        streak[ch] += line[ch] / lines
+                    continue
                 line = [0.0] * 4
                 for t, wt in zip(ts, weights):
                     s = bilinear(light, dx + 0.5 + t * u[0], y + 0.5 + t * u[1])
@@ -143,6 +157,17 @@ def bloom(pixels, c, frame_no, shift):
             o = G.working(pixels[y * W + dx]) if 0 <= dx < W else [0.0] * 4
             out.append([o[ch] + g[ch] for ch in range(3)] + [min(1.0, o[3] + g[3])])
     return out
+
+
+def streak_d98(light, u, length, x, y):
+    """D-98's one streak line at the pixel (x, y): a tent over whole columns, or rows."""
+    if length == 0:
+        return bilinear(light, x + 0.5, y + 0.5)
+    h = max(abs(u[0]), abs(u[1])) * length
+    reach = math.ceil(h)
+    tent = [(j, h - abs(j)) for j in range(-reach, reach + 1) if h - abs(j) > 0]
+    total = sum(w for _, w in tent)
+    return D.line_mean(light, u, [(j, w / total) for j, w in tent], x, y)
 
 
 # --- the cases ------------------------------------------------------------------------------
@@ -268,6 +293,7 @@ def write(fx, c):
 
 
 def main():
+    RULE["d98"] = "--d98" in sys.argv
     (OUT / "media").mkdir(parents=True, exist_ok=True)
     for name, pixels in DRAWINGS.items():
         (OUT / "media" / f"{name}.png").write_bytes(S.png(pixels))
@@ -289,8 +315,8 @@ def main():
                                  "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
 
-    (OUT / "expected_bloom.json").write_text(json.dumps(expected, indent=1) + "\n",
-                                             encoding="utf-8")
+    name = "expected_bloom_d98.json" if RULE["d98"] else "expected_bloom.json"
+    (OUT / name).write_text(json.dumps(expected, indent=1) + "\n", encoding="utf-8")
     check(expected)
 
 

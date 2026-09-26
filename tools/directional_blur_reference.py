@@ -27,6 +27,17 @@ Fixtures are read-only to implementation work: this file is run when the specifi
 and never to make a build pass.
 
     python tools/directional_blur_reference.py
+
+**D-98, proposed and not accepted**, is a rule a running sum can work, run with `--d98`: it
+writes `expected_directional_blur_d98.json` beside the D-92 file and leaves that file alone.
+When the direction is mostly across (|u_x| >= |u_y|), the picture is read along lines of slope
+s = u_y / u_x, each line sampled at every column centre by the bilinear sample. With
+d = length / ceil(length) and H = |u_x| * (length + d) / 2, the columns j from the line's own
+are weighted w_j = the integral over t from -H to H of tent(j - t), tent(v) = max(0, 1 - |v|),
+and divided by 2H, their sum: the line, drawn straight between its column samples, averaged
+over 2H columns. A pixel is the straight mix of the two lines just above and below its centre
+in its column, the lines being spaced one pixel apart down each column. Mostly down, the same
+with across and down exchanged. Length 0 is the drawing untouched.
 """
 
 import json
@@ -92,6 +103,57 @@ def blurred(layer, direction, length, x, y):
     return [v / n for v in total]
 
 
+# --- D-98's rule, proposed ------------------------------------------------------------------
+
+def tent_integral(a, b):
+    """The integral of tent(v) = max(0, 1 - |v|) from a to b."""
+    def up_to(v):
+        v = min(1.0, max(-1.0, v))
+        return (1 + v) ** 2 / 2 if v < 0 else 1 - (1 - v) ** 2 / 2
+    return up_to(b) - up_to(a)
+
+
+def line_mean(layer, u, weights, x, y):
+    """D-98's reading along lines: the pixel (x, y)'s mix of the two lines round its centre,
+    each line's value the weighted sum over its column samples, weights [(j, w_j)] summing
+    to 1. Mostly down, the same with across and down exchanged."""
+    across = abs(u[0]) >= abs(u[1])
+    if not across:
+        u, x, y = (u[1], u[0]), y, x
+    s = u[1] / u[0]
+    beta = y + 0.5 - x * s  # the line through the centre is at beta + X * s in column X
+    lo = math.floor(beta - 0.5) + 0.5
+    f = beta - lo
+    out = [0.0] * 4
+    for b, wb in ((lo, 1 - f), (lo + 1, f)):
+        if not wb:
+            continue
+        for j, wj in weights:
+            px, py = x + j + 0.5, b + (x + j) * s
+            v = bilinear(layer, px, py) if across else bilinear(layer, py, px)
+            for i in range(4):
+                out[i] += v[i] * wj * wb
+    return out
+
+
+def blurred_d98(layer, direction, length, x, y):
+    """D-98's output at the pixel (x, y) of layer space."""
+    if length == 0:
+        return bilinear(layer, x + 0.5, y + 0.5)
+    u = QUARTERS.get(direction % 360)
+    if u is None:
+        a = math.radians(direction)
+        u = (math.sin(a), -math.cos(a))
+    d = length / math.ceil(length)
+    h = max(abs(u[0]), abs(u[1])) * (length + d) / 2
+    reach = math.ceil(h + 1)
+    weights = [(j, tent_integral(j - h, j + h) / (2 * h)) for j in range(-reach, reach + 1)]
+    return line_mean(layer, u, [(j, w) for j, w in weights if w], x, y)
+
+
+RULE = {"blurred": blurred}
+
+
 # --- the drawing ----------------------------------------------------------------------------
 
 LINE = (30, 26, 36, 255)        # the face drawing's line, #1e1a24
@@ -129,7 +191,7 @@ def render(c, frame_no):
     layer = [working(p) for row in DRAWINGS[c["drawing"]] for p in row]
     direction = clamp(value_at(c["direction"], frame_no), DIRECTION)
     length = clamp(value_at(c["length"], frame_no), LENGTH)
-    return [blurred(layer, direction, length, x - c["shift"], y)
+    return [RULE["blurred"](layer, direction, length, x - c["shift"], y)
             for y in range(H) for x in range(W)]
 
 
@@ -207,6 +269,9 @@ def write(fx, c):
 
 
 def main():
+    d98 = "--d98" in sys.argv
+    if d98:
+        RULE["blurred"] = blurred_d98
     (OUT / "media").mkdir(parents=True, exist_ok=True)
     for name, pixels in DRAWINGS.items():
         (OUT / "media" / f"{name}.png").write_bytes(S.png(pixels))
@@ -228,8 +293,8 @@ def main():
                                  "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
 
-    (OUT / "expected_directional_blur.json").write_text(json.dumps(expected, indent=1) + "\n",
-                                                        encoding="utf-8")
+    name = "expected_directional_blur_d98.json" if d98 else "expected_directional_blur.json"
+    (OUT / name).write_text(json.dumps(expected, indent=1) + "\n", encoding="utf-8")
     check(expected)
 
 
@@ -242,9 +307,11 @@ def check(expected):
                             for p, q in zip(u, v))
     one, two = c["FX-DIRBLUR-001"]["0"], c["FX-DIRBLUR-002"]["0"]
 
+    d98 = RULE["blurred"] is blurred_d98
     # Vertical: row 4 of the block takes rows 2 to 6, four of them skin, so four fifths covered;
-    # its top edge spreads to row 1, but a row-4 pixel beside the block stays empty.
-    assert abs(one[at(7, 4)][3] - 0.8) < 1e-12 and one[at(7, 1)][3] > 0
+    # its top edge spreads to row 1, but a row-4 pixel beside the block stays empty. D-98 weighs
+    # rows 2 to 6 at 1, 1, 1, 1 and 7/8 over 5, and row 7 at 1/8, so rows 3 to 6 give 3.875 / 5.
+    assert abs(one[at(7, 4)][3] - (3.875 / 5 if d98 else 0.8)) < 1e-12 and one[at(7, 1)][3] > 0
     assert one[at(4, 4)] == [0.0] * 4 and one[at(10, 4)] == [0.0] * 4
     # Horizontal: the reverse.
     assert two[at(7, 1)] == [0.0] * 4 and two[at(4, 4)][3] > 0 and two[at(3, 4)][3] > 0
@@ -257,8 +324,10 @@ def check(expected):
     assert abs(six[at(5, 4)][3] - 0.75) < 1e-12 and abs(six[at(4, 4)][3] - 0.25) < 1e-12
     # Four samples across 2.5 pixels: two columns left of the block, only the last sample, at
     # 4.75, reaches it, a quarter into its first column, so the covering is a quarter of a quarter.
+    # D-98: H = (2.5 + 2.5 / 3) / 2 = 5 / 3, and the column two along weighs the tent from 1/3 to
+    # 1, 2/9, over 2H = 10 / 3, so 1/15.
     seven = c["FX-DIRBLUR-007"]["0"]
-    assert abs(seven[at(3, 4)][3] - 1 / 16) < 1e-12
+    assert abs(seven[at(3, 4)][3] - (1 / 15 if d98 else 1 / 16)) < 1e-12
     # The streak leaves the drawing: comp columns 0 to 2 are layer columns -3 to -1.
     nine = c["FX-DIRBLUR-009"]
     assert nine["0"] == nine["3"] and all(nine["0"][at(x, 4)][3] > 0 for x in range(3))
@@ -267,7 +336,12 @@ def check(expected):
     assert near(eleven["0"], one) and near(eleven["4"], two)
     assert near(eleven["2"], render(case(direction=45), 0))
     # Averaging keeps the covering: the block's five pixels of row 3, spread over columns 3 to 11.
-    assert abs(sum(two[at(x, 3)][3] for x in range(3, 12)) - 5) < 1e-12
+    # D-98's ends reach a column further, 2 to 12, where the line in column 0 also reaches, with
+    # 7/8 and 1/8 over 5 of its own covering.
+    if d98:
+        assert abs(sum(two[at(x, 3)][3] for x in range(2, 13)) - 5 - 1 / 5) < 1e-12
+    else:
+        assert abs(sum(two[at(x, 3)][3] for x in range(3, 12)) - 5) < 1e-12
     for name, frames in c.items():
         for px in frames.values():
             for p in px:
