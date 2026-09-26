@@ -528,6 +528,8 @@ B-53 / Radial Blur's zoom smears outward only / **BUILT on 2026-09-26 at the own
 
 B-54 / Curves, D-111, the first of the batch of ten: tone curves, one for all channels and one each for red, green and blue. **B-54a is written on 2026-09-26**: `verification/B-54a proposal/`, D-111 in document 14, the rule in document 21, FX-CURVES-001 to 020 in document 25 from `tools/curves_reference.py`, which writes `Fixtures/curves/`. **B-54b, the build, is next.**
 
+B-55 / Levels, D-112, the second of the batch of ten: input black and white, gamma, and output black and white. **B-55a is written on 2026-09-26**: `verification/B-55a proposal/`, D-112 in document 14, the rule in document 21, FX-LEVELS-001 to 024 in document 25 from `tools/levels_reference.py`, which writes `Fixtures/levels/`. **B-55b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
