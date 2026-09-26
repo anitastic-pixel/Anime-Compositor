@@ -40,7 +40,7 @@ use crate::cache::{CelCache, Name};
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::BlendMode;
 use crate::perf::{self, Stage};
-use crate::render::{bounds, Bloom, Directional, FramePlan, OnCard, Radial};
+use crate::render::{bounds, Bloom, Directional, FramePlan, Gaussian, OnCard, Radial};
 use crate::WorkingBuffer;
 
 /// What the card may hold in drawings when Windows cannot say how much memory it has: D-40's
@@ -975,7 +975,7 @@ impl Gpu {
         view
     }
 
-    /// B-46, B-47, B-49: `effect` run on `source`, which [`Gpu::resident`] has just put on the card as
+    /// B-46, B-47, B-49, B-50: `effect` run on `source`, which [`Gpu::resident`] has just put on the card as
     /// `still`. A result already made of it with the same settings is reused; otherwise what to
     /// dispatch is added to `steps`, to run before the layers.
     fn applied(&mut self, steps: &mut Vec<Step>, source: &Arc<WorkingBuffer>, still: &wgpu::TextureView, effect: OnCard) -> wgpu::TextureView {
@@ -990,6 +990,7 @@ impl Gpu {
             OnCard::Radial(r) => (self.blur(steps, still, size, r), size),
             OnCard::Bloom(b) => self.bloom(steps, still, size, b),
             OnCard::Directional(d) => self.directional(steps, still, size, d),
+            OnCard::Gaussian(g) => self.gaussian(steps, still, size, g),
         };
         if let Some(i) = stored {
             let s = &mut self.store[i];
@@ -1199,6 +1200,25 @@ impl Gpu {
         (out, (gw, gh))
     }
 
+    /// B-50: `effects::blur` of `still`, `width` by `height`, across and then down with Bloom's
+    /// `gauss` pass, into a texture grown by the kernel's radius, which is returned with its size.
+    fn gaussian(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), g: Gaussian) -> (wgpu::TextureView, (usize, usize)) {
+        let passes = self.bloom.as_ref().expect("a Gaussian Blur is refused without the passes");
+        let r = crate::effects::kernel_radius(g.sigma);
+        let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
+        let weights = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("B-50 weights"),
+            contents: bytemuck::cast_slice(&crate::effects::gaussian_weights(g.sigma)),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
+        let (wide, tall) = (self.scratch("B-50 wide", w + 2 * r, h), self.scratch("B-50 tall", w + 2 * r, h + 2 * r));
+        let across = Params { count: r as u32, axis: 0, ..Default::default() };
+        self.step(steps, &passes.gauss, across, still, Some(&wide), None, Some(&weights), tiles(w + 2 * r, h));
+        let down = Params { axis: 1, ..across };
+        self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(&weights), tiles(w + 2 * r, h + 2 * r));
+        (tall, (w + 2 * r, h + 2 * r))
+    }
+
     fn target(&mut self, width: usize, height: usize) -> &Target {
         if self.target.as_ref().is_none_or(|t| (t.width, t.height) != (width, height)) {
             let n = (width * height) as u64;
@@ -1233,11 +1253,13 @@ impl Gpu {
         }
         // B-47: a Bloom needs double precision, and room for its grown drawing, its halo and
         // its lines, which are never more than the grown width and height together. B-49: so
-        // does a Directional Blur, which has no halo.
+        // does a Directional Blur, which has no halo, and (B-50) a Gaussian Blur, whose pass is
+        // in the same module.
         for l in &plan.layers {
             let (name, grow, halo) = match l.on_card {
                 Some(OnCard::Bloom(b)) => ("a Bloom", crate::bloom::reach(b.radius, b.lines, b.length), true),
                 Some(OnCard::Directional(d)) => ("a Directional Blur", (d.length / 2.0).ceil() as usize, false),
+                Some(OnCard::Gaussian(g)) => ("a Gaussian Blur", crate::effects::kernel_radius(g.sigma), false),
                 _ => continue,
             };
             if self.bloom.is_none() {

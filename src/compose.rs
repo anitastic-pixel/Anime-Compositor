@@ -1125,8 +1125,8 @@ fn resolve_rest(
         .cloned()
         .collect();
 
-    // B-46: a drawing whose last effect switched on is a Radial Blur, (B-47) a Bloom or (B-49) a
-    // Directional Blur this build can draw has only the effects before it run here, when the plan
+    // B-46: a drawing whose last effect switched on is a Radial Blur, (B-47) a Bloom, (B-49) a
+    // Directional Blur or (B-50) a Gaussian Blur this build can draw has only the effects before it run here, when the plan
     // is for the card.
     // Those are what the effect cache is asked for, a stack of their own, so it never hands one
     // path's result to the other.
@@ -1138,6 +1138,7 @@ fn resolve_rest(
                 crate::effects::Effect::RadialBlur { .. }
                     | crate::effects::Effect::Bloom { .. }
                     | crate::effects::Effect::DirectionalBlur { .. }
+                    | crate::effects::Effect::GaussianBlur { .. }
             )
             && effects[i].effect.is_valid()
     });
@@ -1259,7 +1260,15 @@ fn resolve_rest(
                 offset = (offset.0 + grow, offset.1 + grow);
                 render::OnCard::Directional(render::Directional { direction, length })
             }),
-            _ => unreachable!("chosen above for being a Radial Blur, a Bloom or a Directional Blur"),
+            // B-50: a sigma too small to reach a neighbour changes nothing, so it is not left either.
+            crate::effects::Effect::GaussianBlur { sigma_px } => {
+                let grow = crate::effects::kernel_radius(sigma_px);
+                (grow != 0).then(|| {
+                    offset = (offset.0 + grow, offset.1 + grow);
+                    render::OnCard::Gaussian(render::Gaussian { sigma: sigma_px })
+                })
+            }
+            _ => unreachable!("chosen above for being a Radial Blur, a Bloom, a Directional Blur or a Gaussian Blur"),
         }
     });
 

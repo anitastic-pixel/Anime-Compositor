@@ -475,6 +475,18 @@ B-49 / Directional Blur on the graphics card / **BUILT on 2026-09-26 at the owne
   - A Directional Blur followed by another effect, or on anything but a drawn layer. These stay on the CPU.
   - Gaussian Blur and Glow on the card, which come next, in that order.
 
+B-50 / Gaussian Blur on the graphics card / **BUILT on 2026-09-26 at the owner's "proceed with gaussian blur and glow", with D-107 proposed.** `verification/B-50_gpu_gaussian.md`. It is the fourth of D-100's effects. It changes no export, fixture or CPU picture.
+- **What it builds:**
+  - With the card drawing, a drawn layer whose last effect is a Gaussian Blur has that blur done by the card, across and then down with the CPU's weights and order, in the pass Bloom already blurs with. The effects before it still run on the CPU.
+  - A sigma too small to reach a neighbouring pixel changes nothing, so it is not sent to the card at all.
+  - A frame the card cannot draw is drawn by the CPU, blur included, byte for byte as before.
+- **Measured:**
+  - 24 of 24 checks pass (`verification/B-50_gpu_gaussian_table.md`): FX-FXK-006 and FX-PRE-002 at every frame, and the reference shot with three Gaussian Blurs, at Full and Draft. The worst frame differs at 1.0% of pixels, by 1 level each.
+  - At Full the reference shot with three Gaussian Blurs takes 28 ms a frame against the CPU's 59, both with D-40's 1 GiB. At Draft the two are about even, 16 to 17 ms (`verification/B-50_gpu_gaussian_timing_table.md`).
+- **Not built:**
+  - A Gaussian Blur followed by another effect, or on anything but a drawn layer. These stay on the CPU.
+  - Glow on the card, which comes next.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.

@@ -222,6 +222,14 @@ pub enum OnCard {
     Radial(Radial),
     Bloom(Bloom),
     Directional(Directional),
+    Gaussian(Gaussian),
+}
+
+/// B-50: a Gaussian Blur's sigma (`effects::blur`), already divided for Draft and large enough
+/// to reach a pixel, so the drawing grows by exactly `effects::kernel_radius` of it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Gaussian {
+    pub sigma: f64,
 }
 
 /// B-49: a Directional Blur's settings (`blurs::directional_blur`), the length already divided
@@ -297,8 +305,8 @@ pub struct Tile {
 ///
 /// An effect's `bounds_expansion` needs no term here: document 21 has the stack run whole-layer
 /// before the frame plan (ADR-017), so a blur's growth is already pixels of `layer.source` by
-/// the time the renderer sees it. The exceptions are a Bloom (B-47) and a Directional Blur (B-49)
-/// left for the card, which grow the drawing on every side, so the box counts that growth.
+/// the time the renderer sees it. The exceptions are a Bloom (B-47), a Directional Blur (B-49) and a
+/// Gaussian Blur (B-50) left for the card, which grow the drawing on every side, so the box counts that growth.
 /// A layer's box in frame pixels: `(left, top, right, bottom)`.
 ///
 /// Computed once per layer per frame, never per tile: the corners do not change between the
@@ -308,6 +316,7 @@ pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
     let grow = match layer.on_card {
         Some(OnCard::Bloom(b)) => 2 * crate::bloom::reach(b.radius, b.lines, b.length),
         Some(OnCard::Directional(d)) => 2 * (d.length / 2.0).ceil() as usize,
+        Some(OnCard::Gaussian(g)) => 2 * crate::effects::kernel_radius(g.sigma),
         _ => 0,
     };
     let (w, h) = ((layer.source.width() + grow) as f64, (layer.source.height() + grow) as f64);
@@ -390,7 +399,7 @@ pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuff
 }
 
 fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> WorkingBuffer {
-    // B-46, B-47, B-49: an effect left for the card that the CPU is drawing after all is run first,
+    // B-46, B-47, B-49, B-50: an effect left for the card that the CPU is drawing after all is run first,
     // exactly as `apply_stack` would have run it.
     if plan.layers.iter().any(|l| l.on_card.is_some()) {
         let mut plan = plan.clone();
@@ -409,6 +418,11 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
                 Some(OnCard::Directional(d)) => {
                     crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
                         crate::blurs::directional_blur(std::sync::Arc::make_mut(&mut layer.source), d.direction, d.length)
+                    });
+                }
+                Some(OnCard::Gaussian(g)) => {
+                    crate::perf::time(crate::perf::Stage::EffectBlur, || {
+                        crate::effects::blur(std::sync::Arc::make_mut(&mut layer.source), g.sigma)
                     });
                 }
             }
