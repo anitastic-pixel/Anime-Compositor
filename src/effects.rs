@@ -1068,8 +1068,11 @@ pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
 /// D-109: [`blur`] with the edge pixels repeated. Each tap's column, and then its row, is held
 /// inside the picture, so nothing outside it is read and the buffer keeps its size. The taps of
 /// a pixel are added in [`convolve`]'s order.
-// ponytail: a pixel at a time, not P-16's runs; the runs are the upgrade if a repeated blur on
-// a full-frame plate shows up in a trace.
+///
+/// P-20: a tap at a time along the whole row, as [`convolve`] does. Across, a tap reads one run
+/// of the row shifted by it, with the pixels before and after the run held at the row's ends;
+/// down, a tap reads one whole held row. Each pixel still starts at zero and takes its taps in
+/// ascending order, so the bits are the pixel-at-a-time loop's.
 pub(crate) fn held_blur(source: &mut WorkingBuffer, sigma_px: f64) {
     let r = kernel_radius(sigma_px);
     if r == 0 {
@@ -1077,29 +1080,44 @@ pub(crate) fn held_blur(source: &mut WorkingBuffer, sigma_px: f64) {
     }
     let weights = gaussian_weights(sigma_px);
     let (w, h) = (source.width(), source.height());
-    let pass = |src: &WorkingBuffer, axis: Axis| {
-        let mut dst = WorkingBuffer::transparent(w, h);
-        dst.data_mut()
-            .par_chunks_mut(w * 4)
-            .enumerate()
-            .for_each(|(y, out)| {
-                for (x, px) in out.chunks_exact_mut(4).enumerate() {
-                    for (k, &weight) in weights.iter().enumerate() {
-                        let (sx, sy) = match axis {
-                            Axis::X => ((x + k).saturating_sub(r).min(w - 1), y),
-                            Axis::Y => (x, (y + k).saturating_sub(r).min(h - 1)),
-                        };
-                        let i = (sy * w + sx) * 4;
-                        for (o, &v) in px.iter_mut().zip(&src.data()[i..i + 4]) {
-                            *o += v * weight;
-                        }
-                    }
-                }
-            });
-        dst
+    let add = |out: &mut [f32], from: &[f32], weight: f32| {
+        for (o, &v) in out.iter_mut().zip(from) {
+            *o += v * weight;
+        }
     };
-    let wide = pass(source, Axis::X);
-    *source = pass(&wide, Axis::Y);
+    let mut wide = WorkingBuffer::transparent(w, h);
+    wide.data_mut()
+        .par_chunks_mut(w * 4)
+        .zip(source.data().par_chunks(w * 4))
+        .for_each(|(out, row)| {
+            for (k, &weight) in weights.iter().enumerate() {
+                // Pixel x reads x + k - r: before `lo` that is left of the row, from `hi` right of it.
+                let lo = r.saturating_sub(k).min(w);
+                let hi = (w + r).saturating_sub(k).clamp(lo, w);
+                for px in out[..lo * 4].chunks_exact_mut(4) {
+                    add(px, &row[..4], weight);
+                }
+                if hi > lo {
+                    let from = (lo + k - r) * 4;
+                    add(&mut out[lo * 4..hi * 4], &row[from..from + (hi - lo) * 4], weight);
+                }
+                for px in out[hi * 4..].chunks_exact_mut(4) {
+                    add(px, &row[(w - 1) * 4..], weight);
+                }
+            }
+        });
+    let mut tall = WorkingBuffer::transparent(w, h);
+    let src = wide.data();
+    tall.data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, out)| {
+            for (k, &weight) in weights.iter().enumerate() {
+                let sy = (y + k).saturating_sub(r).min(h - 1);
+                add(out, &src[sy * w * 4..(sy + 1) * w * 4], weight);
+            }
+        });
+    *source = tall;
 }
 
 #[derive(Clone, Copy)]
@@ -1230,6 +1248,53 @@ mod tests {
                 let bits = |v: &[f32]| v.iter().map(|f| f.to_bits()).collect::<Vec<_>>();
                 assert_eq!(bits(&fast), bits(&slow), "{w}x{h} at sigma {sigma}");
             }
+        }
+    }
+
+
+    /// P-20: the pixel-at-a-time held blur D-109 shipped, kept only to hold the row version to it.
+    fn pixel_held_blur(source: &WorkingBuffer, sigma_px: f64) -> WorkingBuffer {
+        let (r, weights) = (kernel_radius(sigma_px), gaussian_weights(sigma_px));
+        let (w, h) = (source.width(), source.height());
+        let pass = |src: &WorkingBuffer, axis: Axis| {
+            let mut dst = WorkingBuffer::transparent(w, h);
+            for y in 0..h {
+                for x in 0..w {
+                    for (k, &weight) in weights.iter().enumerate() {
+                        let (sx, sy) = match axis {
+                            Axis::X => ((x + k).saturating_sub(r).min(w - 1), y),
+                            Axis::Y => (x, (y + k).saturating_sub(r).min(h - 1)),
+                        };
+                        let (i, o) = ((sy * w + sx) * 4, (y * w + x) * 4);
+                        for c in 0..4 {
+                            dst.data_mut()[o + c] += src.data()[i + c] * weight;
+                        }
+                    }
+                }
+            }
+            dst
+        };
+        pass(&pass(source, Axis::X), Axis::Y)
+    }
+
+    /// Every bit, including buffers narrower and shorter than the kernel.
+    #[test]
+    fn the_row_held_blur_is_the_pixel_held_blur() {
+        for (w, h, sigma) in [(37, 23, 1.3), (5, 4, 4.0), (64, 9, 0.2), (1, 1, 2.0), (40, 41, 7.7), (3, 50, 10.0)] {
+            let mut src = WorkingBuffer::transparent(w, h);
+            for (i, v) in src.data_mut().iter_mut().enumerate() {
+                let (x, y) = (i / 4 % w, i / 4 / w);
+                *v = match (x * 7 + y * 13 + i % 4) % 11 {
+                    _ if y % 5 == 2 => 0.0,
+                    0 => -0.75,
+                    1 => 3.0e6,
+                    n => n as f32 / 9.0,
+                };
+            }
+            let slow = pixel_held_blur(&src, sigma);
+            held_blur(&mut src, sigma);
+            let bits = |b: &WorkingBuffer| b.data().iter().map(|f| f.to_bits()).collect::<Vec<_>>();
+            assert_eq!(bits(&src), bits(&slow), "{w}x{h} at sigma {sigma}");
         }
     }
 }

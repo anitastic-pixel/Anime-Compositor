@@ -11,5 +11,5 @@ The shot is the reference shot with the three Radial Blurs of the B-46 table. Ev
 
 | Quality | CPU, first loop | CPU, again | GPU, first loop | GPU, again |
 |---|---:|---:|---:|---:|
-| Draft | 16.5 | 17.0 | 17.5 | 17.2 |
-| Full | 160.1 | 152.1 | 25.7 | 26.5 |
+| Draft | 16.4 | 16.7 | 17.4 | 16.4 |
+| Full | 160.9 | 160.5 | 25.2 | 24.8 |

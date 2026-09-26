@@ -8,7 +8,8 @@ D-37 unparked the cache on a measurement and asked for one back: the same playba
 - OS: Microsoft Windows 11 Education, 10.0.26200
 - Toolchain: rustc 1.89.0, cargo release profile, `opt-level = 3`
 - Workload: `verification/B-08a_project.json`, the four-layer reference shot, previewed at draft resolution
-- Tile size: `compose::DEFAULT_TILE_SIZE`
+- Tile size: `compose::DRAFT_TILE_SIZE`, which is what a draft preview is cut 
+         into (P-03(f))
 
 - Frames per run: 48, consecutively from frame 0, which is two seconds of the shot at 24 fps
 
@@ -18,10 +19,10 @@ Debug assertions in this build: false. A run with `true` there is a debug build,
 
 | Budget | Bytes | Total ms | Median ms per frame | Slowest ms | Frames per second at the median | Decodes | Answered from memory | Evictions | Held at the end |
 |---|---|---|---|---|---|---|---|---|---|
-| none (the path export takes) | 0 | 4900.8 | 99.78 | 121.80 | 10.0 | 188 | 0 | 0 | 0 |
-| one cel | 33177600 | 5440.5 | 114.41 | 125.28 | 8.7 | 188 | 0 | 187 | 33177600 |
-| 128 MB (what the default was until 2026-09-08) | 134217728 | 2131.7 | 44.02 | 110.94 | 22.7 | 87 | 101 | 83 | 132710400 |
-| 1 GiB (the viewer's default) | 1073741824 | 2232.0 | 45.59 | 116.08 | 21.9 | 87 | 101 | 55 | 1061683200 |
+| none (the path export takes) | 0 | 2025.9 | 42.23 | 49.04 | 23.7 | 188 | 0 | 0 | 0 |
+| one cel | 33177600 | 1500.6 | 31.79 | 36.78 | 31.5 | 188 | 0 | 187 | 33177600 |
+| 128 MB (what the default was until 2026-09-08) | 134217728 | 714.8 | 15.33 | 23.62 | 65.2 | 87 | 101 | 83 | 132710400 |
+| 1 GiB (the viewer's default) | 1073741824 | 683.8 | 12.57 | 22.71 | 79.5 | 87 | 101 | 55 | 1061683200 |
 
 ## How to read this
 

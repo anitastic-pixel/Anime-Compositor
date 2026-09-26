@@ -4,15 +4,15 @@ Written by `tests/p19_session_log.rs` under `cargo test --release --test p19_ses
 
 | Quality | Log | Round | ms p50 | ms p95 |
 |---|---|---|---|---|
-| Draft | off | 1 | 13.65 | 40.33 |
-| Draft | on | 1 | 7.18 | 26.47 |
-| Draft | off | 2 | 6.59 | 25.65 |
-| Draft | on | 2 | 6.16 | 25.45 |
-| Draft | off | 3 | 6.47 | 26.22 |
-| Draft | on | 3 | 5.97 | 26.79 |
-| Full | off | 1 | 22.43 | 36.00 |
-| Full | on | 1 | 22.67 | 35.31 |
-| Full | off | 2 | 23.19 | 38.10 |
-| Full | on | 2 | 23.57 | 38.33 |
-| Full | off | 3 | 23.80 | 38.32 |
-| Full | on | 3 | 23.56 | 37.64 |
+| Draft | off | 1 | 12.11 | 24.64 |
+| Draft | on | 1 | 12.34 | 24.11 |
+| Draft | off | 2 | 6.37 | 25.17 |
+| Draft | on | 2 | 6.25 | 25.69 |
+| Draft | off | 3 | 6.49 | 25.73 |
+| Draft | on | 3 | 6.64 | 25.62 |
+| Full | off | 1 | 21.77 | 35.71 |
+| Full | on | 1 | 21.83 | 34.69 |
+| Full | off | 2 | 22.17 | 35.54 |
+| Full | on | 2 | 22.08 | 35.88 |
+| Full | off | 3 | 22.07 | 35.76 |
+| Full | on | 3 | 21.93 | 35.50 |

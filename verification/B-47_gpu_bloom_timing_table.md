@@ -11,5 +11,5 @@ The shot is the reference shot with the three Blooms of the B-47 table. Every fr
 
 | Quality | CPU, first loop | CPU, again | GPU, first loop | GPU, again |
 |---|---:|---:|---:|---:|
-| Draft | 16.7 | 16.8 | 16.8 | 16.7 |
-| Full | 182.5 | 163.0 | 26.3 | 26.8 |
+| Draft | 16.7 | 17.2 | 17.2 | 17.0 |
+| Full | 168.8 | 178.6 | 29.8 | 27.8 |

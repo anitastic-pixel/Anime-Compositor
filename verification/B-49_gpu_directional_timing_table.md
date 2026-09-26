@@ -11,5 +11,5 @@ The shot is the reference shot with the three Directional Blurs of the B-49 tabl
 
 | Quality | CPU, first loop | CPU, again | GPU, first loop | GPU, again |
 |---|---:|---:|---:|---:|
-| Draft | 16.6 | 17.1 | 16.3 | 16.3 |
-| Full | 59.7 | 61.3 | 27.3 | 27.4 |
+| Draft | 17.6 | 17.9 | 17.2 | 17.2 |
+| Full | 57.1 | 56.2 | 27.2 | 26.7 |

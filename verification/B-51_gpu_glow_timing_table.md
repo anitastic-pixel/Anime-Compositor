@@ -11,5 +11,5 @@ The shot is the reference shot with the three Glows of the B-51 table. Every fra
 
 | Quality | CPU, first loop | CPU, again | GPU, first loop | GPU, again |
 |---|---:|---:|---:|---:|
-| Draft | 16.0 | 16.0 | 17.1 | 17.2 |
-| Full | 53.2 | 52.4 | 16.2 | 15.9 |
+| Draft | 17.5 | 17.9 | 18.2 | 17.9 |
+| Full | 51.6 | 50.9 | 17.6 | 17.8 |

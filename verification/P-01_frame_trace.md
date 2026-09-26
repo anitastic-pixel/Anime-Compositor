@@ -39,15 +39,15 @@ The `wait for the viewer lock` row is therefore **0.000 ms in every table below,
 
 ### the reference shot (4 layers) — Draft, application cache cold, files first read by this process
 
-Frame time: p50 **83.643 ms**, p95 **89.187 ms**, over 20 frames. That is 2.01x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **43.346 ms**, p95 **45.771 ms**, over 20 frames. That is 1.04x the 41.667 ms a 24 fps clock allows.
 
 | Stage | p50 ms | p95 ms | share of the frame |
 |---|---|---|---|
 | wait for the viewer lock | 0.000 | 0.000 | 0.0% |
 | decode this frame's cels in parallel | 0.000 | 0.000 | 0.0% |
-| open and read the cel file | 18.758 | 20.022 | 22.6% |
-| bytes to float | 12.886 | 14.227 | 15.5% |
-| transfer function and premultiply | 42.923 | 45.309 | 51.3% |
+| open and read the cel file | 19.237 | 20.399 | 44.7% |
+| bytes to float | 8.589 | 9.862 | 20.0% |
+| transfer function and premultiply | 4.017 | 4.906 | 9.5% |
 | cache lookup and its copy | 0.000 | 0.001 | 0.0% |
 | cache admit and its copy | 0.002 | 0.003 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
@@ -55,39 +55,65 @@ Frame time: p50 **83.643 ms**, p95 **89.187 ms**, over 20 frames. That is 2.01x 
 | effect: exposure | 0.000 | 0.000 | 0.0% |
 | effect: tint | 0.000 | 0.000 | 0.0% |
 | effect: gaussian blur | 0.000 | 0.000 | 0.0% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 1.872 | 2.109 | 2.3% |
-| assemble the frame from the tiles | 0.025 | 0.026 | 0.0% |
-| encode for the page | 0.616 | 0.811 | 0.8% |
-| **unaccounted for** | 6.392 | 6.757 | 7.6% |
+| tile loop: sample and blend | 1.994 | 2.275 | 4.6% |
+| assemble the frame from the tiles | 0.027 | 0.042 | 0.1% |
+| encode for the page | 0.638 | 0.854 | 1.6% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 8.528 | 9.389 | 19.5% |
 
 ### the reference shot (4 layers) — Draft, application cache cold, operating system file cache warm
 
-Frame time: p50 **84.021 ms**, p95 **87.287 ms**, over 20 frames. That is 2.02x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **42.386 ms**, p95 **47.048 ms**, over 20 frames. That is 1.02x the 41.667 ms a 24 fps clock allows.
 
 | Stage | p50 ms | p95 ms | share of the frame |
 |---|---|---|---|
 | wait for the viewer lock | 0.000 | 0.000 | 0.0% |
 | decode this frame's cels in parallel | 0.000 | 0.000 | 0.0% |
-| open and read the cel file | 18.670 | 19.726 | 22.6% |
-| bytes to float | 13.039 | 13.702 | 15.5% |
-| transfer function and premultiply | 43.672 | 45.514 | 51.5% |
-| cache lookup and its copy | 0.000 | 0.000 | 0.0% |
+| open and read the cel file | 19.286 | 20.394 | 45.1% |
+| bytes to float | 8.305 | 10.260 | 19.8% |
+| transfer function and premultiply | 4.030 | 4.980 | 9.6% |
+| cache lookup and its copy | 0.000 | 0.001 | 0.0% |
 | cache admit and its copy | 0.002 | 0.003 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
 | effect stack: the copy it writes into | 0.000 | 0.000 | 0.0% |
 | effect: exposure | 0.000 | 0.000 | 0.0% |
 | effect: tint | 0.000 | 0.000 | 0.0% |
 | effect: gaussian blur | 0.000 | 0.000 | 0.0% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 1.834 | 1.965 | 2.2% |
-| assemble the frame from the tiles | 0.024 | 0.028 | 0.0% |
-| encode for the page | 0.590 | 0.803 | 0.7% |
-| **unaccounted for** | 6.332 | 6.665 | 7.5% |
+| tile loop: sample and blend | 2.026 | 2.165 | 4.7% |
+| assemble the frame from the tiles | 0.027 | 0.041 | 0.1% |
+| encode for the page | 0.597 | 0.871 | 1.5% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 8.280 | 8.972 | 19.1% |
 
 ### the reference shot (4 layers) — Draft, everything warm
 
-Frame time: p50 **2.502 ms**, p95 **2.725 ms**, over 20 frames. That is 0.06x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **2.467 ms**, p95 **2.734 ms**, over 20 frames. That is 0.06x the 41.667 ms a 24 fps clock allows.
 
 Cache over the measured pass: 78 hits, 46 misses in the cache's whole life, 0 evictions.
 
@@ -98,56 +124,45 @@ Cache over the measured pass: 78 hits, 46 misses in the cache's whole life, 0 ev
 | open and read the cel file | 0.000 | 0.000 | 0.0% |
 | bytes to float | 0.000 | 0.000 | 0.0% |
 | transfer function and premultiply | 0.000 | 0.000 | 0.0% |
-| cache lookup and its copy | 0.002 | 0.002 | 0.1% |
+| cache lookup and its copy | 0.001 | 0.002 | 0.0% |
 | cache admit and its copy | 0.000 | 0.000 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
 | effect stack: the copy it writes into | 0.000 | 0.000 | 0.0% |
 | effect: exposure | 0.000 | 0.000 | 0.0% |
 | effect: tint | 0.000 | 0.000 | 0.0% |
 | effect: gaussian blur | 0.000 | 0.000 | 0.0% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 1.642 | 1.821 | 65.4% |
-| assemble the frame from the tiles | 0.022 | 0.025 | 0.9% |
-| encode for the page | 0.449 | 0.653 | 19.7% |
-| **unaccounted for** | 0.337 | 0.409 | 13.9% |
+| tile loop: sample and blend | 1.599 | 1.899 | 65.6% |
+| assemble the frame from the tiles | 0.018 | 0.024 | 0.8% |
+| encode for the page | 0.493 | 0.648 | 20.1% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 0.339 | 0.362 | 13.5% |
 
 ## the reference shot (4 layers), Full resolution
 
 ### the reference shot (4 layers) — Full, application cache cold, files first read by this process
 
-Frame time: p50 **92.514 ms**, p95 **96.371 ms**, over 20 frames. That is 2.22x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **52.385 ms**, p95 **55.328 ms**, over 20 frames. That is 1.26x the 41.667 ms a 24 fps clock allows.
 
 | Stage | p50 ms | p95 ms | share of the frame |
 |---|---|---|---|
 | wait for the viewer lock | 0.000 | 0.000 | 0.0% |
 | decode this frame's cels in parallel | 0.000 | 0.000 | 0.0% |
-| open and read the cel file | 18.360 | 20.081 | 20.3% |
-| bytes to float | 12.849 | 13.624 | 13.9% |
-| transfer function and premultiply | 42.748 | 44.919 | 45.9% |
-| cache lookup and its copy | 0.000 | 0.000 | 0.0% |
-| cache admit and its copy | 0.002 | 0.003 | 0.0% |
-| layer mask | 0.000 | 0.000 | 0.0% |
-| effect stack: the copy it writes into | 0.000 | 0.000 | 0.0% |
-| effect: exposure | 0.000 | 0.000 | 0.0% |
-| effect: tint | 0.000 | 0.000 | 0.0% |
-| effect: gaussian blur | 0.000 | 0.000 | 0.0% |
-| effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 8.053 | 8.557 | 8.8% |
-| assemble the frame from the tiles | 0.096 | 0.119 | 0.1% |
-| encode for the page | 3.704 | 4.232 | 4.1% |
-| **unaccounted for** | 6.426 | 6.954 | 6.9% |
-
-### the reference shot (4 layers) — Full, application cache cold, operating system file cache warm
-
-Frame time: p50 **92.565 ms**, p95 **94.536 ms**, over 20 frames. That is 2.22x the 41.667 ms a 24 fps clock allows.
-
-| Stage | p50 ms | p95 ms | share of the frame |
-|---|---|---|---|
-| wait for the viewer lock | 0.000 | 0.000 | 0.0% |
-| decode this frame's cels in parallel | 0.000 | 0.000 | 0.0% |
-| open and read the cel file | 18.437 | 19.011 | 20.1% |
-| bytes to float | 12.907 | 13.384 | 14.0% |
-| transfer function and premultiply | 42.471 | 43.233 | 45.8% |
+| open and read the cel file | 19.083 | 20.898 | 37.0% |
+| bytes to float | 8.347 | 9.893 | 16.0% |
+| transfer function and premultiply | 3.936 | 4.677 | 7.6% |
 | cache lookup and its copy | 0.000 | 0.001 | 0.0% |
 | cache admit and its copy | 0.002 | 0.003 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
@@ -155,15 +170,65 @@ Frame time: p50 **92.565 ms**, p95 **94.536 ms**, over 20 frames. That is 2.22x 
 | effect: exposure | 0.000 | 0.000 | 0.0% |
 | effect: tint | 0.000 | 0.000 | 0.0% |
 | effect: gaussian blur | 0.000 | 0.000 | 0.0% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 8.243 | 8.683 | 9.0% |
-| assemble the frame from the tiles | 0.095 | 0.128 | 0.1% |
-| encode for the page | 3.751 | 4.127 | 4.2% |
-| **unaccounted for** | 6.329 | 6.680 | 6.8% |
+| tile loop: sample and blend | 7.861 | 8.480 | 14.9% |
+| assemble the frame from the tiles | 0.109 | 0.159 | 0.2% |
+| encode for the page | 4.006 | 4.506 | 7.7% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 8.585 | 10.473 | 16.6% |
+
+### the reference shot (4 layers) — Full, application cache cold, operating system file cache warm
+
+Frame time: p50 **54.532 ms**, p95 **57.940 ms**, over 20 frames. That is 1.31x the 41.667 ms a 24 fps clock allows.
+
+| Stage | p50 ms | p95 ms | share of the frame |
+|---|---|---|---|
+| wait for the viewer lock | 0.000 | 0.000 | 0.0% |
+| decode this frame's cels in parallel | 0.000 | 0.000 | 0.0% |
+| open and read the cel file | 21.316 | 22.266 | 38.5% |
+| bytes to float | 8.368 | 9.570 | 15.4% |
+| transfer function and premultiply | 4.184 | 4.407 | 7.5% |
+| cache lookup and its copy | 0.000 | 0.000 | 0.0% |
+| cache admit and its copy | 0.002 | 0.004 | 0.0% |
+| layer mask | 0.000 | 0.000 | 0.0% |
+| effect stack: the copy it writes into | 0.000 | 0.000 | 0.0% |
+| effect: exposure | 0.000 | 0.000 | 0.0% |
+| effect: tint | 0.000 | 0.000 | 0.0% |
+| effect: gaussian blur | 0.000 | 0.000 | 0.0% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
+| effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
+| tile loop: sample and blend | 7.874 | 8.829 | 14.4% |
+| assemble the frame from the tiles | 0.106 | 0.158 | 0.2% |
+| encode for the page | 4.108 | 4.799 | 7.6% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 8.926 | 10.033 | 16.4% |
 
 ### the reference shot (4 layers) — Full, everything warm
 
-Frame time: p50 **13.540 ms**, p95 **14.129 ms**, over 20 frames. That is 0.32x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **12.719 ms**, p95 **13.448 ms**, over 20 frames. That is 0.31x the 41.667 ms a 24 fps clock allows.
 
 Cache over the measured pass: 78 hits, 46 misses in the cache's whole life, 0 evictions.
 
@@ -174,72 +239,111 @@ Cache over the measured pass: 78 hits, 46 misses in the cache's whole life, 0 ev
 | open and read the cel file | 0.000 | 0.000 | 0.0% |
 | bytes to float | 0.000 | 0.000 | 0.0% |
 | transfer function and premultiply | 0.000 | 0.000 | 0.0% |
-| cache lookup and its copy | 0.001 | 0.002 | 0.0% |
+| cache lookup and its copy | 0.002 | 0.003 | 0.0% |
 | cache admit and its copy | 0.000 | 0.000 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
 | effect stack: the copy it writes into | 0.000 | 0.000 | 0.0% |
 | effect: exposure | 0.000 | 0.000 | 0.0% |
 | effect: tint | 0.000 | 0.000 | 0.0% |
 | effect: gaussian blur | 0.000 | 0.000 | 0.0% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 8.708 | 9.049 | 63.5% |
-| assemble the frame from the tiles | 0.100 | 0.111 | 0.7% |
-| encode for the page | 4.404 | 4.743 | 32.7% |
-| **unaccounted for** | 0.401 | 0.492 | 3.0% |
+| tile loop: sample and blend | 7.704 | 8.336 | 60.4% |
+| assemble the frame from the tiles | 0.124 | 0.165 | 1.0% |
+| encode for the page | 4.223 | 4.827 | 34.5% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 0.526 | 0.586 | 4.1% |
 
 ## the declared ten-layer fixture (10 layers), Draft resolution
 
 ### the declared ten-layer fixture (10 layers) — Draft, application cache cold, files first read by this process
 
-Frame time: p50 **250.073 ms**, p95 **256.908 ms**, over 20 frames. That is 6.00x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **111.526 ms**, p95 **117.697 ms**, over 20 frames. That is 2.68x the 41.667 ms a 24 fps clock allows.
 
 | Stage | p50 ms | p95 ms | share of the frame |
 |---|---|---|---|
 | wait for the viewer lock | 0.000 | 0.000 | 0.0% |
 | decode this frame's cels in parallel | 0.000 | 0.000 | 0.0% |
-| open and read the cel file | 38.700 | 39.885 | 15.7% |
-| bytes to float | 39.195 | 41.070 | 15.8% |
-| transfer function and premultiply | 130.164 | 134.799 | 52.5% |
+| open and read the cel file | 41.632 | 44.958 | 37.4% |
+| bytes to float | 24.133 | 25.581 | 21.8% |
+| transfer function and premultiply | 12.057 | 13.431 | 10.8% |
 | cache lookup and its copy | 0.001 | 0.001 | 0.0% |
-| cache admit and its copy | 0.008 | 0.010 | 0.0% |
+| cache admit and its copy | 0.007 | 0.008 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
 | effect stack: the copy it writes into | 0.001 | 0.001 | 0.0% |
-| effect: exposure | 0.909 | 1.296 | 0.4% |
-| effect: tint | 0.746 | 1.083 | 0.3% |
-| effect: gaussian blur | 13.871 | 15.463 | 5.2% |
+| effect: exposure | 0.090 | 0.108 | 0.1% |
+| effect: tint | 0.051 | 0.067 | 0.0% |
+| effect: gaussian blur | 1.061 | 1.401 | 0.9% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 4.251 | 4.667 | 1.7% |
-| assemble the frame from the tiles | 0.022 | 0.030 | 0.0% |
-| encode for the page | 0.622 | 0.885 | 0.3% |
-| **unaccounted for** | 19.922 | 21.604 | 8.1% |
+| tile loop: sample and blend | 5.538 | 5.909 | 4.9% |
+| assemble the frame from the tiles | 0.098 | 0.119 | 0.1% |
+| encode for the page | 0.619 | 0.779 | 0.6% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 26.244 | 28.787 | 23.3% |
 
 ### the declared ten-layer fixture (10 layers) — Draft, application cache cold, operating system file cache warm
 
-Frame time: p50 **250.039 ms**, p95 **256.201 ms**, over 20 frames. That is 6.00x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **112.006 ms**, p95 **115.593 ms**, over 20 frames. That is 2.69x the 41.667 ms a 24 fps clock allows.
 
 | Stage | p50 ms | p95 ms | share of the frame |
 |---|---|---|---|
 | wait for the viewer lock | 0.000 | 0.000 | 0.0% |
 | decode this frame's cels in parallel | 0.000 | 0.000 | 0.0% |
-| open and read the cel file | 39.007 | 41.074 | 15.9% |
-| bytes to float | 39.617 | 41.071 | 16.1% |
-| transfer function and premultiply | 129.487 | 133.504 | 51.9% |
+| open and read the cel file | 41.627 | 43.197 | 37.3% |
+| bytes to float | 23.747 | 25.458 | 21.3% |
+| transfer function and premultiply | 12.271 | 12.926 | 11.0% |
 | cache lookup and its copy | 0.001 | 0.001 | 0.0% |
-| cache admit and its copy | 0.009 | 0.010 | 0.0% |
+| cache admit and its copy | 0.007 | 0.008 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
 | effect stack: the copy it writes into | 0.001 | 0.001 | 0.0% |
-| effect: exposure | 0.894 | 1.103 | 0.4% |
-| effect: tint | 0.774 | 1.027 | 0.3% |
-| effect: gaussian blur | 13.716 | 14.255 | 5.1% |
+| effect: exposure | 0.093 | 0.121 | 0.1% |
+| effect: tint | 0.053 | 0.069 | 0.0% |
+| effect: gaussian blur | 1.012 | 1.508 | 0.9% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 4.388 | 4.546 | 1.8% |
-| assemble the frame from the tiles | 0.018 | 0.034 | 0.0% |
-| encode for the page | 0.665 | 0.926 | 0.3% |
-| **unaccounted for** | 20.718 | 21.754 | 8.3% |
+| tile loop: sample and blend | 5.616 | 5.790 | 4.9% |
+| assemble the frame from the tiles | 0.084 | 0.099 | 0.1% |
+| encode for the page | 0.601 | 1.061 | 0.6% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 26.624 | 28.086 | 23.7% |
 
 ### the declared ten-layer fixture (10 layers) — Draft, everything warm
 
-Frame time: p50 **44.164 ms**, p95 **48.483 ms**, over 20 frames. That is 1.06x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **9.710 ms**, p95 **10.240 ms**, over 20 frames. That is 0.23x the 41.667 ms a 24 fps clock allows.
 
 Cache over the measured pass: 234 hits, 136 misses in the cache's whole life, 0 evictions.
 
@@ -250,72 +354,111 @@ Cache over the measured pass: 234 hits, 136 misses in the cache's whole life, 0 
 | open and read the cel file | 0.000 | 0.000 | 0.0% |
 | bytes to float | 0.000 | 0.000 | 0.0% |
 | transfer function and premultiply | 0.000 | 0.000 | 0.0% |
-| cache lookup and its copy | 0.021 | 0.027 | 0.1% |
+| cache lookup and its copy | 0.016 | 0.027 | 0.2% |
 | cache admit and its copy | 0.000 | 0.000 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
-| effect stack: the copy it writes into | 12.376 | 14.995 | 29.6% |
-| effect: exposure | 1.297 | 1.485 | 3.1% |
-| effect: tint | 0.966 | 1.161 | 2.1% |
-| effect: gaussian blur | 15.858 | 17.288 | 35.1% |
+| effect stack: the copy it writes into | 0.001 | 0.002 | 0.0% |
+| effect: exposure | 0.103 | 0.149 | 1.2% |
+| effect: tint | 0.058 | 0.073 | 0.6% |
+| effect: gaussian blur | 1.131 | 1.371 | 11.6% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 4.347 | 4.641 | 10.3% |
-| assemble the frame from the tiles | 0.027 | 0.039 | 0.1% |
-| encode for the page | 0.711 | 0.952 | 1.8% |
-| **unaccounted for** | 7.626 | 9.408 | 17.9% |
+| tile loop: sample and blend | 5.486 | 5.823 | 56.8% |
+| assemble the frame from the tiles | 0.086 | 0.106 | 0.9% |
+| encode for the page | 0.549 | 0.674 | 6.1% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 2.181 | 2.474 | 22.6% |
 
 ## the declared ten-layer fixture (10 layers), Full resolution
 
 ### the declared ten-layer fixture (10 layers) — Full, application cache cold, files first read by this process
 
-Frame time: p50 **271.533 ms**, p95 **297.015 ms**, over 20 frames. That is 6.52x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **147.712 ms**, p95 **161.514 ms**, over 20 frames. That is 3.55x the 41.667 ms a 24 fps clock allows.
 
 | Stage | p50 ms | p95 ms | share of the frame |
 |---|---|---|---|
 | wait for the viewer lock | 0.000 | 0.000 | 0.0% |
 | decode this frame's cels in parallel | 0.000 | 0.000 | 0.0% |
-| open and read the cel file | 39.927 | 44.049 | 14.8% |
-| bytes to float | 40.406 | 47.476 | 15.1% |
-| transfer function and premultiply | 129.821 | 140.798 | 47.9% |
+| open and read the cel file | 44.782 | 50.031 | 30.9% |
+| bytes to float | 26.691 | 29.796 | 18.1% |
+| transfer function and premultiply | 12.578 | 14.306 | 8.7% |
 | cache lookup and its copy | 0.001 | 0.001 | 0.0% |
 | cache admit and its copy | 0.008 | 0.010 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
-| effect stack: the copy it writes into | 0.001 | 0.001 | 0.0% |
-| effect: exposure | 1.018 | 1.201 | 0.4% |
-| effect: tint | 0.766 | 0.945 | 0.3% |
-| effect: gaussian blur | 13.691 | 14.205 | 4.6% |
+| effect stack: the copy it writes into | 0.001 | 0.002 | 0.0% |
+| effect: exposure | 1.139 | 1.595 | 0.8% |
+| effect: tint | 1.048 | 1.632 | 0.7% |
+| effect: gaussian blur | 7.035 | 8.666 | 4.6% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 21.228 | 24.572 | 8.0% |
-| assemble the frame from the tiles | 0.069 | 0.149 | 0.0% |
-| encode for the page | 4.092 | 5.039 | 1.5% |
-| **unaccounted for** | 19.955 | 21.155 | 7.3% |
+| tile loop: sample and blend | 20.956 | 21.907 | 14.1% |
+| assemble the frame from the tiles | 0.081 | 0.130 | 0.1% |
+| encode for the page | 3.985 | 4.655 | 3.1% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 27.996 | 31.136 | 19.0% |
 
 ### the declared ten-layer fixture (10 layers) — Full, application cache cold, operating system file cache warm
 
-Frame time: p50 **288.209 ms**, p95 **315.062 ms**, over 20 frames. That is 6.92x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **144.392 ms**, p95 **151.320 ms**, over 20 frames. That is 3.47x the 41.667 ms a 24 fps clock allows.
 
 | Stage | p50 ms | p95 ms | share of the frame |
 |---|---|---|---|
 | wait for the viewer lock | 0.000 | 0.000 | 0.0% |
 | decode this frame's cels in parallel | 0.000 | 0.000 | 0.0% |
-| open and read the cel file | 43.650 | 46.331 | 15.1% |
-| bytes to float | 44.098 | 47.172 | 15.1% |
-| transfer function and premultiply | 136.731 | 141.898 | 46.8% |
-| cache lookup and its copy | 0.001 | 0.002 | 0.0% |
-| cache admit and its copy | 0.009 | 0.010 | 0.0% |
+| open and read the cel file | 44.142 | 46.964 | 31.0% |
+| bytes to float | 25.538 | 28.365 | 17.9% |
+| transfer function and premultiply | 12.518 | 12.970 | 8.7% |
+| cache lookup and its copy | 0.001 | 0.001 | 0.0% |
+| cache admit and its copy | 0.009 | 0.011 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
-| effect stack: the copy it writes into | 0.001 | 0.001 | 0.0% |
-| effect: exposure | 1.228 | 1.373 | 0.4% |
-| effect: tint | 0.834 | 1.238 | 0.3% |
-| effect: gaussian blur | 13.629 | 16.684 | 4.8% |
+| effect stack: the copy it writes into | 0.001 | 0.002 | 0.0% |
+| effect: exposure | 1.126 | 1.729 | 0.9% |
+| effect: tint | 1.150 | 1.750 | 0.8% |
+| effect: gaussian blur | 6.940 | 8.870 | 4.7% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 21.679 | 36.207 | 8.4% |
-| assemble the frame from the tiles | 0.130 | 0.152 | 0.0% |
-| encode for the page | 4.136 | 5.134 | 1.5% |
-| **unaccounted for** | 22.013 | 23.538 | 7.6% |
+| tile loop: sample and blend | 20.721 | 21.469 | 14.2% |
+| assemble the frame from the tiles | 0.116 | 0.207 | 0.1% |
+| encode for the page | 3.941 | 4.222 | 2.8% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 26.863 | 30.704 | 19.0% |
 
 ### the declared ten-layer fixture (10 layers) — Full, everything warm
 
-Frame time: p50 **59.790 ms**, p95 **66.582 ms**, over 20 frames. That is 1.43x the 41.667 ms a 24 fps clock allows.
+Frame time: p50 **48.224 ms**, p95 **53.468 ms**, over 20 frames. That is 1.16x the 41.667 ms a 24 fps clock allows.
 
 Cache over the measured pass: 234 hits, 136 misses in the cache's whole life, 0 evictions.
 
@@ -326,18 +469,31 @@ Cache over the measured pass: 234 hits, 136 misses in the cache's whole life, 0 
 | open and read the cel file | 0.000 | 0.000 | 0.0% |
 | bytes to float | 0.000 | 0.000 | 0.0% |
 | transfer function and premultiply | 0.000 | 0.000 | 0.0% |
-| cache lookup and its copy | 0.021 | 0.030 | 0.0% |
+| cache lookup and its copy | 0.020 | 0.025 | 0.0% |
 | cache admit and its copy | 0.000 | 0.000 | 0.0% |
 | layer mask | 0.000 | 0.000 | 0.0% |
-| effect stack: the copy it writes into | 10.697 | 12.874 | 17.8% |
-| effect: exposure | 1.238 | 1.548 | 2.1% |
-| effect: tint | 0.913 | 0.971 | 1.4% |
-| effect: gaussian blur | 14.939 | 17.081 | 23.5% |
+| effect stack: the copy it writes into | 10.221 | 11.054 | 20.3% |
+| effect: exposure | 1.095 | 1.380 | 2.4% |
+| effect: tint | 0.852 | 1.019 | 1.7% |
+| effect: gaussian blur | 7.007 | 7.404 | 13.5% |
+| effect: line smoothing | 0.000 | 0.000 | 0.0% |
+| effect: selective colour blur | 0.000 | 0.000 | 0.0% |
+| effect: glow | 0.000 | 0.000 | 0.0% |
+| effect: line recolour | 0.000 | 0.000 | 0.0% |
+| effect: directional blur | 0.000 | 0.000 | 0.0% |
+| effect: select colour | 0.000 | 0.000 | 0.0% |
+| effect: line width | 0.000 | 0.000 | 0.0% |
+| effect: radial blur | 0.000 | 0.000 | 0.0% |
+| effect: bloom | 0.000 | 0.000 | 0.0% |
+| effect: colour key | 0.000 | 0.000 | 0.0% |
 | effect result cache: lookup and admit | 0.000 | 0.000 | 0.0% |
-| tile loop: sample and blend | 21.745 | 23.106 | 36.9% |
-| assemble the frame from the tiles | 0.135 | 0.171 | 0.2% |
-| encode for the page | 4.198 | 4.483 | 7.3% |
-| **unaccounted for** | 6.365 | 8.247 | 10.7% |
+| tile loop: sample and blend | 18.508 | 21.311 | 39.7% |
+| assemble the frame from the tiles | 0.074 | 0.121 | 0.2% |
+| encode for the page | 3.880 | 4.451 | 8.4% |
+| GPU: send drawings to the card | 0.000 | 0.000 | 0.0% |
+| GPU: draw, encode and bring the picture back | 0.000 | 0.000 | 0.0% |
+| GPU: paint the picture into the window | 0.000 | 0.000 | 0.0% |
+| **unaccounted for** | 6.795 | 7.340 | 13.8% |
 
 ## What this table ranks
 
@@ -345,18 +501,18 @@ The three stages that cost the most in each row, by share, largest first. This i
 
 | Workload | Quality | Cache state | First | Second | Third |
 |---|---|---|---|---|---|
-| the reference shot (4 layers) | Draft | application cache cold, files first read by this process | transfer function and premultiply — 51.3% | open and read the cel file — 22.6% | bytes to float — 15.5% |
-| the reference shot (4 layers) | Draft | application cache cold, operating system file cache warm | transfer function and premultiply — 51.5% | open and read the cel file — 22.6% | bytes to float — 15.5% |
-| the reference shot (4 layers) | Draft | everything warm | tile loop: sample and blend — 65.4% | encode for the page — 19.7% | assemble the frame from the tiles — 0.9% |
-| the reference shot (4 layers) | Full | application cache cold, files first read by this process | transfer function and premultiply — 45.9% | open and read the cel file — 20.3% | bytes to float — 13.9% |
-| the reference shot (4 layers) | Full | application cache cold, operating system file cache warm | transfer function and premultiply — 45.8% | open and read the cel file — 20.1% | bytes to float — 14.0% |
-| the reference shot (4 layers) | Full | everything warm | tile loop: sample and blend — 63.5% | encode for the page — 32.7% | assemble the frame from the tiles — 0.7% |
-| the declared ten-layer fixture (10 layers) | Draft | application cache cold, files first read by this process | transfer function and premultiply — 52.5% | bytes to float — 15.8% | open and read the cel file — 15.7% |
-| the declared ten-layer fixture (10 layers) | Draft | application cache cold, operating system file cache warm | transfer function and premultiply — 51.9% | bytes to float — 16.1% | open and read the cel file — 15.9% |
-| the declared ten-layer fixture (10 layers) | Draft | everything warm | effect: gaussian blur — 35.1% | effect stack: the copy it writes into — 29.6% | tile loop: sample and blend — 10.3% |
-| the declared ten-layer fixture (10 layers) | Full | application cache cold, files first read by this process | transfer function and premultiply — 47.9% | bytes to float — 15.1% | open and read the cel file — 14.8% |
-| the declared ten-layer fixture (10 layers) | Full | application cache cold, operating system file cache warm | transfer function and premultiply — 46.8% | bytes to float — 15.1% | open and read the cel file — 15.1% |
-| the declared ten-layer fixture (10 layers) | Full | everything warm | tile loop: sample and blend — 36.9% | effect: gaussian blur — 23.5% | effect stack: the copy it writes into — 17.8% |
+| the reference shot (4 layers) | Draft | application cache cold, files first read by this process | open and read the cel file — 44.7% | bytes to float — 20.0% | transfer function and premultiply — 9.5% |
+| the reference shot (4 layers) | Draft | application cache cold, operating system file cache warm | open and read the cel file — 45.1% | bytes to float — 19.8% | transfer function and premultiply — 9.6% |
+| the reference shot (4 layers) | Draft | everything warm | tile loop: sample and blend — 65.6% | encode for the page — 20.1% | assemble the frame from the tiles — 0.8% |
+| the reference shot (4 layers) | Full | application cache cold, files first read by this process | open and read the cel file — 37.0% | bytes to float — 16.0% | tile loop: sample and blend — 14.9% |
+| the reference shot (4 layers) | Full | application cache cold, operating system file cache warm | open and read the cel file — 38.5% | bytes to float — 15.4% | tile loop: sample and blend — 14.4% |
+| the reference shot (4 layers) | Full | everything warm | tile loop: sample and blend — 60.4% | encode for the page — 34.5% | assemble the frame from the tiles — 1.0% |
+| the declared ten-layer fixture (10 layers) | Draft | application cache cold, files first read by this process | open and read the cel file — 37.4% | bytes to float — 21.8% | transfer function and premultiply — 10.8% |
+| the declared ten-layer fixture (10 layers) | Draft | application cache cold, operating system file cache warm | open and read the cel file — 37.3% | bytes to float — 21.3% | transfer function and premultiply — 11.0% |
+| the declared ten-layer fixture (10 layers) | Draft | everything warm | tile loop: sample and blend — 56.8% | effect: gaussian blur — 11.6% | encode for the page — 6.1% |
+| the declared ten-layer fixture (10 layers) | Full | application cache cold, files first read by this process | open and read the cel file — 30.9% | bytes to float — 18.1% | tile loop: sample and blend — 14.1% |
+| the declared ten-layer fixture (10 layers) | Full | application cache cold, operating system file cache warm | open and read the cel file — 31.0% | bytes to float — 17.9% | tile loop: sample and blend — 14.2% |
+| the declared ten-layer fixture (10 layers) | Full | everything warm | tile loop: sample and blend — 39.7% | effect stack: the copy it writes into — 20.3% | effect: gaussian blur — 13.5% |
 
 ## How to read these tables
 

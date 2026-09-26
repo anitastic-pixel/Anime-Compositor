@@ -18,12 +18,12 @@ The reduction is an exact 4x4 box average **in premultiplied linear light**, the
 
 ## The frame time
 
-The tile loop only, four frames each, the two renders alternating frame by frame so that neither pays the other's cold cache. The last column is what it costs to reduce one frame's cels once — work a cache would do on the decode, not on every frame, and it is listed because a cache that cannot hold the shot pays it again on every eviction.
+The tile loop only, four frames each, the two renders alternating frame by frame so that neither pays the other's cold cache. The fifth column is what it costs to reduce one frame's cels once — work a cache would do on the decode, not on every frame, and it is listed because a cache that cannot hold the shot pays it again on every eviction.
 
 | Fixture | Draft today (ms) | Draft with quarter cels (ms) | Change | Reducing one frame's cels (ms) | Frames before that pays for itself |
 |---|---|---|---|---|---|
-| reference shot | 1.914 | 1.007 | -47.4% | 42.3 | 47 frames |
-| declared fixture | 4.141 | 1.944 | -53.1% | 135.5 | 62 frames |
+| reference shot | 1.850 | 0.929 | -49.8% | 45.2 | 49 frames |
+| declared fixture | 4.037 | 1.774 | -56.1% | 144.9 | 64 frames |
 
 ## The bytes
 

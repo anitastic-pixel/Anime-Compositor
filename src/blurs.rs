@@ -360,23 +360,41 @@ pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, c
                     px.copy_from_slice(&src.data()[i..i + 4]);
                     continue;
                 }
+                // P-20: with `repeat`, a sample is held only when its path can leave the pixel
+                // centres; one that stays inside is where it was, so the path is walked, or
+                // skipped, exactly as a transparent edge's. A zoom's line is inside when its two
+                // ends are and a spin's arc when its whole circle is, each with a pixel to spare for
+                // the rounding of the samples between.
+                let (fw, fh) = (w as f64, h as f64);
+                let inside = |x: f64, y: f64| x >= 1.5 && x <= fw - 1.5 && y >= 1.5 && y <= fh - 1.5;
+                let (s0, s1) = (turns[n][0].0, turns[n][n - 1].0);
+                let held = repeat
+                    && if spin {
+                        !(inside(cx - r - 1.0, cy - r - 1.0) && inside(cx + r + 1.0, cy + r + 1.0))
+                    } else {
+                        !(inside(cx + s0 * dx, cy + s0 * dy) && inside(cx + s1 * dx, cy + s1 * dy))
+                    };
+                let hold = |x: f64, y: f64| (x.max(0.5).min(fw - 0.5), y.max(0.5).min(fh - 0.5));
                 let missed = match bbox {
                     None => true,
-                    // A spin's samples all lie r from the centre.
-                    Some(_) if spin => r + 1.0 < near || r - 1.0 > far,
-                    // A zoom's lie on the line between its two ends.
+                    // A spin's samples all lie r from the centre, unless they are held.
+                    Some(_) if spin => !held && (r + 1.0 < near || r - 1.0 > far),
+                    // A zoom's lie on the line between its two ends, and held, between the
+                    // two ends held, since holding keeps each axis in order.
                     Some((l, t, rr, b)) => {
-                        let (s0, s1) = (turns[n][0].0, turns[n][n - 1].0);
-                        let (ax, bx) = (cx + s0 * dx, cx + s1 * dx);
-                        let (ay, by) = (cy + s0 * dy, cy + s1 * dy);
+                        let (mut ax, mut ay) = (cx + s0 * dx, cy + s0 * dy);
+                        let (mut bx, mut by) = (cx + s1 * dx, cy + s1 * dy);
+                        if held {
+                            (ax, ay) = hold(ax, ay);
+                            (bx, by) = hold(bx, by);
+                        }
                         ax.max(bx) + 1.0 < l
                             || ax.min(bx) - 1.0 > rr
                             || ay.max(by) + 1.0 < t
                             || ay.min(by) - 1.0 > b
                     }
                 };
-                // D-109: repeated, every path reads the drawing's edge.
-                if missed && !repeat {
+                if missed {
                     continue;
                 }
                 // Summed in double precision: 256 single-precision additions would drift near
@@ -389,12 +407,9 @@ pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, c
                     } else {
                         (cx + a * dx, cy + a * dy)
                     };
-                    let s = if repeat {
-                        let (w, h) = (w as f64, h as f64);
-                        sample_bilinear(src, sx.max(0.5).min(w - 0.5), sy.max(0.5).min(h - 0.5))
-                    } else {
-                        sample_bilinear(src, sx, sy)
-                    };
+                    // D-109: repeated, a point off the picture reads its edge.
+                    let (sx, sy) = if held { hold(sx, sy) } else { (sx, sy) };
+                    let s = sample_bilinear(src, sx, sy);
                     for i in 0..4 {
                         sum[i] += s[i] as f64;
                     }

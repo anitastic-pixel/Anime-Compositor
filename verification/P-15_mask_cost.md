@@ -19,14 +19,14 @@ No feather in this table: the field is the part P-15 changed. "Sample by sample"
 
 | Layer | Mask | Outline edges | Sample by sample, ms | Now, ms | Times faster |
 |---|---|---|---|---|---|
-| 1920x1080 | plain | 1392 | 30567.8 | 6.33 | 4828x |
-| 1920x1080 | expanded 4 px | 1392 | 269706.1 | 32.68 | 8254x |
-| 1280x720 | plain | 928 | 8640.7 | 2.96 | 2918x |
-| 1280x720 | expanded 4 px | 928 | 82252.4 | 11.53 | 7135x |
-| 480x270 | plain | 352 | 482.3 | 0.54 | 893x |
-| 480x270 | expanded 4 px | 352 | 4101.9 | 1.99 | 2058x |
+| 1920x1080 | plain | 1392 | 28157.3 | 6.81 | 4137x |
+| 1920x1080 | expanded 4 px | 1392 | 267340.8 | 23.71 | 11274x |
+| 1280x720 | plain | 928 | 9564.3 | 3.05 | 3137x |
+| 1280x720 | expanded 4 px | 928 | 81900.3 | 12.05 | 6798x |
+| 480x270 | plain | 352 | 554.4 | 0.68 | 816x |
+| 480x270 | expanded 4 px | 352 | 4270.1 | 1.98 | 2152x |
 
-The smallest gain in the table is 893 times.
+The smallest gain in the table is 816 times.
 
 ## One thread and all of them
 
@@ -34,9 +34,9 @@ The same call at 1920x1080, run inside a rayon pool of one thread and inside the
 
 | Mask | One thread, ms | All threads, ms | Times faster |
 |---|---|---|---|
-| plain | 34.34 | 6.14 | 5.6x |
-| expanded 4 px | 238.12 | 23.56 | 10.1x |
-| feathered 20 px | 145.92 | 16.56 | 8.8x |
+| plain | 33.75 | 6.44 | 5.2x |
+| expanded 4 px | 270.32 | 24.19 | 11.2x |
+| feathered 20 px | 162.32 | 17.97 | 9.0x |
 
 ## How to read this
 

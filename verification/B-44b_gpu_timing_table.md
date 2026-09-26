@@ -11,7 +11,7 @@ Each frame's plan is made first and not timed: reading drawings and running effe
 
 | Shot | Quality | CPU | GPU, first pass | GPU, again | Drawings sent, first pass | Drawings sent, again |
 |---|---|---|---|---|---|---|
-| the reference shot | Draft | 2.43 | 0.88 | 1.02 | 56 | 0 |
-| the reference shot | Full | 15.31 | 5.69 | 5.17 | 56 | 0 |
-| the ten-layer fixture | Draft | 4.03 | 3.60 | 2.57 | 166 | 0 |
-| the ten-layer fixture | Full | 27.91 | 9.07 | 9.46 | 166 | 0 |
+| the reference shot | Draft | 2.78 | 0.91 | 1.14 | 56 | 0 |
+| the reference shot | Full | 15.59 | 5.65 | 3.68 | 56 | 0 |
+| the ten-layer fixture | Draft | 4.12 | 1.68 | 1.33 | 166 | 0 |
+| the ten-layer fixture | Full | 28.96 | 5.87 | 7.76 | 166 | 0 |

@@ -6,29 +6,29 @@ Written by `tests/p18_read_ahead.rs` under `cargo test --release --test p18_read
 
 | Gap | Reading ahead | Round | Frames shown | Frames dropped | Wait p50 ms | Wait p95 ms |
 |---|---|---|---|---|---|---|
-| 0 ms | off | 1 | 1789 | 0 | 2.4 | 15.6 |
-| 0 ms | on | 1 | 1727 | 0 | 2.7 | 13.7 |
-| 0 ms | off | 2 | 1456 | 0 | 3.0 | 17.9 |
-| 0 ms | on | 2 | 1657 | 0 | 2.9 | 14.6 |
-| 8 ms | off | 1 | 534 | 0 | 3.5 | 20.8 |
-| 8 ms | on | 1 | 648 | 0 | 3.1 | 15.8 |
-| 8 ms | off | 2 | 579 | 0 | 2.8 | 19.1 |
-| 8 ms | on | 2 | 654 | 0 | 3.1 | 15.5 |
+| 0 ms | off | 1 | 1888 | 0 | 2.4 | 14.7 |
+| 0 ms | on | 1 | 1949 | 0 | 2.4 | 12.7 |
+| 0 ms | off | 2 | 1984 | 0 | 2.2 | 14.0 |
+| 0 ms | on | 2 | 1973 | 0 | 2.4 | 12.7 |
+| 8 ms | off | 1 | 604 | 0 | 2.6 | 18.1 |
+| 8 ms | on | 1 | 676 | 0 | 3.0 | 14.5 |
+| 8 ms | off | 2 | 587 | 0 | 2.8 | 18.5 |
+| 8 ms | on | 2 | 660 | 0 | 3.4 | 15.4 |
 
-Every one of the 1727 frames shown by the first pass with reading ahead on is byte-identical to the same frame rendered with no cache. A frame is due every 41.7 ms; a dropped frame is one the clock passed over because the one before it was not ready in time (D-32).
+Every one of the 1949 frames shown by the first pass with reading ahead on is byte-identical to the same frame rendered with no cache. A frame is due every 41.7 ms; a dropped frame is one the clock passed over because the one before it was not ready in time (D-32).
 
 ## the declared ten-layer fixture (10 layers)
 
 | Gap | Reading ahead | Round | Frames shown | Frames dropped | Wait p50 ms | Wait p95 ms |
 |---|---|---|---|---|---|---|
-| 0 ms | off | 1 | 342 | 0 | 27.5 | 52.8 |
-| 0 ms | on | 1 | 376 | 0 | 23.9 | 39.4 |
-| 0 ms | off | 2 | 299 | 1 | 37.0 | 54.7 |
-| 0 ms | on | 2 | 377 | 0 | 23.8 | 39.3 |
-| 8 ms | off | 1 | 211 | 31 | 39.0 | 54.5 |
-| 8 ms | on | 1 | 308 | 0 | 20.1 | 35.1 |
-| 8 ms | off | 2 | 217 | 25 | 37.9 | 52.7 |
-| 8 ms | on | 2 | 305 | 0 | 20.0 | 39.9 |
+| 0 ms | off | 1 | 377 | 0 | 25.7 | 51.2 |
+| 0 ms | on | 1 | 400 | 0 | 22.5 | 38.9 |
+| 0 ms | off | 2 | 404 | 0 | 24.7 | 49.9 |
+| 0 ms | on | 2 | 423 | 0 | 20.5 | 38.1 |
+| 8 ms | off | 1 | 231 | 18 | 36.0 | 50.6 |
+| 8 ms | on | 1 | 333 | 0 | 16.2 | 30.8 |
+| 8 ms | off | 2 | 230 | 15 | 36.1 | 50.1 |
+| 8 ms | on | 2 | 339 | 0 | 16.0 | 30.4 |
 
-Every one of the 376 frames shown by the first pass with reading ahead on is byte-identical to the same frame rendered with no cache. A frame is due every 41.7 ms; a dropped frame is one the clock passed over because the one before it was not ready in time (D-32).
+Every one of the 400 frames shown by the first pass with reading ahead on is byte-identical to the same frame rendered with no cache. A frame is due every 41.7 ms; a dropped frame is one the clock passed over because the one before it was not ready in time (D-32).
 

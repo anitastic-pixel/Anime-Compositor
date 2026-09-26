@@ -137,6 +137,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
         ("Bloom 20, star 60", bloom("star")),
         ("Colour Key rgb", color_key("rgb")),
         ("Colour Key hue", color_key("hue")),
+        // P-20: Repeat Edge Pixels (D-109), which walks every pixel a transparent edge could skip.
+        ("Gaussian Blur 10, edges repeat", Effect::GaussianBlur { sigma_px: 10.0, edges: "repeat".into() }),
+        ("Directional Blur 100, edges repeat", Effect::DirectionalBlur { direction: 30.0, length: 100.0, edges: "repeat".into() }),
+        (
+            "Radial Blur zoom 20, edges repeat",
+            Effect::RadialBlur { kind: "zoom".into(), amount: 20.0, center: [50.0, 50.0], edges: "repeat".into() },
+        ),
     ]
 }
 

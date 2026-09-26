@@ -11,5 +11,5 @@ The shot is the reference shot with the three Gaussian Blurs of the B-50 table. 
 
 | Quality | CPU, first loop | CPU, again | GPU, first loop | GPU, again |
 |---|---:|---:|---:|---:|
-| Draft | 16.1 | 16.2 | 17.2 | 16.7 |
-| Full | 57.6 | 58.8 | 28.0 | 28.4 |
+| Draft | 17.1 | 17.7 | 17.1 | 16.6 |
+| Full | 58.8 | 58.4 | 30.4 | 29.3 |

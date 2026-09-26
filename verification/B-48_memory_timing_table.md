@@ -12,11 +12,11 @@ The reference shot with B-47's three Blooms, every frame asked for as the viewer
 
 | Quality | Memory | Drawn on | First loop | Again | Held at the end |
 |---|---|---|---:|---:|---:|
-| Draft | 1 GiB (before) | CPU | 17.2 | 17.4 | 0.7 GB |
-| Draft | 1 GiB (before) | GPU | 17.3 | 17.4 | 0.7 GB |
-| Draft | Automatic | CPU | 4.8 | 4.7 | 1.9 GB |
+| Draft | 1 GiB (before) | CPU | 17.3 | 17.8 | 0.7 GB |
+| Draft | 1 GiB (before) | GPU | 17.6 | 17.1 | 0.7 GB |
+| Draft | Automatic | CPU | 4.7 | 4.6 | 1.9 GB |
 | Draft | Automatic | GPU | 4.2 | 4.2 | 1.9 GB |
-| Full | 1 GiB (before) | CPU | 172.0 | 171.0 | 1.1 GB |
-| Full | 1 GiB (before) | GPU | 27.9 | 28.2 | 1.0 GB |
-| Full | Automatic | CPU | 16.9 | 16.7 | 3.3 GB |
+| Full | 1 GiB (before) | CPU | 170.4 | 171.3 | 1.1 GB |
+| Full | 1 GiB (before) | GPU | 27.5 | 27.3 | 1.0 GB |
+| Full | Automatic | CPU | 16.0 | 15.8 | 3.3 GB |
 | Full | Automatic | GPU | 3.6 | 3.5 | 2.7 GB |

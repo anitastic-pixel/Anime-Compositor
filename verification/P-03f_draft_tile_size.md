@@ -19,20 +19,20 @@ Debug assertions in this build: false. A run with `true` there is a debug build,
 
 | Workload | Layers | Tile | Tiles | Sweep 1 p50 (ms) | Sweep 2 p50 (ms) |          Against 128px |
 |---|---|---|---|---|---|---|
-| the reference shot | 4 | 128px | 12 | 1.925 | 1.777 | - |
-| the reference shot | 4 | 96px | 15 | 1.718 | 1.680 | -10.7%, -5.5% |
-| the reference shot | 4 | 64px | 40 | 1.709 | 1.737 | -11.2%, -2.3% |
-| the reference shot | 4 | 48px | 60 | 1.602 | 1.668 | -16.8%, -6.1% |
-| the reference shot | 4 | 32px | 135 | 1.592 | 1.909 | -17.3%, +7.4% |
-| the reference shot | 4 | 24px | 240 | 1.616 | 1.845 | -16.0%, +3.8% |
-| the reference shot | 4 | 16px | 510 | 1.776 | 1.850 | -7.7%, +4.1% |
-| the declared ten-layer fixture | 10 | 128px | 12 | 4.745 | 4.875 | - |
-| the declared ten-layer fixture | 10 | 96px | 15 | 4.207 | 4.068 | -11.3%, -16.6% |
-| the declared ten-layer fixture | 10 | 64px | 40 | 4.265 | 4.019 | -10.1%, -17.6% |
-| the declared ten-layer fixture | 10 | 48px | 60 | 4.085 | 3.685 | -13.9%, -24.4% |
-| the declared ten-layer fixture | 10 | 32px | 135 | 4.166 | 3.925 | -12.2%, -19.5% |
-| the declared ten-layer fixture | 10 | 24px | 240 | 4.117 | 3.766 | -13.2%, -22.8% |
-| the declared ten-layer fixture | 10 | 16px | 510 | 3.850 | 4.000 | -18.9%, -18.0% |
+| the reference shot | 4 | 128px | 12 | 1.509 | 1.605 | - |
+| the reference shot | 4 | 96px | 15 | 1.359 | 1.390 | -10.0%, -13.4% |
+| the reference shot | 4 | 64px | 40 | 1.657 | 1.473 | +9.8%, -8.2% |
+| the reference shot | 4 | 48px | 60 | 1.472 | 1.540 | -2.5%, -4.1% |
+| the reference shot | 4 | 32px | 135 | 1.444 | 1.433 | -4.3%, -10.8% |
+| the reference shot | 4 | 24px | 240 | 1.464 | 1.518 | -3.0%, -5.4% |
+| the reference shot | 4 | 16px | 510 | 1.702 | 1.663 | +12.8%, +3.6% |
+| the declared ten-layer fixture | 10 | 128px | 12 | 4.862 | 3.774 | - |
+| the declared ten-layer fixture | 10 | 96px | 15 | 3.637 | 3.581 | -25.2%, -5.1% |
+| the declared ten-layer fixture | 10 | 64px | 40 | 3.691 | 3.599 | -24.1%, -4.6% |
+| the declared ten-layer fixture | 10 | 48px | 60 | 3.535 | 3.533 | -27.3%, -6.4% |
+| the declared ten-layer fixture | 10 | 32px | 135 | 3.680 | 3.580 | -24.3%, -5.1% |
+| the declared ten-layer fixture | 10 | 24px | 240 | 3.455 | 3.607 | -28.9%, -4.4% |
+| the declared ten-layer fixture | 10 | 16px | 510 | 3.697 | 3.672 | -24.0%, -2.7% |
 
 ## What to check by eye
 

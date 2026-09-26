@@ -11,10 +11,10 @@ The correctness half is `verification/P-05_culling_table.md`, which runs on ever
 
 | Fixture | Quality | Without culling (ms) | With culling (ms) | Change |
 |---|---|---|---|---|
-| reference shot | Draft | 1.693 | 1.751 | +3.4% |
-| reference shot | Full | 8.016 | 7.983 | -0.4% |
-| declared fixture | Draft | 4.163 | 4.145 | -0.4% |
-| declared fixture | Full | 20.431 | 20.575 | +0.7% |
+| reference shot | Draft | 1.968 | 1.955 | -0.6% |
+| reference shot | Full | 7.876 | 7.886 | +0.1% |
+| declared fixture | Draft | 4.898 | 4.804 | -1.9% |
+| declared fixture | Full | 19.822 | 19.690 | -0.7% |
 
 Document 15's entry said so in advance - "it is now expected to report a saving too small to matter" - and the measured answer on these two fixtures is that there is no saving at all: the box excludes none of the 7,020 layer-and-tile pairs `verification/P-05_culling_table.md` counts, because every cel here is a full-frame drawing with transparent margins and a geometric box cannot see transparency.
 
