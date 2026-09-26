@@ -538,6 +538,8 @@ B-58 / Drop Shadow, D-115, the fifth of the batch of ten: a soft shadow of the d
 
 B-59 / Lens Blur, D-116, the sixth of the batch of ten: the even mean over a round disc, a camera's out-of-focus blur. **B-59a is written on 2026-09-26**: `verification/B-59a proposal/`, D-116 in document 14, the rule in document 21, FX-LENS-001 to 018 in document 25 from `tools/lens_blur_reference.py`, which writes `Fixtures/lens_blur/`. **B-59b, the build, is next.**
 
+B-60 / Rim Light, D-117, the seventh of the batch of ten: a light edge on the side of the drawing that faces a light. **B-60a is written on 2026-09-26**: `verification/B-60a proposal/`, D-117 in document 14, the rule in document 21, FX-RIM-001 to 028 in document 25 from `tools/rim_light_reference.py`, which writes `Fixtures/rim_light/`. **B-60b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
