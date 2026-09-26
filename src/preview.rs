@@ -213,7 +213,7 @@ pub fn preview_frame_srgb8(
 ) -> Result<(Vec<u8>, usize, usize), Diagnostic> {
     let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
     let plan = scale_plan(plan, quality);
-    let pixels = match gpu.draw(&plan) {
+    let pixels = match gpu.draw(&plan, cache) {
         Ok(pixels) => pixels,
         Err(why) => {
             log.record(frame, "GPU preview", why);

@@ -17,7 +17,7 @@ This check reads no licence and decides nothing about one. Document 10 reserves 
 | every crate's own licence text is archived in this repository, not merely named | every crate has an archived licence | every crate has an archived licence | pass |
 | every crate the build resolves is in the committed lock file at that version | the lock file covers the build | the lock file covers the build | pass |
 | every row names a licence | every row names a licence | every row names a licence | pass |
-| the record marks as direct exactly the dependencies the manifests ask for | bytemuck, exr, gif, image, png, pollster, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog, wgpu, windows | bytemuck, exr, gif, image, png, pollster, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog, wgpu, windows | pass |
+| the record marks as direct exactly the dependencies the manifests ask for | bytemuck, exr, gif, half, image, png, pollster, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog, wgpu, windows | bytemuck, exr, gif, half, image, png, pollster, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog, wgpu, windows | pass |
 | the crate declares the licence D-31 chose | MIT OR Apache-2.0 | MIT OR Apache-2.0 | pass |
 | both licence texts the declaration names are in the repository | both present | both present | pass |
 | the comparison can fail: a crate that is in neither file is reported as in neither | in the build: false, in the record: false | in the build: false, in the record: false | pass |

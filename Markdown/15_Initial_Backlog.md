@@ -390,6 +390,19 @@ B-44 / The GPU draws the viewer's picture: compositing only, behind a switch / *
 - **What the owner judges:** the table's pass column, the difference picture, and a playtest with the switch on GPU. Scrub and play both fixtures, and check the picture matches what the CPU shows.
 - **Next after B-44**, each a unit of its own with its own per-effect tolerance measured and shown in pictures before acceptance: Radial Blur, Bloom, Directional Blur, then Gaussian Blur and Glow on the GPU.
 
+B-44b / Sending drawings to the card, smaller and once / **BUILT on 2026-09-26 at the owner's word ("proceed with B-44b first; I want to setup this app to utilize everything my pc has to offer"); it is checked by B-44's playtest.** `verification/B-44b_gpu_uploads.md`. It changes no export, fixture or CPU picture, and stays within D-100's 1 level.
+- **What it builds:**
+  - Drawings go to the card as sixteen-bit floats, converted on every thread.
+  - The card keeps a drawing by the CPU cache's name for it, so the card no longer forgets it when the CPU cache does.
+  - The card may hold half its own memory, as Windows reports it, instead of 1 GiB.
+- **A fault in B-44 is fixed:** a full card could draw one layer with another's drawing. A check with a full card is added.
+- **Measured:**
+  - The layering is now about 3 times faster than the CPU's at Full, and faster at Draft too (`verification/B-44b_gpu_timing_table.md`).
+  - A second pass over a shot sends no drawing.
+- **Not built:**
+  - Draft shrinking drawings before sending them, which would change the picture.
+  - Eight-bit sending, which would need a second copy of every drawing kept.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.

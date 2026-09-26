@@ -1,6 +1,6 @@
 # B-44: the switch in the window
 
-Written by `cargo test -p anime_compositor_app`. The reference shot, through `serve_logged`, the function every frame on screen comes from. Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan.
+Written by `cargo test -p anime_compositor_app`. The reference shot, through `serve_logged`, the function every frame on screen comes from. Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan, 16.8 GB of its own memory.
 
 **9 of 9 checks pass.**
 

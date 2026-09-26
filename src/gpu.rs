@@ -15,19 +15,53 @@
 //! - Drawings stay on the card between frames, and only the eight-bit picture comes back. The
 //!   store keeps a `Weak` to each drawing it holds: while it does, no other drawing can be given
 //!   that drawing's address, so a drawing is never mistaken for a different one.
+//!
+//! B-44 measured the card slower than the CPU, because nearly all its time went on sending
+//! drawings. B-44b makes that trip smaller and rarer:
+//! - A drawing goes as sixteen-bit floats, half the CPU's bytes, converted on every thread
+//!   straight into the buffer the card copies from.
+//! - A drawing the CPU's cache holds is also known by that cache's name for it, so the card keeps
+//!   it after the CPU lets go, and the same file read again is not sent again.
+//! - The card may hold half its own memory, as Windows reports it, rather than D-40's gibibyte.
 
 use std::sync::{Arc, Weak};
 
+use half::slice::HalfFloatSliceExt as _;
+use rayon::prelude::*;
 use wgpu::util::DeviceExt as _;
 
+use crate::cache::{CelCache, Name};
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::BlendMode;
 use crate::perf::{self, Stage};
 use crate::render::{bounds, FramePlan};
 use crate::WorkingBuffer;
 
-/// What the card may hold in drawings before the least recently used go, like D-40's budget.
+/// What the card may hold in drawings when Windows cannot say how much memory it has: D-40's
+/// gibibyte, the CPU's own budget.
 pub const DEFAULT_BUDGET_BYTES: usize = 1024 * 1024 * 1024;
+
+/// A drawing on the card costs eight bytes a pixel: four sixteen-bit floats.
+const BYTES_PER_PIXEL: usize = 8;
+
+/// The card's own memory in bytes, found by its PCI vendor and device numbers, which Direct3D 12
+/// and Vulkan report alike.
+#[cfg(windows)]
+fn card_memory(vendor: u32, device: u32) -> Option<u64> {
+    use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1};
+    // SAFETY: plain COM calls with no pointers passed in; each result is checked.
+    let factory: IDXGIFactory1 = unsafe { CreateDXGIFactory1() }.ok()?;
+    (0..)
+        .map_while(|i| unsafe { factory.EnumAdapters1(i) }.ok())
+        .filter_map(|adapter| unsafe { adapter.GetDesc1() }.ok())
+        .find(|d| d.VendorId == vendor && d.DeviceId == device)
+        .map(|d| d.DedicatedVideoMemory as u64)
+}
+
+#[cfg(not(windows))]
+fn card_memory(_: u32, _: u32) -> Option<u64> {
+    None
+}
 
 const SHADER: &str = r#"
 struct Layer {
@@ -160,6 +194,8 @@ fn encode(@builtin(global_invocation_id) id: vec3<u32>) {
 /// One drawing on the card.
 struct Stored {
     held: Weak<WorkingBuffer>,
+    /// The CPU cache's name for it, which outlives `held` (B-44b).
+    name: Option<Name>,
     view: wgpu::TextureView,
     bytes: usize,
     /// The frame that last drew with it.
@@ -192,6 +228,8 @@ pub struct Gpu {
     target: Option<Target>,
     /// Bytes of drawings the card may hold; public so the B-44 test can squeeze it.
     pub budget: usize,
+    /// Drawings sent to the card since it was opened.
+    sent: u64,
 }
 
 fn entry(binding: u32, ty: wgpu::BindingType) -> wgpu::BindGroupLayoutEntry {
@@ -304,9 +342,15 @@ impl Gpu {
                 view_formats: &[],
             })
             .create_view(&Default::default());
+        let memory = card_memory(info.vendor, info.device);
         let about = format!(
-            "{} ({:?}), driver {} {}, {:?}",
-            info.name, info.device_type, info.driver, info.driver_info, info.backend
+            "{} ({:?}), driver {} {}, {:?}, {}",
+            info.name,
+            info.device_type,
+            info.driver,
+            info.driver_info,
+            info.backend,
+            memory.map_or("its memory not reported".into(), |m| format!("{:.1} GB of its own memory", m as f64 / 1e9))
         );
         Ok(Gpu {
             device,
@@ -321,8 +365,15 @@ impl Gpu {
             store: Vec::new(),
             frame: 0,
             target: None,
-            budget: DEFAULT_BUDGET_BYTES,
+            // Half, so the frame's own buffers, the window and every other program keep room.
+            budget: memory.map_or(DEFAULT_BUDGET_BYTES, |m| (m / 2) as usize),
+            sent: 0,
         })
+    }
+
+    /// How many drawings have been sent to the card since it was opened.
+    pub fn sent(&self) -> u64 {
+        self.sent
     }
 
     /// The card, its driver and the backend, for tables and the switch.
@@ -335,16 +386,24 @@ impl Gpu {
         self.store.clear();
     }
 
-    /// Where `source` is in the store, sending it first if it is not there.
-    fn resident(&mut self, source: &Arc<WorkingBuffer>) -> usize {
-        if let Some(i) = self.store.iter().position(|s| s.held.as_ptr() == Arc::as_ptr(source)) {
-            self.store[i].used = self.frame;
-            return i;
+    /// `source` on the card, sending it first if it is not there. The view itself, not a place
+    /// in the store, since sending one drawing can evict another this frame has not yet drawn.
+    fn resident(&mut self, uploads: &mut wgpu::CommandEncoder, source: &Arc<WorkingBuffer>, name: Option<Name>) -> wgpu::TextureView {
+        // A drawing the CPU still holds is found by its address; one it has let go of, by the
+        // CPU cache's name for it.
+        let found = self.store.iter_mut().find(|s| {
+            (s.held.strong_count() > 0 && s.held.as_ptr() == Arc::as_ptr(source))
+                || (name.is_some() && s.name == name)
+        });
+        if let Some(s) = found {
+            s.held = Arc::downgrade(source);
+            s.used = self.frame;
+            return s.view.clone();
         }
-        // A drawing nothing else holds can never be asked for again.
-        self.store.retain(|s| s.held.strong_count() > 0);
+        // A drawing nothing holds and nothing names can never be asked for again.
+        self.store.retain(|s| s.name.is_some() || s.held.strong_count() > 0);
         let (width, height) = (source.width(), source.height());
-        let bytes = width * height * 16;
+        let bytes = width * height * BYTES_PER_PIXEL;
         // Least recently used first, never one this frame draws with. A frame that needs more
         // than the budget still gets every drawing it needs.
         while self.store.iter().map(|s| s.bytes).sum::<usize>() + bytes > self.budget {
@@ -356,28 +415,46 @@ impl Gpu {
             };
             self.store.swap_remove(oldest);
         }
-        let texture = self.device.create_texture_with_data(
-            &self.queue,
-            &wgpu::TextureDescriptor {
-                label: Some("B-44 drawing"),
-                size: wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba32Float,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-            wgpu::util::TextureDataOrder::LayerMajor,
-            bytemuck::cast_slice(source.data()),
-        );
-        self.store.push(Stored {
-            held: Arc::downgrade(source),
-            view: texture.create_view(&Default::default()),
-            bytes,
-            used: self.frame,
+        let size = wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 };
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("B-44 drawing"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba16Float,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
         });
-        self.store.len() - 1
+        // Every thread converts rows straight into memory the card copies from.
+        let row = (width * BYTES_PER_PIXEL).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize);
+        let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("B-44 sending"),
+            size: (row * height) as u64,
+            usage: wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: true,
+        });
+        {
+            let mut mapped = staging.slice(..).get_mapped_range_mut();
+            let halves: &mut [half::f16] = bytemuck::cast_slice_mut(&mut mapped);
+            halves
+                .par_chunks_mut(row / 2)
+                .zip(source.data().par_chunks(width * 4))
+                .for_each(|(to, from)| to[..width * 4].convert_from_f32_slice(from));
+        }
+        staging.unmap();
+        uploads.copy_buffer_to_texture(
+            wgpu::TexelCopyBufferInfo {
+                buffer: &staging,
+                layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(row as u32), rows_per_image: None },
+            },
+            texture.as_image_copy(),
+            size,
+        );
+        self.sent += 1;
+        let view = texture.create_view(&Default::default());
+        self.store.push(Stored { held: Arc::downgrade(source), name, view: view.clone(), bytes, used: self.frame });
+        view
     }
 
     fn target(&mut self, width: usize, height: usize) -> &Target {
@@ -418,7 +495,10 @@ impl Gpu {
             .layers
             .iter()
             .flat_map(|l| std::iter::once(&l.source).chain(l.matte.as_ref().map(|m| &m.source)))
-            .find(|s| s.width() > most || s.height() > most)
+            .find(|s| {
+                let sending = (s.width() * BYTES_PER_PIXEL).next_multiple_of(256) * s.height();
+                s.width() > most || s.height() > most || sending as u64 > self.limits.max_buffer_size
+            })
             .map(|s| format!("a drawing is {} by {}", s.width(), s.height()))
             .or_else(|| {
                 (frame_bytes > self.limits.max_storage_buffer_binding_size as u64
@@ -436,7 +516,8 @@ impl Gpu {
 
     /// The plan as eight-bit straight sRGB RGBA, the bytes `to_srgb8_straight` gives, or why the
     /// CPU must draw it instead.
-    pub fn draw(&mut self, plan: &FramePlan) -> Result<Vec<u8>, Diagnostic> {
+    /// `cache` names the drawings it holds, so the card can keep them after it lets go.
+    pub fn draw(&mut self, plan: &FramePlan, cache: &CelCache) -> Result<Vec<u8>, Diagnostic> {
         if let Some(refused) = self.refuse(plan) {
             return Err(refused);
         }
@@ -450,7 +531,8 @@ impl Gpu {
 
         // Each layer that can show anything: its drawing, its matte's, and its numbers, laid
         // out as the shader's `Layer`. The same skips as `render_tile`.
-        let mut layers: Vec<(usize, Option<usize>, [u32; 20], (u32, u32))> = Vec::new();
+        let mut layers: Vec<(wgpu::TextureView, Option<wgpu::TextureView>, [u32; 20], (u32, u32))> = Vec::new();
+        let mut uploads = self.device.create_command_encoder(&Default::default());
         perf::time(Stage::GpuUpload, || {
             for layer in &plan.layers {
                 let Some(inverse) = layer.transform.invert() else {
@@ -507,8 +589,8 @@ impl Gpu {
                     matte.is_some() as u32,
                     layer.opacity.to_bits(),
                 ];
-                let source = self.resident(&layer.source);
-                let matte = matte.map(|(m, _)| self.resident(&m.source));
+                let source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source));
+                let matte = matte.map(|(m, _)| self.resident(&mut uploads, &m.source, cache.name_of(&m.source)));
                 layers.push((source, matte, numbers, (x1 - x0, y1 - y0)));
             }
         });
@@ -544,12 +626,12 @@ impl Gpu {
                             },
                             wgpu::BindGroupEntry {
                                 binding: 1,
-                                resource: wgpu::BindingResource::TextureView(&self.store[*source].view),
+                                resource: wgpu::BindingResource::TextureView(source),
                             },
                             wgpu::BindGroupEntry {
                                 binding: 2,
                                 resource: wgpu::BindingResource::TextureView(
-                                    matte.map_or(&self.no_matte, |m| &self.store[m].view),
+                                    matte.as_ref().unwrap_or(&self.no_matte),
                                 ),
                             },
                             wgpu::BindGroupEntry { binding: 3, resource: target.sum.as_entire_binding() },
@@ -582,7 +664,8 @@ impl Gpu {
             }
             let size = (width * height * 4) as u64;
             encoder.copy_buffer_to_buffer(&target.bytes, 0, &target.readback, 0, size);
-            self.queue.submit([encoder.finish()]);
+            // The drawings arrive before the frame that draws with them: one queue, in order.
+            self.queue.submit([uploads.finish(), encoder.finish()]);
 
             let invalid = pollster::block_on(self.device.pop_error_scope());
             let memory = pollster::block_on(self.device.pop_error_scope());

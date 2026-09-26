@@ -1,5 +1,7 @@
 # B-44: the GPU draws the viewer's picture
 
+**B-44b, on 2026-09-26, changes the speed and fixes a fault described here: see `B-44b_gpu_uploads.md`.** The timing section below is B-44's own, kept as the before.
+
 Accepted with D-100 (a) on 2026-09-25 ("accept D-100 (a)") and built the same day at the owner's "proceed". **Exports, every fixture and Full-quality checking are unchanged and still drawn on the CPU, byte for byte.** Only the picture in the viewer can come from the graphics card, and only when you switch it on.
 
 ## What changed

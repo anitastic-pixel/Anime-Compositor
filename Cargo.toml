@@ -37,10 +37,14 @@ gif = "0.14.2"
 wgpu = { version = "26.0.1", default-features = false, features = ["std", "parking_lot", "wgsl", "dx12", "vulkan"] }
 pollster = "0.4.0"
 bytemuck = "1.25.2"
+# B-44b: drawings go to the card as sixteen-bit floats, half the bytes of the CPU's. Already in
+# the tree under `exr`; `bytemuck` lets its numbers be written straight into the card's buffer.
+half = { version = "2.7.1", features = ["bytemuck"] }
 
 # D-72 and D-30: MP4 goes out through the encoder Windows carries. Already in the tree under Tauri.
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.61.3", features = ["Win32_Media_MediaFoundation", "Win32_System_Com"] }
+# B-44b: `Win32_Graphics_Dxgi` asks Windows how much memory the graphics card has.
+windows = { version = "0.61.3", features = ["Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_Graphics_Dxgi"] }
 
 [dev-dependencies]
 # `tests/b11_dependency_record.rs` asks cargo what the build resolves and reads the answer.

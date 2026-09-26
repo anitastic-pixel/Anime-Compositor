@@ -139,7 +139,7 @@ impl Key {
 /// The cel half is the same [`Key`] the decoded cel is held under - path, length, modification
 /// time and interpretation - so a cel file that changes on disk invalidates the effect result
 /// computed from it by the same rule that invalidates the cel.
-#[derive(PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 struct EffectKey {
     cel: Key,
     /// Empty when the layer has no mask, and holding only the masks that could be drawn: one
@@ -150,6 +150,19 @@ struct EffectKey {
     /// its stack ran. Without it a stack with no distance in it and no mask - an exposure alone -
     /// would find the full-size result of the same cel at draft, a buffer four times too large.
     divisor: usize,
+}
+
+/// What a buffer this cache holds is, for a store that keeps its own copy after this cache lets
+/// go (B-44b: the graphics card's). It is the key the cache holds the buffer under, so the same
+/// file read again, or the same stack run again, has the same name and the card need not be sent
+/// it again. A buffer the cache does not hold - a cel a mask was drawn into - has none.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Name(Named);
+
+#[derive(Clone, PartialEq, Debug)]
+enum Named {
+    Cel(Key),
+    Effect(EffectKey),
 }
 
 /// What one evaluation of an effect stack produced, in full.
@@ -509,6 +522,18 @@ impl CelCache {
             self.held -= bytes_of(&evicted);
             self.evicted += 1;
         }
+    }
+
+    /// The name this cache holds `buffer` under, if it holds it (B-44b).
+    pub fn name_of(&self, buffer: &Arc<WorkingBuffer>) -> Option<Name> {
+        let cel = self.entries.iter().find(|(_, b)| Arc::ptr_eq(b, buffer));
+        if let Some((key, _)) = cel {
+            return Some(Name(Named::Cel(key.clone())));
+        }
+        self.effect_entries
+            .iter()
+            .find(|(_, r)| Arc::ptr_eq(&r.buffer, buffer))
+            .map(|(key, _)| Name(Named::Effect(key.clone())))
     }
 
     /// How many requests were answered from memory.

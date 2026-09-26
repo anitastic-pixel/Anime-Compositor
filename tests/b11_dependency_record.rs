@@ -375,7 +375,7 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
     direct.dedup();
     report.check(
         "the record marks as direct exactly the dependencies the manifests ask for",
-        "bytemuck, exr, gif, image, png, pollster, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog, wgpu, windows",
+        "bytemuck, exr, gif, half, image, png, pollster, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog, wgpu, windows",
         joined(&direct),
     );
 
