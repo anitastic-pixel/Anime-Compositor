@@ -55,9 +55,13 @@ MOST = 256
 
 # --- the rule -------------------------------------------------------------------------------
 
-def bilinear(layer, x, y):
+def bilinear(layer, x, y, edges="transparent"):
     """Document 21's sample from pixel centres, transparent outside the layer. A layer is its
-    pixels and the layer-space rectangle they cover, which an earlier effect may have grown."""
+    pixels and the layer-space rectangle they cover, which an earlier effect may have grown.
+    D-109: with edges "repeat", the point is first held inside that rectangle's pixel centres."""
+    if edges == "repeat":
+        x = min(max(x, layer["left"] + 0.5), layer["left"] + layer["w"] - 0.5)
+        y = min(max(y, layer["top"] + 0.5), layer["top"] + layer["h"] - 0.5)
     fx, fy = x - 0.5, y - 0.5
     x0, y0 = math.floor(fx), math.floor(fy)
     ux, uy = fx - x0, fy - y0
@@ -94,14 +98,14 @@ def samples(kind, amount, center, x, y):
     return out
 
 
-def blurred(layer, kind, amount, center, x, y):
+def blurred(layer, kind, amount, center, x, y, edges="transparent"):
     """The output at the pixel (x, y) of layer space: nothing outside the layer."""
     if not (0 <= x - layer["left"] < layer["w"] and 0 <= y - layer["top"] < layer["h"]):
         return [0.0] * 4
     at = samples(kind, amount, center, x, y)
     total = [0.0] * 4
     for sx, sy in at:
-        s = bilinear(layer, sx, sy)
+        s = bilinear(layer, sx, sy, edges)
         for i in range(4):
             total[i] += s[i]
     return [v / len(at) for v in total]

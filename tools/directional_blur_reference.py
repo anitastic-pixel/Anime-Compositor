@@ -63,8 +63,12 @@ def working(p):
     return [srgb_to_linear(p[c] / 255) * a for c in range(3)] + [a]
 
 
-def bilinear(layer, x, y):
-    """Document 21's sample from pixel centres, transparent outside the layer."""
+def bilinear(layer, x, y, edges="transparent"):
+    """Document 21's sample from pixel centres, transparent outside the layer. D-109: with
+    edges "repeat", the point is first held inside the rectangle of pixel centres, so the
+    pixels at the layer's edge carry on past it."""
+    if edges == "repeat":
+        x, y = min(max(x, 0.5), W - 0.5), min(max(y, 0.5), H - 0.5)
     fx, fy = x - 0.5, y - 0.5
     x0, y0 = math.floor(fx), math.floor(fy)
     ux, uy = fx - x0, fy - y0
@@ -93,7 +97,7 @@ def tent_integral(a, b):
     return up_to(b) - up_to(a)
 
 
-def line_mean(layer, u, weights, x, y):
+def line_mean(layer, u, weights, x, y, edges="transparent"):
     """D-98's reading along lines: the pixel (x, y)'s mix of the two lines round its centre,
     each line's value the weighted sum over its column samples, weights [(j, w_j)] summing
     to 1. Mostly down, the same with across and down exchanged."""
@@ -110,14 +114,17 @@ def line_mean(layer, u, weights, x, y):
             continue
         for j, wj in weights:
             px, py = x + j + 0.5, b + (x + j) * s
-            v = bilinear(layer, px, py) if across else bilinear(layer, py, px)
+            v = bilinear(layer, px, py, edges) if across else bilinear(layer, py, px, edges)
             for i in range(4):
                 out[i] += v[i] * wj * wb
     return out
 
 
-def blurred(layer, direction, length, x, y):
-    """The output at the pixel (x, y) of layer space, which may lie in the grown border."""
+def blurred(layer, direction, length, x, y, edges="transparent"):
+    """The output at the pixel (x, y) of layer space, which may lie in the grown border. D-109:
+    with edges "repeat" the layer does not grow, so there is nothing outside it."""
+    if edges == "repeat" and not (0 <= x < W and 0 <= y < H):
+        return [0.0] * 4
     if length == 0:
         return bilinear(layer, x + 0.5, y + 0.5)
     u = QUARTERS.get(direction % 360)
@@ -128,7 +135,7 @@ def blurred(layer, direction, length, x, y):
     h = max(abs(u[0]), abs(u[1])) * (length + d) / 2
     reach = math.ceil(h + 1)
     weights = [(j, tent_integral(j - h, j + h) / (2 * h)) for j in range(-reach, reach + 1)]
-    return line_mean(layer, u, [(j, w) for j, w in weights if w], x, y)
+    return line_mean(layer, u, [(j, w) for j, w in weights if w], x, y, edges)
 
 
 
