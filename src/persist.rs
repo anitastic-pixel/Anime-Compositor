@@ -1098,6 +1098,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("distance".into(), num(*distance));
             params.insert("softness".into(), num(*softness));
         }
+        Effect::LensBlur { radius, edges } => {
+            params.insert("radius".into(), num(*radius));
+            params.insert("edges".into(), J::from(edges.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2278,6 +2282,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::HUE_SATURATION,
                 crate::effects::GRADIENT,
                 crate::effects::DROP_SHADOW,
+                crate::effects::LENS_BLUR,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2403,6 +2408,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     direction: effect_number(params, "direction", &at)?,
                     distance: effect_number(params, "distance", &at)?,
                     softness: effect_number(params, "softness", &at)?,
+                }),
+                crate::effects::LENS_BLUR => Some(crate::effects::Effect::LensBlur {
+                    radius: effect_number(params, "radius", &at)?,
+                    edges: effect_word(params, "edges", &at)?,
                 }),
                 _ => None,
             };

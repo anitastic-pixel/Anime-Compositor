@@ -992,6 +992,7 @@
         <option value="core.hue_saturation">Hue/Saturation</option>
         <option value="core.gradient">Gradient</option>
         <option value="core.drop_shadow">Drop Shadow</option>
+        <option value="core.lens_blur">Lens Blur</option>
       </select>
     </div>
   </section>
@@ -6399,6 +6400,7 @@ const EFFECT_NAMES = {
   'core.hue_saturation': 'Hue/Saturation',
   'core.gradient': 'Gradient',
   'core.drop_shadow': 'Drop Shadow',
+  'core.lens_blur': 'Lens Blur',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6464,6 +6466,8 @@ const EFFECT_PARAMS = {
     ['direction', 'Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600'],
     ['distance', 'Distance', 1, 0.5, 'pixels, 0 to 1000'],
     ['softness', 'Softness', 1, 0.5, 'pixels, 0 to 500']],
+  // D-116.
+  'core.lens_blur': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 200']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6519,6 +6523,7 @@ const EFFECT_WORDS = {
   },
   // D-115.
   'core.drop_shadow': { colours: [['color', 'Shadow Colour']] },
+  'core.lens_blur': { choices: [EDGES] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

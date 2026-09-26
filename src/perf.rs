@@ -100,6 +100,8 @@ pub enum Stage {
     EffectGradient,
     /// D-115's drop shadow, whole-layer, per ADR-017.
     EffectDropShadow,
+    /// D-116's lens blur, whole-layer, per ADR-017.
+    EffectLensBlur,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -117,7 +119,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 34] = [
+    pub const ALL: [Stage; 35] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -145,6 +147,7 @@ impl Stage {
         Stage::EffectHueSaturation,
         Stage::EffectGradient,
         Stage::EffectDropShadow,
+        Stage::EffectLensBlur,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -184,6 +187,7 @@ impl Stage {
             Stage::EffectHueSaturation => "effect: hue/saturation",
             Stage::EffectGradient => "effect: gradient",
             Stage::EffectDropShadow => "effect: drop shadow",
+            Stage::EffectLensBlur => "effect: lens blur",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

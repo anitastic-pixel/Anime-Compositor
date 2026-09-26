@@ -307,6 +307,9 @@ pub enum Effect {
         distance: f64,
         softness: f64,
     },
+    /// D-116: `radius`, 0 to 200 pixels, and `edges`, "transparent" or "repeat", kept as
+    /// written so a wrong one is reported.
+    LensBlur { radius: f64, edges: String },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -331,6 +334,7 @@ pub const LEVELS: &str = "core.levels";
 pub const HUE_SATURATION: &str = "core.hue_saturation";
 pub const GRADIENT: &str = "core.gradient";
 pub const DROP_SHADOW: &str = "core.drop_shadow";
+pub const LENS_BLUR: &str = "core.lens_blur";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -475,6 +479,7 @@ impl Effect {
                 ("distance", vec![distance], 0.0, 1000.0),
                 ("softness", vec![softness], 0.0, 500.0),
             ],
+            Effect::LensBlur { radius, .. } => vec![("radius", vec![radius], 0.0, 200.0)],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -532,6 +537,7 @@ impl Effect {
                 *radius = scale(*radius);
                 *length = scale(*length);
             }
+            Effect::LensBlur { radius, .. } => *radius = scale(*radius),
             Effect::DropShadow {
                 distance, softness, ..
             } => {
@@ -563,6 +569,7 @@ impl Effect {
             Effect::HueSaturation { .. } => "Hue/Saturation",
             Effect::Gradient { .. } => "Gradient",
             Effect::DropShadow { .. } => "Drop Shadow",
+            Effect::LensBlur { .. } => "Lens Blur",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -587,6 +594,7 @@ impl Effect {
             Effect::HueSaturation { .. } => HUE_SATURATION,
             Effect::Gradient { .. } => GRADIENT,
             Effect::DropShadow { .. } => DROP_SHADOW,
+            Effect::LensBlur { .. } => LENS_BLUR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -620,6 +628,14 @@ impl Effect {
                 length,
                 ..
             } => crate::bloom::reach(*radius, crate::bloom::lines(streaks), *length),
+            // D-116: nothing past the edge pixels when they repeat, the radius rounded up if not.
+            Effect::LensBlur { radius, edges } => {
+                if edges == "repeat" {
+                    0
+                } else {
+                    radius.ceil() as usize
+                }
+            }
             // D-115: the shadow's move, rounded up, and its blur's reach.
             Effect::DropShadow {
                 distance, softness, ..
@@ -803,6 +819,11 @@ impl Effect {
                 ..
             } => gradient_fault(shape, start_color, end_color, blend),
             Effect::DropShadow { color, .. } => hex_fault("Drop Shadow", "colour", color),
+            Effect::LensBlur { edges, .. } if !["transparent", "repeat"].contains(&edges.as_str()) => {
+                Some(format!(
+                    "Lens Blur's edges are \"transparent\" or \"repeat\", and this is \"{edges}\"."
+                ))
+            }
             _ => None,
         };
         own.or_else(|| {
@@ -1218,6 +1239,13 @@ pub fn apply_stack(
                     crate::layer_fx::drop_shadow(
                         source, encoded(color), *opacity, *direction, *distance, *softness,
                     )
+                });
+                ox += r;
+                oy += r;
+            }
+            Effect::LensBlur { radius, edges } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectLensBlur, || {
+                    crate::layer_fx::lens_blur(source, *radius, edges == "repeat")
                 });
                 ox += r;
                 oy += r;

@@ -195,6 +195,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 softness: 6.0,
             },
         ),
+        (
+            "Lens Blur, radius 10",
+            Effect::LensBlur {
+                radius: 10.0,
+                edges: "transparent".into(),
+            },
+        ),
     ]
 }
 
