@@ -227,6 +227,30 @@ fn b19c_fxkey() {
         },
         same_json(&written, &serde_json::from_str::<J>(&text).unwrap()),
     );
+    // P-17: exposure has no radius; keys on one used to be written back inside themselves.
+    let text = fs::read_to_string(root().join("fx_fxk_001.json")).unwrap().replacen(
+        "\"parameters\": {",
+        "\"parameters\": {\"radius\": {\"base\": 5, \"keyframes\": [{\"frame\": 0, \"value\": 1, \
+         \"interp\": \"linear\"}, {\"frame\": 4, \"value\": 9, \"interp\": \"linear\"}]}, ",
+        1,
+    );
+    let loaded = persist::load_str(&text).expect("FX-FXK-001 with a keyed radius opens");
+    let saved = persist::to_json(loaded.document.project(), &loaded.preserved);
+    let same = same_json(
+        &serde_json::from_str::<J>(&saved).unwrap(),
+        &serde_json::from_str::<J>(&text).unwrap(),
+    );
+    let reopens = persist::load_str(&saved).is_ok();
+    t.row(
+        "FX-FXK-001 with keys on a radius, which exposure does not have, saves them as written \
+         and opens again",
+        &format!(
+            "{}, {}",
+            if same { "the same" } else { "differs" },
+            if reopens { "opens" } else { "refused" }
+        ),
+        same && reopens,
+    );
     for (what, from, to) in [
         (
             "path handles on a setting's key",

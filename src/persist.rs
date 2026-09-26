@@ -2230,6 +2230,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 }),
                 _ => None,
             };
+            // P-17: keys on a setting this effect does not have are not its keys. The record
+            // stays in the file exactly as written, as any setting it does not have does;
+            // taken as keys, saving wrote it back inside itself and the file would not reopen.
+            let mut tracks = tracks;
+            if let Some(e) = &parsed {
+                tracks.retain(|name, _| e.arity(name).is_some());
+            }
             let effect_value = match parsed {
                 Some(e) => {
                     // Document 28: a parameter outside its contract is reported, and the record

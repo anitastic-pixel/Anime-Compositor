@@ -45,6 +45,7 @@ D-68, accepted by the owner on 2026-09-18. Every expected pixel is `Fixtures/fxk
 | fx_fxk_008.json opened and saved holds what it held, keys and eases included | the same | yes |
 | fx_fxk_009.json opened and saved holds what it held, keys and eases included | the same | yes |
 | a project made before D-68 saves with every setting still a plain number | the same | yes |
+| FX-FXK-001 with keys on a radius, which exposure does not have, saves them as written and opens again | the same, opens | yes |
 | FX-FXK-001 with path handles on a setting's key is refused | Some("PROJECT_SCHEMA_INVALID") | yes |
 | FX-FXK-001 with two keys on one frame is refused | Some("PROJECT_SCHEMA_INVALID") | yes |
 
@@ -71,4 +72,4 @@ D-68, accepted by the owner on 2026-09-18. Every expected pixel is `Fixtures/fxk
 
 ## Result
 
-47 of 47 checks pass.
+48 of 48 checks pass.

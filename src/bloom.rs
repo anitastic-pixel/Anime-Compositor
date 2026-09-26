@@ -73,13 +73,17 @@ pub(crate) fn bloom(
         let mut b = light.clone();
         let r = blur(&mut b, radius / 3.0 * s);
         let off = grow - r;
-        let hd = halo.data_mut();
-        for (y, row) in b.data().chunks_exact(b.width() * 4).enumerate() {
-            let at = ((y + off) * gw + off) * 4;
-            for (d, v) in hd[at..at + row.len()].iter_mut().zip(row) {
-                *d += v * 0.25;
-            }
-        }
+        let bw = b.width() * 4;
+        // P-17: row by row in parallel; each pixel still adds the four in the same order.
+        halo.data_mut()
+            .par_chunks_exact_mut(gw * 4)
+            .skip(off)
+            .zip(b.data().par_chunks_exact(bw))
+            .for_each(|(hrow, row)| {
+                for (d, v) in hrow[off * 4..off * 4 + bw].iter_mut().zip(row) {
+                    *d += v * 0.25;
+                }
+            });
     }
 
     // (3) The streaks: each line's tent of samples, m - |k - m| for k = 0 to 2m, and every
@@ -103,26 +107,39 @@ pub(crate) fn bloom(
     let k = intensity as f32;
     let o = source.data();
     let (halo, light) = (&halo, &light);
+    let spans = if steps.is_empty() {
+        Vec::new()
+    } else {
+        crate::blurs::spans(light)
+    };
     let mut out = WorkingBuffer::transparent(gw, h + 2 * grow);
-    // ponytail: every pixel of the grown layer takes each line's 2m + 1 bilinear samples, ~1e9
-    // for a 1080p star at length 60; skipping rows and columns no light reaches is the upgrade
-    // if P-17 finds it matters.
+    // P-17: the streaks a step at a time along the whole row, and only where light is; each
+    // pixel still adds the same samples in the same order, so no bit moves. A tent's two end
+    // samples weigh nothing and add exactly nothing, so they are left out too.
+    // ponytail: still each line's 2m + 1 samples a pixel where light reaches, ~0.5 s for a
+    // fully lit 1080p star at length 60; a running sum along each line is the upgrade.
     out.data_mut()
         .par_chunks_exact_mut(gw * 4)
         .enumerate()
         .for_each(|(y, row)| {
+            let cy = y as f64 - grow as f64 + 0.5;
+            let mut sums = vec![[0.0f64; 4]; if steps.is_empty() { 0 } else { gw }];
+            for &(dx, dy, wt) in &steps {
+                if wt == 0.0 {
+                    continue;
+                }
+                for x in crate::blurs::reached(&spans, cy + dy, dx, grow, gw) {
+                    let cx = x as f64 - grow as f64 + 0.5;
+                    let s = sample_bilinear(light, cx + dx, cy + dy);
+                    for c in 0..4 {
+                        sums[x][c] += s[c] as f64 * wt;
+                    }
+                }
+            }
             for (x, px) in row.chunks_exact_mut(4).enumerate() {
                 let i = (y * gw + x) * 4;
                 let mut g = [0, 1, 2, 3].map(|c| halo.data()[i + c]);
-                if !steps.is_empty() {
-                    let (cx, cy) = (x as f64 - grow as f64 + 0.5, y as f64 - grow as f64 + 0.5);
-                    let mut sum = [0.0f64; 4];
-                    for &(dx, dy, wt) in &steps {
-                        let s = sample_bilinear(light, cx + dx, cy + dy);
-                        for c in 0..4 {
-                            sum[c] += s[c] as f64 * wt;
-                        }
-                    }
+                if let Some(sum) = sums.get(x) {
                     for c in 0..4 {
                         g[c] += (sum[c] / total) as f32;
                     }

@@ -108,7 +108,69 @@ fn cases() -> Vec<(&'static str, Effect)> {
         ("Glow 50", glow(50.0, "bright")),
         ("Glow 250", glow(250.0, "bright")),
         ("Glow 50, chosen colour", glow(50.0, "colors")),
+        // P-17: the batch of seven, D-91 to D-97.
+        (
+            "Line Recolour",
+            Effect::LineRecolor {
+                colors: vec!["#0f0c14".into()],
+                tolerance: 0.0,
+                new_color: "#ff0000".into(),
+            },
+        ),
+        ("Directional Blur 10", Effect::DirectionalBlur { direction: 30.0, length: 10.0 }),
+        ("Directional Blur 100", Effect::DirectionalBlur { direction: 30.0, length: 100.0 }),
+        (
+            "Select Colour",
+            Effect::SelectColor {
+                colors: vec!["#50238c".into()],
+                tolerance: 0.0,
+                keep: "chosen".into(),
+            },
+        ),
+        ("Line Width 3", line_width(3.0, "shape")),
+        ("Line Width 10", line_width(10.0, "shape")),
+        ("Line Width -3", line_width(-3.0, "shape")),
+        ("Line Width 3, chosen colour", line_width(3.0, "colors")),
+        ("Radial Blur spin 10", radial("spin", 10.0)),
+        ("Radial Blur zoom 20", radial("zoom", 20.0)),
+        ("Bloom 20", bloom("none")),
+        ("Bloom 20, star 60", bloom("star")),
+        ("Colour Key rgb", color_key("rgb")),
+        ("Colour Key hue", color_key("hue")),
     ]
+}
+
+fn line_width(width: f64, based_on: &str) -> Effect {
+    Effect::LineWidth {
+        width,
+        based_on: based_on.into(),
+        colors: vec!["#0f0c14".into()],
+        tolerance: 0.0,
+    }
+}
+
+fn radial(kind: &str, amount: f64) -> Effect {
+    Effect::RadialBlur { kind: kind.into(), amount, center: [50.0, 50.0] }
+}
+
+fn bloom(streaks: &str) -> Effect {
+    Effect::Bloom {
+        threshold: 80.0,
+        radius: 20.0,
+        intensity: 1.0,
+        streaks: streaks.into(),
+        length: 60.0,
+        angle: 0.0,
+    }
+}
+
+fn color_key(match_by: &str) -> Effect {
+    Effect::ColorKey {
+        colors: vec!["#3cb428".into()],
+        tolerance: 20.0,
+        softness: 20.0,
+        match_by: match_by.into(),
+    }
 }
 
 fn fingerprint(b: &WorkingBuffer) -> String {
