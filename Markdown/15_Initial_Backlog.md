@@ -485,7 +485,19 @@ B-50 / Gaussian Blur on the graphics card / **BUILT on 2026-09-26 at the owner's
   - At Full the reference shot with three Gaussian Blurs takes 28 ms a frame against the CPU's 59, both with D-40's 1 GiB. At Draft the two are about even, 16 to 17 ms (`verification/B-50_gpu_gaussian_timing_table.md`).
 - **Not built:**
   - A Gaussian Blur followed by another effect, or on anything but a drawn layer. These stay on the CPU.
-  - Glow on the card, which comes next.
+  - Glow on the card, built next as B-51.
+
+B-51 / Glow on the graphics card / **BUILT on 2026-09-26 at the owner's "proceed with gaussian blur and glow", with D-108 proposed.** `verification/B-51_gpu_glow.md`. It is the fifth and last of D-100's effects. It changes no export, fixture or CPU picture.
+- **What it builds:**
+  - With the card drawing, a drawn layer whose last effect is a Glow has that Glow done by the card. The card finds what glows as the CPU does, tints it, blurs it with the CPU's weights and order, and lays it on by Add or Screen, in the passes Bloom already uses. The effects before it still run on the CPU.
+  - A Glow at intensity 0, or with nothing that glows, changes nothing, so it is not sent to the card at all.
+  - A frame the card cannot draw is drawn by the CPU, Glow included, byte for byte as before.
+  - The CPU's Glow now reads its settings in the one place the card does too. Its pictures are unchanged: B-33's and B-47's tables come out the same.
+- **Measured:**
+  - 338 of 338 checks pass (`verification/B-51_gpu_glow_table.md`): FX-GLOW-001 to 033 at every frame, all the same bytes on both, and the reference shot with three Glows, at Full and Draft. The worst frame differs at 0.1% of pixels, by 1 level each.
+  - At Full the reference shot with three Glows takes 16 ms a frame against the CPU's 53, both with D-40's 1 GiB. At Draft the two are about even, 16 to 17 ms (`verification/B-51_gpu_glow_timing_table.md`).
+- **Not built:**
+  - A Glow followed by another effect, or on anything but a drawn layer. These stay on the CPU.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

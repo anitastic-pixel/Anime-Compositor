@@ -833,10 +833,11 @@ pub fn apply_stack(
                 tint,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectGlow, || {
-                    crate::glow::glow(
-                        source, based_on, *threshold, colors, *tolerance, *radius, *intensity,
+                    let g = crate::glow::settings(
+                        based_on, *threshold, colors, *tolerance, *radius, *intensity,
                         operation, tint,
-                    )
+                    );
+                    crate::glow::glow(source, &g)
                 });
                 ox += r;
                 oy += r;

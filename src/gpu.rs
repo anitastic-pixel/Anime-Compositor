@@ -40,7 +40,7 @@ use crate::cache::{CelCache, Name};
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::BlendMode;
 use crate::perf::{self, Stage};
-use crate::render::{bounds, Bloom, Directional, FramePlan, Gaussian, OnCard, Radial};
+use crate::render::{bounds, Bloom, Directional, FramePlan, Gaussian, Glow, OnCard, Radial};
 use crate::WorkingBuffer;
 
 /// What the card may hold in drawings when Windows cannot say how much memory it has: D-40's
@@ -263,6 +263,10 @@ struct Params {
     axis: u32,
     reach: u32,
     ends: u32,
+    tolerance: u32,
+    tinted: u32,
+    screen: u32,
+    spare: u32,
 }
 
 @group(0) @binding(0) var<uniform> P: Params;
@@ -293,6 +297,9 @@ fn at(p: vec2<i32>) -> vec4<f32> {
 }
 
 // bloom::bright: the pixel where its largest 8-bit channel reaches `level`, else nothing.
+// B-51, glow::glows: or where each 8-bit channel is within `tolerance` of one of the `count`
+// colours in `weights`, and with `tinted` the light is the tint after them at the pixel's
+// covering.
 @compute @workgroup_size(16, 16)
 fn bright(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -303,8 +310,16 @@ fn bright(@builtin(global_invocation_id) id: vec3<u32>) {
     var light = vec4(0.0);
     if p.w > 0.0 {
         let c = p.xyz / p.w;
-        if max(level(srgb(c.x)), max(level(srgb(c.y)), level(srgb(c.z)))) >= P.level {
-            light = p;
+        let q = vec3<i32>(vec3(level(srgb(c.x)), level(srgb(c.y)), level(srgb(c.z))));
+        var lit = max(q.x, max(q.y, q.z)) >= i32(P.level);
+        for (var t = 0u; t < P.count; t++) {
+            let v = vec3<i32>(vec3(weights[3u * t], weights[3u * t + 1u], weights[3u * t + 2u]));
+            lit = lit || all(abs(q - v) <= vec3(i32(P.tolerance)));
+        }
+        if lit {
+            let n = 3u * P.count;
+            let tint = vec4(vec3(weights[n], weights[n + 1u], weights[n + 2u]) * p.w, p.w);
+            light = select(p, tint, P.tinted == 1u);
         }
     }
     textureStore(output, id.xy, light);
@@ -448,6 +463,7 @@ fn lay(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // bloom::bloom's last step: the halo times the intensity, on the drawing, grown by `g`.
+// B-51: with `screen`, glow::glow's screen instead.
 @compute @workgroup_size(16, 16)
 fn combine(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -456,6 +472,11 @@ fn combine(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let p = at(vec2<i32>(id.xy) - vec2(P.g));
     let h = halo[id.y * size.x + id.x];
+    if P.screen == 1u {
+        let v = clamp(h * P.weight, vec4(0.0), vec4(1.0));
+        textureStore(output, id.xy, p + v - p * v);
+        return;
+    }
     textureStore(output, id.xy, vec4(p.xyz + h.xyz * P.weight, min(p.w + h.w * P.weight, 1.0)));
 }
 "#;
@@ -479,6 +500,10 @@ struct Params {
     axis: u32,
     reach: u32,
     ends: u32,
+    tolerance: u32,
+    tinted: u32,
+    screen: u32,
+    spare: u32,
 }
 
 /// A compute pass and the bindings it takes.
@@ -791,7 +816,7 @@ impl Gpu {
                 (pipeline_in(&module, &layout, entry_point), layout)
             };
             BloomPasses {
-                bright: pass("bright", &[0, 1, 2]),
+                bright: pass("bright", &[0, 1, 2, 4]),
                 gauss: pass("gauss", &[0, 1, 2, 4]),
                 add: pass("add", &[0, 1, 3]),
                 streak: pass("streak", &[0, 1, 2, 4]),
@@ -975,7 +1000,7 @@ impl Gpu {
         view
     }
 
-    /// B-46, B-47, B-49, B-50: `effect` run on `source`, which [`Gpu::resident`] has just put on the card as
+    /// B-46, B-47, B-49, B-50, B-51: `effect` run on `source`, which [`Gpu::resident`] has just put on the card as
     /// `still`. A result already made of it with the same settings is reused; otherwise what to
     /// dispatch is added to `steps`, to run before the layers.
     fn applied(&mut self, steps: &mut Vec<Step>, source: &Arc<WorkingBuffer>, still: &wgpu::TextureView, effect: OnCard) -> wgpu::TextureView {
@@ -991,6 +1016,7 @@ impl Gpu {
             OnCard::Bloom(b) => self.bloom(steps, still, size, b),
             OnCard::Directional(d) => self.directional(steps, still, size, d),
             OnCard::Gaussian(g) => self.gaussian(steps, still, size, g),
+            OnCard::Glow(g) => self.glow(steps, still, size, g),
         };
         if let Some(i) = stored {
             let s = &mut self.store[i];
@@ -1089,9 +1115,16 @@ impl Gpu {
         let grow = crate::bloom::reach(b.radius, b.lines, b.length);
         let (gw, gh) = (w + 2 * grow, h + 2 * grow);
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
+        // The bright pass reads colours and the streak pass end taps, which a Bloom has none
+        // of; a buffer cannot be empty.
+        let none = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("B-47 none"),
+            contents: bytemuck::cast_slice(&[0.0f32; 3]),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
         let light = self.scratch("B-47 light", w, h);
         let p = Params { level: crate::bloom::bright_level(b.threshold), ..Default::default() };
-        self.step(steps, &passes.bright, p, still, Some(&light), None, None, tiles(w, h));
+        self.step(steps, &passes.bright, p, still, Some(&light), None, Some(&none), tiles(w, h));
         // Made empty: wgpu clears every buffer it makes.
         let halo = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("B-47 halo"),
@@ -1121,12 +1154,6 @@ impl Gpu {
             self.step(steps, &passes.add, placed, &tall, None, Some(&halo), None, tiles(gw, gh));
         }
         let share = 1.0 / b.lines as f32;
-        // The streak pass reads end taps, which a Bloom has none of; a buffer cannot be empty.
-        let none = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("B-47 no ends"),
-            contents: bytemuck::cast_slice(&[0.0f32; 2]),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
         for j in 0..b.lines {
             let u = crate::blurs::along(b.angle + j as f64 * 180.0 / b.lines as f64);
             if b.length == 0.0 {
@@ -1219,6 +1246,61 @@ impl Gpu {
         (tall, (w + 2 * r, h + 2 * r))
     }
 
+    /// B-51: `glow::glow` of `still`, `width` by `height`: the light in Bloom's bright pass, blurred
+    /// in its gauss pass, and laid on the drawing by its combine pass, into a texture grown by the
+    /// blur's radius, which is returned with its size.
+    fn glow(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), g: Glow) -> (wgpu::TextureView, (usize, usize)) {
+        let passes = self.bloom.as_ref().expect("a Glow is refused without the passes");
+        let sigma = g.radius / 3.0;
+        let r = crate::effects::kernel_radius(sigma);
+        let (gw, gh) = (w + 2 * r, h + 2 * r);
+        let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
+        let init = |label, contents: &[f32]| {
+            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(label),
+                contents: bytemuck::cast_slice(contents),
+                usage: wgpu::BufferUsages::STORAGE,
+            })
+        };
+        // The colours, then the tint in linear light, as the bright pass reads them.
+        let mut colours: Vec<f32> = g.targets[..g.count].iter().flatten().map(|&v| v as f32).collect();
+        colours.extend(g.tint.map_or([0.0; 3], |t| t.map(|v| crate::color::srgb_to_linear(v as f32 / 255.0))));
+        let light = self.scratch("B-51 light", w, h);
+        let p = Params {
+            // 256 lets nothing through: a Glow on chosen colours has no brightness test.
+            level: if g.bright { crate::bloom::bright_level(g.threshold) } else { 256 },
+            count: if g.bright { 0 } else { g.count as u32 },
+            // The levels are whole numbers, so within a tolerance is within its whole part.
+            tolerance: g.tolerance as u32,
+            tinted: g.tint.is_some() as u32,
+            ..Default::default()
+        };
+        self.step(steps, &passes.bright, p, still, Some(&light), None, Some(&init("B-51 colours", &colours)), tiles(w, h));
+        // Made empty: wgpu clears every buffer it makes.
+        let halo = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("B-51 halo"),
+            size: (gw * gh * 16) as u64,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let add = Params { width: gw as u32, height: gh as u32, weight: 1.0, ..Default::default() };
+        if r == 0 {
+            self.step(steps, &passes.add, add, &light, None, Some(&halo), None, tiles(gw, gh));
+        } else {
+            let weights = init("B-51 weights", &crate::effects::gaussian_weights(sigma));
+            let (wide, tall) = (self.scratch("B-51 wide", gw, h), self.scratch("B-51 tall", gw, gh));
+            let across = Params { count: r as u32, axis: 0, ..Default::default() };
+            self.step(steps, &passes.gauss, across, &light, Some(&wide), None, Some(&weights), tiles(gw, h));
+            let down = Params { axis: 1, ..across };
+            self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(&weights), tiles(gw, gh));
+            self.step(steps, &passes.add, add, &tall, None, Some(&halo), None, tiles(gw, gh));
+        }
+        let out = self.scratch("B-51 glow", gw, gh);
+        let p = Params { g: r as i32, weight: g.intensity as f32, screen: g.screen as u32, ..Default::default() };
+        self.step(steps, &passes.combine, p, still, Some(&out), Some(&halo), None, tiles(gw, gh));
+        (out, (gw, gh))
+    }
+
     fn target(&mut self, width: usize, height: usize) -> &Target {
         if self.target.as_ref().is_none_or(|t| (t.width, t.height) != (width, height)) {
             let n = (width * height) as u64;
@@ -1253,13 +1335,14 @@ impl Gpu {
         }
         // B-47: a Bloom needs double precision, and room for its grown drawing, its halo and
         // its lines, which are never more than the grown width and height together. B-49: so
-        // does a Directional Blur, which has no halo, and (B-50) a Gaussian Blur, whose pass is
-        // in the same module.
+        // does a Directional Blur, which has no halo, (B-50) a Gaussian Blur, whose pass is
+        // in the same module, and (B-51) a Glow, which has a halo.
         for l in &plan.layers {
             let (name, grow, halo) = match l.on_card {
                 Some(OnCard::Bloom(b)) => ("a Bloom", crate::bloom::reach(b.radius, b.lines, b.length), true),
                 Some(OnCard::Directional(d)) => ("a Directional Blur", (d.length / 2.0).ceil() as usize, false),
                 Some(OnCard::Gaussian(g)) => ("a Gaussian Blur", crate::effects::kernel_radius(g.sigma), false),
+                Some(OnCard::Glow(g)) => ("a Glow", crate::effects::kernel_radius(g.radius / 3.0), true),
                 _ => continue,
             };
             if self.bloom.is_none() {
@@ -1397,7 +1480,7 @@ impl Gpu {
                     matte.is_some() as u32,
                     layer.opacity.to_bits(),
                 ];
-                let wide = matches!(layer.on_card, Some(OnCard::Bloom(_)));
+                let wide = matches!(layer.on_card, Some(OnCard::Bloom(_) | OnCard::Glow(_)));
                 let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source), wide);
                 if let Some(effect) = layer.on_card {
                     source = self.applied(&mut steps, &layer.source, &source, effect);

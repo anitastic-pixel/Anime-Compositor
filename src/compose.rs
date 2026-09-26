@@ -1126,7 +1126,7 @@ fn resolve_rest(
         .collect();
 
     // B-46: a drawing whose last effect switched on is a Radial Blur, (B-47) a Bloom, (B-49) a
-    // Directional Blur or (B-50) a Gaussian Blur this build can draw has only the effects before it run here, when the plan
+    // Directional Blur, (B-50) a Gaussian Blur or (B-51) a Glow this build can draw has only the effects before it run here, when the plan
     // is for the card.
     // Those are what the effect cache is asked for, a stack of their own, so it never hands one
     // path's result to the other.
@@ -1139,6 +1139,7 @@ fn resolve_rest(
                     | crate::effects::Effect::Bloom { .. }
                     | crate::effects::Effect::DirectionalBlur { .. }
                     | crate::effects::Effect::GaussianBlur { .. }
+                    | crate::effects::Effect::Glow { .. }
             )
             && effects[i].effect.is_valid()
     });
@@ -1268,7 +1269,18 @@ fn resolve_rest(
                     render::OnCard::Gaussian(render::Gaussian { sigma: sigma_px })
                 })
             }
-            _ => unreachable!("chosen above for being a Radial Blur, a Bloom, a Directional Blur or a Gaussian Blur"),
+            // B-51: as a Bloom, a Glow with nothing that glows changes nothing and is not left.
+            crate::effects::Effect::Glow { based_on, threshold, colors, tolerance, radius, intensity, operation, tint } => {
+                use rayon::prelude::*;
+                let g = crate::glow::settings(&based_on, threshold, &colors, tolerance, radius, intensity, &operation, &tint);
+                let lit = intensity != 0.0 && source.data().par_chunks_exact(4).any(|px| crate::glow::glows(px, &g));
+                lit.then(|| {
+                    let grow = crate::effects::kernel_radius(radius / 3.0);
+                    offset = (offset.0 + grow, offset.1 + grow);
+                    render::OnCard::Glow(g)
+                })
+            }
+            _ => unreachable!("chosen above for being a Radial Blur, a Bloom, a Directional Blur, a Gaussian Blur or a Glow"),
         }
     });
 
