@@ -1117,6 +1117,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("intensity".into(), num(*intensity));
             params.insert("blend".into(), J::from(blend.as_str()));
         }
+        Effect::Outline {
+            color,
+            width,
+            softness,
+            opacity,
+        } => {
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("width".into(), num(*width));
+            params.insert("softness".into(), num(*softness));
+            params.insert("opacity".into(), num(*opacity));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2299,6 +2310,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::DROP_SHADOW,
                 crate::effects::LENS_BLUR,
                 crate::effects::RIM_LIGHT,
+                crate::effects::OUTLINE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2436,6 +2448,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     softness: effect_number(params, "softness", &at)?,
                     intensity: effect_number(params, "intensity", &at)?,
                     blend: effect_word(params, "blend", &at)?,
+                }),
+                crate::effects::OUTLINE => Some(crate::effects::Effect::Outline {
+                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                    width: effect_number(params, "width", &at)?,
+                    softness: effect_number(params, "softness", &at)?,
+                    opacity: effect_number(params, "opacity", &at)?,
                 }),
                 _ => None,
             };

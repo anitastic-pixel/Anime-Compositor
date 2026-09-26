@@ -213,6 +213,15 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 blend: "normal".into(),
             },
         ),
+        (
+            "Outline, width 3, softness 2",
+            Effect::Outline {
+                color: "#ffffff".into(),
+                width: 3.0,
+                softness: 2.0,
+                opacity: 100.0,
+            },
+        ),
     ]
 }
 

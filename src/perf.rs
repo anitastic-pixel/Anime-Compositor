@@ -104,6 +104,8 @@ pub enum Stage {
     EffectLensBlur,
     /// D-117's rim light, whole-layer, per ADR-017.
     EffectRimLight,
+    /// D-118's outline, whole-layer, per ADR-017.
+    EffectOutline,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -121,7 +123,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 36] = [
+    pub const ALL: [Stage; 37] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -151,6 +153,7 @@ impl Stage {
         Stage::EffectDropShadow,
         Stage::EffectLensBlur,
         Stage::EffectRimLight,
+        Stage::EffectOutline,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -192,6 +195,7 @@ impl Stage {
             Stage::EffectDropShadow => "effect: drop shadow",
             Stage::EffectLensBlur => "effect: lens blur",
             Stage::EffectRimLight => "effect: rim light",
+            Stage::EffectOutline => "effect: outline",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

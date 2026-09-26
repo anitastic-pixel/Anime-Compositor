@@ -1,8 +1,8 @@
-//! D-115's drop shadow, D-116's lens blur and D-117's rim light: document 21's rules, on a
-//! layer's own pixels.
+//! D-115's drop shadow, D-116's lens blur, D-117's rim light and D-118's outline: document
+//! 21's rules, on a layer's own pixels.
 //!
-//! This program's own methods, modelled on After Effects' Drop Shadow and Camera Lens Blur and
-//! on rim lighting as compositors build it from a shifted matte; nothing is ported. Each
+//! This program's own methods, modelled on After Effects' Drop Shadow, Camera Lens Blur and
+//! Stroke and on rim lighting as compositors build it from a shifted matte; nothing is ported. Each
 //! `tools/<name>_reference.py` is the same rule worked a second way, and each
 //! `tests/b5x_<name>.rs` holds it to its numbers.
 
@@ -17,6 +17,25 @@ fn at(b: &WorkingBuffer, x: isize, y: isize) -> [f32; 4] {
         return [0.0; 4];
     }
     b.pixel(x as usize, y as usize)
+}
+
+/// Each row of the whole steps within `radius` of a pixel, its offset and half-width: the widest
+/// whole dx with dx^2 + dy^2 <= radius^2.
+fn disc_runs(radius: f64) -> Vec<(isize, isize)> {
+    let rr = radius * radius;
+    let r = radius.floor() as isize;
+    (-r..=r)
+        .map(|dy| {
+            let mut hw = (rr - (dy * dy) as f64).max(0.0).sqrt() as isize;
+            while ((hw + 1) * (hw + 1) + dy * dy) as f64 <= rr {
+                hw += 1;
+            }
+            while hw > 0 && (hw * hw + dy * dy) as f64 > rr {
+                hw -= 1;
+            }
+            (dy, hw)
+        })
+        .collect()
 }
 
 /// D-115: the drawing's own shape, blurred at sigma `softness` / 3, moved `distance` pixels in
@@ -73,21 +92,7 @@ pub(crate) fn drop_shadow(
 /// settings are already valid.
 pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool) -> usize {
     let g = if repeat { 0 } else { radius.ceil() as usize };
-    let rr = radius * radius;
-    let r = radius.floor() as isize;
-    // Each row of the disc, its offset and half-width: the widest whole dx with dx^2 + dy^2 <= rr.
-    let runs: Vec<(isize, isize)> = (-r..=r)
-        .map(|dy| {
-            let mut hw = (rr - (dy * dy) as f64).max(0.0).sqrt() as isize;
-            while ((hw + 1) * (hw + 1) + dy * dy) as f64 <= rr {
-                hw += 1;
-            }
-            while hw > 0 && (hw * hw + dy * dy) as f64 > rr {
-                hw -= 1;
-            }
-            (dy, hw)
-        })
-        .collect();
+    let runs = disc_runs(radius);
     let n = runs.iter().map(|&(_, hw)| 2 * hw + 1).sum::<isize>() as f64;
     let (w, h) = (source.width() as isize, source.height() as isize);
     let src = source.data();
@@ -190,4 +195,78 @@ pub(crate) fn rim_light(
                 px[j] = ((b + rim * (mix(b, c[j]) - b)) * a) as f32;
             }
         });
+}
+
+/// D-118: a band of `color` (encoded 0 to 1) round the drawing's shape, laid behind it at
+/// `opacity` per cent. The band at a pixel is the greatest covering within `width` of it, on
+/// whole steps, blurred at sigma `softness` / 3. The layer grows by `ceil(width)` and the blur's
+/// reach on every side, returned; width 0 changes nothing. The settings are already valid.
+pub(crate) fn outline(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    width: f64,
+    softness: f64,
+    opacity: f64,
+) -> usize {
+    if width == 0.0 {
+        return 0;
+    }
+    let n = width.ceil() as usize;
+    let (w, h) = (source.width(), source.height());
+    let (bw, bh) = (w + 2 * n, h + 2 * n);
+    let runs = disc_runs(width);
+    // `row[sy][bx]`, the greatest covering in row sy within k of column bx - n, widened one step
+    // of k at a time; each disc row of half-width k takes its maximum from it.
+    let alpha = |x: isize, y: usize| at(source, x, y as isize)[3];
+    let mut row: Vec<f32> = (0..h)
+        .flat_map(|sy| (0..bw).map(move |bx| (bx, sy)))
+        .map(|(bx, sy)| alpha(bx as isize - n as isize, sy))
+        .collect();
+    let mut band = vec![0.0f32; bw * bh];
+    let top = runs.iter().map(|&(_, hw)| hw).max().unwrap_or(0);
+    for k in 0..=top {
+        if k > 0 {
+            row.par_chunks_mut(bw).enumerate().for_each(|(sy, line)| {
+                for (bx, v) in line.iter_mut().enumerate() {
+                    let x = bx as isize - n as isize;
+                    *v = v.max(alpha(x - k, sy)).max(alpha(x + k, sy));
+                }
+            });
+        }
+        let rows = &row;
+        band.par_chunks_mut(bw).enumerate().for_each(|(by, line)| {
+            for &(dy, _) in runs.iter().filter(|&&(_, hw)| hw == k) {
+                let sy = by as isize - n as isize + dy;
+                if sy < 0 || sy >= h as isize {
+                    continue;
+                }
+                let from = &rows[sy as usize * bw..][..bw];
+                for (v, &u) in line.iter_mut().zip(from) {
+                    *v = v.max(u);
+                }
+            }
+        });
+    }
+    let mut ring = WorkingBuffer::transparent(bw, bh);
+    for (px, &a) in ring.data_mut().chunks_exact_mut(4).zip(&band) {
+        px[3] = a;
+    }
+    let g = n + blur(&mut ring, softness / 3.0);
+    let (k, c) = (opacity / 100.0, color.map(crate::grade::to_linear));
+    let ow = ring.width();
+    let drawing = &*source;
+    ring.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % ow) as isize - g as isize, (i / ow) as isize - g as isize);
+            let d = at(drawing, x, y);
+            let rest = px[3] as f64 * k * (1.0 - d[3] as f64);
+            for j in 0..3 {
+                px[j] = (d[j] as f64 + c[j] * rest) as f32;
+            }
+            px[3] = (d[3] as f64 + rest) as f32;
+        });
+    *source = ring;
+    g
 }

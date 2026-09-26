@@ -322,6 +322,14 @@ pub enum Effect {
         intensity: f64,
         blend: String,
     },
+    /// D-118: `color`, `#rrggbb`, kept as written so a wrong one is reported; `width`, 0 to 100
+    /// pixels; `softness`, 0 to 100 pixels; and `opacity`, 0 to 100.
+    Outline {
+        color: String,
+        width: f64,
+        softness: f64,
+        opacity: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -348,6 +356,7 @@ pub const GRADIENT: &str = "core.gradient";
 pub const DROP_SHADOW: &str = "core.drop_shadow";
 pub const LENS_BLUR: &str = "core.lens_blur";
 pub const RIM_LIGHT: &str = "core.rim_light";
+pub const OUTLINE: &str = "core.outline";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -505,6 +514,16 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 100.0),
                 ("intensity", vec![intensity], 0.0, 100.0),
             ],
+            Effect::Outline {
+                width,
+                softness,
+                opacity,
+                ..
+            } => vec![
+                ("width", vec![width], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -562,6 +581,12 @@ impl Effect {
                 *radius = scale(*radius);
                 *length = scale(*length);
             }
+            Effect::Outline {
+                width, softness, ..
+            } => {
+                *width = scale(*width);
+                *softness = scale(*softness);
+            }
             Effect::RimLight {
                 width, softness, ..
             } => {
@@ -602,6 +627,7 @@ impl Effect {
             Effect::DropShadow { .. } => "Drop Shadow",
             Effect::LensBlur { .. } => "Lens Blur",
             Effect::RimLight { .. } => "Rim Light",
+            Effect::Outline { .. } => "Outline",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -628,6 +654,7 @@ impl Effect {
             Effect::DropShadow { .. } => DROP_SHADOW,
             Effect::LensBlur { .. } => LENS_BLUR,
             Effect::RimLight { .. } => RIM_LIGHT,
+            Effect::Outline { .. } => OUTLINE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -661,6 +688,16 @@ impl Effect {
                 length,
                 ..
             } => crate::bloom::reach(*radius, crate::bloom::lines(streaks), *length),
+            // D-118: the width rounded up and the blur's reach, or nothing at width 0.
+            Effect::Outline {
+                width, softness, ..
+            } => {
+                if *width == 0.0 {
+                    0
+                } else {
+                    width.ceil() as usize + kernel_radius(*softness / 3.0)
+                }
+            }
             // D-116: nothing past the edge pixels when they repeat, the radius rounded up if not.
             Effect::LensBlur { radius, edges } => {
                 if edges == "repeat" {
@@ -866,6 +903,7 @@ impl Effect {
                 ))
             }
             Effect::RimLight { color, .. } => hex_fault("Rim Light", "colour", color),
+            Effect::Outline { color, .. } => hex_fault("Outline", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -1304,6 +1342,18 @@ pub fn apply_stack(
                     source, encoded(color), *direction, *width, *softness, *intensity, blend,
                 )
             }),
+            Effect::Outline {
+                color,
+                width,
+                softness,
+                opacity,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectOutline, || {
+                    crate::layer_fx::outline(source, encoded(color), *width, *softness, *opacity)
+                });
+                ox += r;
+                oy += r;
+            }
         }
     }
     (ox, oy)

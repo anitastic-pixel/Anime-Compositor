@@ -994,6 +994,7 @@
         <option value="core.drop_shadow">Drop Shadow</option>
         <option value="core.lens_blur">Lens Blur</option>
         <option value="core.rim_light">Rim Light</option>
+        <option value="core.outline">Outline</option>
       </select>
     </div>
   </section>
@@ -6403,6 +6404,7 @@ const EFFECT_NAMES = {
   'core.drop_shadow': 'Drop Shadow',
   'core.lens_blur': 'Lens Blur',
   'core.rim_light': 'Rim Light',
+  'core.outline': 'Outline',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6475,6 +6477,10 @@ const EFFECT_PARAMS = {
     ['width', 'Width', 1, 0.5, 'pixels, 0 to 100'],
     ['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100'],
     ['intensity', 'Intensity', 1, 0.5, '0 to 100']],
+  // D-118.
+  'core.outline': [['width', 'Width', 1, 0.5, 'pixels, 0 to 100'],
+    ['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100'],
+    ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6536,6 +6542,8 @@ const EFFECT_WORDS = {
     choices: [['blend', 'Blend', [['normal', 'Normal'], ['add', 'Add'], ['screen', 'Screen'], ['multiply', 'Multiply']]]],
     colours: [['color', 'Light Colour']],
   },
+  // D-118.
+  'core.outline': { colours: [['color', 'Outline Colour']] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();
