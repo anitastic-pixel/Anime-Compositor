@@ -85,11 +85,11 @@ The worst comparison is "the reference shot with a Directional Blur at 45 degree
 | fx_edges_008 frame 2, Full | 1 | 0 | 0 | none | PASS |
 | fx_edges_008 frame 3, Full | 1 | 0 | 0 | none | PASS |
 | fx_edges_008 frame 4, Full | 1 | 0 | 0 | none | PASS |
-| fx_edges_008 frame 0, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_008 frame 1, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_008 frame 2, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_008 frame 3, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_008 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_edges_008 frame 0, Draft | 1 | 1 | 1 | none | PASS |
+| fx_edges_008 frame 1, Draft | 1 | 1 | 1 | none | PASS |
+| fx_edges_008 frame 2, Draft | 1 | 1 | 1 | none | PASS |
+| fx_edges_008 frame 3, Draft | 1 | 1 | 1 | none | PASS |
+| fx_edges_008 frame 4, Draft | 1 | 1 | 1 | none | PASS |
 | fx_edges_009 frame 0, Full | 1 | 1 | 2 | none | PASS |
 | fx_edges_009 frame 1, Full | 1 | 1 | 2 | none | PASS |
 | fx_edges_009 frame 2, Full | 1 | 1 | 2 | none | PASS |
@@ -108,13 +108,13 @@ The worst comparison is "the reference shot with a Directional Blur at 45 degree
 | the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 239, Full | 1 | 1 | 21330 | none | PASS |
 | the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Draft | 1 | 1 | 1232 | none | PASS |
 | the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 239, Draft | 1 | 1 | 1204 | none | PASS |
-| the reference shot with a Radial Blur, zoom 20 about the middle, edges repeat, on the background frame 0, Full | 1 | 1 | 20671 | none | PASS |
-| the reference shot with a Radial Blur, zoom 20 about the middle, edges repeat, on the background frame 239, Full | 1 | 1 | 20335 | none | PASS |
-| the reference shot with a Radial Blur, zoom 20 about the middle, edges repeat, on the background frame 0, Draft | 1 | 1 | 1011 | none | PASS |
-| the reference shot with a Radial Blur, zoom 20 about the middle, edges repeat, on the background frame 239, Draft | 1 | 1 | 968 | none | PASS |
+| the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 0, Full | 1 | 1 | 16606 | none | PASS |
+| the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 239, Full | 1 | 1 | 16462 | none | PASS |
+| the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 0, Draft | 1 | 1 | 778 | none | PASS |
+| the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 239, Draft | 1 | 1 | 782 | none | PASS |
 | the reference shot with a Gaussian Blur of sigma 10, edges repeat, on the background frame 100, Full: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
 | the reference shot with a Gaussian Blur of sigma 10, edges repeat, on the background frame 100, Draft: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
 | the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 100, Full: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
 | the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 100, Draft: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
-| the reference shot with a Radial Blur, zoom 20 about the middle, edges repeat, on the background frame 100, Full: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
-| the reference shot with a Radial Blur, zoom 20 about the middle, edges repeat, on the background frame 100, Draft: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
+| the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 100, Full: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
+| the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 100, Draft: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |

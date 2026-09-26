@@ -288,7 +288,9 @@ pub(crate) fn radial_turns(spin: bool, amount: f64) -> Vec<Vec<(f64, f64)>> {
                         t.sin_cos()
                     } else {
                         (
-                            1.0 - amount / 200.0 + k as f64 * (amount / 100.0) / (n - 1) as f64,
+                            // D-110: from the centre's side out to the pixel, so a zoom smears
+                            // outward only.
+                            1.0 - amount / 100.0 + k as f64 * (amount / 100.0) / (n - 1) as f64,
                             0.0,
                         )
                     }

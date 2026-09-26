@@ -13,7 +13,7 @@ Built on 2026-09-26 against the B-52 entry in document 15. **Playtest passed on 
 ## What to check
 
 1. **The problem, as before.**
-   - Add a **Radial Blur** to the background layer. Set **Type** to **Zoom** and **Amount** to about 20.
+   - Add a **Radial Blur** to the background layer. Set **Type** to **Zoom** and **Amount** to about 20. (Since B-53 a zoom about a centre inside the picture no longer fades at its edges. Use **Spin**, as in step 3, to see the problem.)
    - Look at the edges of the frame: they fade to see-through.
    - The new **Edges** setting should read **Transparent**.
 2. **The fix.** Switch **Edges** to **Repeat Edge Pixels**. The edges should go solid right to the frame's border, and the middle of the picture should not change.

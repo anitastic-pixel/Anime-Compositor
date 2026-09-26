@@ -66,7 +66,9 @@ fn blurs() -> Vec<(&'static str, &'static str, serde_json::Value)> {
     vec![
         ("gaussian", "a Gaussian Blur of sigma 10", fx("core.gaussian_blur", json!({"sigma_px": 10.0}))),
         ("directional", "a Directional Blur at 45 degrees, 60 long", fx("core.directional_blur", json!({"direction": 45.0, "length": 60.0}))),
-        ("radial", "a Radial Blur, zoom 20 about the middle", fx("core.radial_blur", json!({"type": "zoom", "amount": 20.0, "center": [50.0, 50.0]}))),
+        // A spin: since D-110 a zoom about a centre inside the picture samples only inside it,
+        // so its edges no longer fade.
+        ("radial", "a Radial Blur, spin 30 about the middle", fx("core.radial_blur", json!({"type": "spin", "amount": 30.0, "center": [50.0, 50.0]}))),
     ]
 }
 

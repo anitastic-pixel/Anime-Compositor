@@ -20,7 +20,7 @@ D-109, proposed on 2026-09-26 and built at the owner's "proceed, add to other bl
 | FX-EDGES-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-EDGES-007 frame 0: Radial Blur, spin 30 about the middle, edges repeat, on the picture: every pixel still fully covered, the corners too. | largest difference 1.5e-7 | yes |
 | FX-EDGES-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-EDGES-008 frame 0: Radial Blur, zoom 40 about the top left corner, edges repeat: every pixel still fully covered. | largest difference 1.4e-7 | yes |
+| FX-EDGES-008 frame 0: Radial Blur, zoom 40 about the top left corner, edges repeat: every pixel still fully covered. | largest difference 1.1e-7 | yes |
 | FX-EDGES-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-EDGES-009 frame 0: A Directional Blur, direction 90 and length 4, edges transparent, then FX-EDGES-007's spin: the spin repeats the edge of its own input, the layer the Directional Blur grew two pixels on every side, whose outer columns have faded. | largest difference 1.4e-7 | yes |
 | FX-EDGES-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |

@@ -23,17 +23,19 @@ A new blur starts at **Transparent**, and every existing project opens and saves
 
 | Blur | Before (Transparent) | After (Repeat Edge Pixels) |
 |---|---|---|
-| Radial Blur, zoom 20 about the middle | `radial_transparent.png` | `radial_repeat.png` |
+| Radial Blur, spin 30 about the middle | `radial_transparent.png` | `radial_repeat.png` |
 | Blur (Gaussian), sigma 10 | `gaussian_transparent.png` | `gaussian_repeat.png` |
 | Directional Blur, 45 degrees, 60 long | `directional_transparent.png` | `directional_repeat.png` |
 
 **What you should see:** in each "before" picture, the checkerboard shows through a faded band around the border. In each "after" picture there is no checkerboard at all, and the picture runs solid to every edge. The middle of the picture is the same in both.
 
+The Radial Blur here is a spin since B-53. Under D-110 a zoom about a centre inside the picture no longer fades at its edges at all, so a zoom could no longer show the difference. The first pictures used a zoom of 20, which left 320,748 pixels see-through under D-95's rule.
+
 The count behind the pictures, from `verification/B-52_pictures_table.md` (3 of 3 pass):
 
 | Blur | See-through pixels, before | See-through pixels, after |
 |---|---:|---:|
-| Radial Blur | 320,748 | 0 |
+| Radial Blur | 413,548 | 0 |
 | Blur (Gaussian) | 147,228 | 0 |
 | Directional Blur | 120,384 | 0 |
 

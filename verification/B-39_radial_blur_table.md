@@ -8,17 +8,17 @@ D-95, accepted by the owner on 2026-09-25; FX-RADIAL-012's directional blur is r
 | --- | --- | --- |
 | FX-RADIAL-001 frame 0: Spin 30 about the middle: every edge smears round the centre, the further out the longer, and the middle of the block stays solid. | largest difference 2.1e-7 | yes |
 | FX-RADIAL-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RADIAL-002 frame 0: Zoom 30 about the middle: every edge smears along the line from the centre, the further out the longer. | largest difference 2.4e-7 | yes |
+| FX-RADIAL-002 frame 0: Zoom 30 about the middle: every edge smears outward, away from the centre, the further out the longer, and nothing smears inward. | largest difference 2.5e-7 | yes |
 | FX-RADIAL-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RADIAL-003 frame 0: Amount 0: the drawing, untouched. | largest difference 1.9e-7 | yes |
 | FX-RADIAL-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RADIAL-004 frame 0: Spin 30 about the top left corner, centre 0, 0: the smears are arcs about that corner, so the far corner smears most. | largest difference 1.7e-7 | yes |
 | FX-RADIAL-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RADIAL-005 frame 0: Zoom 30 about centre 25, 50, the point (4, 5): the block, right of it, smears left and right, and the line, left of it, the other way. | largest difference 2.5e-7 | yes |
+| FX-RADIAL-005 frame 0: Zoom 30 about centre 25, 50, the point (4, 5): everything smears away from it, the block, right of it, to the right, and the line, left of it, to the left, off the drawing, so columns 1 to 3, between them, stay empty. | largest difference 2.5e-7 | yes |
 | FX-RADIAL-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RADIAL-006 frame 0: Spin 100, the most: longer arcs than FX-RADIAL-001. | largest difference 2.5e-7 | yes |
 | FX-RADIAL-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RADIAL-007 frame 0: Zoom 100, the most: samples from half to one and a half times the distance from the centre. | largest difference 1.9e-7 | yes |
+| FX-RADIAL-007 frame 0: Zoom 100, the most: each pixel samples all the way from the centre out to itself. | largest difference 2.5e-7 | yes |
 | FX-RADIAL-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RADIAL-008 frame 0: Amount keyed from 0 at frame 0 to 40 at frame 4, spin, linear: frame 0 untouched, frame 2 spins 20, frame 4 spins 40. | largest difference 1.9e-7 | yes |
 | FX-RADIAL-008 frame 2: Amount keyed from 0 at frame 0 to 40 at frame 4, spin, linear: frame 0 untouched, frame 2 spins 20, frame 4 spins 40. | largest difference 2.5e-7 | yes |

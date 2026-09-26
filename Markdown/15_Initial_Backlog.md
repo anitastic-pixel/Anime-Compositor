@@ -507,10 +507,22 @@ B-52 / Repeat Edge Pixels for the three blurs / **BUILT on 2026-09-26 at the own
 - **Measured:**
   - 60 of 60 checks pass (`verification/B-52_edges_table.md`): FX-EDGES-001 to 012, within about 2e-7 of the reference, and the file, commands, reach and tiles.
   - 108 of 108 checks pass on the card (`verification/B-52_gpu_edges_table.md`), within D-103, D-106 and D-107's 1 level of 255.
-  - On the reference shot's background, the see-through pixels at frame 0 fall from 320,748 to 0 for Radial Blur, 147,228 to 0 for Blur and 120,384 to 0 for Directional Blur (`verification/B-52_pictures_table.md`, pictures in `verification/B-52 pictures/`).
+  - On the reference shot's background, the see-through pixels at frame 0 fall from 413,548 to 0 for Radial Blur (a spin of 30 since B-53; the first count, 320,748, was a zoom of 20 under D-95's rule), 147,228 to 0 for Blur and 120,384 to 0 for Directional Blur (`verification/B-52_pictures_table.md`, pictures in `verification/B-52 pictures/`).
 - **Not built:**
   - The switch on Bloom, Glow or Selective Colour Blur, which D-109 gives reasons to leave without it.
   - Edges that mirror or wrap, which After Effects does not offer on these blurs either.
+
+B-53 / Radial Blur's zoom smears outward only / **BUILT on 2026-09-26 at the owner's "improve the zoom/radial blur to behave like AE", with D-110 proposed.** The owner named the direction of the streaks as what differs. `verification/B-53_zoom.md`. The new values of FX-RADIAL-002, 005 and 007 and FX-EDGES-008 were committed before the code (cf7a2d9).
+- **What it builds:**
+  - A zoom now takes each pixel's samples only between the pixel and the centre, so everything streaks away from the centre and nothing toward it. Amount keeps its meaning. Spin is unchanged.
+  - The card does the same: it takes the same sample positions from the CPU.
+- **Measured:**
+  - FX-RADIAL-001 to 018 pass within about 2.5e-7 of the reference (`verification/B-39_radial_blur_table.md`), and FX-EDGES-001 to 012 within about 2e-7 (`verification/B-52_edges_table.md`).
+  - 188 of 188 checks pass on the card (`verification/B-46_gpu_radial_table.md`), within D-103's 1 level of 255, and 108 of 108 in `verification/B-52_gpu_edges_table.md`.
+  - Every core and app test passes.
+  - Pictures: `verification/B-53 pictures/`, the reference shot as it is, and with a zoom of 30 before and after.
+- **Not built:**
+  - Matching After Effects pixel for pixel. Adobe publishes no formula, so D-110 matches it in direction only.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
