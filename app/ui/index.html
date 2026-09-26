@@ -991,6 +991,7 @@
         <option value="core.levels">Levels</option>
         <option value="core.hue_saturation">Hue/Saturation</option>
         <option value="core.gradient">Gradient</option>
+        <option value="core.drop_shadow">Drop Shadow</option>
       </select>
     </div>
   </section>
@@ -6397,6 +6398,7 @@ const EFFECT_NAMES = {
   'core.levels': 'Levels',
   'core.hue_saturation': 'Hue/Saturation',
   'core.gradient': 'Gradient',
+  'core.drop_shadow': 'Drop Shadow',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6457,6 +6459,11 @@ const EFFECT_PARAMS = {
     ['end', 'End Point', 2, 1, '% of the width and height, -1000 to 1000'],
     ['start_opacity', 'Start Opacity', 1, 0.5, '0 to 100'],
     ['end_opacity', 'End Opacity', 1, 0.5, '0 to 100']],
+  // D-115, named as After Effects names them.
+  'core.drop_shadow': [['opacity', 'Opacity', 1, 0.5, '0 to 100'],
+    ['direction', 'Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600'],
+    ['distance', 'Distance', 1, 0.5, 'pixels, 0 to 1000'],
+    ['softness', 'Softness', 1, 0.5, 'pixels, 0 to 500']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6510,6 +6517,8 @@ const EFFECT_WORDS = {
       ['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
     colours: [['start_color', 'Start Colour'], ['end_color', 'End Colour']],
   },
+  // D-115.
+  'core.drop_shadow': { colours: [['color', 'Shadow Colour']] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

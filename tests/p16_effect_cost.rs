@@ -185,6 +185,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 blend: "screen".into(),
             },
         ),
+        (
+            "Drop Shadow, softness 6",
+            Effect::DropShadow {
+                color: "#000000".into(),
+                opacity: 50.0,
+                direction: 135.0,
+                distance: 5.0,
+                softness: 6.0,
+            },
+        ),
     ]
 }
 

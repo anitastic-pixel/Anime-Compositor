@@ -297,6 +297,16 @@ pub enum Effect {
         end_opacity: f64,
         blend: String,
     },
+    /// D-115: `color`, `#rrggbb`, kept as written so a wrong one is reported; `opacity`, 0 to
+    /// 100; `direction`, -3600 to 3600 degrees clockwise from up; `distance`, 0 to 1000 pixels;
+    /// and `softness`, 0 to 500 pixels.
+    DropShadow {
+        color: String,
+        opacity: f64,
+        direction: f64,
+        distance: f64,
+        softness: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -320,6 +330,7 @@ pub const CURVES: &str = "core.curves";
 pub const LEVELS: &str = "core.levels";
 pub const HUE_SATURATION: &str = "core.hue_saturation";
 pub const GRADIENT: &str = "core.gradient";
+pub const DROP_SHADOW: &str = "core.drop_shadow";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -452,6 +463,18 @@ impl Effect {
                 ("start_opacity", vec![start_opacity], 0.0, 100.0),
                 ("end_opacity", vec![end_opacity], 0.0, 100.0),
             ],
+            Effect::DropShadow {
+                opacity,
+                direction,
+                distance,
+                softness,
+                ..
+            } => vec![
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("distance", vec![distance], 0.0, 1000.0),
+                ("softness", vec![softness], 0.0, 500.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -509,6 +532,12 @@ impl Effect {
                 *radius = scale(*radius);
                 *length = scale(*length);
             }
+            Effect::DropShadow {
+                distance, softness, ..
+            } => {
+                *distance = scale(*distance);
+                *softness = scale(*softness);
+            }
             _ => {}
         }
     }
@@ -533,6 +562,7 @@ impl Effect {
             Effect::Levels { .. } => "Levels",
             Effect::HueSaturation { .. } => "Hue/Saturation",
             Effect::Gradient { .. } => "Gradient",
+            Effect::DropShadow { .. } => "Drop Shadow",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -556,6 +586,7 @@ impl Effect {
             Effect::Levels { .. } => LEVELS,
             Effect::HueSaturation { .. } => HUE_SATURATION,
             Effect::Gradient { .. } => GRADIENT,
+            Effect::DropShadow { .. } => DROP_SHADOW,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -589,6 +620,10 @@ impl Effect {
                 length,
                 ..
             } => crate::bloom::reach(*radius, crate::bloom::lines(streaks), *length),
+            // D-115: the shadow's move, rounded up, and its blur's reach.
+            Effect::DropShadow {
+                distance, softness, ..
+            } => distance.ceil() as usize + kernel_radius(*softness / 3.0),
             _ => 0,
         }
     }
@@ -767,6 +802,7 @@ impl Effect {
                 blend,
                 ..
             } => gradient_fault(shape, start_color, end_color, blend),
+            Effect::DropShadow { color, .. } => hex_fault("Drop Shadow", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -788,6 +824,21 @@ impl Effect {
             bad
         })
     }
+}
+
+/// D-115: what is wrong with `effect`'s `what`, a colour written `#rrggbb`, as a sentence, or
+/// `None` when nothing is.
+fn hex_fault(effect: &str, what: &str, c: &str) -> Option<String> {
+    crate::selective_blur::parse_hex(c)
+        .is_none()
+        .then(|| format!("{effect}'s {what} is written #rrggbb, and this is \"{c}\"."))
+}
+
+/// A colour already found valid, encoded 0 to 1.
+fn encoded(c: &str) -> [f64; 3] {
+    crate::selective_blur::parse_hex(c)
+        .unwrap_or_default()
+        .map(|v| v as f64 / 255.0)
 }
 
 /// D-114: what is wrong with a gradient's words and colours, as a sentence, or `None` when
@@ -1144,11 +1195,6 @@ pub fn apply_stack(
                 end_opacity,
                 blend,
             } => {
-                let encoded = |c: &str| {
-                    crate::selective_blur::parse_hex(c)
-                        .unwrap_or_default()
-                        .map(|v| v as f64 / 255.0)
-                };
                 let g = crate::grade::Gradient {
                     radial: shape == "radial",
                     start: radial_center(*start, source, (ox, oy)),
@@ -1160,6 +1206,21 @@ pub fn apply_stack(
                 crate::perf::time(crate::perf::Stage::EffectGradient, || {
                     crate::grade::gradient(source, &g)
                 })
+            }
+            Effect::DropShadow {
+                color,
+                opacity,
+                direction,
+                distance,
+                softness,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectDropShadow, || {
+                    crate::layer_fx::drop_shadow(
+                        source, encoded(color), *opacity, *direction, *distance, *softness,
+                    )
+                });
+                ox += r;
+                oy += r;
             }
         }
     }

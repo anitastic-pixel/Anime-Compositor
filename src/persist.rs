@@ -1085,6 +1085,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("end_opacity".into(), num(*end_opacity));
             params.insert("blend".into(), J::from(blend.as_str()));
         }
+        Effect::DropShadow {
+            color,
+            opacity,
+            direction,
+            distance,
+            softness,
+        } => {
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("direction".into(), num(*direction));
+            params.insert("distance".into(), num(*distance));
+            params.insert("softness".into(), num(*softness));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1464,6 +1477,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "end",
         "start_opacity",
         "end_opacity",
+        "distance",
+        "opacity",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2262,6 +2277,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LEVELS,
                 crate::effects::HUE_SATURATION,
                 crate::effects::GRADIENT,
+                crate::effects::DROP_SHADOW,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2380,6 +2396,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     start_opacity: effect_number(params, "start_opacity", &at)?,
                     end_opacity: effect_number(params, "end_opacity", &at)?,
                     blend: effect_word(params, "blend", &at)?,
+                }),
+                crate::effects::DROP_SHADOW => Some(crate::effects::Effect::DropShadow {
+                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                    opacity: effect_number(params, "opacity", &at)?,
+                    direction: effect_number(params, "direction", &at)?,
+                    distance: effect_number(params, "distance", &at)?,
+                    softness: effect_number(params, "softness", &at)?,
                 }),
                 _ => None,
             };

@@ -8,7 +8,7 @@ use crate::WorkingBuffer;
 use rayon::prelude::*;
 
 /// Document 21's sRGB curves, in double precision, as the reference tools write them.
-fn to_linear(c: f64) -> f64 {
+pub(crate) fn to_linear(c: f64) -> f64 {
     if c <= 0.04045 {
         c / 12.92
     } else {
