@@ -716,6 +716,16 @@
   #printdialog::backdrop { background: rgb(0 0 0 / 0.5); }
   #printdialog h2 { margin-top: 0; }
   #printdialog label { display: block; margin: 8px 0 2px; }
+  #sessionlog {
+    position: fixed; top: 40px; right: 16px; left: auto; margin: 0; z-index: 50;
+    width: min(720px, calc(100vw - 32px)); max-height: 75vh; overflow: auto; box-sizing: border-box;
+    background: #1e1e1e; color: #d0d0d4; border: 1px solid #7a8ba0; border-radius: 4px;
+    padding: 10px 14px;
+  }
+  #sessionlog h2 { margin-top: 0; }
+  #sessionlog table { border-collapse: collapse; width: 100%; }
+  #sessionlog caption { text-align: left; margin: 4px 0; }
+  #sessionlog th, #sessionlog td { text-align: left; vertical-align: top; padding: 2px 6px; border-top: 1px solid #333; }
   #prefs input { width: 100%; box-sizing: border-box; }
   #relinking p { margin: 0 0 6px; }
 /* sheet paper: begin. D-84d: the Sheet on paper. Here, in the window's own style, since the
@@ -792,6 +802,7 @@
   <select id="recent"><option value="">Recent&hellip;</option></select>
   <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
   <button id="preferences">Preferences&hellip;</button>
+  <button id="sessionlogbutton" title="Where each frame's time goes, kept only while this window is open">Session log&hellip;</button>
   <span class="sep"></span>
   <!-- D-85: which panel is where, and how big the places are. Kept on this machine, not in the project. -->
   <select id="workspace" aria-label="Workspace" title="Workspace: where each panel is. Right-click a panel's name or title bar to move it, or drag it onto another place"></select>
@@ -1029,6 +1040,19 @@
     <option value="red">red, as a studio's printed sheet, with the marks in black</option>
   </select>
   <p><button id="printnow">Print&hellip;</button> <button id="cancelprint">Leave it</button></p>
+</dialog>
+<!-- P-19: the session log. Not modal, so the viewer can be played while it is open. -->
+<dialog id="sessionlog" aria-labelledby="sessionlogtitle">
+  <h2 id="sessionlogtitle">Session log</h2>
+  <label><input type="checkbox" id="sessionlogon">Record where each frame's time goes</label>
+  <p id="sessionlogsummary"></p>
+  <table id="sessionlogslowest">
+    <caption>The 20 slowest frames</caption>
+    <thead><tr><th>Frame</th><th>Time</th><th>Quality</th><th>How</th><th>Where the time went</th><th>Also</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <p class="hint">Kept in memory only, for the last 5,000 frames, and emptied when the window closes. Off every time the window opens. Each frame's time is its own work: reading ahead and exporting run beside it and are not counted in it, but they share the processor, so a frame says when either was running. A diagnostic, not a benchmark.</p>
+  <p><button id="sessionlogclear">Clear</button> <button id="sessionlogsave">Save a copy&hellip;</button> <button id="sessionlogclose">Close</button></p>
 </dialog>
 <div id="bar">
   <span id="status"></span>
@@ -3059,6 +3083,7 @@ function palette() {
     ['Duplicate the composition', '', () => doc && command('/composition.duplicate?composition=' + encodeURIComponent(doc.composition))],
     ['Delete the composition', '', () => doc && command('/composition.delete?composition=' + encodeURIComponent(doc.composition))],
     ['Preferences', '', () => $('preferences').click()],
+    ['Session log', '', () => $('sessionlogbutton').click()],
     ...PROPS.map((prop) => ['Reset ' + prop, '', () => resetProp(prop)]),
     ...BLENDS.map((mode) => ['Blend mode ' + mode, '', () => blendLayers(mode)]),
   ];
@@ -8458,6 +8483,54 @@ for (const [f, box] of PREF_FIELDS) {
   });
 }
 $('closeprefs').onclick = () => { $('prefs').hidden = true; };
+
+// P-19: the session log panel. The log itself is the window's; this asks it once a second
+// while the panel is open, and sends the switch, Clear and Save a copy.
+let sessionTimer = null;
+async function sessionLog(what) {
+  let log;
+  try {
+    log = await (await fetch(PROJECT + '/session-log' + (what ? '?do=' + what : ''))).json();
+  } catch (e) {
+    $('sessionlogsummary').textContent = 'The session log did not answer: ' + e;
+    return;
+  }
+  const ms = (n) => n.toFixed(1) + ' ms';
+  $('sessionlogon').checked = log.on;
+  $('sessionlogsummary').textContent = log.frames === 0
+    ? (log.on ? 'Recording. No frame drawn yet.' : 'Off. Nothing is being recorded.')
+    : log.frames + ' frames logged' + (log.let_go ? ', and ' + log.let_go + ' older ones let go' : '')
+      + '. Median ' + ms(log.median_ms) + ', slowest 5% ' + ms(log.slowest_5_percent_ms)
+      + ' or more. Frames the clock dropped: ' + log.dropped + '. Most time in all: '
+      + (log.costliest ? log.costliest + ', ' + ms(log.costliest_ms) : 'nothing measurable') + '.'
+      + (log.on ? '' : ' Recording is off.');
+  $('sessionlogslowest').tBodies[0].replaceChildren(...log.slowest.map((r) => {
+    const also = [];
+    if (r.dropped) also.push(r.dropped + ' dropped before it');
+    if (r.read_ahead) also.push('reading ahead');
+    if (r.exporting) also.push('export running');
+    also.push(...r.warnings);
+    const row = document.createElement('tr');
+    for (const text of [r.frame, ms(r.ms), r.quality, r.playing ? 'playing' : 'stepped',
+      r.stages.map(([stage, t]) => stage + ' ' + ms(t)).join('; '), also.join('; ')]) {
+      const cell = document.createElement('td');
+      cell.textContent = text;
+      row.append(cell);
+    }
+    return row;
+  }));
+}
+$('sessionlogbutton').onclick = () => {
+  if (!$('sessionlog').open) $('sessionlog').show();
+  sessionLog();
+  clearInterval(sessionTimer);
+  sessionTimer = setInterval(() => sessionLog(), 1000);
+};
+$('sessionlog').addEventListener('close', () => clearInterval(sessionTimer));
+$('sessionlogclose').onclick = () => $('sessionlog').close();
+$('sessionlogon').onchange = (e) => sessionLog(e.target.checked ? 'on' : 'off');
+$('sessionlogclear').onclick = () => sessionLog('clear');
+$('sessionlogsave').onclick = () => sessionLog('save');
 $('shyswitch').onclick = () => { prefs.hideShy = !prefs.hideShy; savePrefs(); drawLayers(); };
 $('makecomp').onclick = () => {
   const q = 'name=' + encodeURIComponent($('compname').value)

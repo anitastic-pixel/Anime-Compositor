@@ -180,9 +180,12 @@ thread_local! {
     /// Set only by [`untimed`]. `Cell<bool>` rather than an atomic because it is per thread by
     /// definition: one worker suppressing its own timers must not suppress another's.
     static SUPPRESSED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// P-19: this thread's own share of the counters since [`begin_capture`], if one is running.
+    static CAPTURE: std::cell::RefCell<Option<[u64; N]>> = const { std::cell::RefCell::new(None) };
 }
 
-/// Start recording. Nothing in `src/` or `app/` calls this; the P-01 harness does.
+/// Start recording. The P-01 harness calls this, and so does P-19's session log in the window
+/// while its switch is on, and nothing else.
 pub fn enable() {
     ON.store(true, Ordering::Relaxed);
 }
@@ -248,6 +251,30 @@ pub fn record(stage: Stage, nanos: u64) {
     }
     NANOS[stage.index()].fetch_add(nanos, Ordering::Relaxed);
     CALLS[stage.index()].fetch_add(1, Ordering::Relaxed);
+    CAPTURE.with(|c| {
+        if let Some(own) = c.borrow_mut().as_mut() {
+            own[stage.index()] += nanos;
+        }
+    });
+}
+
+/// P-19: start collecting, on this thread only, what [`record`] adds from here on.
+///
+/// The counters above are shared by every thread, so while the window renders a frame they also
+/// take in whatever a read-ahead or an export is doing at the same moment, and one frame's row
+/// would be charged for another thread's work. A frame's stages all run on the thread that asked
+/// for it (the fan-outs are timed around their join, on that thread), so collecting per thread
+/// is exactly one frame's own work. Recording must also be on, as for everything else here.
+pub fn begin_capture() {
+    CAPTURE.with(|c| *c.borrow_mut() = Some([0; N]));
+}
+
+/// P-19: stop collecting and hand back each stage's nanoseconds on this thread since
+/// [`begin_capture`], in run order, or `None` if nothing was being collected.
+pub fn end_capture() -> Option<Vec<(Stage, u64)>> {
+    CAPTURE
+        .with(|c| c.borrow_mut().take())
+        .map(|own| Stage::ALL.iter().map(|&s| (s, own[s.index()])).collect())
 }
 
 /// `(nanoseconds, calls)` for one stage since the last [`reset`].

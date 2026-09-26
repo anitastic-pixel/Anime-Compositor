@@ -29,7 +29,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelprint, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, printnow, printsheet, recent, recovery, redo, relink, resetworkspace, save, saveas, saveworkspace, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, workspace, workspacename, xsheet, zoomer | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelprint, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, printnow, printsheet, recent, recovery, redo, relink, resetworkspace, save, saveas, saveworkspace, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, workspace, workspacename, xsheet, zoomer | pass |
+| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelprint, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, printnow, printsheet, recent, recovery, redo, relink, resetworkspace, save, saveas, saveworkspace, sessionlogbutton, sessionlogclear, sessionlogclose, sessionlogon, sessionlogsave, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, workspace, workspacename, xsheet, zoomer | addadjust, addeffect, addexposure, addlayer, addnull, addshape, addsolid, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelprint, cancelrelink, checker, checkpackage, closeprefs, collect, dellayer, down, export, exportformat, filmquality, fit, fit100, fwd, gifdither, graphall, graphfit, graphmode, graphprop, import, importcut, makecomp, newcomp, notedetails, open, play, preferences, printnow, printsheet, recent, recovery, redo, relink, resetworkspace, save, saveas, saveworkspace, sessionlogbutton, sessionlogclear, sessionlogclose, sessionlogon, sessionlogsave, shyswitch, tabgraph, tabsheet, timescroll, timezoom, toggle, undo, up, workspace, workspacename, xsheet, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
@@ -117,6 +117,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `recover` can be asked for without a mouse | yes | yes | pass |
 | `save` can be asked for without a mouse | yes | yes | pass |
 | `save-as` can be asked for without a mouse | yes | yes | pass |
+| `session-log` can be asked for without a mouse | yes | yes | pass |
 | `shape.add` can be asked for without a mouse | yes | yes | pass |
 | `shape.add_remove_key` can be asked for without a mouse | yes | yes | pass |
 | `shape.delete` can be asked for without a mouse | yes | yes | pass |
@@ -169,4 +170,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**139 of 139 checks pass.**
+**140 of 140 checks pass.**

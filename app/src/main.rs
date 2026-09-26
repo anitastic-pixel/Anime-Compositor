@@ -65,6 +65,7 @@ use anime_compositor::model::{
 use anime_compositor::package::{self, Answer};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
+use anime_compositor::session_log::{self, SessionLog};
 use anime_compositor::time::{ExposureSpan, FrameRate};
 use anime_compositor::timesheet;
 use anime_compositor::{AlphaMode, ColorSpace};
@@ -593,6 +594,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             alpha_only: viewer.alpha_only,
             cache: Arc::clone(&viewer.cache),
             frame,
+            skipped: 0,
             ahead: None,
             reply: Response::builder(),
         }
@@ -921,6 +923,8 @@ struct Snapshot {
     /// The decoded cels, which a render holds for its whole length and no command touches.
     cache: Arc<Mutex<CelCache>>,
     frame: i32,
+    /// P-19: frames the clock passed over to reach this one, for the session log's row.
+    skipped: u32,
     /// P-18: the frame playback will ask for next, when this one came from the clock. Its
     /// drawings are read while the page is still busy with this one.
     ahead: Option<i32>,
@@ -1023,9 +1027,21 @@ fn said_about(
 ///
 /// Everything the page needs to *say* about the frame travels in headers beside it, so the
 /// number on screen and the pixels on screen always came from the same render.
+#[cfg(test)]
 fn serve(
     viewer: &Mutex<Viewer>,
     export: &Mutex<Export>,
+    ask: Ask,
+    quality: Option<PreviewQuality>,
+) -> Response<Vec<u8>> {
+    serve_logged(viewer, export, None, ask, quality)
+}
+
+/// [`serve`], with the frame written into P-19's session log when its switch is on.
+fn serve_logged(
+    viewer: &Mutex<Viewer>,
+    export: &Mutex<Export>,
+    session: Option<&Mutex<SessionLog>>,
     ask: Ask,
     quality: Option<PreviewQuality>,
 ) -> Response<Vec<u8>> {
@@ -1035,6 +1051,12 @@ fn serve(
     // as P-01 and B-08 both say of themselves. One `Instant` on a path that is about to render a
     // frame is not a cost worth a switch.
     let began = std::time::Instant::now();
+    // P-19: the switch is read once, so a frame is logged whole or not at all. The stopwatch
+    // collects this thread's stages from here, which is everything this frame's own work does.
+    let logging = session.is_some_and(|s| s.lock().expect("the session log lock was poisoned").is_on());
+    if logging {
+        anime_compositor::perf::begin_capture();
+    }
     let (exporting, exported, progress) = {
         let export = export.lock().expect("the export lock was poisoned");
         // Frames written, frames asked for, and milliseconds since the export began.
@@ -1111,6 +1133,7 @@ fn serve(
             alpha_only: viewer.alpha_only,
             cache: Arc::clone(&viewer.cache),
             frame,
+            skipped,
             ahead,
             reply: said_about(viewer, ask, frame, skipped, exporting, &exported)
                 .header("x-export-progress", progress),
@@ -1118,7 +1141,11 @@ fn serve(
     };
 
     let mut log = FrameLog::new(3);
-    let buffer = match preview::preview_frame_cached(
+    let mut cache = taken.cache.lock().expect("the cel cache lock was poisoned");
+    // P-19: the counters are the cache's own running totals. The lock is held from here until
+    // they are read again, so the difference is this frame's and no read-ahead's.
+    let counted = (cache.hits(), cache.misses(), cache.effect_hits());
+    let made = preview::preview_frame_cached(
         &taken.project,
         &taken.composition,
         taken.frame,
@@ -1126,12 +1153,20 @@ fn serve(
         taken.quality,
         DEFAULT_TILE_SIZE,
         &mut log,
-        &mut taken.cache.lock().expect("the cel cache lock was poisoned"),
-    ) {
+        &mut cache,
+    );
+    let counted = (
+        cache.hits() - counted.0,
+        cache.misses() - counted.1,
+        cache.effect_hits() - counted.2,
+    );
+    drop(cache);
+    let buffer = match made {
         Ok(buffer) => buffer,
         // Document 28: a frame that cannot be made is reported, never replaced by something
         // that looks like a frame. The page shows this sentence instead of a picture.
         Err(diagnostic) => {
+            anime_compositor::perf::end_capture();
             return allow_the_page_to_read_this(Response::builder().status(500))
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(diagnostic.message.into_bytes())
@@ -1140,6 +1175,7 @@ fn serve(
     };
 
     // P-18: the next frame's drawings are read while this one is encoded, sent and drawn.
+    let read_ahead = taken.ahead.is_some();
     if let Some(next) = taken.ahead {
         let cache = Arc::clone(&taken.cache);
         preview::read_ahead(taken.project, taken.composition, next, taken.root, cache);
@@ -1151,6 +1187,28 @@ fn serve(
     if taken.alpha_only {
         as_alpha_only(&mut pixels);
     }
+    let ms = began.elapsed().as_secs_f64() * 1000.0;
+    if let Some(session) = session.filter(|_| logging) {
+        session.lock().expect("the session log lock was poisoned").push(session_log::Row {
+            since_on_ms: 0,
+            frame: taken.frame,
+            quality: taken.quality,
+            playing: matches!(ask, Ask::At(_) | Ask::Play(_)),
+            ms,
+            stages: anime_compositor::perf::end_capture().unwrap_or_default(),
+            dropped: taken.skipped,
+            read_ahead,
+            exporting,
+            cel_hits: counted.0,
+            cel_misses: counted.1,
+            effect_hits: counted.2,
+            warnings: log
+                .finish()
+                .iter()
+                .map(|d| format!("{}: {}", d.id.as_str(), d.message))
+                .collect(),
+        });
+    }
     taken
         .reply
         // The only two things about a frame the window cannot say until it has been made.
@@ -1159,7 +1217,7 @@ fn serve(
         // P-15. Everything this window did for this frame, including the wait for the lock and
         // the encode, and stopping where the window's own work stops: the bytes are made, and
         // handing them to the web view is the next thing to happen and is not in here.
-        .header("x-ms", format!("{:.1}", began.elapsed().as_secs_f64() * 1000.0))
+        .header("x-ms", format!("{ms:.1}"))
         .body(pixels)
         .expect("build the frame response")
 }
@@ -6820,6 +6878,107 @@ fn ask_where_to_save(app: &AppHandle) {
         });
 }
 
+/// P-19: what the session log panel shows, as JSON: the summary, then the 20 slowest frames
+/// with the three stages each spent longest in.
+fn session_log_json(log: &SessionLog) -> String {
+    let s = log.summary();
+    let slowest: Vec<serde_json::Value> = log
+        .slowest(20)
+        .into_iter()
+        .map(|r| {
+            let mut stages: Vec<_> = r.stages.iter().filter(|&&(_, n)| n > 0).collect();
+            stages.sort_by(|a, b| b.1.cmp(&a.1));
+            stages.truncate(3);
+            serde_json::json!({
+                "frame": r.frame,
+                "ms": r.ms,
+                "quality": r.quality.label(),
+                "playing": r.playing,
+                "dropped": r.dropped,
+                "read_ahead": r.read_ahead,
+                "exporting": r.exporting,
+                "stages": stages
+                    .iter()
+                    .map(|&&(st, n)| serde_json::json!([st.label(), n as f64 / 1e6]))
+                    .collect::<Vec<_>>(),
+                "warnings": r.warnings,
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "on": log.is_on(),
+        "frames": s.frames,
+        "let_go": s.let_go,
+        "median_ms": s.median_ms,
+        "slowest_5_percent_ms": s.slowest_5_percent_ms,
+        "dropped": s.dropped,
+        "costliest": s.costliest.map(|(st, _)| st.label()),
+        "costliest_ms": s.costliest.map_or(0.0, |(_, n)| n as f64 / 1e6),
+        "slowest": slowest,
+    })
+    .to_string()
+}
+
+/// P-19: the lines a saved copy of the session log is headed with, which are what make it
+/// evidence someone else can read: when, on what, and from which build.
+fn session_log_heading() -> Vec<String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    // The proleptic Gregorian date of a day count, which is Howard Hinnant's `civil_from_days`.
+    let z = (now / 86_400) as i64 + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    vec![
+        format!(
+            "Saved: {year}-{month:02}-{day:02} {:02}:{:02} UTC",
+            now % 86_400 / 3600,
+            now % 3600 / 60
+        ),
+        format!("Operating system: {}", std::env::consts::OS),
+        format!(
+            "Processor cores: {}",
+            std::thread::available_parallelism().map_or(0, |n| n.get())
+        ),
+        format!(
+            "Build: {}, {}",
+            env!("CARGO_PKG_VERSION"),
+            if cfg!(debug_assertions) { "debug" } else { "release" }
+        ),
+    ]
+}
+
+/// P-19's "Save a copy...": the system Save dialog, then the log as one Markdown table.
+fn ask_where_to_save_the_log(app: &AppHandle) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Save a copy of the session log")
+        .set_file_name("session log.md")
+        .add_filter("Markdown", &["md"])
+        .save_file(move |chosen| {
+            let Some(path) = chosen.and_then(|c| c.into_path().ok()) else {
+                return;
+            };
+            let text = handle
+                .state::<Mutex<SessionLog>>()
+                .lock()
+                .expect("the session log lock was poisoned")
+                .to_markdown(&session_log_heading());
+            let said = match std::fs::write(&path, text) {
+                Ok(()) => format!("Saved a copy of the session log to {}.", path.display()),
+                Err(e) => format!("The session log could not be saved to {}: {e}.", path.display()),
+            };
+            announce(&handle.state::<Mutex<Viewer>>(), said);
+        });
+}
+
 /// Reload the page, which is the whole of the update after a command that changed what is open.
 ///
 /// The page holds no state about the project — everything it says arrives with a frame — so
@@ -6842,6 +7001,26 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             .header("content-type", "application/json; charset=utf-8")
             .body(state(&viewer).into_bytes())
             .expect("build the state response");
+    }
+    // P-19: the session log panel's one question, and its switch, Clear and Save a copy. Every
+    // one of them is answered with what the panel should now show.
+    if path == "session-log" {
+        let session = app.state::<Mutex<SessionLog>>();
+        let what = parameter(query, "do");
+        if what.as_deref() == Some("save") {
+            ask_where_to_save_the_log(app);
+        }
+        let mut log = session.lock().expect("the session log lock was poisoned");
+        match what.as_deref() {
+            Some("on") => log.switch(true),
+            Some("off") => log.switch(false),
+            Some("clear") => log.clear(),
+            _ => {}
+        }
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/json; charset=utf-8")
+            .body(session_log_json(&log).into_bytes())
+            .expect("build the session log response");
     }
     // An import with no files named is the button in the media bin, and what it needs is the
     // operating system's file dialog, which belongs to the app handle and not to the viewer.
@@ -6983,7 +7162,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
-                      /cancel-export, /collect, /check-package, /recent, /new, or one of \
+                      /cancel-export, /collect, /check-package, /recent, /new, /session-log, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -7037,6 +7216,8 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(viewer)
         .manage(Mutex::new(Export::default()))
+        // P-19: empty and switched off at every launch, and gone when the window closes.
+        .manage(Mutex::new(SessionLog::default()))
         // The autosave timer. A thread rather than anything cleverer: it sleeps for all but a
         // few microseconds of its life, it must run whether or not the page is asking for
         // frames, and it holds the viewer lock only for as long as the check takes. It writes
@@ -7115,7 +7296,10 @@ fn main() {
                 return sheet_print(&viewer, request.uri().query());
             }
             match parse(request.uri().path(), request.uri().query()) {
-                Some((ask, quality)) => serve(&viewer, &export, ask, quality),
+                Some((ask, quality)) => {
+                    let session = ctx.app_handle().state::<Mutex<SessionLog>>();
+                    serve_logged(&viewer, &export, Some(&session), ask, quality)
+                }
                 None => allow_the_page_to_read_this(Response::builder().status(404))
                     .header("content-type", "text/plain; charset=utf-8")
                     .body(b"ask for /at/<milliseconds>, /frame/<number> or /play/<number>".to_vec())
@@ -17689,6 +17873,196 @@ mod editing {
          `verification/B-17c_adjust_playtest.md`, for a person. Whether the pixels are right is \
          B-17b's table.",
     ];
+
+    /// P-19: the session log as the window keeps it, through the same `serve` the page's frames
+    /// go through, and the answer the panel reads.
+    #[test]
+    fn the_session_log_records_what_the_window_draws() {
+        let mut report = Report { rows: Vec::new() };
+        let viewer = Mutex::new(demo());
+        let export = Mutex::new(Export::default());
+        let session = Mutex::new(SessionLog::default());
+        let rows = |s: &Mutex<SessionLog>| s.lock().unwrap().rows().len();
+        let draw = |ask: Ask, quality: Option<PreviewQuality>| {
+            let got = serve_logged(&viewer, &export, Some(&session), ask, quality);
+            assert_eq!(got.status(), 200, "the frame was drawn");
+            got.headers()["x-ms"].to_str().unwrap().to_string()
+        };
+
+        let source = include_str!("main.rs");
+        report.check(
+            "the window keeps one log, made empty and switched off when it opens",
+            "off, 0 rows",
+            format!(
+                "{}, {} rows{}",
+                if session.lock().unwrap().is_on() { "on" } else { "off" },
+                rows(&session),
+                if source.contains(".manage(Mutex::new(SessionLog::default()))") {
+                    ""
+                } else {
+                    "; not managed by the window"
+                }
+            ),
+        );
+
+        for f in 0..5 {
+            draw(Ask::Frame(f), None);
+        }
+        report.check("5 frames stepped with the log off", "0 rows", format!("{} rows", rows(&session)));
+
+        session.lock().unwrap().switch(true);
+        let mut said = vec![draw(Ask::Play(0), Some(PreviewQuality::Draft))];
+        for i in 1..10u64 {
+            said.push(draw(Ask::At(i * 42), None));
+        }
+        let log = session.lock().unwrap();
+        let played: Vec<&session_log::Row> = log.rows().iter().collect();
+        report.check("switched on, 10 frames played", "10 rows", format!("{} rows", played.len()));
+        report.check(
+            "each played row says Draft, playing, reading ahead, no export",
+            "10 of 10",
+            format!(
+                "{} of 10",
+                played
+                    .iter()
+                    .filter(|r| r.quality == PreviewQuality::Draft
+                        && r.playing
+                        && r.read_ahead
+                        && !r.exporting)
+                    .count()
+            ),
+        );
+        report.check(
+            "each row's time is the time the frame's own reply gave the page (P-15's x-ms)",
+            "10 of 10",
+            format!(
+                "{} of 10",
+                played.iter().zip(&said).filter(|(r, x)| format!("{:.1}", r.ms) == **x).count()
+            ),
+        );
+        report.check(
+            "in each row the stages add up to no more than the frame's time",
+            "10 of 10",
+            format!(
+                "{} of 10",
+                played
+                    .iter()
+                    .filter(|r| r.stages.iter().map(|&(_, n)| n).sum::<u64>() as f64 / 1e6 <= r.ms)
+                    .count()
+            ),
+        );
+        drop(log);
+
+        draw(Ask::Frame(12), Some(PreviewQuality::Full));
+        let last = session.lock().unwrap().rows().back().cloned().unwrap();
+        report.check(
+            "frame 12 stepped to at Full",
+            "frame 12, Full, stepped, not read ahead",
+            format!(
+                "frame {}, {}, {}, {}",
+                last.frame,
+                last.quality.label(),
+                if last.playing { "playing" } else { "stepped" },
+                if last.read_ahead { "read ahead" } else { "not read ahead" }
+            ),
+        );
+
+        let panel: serde_json::Value =
+            serde_json::from_str(&session_log_json(&session.lock().unwrap())).unwrap();
+        report.check(
+            "the panel's answer: on, frames, how many slowest listed, the most stages any lists",
+            "true, 11, 11, 3 or fewer",
+            format!(
+                "{}, {}, {}, {}",
+                panel["on"],
+                panel["frames"],
+                panel["slowest"].as_array().unwrap().len(),
+                if panel["slowest"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|r| r["stages"].as_array().unwrap().len() <= 3)
+                {
+                    "3 or fewer"
+                } else {
+                    "more than 3"
+                }
+            ),
+        );
+
+        session.lock().unwrap().switch(false);
+        draw(Ask::Frame(3), None);
+        report.check(
+            "switched off, a frame adds no row and the stopwatch stops",
+            "11 rows, stopwatch off",
+            format!(
+                "{} rows, stopwatch {}",
+                rows(&session),
+                if anime_compositor::perf::is_enabled() { "on" } else { "off" }
+            ),
+        );
+
+        let heading = session_log_heading();
+        let copy = session.lock().unwrap().to_markdown(&heading);
+        report.check(
+            "a saved copy is headed with the date, operating system, cores and build",
+            "4 of 4, each in the copy",
+            format!(
+                "{} of 4, {}",
+                heading
+                    .iter()
+                    .zip(["Saved: 20", "Operating system: ", "Processor cores: ", "Build: 0.1.0, "])
+                    .filter(|(line, start)| line.starts_with(start))
+                    .count(),
+                if heading.iter().all(|l| copy.contains(&format!("- {l}\n"))) {
+                    "each in the copy"
+                } else {
+                    "missing from the copy"
+                }
+            ),
+        );
+        report.check(
+            "and has one table line per row",
+            "11",
+            copy.lines().filter(|l| l.starts_with("| ")).count() - 1,
+        );
+
+        let page = include_str!("../ui/index.html");
+        for (what, text) in [
+            ("a Session log button in the menu bar", "<button id=\"sessionlogbutton\""),
+            ("a panel that is not modal, so the viewer can play under it", "$('sessionlog').show()"),
+            ("the panel asks the window's log", "PROJECT + '/session-log'"),
+            ("a switch", "Record where each frame's time goes"),
+            ("the 20 slowest frames", "The 20 slowest frames"),
+            ("Clear and Save a copy", "<button id=\"sessionlogclear\">Clear</button> <button id=\"sessionlogsave\">Save a copy&hellip;</button>"),
+            ("its known limits, on the panel", "Kept in memory only, for the last 5,000 frames, and emptied when the window closes. Off every time the window opens."),
+            ("and that it is not a benchmark", "A diagnostic, not a benchmark."),
+            ("the command palette finds it", "['Session log', '', () => $('sessionlogbutton').click()]"),
+        ] {
+            report.check(what, "present", if page.contains(text) { "present" } else { "absent" });
+        }
+
+        write_artifact(
+            &report,
+            "verification/P-19_session_log_window_table.md",
+            "P-19: the session log in the window",
+            &[
+                "The window's half of P-19. The core's half, including the 5,000-row cap and \
+                 byte-identical pictures with the log on and off, is \
+                 `verification/P-19_session_log_table.md`. Here the frames go through the window's \
+                 own `serve`, the function every frame the page shows comes from, with the reference \
+                 shot the window opens on.",
+            ],
+            &[
+                "## What this does not cover\n\nThe panel as a person sees it, the Save dialog, and \
+                 closing and reopening the window. That is \
+                 `verification/P-19_session_log_playtest.md`.",
+            ],
+        );
+        let failed: Vec<&String> =
+            report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    }
 }
 
 /// What the autosave timer and the recovery path do, checked without a window.
@@ -19545,6 +19919,8 @@ mod contract {
         "recover",
         "save",
         "save-as",
+        // P-19: the session log panel's question, switch, Clear and Save a copy.
+        "session-log",
         // D-84a: the seventh on the frame scheme, the Sheet tab's grid.
         "sheet",
         // D-71: the sixth on the frame scheme, one sound file's bytes for the page's decoder.
@@ -21561,7 +21937,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 62] = [
+    const CONTROLS: [&str; 67] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -21612,6 +21988,11 @@ mod contract {
         "save",
         "saveas",
         "saveworkspace",
+        "sessionlogbutton",
+        "sessionlogclear",
+        "sessionlogclose",
+        "sessionlogon",
+        "sessionlogsave",
         "shyswitch",
         "tabgraph",
         "tabsheet",
