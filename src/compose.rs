@@ -144,9 +144,9 @@ pub fn plan_frame_at(
 }
 
 /// B-46: [`plan_frame_at`] for a frame the graphics card will draw. A drawn layer whose stack
-/// ends in a Radial Blur, or (B-47) a Bloom, has the effects before it run here and the last left
-/// in [`LayerDraw::on_card`] for the card. [`render::render`] runs an effect left there itself,
-/// so the plan is still the same frame if the CPU draws it after all.
+/// ends in a Radial Blur, (B-47) a Bloom or (B-49) a Directional Blur, has the effects before it
+/// run here and the last left in [`LayerDraw::on_card`] for the card. [`render::render`] runs an
+/// effect left there itself, so the plan is still the same frame if the CPU draws it after all.
 pub fn plan_frame_for_card(
     project: &Project,
     composition_id: &Id,
@@ -1125,8 +1125,9 @@ fn resolve_rest(
         .cloned()
         .collect();
 
-    // B-46: a drawing whose last effect switched on is a Radial Blur, or (B-47) a Bloom, this
-    // build can draw has only the effects before it run here, when the plan is for the card.
+    // B-46: a drawing whose last effect switched on is a Radial Blur, (B-47) a Bloom or (B-49) a
+    // Directional Blur this build can draw has only the effects before it run here, when the plan
+    // is for the card.
     // Those are what the effect cache is asked for, a stack of their own, so it never hands one
     // path's result to the other.
     let last = effects.iter().rposition(|i| i.enabled);
@@ -1134,7 +1135,9 @@ fn resolve_rest(
         card && cel.is_some()
             && matches!(
                 effects[i].effect,
-                crate::effects::Effect::RadialBlur { .. } | crate::effects::Effect::Bloom { .. }
+                crate::effects::Effect::RadialBlur { .. }
+                    | crate::effects::Effect::Bloom { .. }
+                    | crate::effects::Effect::DirectionalBlur { .. }
             )
             && effects[i].effect.is_valid()
     });
@@ -1250,7 +1253,13 @@ fn resolve_rest(
                     render::OnCard::Bloom(render::Bloom { threshold, radius, intensity, lines, length, angle })
                 })
             }
-            _ => unreachable!("chosen above for being a Radial Blur or a Bloom"),
+            // B-49: length 0 changes nothing and grows nothing, so it is not left either.
+            crate::effects::Effect::DirectionalBlur { direction, length } => (length != 0.0).then(|| {
+                let grow = (length / 2.0).ceil() as usize;
+                offset = (offset.0 + grow, offset.1 + grow);
+                render::OnCard::Directional(render::Directional { direction, length })
+            }),
+            _ => unreachable!("chosen above for being a Radial Blur, a Bloom or a Directional Blur"),
         }
     });
 

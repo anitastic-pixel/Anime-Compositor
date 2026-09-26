@@ -49,6 +49,13 @@ pub(crate) struct Weights {
     pub ends: Vec<(isize, f64)>,
 }
 
+impl Weights {
+    /// The furthest column from the line's own that weighs anything.
+    pub fn reach(&self) -> usize {
+        self.ends.iter().map(|e| e.0.unsigned_abs()).max().unwrap_or(0).max(self.inner)
+    }
+}
+
 /// D-98's lines over a `width` by `height` layer grown by `grow`: whether x and y are exchanged
 /// (mostly down), the slope, the grown size in the exchanged picture, and the first and last
 /// line. B-47's card draws the same lines from these.
@@ -95,13 +102,7 @@ pub(crate) fn by_lines(
     // Below, x and y are across and down in the exchanged picture when `down`.
     let LineFrame { down, s, ow, oh, k0, k1 } = line_frame(u, source.width(), source.height(), grow);
     let g = grow as isize;
-    let reach = wt
-        .ends
-        .iter()
-        .map(|e| e.0.unsigned_abs())
-        .max()
-        .unwrap_or(0)
-        .max(wt.inner);
+    let reach = wt.reach();
     let span = ow + 2 * reach;
     // Whether a sample can be anything but zero: by each row's span across, or by the
     // drawing's box down, which is enough to skip an empty cel's lines.
@@ -238,6 +239,13 @@ pub(crate) fn directional_blur(source: &mut WorkingBuffer, direction: f64, lengt
     }
     let grow = (length / 2.0).ceil() as usize;
     let u = along(direction);
+    *source = by_lines(source, u, &directional_weights(u, length), grow);
+    grow
+}
+
+/// D-98's weights for a Directional Blur `length` long along step `u`, length not 0. B-49's card
+/// reads the same lines with them.
+pub(crate) fn directional_weights(u: (f64, f64), length: f64) -> Weights {
     let half = u.0.abs().max(u.1.abs()) * (length + length / length.ceil()) / 2.0;
     let reach = (half + 1.0).ceil() as isize;
     let full = 1.0 / (2.0 * half);
@@ -245,7 +253,7 @@ pub(crate) fn directional_blur(source: &mut WorkingBuffer, direction: f64, lengt
     // The columns weighing exactly 1 / 2H are the running sum; a blur too short for even its
     // own column to is all ends.
     let inner = (0..=reach).take_while(|&j| weight(j) == full).last();
-    let wt = Weights {
+    Weights {
         inner: inner.unwrap_or(0) as usize,
         a: if inner.is_some() { full } else { 0.0 },
         b: 0.0,
@@ -253,9 +261,7 @@ pub(crate) fn directional_blur(source: &mut WorkingBuffer, direction: f64, lengt
             .filter(|&j| inner.map_or(true, |n| j.abs() > n) && weight(j) != 0.0)
             .map(|j| (j, weight(j)))
             .collect(),
-    };
-    *source = by_lines(source, u, &wt, grow);
-    grow
+    }
 }
 
 /// D-95's most samples a pixel.

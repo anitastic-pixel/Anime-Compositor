@@ -459,6 +459,21 @@ B-48 / Auto drawing, and memory sized to the machine / **BUILT on 2026-09-26 at 
 - **Not built:**
   - A real card failure: the check tells Auto a frame failed, because the card has not failed here.
   - Memory in use in the session log. It shows in Preferences instead.
+- **Playtest passed on 2026-09-26 by the owner's word: "works".**
+
+B-49 / Directional Blur on the graphics card / **BUILT on 2026-09-26 at the owner's "proceed", with D-106 proposed.** `verification/B-49_gpu_directional.md`. It is the third of D-100's effects. It changes no export, fixture or CPU picture.
+- **What it builds:**
+  - With the card drawing, a drawn layer whose last effect is a Directional Blur has that blur done by the card, along the same lines and with the same running totals as the CPU. The effects before it still run on the CPU.
+  - Bloom's streak pass now also takes the few end columns a Directional Blur weighs apart, so the two effects share it.
+  - A blur of length 0 changes nothing, so it is not sent to the card at all.
+  - A frame the card cannot draw is drawn by the CPU, blur included, byte for byte as before.
+- **Measured:**
+  - 158 of 158 checks pass (`verification/B-49_gpu_directional_table.md`): FX-DIRBLUR-001 to 015 at every frame, and the reference shot with three Directional Blurs, at Full and Draft. The worst frame differs at 0.7% of pixels, by 1 level each.
+  - B-47's Bloom table, rerun on the shared pass, still passes 288 of 288 and is unchanged.
+  - At Full the reference shot with three Directional Blurs takes 27 ms a frame against the CPU's 61, both with D-40's 1 GiB. At Draft the two are even, 16 to 17 ms (`verification/B-49_gpu_directional_timing_table.md`).
+- **Not built:**
+  - A Directional Blur followed by another effect, or on anything but a drawn layer. These stay on the CPU.
+  - Gaussian Blur and Glow on the card, which come next, in that order.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

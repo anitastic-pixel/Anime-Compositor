@@ -40,7 +40,7 @@ use crate::cache::{CelCache, Name};
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::BlendMode;
 use crate::perf::{self, Stage};
-use crate::render::{bounds, Bloom, FramePlan, OnCard, Radial};
+use crate::render::{bounds, Bloom, Directional, FramePlan, OnCard, Radial};
 use crate::WorkingBuffer;
 
 /// What the card may hold in drawings when Windows cannot say how much memory it has: D-40's
@@ -261,6 +261,8 @@ struct Params {
     width: u32,
     height: u32,
     axis: u32,
+    reach: u32,
+    ends: u32,
 }
 
 @group(0) @binding(0) var<uniform> P: Params;
@@ -358,8 +360,9 @@ fn nz(v: vec4<f32>) -> u32 {
 }
 
 // blurs::by_lines for one line a thread: the tent a - b|j| over |j| <= n, from running totals
-// kept in double precision. `lp` and `rp` are the samples left and right of the point, `lw` and
-// `rw` the same times their distance, and `seen` how many in reach are not zero.
+// kept in double precision, then (B-49) the `ends` taps, pairs of column and weight in
+// `weights`. `lp` and `rp` are the samples left and right of the point, `lw` and `rw` the same
+// times their distance, and `seen` how many within `reach` are not zero.
 @compute @workgroup_size(32)
 fn streak(@builtin(global_invocation_id) id: vec3<u32>) {
     if id.x >= P.count {
@@ -367,26 +370,33 @@ fn streak(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let k = f64(P.k0 + i32(id.x)) + 0.5lf;
     let n = i32(P.n);
+    let m = i32(P.reach);
     let x0 = -P.g;
     var lp = vec4<f64>(0.0lf);
     var rp = lp;
     var lw = lp;
     var rw = lp;
     var seen = 0u;
-    for (var j = 1; j <= n; j++) {
+    for (var j = 1; j <= m; j++) {
         let vr = tap(x0 + j, k + f64(x0 + j) * P.s);
         let vl = tap(x0 - j, k + f64(x0 - j) * P.s);
-        rp += vec4<f64>(vr);
-        rw += f64(j) * vec4<f64>(vr);
-        lp += vec4<f64>(vl);
-        lw += f64(j) * vec4<f64>(vl);
+        if j <= n {
+            rp += vec4<f64>(vr);
+            rw += f64(j) * vec4<f64>(vr);
+            lp += vec4<f64>(vl);
+            lw += f64(j) * vec4<f64>(vl);
+        }
         seen += nz(vr) + nz(vl);
     }
     var vc = tap(x0, k + f64(x0) * P.s);
     seen += nz(vc);
     for (var x = 0u; x < P.width; x++) {
         let c = i32(x) + x0;
-        let r = P.a * (lp + vec4<f64>(vc) + rp) - P.b * (rw + lw);
+        var r = P.a * (lp + vec4<f64>(vc) + rp) - P.b * (rw + lw);
+        for (var e = 0u; e < P.ends; e++) {
+            let j = c + i32(weights[2u * e]);
+            r += f64(weights[2u * e + 1u]) * vec4<f64>(tap(j, k + f64(j) * P.s));
+        }
         textureStore(output, vec2(x, id.x), select(vec4<f32>(r), vec4(0.0), seen == 0u));
         let vn = tap(c + n + 1, k + f64(c + n + 1) * P.s);
         let vo = tap(c - n, k + f64(c - n) * P.s);
@@ -395,7 +405,11 @@ fn streak(@builtin(global_invocation_id) id: vec3<u32>) {
         rp = rp - vec4<f64>(v1) + vec4<f64>(vn);
         lw = lw + lp + vec4<f64>(vc) - f64(n + 1) * vec4<f64>(vo);
         lp = lp + vec4<f64>(vc) - vec4<f64>(vo);
-        seen = seen + nz(vn) - nz(vo);
+        if m == n {
+            seen = seen + nz(vn) - nz(vo);
+        } else {
+            seen = seen + nz(tap(c + m + 1, k + f64(c + m + 1) * P.s)) - nz(tap(c - m, k + f64(c - m) * P.s));
+        }
         vc = v1;
     }
 }
@@ -415,6 +429,22 @@ fn mix(@builtin(global_invocation_id) id: vec3<u32>) {
     let lo = textureLoad(input, vec2(o.x, line), 0);
     let hi = textureLoad(input, vec2(o.x, line + 1), 0);
     halo[id.y * P.width + id.x] += ((1.0 - f) * lo + f * hi) * P.weight;
+}
+
+// B-49: the same two lines mixed, written as the picture: a Directional Blur's last step.
+@compute @workgroup_size(16, 16)
+fn lay(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= P.width || id.y >= P.height {
+        return;
+    }
+    let o = select(vec2<i32>(id.xy), vec2<i32>(id.yx), P.down == 1u);
+    let d = f64(o.y - P.g) - f64(o.x - P.g) * P.s;
+    let kf = floor(d);
+    let f = f32(d - kf);
+    let line = i32(kf) - P.k0;
+    let lo = textureLoad(input, vec2(o.x, line), 0);
+    let hi = textureLoad(input, vec2(o.x, line + 1), 0);
+    textureStore(output, id.xy, (1.0 - f) * lo + f * hi);
 }
 
 // bloom::bloom's last step: the halo times the intensity, on the drawing, grown by `g`.
@@ -447,18 +477,21 @@ struct Params {
     width: u32,
     height: u32,
     axis: u32,
+    reach: u32,
+    ends: u32,
 }
 
 /// A compute pass and the bindings it takes.
 type Pass = (wgpu::ComputePipeline, wgpu::BindGroupLayout);
 
-/// B-47: [`BLOOM_SHADER`]'s passes.
+/// B-47: [`BLOOM_SHADER`]'s passes. B-49's Directional Blur uses `streak` and `lay`.
 struct BloomPasses {
     bright: Pass,
     gauss: Pass,
     add: Pass,
     streak: Pass,
     mix: Pass,
+    lay: Pass,
     combine: Pass,
 }
 
@@ -761,8 +794,9 @@ impl Gpu {
                 bright: pass("bright", &[0, 1, 2]),
                 gauss: pass("gauss", &[0, 1, 2, 4]),
                 add: pass("add", &[0, 1, 3]),
-                streak: pass("streak", &[0, 1, 2]),
+                streak: pass("streak", &[0, 1, 2, 4]),
                 mix: pass("mix", &[0, 1, 3]),
+                lay: pass("lay", &[0, 1, 2]),
                 combine: pass("combine", &[0, 1, 2, 3]),
             }
         });
@@ -941,7 +975,7 @@ impl Gpu {
         view
     }
 
-    /// B-46, B-47: `effect` run on `source`, which [`Gpu::resident`] has just put on the card as
+    /// B-46, B-47, B-49: `effect` run on `source`, which [`Gpu::resident`] has just put on the card as
     /// `still`. A result already made of it with the same settings is reused; otherwise what to
     /// dispatch is added to `steps`, to run before the layers.
     fn applied(&mut self, steps: &mut Vec<Step>, source: &Arc<WorkingBuffer>, still: &wgpu::TextureView, effect: OnCard) -> wgpu::TextureView {
@@ -955,6 +989,7 @@ impl Gpu {
         let (moved, (width, height)) = match effect {
             OnCard::Radial(r) => (self.blur(steps, still, size, r), size),
             OnCard::Bloom(b) => self.bloom(steps, still, size, b),
+            OnCard::Directional(d) => self.directional(steps, still, size, d),
         };
         if let Some(i) = stored {
             let s = &mut self.store[i];
@@ -1085,6 +1120,12 @@ impl Gpu {
             self.step(steps, &passes.add, placed, &tall, None, Some(&halo), None, tiles(gw, gh));
         }
         let share = 1.0 / b.lines as f32;
+        // The streak pass reads end taps, which a Bloom has none of; a buffer cannot be empty.
+        let none = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("B-47 no ends"),
+            contents: bytemuck::cast_slice(&[0.0f32; 2]),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
         for j in 0..b.lines {
             let u = crate::blurs::along(b.angle + j as f64 * 180.0 / b.lines as f64);
             if b.length == 0.0 {
@@ -1108,13 +1149,53 @@ impl Gpu {
                 width: f.ow as u32,
                 ..Default::default()
             };
-            self.step(steps, &passes.streak, p, &light, Some(&lines), None, None, ((count as u32).div_ceil(32), 1));
+            let p = Params { reach: wt.inner as u32, ..p };
+            self.step(steps, &passes.streak, p, &light, Some(&lines), None, Some(&none), ((count as u32).div_ceil(32), 1));
             let p = Params { weight: share, width: gw as u32, height: gh as u32, ..p };
             self.step(steps, &passes.mix, p, &lines, None, Some(&halo), None, tiles(gw, gh));
         }
         let out = self.scratch("B-47 bloom", gw, gh);
         let p = Params { g: grow as i32, weight: b.intensity as f32, ..Default::default() };
         self.step(steps, &passes.combine, p, still, Some(&out), Some(&halo), None, tiles(gw, gh));
+        (out, (gw, gh))
+    }
+
+    /// B-49: `blurs::directional_blur` of `still`, `width` by `height`, into a texture of its own,
+    /// grown by half the length, which is returned with its size. What to dispatch is added to
+    /// `steps`.
+    fn directional(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), d: Directional) -> (wgpu::TextureView, (usize, usize)) {
+        let passes = self.bloom.as_ref().expect("a Directional Blur is refused without the passes");
+        let grow = (d.length / 2.0).ceil() as usize;
+        let (gw, gh) = (w + 2 * grow, h + 2 * grow);
+        let u = crate::blurs::along(d.direction);
+        let wt = crate::blurs::directional_weights(u, d.length);
+        let f = crate::blurs::line_frame(u, w, h, grow);
+        let count = (f.k1 - f.k0 + 1) as usize;
+        let lines = self.scratch("B-49 lines", f.ow, count);
+        let ends: Vec<f32> = wt.ends.iter().flat_map(|&(j, w)| [j as f32, w as f32]).collect();
+        let ends = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("B-49 ends"),
+            contents: bytemuck::cast_slice(if ends.is_empty() { &[0.0f32; 2] } else { &ends[..] }),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
+        let p = Params {
+            s: f.s,
+            a: wt.a,
+            b: wt.b,
+            k0: f.k0 as i32,
+            n: wt.inner as u32,
+            count: count as u32,
+            g: grow as i32,
+            down: f.down as u32,
+            width: f.ow as u32,
+            reach: wt.reach() as u32,
+            ends: wt.ends.len() as u32,
+            ..Default::default()
+        };
+        self.step(steps, &passes.streak, p, still, Some(&lines), None, Some(&ends), ((count as u32).div_ceil(32), 1));
+        let out = self.scratch("B-49 directional", gw, gh);
+        let p = Params { width: gw as u32, height: gh as u32, ..p };
+        self.step(steps, &passes.lay, p, &lines, Some(&out), None, None, ((gw as u32).div_ceil(16), (gh as u32).div_ceil(16)));
         (out, (gw, gh))
     }
 
@@ -1151,26 +1232,30 @@ impl Gpu {
             ));
         }
         // B-47: a Bloom needs double precision, and room for its grown drawing, its halo and
-        // its lines, which are never more than the grown width and height together.
+        // its lines, which are never more than the grown width and height together. B-49: so
+        // does a Directional Blur, which has no halo.
         for l in &plan.layers {
-            let Some(OnCard::Bloom(b)) = l.on_card else { continue };
+            let (name, grow, halo) = match l.on_card {
+                Some(OnCard::Bloom(b)) => ("a Bloom", crate::bloom::reach(b.radius, b.lines, b.length), true),
+                Some(OnCard::Directional(d)) => ("a Directional Blur", (d.length / 2.0).ceil() as usize, false),
+                _ => continue,
+            };
             if self.bloom.is_none() {
                 return Some(on_cpu(
                     Severity::Info,
-                    "The CPU drew this frame: it has a Bloom, and this graphics card cannot do the double-precision sums a Bloom needs.".into(),
-                    format!("{}: no SHADER_F64. B-47 draws a Bloom on the card only where it can add as the CPU does.", self.about),
+                    format!("The CPU drew this frame: it has {name}, and this graphics card cannot do the double-precision sums it needs."),
+                    format!("{}: no SHADER_F64. B-47 and B-49 draw these on the card only where it can add as the CPU does.", self.about),
                 ));
             }
-            let grow = crate::bloom::reach(b.radius, b.lines, b.length);
             let (gw, gh) = (l.source.width() + 2 * grow, l.source.height() + 2 * grow);
-            let halo = (gw * gh * 16) as u64;
+            let bytes = if halo { (gw * gh * 16) as u64 } else { 0 };
             if gw + gh + 1 > self.limits.max_texture_dimension_2d as usize
-                || halo > self.limits.max_storage_buffer_binding_size as u64
-                || halo > self.limits.max_buffer_size
+                || bytes > self.limits.max_storage_buffer_binding_size as u64
+                || bytes > self.limits.max_buffer_size
             {
                 return Some(on_cpu(
                     Severity::Info,
-                    format!("The CPU drew this frame: a Bloom grows a drawing to {gw} by {gh}, larger than the card allows."),
+                    format!("The CPU drew this frame: {name} grows a drawing to {gw} by {gh}, larger than the card allows."),
                     format!("{}: largest texture side {}.", self.about, self.limits.max_texture_dimension_2d),
                 ));
             }

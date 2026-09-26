@@ -1,6 +1,6 @@
 # B-48: Auto and Memory, by hand
 
-Built on 2026-09-26 against the B-48 entry in document 15. **Awaiting the owner's playtest.**
+Built on 2026-09-26 against the B-48 entry in document 15. **Passed on 2026-09-26 by the owner's word: "works".**
 
 `verification/B-48_memory.md` explains what was built, with the checks and the timings. This sheet covers what those cannot show: how the window behaves.
 
