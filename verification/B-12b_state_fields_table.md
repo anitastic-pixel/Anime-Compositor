@@ -125,5 +125,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - color, opacity, direction, distance, softness - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.lens_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - radius, edges - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.rim_light` is an effect this build has | added | added | pass |
+| and the settings it sends for it - color, direction, width, softness, intensity, blend - are the ones the command reads | accepted | accepted | pass |
 
-**105 of 105 checks pass.**
+**107 of 107 checks pass.**

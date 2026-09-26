@@ -1,9 +1,10 @@
-//! D-115's drop shadow and D-116's lens blur: document 21's rules, on a layer's own pixels.
+//! D-115's drop shadow, D-116's lens blur and D-117's rim light: document 21's rules, on a
+//! layer's own pixels.
 //!
-//! This program's own methods, modelled on After Effects' Drop Shadow and Camera Lens Blur;
-//! nothing is ported. `tools/drop_shadow_reference.py` and `tools/lens_blur_reference.py` are
-//! the same rules worked a second way, and `tests/b58_drop_shadow.rs` and
-//! `tests/b59_lens_blur.rs` hold these to their numbers.
+//! This program's own methods, modelled on After Effects' Drop Shadow and Camera Lens Blur and
+//! on rim lighting as compositors build it from a shifted matte; nothing is ported. Each
+//! `tools/<name>_reference.py` is the same rule worked a second way, and each
+//! `tests/b5x_<name>.rs` holds it to its numbers.
 
 use crate::effects::{blur, kernel_radius};
 use crate::render::sample_bilinear;
@@ -142,4 +143,51 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool) -
         });
     *source = out;
     g
+}
+
+/// D-117: the edge of the drawing that faces the light lit. A pixel that shows is lit as far as
+/// the point `width` pixels from it toward the light, `direction` degrees clockwise from up,
+/// lies off the drawing's covering blurred at sigma `softness` / 3; it takes `color` (encoded 0
+/// to 1) by `blend` at `intensity` per cent of that, its covering kept. The layer does not
+/// grow. The settings are already valid.
+pub(crate) fn rim_light(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    direction: f64,
+    width: f64,
+    softness: f64,
+    intensity: f64,
+    blend: &str,
+) {
+    if intensity == 0.0 {
+        return;
+    }
+    let s = softness / 3.0;
+    let r = kernel_radius(s) as f64;
+    let mut covering = source.clone();
+    for px in covering.data_mut().chunks_exact_mut(4) {
+        px[..3].fill(0.0);
+    }
+    blur(&mut covering, s);
+    let (ux, uy) = crate::blurs::along(direction);
+    let (k, c) = (intensity / 100.0, color.map(crate::grade::to_linear));
+    let mix = crate::grade::mixer(blend);
+    let w = source.width();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (x, y) = ((i % w) as f64 + r + 0.5, (i / w) as f64 + r + 0.5);
+            let off = sample_bilinear(&covering, x + width * ux, y + width * uy)[3] as f64;
+            let rim = (1.0 - off).clamp(0.0, 1.0) * k;
+            for j in 0..3 {
+                let b = px[j] as f64 / a;
+                px[j] = ((b + rim * (mix(b, c[j]) - b)) * a) as f32;
+            }
+        });
 }

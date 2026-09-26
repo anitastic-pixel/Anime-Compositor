@@ -184,6 +184,17 @@ pub(crate) fn hue_saturation(source: &mut WorkingBuffer, hue: f64, saturation: f
     });
 }
 
+/// D-114 and D-117: how a straight colour `b` takes a chosen colour `c` under `blend`, "normal",
+/// "multiply", "screen" or "add"; add is not held back.
+pub(crate) fn mixer(blend: &str) -> fn(f64, f64) -> f64 {
+    match blend {
+        "multiply" => |b, c| b * c,
+        "screen" => |b, c| 1.0 - (1.0 - b) * (1.0 - c),
+        "add" => |b, c| b + c,
+        _ => |_, c| c,
+    }
+}
+
 /// D-114's settings, read once for a frame: the two points in the buffer's pixels, the two
 /// colours encoded 0 to 1, and the two strengths 0 to 100.
 pub(crate) struct Gradient {
@@ -206,12 +217,7 @@ pub(crate) fn gradient(source: &mut WorkingBuffer, g: &Gradient) {
     let (sx, sy) = g.start;
     let (ex, ey) = (g.end.0 - sx, g.end.1 - sy);
     let ll = ex * ex + ey * ey;
-    let mix: fn(f64, f64) -> f64 = match g.blend.as_str() {
-        "multiply" => |b, c| b * c,
-        "screen" => |b, c| 1.0 - (1.0 - b) * (1.0 - c),
-        "add" => |b, c| b + c,
-        _ => |_, c| c,
-    };
+    let mix = mixer(&g.blend);
     source
         .data_mut()
         .par_chunks_exact_mut(4)

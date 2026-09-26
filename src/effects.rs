@@ -310,6 +310,18 @@ pub enum Effect {
     /// D-116: `radius`, 0 to 200 pixels, and `edges`, "transparent" or "repeat", kept as
     /// written so a wrong one is reported.
     LensBlur { radius: f64, edges: String },
+    /// D-117: `color`, `#rrggbb`; `direction`, -3600 to 3600 degrees clockwise from up, where
+    /// the light is; `width`, 0 to 100 pixels; `softness`, 0 to 100 pixels; `intensity`, 0 to
+    /// 100; and `blend`, "normal", "add", "screen" or "multiply". The words and colour are kept
+    /// as written, so a wrong one is reported.
+    RimLight {
+        color: String,
+        direction: f64,
+        width: f64,
+        softness: f64,
+        intensity: f64,
+        blend: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -335,6 +347,7 @@ pub const HUE_SATURATION: &str = "core.hue_saturation";
 pub const GRADIENT: &str = "core.gradient";
 pub const DROP_SHADOW: &str = "core.drop_shadow";
 pub const LENS_BLUR: &str = "core.lens_blur";
+pub const RIM_LIGHT: &str = "core.rim_light";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -480,6 +493,18 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 500.0),
             ],
             Effect::LensBlur { radius, .. } => vec![("radius", vec![radius], 0.0, 200.0)],
+            Effect::RimLight {
+                direction,
+                width,
+                softness,
+                intensity,
+                ..
+            } => vec![
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("width", vec![width], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
+                ("intensity", vec![intensity], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -537,6 +562,12 @@ impl Effect {
                 *radius = scale(*radius);
                 *length = scale(*length);
             }
+            Effect::RimLight {
+                width, softness, ..
+            } => {
+                *width = scale(*width);
+                *softness = scale(*softness);
+            }
             Effect::LensBlur { radius, .. } => *radius = scale(*radius),
             Effect::DropShadow {
                 distance, softness, ..
@@ -570,6 +601,7 @@ impl Effect {
             Effect::Gradient { .. } => "Gradient",
             Effect::DropShadow { .. } => "Drop Shadow",
             Effect::LensBlur { .. } => "Lens Blur",
+            Effect::RimLight { .. } => "Rim Light",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -595,6 +627,7 @@ impl Effect {
             Effect::Gradient { .. } => GRADIENT,
             Effect::DropShadow { .. } => DROP_SHADOW,
             Effect::LensBlur { .. } => LENS_BLUR,
+            Effect::RimLight { .. } => RIM_LIGHT,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -824,6 +857,15 @@ impl Effect {
                     "Lens Blur's edges are \"transparent\" or \"repeat\", and this is \"{edges}\"."
                 ))
             }
+            Effect::RimLight { blend, .. }
+                if !["normal", "add", "screen", "multiply"].contains(&blend.as_str()) =>
+            {
+                Some(format!(
+                    "Rim Light's blend is \"normal\", \"add\", \"screen\" or \"multiply\", and \
+                     this is \"{blend}\"."
+                ))
+            }
+            Effect::RimLight { color, .. } => hex_fault("Rim Light", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -1250,6 +1292,18 @@ pub fn apply_stack(
                 ox += r;
                 oy += r;
             }
+            Effect::RimLight {
+                color,
+                direction,
+                width,
+                softness,
+                intensity,
+                blend,
+            } => crate::perf::time(crate::perf::Stage::EffectRimLight, || {
+                crate::layer_fx::rim_light(
+                    source, encoded(color), *direction, *width, *softness, *intensity, blend,
+                )
+            }),
         }
     }
     (ox, oy)

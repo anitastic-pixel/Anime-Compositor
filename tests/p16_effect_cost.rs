@@ -202,6 +202,17 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 edges: "transparent".into(),
             },
         ),
+        (
+            "Rim Light, the defaults",
+            Effect::RimLight {
+                color: "#ffffff".into(),
+                direction: 45.0,
+                width: 3.0,
+                softness: 1.0,
+                intensity: 100.0,
+                blend: "normal".into(),
+            },
+        ),
     ]
 }
 

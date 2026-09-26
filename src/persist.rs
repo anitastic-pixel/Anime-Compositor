@@ -1102,6 +1102,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("radius".into(), num(*radius));
             params.insert("edges".into(), J::from(edges.as_str()));
         }
+        Effect::RimLight {
+            color,
+            direction,
+            width,
+            softness,
+            intensity,
+            blend,
+        } => {
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("direction".into(), num(*direction));
+            params.insert("width".into(), num(*width));
+            params.insert("softness".into(), num(*softness));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("blend".into(), J::from(blend.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2283,6 +2298,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::GRADIENT,
                 crate::effects::DROP_SHADOW,
                 crate::effects::LENS_BLUR,
+                crate::effects::RIM_LIGHT,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2412,6 +2428,14 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LENS_BLUR => Some(crate::effects::Effect::LensBlur {
                     radius: effect_number(params, "radius", &at)?,
                     edges: effect_word(params, "edges", &at)?,
+                }),
+                crate::effects::RIM_LIGHT => Some(crate::effects::Effect::RimLight {
+                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                    direction: effect_number(params, "direction", &at)?,
+                    width: effect_number(params, "width", &at)?,
+                    softness: effect_number(params, "softness", &at)?,
+                    intensity: effect_number(params, "intensity", &at)?,
+                    blend: effect_word(params, "blend", &at)?,
                 }),
                 _ => None,
             };
