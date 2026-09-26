@@ -534,6 +534,8 @@ B-56 / Hue/Saturation, D-113, the third of the batch of ten: a turn of the hue, 
 
 B-57 / Gradient, D-114, the fourth of the batch of ten: a linear or radial colour wash laid over the cel inside its covering. **B-57a is written on 2026-09-26**: `verification/B-57a proposal/`, D-114 in document 14, the rule in document 21, FX-GRAD-001 to 022 in document 25 from `tools/gradient_reference.py`, which writes `Fixtures/gradient/`. **B-57b, the build, is next.**
 
+B-58 / Drop Shadow, D-115, the fifth of the batch of ten: a soft shadow of the drawing's covering, offset in a direction. **B-58a is written on 2026-09-26**: `verification/B-58a proposal/`, D-115 in document 14, the rule in document 21, FX-SHADOW-001 to 023 in document 25 from `tools/drop_shadow_reference.py`, which writes `Fixtures/drop_shadow/`. **B-58b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
