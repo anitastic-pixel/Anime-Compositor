@@ -1026,6 +1026,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("match".into(), J::from(match_by.as_str()));
         }
+        Effect::Curves {
+            master,
+            red,
+            green,
+            blue,
+        } => {
+            for (name, points) in [("master", master), ("red", red), ("green", green), ("blue", blue)] {
+                params.insert(
+                    name.into(),
+                    J::Array(
+                        points
+                            .iter()
+                            .map(|p| J::Array(p.iter().map(|v| num(*v)).collect()))
+                            .collect(),
+                    ),
+                );
+            }
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1343,6 +1361,25 @@ fn effect_colors(params: Option<&J>, at: &str) -> Result<Vec<String>, Diagnostic
         .iter()
         .enumerate()
         .map(|(i, c)| Ok(as_str(c, &format!("{at}/{i}"))?.to_ascii_lowercase()))
+        .collect()
+}
+
+/// D-111: a curve, a list of points each a list of numbers. How many of each is the effect's
+/// check, so a file's wrong count is kept and reported; anything but numbers is refused.
+fn effect_points(params: Option<&J>, key: &str, at: &str) -> Result<Vec<Vec<f64>>, Diagnostic> {
+    let params = effect_params(params, at)?;
+    let at = format!("{at}/parameters/{key}");
+    as_array(field(params, &at, key)?, &at)?
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let at = format!("{at}/{i}");
+            as_array(p, &at)?
+                .iter()
+                .enumerate()
+                .map(|(j, v)| as_f64(v, &format!("{at}/{j}")))
+                .collect()
+        })
         .collect()
 }
 
@@ -2168,6 +2205,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::RADIAL_BLUR,
                 crate::effects::BLOOM,
                 crate::effects::COLOR_KEY,
+                crate::effects::CURVES,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2256,6 +2294,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     tolerance: effect_number(params, "tolerance", &at)?,
                     softness: effect_number(params, "softness", &at)?,
                     match_by: effect_word(params, "match", &at)?,
+                }),
+                // D-111: a point of the wrong count is kept and reported, as a wrong word is.
+                crate::effects::CURVES => Some(crate::effects::Effect::Curves {
+                    master: effect_points(params, "master", &at)?,
+                    red: effect_points(params, "red", &at)?,
+                    green: effect_points(params, "green", &at)?,
+                    blue: effect_points(params, "blue", &at)?,
                 }),
                 _ => None,
             };

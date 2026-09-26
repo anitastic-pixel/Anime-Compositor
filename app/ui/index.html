@@ -689,6 +689,7 @@
   .effect:hover .head button, .effect .head button:focus-visible { color: #c8c8cc; }
   /* D-87's hex boxes: seven characters, so a colour and its ✕ fit the panel's width. */
   .effect input.hex { width: calc(7ch + 14px); }
+  .effect input.points { width: 100%; box-sizing: border-box; }
   .effect input[type=color] {
     width: 2.4em; height: 1.7em; padding: 0 1px; vertical-align: middle;
     border: 1px solid #4a4a4a; border-radius: 3px; background: #141414;
@@ -986,6 +987,7 @@
         <option value="core.radial_blur">Radial Blur</option>
         <option value="core.bloom">Bloom</option>
         <option value="core.color_key">Colour Key</option>
+        <option value="core.curves">Curves</option>
       </select>
     </div>
   </section>
@@ -6388,6 +6390,7 @@ const EFFECT_NAMES = {
   'core.radial_blur': 'Radial Blur',
   'core.bloom': 'Bloom',
   'core.color_key': 'Colour Key',
+  'core.curves': 'Curves',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6431,10 +6434,13 @@ const EFFECT_PARAMS = {
   // D-97: past the tolerance, the softness is how far the fade reaches.
   'core.color_key': [['tolerance', 'Tolerance', 1, 0.5, '0 to 255'],
     ['softness', 'Softness', 1, 0.5, '0 to 255']],
+  // D-111: its four curves are lists of points, drawn apart in effectRow.
+  'core.curves': [],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
 // colours, as [name, label], or [name, label, [none, one]] for a colour that may be left empty;
+// its lists of points, as [name, label] (D-111);
 // and `chosen`, when it has a list of chosen colours, saying when the list is shown.
 // D-109: the three blurs' edges.
 const EDGES = ['edges', 'Edges', [['transparent', 'Transparent'], ['repeat', 'Repeat Edge Pixels']]];
@@ -6472,6 +6478,10 @@ const EFFECT_WORDS = {
   'core.color_key': {
     choices: [['match', 'Match By', [['rgb', 'Red, green and blue'], ['hue', 'Hue']]]],
     chosen: () => true,
+  },
+  // D-111. Each curve's points, typed.
+  'core.curves': {
+    lists: [['master', 'Master'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue']],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
@@ -6668,6 +6678,7 @@ function effectRow(layer, fx, at, of) {
   // A switch the file leaves out is at its first choice (D-109's edges).
   for (const [w, , options] of spec.choices || []) words[w] = fx.parameters[w] ?? options[0][0];
   for (const [w] of spec.colours || []) words[w] = fx.parameters[w];
+  for (const [w] of spec.lists || []) words[w] = (fx.parameters[w] || []).map((p) => p.join(' ')).join(', ');
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.
@@ -6806,6 +6817,30 @@ function effectRow(layer, fx, at, of) {
       swatch.onblur = () => close(false);
       dd.append(swatch, ' ', text);
     }
+    dl.append(dt, dd);
+  }
+  // D-111: a curve's points as text, in then out, a comma between points, since a point is two
+  // numbers a person reads off After Effects' own graph. Enter or leaving the box sends it;
+  // Escape puts it back. Points are not keyed.
+  for (const [name, title] of spec.lists || []) {
+    const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    const was = words[name];
+    const text = Object.assign(document.createElement('input'),
+      { type: 'text', className: 'points', value: was, placeholder: '0 0, 255 255', spellcheck: false });
+    text.title = 'Points, in then out, each 0 to 255, a comma between points; 2 to 16 of them';
+    text.setAttribute('aria-label', label + ' ' + title + ' points');
+    text.onfocus = () => { dragging = true; };
+    text.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') text.blur();
+      else if (e.key === 'Escape') { text.value = was; text.blur(); }
+    };
+    text.onblur = () => {
+      dragging = false;
+      if (text.value.trim() !== was) { words[name] = text.value.trim(); sendParameters(); }
+    };
+    dd.append(text);
     dl.append(dt, dd);
   }
   // D-87: a swatch per chosen colour, with its hex beside it, since the match is exact and the

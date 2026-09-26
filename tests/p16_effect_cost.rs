@@ -144,6 +144,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
             "Radial Blur zoom 20, edges repeat",
             Effect::RadialBlur { kind: "zoom".into(), amount: 20.0, center: [50.0, 50.0], edges: "repeat".into() },
         ),
+        // The batch of ten, D-111 to D-120.
+        (
+            "Curves, all four",
+            Effect::Curves {
+                master: vec![vec![0.0, 0.0], vec![128.0, 180.0], vec![255.0, 255.0]],
+                red: vec![vec![0.0, 0.0], vec![64.0, 40.0], vec![192.0, 215.0], vec![255.0, 255.0]],
+                green: vec![vec![0.0, 0.0], vec![255.0, 128.0]],
+                blue: vec![vec![0.0, 255.0], vec![255.0, 0.0]],
+            },
+        ),
     ]
 }
 

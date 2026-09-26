@@ -31,6 +31,7 @@ mod line_smooth;
 pub mod selective_blur;
 pub mod exr_io;
 mod glow;
+mod grade;
 pub mod mask;
 pub mod media;
 pub mod model;

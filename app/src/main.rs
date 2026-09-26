@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -2781,6 +2781,16 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             softness: 20.0,
             match_by: "rgb".to_string(),
         }),
+        // D-111: every curve the straight line, which changes nothing.
+        CURVES => {
+            let straight = || vec![vec![0.0, 0.0], vec![255.0, 255.0]];
+            Some(Effect::Curves {
+                master: straight(),
+                red: straight(),
+                green: straight(),
+                blue: straight(),
+            })
+        }
         _ => None,
     }
 }
@@ -2817,6 +2827,24 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             .map(|c| c.trim().to_string())
             .filter(|c| !c.is_empty())
             .collect())
+    };
+    // D-111: a curve's points as the page sends them, in then out, a comma between points.
+    // How many there are and whether they are in range is the core's check, in its words.
+    let points = |name: &str| -> Result<Vec<Vec<f64>>, String> {
+        let text = word(name)?;
+        text.split(',')
+            .map(|p| {
+                p.split_whitespace()
+                    .map(|n| n.parse::<f64>())
+                    .collect::<Result<Vec<f64>, _>>()
+                    .map_err(|_| {
+                        format!(
+                            "{name} needs points of two numbers, like 0 0, 128 180, 255 255. \
+                             Not \"{text}\"."
+                        )
+                    })
+            })
+            .collect()
     };
     match type_id {
         EXPOSURE => Ok(Effect::Exposure {
@@ -2933,6 +2961,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             tolerance: number("tolerance")?,
             softness: number("softness")?,
             match_by: word("match")?,
+        }),
+        CURVES => Ok(Effect::Curves {
+            master: points("master")?,
+            red: points("red")?,
+            green: points("green")?,
+            blue: points("blue")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -5818,8 +5852,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
                              core.line_smooth, core.selective_color_blur, core.glow, \
                              core.line_recolor, core.directional_blur, core.select_color, \
-                             core.line_width, core.radial_blur, core.bloom or \
-                             core.color_key."
+                             core.line_width, core.radial_blur, core.bloom, core.color_key or \
+                             core.curves."
                                 .to_string(),
                         );
                     };
@@ -5829,7 +5863,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
                              core.selective_color_blur, core.glow, core.line_recolor, \
                              core.directional_blur, core.select_color, core.line_width, \
-                             core.radial_blur, core.bloom and core.color_key."
+                             core.radial_blur, core.bloom, core.color_key and core.curves."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -9807,19 +9841,19 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the thirteen are named",
+            "an effect type this build does not have is refused, and the fourteen are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
-             core.radial_blur, core.bloom and core.color_key.",
+             core.radial_blur, core.bloom, core.color_key and core.curves.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
             "adding without saying which effect asks",
-            "Which effect? Say core.gaussian_blur, core.exposure, core.tint, \
-             core.line_smooth, core.selective_color_blur, core.glow, core.line_recolor, \
-             core.directional_blur, core.select_color, core.line_width, core.radial_blur, \
-             core.bloom or core.color_key.",
+            "Which effect? Say core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
+             core.selective_color_blur, core.glow, core.line_recolor, core.directional_blur, \
+             core.select_color, core.line_width, core.radial_blur, core.bloom, core.color_key \
+             or core.curves.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -21982,6 +22016,16 @@ mod contract {
                 ("softness", "10"),
                 ("colors", "%2300b140"),
                 ("match", "hue"),
+            ],
+        ),
+        // D-111: each curve's points, in then out, a comma between points.
+        (
+            "core.curves",
+            &[
+                ("master", "0%200,128%20180,255%20255"),
+                ("red", "0%200,255%20255"),
+                ("green", "0%200,255%20128"),
+                ("blue", "0%2064,255%20255"),
             ],
         ),
     ];

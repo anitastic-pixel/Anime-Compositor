@@ -257,6 +257,14 @@ pub enum Effect {
         softness: f64,
         match_by: String,
     },
+    /// D-111: `master`, `red`, `green` and `blue`, each a curve of 2 to 16 points `[in, out]`,
+    /// 0 to 255, in rising order of in. Kept as written, so a file's wrong point is reported.
+    Curves {
+        master: Vec<Vec<f64>>,
+        red: Vec<Vec<f64>>,
+        green: Vec<Vec<f64>>,
+        blue: Vec<Vec<f64>>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -276,6 +284,7 @@ pub const LINE_WIDTH: &str = "core.line_width";
 pub const RADIAL_BLUR: &str = "core.radial_blur";
 pub const BLOOM: &str = "core.bloom";
 pub const COLOR_KEY: &str = "core.color_key";
+pub const CURVES: &str = "core.curves";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -372,6 +381,8 @@ impl Effect {
                 ("tolerance", vec![tolerance], 0.0, 255.0),
                 ("softness", vec![softness], 0.0, 255.0),
             ],
+            // D-111: points are not keyed, so a curve is no setting of numbers here.
+            Effect::Curves { .. } => vec![],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -449,6 +460,7 @@ impl Effect {
             Effect::RadialBlur { .. } => "Radial Blur",
             Effect::Bloom { .. } => "Bloom",
             Effect::ColorKey { .. } => "Colour Key",
+            Effect::Curves { .. } => "Curves",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -468,6 +480,7 @@ impl Effect {
             Effect::RadialBlur { .. } => RADIAL_BLUR,
             Effect::Bloom { .. } => BLOOM,
             Effect::ColorKey { .. } => COLOR_KEY,
+            Effect::Curves { .. } => CURVES,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -664,6 +677,14 @@ impl Effect {
                     format!("{name} matches by \"rgb\" or \"hue\", and this is \"{match_by}\".")
                 })
             }),
+            Effect::Curves {
+                master,
+                red,
+                green,
+                blue,
+            } => [("master", master), ("red", red), ("green", green), ("blue", blue)]
+                .into_iter()
+                .find_map(|(curve, points)| curve_fault(curve, points)),
             _ => None,
         };
         own.or_else(|| {
@@ -685,6 +706,33 @@ impl Effect {
             bad
         })
     }
+}
+
+/// D-111: what is wrong with one curve's points, as a sentence, or `None` when nothing is.
+fn curve_fault(curve: &str, points: &[Vec<f64>]) -> Option<String> {
+    if !(2..=16).contains(&points.len()) {
+        return Some(format!(
+            "Curves' {curve} curve takes 2 to 16 points, and this has {}.",
+            points.len()
+        ));
+    }
+    if let Some(p) = points.iter().find(|p| p.len() != 2) {
+        return Some(format!(
+            "Each point of Curves' {curve} curve is two numbers, in then out, and this one is \
+             {p:?}."
+        ));
+    }
+    if let Some(v) = points.iter().flatten().find(|v| !(0.0..=255.0).contains(*v)) {
+        return Some(format!(
+            "Curves' {curve} curve's points run from 0 to 255, and this has {v}."
+        ));
+    }
+    points.windows(2).find(|w| w[1][0] <= w[0][0]).map(|w| {
+        format!(
+            "Curves' {curve} curve's in goes up from point to point, and {} is not above {}.",
+            w[1][0], w[0][0]
+        )
+    })
 }
 
 /// D-89: what is wrong with a glow's settings, as a sentence, or `None` when nothing is.
@@ -954,6 +1002,14 @@ pub fn apply_stack(
                 match_by,
             } => crate::perf::time(crate::perf::Stage::EffectColorKey, || {
                 crate::cel_fx::color_key(source, colors, *tolerance, *softness, match_by == "hue")
+            }),
+            Effect::Curves {
+                master,
+                red,
+                green,
+                blue,
+            } => crate::perf::time(crate::perf::Stage::EffectCurves, || {
+                crate::grade::curves(source, master, [red, green, blue])
             }),
         }
     }
