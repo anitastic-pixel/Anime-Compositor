@@ -882,6 +882,18 @@
         <input id="preffps" type="number" min="1" value="24">
         <label for="prefframes">Length in frames</label>
         <input id="prefframes" type="number" min="1" value="240">
+        <h3>Memory</h3>
+        <p>How much the preview may keep in memory to play faster. Each is a most, not a reservation: what the preview does not use stays free for other programs.</p>
+        <label for="prefmemory">Memory</label>
+        <select id="prefmemory">
+          <option value="auto">Automatic</option>
+          <option value="custom">Custom</option>
+        </select>
+        <label for="prefram">RAM, in GB</label>
+        <input id="prefram" type="number" min="1" step="0.5">
+        <label for="prefcard">Graphics card, in GB</label>
+        <input id="prefcard" type="number" min="1" step="0.5">
+        <p id="memoryuse"></p>
         <button id="closeprefs">Close</button>
       </div>
       <h2>Drawings</h2>
@@ -922,7 +934,11 @@
       <span id="frame">frame &mdash;</span>
       <span id="quality">&mdash;</span>
       <button id="toggle">Full resolution</button>
-      <button id="gpu" title="Draw the preview on the graphics card. Exports are always drawn on the CPU">Draw on GPU</button>
+      <select id="gpu" aria-label="What the preview is drawn on" title="What the preview is drawn on. Exports are always drawn on the CPU">
+        <option value="auto">Draw on: Auto</option>
+        <option value="gpu">Draw on: GPU</option>
+        <option value="cpu">Draw on: CPU</option>
+      </select>
       <button id="alpha">Alpha only</button>
       <button id="checker">Hide grid</button>
       <button id="fit" title="Fill the area (Shift+/)">Fit</button>
@@ -1212,9 +1228,9 @@ async function show(url, keep = true) {
     placing(drawnOn !== 'CPU');
     label.textContent = h.get('x-quality') + ' — ' + width + '×' + height
       + (differs ? ', not final pixels' : ', same as export') + ', drawn on ' + drawnOn;
-    // B-44: the button says what pressing it does; its tooltip names the card, or why there is none.
+    // B-44: the choice's tooltip names the card, or why there is none. The label above says
+    // which of the two drew this frame.
     const card = decodeURIComponent(h.get('x-card') || '');
-    $('gpu').textContent = drawnOn === 'CPU' ? 'Draw on GPU' : 'Draw on CPU';
     $('gpu').title = (card ? card + '. ' : '')
       + 'Exports are always drawn on the CPU'
       + (drawnOn === 'CPU, not GPU' ? '. This frame has something the card does not draw yet, or the card failed; the session log says which' : '');
@@ -2581,7 +2597,7 @@ sheet.ondblclick = (e) => {
 // Each is a preference with its box in Preferences and its box in the new composition form.
 const PREF_FIELDS = [['width', 'prefwidth', 'compwidth'], ['height', 'prefheight', 'compheight'],
   ['fps', 'preffps', 'compfps'], ['frames', 'prefframes', 'compframes']];
-const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false };
+const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, drawOn: 'auto', memory: 'auto' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('prefs') || '{}')); } catch (e) { /* the defaults */ }
 function savePrefs() {
   try { localStorage.setItem('prefs', JSON.stringify(prefs)); } catch (e) { /* kept for this run only */ }
@@ -3079,7 +3095,7 @@ function palette() {
     ['Zoom the picture in', '.', { key: '.' }],
     ['Zoom the picture out', ',', { key: ',' }],
     ['Draft or full quality', 'D', { key: 'd' }],
-    ['Preview on the CPU or the graphics card', '', () => $('gpu').click()],
+    ['Preview on the CPU or the graphics card', '', () => $('gpu').focus()],
     ['Transparency grid', 'G', { key: 'g' }],
     ['Alpha only', 'Alt+A', { key: 'a', altKey: true }],
     ['Composition settings', 'Ctrl+K', { key: 'k', code: 'KeyK', ctrlKey: true }],
@@ -8166,8 +8182,13 @@ $('toggle').onclick = () => {
 // Both views are the window's, not the project's, so neither goes near the document. What each
 // button says is what pressing it does, and the frame that comes back says which view is on.
 $('alpha').onclick = () => command('/viewer.toggle_alpha');
-// B-44: the window's too. The frame that comes back says which processor drew it.
-$('gpu').onclick = () => command('/gpu-switch');
+// B-44: the window's too. The frame that comes back says which processor drew it. B-48: Auto,
+// GPU or CPU, kept with the preferences and said again at every launch.
+$('gpu').onchange = () => {
+  prefs.drawOn = $('gpu').value;
+  savePrefs();
+  command('/gpu-switch?to=' + prefs.drawOn);
+};
 $('checker').onclick = () => command('/viewer.toggle_checkerboard');
 
 // A command, then the project again, then the current frame — in that order, so that everything
@@ -8556,10 +8577,45 @@ $('newcomp').onclick = () => {
 };
 $('cancelcomp').onclick = () => { $('newcomposition').hidden = true; };
 
+// B-48, D-105: the memory setting. Sent at launch and whenever it changes; the answer is what
+// is in use, which the box shows. Automatic's numbers are shown too, in boxes that cannot be typed in.
+const GB = (bytes) => (bytes / 1e9).toFixed(1);
+async function memory() {
+  const custom = prefs.memory === 'custom';
+  const asked = custom && prefs.ramGB ? '?ram=' + prefs.ramGB + '&card=' + (prefs.cardGB || 'auto') : '?ram=auto&card=auto';
+  let m;
+  try { m = await (await fetch(PROJECT + '/memory' + asked)).json(); } catch (e) { return; }
+  $('prefmemory').value = prefs.memory;
+  $('prefram').value = GB(m.ram.now);
+  $('prefram').max = GB(m.ram.most);
+  $('prefram').disabled = !custom;
+  $('prefcard').value = m.card ? GB(m.card.now) : (prefs.cardGB || '');
+  if (m.card) $('prefcard').max = GB(m.card.most);
+  $('prefcard').disabled = !custom;
+  $('memoryuse').textContent = 'RAM: holding ' + GB(m.ram.held) + ' of ' + GB(m.ram.now) + ' GB now. '
+    + (m.ram.memory ? 'This computer has ' + GB(m.ram.memory) + ' GB; Automatic gives ' + GB(m.ram.automatic)
+      + ' and Custom at most ' + GB(m.ram.most) + '. ' : '')
+    + (m.card
+      ? 'Graphics card: holding ' + GB(m.card.held) + ' of ' + GB(m.card.now) + ' GB now. '
+        + (m.card.memory ? 'It has ' + GB(m.card.memory) + ' GB; Automatic gives ' + GB(m.card.automatic)
+          + ' and Custom at most ' + GB(m.card.most) + '.' : '')
+      : 'Graphics card: not in use, the preview is drawn on the CPU.');
+}
+$('prefmemory').onchange = () => {
+  prefs.memory = $('prefmemory').value;
+  // Custom starts from what Automatic gave, so choosing it changes nothing until a number does.
+  if (prefs.memory === 'custom') { prefs.ramGB = $('prefram').value; prefs.cardGB = $('prefcard').value; }
+  savePrefs();
+  memory();
+};
+$('prefram').onchange = () => { prefs.ramGB = $('prefram').value; savePrefs(); memory(); };
+$('prefcard').onchange = () => { prefs.cardGB = $('prefcard').value; savePrefs(); memory(); };
+
 // W-26: the Preferences box. A number is kept as it is typed, once it is a whole number above nought.
 $('preferences').onclick = () => {
   for (const [f, box] of PREF_FIELDS) $(box).value = prefs[f];
   $('prefs').hidden = !$('prefs').hidden;
+  if (!$('prefs').hidden) memory();
 };
 for (const [f, box] of PREF_FIELDS) {
   $(box).addEventListener('input', (e) => {
@@ -9038,8 +9094,11 @@ addEventListener('contextmenu', (e) => {
   if (!(e.target instanceof Element && e.target.closest('input, textarea, [contenteditable]'))) e.preventDefault();
 });
 
-// D-35: at rest the viewer shows the work area's first frame.
-show(FRAMES + '/frame/0?q=draft');
+// D-35: at rest the viewer shows the work area's first frame. B-48: drawn as the kept
+// preferences say, so they are said first.
+$('gpu').value = prefs.drawOn;
+Promise.allSettled([fetch(PROJECT + '/gpu-switch?to=' + prefs.drawOn), memory()])
+  .then(() => show(FRAMES + '/frame/0?q=draft'));
 refreshState();
 fillRecent();
 requestAnimationFrame(tick);

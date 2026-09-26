@@ -92,6 +92,33 @@ pub const DEFAULT_BUDGET_BYTES: usize = 1024 * 1024 * 1024;
 /// cels, so the total the window holds is what D-40 already set.
 pub const DEFAULT_EFFECT_BUDGET_BYTES: usize = 448 * 1024 * 1024;
 
+/// The machine's memory in bytes, as Windows reports it (B-48, D-105).
+#[cfg(windows)]
+pub fn installed_memory() -> Option<u64> {
+    use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+    let mut status = MEMORYSTATUSEX { dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32, ..Default::default() };
+    // SAFETY: `status` is ours and its length is set, as the call requires.
+    unsafe { GlobalMemoryStatusEx(&mut status) }.ok()?;
+    Some(status.ullTotalPhys)
+}
+
+#[cfg(not(windows))]
+pub fn installed_memory() -> Option<u64> {
+    None
+}
+
+/// D-105: what the viewer's cache may hold when the memory setting is Automatic. A quarter of the
+/// machine's memory, and never less than D-40's gibibyte.
+pub fn automatic_budget() -> usize {
+    installed_memory().map_or(DEFAULT_BUDGET_BYTES, |m| ((m / 4) as usize).max(DEFAULT_BUDGET_BYTES))
+}
+
+/// D-105: the most a Custom setting may give the viewer's cache: three quarters of the machine's
+/// memory, so Windows and every other program keep a quarter.
+pub fn largest_budget() -> usize {
+    installed_memory().map_or(DEFAULT_BUDGET_BYTES, |m| ((m / 4 * 3) as usize).max(DEFAULT_BUDGET_BYTES))
+}
+
 /// The way a budget is written in the pages that quote one, so a page and the constant it is
 /// quoting cannot drift apart. Every artifact that names the default calls this rather than
 /// spelling the number, which is how "128 MB" ended up in four committed pages.
@@ -252,10 +279,30 @@ impl CelCache {
     /// three places that need it - the window, P-01's first-playthrough harness and P-03's
     /// byte-equality proof - so that "what the viewer holds" has one definition to change.
     pub fn viewer() -> CelCache {
-        CelCache::with_budgets(
-            DEFAULT_BUDGET_BYTES - DEFAULT_EFFECT_BUDGET_BYTES,
-            DEFAULT_EFFECT_BUDGET_BYTES,
-        )
+        CelCache::viewer_sized(DEFAULT_BUDGET_BYTES)
+    }
+
+    /// D-105: the viewer's cache holding `total` bytes, split as D-40's gibibyte is: seven
+    /// sixteenths for effect results, which is [`DEFAULT_EFFECT_BUDGET_BYTES`] of a gibibyte.
+    pub fn viewer_sized(total: usize) -> CelCache {
+        CelCache::with_budgets(total - total / 16 * 7, total / 16 * 7)
+    }
+
+    /// D-105: give a cache the viewer is already using a new total, split as
+    /// [`viewer_sized`](Self::viewer_sized) splits it. What no longer fits is let go, oldest first.
+    pub fn resize(&mut self, total: usize) {
+        self.budget = total - total / 16 * 7;
+        self.effect_budget = total / 16 * 7;
+        while self.held > self.budget {
+            let (_, evicted) = self.entries.remove(0);
+            self.held -= bytes_of(&evicted);
+            self.evicted += 1;
+        }
+        while self.effect_held > self.effect_budget {
+            let (_, evicted) = self.effect_entries.remove(0);
+            self.effect_held -= bytes_of(&evicted.buffer);
+            self.effect_evicted += 1;
+        }
     }
 
     /// A cache that holds nothing, ever. Export and every non-preview caller use this.

@@ -614,10 +614,15 @@ pub struct Gpu {
     store: Vec<Stored>,
     frame: u64,
     target: Option<Target>,
-    /// Bytes of drawings the card may hold; public so the B-44 test can squeeze it.
+    /// Bytes of drawings the card may hold; public so the B-44 test can squeeze it, and the
+    /// window can set it (B-48, D-105).
     pub budget: usize,
+    /// The card's own memory, when Windows says.
+    memory: Option<u64>,
     /// Drawings sent to the card since it was opened.
     sent: u64,
+    /// Frames the card failed since it was opened (B-48).
+    failures: u64,
 }
 
 fn entry(binding: u32, ty: wgpu::BindingType) -> wgpu::BindGroupLayoutEntry {
@@ -806,8 +811,38 @@ impl Gpu {
             target: None,
             // Half, so the frame's own buffers, the window and every other program keep room.
             budget: memory.map_or(DEFAULT_BUDGET_BYTES, |m| (m / 2) as usize),
+            memory,
             sent: 0,
+            failures: 0,
         })
+    }
+
+    /// The card's own memory in bytes, when Windows says (B-48).
+    pub fn memory(&self) -> Option<u64> {
+        self.memory
+    }
+
+    /// D-105: what the card may hold when the memory setting is Automatic: half its memory, as
+    /// B-44b set it.
+    pub fn automatic_budget(&self) -> usize {
+        self.memory.map_or(DEFAULT_BUDGET_BYTES, |m| (m / 2) as usize)
+    }
+
+    /// D-105: the most a Custom setting may give the card: 85% of its memory, so the frame's own
+    /// buffers, the window and every other program keep the rest.
+    pub fn largest_budget(&self) -> usize {
+        self.memory.map_or(DEFAULT_BUDGET_BYTES, |m| (m / 20 * 17) as usize).max(DEFAULT_BUDGET_BYTES)
+    }
+
+    /// How many frames the card has failed since it was opened (B-48): not the ones it refused,
+    /// which the CPU draws because the card does not draw them yet, but the ones it tried and could not.
+    pub fn failures(&self) -> u64 {
+        self.failures
+    }
+
+    /// Bytes of drawings the card holds now (B-48).
+    pub fn held(&self) -> usize {
+        self.store.iter().map(|s| s.bytes).sum()
     }
 
     /// How many drawings have been sent to the card since it was opened.
@@ -1371,6 +1406,7 @@ impl Gpu {
     }
 
     fn failed(&mut self, e: String) -> Diagnostic {
+        self.failures += 1;
         // Whatever the card was holding may be what failed; start again from nothing.
         self.store.clear();
         self.target = None;

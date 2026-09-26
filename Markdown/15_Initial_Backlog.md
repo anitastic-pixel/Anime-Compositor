@@ -447,6 +447,19 @@ B-47 / Bloom on the graphics card / **BUILT on 2026-09-26 at the owner's "works;
   - A Bloom followed by another effect, or on anything but a drawn layer. These stay on the CPU.
   - Directional Blur, Gaussian Blur and Glow on the card, which come next, in that order.
 
+B-48 / Auto drawing, and memory sized to the machine / **BUILT on 2026-09-26 at the owner's "accept D-105".** `verification/B-48_memory.md`. It changes no export, fixture or picture.
+- **What it builds:**
+  - The viewer's switch is a choice of three, Auto, GPU and CPU, kept between launches and starting on Auto. Auto gives up a card that fails a frame for the rest of the session and says so once.
+  - Memory in Preferences, Automatic or Custom: RAM for the viewer's cache, and the card's memory for its drawings. Automatic is a quarter of the machine's memory and half the card's. The box shows what is in use.
+  - A cache made smaller while in use lets go of what no longer fits.
+- **Measured:**
+  - 10 of 10 checks pass in `verification/B-48_memory_table.md`, including the same bytes from a 1 GiB cache and an Automatic one.
+  - 16 of 16 pass in `verification/B-44_gpu_window_table.md`, which now covers Auto.
+  - The reference shot with three Blooms, played again at Full, takes 3.5 ms a frame on the card with Automatic memory, against 28 with 1 GiB. On the CPU it takes 17 against 171 (`verification/B-48_memory_timing_table.md`).
+- **Not built:**
+  - A real card failure: the check tells Auto a frame failed, because the card has not failed here.
+  - Memory in use in the session log. It shows in Preferences instead.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.

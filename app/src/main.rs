@@ -910,14 +910,34 @@ fn as_alpha_only(pixels: &mut [u8]) {
     }
 }
 
+/// B-48, D-105: what the viewer's picture is drawn on. The page keeps the choice between launches
+/// and says it when it opens; until it has, the CPU.
+#[derive(Clone, Copy, PartialEq, Default, Debug)]
+enum DrawOn {
+    /// The card whenever it can: a frame it refuses goes to the CPU on its own, and a card that
+    /// fails is given up for the rest of the session, once, with a sentence saying so.
+    Auto,
+    /// The card, tried on every frame even after it fails.
+    Gpu,
+    #[default]
+    Cpu,
+}
+
 /// B-44, D-100 (a): whether the viewer's picture is drawn on the graphics card, and the card.
 ///
-/// The window's, not the project's, like the alpha view: it starts on the CPU at every launch,
-/// and exports never read it. The card is opened the first time the switch is pressed, so a
-/// person who never presses it pays nothing for it.
+/// The window's, not the project's, like the alpha view, and exports never read it. The card is
+/// opened the first time something other than CPU is chosen, so a person who never chooses it
+/// pays nothing for it.
 #[derive(Default)]
 struct Card {
+    mode: DrawOn,
+    /// Drawing on the card now: the mode is Auto or GPU and the card opened, and Auto has not
+    /// given it up.
     on: bool,
+    /// Auto gave the card up after it failed (B-48).
+    given_up: bool,
+    /// D-105: the Custom ceiling for the card's memory, or `None` for Automatic.
+    ceiling: Option<usize>,
     gpu: Option<Result<Gpu, String>>,
     /// B-45, D-102: what the page has around and under the picture, in window pixels, and the
     /// window's size, once the page has said. Empty until then, and the picture goes to the page.
@@ -928,32 +948,66 @@ struct Card {
 }
 
 impl Card {
-    /// Press the switch, and say what happened.
-    fn switch(&mut self) -> String {
-        if self.on {
-            self.on = false;
-            // The page lays out again before the card paints the window again.
-            self.paints.clear();
-            return "The preview is drawn on the CPU again.".to_string();
+    /// Choose what the preview is drawn on, and say what happened.
+    fn set(&mut self, mode: DrawOn) -> String {
+        self.mode = mode;
+        self.given_up = false;
+        if mode == DrawOn::Cpu {
+            if self.on {
+                self.on = false;
+                // The page lays out again before the card paints the window again.
+                self.paints.clear();
+            }
+            return "The preview is drawn on the CPU.".to_string();
         }
         match self.gpu.get_or_insert_with(Gpu::new) {
             Ok(gpu) => {
+                gpu.budget = self.ceiling.map_or(gpu.automatic_budget(), |c| c.min(gpu.largest_budget()));
                 self.on = true;
                 format!(
-                    "The preview is drawn on the graphics card: {}. Exports are still drawn on \
+                    "The preview is drawn on the graphics card{}: {}. Exports are still drawn on \
                         the CPU. A frame the card cannot draw is drawn on the CPU, and the picture's \
                         label says so.",
+                    if mode == DrawOn::Auto { " whenever it can be" } else { "" },
                     gpu.about()
                 )
             }
-            Err(why) => format!("The preview stays on the CPU: no usable graphics card, {why}."),
+            Err(why) => {
+                self.on = false;
+                format!("The preview is drawn on the CPU: no usable graphics card, {why}.")
+            }
         }
+    }
+
+    /// How many frames the card has failed so far.
+    fn failures(&self) -> u64 {
+        match &self.gpu {
+            Some(Ok(gpu)) => gpu.failures(),
+            _ => 0,
+        }
+    }
+
+    /// B-48: Auto gives the card up for the session when it fails a frame, and says so once.
+    /// The frame it failed was already drawn on the CPU and labelled so.
+    fn give_up_if_failed(&mut self, failures_before: u64) -> Option<String> {
+        if self.mode != DrawOn::Auto || !self.on || self.failures() == failures_before {
+            return None;
+        }
+        self.on = false;
+        self.given_up = true;
+        self.paints.clear();
+        Some(
+            "The graphics card failed, so Auto draws the preview on the CPU for the rest of this \
+                session. The session log says what failed. Choose GPU to try the card again."
+                .to_string(),
+        )
     }
 
     /// What the switch's tooltip says: the card, or why there is none, or nothing yet.
     fn about(&self) -> String {
         match &self.gpu {
             None => String::new(),
+            Some(Ok(gpu)) if self.given_up => format!("{}; Auto gave it up after it failed", gpu.about()),
             Some(Ok(gpu)) => match &self.off_screen {
                 None => gpu.about().to_string(),
                 Some(why) => format!("{}; not painting the window: {why}", gpu.about()),
@@ -1210,8 +1264,9 @@ fn serve_logged(
     }
     let mut card = card.map(|c| c.lock().expect("the card lock was poisoned"));
     let on_gpu = card.as_deref().is_some_and(|c| c.on);
+    let failures = card.as_deref().map_or(0, Card::failures);
     let made = match card.as_deref_mut() {
-        Some(Card { on: true, gpu: Some(Ok(gpu)), paints, size, off_screen })
+        Some(Card { on: true, gpu: Some(Ok(gpu)), paints, size, off_screen, .. })
             if gpu.on_screen() && !paints.is_empty() =>
         {
             preview::preview_frame_held(
@@ -1264,6 +1319,9 @@ fn serve_logged(
         )
         .map(Made::Cpu),
     };
+    if let Some(said) = card.as_deref_mut().and_then(|c| c.give_up_if_failed(failures)) {
+        announce(viewer, said);
+    }
     let card_about = card.as_deref().map_or(String::new(), Card::about);
     drop(card);
     let counted = (
@@ -1420,8 +1478,75 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         solo: Vec::new(),
         clipboard: Vec::new(),
         relink: None,
-        cache: Arc::new(Mutex::new(CelCache::viewer())),
+        cache: Arc::new(Mutex::new(CelCache::viewer_sized(ram_ceiling()))),
     })
+}
+
+/// B-48, D-105: the Custom ceiling for the viewer's cache in bytes, or 0 for Automatic. The
+/// window's, not a project's: a project opened later is given the same.
+static RAM_CEILING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+fn ram_ceiling() -> usize {
+    match RAM_CEILING.load(std::sync::atomic::Ordering::Relaxed) {
+        0 => anime_compositor::cache::automatic_budget(),
+        custom => custom,
+    }
+}
+
+/// B-48, D-105: take the memory setting in `query`, apply it, and say what is in use, in bytes.
+fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> String {
+    use anime_compositor::cache;
+    // Gigabytes as a person writes them, kept between 1 GiB and `most`; anything else is Automatic.
+    let custom = |name: &str, most: usize| {
+        parameter(query, name)
+            .and_then(|v| v.parse::<f64>().ok())
+            .filter(|gb| gb.is_finite() && *gb > 0.0)
+            .map(|gb| ((gb * 1e9) as usize).clamp(cache::DEFAULT_BUDGET_BYTES, most))
+    };
+    if parameter(query, "ram").is_some() {
+        let ram = custom("ram", cache::largest_budget());
+        RAM_CEILING.store(ram.unwrap_or(0), std::sync::atomic::Ordering::Relaxed);
+    }
+    let held = {
+        let cache = Arc::clone(&viewer.lock().expect("the viewer lock was poisoned").cache);
+        let mut cache = cache.lock().expect("the cel cache lock was poisoned");
+        cache.resize(ram_ceiling());
+        cache.held_bytes() + cache.effect_held_bytes()
+    };
+    let state = app.state::<Mutex<Card>>();
+    let card = &mut *state.lock().expect("the card lock was poisoned");
+    if parameter(query, "card").is_some() {
+        // The Custom number is kept even while the card is closed, and applied when it opens.
+        let most = match &card.gpu {
+            Some(Ok(gpu)) => gpu.largest_budget(),
+            _ => usize::MAX,
+        };
+        card.ceiling = custom("card", most);
+    }
+    let on_card = match &mut card.gpu {
+        Some(Ok(gpu)) => {
+            gpu.budget = card.ceiling.map_or(gpu.automatic_budget(), |c| c.min(gpu.largest_budget()));
+            serde_json::json!({
+                "memory": gpu.memory(),
+                "now": gpu.budget,
+                "automatic": gpu.automatic_budget(),
+                "most": gpu.largest_budget(),
+                "held": gpu.held(),
+            })
+        }
+        _ => serde_json::Value::Null,
+    };
+    serde_json::json!({
+        "ram": {
+            "memory": cache::installed_memory(),
+            "now": ram_ceiling(),
+            "automatic": cache::automatic_budget(),
+            "most": cache::largest_budget(),
+            "held": held,
+        },
+        "card": on_card,
+    })
+    .to_string()
 }
 
 /// One diagnostic as the window says it: what happened, then what to do about it.
@@ -1502,7 +1627,7 @@ fn blank(root: PathBuf) -> Viewer {
         solo: Vec::new(),
         clipboard: Vec::new(),
         relink: None,
-        cache: Arc::new(Mutex::new(CelCache::viewer())),
+        cache: Arc::new(Mutex::new(CelCache::viewer_sized(ram_ceiling()))),
     }
 }
 
@@ -7153,7 +7278,7 @@ fn place(app: &AppHandle, query: Option<&str>) -> Response<Vec<u8>> {
     let alpha_only = app.state::<Mutex<Viewer>>().lock().expect("the viewer lock was poisoned").alpha_only;
     let state = app.state::<Mutex<Card>>();
     let card = &mut *state.lock().expect("the card lock was poisoned");
-    let Card { on: true, gpu: Some(Ok(gpu)), paints: placed, size, off_screen: off_screen @ None } = card else {
+    let Card { on: true, gpu: Some(Ok(gpu)), paints: placed, size, off_screen: off_screen @ None, .. } = card else {
         return answer("off");
     };
     if !gpu.on_screen() {
@@ -7214,14 +7339,27 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             .expect("build the session log response");
     }
     // B-44: the CPU / GPU switch. The window's, like the alpha view, so it is answered here
-    // rather than by `edit_command`, which has only the viewer.
+    // rather than by `edit_command`, which has only the viewer. B-48: `to` is auto, gpu or cpu.
     if path == "gpu-switch" {
-        let said = app.state::<Mutex<Card>>().lock().expect("the card lock was poisoned").switch();
+        let mode = match parameter(query, "to").as_deref() {
+            Some("gpu") => DrawOn::Gpu,
+            Some("cpu") => DrawOn::Cpu,
+            _ => DrawOn::Auto,
+        };
+        let said = app.state::<Mutex<Card>>().lock().expect("the card lock was poisoned").set(mode);
         announce(&viewer, said.clone());
         return allow_the_page_to_read_this(Response::builder())
             .header("content-type", "text/plain; charset=utf-8")
             .body(said.into_bytes())
             .expect("build the command response");
+    }
+    // B-48, D-105: the memory setting, and what is in use. `ram` and `card` are gigabytes, or
+    // `auto`; a number is kept between 1 GiB and the most D-105 allows.
+    if path == "memory" {
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/json; charset=utf-8")
+            .body(memory(app, &viewer, query).into_bytes())
+            .expect("build the memory response");
     }
     // An import with no files named is the button in the media bin, and what it needs is the
     // operating system's file dialog, which belongs to the app handle and not to the viewer.
@@ -7363,7 +7501,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
-                      /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, or one of \
+                      /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -19148,7 +19286,7 @@ mod serving {
 
         let before = frame(Ask::Frame(100), PreviewQuality::Full);
         rows.push(("the switch starts on the CPU".into(), "CPU".into(), header(&before, "x-drawn-on")));
-        let said = card.lock().unwrap().switch();
+        let said = card.lock().unwrap().set(DrawOn::Gpu);
         if !card.lock().unwrap().on {
             std::fs::write(&out, format!("# B-44: the switch in the window
 
@@ -19175,10 +19313,29 @@ mod serving {
                 },
             ));
         }
-        let said = card.lock().unwrap().switch();
+        let said = card.lock().unwrap().set(DrawOn::Cpu);
         let after = frame(Ask::Frame(100), PreviewQuality::Full);
-        rows.push(("pressing it again goes back to the CPU".into(), "CPU".into(), header(&after, "x-drawn-on")));
-        rows.push(("and says so".into(), "The preview is drawn on the CPU again.".into(), said));
+        rows.push(("choosing CPU goes back to the CPU".into(), "CPU".into(), header(&after, "x-drawn-on")));
+        rows.push(("and says so".into(), "The preview is drawn on the CPU.".into(), said));
+        // B-48, D-105: Auto draws on the card, and gives it up once, and says so, when it fails.
+        let said = card.lock().unwrap().set(DrawOn::Auto);
+        rows.push(("choosing Auto says the card is used whenever it can be".into(), "yes".into(),
+            if said.contains("whenever it can be") { "yes".into() } else { said.clone() }));
+        let auto = frame(Ask::Frame(100), PreviewQuality::Full);
+        rows.push(("and the next frame is drawn on the GPU".into(), "GPU".into(), header(&auto, "x-drawn-on")));
+        let failures = card.lock().unwrap().failures();
+        rows.push(("a frame the card did not fail leaves Auto on the card".into(), "no sentence".into(),
+            card.lock().unwrap().give_up_if_failed(failures).unwrap_or("no sentence".into())));
+        let said = card.lock().unwrap().give_up_if_failed(failures.wrapping_sub(1));
+        rows.push(("a frame the card failed makes Auto give it up, and say so".into(), "says so".into(),
+            match said { Some(s) if s.starts_with("The graphics card failed, so Auto") => "says so".into(), other => format!("{other:?}") }));
+        let given_up = frame(Ask::Frame(100), PreviewQuality::Full);
+        rows.push(("and the next frame is drawn on the CPU".into(), "CPU".into(), header(&given_up, "x-drawn-on")));
+        rows.push(("the tooltip says Auto gave the card up".into(), "yes".into(),
+            if card.lock().unwrap().about().ends_with("Auto gave it up after it failed") { "yes".into() } else { card.lock().unwrap().about() }));
+        rows.push(("once, not on every frame".into(), "no sentence".into(),
+            card.lock().unwrap().give_up_if_failed(failures.wrapping_sub(1)).unwrap_or("no sentence".into())));
+        card.lock().unwrap().set(DrawOn::Cpu);
         rows.push((
             "the CPU's picture after the GPU is byte for byte the one before it".into(),
             "identical".into(),
@@ -20206,6 +20363,8 @@ mod contract {
         // B-44: the CPU / GPU switch. A route rather than a `viewer.` command because the card
         // belongs to the window, not to the viewer `edit_command` is handed.
         "gpu-switch",
+        // B-48: the memory setting, which is the window's for the same reason.
+        "memory",
         "new",
         "open",
         // B-45: where the viewer's picture lies in the window, for the card to paint it there.
@@ -22233,7 +22392,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 68] = [
+    const CONTROLS: [&str; 71] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -22274,7 +22433,10 @@ mod contract {
         "notedetails",
         "open",
         "play",
+        "prefcard",
         "preferences",
+        "prefmemory",
+        "prefram",
         "printnow",
         "printsheet",
         "recent",

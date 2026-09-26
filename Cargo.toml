@@ -45,7 +45,8 @@ half = { version = "2.7.1", features = ["bytemuck"] }
 [target.'cfg(windows)'.dependencies]
 # B-44b: `Win32_Graphics_Dxgi` asks Windows how much memory the graphics card has.
 # B-45: `Win32_UI_WindowsAndMessaging` lets the card paint under the page (`Gpu::attach`).
-windows = { version = "0.61.3", features = ["Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_Graphics_Dxgi", "Win32_UI_WindowsAndMessaging"] }
+# B-48: `Win32_System_SystemInformation` asks Windows how much memory the machine has.
+windows = { version = "0.61.3", features = ["Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_Graphics_Dxgi", "Win32_UI_WindowsAndMessaging", "Win32_System_SystemInformation"] }
 
 [dev-dependencies]
 # `tests/b11_dependency_record.rs` asks cargo what the build resolves and reads the answer.
