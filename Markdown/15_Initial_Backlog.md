@@ -403,6 +403,18 @@ B-44b / Sending drawings to the card, smaller and once / **BUILT on 2026-09-26 a
   - Draft shrinking drawings before sending them, which would change the picture.
   - Eight-bit sending, which would need a second copy of every drawing kept.
 
+B-45 / The graphics card paints the viewer's picture into the window / **BUILT on 2026-09-26 at the owner's word ("proceed with the native viewer surface"), with D-102 proposed; it awaits the owner's playtest, `verification/B-45_playtest.md`.** `verification/B-45_native_viewer.md`. It changes no export, fixture or CPU picture.
+- **What it builds:**
+  - With the switch on GPU, the card paints the picture straight into the window, under the page, and nothing is copied back.
+  - The page tells the card where the picture lies and what is under it. A zoom or a scroll sends only that, and nothing is made again.
+  - If painting the window fails, the card says why and hands the picture to the page as in B-44.
+- **Measured:**
+  - Against B-44's way, photographed in the same app: identical when zoomed to 300%. When fitted, a few hundred pixels differ, in the columns where a screen pixel falls exactly between two picture pixels.
+  - Playing the reference shot at Full for 8 seconds, no frame is skipped. B-44's way skipped 82.
+- **Not built:**
+  - Trying again after a failure without reopening the app.
+  - ClearType text while the card paints, which Windows does not offer over a see-through page.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.

@@ -56,7 +56,7 @@ use anime_compositor::export::{
 };
 use anime_compositor::mp4_out::Mp4Quality;
 use anime_compositor::exr_io::{self, ExrSamples};
-use anime_compositor::gpu::Gpu;
+use anime_compositor::gpu::{Gpu, Paint};
 use anime_compositor::audio;
 use anime_compositor::media;
 use anime_compositor::model::{
@@ -919,6 +919,12 @@ fn as_alpha_only(pixels: &mut [u8]) {
 struct Card {
     on: bool,
     gpu: Option<Result<Gpu, String>>,
+    /// B-45, D-102: what the page has around and under the picture, in window pixels, and the
+    /// window's size, once the page has said. Empty until then, and the picture goes to the page.
+    paints: Vec<Paint>,
+    size: (u32, u32),
+    /// Why the card stopped painting the window, once it has. It does not try again this session.
+    off_screen: Option<String>,
 }
 
 impl Card {
@@ -926,6 +932,8 @@ impl Card {
     fn switch(&mut self) -> String {
         if self.on {
             self.on = false;
+            // The page lays out again before the card paints the window again.
+            self.paints.clear();
             return "The preview is drawn on the CPU again.".to_string();
         }
         match self.gpu.get_or_insert_with(Gpu::new) {
@@ -942,19 +950,14 @@ impl Card {
         }
     }
 
-    /// The card, when the switch is on.
-    fn drawing(&mut self) -> Option<&mut Gpu> {
-        match (self.on, &mut self.gpu) {
-            (true, Some(Ok(gpu))) => Some(gpu),
-            _ => None,
-        }
-    }
-
     /// What the switch's tooltip says: the card, or why there is none, or nothing yet.
     fn about(&self) -> String {
         match &self.gpu {
             None => String::new(),
-            Some(Ok(gpu)) => gpu.about().to_string(),
+            Some(Ok(gpu)) => match &self.off_screen {
+                None => gpu.about().to_string(),
+                Some(why) => format!("{}; not painting the window: {why}", gpu.about()),
+            },
             Some(Err(why)) => format!("no usable card: {why}"),
         }
     }
@@ -1202,12 +1205,42 @@ fn serve_logged(
     enum Made {
         Cpu(anime_compositor::WorkingBuffer),
         Gpu(Vec<u8>, usize, usize),
+        // B-45: already painted into the window by the card; only its size goes to the page.
+        Shown(usize, usize),
     }
     let mut card = card.map(|c| c.lock().expect("the card lock was poisoned"));
     let on_gpu = card.as_deref().is_some_and(|c| c.on);
-    let card_about = card.as_deref().map_or(String::new(), Card::about);
-    let made = match card.as_deref_mut().and_then(Card::drawing) {
-        Some(gpu) => preview::preview_frame_srgb8(
+    let made = match card.as_deref_mut() {
+        Some(Card { on: true, gpu: Some(Ok(gpu)), paints, size, off_screen })
+            if gpu.on_screen() && !paints.is_empty() =>
+        {
+            preview::preview_frame_held(
+                &taken.project,
+                &taken.composition,
+                taken.frame,
+                &taken.root,
+                taken.quality,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut cache,
+                gpu,
+            )
+            .and_then(|(width, height)| match gpu.show(*size, paints, taken.alpha_only) {
+                Ok(()) => Ok(Made::Shown(width, height)),
+                // No silent fallback: the card stops painting the window, the status line and the
+                // switch's tooltip say why, and the picture goes to the page as in B-44.
+                Err(why) => {
+                    gpu.let_go();
+                    announce(
+                        viewer,
+                        format!("The graphics card stopped painting the viewer: {why}. The page shows the picture instead."),
+                    );
+                    *off_screen = Some(why);
+                    gpu.picture().map(|pixels| Made::Gpu(pixels, width, height))
+                }
+            })
+        }
+        Some(Card { on: true, gpu: Some(Ok(gpu)), .. }) => preview::preview_frame_srgb8(
             &taken.project,
             &taken.composition,
             taken.frame,
@@ -1219,7 +1252,7 @@ fn serve_logged(
             gpu,
         )
         .map(|(pixels, width, height)| Made::Gpu(pixels, width, height)),
-        None => preview::preview_frame_cached(
+        _ => preview::preview_frame_cached(
             &taken.project,
             &taken.composition,
             taken.frame,
@@ -1231,6 +1264,7 @@ fn serve_logged(
         )
         .map(Made::Cpu),
     };
+    let card_about = card.as_deref().map_or(String::new(), Card::about);
     drop(card);
     let counted = (
         cache.hits() - counted.0,
@@ -1258,9 +1292,11 @@ fn serve_logged(
         preview::read_ahead(taken.project, taken.composition, next, taken.root, cache);
     }
 
+    let on_screen = matches!(made, Made::Shown(..));
     let (mut pixels, width, height) = match made {
         Made::Cpu(buffer) => (buffer.to_srgb8_straight(), buffer.width(), buffer.height()),
         Made::Gpu(pixels, width, height) => (pixels, width, height),
+        Made::Shown(width, height) => (Vec::new(), width, height),
     };
     // No silent fallback: a frame the switch sent to the card and the CPU drew says so.
     let fell_back = log.ids_at(taken.frame).contains(&DiagnosticId::GpuPreviewOnCpu);
@@ -1306,6 +1342,8 @@ fn serve_logged(
         // B-44: which processor drew these pixels, and the card, for the switch's label.
         .header("x-drawn-on", drawn_on)
         .header("x-card", for_a_header(&card_about))
+        // B-45: the pixels are already in the window, under the page; the body is empty.
+        .header("x-on-screen", if on_screen { "1" } else { "0" })
         .body(pixels)
         .expect("build the frame response")
 }
@@ -7077,6 +7115,71 @@ fn refresh(app: &AppHandle) {
     }
 }
 
+/// B-45, D-102: where the viewer's picture lies in the window, and what is under it, from the page.
+///
+/// `p` is one paint per `;`, each sixteen numbers: kind, the box that shows (left, top, right,
+/// bottom), the whole box, colour and second colour (0 to 255), and the checkerboard's square,
+/// all in window pixels. The first time, with the switch on, the card starts painting the window
+/// and the page is made see-through. The answer is `on` when the card paints the window.
+fn place(app: &AppHandle, query: Option<&str>) -> Response<Vec<u8>> {
+    let paints: Vec<Paint> = parameter(query, "p")
+        .unwrap_or_default()
+        .split(';')
+        .filter_map(|item| {
+            let n: Vec<f32> = item.split(',').filter_map(|n| n.trim().parse().ok()).collect();
+            let [kind, l, t, r, b, ol, ot, or, ob, r1, g1, b1, r2, g2, b2, square] = n[..] else {
+                return None;
+            };
+            Some(Paint {
+                kind: kind as u32,
+                rect: [l, t, r, b],
+                origin: [ol, ot, or, ob],
+                colour: [r1 / 255.0, g1 / 255.0, b1 / 255.0, 1.0],
+                colour2: [r2 / 255.0, g2 / 255.0, b2 / 255.0, 1.0],
+                square,
+                pad: [0; 2],
+            })
+        })
+        .collect();
+    let answer = |said: &str| {
+        allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "text/plain; charset=utf-8")
+            .body(said.as_bytes().to_vec())
+            .expect("build the place response")
+    };
+    let (Some(window), false) = (app.get_webview_window("main"), paints.is_empty()) else {
+        return answer("off");
+    };
+    let alpha_only = app.state::<Mutex<Viewer>>().lock().expect("the viewer lock was poisoned").alpha_only;
+    let state = app.state::<Mutex<Card>>();
+    let card = &mut *state.lock().expect("the card lock was poisoned");
+    let Card { on: true, gpu: Some(Ok(gpu)), paints: placed, size, off_screen: off_screen @ None } = card else {
+        return answer("off");
+    };
+    if !gpu.on_screen() {
+        // SAFETY: the card lets go of the window when it is destroyed (`on_window_event`).
+        let attached = window
+            .set_background_color(Some(tauri::window::Color(0, 0, 0, 0)))
+            .map_err(|e| e.to_string())
+            .and_then(|()| unsafe { gpu.attach(&window) });
+        if let Err(why) = attached {
+            let _ = window.set_background_color(None);
+            *off_screen = Some(why);
+            return answer("off");
+        }
+    }
+    let inner = window.inner_size().unwrap_or_default();
+    *size = (inner.width, inner.height);
+    *placed = paints;
+    // The picture already on the card, where the page now has it: a zoom or a scroll costs no render.
+    if let Err(why) = gpu.show(*size, placed, alpha_only) {
+        gpu.let_go();
+        *off_screen = Some(why);
+        return answer("off");
+    }
+    answer("on")
+}
+
 /// Answer one command from the page. The body is what the status line should say, or the recent
 /// list, one path per line.
 fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>> {
@@ -7337,6 +7440,12 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // B-45: the card lets go of the window before the window goes.
+            if let WindowEvent::Destroyed = event {
+                if let Some(Ok(gpu)) = &mut window.state::<Mutex<Card>>().lock().expect("the card lock was poisoned").gpu {
+                    gpu.let_go();
+                }
+            }
             let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event else {
                 return;
             };
@@ -7390,6 +7499,10 @@ fn main() {
             // D-84a: `/sheet`, the Sheet tab's grid, for the same reason again.
             if request.uri().path().trim_matches('/') == "sheet" {
                 return sheet(&viewer);
+            }
+            // B-45: `/place?p=`, where the viewer's picture and what is under it lie in the window.
+            if request.uri().path().trim_matches('/') == "place" {
+                return place(ctx.app_handle(), request.uri().query());
             }
             // D-84d: `/sheet/print`, the same grid as a page to print.
             if request.uri().path().trim_matches('/') == "sheet/print" {
@@ -20095,6 +20208,8 @@ mod contract {
         "gpu-switch",
         "new",
         "open",
+        // B-45: where the viewer's picture lies in the window, for the card to paint it there.
+        "place",
         "play",
         "recent",
         "recover",
@@ -21786,7 +21901,7 @@ mod contract {
         };
         let shell: Vec<String> = ROUTES
             .iter()
-            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound"))
+            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "place"))
             .map(|route| route.to_string())
             .collect();
         report.check(

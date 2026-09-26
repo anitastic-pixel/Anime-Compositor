@@ -29,6 +29,7 @@ And the function itself. It needs a running application to be called, so what is
 | `/gpu-switch` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/new` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/open` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
+| `/place` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/play` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/recent` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/recover` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
@@ -56,4 +57,4 @@ And the function itself. It needs a running application to be called, so what is
 | what an export asked for with `missing=` does with a missing drawing | Block | Block | pass |
 | what an export asked for with `no query at all` does with a missing drawing | Block | Block | pass |
 
-**35 of 35 checks pass.**
+**36 of 36 checks pass.**

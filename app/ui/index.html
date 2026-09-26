@@ -204,6 +204,10 @@
     max-width: 100%; max-height: 100%; image-rendering: pixelated;
     background-color: #2a2a2e;
   }
+  /* B-45, D-102: with the switch on, the graphics card paints the picture into the window, under
+     the page, with what the page had around it. The page is see-through there and nowhere else. */
+  html.onscreen .see-through { background: transparent !important; }
+  html.onscreen #view { background: none !important; }
   canvas.grid {
     background-image:
       linear-gradient(45deg, #333338 25%, transparent 25%, transparent 75%, #333338 75%),
@@ -1164,12 +1168,16 @@ async function show(url, keep = true) {
     }
     const h = response.headers;
     const width = +h.get('x-width'), height = +h.get('x-height');
-    const pixels = new Uint8ClampedArray(await response.arrayBuffer());
+    // B-45: already in the window, under the page, and the answer carries no pixels.
+    const onScreen = h.get('x-on-screen') === '1';
+    const pixels = onScreen ? null : new Uint8ClampedArray(await response.arrayBuffer());
     const arrived = performance.now();
     if (view.width !== width || view.height !== height) {
       view.width = width; view.height = height;
     }
-    paint.putImageData(new ImageData(pixels, width, height), 0, 0);
+    if (onScreen) paint.clearRect(0, 0, width, height);
+    else paint.putImageData(new ImageData(pixels, width, height), 0, 0);
+    document.documentElement.classList.toggle('onscreen', onScreen);
     // P-15. The window's own figure comes back with the pixels, so the subtraction is between
     // two clocks reading the same one answer rather than two runs.
     if (dragWatch) {
@@ -1201,6 +1209,7 @@ async function show(url, keep = true) {
     const differs = h.get('x-differs') === 'true';
     const label = $('quality');
     const drawnOn = h.get('x-drawn-on') || 'CPU';
+    placing(drawnOn !== 'CPU');
     label.textContent = h.get('x-quality') + ' — ' + width + '×' + height
       + (differs ? ', not final pixels' : ', same as export') + ', drawn on ' + drawnOn;
     // B-44: the button says what pressing it does; its tooltip names the card, or why there is none.
@@ -5301,6 +5310,71 @@ function applyZoom() {
   $('zoomlabel').textContent = !comp ? '\u2014'
     : Math.round(shown * 100) + '%' + (fit ? ', fit' : '');
   drawBoxes();
+}
+
+// B-45, D-102: while the switch is on, where the picture lies in the window, and what is under
+// it, told to the card every time it changes, so the card can paint it there. A zoom or a scroll
+// is a new place and no new render. Window pixels throughout, rounded as the page's own are.
+let placed = '';
+let placeLoop = 0;
+function placing(on) {
+  if (on && !placeLoop) placeLoop = requestAnimationFrame(place);
+  if (!on) { cancelAnimationFrame(placeLoop); placeLoop = 0; placed = ''; }
+}
+function place() {
+  placeLoop = requestAnimationFrame(place);
+  const list = paints();
+  if (list === placed) return;
+  placed = list;
+  fetch(FRAMES + '/place?p=' + encodeURIComponent(list)).then((r) => r.text()).then((said) => {
+    // The first place, or the card giving up: the frame again, the other way.
+    if ((said === 'on') !== document.documentElement.classList.contains('onscreen') && !playing) {
+      show(FRAMES + '/frame/' + frame + '?q=' + quality);
+    }
+  }).catch(() => {});
+}
+// Each box the page paints behind the picture, outermost first: the colour of every element the
+// canvas sits in, cut to whatever scrolls or hides it, then the canvas's own background and the
+// picture. Those elements are made see-through, and their colours are the ones they had before.
+// ponytail: a colour is read once per element, so one that changes with state while see-through
+// stays at the old one; read it again on a class change if that ever happens.
+const ownColour = new WeakMap();
+let seeThrough = [];
+function paints() {
+  const d = devicePixelRatio;
+  const px = (r) => [r.left, r.top, r.right, r.bottom].map((v) => Math.round(v * d));
+  const chain = [];
+  for (let el = view.parentElement; el; el = el.parentElement) chain.unshift(el);
+  for (const el of seeThrough) if (!chain.includes(el)) el.classList.remove('see-through');
+  seeThrough = chain;
+  let clip = [0, 0, Math.round(innerWidth * d), Math.round(innerHeight * d)];
+  const cut = (r) => [Math.max(r[0], clip[0]), Math.max(r[1], clip[1]),
+    Math.min(r[2], clip[2]), Math.min(r[3], clip[3])];
+  const items = [];
+  for (const el of chain) {
+    if (!ownColour.has(el)) {
+      const n = getComputedStyle(el).backgroundColor.match(/[\d.]+/g).map(Number);
+      ownColour.set(el, n.length > 3 && n[3] === 0 ? null : n.slice(0, 3));
+    }
+    el.classList.add('see-through');
+    // The body's colour is the whole window's, as a page's is.
+    const box = el === document.body ? clip : cut(px(el.getBoundingClientRect()));
+    if (ownColour.get(el)) items.push([0, ...box, ...box, ...ownColour.get(el), 0, 0, 0, 0]);
+    const style = getComputedStyle(el);
+    if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
+      const r = el.getBoundingClientRect();
+      const x = r.left + el.clientLeft, y = r.top + el.clientTop;
+      clip = cut(px({ left: x, top: y, right: x + el.clientWidth, bottom: y + el.clientHeight }));
+    }
+  }
+  const whole = px(view.getBoundingClientRect());
+  const shows = cut(whole);
+  // The canvas's own background, as `canvas` and `canvas.grid` above paint it.
+  items.push(view.classList.contains('grid')
+    ? [1, ...shows, ...whole, 42, 42, 46, 51, 51, 56, 8 * d]
+    : [0, ...shows, ...whole, 42, 42, 46, 0, 0, 0, 0]);
+  items.push([2, ...shows, ...whole, 0, 0, 0, 0, 0, 0, 0]);
+  return items.map((i) => i.join(',')).join(';');
 }
 
 // Screen pixels per composition pixel as the picture is shown now, zoomed or fitted.

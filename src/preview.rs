@@ -223,6 +223,30 @@ pub fn preview_frame_srgb8(
     Ok((pixels, plan.width, plan.height))
 }
 
+/// B-45: [`preview_frame_srgb8`], with the picture left on the card for [`Gpu::show`] rather
+/// than brought back. A frame the CPU draws instead is sent to the card, so it shows the same way.
+#[allow(clippy::too_many_arguments)]
+pub fn preview_frame_held(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    tile_size: usize,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
+    gpu: &mut Gpu,
+) -> Result<(usize, usize), Diagnostic> {
+    let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
+    let plan = scale_plan(plan, quality);
+    if let Err(why) = gpu.draw_held(&plan, cache) {
+        log.record(frame, "GPU preview", why);
+        let pixels = render::render(&plan, tiles_for(quality, tile_size)).to_srgb8_straight();
+        gpu.hold(&pixels, plan.width, plan.height);
+    }
+    Ok((plan.width, plan.height))
+}
+
 /// Read the drawings `frame` will ask for, on a thread of its own, into `cache`'s pending list
 /// (P-18). The viewer calls it for the frame after the one it just rendered, so those files are
 /// read while the page is still encoding, receiving and drawing this one.

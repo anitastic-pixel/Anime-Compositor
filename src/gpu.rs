@@ -23,6 +23,12 @@
 //! - A drawing the CPU's cache holds is also known by that cache's name for it, so the card keeps
 //!   it after the CPU lets go, and the same file read again is not sent again.
 //! - The card may hold half its own memory, as Windows reports it, rather than D-40's gibibyte.
+//!
+//! B-45 (D-102) takes away the last trip: the finished picture does not come back at all. The
+//! card paints it into the window itself, under the page, which is made see-through only where
+//! the picture is. The page says where that is, as a list of [`Paint`]s: the colours of the
+//! panels the picture sits in, the checkerboard, and the picture, in the order the page would
+//! have painted them. The card paints exactly those, so the window looks as it did.
 
 use std::sync::{Arc, Weak};
 
@@ -191,6 +197,107 @@ fn encode(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 "#;
 
+/// B-45: the window's pixels the page leaves see-through, painted as the page would have.
+const SCREEN_SHADER: &str = r#"
+struct Paint {
+    rect: vec4<f32>,
+    origin: vec4<f32>,
+    colour: vec4<f32>,
+    colour2: vec4<f32>,
+    kind: u32,
+    square: f32,
+    pad0: u32,
+    pad1: u32,
+}
+
+struct Screen {
+    count: u32,
+    width: u32,
+    height: u32,
+    alpha_only: u32,
+}
+
+@group(0) @binding(0) var<uniform> V: Screen;
+@group(0) @binding(1) var<storage, read> paints: array<Paint>;
+@group(0) @binding(2) var<storage, read> picture: array<u32>;
+
+// One triangle that covers the window.
+@vertex
+fn corner(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+    let x = f32((i << 1u) & 2u);
+    let y = f32(i & 2u);
+    return vec4<f32>(x * 2.0 - 1.0, 1.0 - y * 2.0, 0.0, 1.0);
+}
+
+// `at` is the pixel's centre, as the page's own pixels are. Each paint covers what is under it,
+// and the picture is blended over it as a canvas is: eight-bit straight alpha, on sRGB numbers.
+@fragment
+fn paint(@builtin(position) at: vec4<f32>) -> @location(0) vec4<f32> {
+    let p = at.xy;
+    var c = vec3<f32>(0.0);
+    for (var i = 0u; i < V.count; i++) {
+        let it = paints[i];
+        if p.x < it.rect.x || p.y < it.rect.y || p.x >= it.rect.z || p.y >= it.rect.w {
+            continue;
+        }
+        if it.kind == 0u {
+            c = it.colour.rgb;
+        } else if it.kind == 1u {
+            // The checkerboard: `colour2` where the squares' row and column add up to odd.
+            let q = vec2<i32>(floor((p - it.origin.xy) / it.square));
+            c = select(it.colour.rgb, it.colour2.rgb, ((q.x + q.y) & 1) == 1);
+        } else {
+            // The nearest picture pixel, as `image-rendering: pixelated` picks it. A window pixel
+            // whose centre falls exactly between two is given the first, as the page gives it:
+            // measured at a fit of 456 for 480, where every nineteenth column is such a tie.
+            let box = it.origin.zw - it.origin.xy;
+            let f = floor((p - it.origin.xy) * vec2<f32>(f32(V.width), f32(V.height)) / box - 0.001);
+            let t = vec2<u32>(clamp(f, vec2<f32>(0.0), vec2<f32>(f32(V.width - 1u), f32(V.height - 1u))));
+            let b = picture[t.y * V.width + t.x];
+            var s = vec4<f32>(f32(b & 255u), f32((b >> 8u) & 255u), f32((b >> 16u) & 255u), f32(b >> 24u)) / 255.0;
+            if V.alpha_only != 0u {
+                s = vec4<f32>(s.a, s.a, s.a, 1.0);
+            }
+            c = s.rgb * s.a + c * (1.0 - s.a);
+        }
+    }
+    return vec4<f32>(c, 1.0);
+}
+"#;
+
+/// B-45: one box of the window the card paints, in window pixels, as the page would paint it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Paint {
+    /// Left, top, right, bottom of what shows: the box cut to whatever scrolls or hides it.
+    pub rect: [f32; 4],
+    /// The whole box, uncut: where the checkerboard's squares start and where the picture lies.
+    pub origin: [f32; 4],
+    /// Red, green, blue, 0 to 1, as the page's colour numbers are: sRGB, not linear.
+    pub colour: [f32; 4],
+    /// The checkerboard's other colour.
+    pub colour2: [f32; 4],
+    /// [`Paint::COLOUR`], [`Paint::CHECKERBOARD`] or [`Paint::PICTURE`].
+    pub kind: u32,
+    /// The checkerboard's square, in window pixels.
+    pub square: f32,
+    pub pad: [u32; 2],
+}
+
+impl Paint {
+    pub const COLOUR: u32 = 0;
+    pub const CHECKERBOARD: u32 = 1;
+    pub const PICTURE: u32 = 2;
+}
+
+/// B-45: the window the card paints into.
+struct Screen {
+    surface: wgpu::Surface<'static>,
+    config: wgpu::SurfaceConfiguration,
+    pipeline: wgpu::RenderPipeline,
+    layout: wgpu::BindGroupLayout,
+}
+
 /// One drawing on the card.
 struct Stored {
     held: Weak<WorkingBuffer>,
@@ -213,6 +320,10 @@ struct Target {
 }
 
 pub struct Gpu {
+    instance: wgpu::Instance,
+    adapter: wgpu::Adapter,
+    /// B-45: the window, once the card paints into it.
+    screen: Option<Screen>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     about: String,
@@ -353,6 +464,9 @@ impl Gpu {
             memory.map_or("its memory not reported".into(), |m| format!("{:.1} GB of its own memory", m as f64 / 1e9))
         );
         Ok(Gpu {
+            instance,
+            adapter,
+            screen: None,
             device,
             queue,
             about,
@@ -468,7 +582,7 @@ impl Gpu {
                 width,
                 height,
                 sum: buffer("B-44 sum", n * 16, U::STORAGE | U::COPY_DST),
-                bytes: buffer("B-44 bytes", n * 4, U::STORAGE | U::COPY_SRC),
+                bytes: buffer("B-44 bytes", n * 4, U::STORAGE | U::COPY_SRC | U::COPY_DST),
                 readback: buffer("B-44 readback", n * 4, U::MAP_READ | U::COPY_DST),
                 size: self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("B-44 size"),
@@ -518,12 +632,26 @@ impl Gpu {
     /// CPU must draw it instead.
     /// `cache` names the drawings it holds, so the card can keep them after it lets go.
     pub fn draw(&mut self, plan: &FramePlan, cache: &CelCache) -> Result<Vec<u8>, Diagnostic> {
+        self.draw_held(plan, cache)?;
+        if plan.width == 0 || plan.height == 0 {
+            return Ok(Vec::new());
+        }
+        self.picture()
+    }
+
+    /// B-45: the picture [`Gpu::draw_held`] or [`Gpu::hold`] left on the card, brought back.
+    pub fn picture(&mut self) -> Result<Vec<u8>, Diagnostic> {
+        perf::time(Stage::GpuDraw, || self.read_back()).map_err(|e| self.failed(e))
+    }
+
+    /// B-45: [`Gpu::draw`], with the picture left on the card for [`Gpu::show`].
+    pub fn draw_held(&mut self, plan: &FramePlan, cache: &CelCache) -> Result<(), Diagnostic> {
         if let Some(refused) = self.refuse(plan) {
             return Err(refused);
         }
         let (width, height) = (plan.width, plan.height);
         if width == 0 || height == 0 {
-            return Ok(Vec::new());
+            return Ok(());
         }
         self.frame += 1;
         self.device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
@@ -595,7 +723,7 @@ impl Gpu {
             }
         });
 
-        let pixels = perf::time(Stage::GpuDraw, || {
+        let drawn = perf::time(Stage::GpuDraw, || {
             let stride = 80usize.next_multiple_of(self.limits.min_uniform_buffer_offset_alignment as usize);
             let mut numbers = vec![0u32; layers.len().max(1) * stride / 4];
             for (i, layer) in layers.iter().enumerate() {
@@ -662,35 +790,203 @@ impl Gpu {
                 pass.set_bind_group(0, &encode_group, &[]);
                 pass.dispatch_workgroups((width as u32).div_ceil(16), (height as u32).div_ceil(16), 1);
             }
-            let size = (width * height * 4) as u64;
-            encoder.copy_buffer_to_buffer(&target.bytes, 0, &target.readback, 0, size);
             // The drawings arrive before the frame that draws with them: one queue, in order.
             self.queue.submit([uploads.finish(), encoder.finish()]);
 
             let invalid = pollster::block_on(self.device.pop_error_scope());
             let memory = pollster::block_on(self.device.pop_error_scope());
-            if let Some(e) = memory.or(invalid) {
+            match memory.or(invalid) {
+                Some(e) => Err(e.to_string()),
+                None => Ok(()),
+            }
+        });
+        drawn.map_err(|e| self.failed(e))
+    }
+
+    /// The picture [`Gpu::draw_held`] left on the card, brought back.
+    fn read_back(&self) -> Result<Vec<u8>, String> {
+        let target = self.target.as_ref().expect("drawn before it is read");
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+        encoder.copy_buffer_to_buffer(&target.bytes, 0, &target.readback, 0, (target.width * target.height * 4) as u64);
+        self.queue.submit([encoder.finish()]);
+        let slice = target.readback.slice(..);
+        let (tell, told) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| drop(tell.send(r)));
+        self.device.poll(wgpu::PollType::Wait).map_err(|e| e.to_string())?;
+        told.recv().map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+        let pixels = slice.get_mapped_range().to_vec();
+        target.readback.unmap();
+        Ok(pixels)
+    }
+
+    fn failed(&mut self, e: String) -> Diagnostic {
+        // Whatever the card was holding may be what failed; start again from nothing.
+        self.store.clear();
+        self.target = None;
+        on_cpu(
+            Severity::Warning,
+            "The CPU drew this frame: the graphics card failed.".into(),
+            format!("{}: {e}", self.about),
+        )
+        .with_remediation("If it keeps happening, switch the preview back to CPU, or to Draft.")
+    }
+
+    /// B-45: a picture the CPU drew, eight-bit straight sRGB, put where [`Gpu::show`] reads.
+    pub fn hold(&mut self, pixels: &[u8], width: usize, height: usize) {
+        if width == 0 || height == 0 {
+            return;
+        }
+        self.target(width, height);
+        let target = self.target.as_ref().expect("made above");
+        self.queue.write_buffer(&target.bytes, 0, pixels);
+    }
+
+    /// B-45: paint into `window` from now on. The page over it must be see-through where the
+    /// card paints, which is the caller's business.
+    ///
+    /// # Safety
+    /// `window` must outlive this `Gpu`, or [`Gpu::let_go`] must be called before it goes.
+    pub unsafe fn attach(
+        &mut self,
+        window: &(impl wgpu::rwh::HasWindowHandle + wgpu::rwh::HasDisplayHandle),
+    ) -> Result<(), String> {
+        let target = unsafe { wgpu::SurfaceTargetUnsafe::from_window(window) }.map_err(|e| e.to_string())?;
+        let surface = unsafe { self.instance.create_surface_unsafe(target) }.map_err(|e| e.to_string())?;
+        let caps = surface.get_capabilities(&self.adapter);
+        // Plain eight-bit, not sRGB: the page's colour numbers go to the screen as they are.
+        let format = [wgpu::TextureFormat::Bgra8Unorm, wgpu::TextureFormat::Rgba8Unorm]
+            .into_iter()
+            .find(|f| caps.formats.contains(f))
+            .ok_or_else(|| format!("{} cannot paint this window in eight-bit colour", self.about))?;
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format,
+            width: 0,
+            height: 0,
+            present_mode: wgpu::PresentMode::AutoVsync,
+            desired_maximum_frame_latency: 1,
+            alpha_mode: caps.alpha_modes[0],
+            view_formats: vec![],
+        };
+        let module = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("B-45"),
+            source: wgpu::ShaderSource::Wgsl(SCREEN_SHADER.into()),
+        });
+        let fragment = |binding, ty| wgpu::BindGroupLayoutEntry { visibility: wgpu::ShaderStages::FRAGMENT, ..entry(binding, ty) };
+        let layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("B-45 screen"),
+            entries: &[fragment(0, uniform()), fragment(1, storage(true)), fragment(2, storage(true))],
+        });
+        let pipeline = self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("B-45 screen"),
+            layout: Some(&self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
+                bind_group_layouts: &[&layout],
+                push_constant_ranges: &[],
+            })),
+            vertex: wgpu::VertexState { module: &module, entry_point: Some("corner"), compilation_options: Default::default(), buffers: &[] },
+            fragment: Some(wgpu::FragmentState {
+                module: &module,
+                entry_point: Some("paint"),
+                compilation_options: Default::default(),
+                targets: &[Some(format.into())],
+            }),
+            primitive: Default::default(),
+            depth_stencil: None,
+            multisample: Default::default(),
+            multiview: None,
+            cache: None,
+        });
+        // The page is a child window covering the whole of this one. Windows leaves a parent's
+        // pixels out wherever a child is unless this is cleared, and wry's own example of a
+        // card painting under a see-through page clears it too.
+        #[cfg(windows)]
+        if let Some(wgpu::rwh::RawWindowHandle::Win32(h)) = window.window_handle().ok().map(|w| w.as_raw()) {
+            use windows::Win32::Foundation::HWND;
+            use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, SetWindowLongPtrW, GWL_STYLE, WS_CLIPCHILDREN};
+            let hwnd = HWND(h.hwnd.get() as *mut _);
+            // SAFETY: the handle is the live window the caller vouched for; only its style changes.
+            unsafe { SetWindowLongPtrW(hwnd, GWL_STYLE, GetWindowLongPtrW(hwnd, GWL_STYLE) & !(WS_CLIPCHILDREN.0 as isize)) };
+        }
+        self.screen = Some(Screen { surface, config, pipeline, layout });
+        Ok(())
+    }
+
+    /// Whether the card paints into a window.
+    pub fn on_screen(&self) -> bool {
+        self.screen.is_some()
+    }
+
+    /// Stop painting into the window.
+    pub fn let_go(&mut self) {
+        self.screen = None;
+    }
+
+    /// B-45: paint the window, `size` pixels, with the last picture drawn or held.
+    pub fn show(&mut self, size: (u32, u32), paints: &[Paint], alpha_only: bool) -> Result<(), String> {
+        let (Some(screen), Some(target)) = (self.screen.as_mut(), self.target.as_ref()) else {
+            return Ok(());
+        };
+        if size.0 == 0 || size.1 == 0 || paints.is_empty() {
+            return Ok(());
+        }
+        perf::time(Stage::GpuShow, || {
+            if (screen.config.width, screen.config.height) != size {
+                (screen.config.width, screen.config.height) = size;
+                screen.surface.configure(&self.device, &screen.config);
+            }
+            let frame = match screen.surface.get_current_texture() {
+                Ok(frame) => frame,
+                // The window changed under it: once more, freshly set up.
+                Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
+                    screen.surface.configure(&self.device, &screen.config);
+                    screen.surface.get_current_texture().map_err(|e| e.to_string())?
+                }
+                Err(e) => return Err(e.to_string()),
+            };
+            self.device.push_error_scope(wgpu::ErrorFilter::Validation);
+            let numbers = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("B-45 screen"),
+                contents: bytemuck::cast_slice(&[paints.len() as u32, target.width as u32, target.height as u32, alpha_only as u32]),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+            let list = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("B-45 paints"),
+                contents: bytemuck::cast_slice(paints),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
+            let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &screen.layout,
+                entries: &[
+                    wgpu::BindGroupEntry { binding: 0, resource: numbers.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 1, resource: list.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 2, resource: target.bytes.as_entire_binding() },
+                ],
+            });
+            let view = frame.texture.create_view(&Default::default());
+            let mut encoder = self.device.create_command_encoder(&Default::default());
+            {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
+                    })],
+                    ..Default::default()
+                });
+                pass.set_pipeline(&screen.pipeline);
+                pass.set_bind_group(0, &group, &[]);
+                pass.draw(0..3, 0..1);
+            }
+            self.queue.submit([encoder.finish()]);
+            if let Some(e) = pollster::block_on(self.device.pop_error_scope()) {
                 return Err(e.to_string());
             }
-            let slice = target.readback.slice(..);
-            let (tell, told) = std::sync::mpsc::channel();
-            slice.map_async(wgpu::MapMode::Read, move |r| drop(tell.send(r)));
-            self.device.poll(wgpu::PollType::Wait).map_err(|e| e.to_string())?;
-            told.recv().map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
-            let pixels = slice.get_mapped_range().to_vec();
-            target.readback.unmap();
-            Ok(pixels)
-        });
-        pixels.map_err(|e| {
-            // Whatever the card was holding may be what failed; start again from nothing.
-            self.store.clear();
-            self.target = None;
-            on_cpu(
-                Severity::Warning,
-                "The CPU drew this frame: the graphics card failed.".into(),
-                format!("{}: {e}", self.about),
-            )
-            .with_remediation("If it keeps happening, switch the preview back to CPU, or to Draft.")
+            frame.present();
+            Ok(())
         })
     }
 }

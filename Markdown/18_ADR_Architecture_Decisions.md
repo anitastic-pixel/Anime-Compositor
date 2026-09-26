@@ -34,6 +34,8 @@ Three reasons decided this over a native Rust immediate-mode toolkit. Design wor
 
 Accepted costs and their bounds: WebView2 is a system component updated outside this project. Frame transport across the Rust-to-webview boundary limits full-resolution playback. Browser color management may alter displayed pixels. The second and third are preview-side only and never touch exported output, because export never passes through the display path. Both are measured by SP-05 and SP-06 before implementation depends on them. If either fails, the fallback is a native rendering surface hosted inside the web shell, which preserves the design and inspection benefits.
 
+**Taken for the GPU preview on 2026-09-26 by B-45 (D-102, proposed).** With the GPU switch on, the graphics card paints the viewer's picture into the window, under a see-through page, and the page draws everything else as before. The page stays the whole interface and can still be inspected. With the switch on CPU, frames still cross to the page as they always have.
+
 ## ADR-005 - Build system and dependency policy
 
 Status: ACCEPTED. Cargo, with `Cargo.lock` committed. No separate build system is specified, because Rust does not need one. No network access during normal application use.
@@ -48,7 +50,7 @@ Version 0.2 specified a permanent CPU reference path alongside a production GPU 
 
 The tile contract in ADR-011 exists so that adding a GPU path later is a dispatch port rather than a rewrite. Deferred is not rejected.
 
-**Amended on 2026-09-25 by D-100, the owner's "accept D-100 (a)".** A GPU **preview tier** is allowed: the GPU may draw the viewer's picture, behind a switch, checked against the CPU by a comparison table within declared tolerances. The CPU remains the only authority. Every fixture, every export and Full-quality checking stay on the CPU and byte-exact. A GPU export is not allowed, and would need a decision of its own. The reopening trigger above was not met; the owner reopened it on scope grounds, so the port costs less while the effect count is small.
+**Amended on 2026-09-25 by D-100, the owner's "accept D-100 (a)".** A GPU **preview tier** is allowed: the GPU may draw the viewer's picture, behind a switch, checked against the CPU by a comparison table within declared tolerances. The CPU remains the only authority. Every fixture, every export and Full-quality checking stay on the CPU and byte-exact. A GPU export is not allowed, and would need a decision of its own. The reopening trigger above was not met; the owner reopened it on scope grounds, so the port costs less while the effect count is small. Since B-45 (D-102, proposed), the preview tier paints the viewer directly into the window rather than copying the picture back; exports are untouched.
 
 ## ADR-007 - Image and color dependencies
 

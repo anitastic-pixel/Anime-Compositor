@@ -102,10 +102,12 @@ pub enum Stage {
     GpuUpload,
     /// B-44: the card drawing and encoding the frame, and the eight-bit picture coming back.
     GpuDraw,
+    /// B-45: the card painting the picture into the window, and handing it to Windows.
+    GpuShow,
 }
 
 impl Stage {
-    pub const ALL: [Stage; 28] = [
+    pub const ALL: [Stage; 29] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -134,6 +136,7 @@ impl Stage {
         Stage::Encode,
         Stage::GpuUpload,
         Stage::GpuDraw,
+        Stage::GpuShow,
     ];
 
     /// The name the artifact prints. Written for the owner, not for a log parser.
@@ -167,6 +170,7 @@ impl Stage {
             Stage::Encode => "encode for the page",
             Stage::GpuUpload => "GPU: send drawings to the card",
             Stage::GpuDraw => "GPU: draw, encode and bring the picture back",
+            Stage::GpuShow => "GPU: paint the picture into the window",
         }
     }
 

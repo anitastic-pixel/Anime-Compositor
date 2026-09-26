@@ -44,7 +44,8 @@ half = { version = "2.7.1", features = ["bytemuck"] }
 # D-72 and D-30: MP4 goes out through the encoder Windows carries. Already in the tree under Tauri.
 [target.'cfg(windows)'.dependencies]
 # B-44b: `Win32_Graphics_Dxgi` asks Windows how much memory the graphics card has.
-windows = { version = "0.61.3", features = ["Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_Graphics_Dxgi"] }
+# B-45: `Win32_UI_WindowsAndMessaging` lets the card paint under the page (`Gpu::attach`).
+windows = { version = "0.61.3", features = ["Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_Graphics_Dxgi", "Win32_UI_WindowsAndMessaging"] }
 
 [dev-dependencies]
 # `tests/b11_dependency_record.rs` asks cargo what the build resolves and reads the answer.
