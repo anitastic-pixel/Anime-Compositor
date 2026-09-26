@@ -164,6 +164,14 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 output_white: 240.0,
             },
         ),
+        (
+            "Hue/Saturation, all three",
+            Effect::HueSaturation {
+                hue: 60.0,
+                saturation: -50.0,
+                lightness: 20.0,
+            },
+        ),
     ]
 }
 

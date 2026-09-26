@@ -989,6 +989,7 @@
         <option value="core.color_key">Colour Key</option>
         <option value="core.curves">Curves</option>
         <option value="core.levels">Levels</option>
+        <option value="core.hue_saturation">Hue/Saturation</option>
       </select>
     </div>
   </section>
@@ -6393,6 +6394,7 @@ const EFFECT_NAMES = {
   'core.color_key': 'Colour Key',
   'core.curves': 'Curves',
   'core.levels': 'Levels',
+  'core.hue_saturation': 'Hue/Saturation',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6444,6 +6446,10 @@ const EFFECT_PARAMS = {
     ['gamma', 'Gamma', 1, 0.01, '0.1 to 10, above 1 lightens the middle'],
     ['output_black', 'Output Black', 1, 0.5, '0 to 255'],
     ['output_white', 'Output White', 1, 0.5, '0 to 255']],
+  // D-113, named as After Effects names them.
+  'core.hue_saturation': [['hue', 'Hue', 1, 1, '-180 to 180 degrees'],
+    ['saturation', 'Saturation', 1, 0.5, '-100 to 100'],
+    ['lightness', 'Lightness', 1, 0.5, '-100 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

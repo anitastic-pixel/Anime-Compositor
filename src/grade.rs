@@ -1,5 +1,5 @@
 //! The batch of ten's colour effects, each a pixel at a time on a layer's own pixels: D-111's
-//! curves and D-112's levels.
+//! curves, D-112's levels and D-113's hue and saturation.
 //!
 //! This program's own methods; nothing is ported. Each effect's `tools/<name>_reference.py` is
 //! the same rule worked a second way, and its `tests/b5x_<name>.rs` holds this to its numbers.
@@ -123,5 +123,63 @@ pub(crate) fn levels(source: &mut WorkingBuffer, [ib, iw, gamma, ob, ow]: [f64; 
             ((x - ib) / (iw - ib)).clamp(0.0, 1.0)
         };
         ob + v.powf(1.0 / gamma) * (ow - ob)
+    });
+}
+
+/// D-113: a straight colour, 0 to 1, as hue in degrees, saturation and lightness. Of equal
+/// largest channels, red counts before green and green before blue.
+fn to_hsl([r, g, b]: [f64; 3]) -> [f64; 3] {
+    let (mx, mn) = (r.max(g).max(b), r.min(g).min(b));
+    let c = mx - mn;
+    let l = (mx + mn) / 2.0;
+    if c == 0.0 {
+        return [0.0, 0.0, l];
+    }
+    let s = c / (1.0 - (2.0 * l - 1.0).abs());
+    let h = if mx == r {
+        60.0 * ((g - b) / c).rem_euclid(6.0)
+    } else if mx == g {
+        60.0 * ((b - r) / c + 2.0)
+    } else {
+        60.0 * ((r - g) / c + 4.0)
+    };
+    [h, s, l]
+}
+
+/// D-113: hue, saturation and lightness back to a colour, by the sextant of the hue.
+fn from_hsl([h, s, l]: [f64; 3]) -> [f64; 3] {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let x = c * (1.0 - ((h / 60.0).rem_euclid(2.0) - 1.0).abs());
+    let m = l - c / 2.0;
+    let [r, g, b] = match ((h / 60.0).floor() as i64).rem_euclid(6) {
+        0 => [c, x, 0.0],
+        1 => [x, c, 0.0],
+        2 => [0.0, c, x],
+        3 => [0.0, x, c],
+        4 => [x, 0.0, c],
+        _ => [c, 0.0, x],
+    };
+    [r + m, g + m, b + m]
+}
+
+/// D-113: the hue turned by `hue` degrees, the saturation scaled by `saturation` per cent and
+/// held inside 0 to 1, and the lightness taken `lightness` per cent of the way to white, or to
+/// black below 0. The settings are already valid and held; all three 0 changes nothing.
+pub(crate) fn hue_saturation(source: &mut WorkingBuffer, hue: f64, saturation: f64, lightness: f64) {
+    if hue == 0.0 && saturation == 0.0 && lightness == 0.0 {
+        return;
+    }
+    grade_pixels(source, |_, e| {
+        let [h, s, l] = to_hsl(e);
+        let l = if lightness >= 0.0 {
+            l + (1.0 - l) * lightness / 100.0
+        } else {
+            l * (1.0 + lightness / 100.0)
+        };
+        from_hsl([
+            (h + hue).rem_euclid(360.0),
+            (s * (1.0 + saturation / 100.0)).clamp(0.0, 1.0),
+            l,
+        ])
     });
 }

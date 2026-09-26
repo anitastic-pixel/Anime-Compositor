@@ -275,6 +275,14 @@ pub enum Effect {
         output_black: f64,
         output_white: f64,
     },
+    /// D-113: `hue`, -180 to 180 degrees the hue is turned; `saturation`, -100 to 100 per cent
+    /// it is scaled by; and `lightness`, -100 to 100 per cent of the way to white, or to black
+    /// below 0.
+    HueSaturation {
+        hue: f64,
+        saturation: f64,
+        lightness: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -296,6 +304,7 @@ pub const BLOOM: &str = "core.bloom";
 pub const COLOR_KEY: &str = "core.color_key";
 pub const CURVES: &str = "core.curves";
 pub const LEVELS: &str = "core.levels";
+pub const HUE_SATURATION: &str = "core.hue_saturation";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -407,6 +416,15 @@ impl Effect {
                 ("output_black", vec![output_black], 0.0, 255.0),
                 ("output_white", vec![output_white], 0.0, 255.0),
             ],
+            Effect::HueSaturation {
+                hue,
+                saturation,
+                lightness,
+            } => vec![
+                ("hue", vec![hue], -180.0, 180.0),
+                ("saturation", vec![saturation], -100.0, 100.0),
+                ("lightness", vec![lightness], -100.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -486,6 +504,7 @@ impl Effect {
             Effect::ColorKey { .. } => "Colour Key",
             Effect::Curves { .. } => "Curves",
             Effect::Levels { .. } => "Levels",
+            Effect::HueSaturation { .. } => "Hue/Saturation",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -507,6 +526,7 @@ impl Effect {
             Effect::ColorKey { .. } => COLOR_KEY,
             Effect::Curves { .. } => CURVES,
             Effect::Levels { .. } => LEVELS,
+            Effect::HueSaturation { .. } => HUE_SATURATION,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1048,6 +1068,13 @@ pub fn apply_stack(
                     source,
                     [*input_black, *input_white, *gamma, *output_black, *output_white],
                 )
+            }),
+            Effect::HueSaturation {
+                hue,
+                saturation,
+                lightness,
+            } => crate::perf::time(crate::perf::Stage::EffectHueSaturation, || {
+                crate::grade::hue_saturation(source, *hue, *saturation, *lightness)
             }),
         }
     }

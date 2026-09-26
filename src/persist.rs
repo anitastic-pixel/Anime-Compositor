@@ -1057,6 +1057,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("output_black".into(), num(*output_black));
             params.insert("output_white".into(), num(*output_white));
         }
+        Effect::HueSaturation {
+            hue,
+            saturation,
+            lightness,
+        } => {
+            params.insert("hue".into(), num(*hue));
+            params.insert("saturation".into(), num(*saturation));
+            params.insert("lightness".into(), num(*lightness));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1429,6 +1438,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "gamma",
         "output_black",
         "output_white",
+        "hue",
+        "saturation",
+        "lightness",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2225,6 +2237,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::COLOR_KEY,
                 crate::effects::CURVES,
                 crate::effects::LEVELS,
+                crate::effects::HUE_SATURATION,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2327,6 +2340,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     gamma: effect_number(params, "gamma", &at)?,
                     output_black: effect_number(params, "output_black", &at)?,
                     output_white: effect_number(params, "output_white", &at)?,
+                }),
+                crate::effects::HUE_SATURATION => Some(crate::effects::Effect::HueSaturation {
+                    hue: effect_number(params, "hue", &at)?,
+                    saturation: effect_number(params, "saturation", &at)?,
+                    lightness: effect_number(params, "lightness", &at)?,
                 }),
                 _ => None,
             };

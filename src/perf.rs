@@ -94,6 +94,8 @@ pub enum Stage {
     EffectCurves,
     /// D-112's levels, whole-layer, per ADR-017.
     EffectLevels,
+    /// D-113's hue and saturation, whole-layer, per ADR-017.
+    EffectHueSaturation,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -111,7 +113,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 31] = [
+    pub const ALL: [Stage; 32] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -136,6 +138,7 @@ impl Stage {
         Stage::EffectColorKey,
         Stage::EffectCurves,
         Stage::EffectLevels,
+        Stage::EffectHueSaturation,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -172,6 +175,7 @@ impl Stage {
             Stage::EffectColorKey => "effect: colour key",
             Stage::EffectCurves => "effect: curves",
             Stage::EffectLevels => "effect: levels",
+            Stage::EffectHueSaturation => "effect: hue/saturation",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
