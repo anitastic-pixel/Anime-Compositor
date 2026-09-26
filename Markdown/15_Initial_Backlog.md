@@ -532,6 +532,8 @@ B-55 / Levels, D-112, the second of the batch of ten: input black and white, gam
 
 B-56 / Hue/Saturation, D-113, the third of the batch of ten: a turn of the hue, more or less saturation, and lighter or darker. **B-56a is written on 2026-09-26**: `verification/B-56a proposal/`, D-113 in document 14, the rule in document 21, FX-HUESAT-001 to 023 in document 25 from `tools/hue_saturation_reference.py`, which writes `Fixtures/hue_saturation/`. **B-56b, the build, is next.**
 
+B-57 / Gradient, D-114, the fourth of the batch of ten: a linear or radial colour wash laid over the cel inside its covering. **B-57a is written on 2026-09-26**: `verification/B-57a proposal/`, D-114 in document 14, the rule in document 21, FX-GRAD-001 to 022 in document 25 from `tools/gradient_reference.py`, which writes `Fixtures/gradient/`. **B-57b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
