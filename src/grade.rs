@@ -1,5 +1,5 @@
 //! The batch of ten's colour effects, each a pixel at a time on a layer's own pixels: D-111's
-//! curves, D-112's levels and D-113's hue and saturation.
+//! curves, D-112's levels, D-113's hue and saturation and D-114's gradient.
 //!
 //! This program's own methods; nothing is ported. Each effect's `tools/<name>_reference.py` is
 //! the same rule worked a second way, and its `tests/b5x_<name>.rs` holds this to its numbers.
@@ -182,4 +182,60 @@ pub(crate) fn hue_saturation(source: &mut WorkingBuffer, hue: f64, saturation: f
             l,
         ])
     });
+}
+
+/// D-114's settings, read once for a frame: the two points in the buffer's pixels, the two
+/// colours encoded 0 to 1, and the two strengths 0 to 100.
+pub(crate) struct Gradient {
+    pub radial: bool,
+    pub start: (f64, f64),
+    pub end: (f64, f64),
+    pub colors: [[f64; 3]; 2],
+    pub opacity: [f64; 2],
+    pub blend: String,
+}
+
+/// D-114: a colour gradient laid over each pixel that shows, from `start` to `end`, mixed in by
+/// its blend at its strength; each pixel keeps its own covering, so nothing spills past the
+/// cel. The settings are already valid.
+pub(crate) fn gradient(source: &mut WorkingBuffer, g: &Gradient) {
+    if g.opacity == [0.0, 0.0] {
+        return;
+    }
+    let w = source.width();
+    let (sx, sy) = g.start;
+    let (ex, ey) = (g.end.0 - sx, g.end.1 - sy);
+    let ll = ex * ex + ey * ey;
+    let mix: fn(f64, f64) -> f64 = match g.blend.as_str() {
+        "multiply" => |b, c| b * c,
+        "screen" => |b, c| 1.0 - (1.0 - b) * (1.0 - c),
+        "add" => |b, c| b + c,
+        _ => |_, c| c,
+    };
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (dx, dy) = ((i % w) as f64 + 0.5 - sx, (i / w) as f64 + 0.5 - sy);
+            let t = if ll == 0.0 {
+                1.0
+            } else if g.radial {
+                (dx * dx + dy * dy).sqrt() / ll.sqrt()
+            } else {
+                (dx * ex + dy * ey) / ll
+            }
+            .clamp(0.0, 1.0);
+            let o = (g.opacity[0] + t * (g.opacity[1] - g.opacity[0])) / 100.0;
+            for c in 0..3 {
+                let [c0, c1] = [g.colors[0][c], g.colors[1][c]];
+                let color = to_linear(c0 + t * (c1 - c0));
+                let b = px[c] as f64 / a;
+                px[c] = ((b + o * (mix(b, color) - b)) * a) as f32;
+            }
+        });
 }

@@ -283,6 +283,20 @@ pub enum Effect {
         saturation: f64,
         lightness: f64,
     },
+    /// D-114: `shape`, "linear" or "radial"; `start` and `end`, per cent of the drawing's width
+    /// and height, each -1000 to 1000; `start_color` and `end_color`, `#rrggbb`;
+    /// `start_opacity` and `end_opacity`, 0 to 100; and `blend`, "normal", "multiply",
+    /// "screen" or "add". The words and colours are kept as written, so a wrong one is reported.
+    Gradient {
+        shape: String,
+        start: [f64; 2],
+        end: [f64; 2],
+        start_color: String,
+        end_color: String,
+        start_opacity: f64,
+        end_opacity: f64,
+        blend: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -305,6 +319,7 @@ pub const COLOR_KEY: &str = "core.color_key";
 pub const CURVES: &str = "core.curves";
 pub const LEVELS: &str = "core.levels";
 pub const HUE_SATURATION: &str = "core.hue_saturation";
+pub const GRADIENT: &str = "core.gradient";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -425,6 +440,18 @@ impl Effect {
                 ("saturation", vec![saturation], -100.0, 100.0),
                 ("lightness", vec![lightness], -100.0, 100.0),
             ],
+            Effect::Gradient {
+                start,
+                end,
+                start_opacity,
+                end_opacity,
+                ..
+            } => vec![
+                ("start", start.iter_mut().collect(), -1000.0, 1000.0),
+                ("end", end.iter_mut().collect(), -1000.0, 1000.0),
+                ("start_opacity", vec![start_opacity], 0.0, 100.0),
+                ("end_opacity", vec![end_opacity], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -505,6 +532,7 @@ impl Effect {
             Effect::Curves { .. } => "Curves",
             Effect::Levels { .. } => "Levels",
             Effect::HueSaturation { .. } => "Hue/Saturation",
+            Effect::Gradient { .. } => "Gradient",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -527,6 +555,7 @@ impl Effect {
             Effect::Curves { .. } => CURVES,
             Effect::Levels { .. } => LEVELS,
             Effect::HueSaturation { .. } => HUE_SATURATION,
+            Effect::Gradient { .. } => GRADIENT,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -731,6 +760,13 @@ impl Effect {
             } => [("master", master), ("red", red), ("green", green), ("blue", blue)]
                 .into_iter()
                 .find_map(|(curve, points)| curve_fault(curve, points)),
+            Effect::Gradient {
+                shape,
+                start_color,
+                end_color,
+                blend,
+                ..
+            } => gradient_fault(shape, start_color, end_color, blend),
             _ => None,
         };
         own.or_else(|| {
@@ -752,6 +788,26 @@ impl Effect {
             bad
         })
     }
+}
+
+/// D-114: what is wrong with a gradient's words and colours, as a sentence, or `None` when
+/// nothing is.
+fn gradient_fault(shape: &str, start_color: &str, end_color: &str, blend: &str) -> Option<String> {
+    if !["linear", "radial"].contains(&shape) {
+        return Some(format!(
+            "Gradient's shape is \"linear\" or \"radial\", and this is \"{shape}\"."
+        ));
+    }
+    if !["normal", "multiply", "screen", "add"].contains(&blend) {
+        return Some(format!(
+            "Gradient's blend is \"normal\", \"multiply\", \"screen\" or \"add\", and this \
+             is \"{blend}\"."
+        ));
+    }
+    [("start colour", start_color), ("end colour", end_color)]
+        .into_iter()
+        .find(|(_, c)| crate::selective_blur::parse_hex(c).is_none())
+        .map(|(what, c)| format!("Gradient's {what} is written #rrggbb, and this is \"{c}\"."))
 }
 
 /// D-111: what is wrong with one curve's points, as a sentence, or `None` when nothing is.
@@ -1076,6 +1132,35 @@ pub fn apply_stack(
             } => crate::perf::time(crate::perf::Stage::EffectHueSaturation, || {
                 crate::grade::hue_saturation(source, *hue, *saturation, *lightness)
             }),
+            // D-114: the two points are shares of the drawing's own size, as Radial Blur's
+            // centre is.
+            Effect::Gradient {
+                shape,
+                start,
+                end,
+                start_color,
+                end_color,
+                start_opacity,
+                end_opacity,
+                blend,
+            } => {
+                let encoded = |c: &str| {
+                    crate::selective_blur::parse_hex(c)
+                        .unwrap_or_default()
+                        .map(|v| v as f64 / 255.0)
+                };
+                let g = crate::grade::Gradient {
+                    radial: shape == "radial",
+                    start: radial_center(*start, source, (ox, oy)),
+                    end: radial_center(*end, source, (ox, oy)),
+                    colors: [encoded(start_color), encoded(end_color)],
+                    opacity: [*start_opacity, *end_opacity],
+                    blend: blend.clone(),
+                };
+                crate::perf::time(crate::perf::Stage::EffectGradient, || {
+                    crate::grade::gradient(source, &g)
+                })
+            }
         }
     }
     (ox, oy)

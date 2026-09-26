@@ -990,6 +990,7 @@
         <option value="core.curves">Curves</option>
         <option value="core.levels">Levels</option>
         <option value="core.hue_saturation">Hue/Saturation</option>
+        <option value="core.gradient">Gradient</option>
       </select>
     </div>
   </section>
@@ -6395,6 +6396,7 @@ const EFFECT_NAMES = {
   'core.curves': 'Curves',
   'core.levels': 'Levels',
   'core.hue_saturation': 'Hue/Saturation',
+  'core.gradient': 'Gradient',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6450,6 +6452,11 @@ const EFFECT_PARAMS = {
   'core.hue_saturation': [['hue', 'Hue', 1, 1, '-180 to 180 degrees'],
     ['saturation', 'Saturation', 1, 0.5, '-100 to 100'],
     ['lightness', 'Lightness', 1, 0.5, '-100 to 100']],
+  // D-114: the two points as shares of the drawing, as Radial Blur's centre is.
+  'core.gradient': [['start', 'Start Point', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['end', 'End Point', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['start_opacity', 'Start Opacity', 1, 0.5, '0 to 100'],
+    ['end_opacity', 'End Opacity', 1, 0.5, '0 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6496,6 +6503,12 @@ const EFFECT_WORDS = {
   // D-111. Each curve's points, typed.
   'core.curves': {
     lists: [['master', 'Master'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue']],
+  },
+  // D-114.
+  'core.gradient': {
+    choices: [['shape', 'Shape', [['linear', 'Linear'], ['radial', 'Radial']]],
+      ['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
+    colours: [['start_color', 'Start Colour'], ['end_color', 'End Colour']],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.

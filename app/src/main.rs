@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -2805,6 +2805,17 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             saturation: 0.0,
             lightness: 0.0,
         }),
+        // D-114: its starting settings, white to violet, top to bottom, multiplied at up to 50.
+        GRADIENT => Some(Effect::Gradient {
+            shape: "linear".to_string(),
+            start: [50.0, 0.0],
+            end: [50.0, 100.0],
+            start_color: "#ffffff".to_string(),
+            end_color: "#6450a0".to_string(),
+            start_opacity: 0.0,
+            end_opacity: 50.0,
+            blend: "multiply".to_string(),
+        }),
         _ => None,
     }
 }
@@ -2841,6 +2852,19 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             .map(|c| c.trim().to_string())
             .filter(|c| !c.is_empty())
             .collect())
+    };
+    // D-114: a point as the page sends it, two numbers, x then y, as a radial blur's centre.
+    let pair = |name: &str| -> Result<[f64; 2], String> {
+        let text = word(name)?;
+        let parts: Vec<f64> = text
+            .split(',')
+            .map(|p| p.trim().parse::<f64>())
+            .collect::<Result<_, _>>()
+            .unwrap_or_default();
+        match parts[..] {
+            [x, y] => Ok([x, y]),
+            _ => Err(format!("{name} needs two numbers, like 50, 50. Not \"{text}\".")),
+        }
     };
     // D-111: a curve's points as the page sends them, in then out, a comma between points.
     // How many there are and whether they are in range is the core's check, in its words.
@@ -2993,6 +3017,16 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             hue: number("hue")?,
             saturation: number("saturation")?,
             lightness: number("lightness")?,
+        }),
+        GRADIENT => Ok(Effect::Gradient {
+            shape: word("shape")?,
+            start: pair("start")?,
+            end: pair("end")?,
+            start_color: word("start_color")?,
+            end_color: word("end_color")?,
+            start_opacity: number("start_opacity")?,
+            end_opacity: number("end_opacity")?,
+            blend: word("blend")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -5879,7 +5913,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.line_smooth, core.selective_color_blur, core.glow, \
                              core.line_recolor, core.directional_blur, core.select_color, \
                              core.line_width, core.radial_blur, core.bloom, core.color_key, \
-                             core.curves, core.levels or core.hue_saturation."
+                             core.curves, core.levels, core.hue_saturation or core.gradient."
                                 .to_string(),
                         );
                     };
@@ -5890,7 +5924,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.selective_color_blur, core.glow, core.line_recolor, \
                              core.directional_blur, core.select_color, core.line_width, \
                              core.radial_blur, core.bloom, core.color_key, core.curves, \
-                             core.levels and core.hue_saturation."
+                             core.levels, core.hue_saturation and core.gradient."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -9868,12 +9902,12 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the sixteen are named",
+            "an effect type this build does not have is refused, and the seventeen are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
-             core.radial_blur, core.bloom, core.color_key, core.curves, core.levels and \
-             core.hue_saturation.",
+             core.radial_blur, core.bloom, core.color_key, core.curves, core.levels, \
+             core.hue_saturation and core.gradient.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -9881,7 +9915,7 @@ mod editing {
             "Which effect? Say core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
              core.selective_color_blur, core.glow, core.line_recolor, core.directional_blur, \
              core.select_color, core.line_width, core.radial_blur, core.bloom, core.color_key, \
-             core.curves, core.levels or core.hue_saturation.",
+             core.curves, core.levels, core.hue_saturation or core.gradient.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22071,6 +22105,20 @@ mod contract {
         (
             "core.hue_saturation",
             &[("hue", "60"), ("saturation", "-50"), ("lightness", "20")],
+        ),
+        // D-114: the two points as two numbers each, the colours, the opacities and the words.
+        (
+            "core.gradient",
+            &[
+                ("start", "0,50"),
+                ("end", "100,50"),
+                ("start_opacity", "100"),
+                ("end_opacity", "20"),
+                ("start_color", "%23ff8000"),
+                ("end_color", "%236450a0"),
+                ("shape", "radial"),
+                ("blend", "screen"),
+            ],
         ),
     ];
 

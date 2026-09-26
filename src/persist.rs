@@ -1066,6 +1066,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("saturation".into(), num(*saturation));
             params.insert("lightness".into(), num(*lightness));
         }
+        Effect::Gradient {
+            shape,
+            start,
+            end,
+            start_color,
+            end_color,
+            start_opacity,
+            end_opacity,
+            blend,
+        } => {
+            params.insert("shape".into(), J::from(shape.as_str()));
+            params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
+            params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
+            params.insert("start_color".into(), J::from(start_color.as_str()));
+            params.insert("end_color".into(), J::from(end_color.as_str()));
+            params.insert("start_opacity".into(), num(*start_opacity));
+            params.insert("end_opacity".into(), num(*end_opacity));
+            params.insert("blend".into(), J::from(blend.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1441,6 +1460,10 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "hue",
         "saturation",
         "lightness",
+        "start",
+        "end",
+        "start_opacity",
+        "end_opacity",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -1456,7 +1479,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         let keys = as_array(field(record, &at, "keyframes")?, &format!("{at}/keyframes"))?;
         let (count, what) = match name {
             "color" => (3, "a linear RGB triple"),
-            "center" => (2, "two numbers, x then y"),
+            "center" | "start" | "end" => (2, "two numbers, x then y"),
             _ => (1, ""),
         };
         let mut track = Vec::new();
@@ -2238,6 +2261,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::CURVES,
                 crate::effects::LEVELS,
                 crate::effects::HUE_SATURATION,
+                crate::effects::GRADIENT,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2345,6 +2369,17 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     hue: effect_number(params, "hue", &at)?,
                     saturation: effect_number(params, "saturation", &at)?,
                     lightness: effect_number(params, "lightness", &at)?,
+                }),
+                // D-114: the colours are read in small letters, as a new colour is.
+                crate::effects::GRADIENT => Some(crate::effects::Effect::Gradient {
+                    shape: effect_word(params, "shape", &at)?,
+                    start: effect_array(params, "start", "two numbers, x then y", &at)?,
+                    end: effect_array(params, "end", "two numbers, x then y", &at)?,
+                    start_color: effect_word(params, "start_color", &at)?.to_ascii_lowercase(),
+                    end_color: effect_word(params, "end_color", &at)?.to_ascii_lowercase(),
+                    start_opacity: effect_number(params, "start_opacity", &at)?,
+                    end_opacity: effect_number(params, "end_opacity", &at)?,
+                    blend: effect_word(params, "blend", &at)?,
                 }),
                 _ => None,
             };

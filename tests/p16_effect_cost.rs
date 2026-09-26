@@ -172,6 +172,19 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 lightness: 20.0,
             },
         ),
+        (
+            "Gradient, radial, screen",
+            Effect::Gradient {
+                shape: "radial".into(),
+                start: [50.0, 50.0],
+                end: [100.0, 50.0],
+                start_color: "#ff8000".into(),
+                end_color: "#6450a0".into(),
+                start_opacity: 100.0,
+                end_opacity: 20.0,
+                blend: "screen".into(),
+            },
+        ),
     ]
 }
 
