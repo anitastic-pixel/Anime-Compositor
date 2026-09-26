@@ -536,6 +536,8 @@ B-57 / Gradient, D-114, the fourth of the batch of ten: a linear or radial colou
 
 B-58 / Drop Shadow, D-115, the fifth of the batch of ten: a soft shadow of the drawing's covering, offset in a direction. **B-58a is written on 2026-09-26**: `verification/B-58a proposal/`, D-115 in document 14, the rule in document 21, FX-SHADOW-001 to 023 in document 25 from `tools/drop_shadow_reference.py`, which writes `Fixtures/drop_shadow/`. **B-58b, the build, is next.**
 
+B-59 / Lens Blur, D-116, the sixth of the batch of ten: the even mean over a round disc, a camera's out-of-focus blur. **B-59a is written on 2026-09-26**: `verification/B-59a proposal/`, D-116 in document 14, the rule in document 21, FX-LENS-001 to 018 in document 25 from `tools/lens_blur_reference.py`, which writes `Fixtures/lens_blur/`. **B-59b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
