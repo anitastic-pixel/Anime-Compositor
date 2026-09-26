@@ -210,6 +210,18 @@ pub struct LayerDraw {
     /// D-67: `Some` for a composition layer: the composition `source` is a render of, and the
     /// frame of it. The renderer does not read it; the trace names it.
     pub nested: Option<(crate::model::Id, i32)>,
+    /// B-46: `Some` when the layer's stack ends in a Radial Blur left for the graphics card
+    /// (`compose::plan_frame_for_card`): `source` is the drawing before it. The CPU runs it
+    /// itself in [`render`], so a plan made for the card is the same frame on either.
+    pub radial: Option<Radial>,
+}
+
+/// B-46: a Radial Blur's settings in the pixels of the buffer it runs on (`blurs::radial_blur`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Radial {
+    pub spin: bool,
+    pub amount: f64,
+    pub center: (f64, f64),
 }
 
 /// The matte layer as the renderer needs it: a source in the working space and the map from its
@@ -344,6 +356,19 @@ pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuff
 }
 
 fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> WorkingBuffer {
+    // B-46: a blur left for the card that the CPU is drawing after all is run first, exactly
+    // as `apply_stack` would have run it.
+    if plan.layers.iter().any(|l| l.radial.is_some()) {
+        let mut plan = plan.clone();
+        for layer in &mut plan.layers {
+            if let Some(r) = layer.radial.take() {
+                crate::perf::time(crate::perf::Stage::EffectRadial, || {
+                    crate::blurs::radial_blur(std::sync::Arc::make_mut(&mut layer.source), r.spin, r.amount, r.center)
+                });
+            }
+        }
+        return render_maybe_culled(&plan, tile_size, cull);
+    }
     let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
     // D-66: the frame is drawn in segments, each ending at an adjustment layer, whose stack
     // runs on the whole frame drawn so far before the next segment is drawn onto it.

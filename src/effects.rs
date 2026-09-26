@@ -746,6 +746,16 @@ pub fn gaussian_weights(sigma_px: f64) -> Vec<f32> {
     w.into_iter().map(|v| v as f32).collect()
 }
 
+/// D-95: a Radial Blur's centre in `source`'s pixels, from its share of the drawing's own size,
+/// with the drawing's corner at `(ox, oy)` in `source` after the effects above it grew it.
+pub(crate) fn radial_center(center: [f64; 2], source: &WorkingBuffer, (ox, oy): (usize, usize)) -> (f64, f64) {
+    let (w0, h0) = (source.width() - 2 * ox, source.height() - 2 * oy);
+    (
+        ox as f64 + center[0] / 100.0 * w0 as f64,
+        oy as f64 + center[1] / 100.0 * h0 as f64,
+    )
+}
+
 /// Run one layer's stack over its pixels, in order.
 ///
 /// Returns how far the buffer's origin moved, in pixels: `(0, 0)` unless a blur expanded it.
@@ -877,11 +887,7 @@ pub fn apply_stack(
                 amount,
                 center,
             } => {
-                let (w0, h0) = (source.width() - 2 * ox, source.height() - 2 * oy);
-                let c = (
-                    ox as f64 + center[0] / 100.0 * w0 as f64,
-                    oy as f64 + center[1] / 100.0 * h0 as f64,
-                );
+                let c = radial_center(*center, source, (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectRadial, || {
                     crate::blurs::radial_blur(source, kind == "spin", *amount, c)
                 })

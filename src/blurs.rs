@@ -245,22 +245,14 @@ pub(crate) fn directional_blur(source: &mut WorkingBuffer, direction: f64, lengt
 }
 
 /// D-95's most samples a pixel.
-const MOST: usize = 256;
+pub(crate) const MOST: usize = 256;
 
-/// Average each pixel of `source` round `center`, in the buffer's pixels, in place: along the
-/// arc about it for a spin, along the line from it for a zoom. The settings are already inside
-/// their ranges; amount 0 changes nothing. The buffer keeps its size.
-pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, center: (f64, f64)) {
-    if amount == 0.0 {
-        return;
-    }
-    let (w, h) = (source.width(), source.height());
-    let (cx, cy) = center;
-    let mut out = WorkingBuffer::transparent(w, h);
-    let src = &*source;
-    // P-17: each sample count's turns, or scales for a zoom, worked once by the same sums a
-    // pixel would do, rather than a sine and cosine for every sample of every pixel.
-    let turns: Vec<Vec<(f64, f64)>> = (0..=MOST)
+/// P-17: each sample count's turns as `(sin, cos)`, or scales as `(scale, 0)` for a zoom, worked
+/// once by the same sums a pixel would do, rather than a sine and cosine for every sample of
+/// every pixel. Entry `n` holds `n` of them from 2 up; 0 and 1 are empty. B-46 sends the same
+/// numbers to the graphics card.
+pub(crate) fn radial_turns(spin: bool, amount: f64) -> Vec<Vec<(f64, f64)>> {
+    (0..=MOST)
         .map(|n| {
             (0..if n < 2 { 0 } else { n })
                 .map(|k| {
@@ -276,7 +268,21 @@ pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, c
                 })
                 .collect()
         })
-        .collect();
+        .collect()
+}
+
+/// Average each pixel of `source` round `center`, in the buffer's pixels, in place: along the
+/// arc about it for a spin, along the line from it for a zoom. The settings are already inside
+/// their ranges; amount 0 changes nothing. The buffer keeps its size.
+pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, center: (f64, f64)) {
+    if amount == 0.0 {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let (cx, cy) = center;
+    let mut out = WorkingBuffer::transparent(w, h);
+    let src = &*source;
+    let turns = radial_turns(spin, amount);
     // P-17: the box round everything drawn, in pixel edges and a pixel wider each side. A path
     // that stays outside it takes nothing but empty samples, whose average is the empty pixel
     // the output already holds, so it is not walked.

@@ -40,7 +40,7 @@ use crate::cache::{CelCache, Name};
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::BlendMode;
 use crate::perf::{self, Stage};
-use crate::render::{bounds, FramePlan};
+use crate::render::{bounds, FramePlan, Radial};
 use crate::WorkingBuffer;
 
 /// What the card may hold in drawings when Windows cannot say how much memory it has: D-40's
@@ -195,6 +195,49 @@ fn encode(@builtin(global_invocation_id) id: vec3<u32>) {
     bytes[at] = level(srgb(c.x)) | (level(srgb(c.y)) << 8u) | (level(srgb(c.z)) << 16u)
         | (level(p.w) << 24u);
 }
+
+struct Radial {
+    center: vec2<f32>,
+    amount: f32,
+    spin: u32,
+}
+
+@group(0) @binding(0) var<uniform> R: Radial;
+@group(0) @binding(1) var still: texture_2d<f32>;
+@group(0) @binding(2) var moved: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(3) var<storage, read> turns: array<vec2<f32>>;
+
+// B-46: blurs::radial_blur, one pixel a thread. `turns` is blurs::radial_turns from 2 samples
+// up, worked on the CPU in f64: n samples start at n(n-1)/2 - 1.
+@compute @workgroup_size(16, 16)
+fn radial(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(still);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let d = vec2<f32>(id.xy) + vec2(0.5) - R.center;
+    let r = length(d);
+    var path = r * R.amount / 100.0;
+    if R.spin == 1u {
+        path = r * R.amount * 3.141592653589793 / 180.0;
+    }
+    let n = min(u32(ceil(path)) + 1u, 256u);
+    if n == 1u {
+        textureStore(moved, id.xy, textureLoad(still, id.xy, 0));
+        return;
+    }
+    let start = n * (n - 1u) / 2u - 1u;
+    var total = vec4(0.0);
+    for (var k = 0u; k < n; k++) {
+        let t = turns[start + k];
+        var p = R.center + t.x * d;
+        if R.spin == 1u {
+            p = R.center + vec2(d.x * t.y - d.y * t.x, d.x * t.x + d.y * t.y);
+        }
+        total += bilinear(still, p);
+    }
+    textureStore(moved, id.xy, total / f32(n));
+}
 "#;
 
 /// B-45: the window's pixels the page leaves see-through, painted as the page would have.
@@ -307,6 +350,8 @@ struct Stored {
     bytes: usize,
     /// The frame that last drew with it.
     used: u64,
+    /// B-46: its last Radial Blur, kept while the settings stay the same.
+    blurred: Option<(Radial, wgpu::TextureView)>,
 }
 
 /// The buffers one frame size needs, kept while frames stay that size.
@@ -332,6 +377,9 @@ pub struct Gpu {
     encode: wgpu::ComputePipeline,
     layer_layout: wgpu::BindGroupLayout,
     encode_layout: wgpu::BindGroupLayout,
+    /// B-46.
+    radial: wgpu::ComputePipeline,
+    radial_layout: wgpu::BindGroupLayout,
     /// Bound as the matte of a layer that has none. Never read.
     no_matte: wgpu::TextureView,
     store: Vec<Stored>,
@@ -426,6 +474,22 @@ impl Gpu {
             label: Some("B-44 encode"),
             entries: &[entry(0, uniform()), entry(1, storage(true)), entry(2, storage(false))],
         });
+        let radial_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("B-46 radial"),
+            entries: &[
+                entry(0, uniform()),
+                entry(1, texture()),
+                entry(
+                    2,
+                    wgpu::BindingType::StorageTexture {
+                        access: wgpu::StorageTextureAccess::WriteOnly,
+                        format: wgpu::TextureFormat::Rgba32Float,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                ),
+                entry(3, storage(true)),
+            ],
+        });
         let pipeline = |layout: &wgpu::BindGroupLayout, entry_point: &str| {
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some(entry_point),
@@ -441,6 +505,7 @@ impl Gpu {
             })
         };
         let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
+        let radial = pipeline(&radial_layout, "radial");
         let no_matte = device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some("B-44 no matte"),
@@ -475,6 +540,8 @@ impl Gpu {
             encode,
             layer_layout,
             encode_layout,
+            radial,
+            radial_layout,
             no_matte,
             store: Vec::new(),
             frame: 0,
@@ -567,8 +634,78 @@ impl Gpu {
         );
         self.sent += 1;
         let view = texture.create_view(&Default::default());
-        self.store.push(Stored { held: Arc::downgrade(source), name, view: view.clone(), bytes, used: self.frame });
+        self.store.push(Stored { held: Arc::downgrade(source), name, view: view.clone(), bytes, used: self.frame, blurred: None });
         view
+    }
+
+    /// B-46: `blurs::radial_blur` of `source`, which [`Gpu::resident`] has just put on the card
+    /// as `still`. A blur already made of it with the same settings is reused; otherwise what to
+    /// dispatch is added to `blurs`, to run before the layers.
+    fn blurred(
+        &mut self,
+        blurs: &mut Vec<(wgpu::BindGroup, (u32, u32))>,
+        source: &Arc<WorkingBuffer>,
+        still: &wgpu::TextureView,
+        r: Radial,
+    ) -> wgpu::TextureView {
+        let stored = self.store.iter().position(|s| s.used == self.frame && &s.view == still);
+        if let Some((kept, view)) = stored.and_then(|i| self.store[i].blurred.as_ref()) {
+            if *kept == r {
+                return view.clone();
+            }
+        }
+        let (width, height) = (source.width() as u32, source.height() as u32);
+        let moved = self.blur(blurs, still, (width, height), r);
+        if let Some(i) = stored {
+            let s = &mut self.store[i];
+            if s.blurred.is_none() {
+                s.bytes += width as usize * height as usize * 16;
+            }
+            s.blurred = Some((r, moved.clone()));
+        }
+        moved
+    }
+
+    /// `blurs::radial_blur` of `still`, `width` by `height`, into a texture of its own, which is
+    /// returned. What to dispatch is added to `blurs`, to run before the layers.
+    fn blur(&self, blurs: &mut Vec<(wgpu::BindGroup, (u32, u32))>, still: &wgpu::TextureView, (width, height): (u32, u32), r: Radial) -> wgpu::TextureView {
+        let moved = self
+            .device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("B-46 radial"),
+                size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba32Float,
+                usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&Default::default());
+        let turns: Vec<[f32; 2]> = crate::blurs::radial_turns(r.spin, r.amount)
+            .into_iter()
+            .flatten()
+            .map(|(a, b)| [a as f32, b as f32])
+            .collect();
+        let init = |label, contents: &[u8], usage| {
+            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some(label), contents, usage })
+        };
+        let f = |v: f64| (v as f32).to_bits();
+        let settings = [f(r.center.0), f(r.center.1), f(r.amount), r.spin as u32];
+        let settings = init("B-46 settings", bytemuck::cast_slice(&settings), wgpu::BufferUsages::UNIFORM);
+        let turns = init("B-46 turns", bytemuck::cast_slice(&turns), wgpu::BufferUsages::STORAGE);
+        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &self.radial_layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: settings.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(still) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&moved) },
+                wgpu::BindGroupEntry { binding: 3, resource: turns.as_entire_binding() },
+            ],
+        });
+        blurs.push((group, (width, height)));
+        moved
     }
 
     fn target(&mut self, width: usize, height: usize) -> &Target {
@@ -661,6 +798,7 @@ impl Gpu {
         // out as the shader's `Layer`. The same skips as `render_tile`.
         let mut layers: Vec<(wgpu::TextureView, Option<wgpu::TextureView>, [u32; 20], (u32, u32))> = Vec::new();
         let mut uploads = self.device.create_command_encoder(&Default::default());
+        let mut blurs = Vec::new();
         perf::time(Stage::GpuUpload, || {
             for layer in &plan.layers {
                 let Some(inverse) = layer.transform.invert() else {
@@ -717,7 +855,10 @@ impl Gpu {
                     matte.is_some() as u32,
                     layer.opacity.to_bits(),
                 ];
-                let source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source));
+                let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source));
+                if let Some(r) = layer.radial {
+                    source = self.blurred(&mut blurs, &layer.source, &source, r);
+                }
                 let matte = matte.map(|(m, _)| self.resident(&mut uploads, &m.source, cache.name_of(&m.source)));
                 layers.push((source, matte, numbers, (x1 - x0, y1 - y0)));
             }
@@ -779,6 +920,14 @@ impl Gpu {
 
             let mut encoder = self.device.create_command_encoder(&Default::default());
             encoder.clear_buffer(&target.sum, 0, None);
+            if !blurs.is_empty() {
+                let mut pass = encoder.begin_compute_pass(&Default::default());
+                pass.set_pipeline(&self.radial);
+                for (group, (w, h)) in &blurs {
+                    pass.set_bind_group(0, group, &[]);
+                    pass.dispatch_workgroups(w.div_ceil(16), h.div_ceil(16), 1);
+                }
+            }
             {
                 let mut pass = encoder.begin_compute_pass(&Default::default());
                 pass.set_pipeline(&self.layer);

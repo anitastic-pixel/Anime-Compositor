@@ -403,7 +403,7 @@ B-44b / Sending drawings to the card, smaller and once / **BUILT on 2026-09-26 a
   - Draft shrinking drawings before sending them, which would change the picture.
   - Eight-bit sending, which would need a second copy of every drawing kept.
 
-B-45 / The graphics card paints the viewer's picture into the window / **BUILT on 2026-09-26 at the owner's word ("proceed with the native viewer surface"), with D-102 proposed; it awaits the owner's playtest, `verification/B-45_playtest.md`.** `verification/B-45_native_viewer.md`. It changes no export, fixture or CPU picture.
+B-45 / The graphics card paints the viewer's picture into the window / **BUILT on 2026-09-26 at the owner's word ("proceed with the native viewer surface"), with D-102 proposed. The owner's playtest passed the same day: "works great!"** (`verification/B-45_playtest.md`). `verification/B-45_native_viewer.md`. It changes no export, fixture or CPU picture.
 - **What it builds:**
   - With the switch on GPU, the card paints the picture straight into the window, under the page, and nothing is copied back.
   - The page tells the card where the picture lies and what is under it. A zoom or a scroll sends only that, and nothing is made again.
@@ -414,6 +414,21 @@ B-45 / The graphics card paints the viewer's picture into the window / **BUILT o
 - **Not built:**
   - Trying again after a failure without reopening the app.
   - ClearType text while the card paints, which Windows does not offer over a see-through page.
+
+B-46 / Radial Blur on the graphics card / **BUILT on 2026-09-26 at the owner's "let's proceed with gpu-acceleration on the effects", with D-103 proposed; it awaits the owner's playtest, `verification/B-46_playtest.md`.** `verification/B-46_gpu_radial.md`. It is the first of D-100's effects, each a unit of its own. It changes no export, fixture or CPU picture.
+- **What it builds:**
+  - With the switch on GPU, a drawn layer whose last effect is a Radial Blur has that blur done by the card. The effects before it still run on the CPU.
+  - The card keeps each blur it makes while the drawing and the settings stay the same.
+  - At Draft, on the card's path only, the shrunken drawing is kept in the effect cache, so it goes to the card once.
+  - A frame the card cannot draw is drawn by the CPU, blur included, byte for byte as before.
+- **Measured:**
+  - 188 of 188 checks pass (`verification/B-46_gpu_radial_table.md`): FX-RADIAL-001 to 018 at every frame, and the reference shot with three Radial Blurs, at Full and Draft.
+    - Wherever the blur went to the card, the picture is within 1 level of 255 of the CPU's.
+    - The worst frame differs at 1% of pixels, by 1 level each.
+  - At Full the reference shot with three Radial Blurs takes 26 ms a frame against the CPU's 152. At Draft the two are even, 17 ms (`verification/B-46_gpu_radial_timing_table.md`).
+- **Not built:**
+  - A Radial Blur followed by another effect, or on anything but a drawn layer. These stay on the CPU.
+  - Bloom, Directional Blur, Gaussian Blur and Glow on the card, which come next, in that order.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

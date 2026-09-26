@@ -197,7 +197,8 @@ fn tiles_for(quality: PreviewQuality, tile_size: usize) -> usize {
 /// [`preview_frame_cached`] drawn on the graphics card (B-44, D-100 (a)), already encoded as the
 /// eight-bit straight sRGB the viewer is sent, with its width and height.
 ///
-/// A frame the card refuses or fails is drawn by the CPU instead, exactly as
+/// B-46: a drawn layer's last Radial Blur is left in the plan for the card to run. A frame the
+/// card refuses or fails is drawn by the CPU instead, blur included, exactly as
 /// [`preview_frame_cached`] draws it, and the reason goes in `log` as `GPU_PREVIEW_ON_CPU`.
 #[allow(clippy::too_many_arguments)]
 pub fn preview_frame_srgb8(
@@ -211,7 +212,7 @@ pub fn preview_frame_srgb8(
     cache: &mut CelCache,
     gpu: &mut Gpu,
 ) -> Result<(Vec<u8>, usize, usize), Diagnostic> {
-    let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
+    let plan = compose::plan_frame_for_card(project, composition_id, frame, root, quality, log, cache)?;
     let plan = scale_plan(plan, quality);
     let pixels = match gpu.draw(&plan, cache) {
         Ok(pixels) => pixels,
@@ -237,7 +238,7 @@ pub fn preview_frame_held(
     cache: &mut CelCache,
     gpu: &mut Gpu,
 ) -> Result<(usize, usize), Diagnostic> {
-    let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
+    let plan = compose::plan_frame_for_card(project, composition_id, frame, root, quality, log, cache)?;
     let plan = scale_plan(plan, quality);
     if let Err(why) = gpu.draw_held(&plan, cache) {
         log.record(frame, "GPU preview", why);

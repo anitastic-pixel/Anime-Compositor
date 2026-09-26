@@ -435,6 +435,7 @@ fn matte(report: &mut Report) {
             blend: BlendMode::Normal,
             adjust: None,
             nested: None,
+            radial: None,
         }],
     };
     let out = render(&plan, 2);
@@ -463,6 +464,7 @@ fn matte(report: &mut Report) {
             blend: BlendMode::Normal,
             adjust: None,
             nested: None,
+            radial: None,
         }],
     };
     let out_bright = render(&plan, 2);
@@ -500,6 +502,7 @@ fn matte(report: &mut Report) {
                 blend: BlendMode::Normal,
                 adjust: None,
                 nested: None,
+                radial: None,
             }],
         };
         report.check(name, q(expected), q(pixel(&render(&plan, 2), 1, 1)));
@@ -533,6 +536,7 @@ fn matte(report: &mut Report) {
             blend: BlendMode::Normal,
             adjust: None,
             nested: None,
+            radial: None,
         }],
     };
     let shifted = render(&plan, 2);

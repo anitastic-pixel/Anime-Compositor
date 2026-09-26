@@ -139,6 +139,33 @@ pub fn plan_frame_at(
         log,
         cache,
         &mut Vec::new(),
+        false,
+    )
+}
+
+/// B-46: [`plan_frame_at`] for a frame the graphics card will draw. A drawn layer whose stack
+/// ends in a Radial Blur has the effects before it run here and the blur left in
+/// [`LayerDraw::radial`] for the card. [`render::render`] runs a blur left there itself, so the
+/// plan is still the same frame if the CPU draws it after all.
+pub fn plan_frame_for_card(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
+) -> Result<FramePlan, Diagnostic> {
+    plan_inside(
+        project,
+        composition_id,
+        frame,
+        root,
+        quality,
+        log,
+        cache,
+        &mut Vec::new(),
+        true,
     )
 }
 
@@ -155,6 +182,7 @@ fn plan_inside(
     log: &mut FrameLog,
     cache: &mut CelCache,
     above: &mut Vec<Id>,
+    card: bool,
 ) -> Result<FramePlan, Diagnostic> {
     let Some(comp) = project.composition(composition_id) else {
         return Err(Diagnostic::new(
@@ -215,7 +243,7 @@ fn plan_inside(
             continue;
         }
         let Some(resolved) = resolve_layer(
-            project, comp, layer, frame, root, quality, cache, log, above,
+            project, comp, layer, frame, root, quality, cache, log, above, card,
         ) else {
             continue;
         };
@@ -241,6 +269,7 @@ fn plan_inside(
                         cache,
                         log,
                         above,
+                        false,
                     )
                     .map(|m| {
                         Box::new(render::MatteDraw {
@@ -294,6 +323,7 @@ fn plan_inside(
                     .is_adjustment()
                     .then(|| layer.effects.iter().map(|i| i.at(frame)).collect()),
                 nested: resolved.nested,
+                radial: resolved.radial,
             },
         ));
     }
@@ -321,6 +351,8 @@ struct ResolvedLayer {
     opacity: f32,
     /// D-67: the composition and the frame of it that `source` is, for a composition layer.
     nested: Option<(Id, i32)>,
+    /// B-46: a Radial Blur left for the graphics card.
+    radial: Option<render::Radial>,
 }
 
 /// Steps 1 through 6 of document 21 for one layer: find its drawing at this frame, decode it,
@@ -652,6 +684,7 @@ fn resolve_layer(
     cache: &mut CelCache,
     log: &mut FrameLog,
     above: &mut Vec<Id>,
+    card: bool,
 ) -> Option<ResolvedLayer> {
     // D-71: an audio layer draws nothing, so no frame is any different for it (FX-AUD-020).
     // D-82: nor does a null, whatever its switch, opacity or timing say (FX-NULL-001, 002).
@@ -719,6 +752,7 @@ fn resolve_layer(
             &mut inside,
             cache,
             above,
+            false,
         );
         above.pop();
         // What went wrong inside belongs to the frame that was asked for, not to the inner
@@ -749,6 +783,7 @@ fn resolve_layer(
             picture,
             None,
             quality.divisor() as f64,
+            false,
         )?;
         resolved.nested = Some((inner_id.clone(), local));
         return Some(resolved);
@@ -826,16 +861,17 @@ fn resolve_layer(
                         blend: crate::model::BlendMode::Normal,
                         adjust: None,
                         nested: None,
+                        radial: None,
                     }],
                 },
                 quality,
             );
             let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
-            return resolve_rest(comp, layer, frame, cache, log, small, Some(cel), d as f64);
+            return resolve_rest(comp, layer, frame, cache, log, small, Some(cel), d as f64, card);
         }
         (source, Some(cel))
     };
-    resolve_rest(comp, layer, frame, cache, log, source, cel, 1.0)
+    resolve_rest(comp, layer, frame, cache, log, source, cel, 1.0, card)
 }
 
 /// Document 21 step 1 for a drawn layer: which file it shows at `frame`, decoded, or `None`
@@ -930,6 +966,7 @@ fn resolve_rest(
     mut source: std::sync::Arc<WorkingBuffer>,
     cel: Option<(PathBuf, crate::model::Interpretation)>,
     pre: f64,
+    card: bool,
 ) -> Option<ResolvedLayer> {
     // D-68: every setting is its value at this composition frame, so the stack below, its
     // bounds and the effect cache's key all hold plain numbers.
@@ -1088,6 +1125,16 @@ fn resolve_rest(
         .cloned()
         .collect();
 
+    // B-46: a drawing whose last effect switched on is a Radial Blur this build can draw has only
+    // the effects before it run here, when the plan is for the card. Those are what the effect
+    // cache is asked for, a stack of their own, so it never hands one path's result to the other.
+    let last = effects.iter().rposition(|i| i.enabled);
+    let left = last.filter(|&i| {
+        card && cel.is_some()
+            && matches!(effects[i].effect, crate::effects::Effect::RadialBlur { .. })
+            && effects[i].effect.is_valid()
+    });
+    let before = left.unwrap_or(effects.len());
     let offset = match &cel {
         // D-66: an adjustment layer's stack runs on the frame beneath it, in the renderer. What
         // that run would have reported is reported here instead, so a bypassed effect reaches
@@ -1106,7 +1153,10 @@ fn resolve_rest(
             }
             (0, 0)
         }
-        _ if effects.is_empty() => (0, 0),
+        // B-46: a draft cel whose only effect is left to the card still goes to the effect cache,
+        // under an empty stack, so the card is handed the same small drawing every frame and
+        // sends it once.
+        _ if effects[..before].is_empty() && (left.is_none() || pre == 1.0) => (0, 0),
         // D-67: a composition layer's stack runs on the inner picture as one. The effect cache
         // is keyed by a cel's file, and this picture has none, so it is not asked.
         None => {
@@ -1127,14 +1177,14 @@ fn resolve_rest(
             // by the divisor, as the composition layer's picture above does. The key holds the
             // settings as the project states them, and the divisor beside them.
             let divisor = pre as usize;
-            let mut stack = effects.clone();
+            let mut stack = effects[..before].to_vec();
             if pre != 1.0 {
                 for instance in &mut stack {
                     instance.effect.scale_distances(|d| d / pre);
                 }
             }
             if let Some(hit) =
-                cache.effect_result(path, *interpretation, &drawn_masks, &effects, divisor)
+                cache.effect_result(path, *interpretation, &drawn_masks, &effects[..before], divisor)
             {
                 // P-11. ADR-017 fixes an evaluation's whole input to the cel, the mask and the stack, all
                 // three of which are in the key, so this buffer is the one `apply_stack` would have
@@ -1161,7 +1211,7 @@ fn resolve_rest(
                     path,
                     *interpretation,
                     &drawn_masks,
-                    &effects,
+                    &effects[..before],
                     divisor,
                     crate::cache::EffectResult {
                         buffer: std::sync::Arc::clone(&source),
@@ -1173,6 +1223,14 @@ fn resolve_rest(
             }
         }
     };
+    let radial = left.map(|i| match &effects[i].effect {
+        crate::effects::Effect::RadialBlur { kind, amount, center } => render::Radial {
+            spin: kind == "spin",
+            amount: *amount,
+            center: crate::effects::radial_center(*center, &source, offset),
+        },
+        _ => unreachable!("chosen above for being a Radial Blur"),
+    });
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of
     // value cannot come from a loaded project — persistence refuses it — so this reports
@@ -1263,6 +1321,7 @@ fn resolve_rest(
 
     Some(ResolvedLayer {
         source,
+        radial,
         // Document 21 step 4. Scale is a unit factor in the model (D-22); the divide by 100
         // lives at the file and UI boundaries, not here.
         //
