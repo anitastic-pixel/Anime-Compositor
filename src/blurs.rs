@@ -1,5 +1,5 @@
-//! D-92's directional blur and D-95's radial blur: document 21's rules, on a layer's own
-//! pixels.
+//! D-92's directional blur, read by D-98's lines, and D-95's radial blur: document 21's rules,
+//! on a layer's own pixels.
 //!
 //! This program's own methods, modelled on After Effects' Directional Blur and Radial Blur;
 //! nothing is ported. `tools/directional_blur_reference.py` and `tools/radial_blur_reference.py`
@@ -40,81 +40,207 @@ pub(crate) fn spans(b: &WorkingBuffer) -> Vec<Option<(usize, usize)>> {
         .collect()
 }
 
-/// The columns of a row `grow` pixels wider on each side whose bilinear sample at
-/// `(x - grow + 0.5 + dx, y)` can touch anything in `spans`, a pixel wide of the truth either
-/// side. Every other sample in the row is exactly nothing, so leaving it out moves no bit.
-pub(crate) fn reached(
-    spans: &[Option<(usize, usize)>],
-    y: f64,
-    dx: f64,
+/// D-98's weights along a line, by column `j` from the line's own: `a - b * |j|` for
+/// `|j| <= inner`, and `ends` beyond, so a running sum does the inner part whatever its width.
+pub(crate) struct Weights {
+    pub inner: usize,
+    pub a: f64,
+    pub b: f64,
+    pub ends: Vec<(isize, f64)>,
+}
+
+/// D-98: `source` read along lines of step `u`, one pixel apart, each point of a line the
+/// weighted sum of the line's samples at the column centres, and each pixel of the layer grown
+/// by `grow` the straight mix of the two lines round its centre. Mostly down is mostly across
+/// with x and y exchanged, read in place: turning the picture on its side and back cost more
+/// than the blur (B-42).
+pub(crate) fn by_lines(
+    source: &WorkingBuffer,
+    u: (f64, f64),
+    wt: &Weights,
     grow: usize,
-    width: usize,
-) -> std::ops::Range<usize> {
-    let y0 = (y - 0.5).floor();
-    let (mut lo, mut hi) = (usize::MAX, 0);
-    for r in [y0, y0 + 1.0] {
-        if r >= 0.0 && (r as usize) < spans.len() {
-            if let Some((a, b)) = spans[r as usize] {
-                (lo, hi) = (lo.min(a), hi.max(b));
-            }
+) -> WorkingBuffer {
+    // Below, x and y are across and down in the exchanged picture when `down`.
+    let down = u.0.abs() < u.1.abs();
+    let (u, w, h) = if down {
+        ((u.1, u.0), source.height(), source.width())
+    } else {
+        (u, source.width(), source.height())
+    };
+    let s = u.1 / u.0;
+    let g = grow as isize;
+    let (ow, oh) = (w + 2 * grow, h + 2 * grow);
+    let reach = wt
+        .ends
+        .iter()
+        .map(|e| e.0.unsigned_abs())
+        .max()
+        .unwrap_or(0)
+        .max(wt.inner);
+    let span = ow + 2 * reach;
+    // Line k runs through y = k + 0.5 + x s in layer pixels; the pixel (x, y) sits between
+    // lines floor(y - x s) and the one after, and the corners give the first and last needed.
+    let line_of = |x: isize, y: isize| (y as f64 - x as f64 * s).floor() as isize;
+    let corners = [
+        (-g, -g),
+        (ow as isize - 1 - g, -g),
+        (-g, oh as isize - 1 - g),
+        (ow as isize - 1 - g, oh as isize - 1 - g),
+    ];
+    let k0 = corners.iter().map(|&(x, y)| line_of(x, y)).min().unwrap();
+    let k1 = corners.iter().map(|&(x, y)| line_of(x, y)).max().unwrap() + 1;
+    // Whether a sample can be anything but zero: by each row's span across, or by the
+    // drawing's box down, which is enough to skip an empty cel's lines.
+    let spans = spans(source);
+    let r0 = spans.iter().position(Option::is_some).unwrap_or(1) as isize;
+    let r1 = spans.iter().rposition(Option::is_some).unwrap_or(0) as isize;
+    let c0 = spans.iter().flatten().map(|s| s.0).min().unwrap_or(1) as isize;
+    let c1 = spans.iter().flatten().map(|s| s.1).max().unwrap_or(0) as isize;
+    let shows = |x: isize, y: f64| {
+        let r = (y - 0.5).floor() as isize;
+        if down {
+            r0 <= x && x <= r1 && c0 <= r + 1 && r <= c1
+        } else {
+            [r, r + 1].into_iter().any(|r| {
+                r >= 0
+                    && (r as usize) < spans.len()
+                    && matches!(spans[r as usize], Some((a, b)) if a as isize <= x && x <= b as isize)
+            })
         }
-    }
-    if lo > hi {
-        return 0..0;
-    }
-    let start = (lo as f64 - 2.0 + grow as f64 - dx).floor().max(0.0) as usize;
-    let end = (hi as f64 + 3.0 + grow as f64 - dx)
-        .ceil()
-        .clamp(0.0, width as f64) as usize;
-    start.min(end)..end
+    };
+
+    // Every line's value at every column, lines in parallel. A running total of the samples,
+    // and of the samples times their column for a tent, gives each point with a few subtractions.
+    // ponytail: every line held at once, ~100 MB for a 1080p layer at 45 degrees; bands of
+    // lines are the upgrade if memory matters.
+    let mut lines = vec![[0.0f32; 4]; (k1 - k0 + 1) as usize * ow];
+    // Each rayon job zeroes its own totals, so a job is at least 16 lines, or that zeroing
+    // outweighs the blur (P-17's harness, B-42).
+    let fresh = || {
+        (
+            vec![[0.0f32; 4]; span],
+            vec![[0.0f64; 4]; span + 1],
+            vec![[0.0f64; 4]; span + 1],
+            vec![0u32; span + 1],
+        )
+    };
+    // Which lines hold anything, so the mix below can leave an empty cel's pixels alone.
+    let used: Vec<bool> = lines
+        .par_chunks_exact_mut(ow)
+        .enumerate()
+        .with_min_len(16)
+        .map_init(fresh, |(v, p, q, c), (i, line)| {
+            let k = k0 + i as isize;
+            for t in 0..span {
+                let x = t as isize - reach as isize - g;
+                let y = k as f64 + 0.5 + x as f64 * s;
+                v[t] = if !shows(x, y) {
+                    [0.0; 4]
+                } else if down {
+                    sample_bilinear(source, y, x as f64 + 0.5)
+                } else {
+                    sample_bilinear(source, x as f64 + 0.5, y)
+                };
+                c[t + 1] = c[t] + v[t].iter().any(|&z| z != 0.0) as u32;
+                for ch in 0..4 {
+                    p[t + 1][ch] = p[t][ch] + v[t][ch] as f64;
+                    q[t + 1][ch] = q[t][ch] + t as f64 * v[t][ch] as f64;
+                }
+            }
+            if c[span] == 0 {
+                return false;
+            }
+            let n = wt.inner;
+            for (x, out) in line.iter_mut().enumerate() {
+                let t = x + reach;
+                // Nothing in reach is exactly nothing, whatever the running totals have rounded to.
+                if c[t + reach + 1] == c[t - reach] {
+                    continue;
+                }
+                let tf = t as f64;
+                for ch in 0..4 {
+                    let mut r = wt.a * (p[t + n + 1][ch] - p[t - n][ch]);
+                    if wt.b != 0.0 {
+                        let right = (q[t + n + 1][ch] - q[t + 1][ch])
+                            - tf * (p[t + n + 1][ch] - p[t + 1][ch]);
+                        let left = tf * (p[t][ch] - p[t - n][ch]) - (q[t][ch] - q[t - n][ch]);
+                        r -= wt.b * (right + left);
+                    }
+                    for &(j, w) in &wt.ends {
+                        r += w * v[(t as isize + j) as usize][ch] as f64;
+                    }
+                    out[ch] = r as f32;
+                }
+            }
+            true
+        })
+        .collect();
+
+    let (width, height) = if down { (oh, ow) } else { (ow, oh) };
+    let mut out = WorkingBuffer::transparent(width, height);
+    out.data_mut()
+        .par_chunks_exact_mut(width * 4)
+        .enumerate()
+        .for_each(|(ro, row)| {
+            for (co, px) in row.chunks_exact_mut(4).enumerate() {
+                let (xo, yo) = if down { (ro, co) } else { (co, ro) };
+                let d = (yo as isize - g) as f64 - (xo as isize - g) as f64 * s;
+                let k = d.floor();
+                let f = (d - k) as f32;
+                let at = (k as isize - k0) as usize;
+                if !used[at] && !used[at + 1] {
+                    continue;
+                }
+                let i = at * ow + xo;
+                let (lo, hi) = (lines[i], lines[i + ow]);
+                for ch in 0..4 {
+                    px[ch] = (1.0 - f) * lo[ch] + f * hi[ch];
+                }
+            }
+        });
+    out
+}
+
+/// The integral of tent(v) = max(0, 1 - |v|) from a to b.
+fn tent_integral(a: f64, b: f64) -> f64 {
+    let up_to = |v: f64| {
+        let v = v.clamp(-1.0, 1.0);
+        if v < 0.0 {
+            (1.0 + v).powi(2) / 2.0
+        } else {
+            1.0 - (1.0 - v).powi(2) / 2.0
+        }
+    };
+    up_to(b) - up_to(a)
 }
 
 /// Average each pixel of `source` along a line `length` pixels long through it, in place, and
 /// return how far it grew on each side. Both settings are already inside their ranges; length 0
-/// changes nothing.
+/// changes nothing. D-98: each line, drawn straight between its column samples, is averaged
+/// over `2H = |u_x| * (length + length / ceil(length))` columns, mostly across.
 pub(crate) fn directional_blur(source: &mut WorkingBuffer, direction: f64, length: f64) -> usize {
-    let n = length.ceil() as usize + 1;
-    if n == 1 {
+    if length == 0.0 {
         return 0;
     }
     let grow = (length / 2.0).ceil() as usize;
     let u = along(direction);
-    let steps: Vec<(f64, f64)> = (0..n)
-        .map(|k| {
-            let t = -length / 2.0 + k as f64 * length / (n - 1) as f64;
-            (t * u.0, t * u.1)
-        })
-        .collect();
-    let (w, h) = (source.width() + 2 * grow, source.height() + 2 * grow);
-    let mut out = WorkingBuffer::transparent(w, h);
-    let src = &*source;
-    let spans = spans(src);
-    // P-17: a step at a time along the whole row, reading the source in order, and only where
-    // the drawing is; each pixel still adds the same samples in the same order, so no bit moves.
-    // ponytail: still n bilinear samples a pixel where the drawing is; a running sum along the
-    // line is the upgrade if a longer streak matters.
-    out.data_mut()
-        .par_chunks_exact_mut(w * 4)
-        .enumerate()
-        .for_each(|(y, row)| {
-            let cy = y as f64 - grow as f64 + 0.5;
-            let mut sum = vec![[0.0f32; 4]; w];
-            for &(dx, dy) in &steps {
-                for x in reached(&spans, cy + dy, dx, grow, w) {
-                    let cx = x as f64 - grow as f64 + 0.5;
-                    let s = sample_bilinear(src, cx + dx, cy + dy);
-                    for i in 0..4 {
-                        sum[x][i] += s[i];
-                    }
-                }
-            }
-            for (px, sum) in row.chunks_exact_mut(4).zip(&sum) {
-                for i in 0..4 {
-                    px[i] = sum[i] / n as f32;
-                }
-            }
-        });
-    *source = out;
+    let half = u.0.abs().max(u.1.abs()) * (length + length / length.ceil()) / 2.0;
+    let reach = (half + 1.0).ceil() as isize;
+    let full = 1.0 / (2.0 * half);
+    let weight = |j: isize| tent_integral(j as f64 - half, j as f64 + half) / (2.0 * half);
+    // The columns weighing exactly 1 / 2H are the running sum; a blur too short for even its
+    // own column to is all ends.
+    let inner = (0..=reach).take_while(|&j| weight(j) == full).last();
+    let wt = Weights {
+        inner: inner.unwrap_or(0) as usize,
+        a: if inner.is_some() { full } else { 0.0 },
+        b: 0.0,
+        ends: (-reach..=reach)
+            .filter(|&j| inner.map_or(true, |n| j.abs() > n) && weight(j) != 0.0)
+            .map(|j| (j, weight(j)))
+            .collect(),
+    };
+    *source = by_lines(source, u, &wt, grow);
     grow
 }
 

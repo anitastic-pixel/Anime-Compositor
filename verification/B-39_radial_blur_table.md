@@ -1,6 +1,6 @@
 # B-39: radial blur
 
-D-95, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/radial_blur/expected_radial_blur.json`, written by `tools/radial_blur_reference.py` before this code existed and printed in document 25 as FX-RADIAL-001 to 018. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
+D-95, accepted by the owner on 2026-09-25; FX-RADIAL-012's directional blur is read by D-98's lines since B-42 the same day. Every expected pixel is `Fixtures/radial_blur/expected_radial_blur.json`, written by `tools/radial_blur_reference.py` before this code existed and printed in document 25 as FX-RADIAL-001 to 018. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
 
 ## FX-RADIAL-001 to 018 (document 25)
 
@@ -33,7 +33,7 @@ D-95, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/rad
 | FX-RADIAL-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RADIAL-011 frame 0: Spin 100 about centre -1000, -1000, far off the top left: every pixel's arc is longer than 255 pixels, so each takes the most samples, 256. | largest difference 3.0e-9 | yes |
 | FX-RADIAL-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RADIAL-012 frame 0: A directional blur, direction 90 and length 4, then spin 30 about centre 0, 0: the directional blur grew the layer two pixels on every side, and the spin still turns about the drawing's own top left corner. | largest difference 1.6e-7 | yes |
+| FX-RADIAL-012 frame 0: A directional blur, direction 90 and length 4, then spin 30 about centre 0, 0: the directional blur grew the layer two pixels on every side, and the spin still turns about the drawing's own top left corner. | largest difference 1.7e-7 | yes |
 | FX-RADIAL-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RADIAL-013 frame 0: Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-RADIAL-013 frame 4: Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |

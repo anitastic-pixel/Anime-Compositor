@@ -24,7 +24,8 @@ fn radial(kind: &str, amount: f64, center: [f64; 2]) -> Effect {
 fn b39_radial_blur() {
     let mut t = Table::new(
         "radial_blur",
-        "# B-39: radial blur\n\nD-95, accepted by the owner on 2026-09-25. Every expected pixel \
+        "# B-39: radial blur\n\nD-95, accepted by the owner on 2026-09-25; FX-RADIAL-012's directional \
+         blur is read by D-98's lines since B-42 the same day. Every expected pixel \
          is `Fixtures/radial_blur/expected_radial_blur.json`, written by \
          `tools/radial_blur_reference.py` before this code existed and printed in document 25 as \
          FX-RADIAL-001 to 018. The build's frame is compared sample by sample; the answer is the \

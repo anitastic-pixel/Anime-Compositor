@@ -1,12 +1,12 @@
 //! D-96's bloom: document 21's rule, on a layer's own pixels.
 //!
 //! This program's own method, built from D-89's bright test, document 21's Gaussian blur and
-//! D-92's line samples; nothing is ported. `tools/bloom_reference.py` is the same rule worked a
+//! D-98's lines; nothing is ported. `tools/bloom_reference.py` is the same rule worked a
 //! second way, and `tests/b40_bloom.rs` holds this to its numbers.
 
+use crate::blurs::{along, by_lines, Weights};
 use crate::color::{linear_to_srgb, quantise_u8};
 use crate::effects::{blur, kernel_radius};
-use crate::render::sample_bilinear;
 use crate::WorkingBuffer;
 use rayon::prelude::*;
 
@@ -86,64 +86,58 @@ pub(crate) fn bloom(
             });
     }
 
-    // (3) The streaks: each line's tent of samples, m - |k - m| for k = 0 to 2m, and every
-    // line's offsets in one list, so a pixel sums them all and divides once.
-    let m = if lines > 0 { length.ceil() as usize } else { 0 };
-    let steps: Vec<(f64, f64, f64)> = (0..lines)
-        .flat_map(|j| {
-            let u = crate::blurs::along(angle + j as f64 * 180.0 / lines as f64);
-            (0..=2 * m).map(move |k| {
-                if m == 0 {
-                    return (0.0, 0.0, 1.0);
+    // (3) The streaks, D-98: each line a tent over whole columns (rows, mostly down),
+    // max(0, h - |j|) with h = max(|u_x|, |u_y|) * length, the lines averaged into the halo.
+    // Length 0 is the light itself, whatever the lines.
+    for j in 0..lines {
+        let u = along(angle + j as f64 * 180.0 / lines as f64);
+        let streak = if length == 0.0 {
+            None
+        } else {
+            let top = u.0.abs().max(u.1.abs()) * length;
+            let inner = top.ceil() as usize - 1;
+            let n = inner as f64;
+            let total = (2.0 * n + 1.0) * top - n * (n + 1.0);
+            let wt = Weights {
+                inner,
+                a: top / total,
+                b: 1.0 / total,
+                ends: Vec::new(),
+            };
+            Some(by_lines(&light, u, &wt, grow))
+        };
+        let share = 1.0 / lines as f32;
+        halo.data_mut()
+            .par_chunks_exact_mut(gw * 4)
+            .enumerate()
+            .for_each(|(y, hrow)| match &streak {
+                Some(t) => {
+                    for (d, v) in hrow.iter_mut().zip(&t.data()[y * gw * 4..(y + 1) * gw * 4]) {
+                        *d += v * share;
+                    }
                 }
-                let t = (k as f64 - m as f64) * length / m as f64;
-                (t * u.0, t * u.1, (m - k.abs_diff(m)) as f64)
-            })
-        })
-        .collect();
-    let total = (m * m).max(1) as f64 * lines as f64;
+                None if (grow..grow + h).contains(&y) => {
+                    let row = &light.data()[(y - grow) * w * 4..(y - grow + 1) * w * 4];
+                    for (d, v) in hrow[grow * 4..(grow + w) * 4].iter_mut().zip(row) {
+                        *d += v * share;
+                    }
+                }
+                None => {}
+            });
+    }
 
     // (4) Added on top of the picture, which is empty outside its own bounds.
     let k = intensity as f32;
     let o = source.data();
-    let (halo, light) = (&halo, &light);
-    let spans = if steps.is_empty() {
-        Vec::new()
-    } else {
-        crate::blurs::spans(light)
-    };
+    let halo = &halo;
     let mut out = WorkingBuffer::transparent(gw, h + 2 * grow);
-    // P-17: the streaks a step at a time along the whole row, and only where light is; each
-    // pixel still adds the same samples in the same order, so no bit moves. A tent's two end
-    // samples weigh nothing and add exactly nothing, so they are left out too.
-    // ponytail: still each line's 2m + 1 samples a pixel where light reaches, ~0.5 s for a
-    // fully lit 1080p star at length 60; a running sum along each line is the upgrade.
     out.data_mut()
         .par_chunks_exact_mut(gw * 4)
         .enumerate()
         .for_each(|(y, row)| {
-            let cy = y as f64 - grow as f64 + 0.5;
-            let mut sums = vec![[0.0f64; 4]; if steps.is_empty() { 0 } else { gw }];
-            for &(dx, dy, wt) in &steps {
-                if wt == 0.0 {
-                    continue;
-                }
-                for x in crate::blurs::reached(&spans, cy + dy, dx, grow, gw) {
-                    let cx = x as f64 - grow as f64 + 0.5;
-                    let s = sample_bilinear(light, cx + dx, cy + dy);
-                    for c in 0..4 {
-                        sums[x][c] += s[c] as f64 * wt;
-                    }
-                }
-            }
             for (x, px) in row.chunks_exact_mut(4).enumerate() {
                 let i = (y * gw + x) * 4;
-                let mut g = [0, 1, 2, 3].map(|c| halo.data()[i + c]);
-                if let Some(sum) = sums.get(x) {
-                    for c in 0..4 {
-                        g[c] += (sum[c] / total) as f32;
-                    }
-                }
+                let g = [0, 1, 2, 3].map(|c| halo.data()[i + c]);
                 let (sx, sy) = (x as isize - grow as isize, y as isize - grow as isize);
                 let p = if (0..w as isize).contains(&sx) && (0..h as isize).contains(&sy) {
                     let j = (sy as usize * w + sx as usize) * 4;

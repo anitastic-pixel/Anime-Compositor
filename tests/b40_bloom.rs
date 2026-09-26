@@ -27,7 +27,8 @@ fn bloom(radius: f64, intensity: f64, streaks: &str, length: f64, angle: f64) ->
 fn b40_bloom() {
     let mut t = Table::new(
         "bloom",
-        "# B-40: bloom\n\nD-96, accepted by the owner on 2026-09-25. Every expected pixel is \
+        "# B-40: bloom\n\nD-96, accepted by the owner on 2026-09-25, its streaks read by D-98's \
+         lines since B-42 the same day. Every expected pixel is \
          `Fixtures/bloom/expected_bloom.json`, written by `tools/bloom_reference.py` before this \
          code existed and printed in document 25 as FX-BLOOM-001 to 028. The build's frame is \
          compared sample by sample; the answer is the largest difference over all of them, \

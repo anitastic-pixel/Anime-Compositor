@@ -1,4 +1,4 @@
-//! B-36: directional blur in the core, against D-92.
+//! B-36: directional blur in the core, against D-92 as D-98 (B-42) reads it.
 //!
 //! Writes `verification/B-36_directional_blur_table.md`.
 //!
@@ -20,7 +20,8 @@ fn dirblur(direction: f64, length: f64) -> Effect {
 fn b36_directional_blur() {
     let mut t = Table::new(
         "directional_blur",
-        "# B-36: directional blur\n\nD-92, accepted by the owner on 2026-09-25. Every expected \
+        "# B-36: directional blur\n\nD-92, accepted by the owner on 2026-09-25, read by D-98's lines since \
+         B-42 the same day. Every expected \
          pixel is `Fixtures/directional_blur/expected_directional_blur.json`, written by \
          `tools/directional_blur_reference.py` before this code existed and printed in document \
          25 as FX-DIRBLUR-001 to 015. The build's frame is compared sample by sample; the answer \

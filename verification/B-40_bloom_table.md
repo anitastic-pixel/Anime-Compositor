@@ -1,6 +1,6 @@
 # B-40: bloom
 
-D-96, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/bloom/expected_bloom.json`, written by `tools/bloom_reference.py` before this code existed and printed in document 25 as FX-BLOOM-001 to 028. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
+D-96, accepted by the owner on 2026-09-25, its streaks read by D-98's lines since B-42 the same day. Every expected pixel is `Fixtures/bloom/expected_bloom.json`, written by `tools/bloom_reference.py` before this code existed and printed in document 25 as FX-BLOOM-001 to 028. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
 
 ## FX-BLOOM-001 to 028 (document 25)
 
@@ -18,17 +18,17 @@ D-96, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/blo
 | FX-BLOOM-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOOM-006 frame 0: Radius 0 with a cross of streaks, length 6, angle 0: the yellow's light runs straight up and down and straight left and right, and nowhere else: above the patch it is lit, off its corners it is not. | largest difference 5.6e-7 | yes |
 | FX-BLOOM-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BLOOM-007 frame 0: The same with a star: four lines, so the diagonals off the patch's corners are lit too, and the straight lines are half as strong, as the light is shared among four lines, not two. | largest difference 4.2e-7 | yes |
+| FX-BLOOM-007 frame 0: The same with a star: four lines, so the diagonals off the patch's corners are lit too, and the straight lines are half as strong, as the light is shared among four lines, not two. | largest difference 4.9e-7 | yes |
 | FX-BLOOM-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BLOOM-008 frame 0: A cross at angle 45: the streaks run along the diagonals only. | largest difference 5.1e-7 | yes |
+| FX-BLOOM-008 frame 0: A cross at angle 45: the streaks run along the diagonals only. | largest difference 4.8e-7 | yes |
 | FX-BLOOM-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOOM-009 frame 0: A cross at angle 90: the same two lines as angle 0, each walked the other way, so this is FX-BLOOM-006 to rounding. | largest difference 5.6e-7 | yes |
 | FX-BLOOM-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOOM-010 frame 0: The defaults, threshold 80, radius 20, intensity 1, no streaks: a halo wider than the whole drawing. | largest difference 2.4e-7 | yes |
 | FX-BLOOM-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BLOOM-011 frame 0: The defaults with a star of streaks, length 60. | largest difference 3.0e-7 | yes |
+| FX-BLOOM-011 frame 0: The defaults with a star of streaks, length 60. | largest difference 2.5e-7 | yes |
 | FX-BLOOM-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BLOOM-012 frame 0: Radius 4, a cross of length 6, intensity 2.5: two and a half times as strong, and where it adds past white it is not cut off. | largest difference 7.8e-7 | yes |
+| FX-BLOOM-012 frame 0: Radius 4, a cross of length 6, intensity 2.5: two and a half times as strong, and where it adds past white it is not cut off. | largest difference 1.0e-6 | yes |
 | FX-BLOOM-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOOM-013 frame 0: The patches half covering: the yellow blooms as in FX-BLOOM-001, at half the strength. | largest difference 1.8e-7 | yes |
 | FX-BLOOM-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -38,10 +38,10 @@ D-96, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/blo
 | FX-BLOOM-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOOM-015 frame 0: Length keyed from 0 at frame 0 to 12 at frame 4, radius 0, a cross: frame 0 is each yellow pixel added onto itself twice over, frame 2 is FX-BLOOM-006. | largest difference 4.0e-7 | yes |
 | FX-BLOOM-015 frame 2: Length keyed from 0 at frame 0 to 12 at frame 4, radius 0, a cross: frame 0 is each yellow pixel added onto itself twice over, frame 2 is FX-BLOOM-006. | largest difference 5.6e-7 | yes |
-| FX-BLOOM-015 frame 4: Length keyed from 0 at frame 0 to 12 at frame 4, radius 0, a cross: frame 0 is each yellow pixel added onto itself twice over, frame 2 is FX-BLOOM-006. | largest difference 5.0e-7 | yes |
+| FX-BLOOM-015 frame 4: Length keyed from 0 at frame 0 to 12 at frame 4, radius 0, a cross: frame 0 is each yellow pixel added onto itself twice over, frame 2 is FX-BLOOM-006. | largest difference 4.1e-7 | yes |
 | FX-BLOOM-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOOM-016 frame 0: Angle keyed from 0 at frame 0 to 90 at frame 4, radius 0, a cross: frame 0 is FX-BLOOM-006, frame 2 is FX-BLOOM-008, and frame 4 is FX-BLOOM-006 again. | largest difference 5.6e-7 | yes |
-| FX-BLOOM-016 frame 2: Angle keyed from 0 at frame 0 to 90 at frame 4, radius 0, a cross: frame 0 is FX-BLOOM-006, frame 2 is FX-BLOOM-008, and frame 4 is FX-BLOOM-006 again. | largest difference 5.1e-7 | yes |
+| FX-BLOOM-016 frame 2: Angle keyed from 0 at frame 0 to 90 at frame 4, radius 0, a cross: frame 0 is FX-BLOOM-006, frame 2 is FX-BLOOM-008, and frame 4 is FX-BLOOM-006 again. | largest difference 4.8e-7 | yes |
 | FX-BLOOM-016 frame 4: Angle keyed from 0 at frame 0 to 90 at frame 4, radius 0, a cross: frame 0 is FX-BLOOM-006, frame 2 is FX-BLOOM-008, and frame 4 is FX-BLOOM-006 again. | largest difference 5.6e-7 | yes |
 | FX-BLOOM-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOOM-017 frame 0: Threshold keyed from 100 at frame 0 to 20 at frame 4, linear: frame 0 is the drawing, frame 4 has the purple blooming too. | largest difference 1.5e-7 | yes |
@@ -51,7 +51,7 @@ D-96, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/blo
 | FX-BLOOM-018 frame 0: Radius 4 and a cross of length 6, moved three pixels right: the bloom is done on the drawing before it is moved, and the streak that ran past the drawing's left edge now shows in columns 0 to 2. | largest difference 4.5e-7 | yes |
 | FX-BLOOM-018 frame 3: Radius 4 and a cross of length 6, moved three pixels right: the bloom is done on the drawing before it is moved, and the streak that ran past the drawing's left edge now shows in columns 0 to 2. | largest difference 4.5e-7 | yes |
 | FX-BLOOM-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BLOOM-019 frame 0: Radius 2.5 and length 2.5: neither is rounded. | largest difference 4.6e-7 | yes |
+| FX-BLOOM-019 frame 0: Radius 2.5 and length 2.5: neither is rounded. | largest difference 5.2e-7 | yes |
 | FX-BLOOM-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOOM-020 frame 0: Threshold 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-BLOOM-020 frame 4: Threshold 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
