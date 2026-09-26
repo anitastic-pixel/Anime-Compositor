@@ -31,6 +31,12 @@ exr = { version = "1.74.2", default-features = false }
 serde_json = "1.0.151"
 image = { version = "0.25.10", default-features = false, features = ["bmp", "tga", "tiff", "webp", "jpeg"] }
 gif = "0.14.2"
+# B-44, D-100 (a): the viewer's picture drawn on the graphics card, through Direct3D 12 or
+# Vulkan. Exports and fixtures never touch it. `pollster` waits for the card's answers and
+# `bytemuck` hands it f32 pixels as bytes; bytemuck was already in the tree.
+wgpu = { version = "26.0.1", default-features = false, features = ["std", "parking_lot", "wgsl", "dx12", "vulkan"] }
+pollster = "0.4.0"
+bytemuck = "1.25.2"
 
 # D-72 and D-30: MP4 goes out through the encoder Windows carries. Already in the tree under Tauri.
 [target.'cfg(windows)'.dependencies]

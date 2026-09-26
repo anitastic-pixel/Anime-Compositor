@@ -918,6 +918,7 @@
       <span id="frame">frame &mdash;</span>
       <span id="quality">&mdash;</span>
       <button id="toggle">Full resolution</button>
+      <button id="gpu" title="Draw the preview on the graphics card. Exports are always drawn on the CPU">Draw on GPU</button>
       <button id="alpha">Alpha only</button>
       <button id="checker">Hide grid</button>
       <button id="fit" title="Fill the area (Shift+/)">Fit</button>
@@ -1199,8 +1200,15 @@ async function show(url, keep = true) {
     // The indicator describes the render that just arrived, because it came back with it.
     const differs = h.get('x-differs') === 'true';
     const label = $('quality');
+    const drawnOn = h.get('x-drawn-on') || 'CPU';
     label.textContent = h.get('x-quality') + ' — ' + width + '×' + height
-      + (differs ? ', not final pixels' : ', same as export');
+      + (differs ? ', not final pixels' : ', same as export') + ', drawn on ' + drawnOn;
+    // B-44: the button says what pressing it does; its tooltip names the card, or why there is none.
+    const card = decodeURIComponent(h.get('x-card') || '');
+    $('gpu').textContent = drawnOn === 'CPU' ? 'Draw on GPU' : 'Draw on CPU';
+    $('gpu').title = (card ? card + '. ' : '')
+      + 'Exports are always drawn on the CPU'
+      + (drawnOn === 'CPU, not GPU' ? '. This frame has something the card does not draw yet, or the card failed; the session log says which' : '');
     label.className = differs ? 'differs' : '';
     $('toggle').textContent = differs ? 'Full resolution' : 'Draft resolution';
 
@@ -3062,6 +3070,7 @@ function palette() {
     ['Zoom the picture in', '.', { key: '.' }],
     ['Zoom the picture out', ',', { key: ',' }],
     ['Draft or full quality', 'D', { key: 'd' }],
+    ['Preview on the CPU or the graphics card', '', () => $('gpu').click()],
     ['Transparency grid', 'G', { key: 'g' }],
     ['Alpha only', 'Alt+A', { key: 'a', altKey: true }],
     ['Composition settings', 'Ctrl+K', { key: 'k', code: 'KeyK', ctrlKey: true }],
@@ -8083,6 +8092,8 @@ $('toggle').onclick = () => {
 // Both views are the window's, not the project's, so neither goes near the document. What each
 // button says is what pressing it does, and the frame that comes back says which view is on.
 $('alpha').onclick = () => command('/viewer.toggle_alpha');
+// B-44: the window's too. The frame that comes back says which processor drew it.
+$('gpu').onclick = () => command('/gpu-switch');
 $('checker').onclick = () => command('/viewer.toggle_checkerboard');
 
 // A command, then the project again, then the current frame — in that order, so that everything

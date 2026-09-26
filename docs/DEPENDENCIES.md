@@ -35,6 +35,8 @@ stays visible. Several other crates now do the same for the same reason.
 | `alloc-no-stdlib` | 2.0.4 | BSD-3-Clause | transitive | linked | https://github.com/dropbox/rust-alloc-no-stdlib | `cc7bb162ec39d46a…` |
 | `alloc-stdlib` | 0.2.4 | BSD-3-Clause | transitive | linked | https://github.com/dropbox/rust-alloc-no-stdlib | `0e76a019e91224d2…` |
 | `anyhow` | 1.0.104 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/anyhow | `330a5ed07fa54e47…` |
+| `arrayvec` | 0.7.8 | MIT OR Apache-2.0 | transitive | linked | https://github.com/bluss/arrayvec | `d3fb67a6e08acf24…` |
+| `ash` | 0.38.0+1.3.281 | MIT OR Apache-2.0 | transitive | linked | https://github.com/ash-rs/ash | `0bb44936d800fea8…` |
 | `autocfg` | 1.5.1 | Apache-2.0 OR MIT | transitive | build-time only | https://github.com/cuviper/autocfg | `f2032f911046de80…` |
 | `base64` | 0.22.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/marshallpierce/rust-base64 | `72b3254f16251a83…` |
 | `bit-set` | 0.8.0 | Apache-2.0 OR MIT | transitive | linked | https://github.com/contain-rs/bit-set | `08807e080ed7f9d5…` |
@@ -46,7 +48,8 @@ stays visible. Several other crates now do the same for the same reason.
 | `brotli` | 8.0.4 | BSD-3-Clause AND MIT | transitive | linked | https://github.com/dropbox/rust-brotli | `5cc91aac060a7a1e…` |
 | `brotli-decompressor` | 5.0.3 | BSD-3-Clause/MIT | transitive | linked | https://github.com/dropbox/rust-brotli-decompressor | `3a32acac15fe1967…` |
 | `bs58` | 0.5.1 | MIT/Apache-2.0 | transitive | linked | https://github.com/Nullus157/bs58-rs | `bf88ba1141d185c3…` |
-| `bytemuck` | 1.25.2 | Zlib OR Apache-2.0 OR MIT | transitive | linked | https://github.com/Lokathor/bytemuck | `95832e849adfb211…` |
+| `bytemuck` | 1.25.2 | Zlib OR Apache-2.0 OR MIT | direct | linked | https://github.com/Lokathor/bytemuck | `95832e849adfb211…` |
+| `bytemuck_derive` | 1.12.1 | Zlib OR Apache-2.0 OR MIT | transitive | linked | https://github.com/Lokathor/bytemuck | `6a1f896587b6f2c0…` |
 | `byteorder` | 1.5.0 | Unlicense OR MIT | transitive | linked | https://github.com/BurntSushi/byteorder | `1fd0f2584146f6f2…` |
 | `byteorder-lite` | 0.1.0 | Unlicense OR MIT | transitive | linked | https://github.com/image-rs/byteorder-lite | `8f1fe948ff07f4bd…` |
 | `bytes` | 1.12.1 | MIT | transitive | linked | https://github.com/tokio-rs/bytes | `fc652a48c352aef3…` |
@@ -57,7 +60,9 @@ stays visible. Several other crates now do the same for the same reason.
 | `cc` | 1.4.5 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/rust-lang/cc-rs | `005ec2760ca554fa…` |
 | `cfb` | 0.7.3 | MIT | transitive | linked | https://github.com/mdsteele/rust-cfb | `d38f2da7a0a2c4cc…` |
 | `cfg-if` | 1.0.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/cfg-if | `9330f8b2ff13f345…` |
+| `cfg_aliases` | 0.2.2 | MIT | transitive | build-time only | https://github.com/katharostech/cfg_aliases | `f079e83a288787bc…` |
 | `chrono` | 0.4.45 | MIT OR Apache-2.0 | transitive | linked | https://github.com/chronotope/chrono | `1aa79e62e7697b8e…` |
+| `codespan-reporting` | 0.12.0 | Apache-2.0 | transitive | linked | https://github.com/brendanzab/codespan | `fe6d2e5af09e8c8a…` |
 | `color_quant` | 1.1.0 | MIT | transitive | linked | https://github.com/image-rs/color_quant.git | `3d7b894f5411737b…` |
 | `cookie` | 0.18.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/SergioBenitez/cookie-rs | `1a373e3602691c3c…` |
 | `cpufeatures` | 0.2.17 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/RustCrypto/utils | `59ed5838eebb26a2…` |
@@ -84,6 +89,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `dirs` | 6.0.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/soc/dirs-rs | `c3e8aa94d7514122…` |
 | `dirs-sys` | 0.5.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dirs-dev/dirs-sys-rs | `e01a3366d27ee989…` |
 | `displaydoc` | 0.2.7 | MIT OR Apache-2.0 | transitive | linked | https://github.com/yaahc/displaydoc | `c6232dd377dcc647…` |
+| `document-features` | 0.2.12 | MIT OR Apache-2.0 | transitive | linked | https://github.com/slint-ui/document-features | `d4b8a88685455ed2…` |
 | `dom_query` | 0.27.0 | MIT | transitive | linked | https://github.com/niklak/dom_query | `521e380c0c8afb8d…` |
 | `dpi` | 0.1.2 | Apache-2.0 AND MIT | transitive | linked | https://github.com/rust-windowing/winit | `d8b14ccef22fc6f5…` |
 | `dtoa` | 1.0.11 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/dtoa | `4c3cf4824e2d5f02…` |
@@ -103,6 +109,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `find-msvc-tools` | 0.1.12 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/rust-lang/cc-rs | `3e0f1c7c3a72c66f…` |
 | `flate2` | 1.1.10 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/flate2-rs | `6e634e2e0ebac1ee…` |
 | `fnv` | 1.0.7 | Apache-2.0 / MIT | transitive | linked | https://github.com/servo/rust-fnv | `3f9eec918d3f2406…` |
+| `foldhash` | 0.1.5 | Zlib | transitive | linked | https://github.com/orlp/foldhash | `d9c4f5dac5e15c24…` |
 | `foldhash` | 0.2.0 | Zlib | transitive | linked | https://github.com/orlp/foldhash | `77ce24cb58228fbb…` |
 | `form_urlencoded` | 1.2.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/rust-url | `cb4cb245038516f5…` |
 | `generic-array` | 0.14.7 | MIT | transitive | build-time only | https://github.com/fizyk20/generic-array.git | `85649ca51fd72272…` |
@@ -110,11 +117,18 @@ stays visible. Several other crates now do the same for the same reason.
 | `getrandom` | 0.4.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-random/getrandom | `300e883d756b2e4e…` |
 | `gif` | 0.14.2 | MIT OR Apache-2.0 | direct | linked | https://github.com/image-rs/image-gif | `ee8cfcc411d9adbb…` |
 | `glob` | 0.3.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/glob | `e4eba85ea1d0a966…` |
+| `gpu-alloc` | 0.6.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/zakarumych/gpu-alloc | `45cf04b2726f02df…` |
+| `gpu-alloc-types` | 0.3.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/zakarumych/gpu-alloc | `b2bbed164dd10ed5…` |
+| `gpu-allocator` | 0.27.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/Traverse-Research/gpu-allocator | `c151a2a5ef800297…` |
+| `gpu-descriptor` | 0.3.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/zakarumych/gpu-descriptor | `b89c83349105e373…` |
+| `gpu-descriptor-types` | 0.2.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/zakarumych/gpu-descriptor | `fdf242682df893b8…` |
 | `half` | 2.7.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/VoidStarKat/half-rs | `6ea2d84b969582b4…` |
 | `hashbrown` | 0.12.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/hashbrown | `8a9ee70c43aaf417…` |
+| `hashbrown` | 0.15.5 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/hashbrown | `9229cfe53dfd69f0…` |
 | `hashbrown` | 0.17.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/hashbrown | `ed5909b6e89a2db4…` |
 | `heck` | 0.5.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/withoutboats/heck | `2304e00983f87ffb…` |
 | `hex` | 0.4.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/KokaKiwi/rust-hex | `7f24254aa9a54b5c…` |
+| `hexf-parse` | 0.2.1 | CC0-1.0 | transitive | linked | https://github.com/lifthrasiir/hexf | `dfa686283ad6dd06…` |
 | `html5ever` | 0.38.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/html5ever | `1054432bae2f14e0…` |
 | `http` | 1.5.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/hyperium/http | `918d3568bebf3527…` |
 | `ico` | 0.5.0 | MIT | transitive | build-time only | https://github.com/mdsteele/rust-ico | `3e795dff5605e0f0…` |
@@ -143,8 +157,10 @@ stays visible. Several other crates now do the same for the same reason.
 | `keyboard-types` | 0.7.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/pyfisch/keyboard-types | `b750dcadc39a09db…` |
 | `lebe` | 0.5.3 | BSD-3-Clause | transitive | linked | https://github.com/johannesvollmer/lebe | `7a79a3332a660948…` |
 | `libc` | 0.2.189 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/libc | `3eaf3ede3fee6db1…` |
+| `libloading` | 0.8.9 | ISC | transitive | linked | https://github.com/nagisa/rust_libloading/ | `d7c4b02199fee7c5…` |
 | `libm` | 0.2.16 | MIT | transitive | linked | https://github.com/rust-lang/compiler-builtins | `b6d2cec3eae94f9f…` |
 | `litemap` | 0.8.3 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `47d9d19d1d6efa01…` |
+| `litrs` | 1.0.0 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/LukasKalbertodt/litrs | `11d3d7f243d5c5a8…` |
 | `lock_api` | 0.4.14 | MIT OR Apache-2.0 | transitive | linked | https://github.com/Amanieu/parking_lot | `224399e74b87b5f3…` |
 | `log` | 0.4.34 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/log | `f9f8bd3e56ce4dfc…` |
 | `markup5ever` | 0.38.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/html5ever | `8983d30f2915feea…` |
@@ -155,12 +171,14 @@ stays visible. Several other crates now do the same for the same reason.
 | `mio` | 1.2.3 | MIT | transitive | linked | https://github.com/tokio-rs/mio | `4b18443e9c262bfe…` |
 | `moxcms` | 0.8.1 | BSD-3-Clause OR Apache-2.0 | transitive | linked | https://github.com/awxkee/moxcms.git | `bb85c154ba489f01…` |
 | `muda` | 0.19.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/muda | `1dd04e60bc0b0743…` |
+| `naga` | 26.0.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/gfx-rs/wgpu | `916cbc7cb27db60b…` |
 | `new_debug_unreachable` | 1.0.6 | MIT | transitive | linked | https://github.com/mbrubeck/rust-debug-unreachable | `650eef8c711430f1…` |
 | `num-complex` | 0.4.6 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-num/num-complex | `73f88a1307638156…` |
 | `num-conv` | 0.2.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/jhpratt/num-conv | `521739c6d2bac4aa…` |
 | `num-traits` | 0.2.19 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-num/num-traits | `071dfc062690e90b…` |
 | `once_cell` | 1.21.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/matklad/once_cell | `9f7c3e4beb33f85d…` |
 | `option-ext` | 0.2.0 | MPL-2.0 | transitive | linked | https://github.com/soc/option-ext.git | `04744f49eae99ab7…` |
+| `ordered-float` | 5.0.0 | MIT | transitive | linked | https://github.com/reem/rust-ordered-float | `e2c1f9f56e534ac6…` |
 | `parking_lot` | 0.12.5 | MIT OR Apache-2.0 | transitive | linked | https://github.com/Amanieu/parking_lot | `93857453250e3077…` |
 | `parking_lot_core` | 0.9.12 | MIT OR Apache-2.0 | transitive | linked | https://github.com/Amanieu/parking_lot | `2621685985a2ebf1…` |
 | `paste` | 1.0.15 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/paste | `57c0d7b74b563b49…` |
@@ -174,16 +192,20 @@ stays visible. Several other crates now do the same for the same reason.
 | `plist` | 1.10.0 | MIT | transitive | linked | https://github.com/ebarnard/rust-plist/ | `7da1d65da6dd5d1e…` |
 | `png` | 0.17.16 | MIT OR Apache-2.0 | direct | build-time only | https://github.com/image-rs/image-png | `82151a2fc869e011…` |
 | `png` | 0.18.1 | MIT OR Apache-2.0 | direct | linked | https://github.com/image-rs/image-png | `60769b8b31b2a9f2…` |
+| `pollster` | 0.4.0 | Apache-2.0/MIT | direct | linked | https://github.com/zesterer/pollster | `2f3a9f18d041e6d0…` |
 | `potential_utf` | 0.1.6 | Unicode-3.0 | transitive | linked | https://github.com/unicode-org/icu4x | `d83eb9bc6d8e5cf5…` |
 | `powerfmt` | 0.2.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/jhpratt/powerfmt | `439ee305def115ba…` |
 | `precomputed-hash` | 0.1.1 | MIT | transitive | linked | https://github.com/emilio/precomputed-hash | `925383efa3467304…` |
+| `presser` | 0.3.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/EmbarkStudios/presser | `e8cf8e6a8aa66ce3…` |
 | `proc-macro2` | 1.0.107 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/proc-macro2 | `985e7ec9bb745e6c…` |
+| `profiling` | 1.0.18 | MIT OR Apache-2.0 | transitive | linked | https://github.com/aclysma/profiling | `3d595e54a326bc53…` |
 | `pulp` | 0.22.3 | MIT | transitive | linked | https://github.com/sarah-quinones/pulp/ | `046aa45b989642ec…` |
 | `pulp-wasm-simd-flag` | 0.1.1 | MIT | transitive | linked | https://github.com/sarah-quinones/pulp/ | `1d8f70e07b9c3962…` |
 | `pxfm` | 0.1.30 | BSD-3-Clause OR Apache-2.0 | transitive | linked | https://github.com/awxkee/pxfm | `d55d956fa96f5ec0…` |
 | `quick-error` | 2.0.1 | MIT/Apache-2.0 | transitive | linked | http://github.com/tailhook/quick-error | `a993555f31e5a609…` |
 | `quick-xml` | 0.41.0 | MIT | transitive | linked | https://github.com/tafia/quick-xml | `e660451e55124f79…` |
 | `quote` | 1.0.47 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/quote | `1fbf4db142a473a8…` |
+| `range-alloc` | 0.1.5 | MIT OR Apache-2.0 | transitive | linked | https://github.com/gfx-rs/range-alloc | `ca45419789ae5a78…` |
 | `raw-cpuid` | 11.6.0 | MIT | transitive | linked | https://github.com/gz/rust-cpuid | `498cd0dc59d73224…` |
 | `raw-window-handle` | 0.6.2 | MIT OR Apache-2.0 OR Zlib | transitive | linked | https://github.com/rust-windowing/raw-window-handle | `20675572f6f24e9e…` |
 | `rayon` | 1.12.0 | MIT OR Apache-2.0 | direct | linked | https://github.com/rayon-rs/rayon | `fb39b166781f92d4…` |
@@ -194,7 +216,9 @@ stays visible. Several other crates now do the same for the same reason.
 | `regex` | 1.13.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `f020237b6c8eed93…` |
 | `regex-automata` | 0.4.18 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `ad8553b9b2641325…` |
 | `regex-syntax` | 0.8.11 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `d6f6ff9a378485b2…` |
+| `renderdoc-sys` | 1.1.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/ebkalderon/renderdoc-rs | `19b30a45b0cd0bcc…` |
 | `rfd` | 0.16.0 | MIT | transitive | linked | https://github.com/PolyMeilex/rfd | `a15ad77d9e70a924…` |
+| `rustc-hash` | 1.1.0 | Apache-2.0/MIT | transitive | linked | https://github.com/rust-lang-nursery/rustc-hash | `08d43f7aa6b08d49…` |
 | `rustc-hash` | 2.1.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/rust-lang/rustc-hash | `6b1e7f9a428571be…` |
 | `rustc_version` | 0.4.1 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/djc/rustc-version-rs | `cfcb3a22ef46e85b…` |
 | `same-file` | 1.0.6 | Unlicense/MIT | transitive | linked | https://github.com/BurntSushi/same-file | `93fc1dc3aaa9bfed…` |
@@ -225,7 +249,9 @@ stays visible. Several other crates now do the same for the same reason.
 | `smallvec` | 1.16.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/rust-smallvec | `b9be42f50aa861c5…` |
 | `socket2` | 0.6.5 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/socket2 | `c3d1e2c7f27f8d4c…` |
 | `softbuffer` | 0.4.8 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-windowing/softbuffer | `aac18da81ebbf051…` |
+| `spirv` | 0.3.0+sdk-1.3.268.0 | Apache-2.0 | transitive | linked | https://github.com/gfx-rs/rspirv | `eda41003dc442905…` |
 | `stable_deref_trait` | 1.2.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/storyyeller/stable_deref_trait | `6ce2be8dc25455e1…` |
+| `static_assertions` | 1.1.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/nvzqz/static-assertions-rs | `a2eb9349b6444b32…` |
 | `string_cache` | 0.9.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/string-cache | `a18596f8c785a729…` |
 | `string_cache_codegen` | 0.6.1 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/servo/string-cache | `585635e46db23105…` |
 | `strsim` | 0.11.1 | MIT | transitive | build-time only | https://github.com/rapidfuzz/strsim-rs | `7da8b5736845d9f2…` |
@@ -275,6 +301,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `unic-ucd-version` | 0.9.0 | MIT/Apache-2.0 | transitive | linked | https://github.com/open-i18n/rust-unic/ | `96bd2f2237fe450f…` |
 | `unicode-ident` | 1.0.24 | (MIT OR Apache-2.0) AND Unicode-3.0 | transitive | linked | https://github.com/dtolnay/unicode-ident | `e6e4313cd5fcd3da…` |
 | `unicode-segmentation` | 1.13.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/unicode-rs/unicode-segmentation | `c6f5d3c3b1bf0902…` |
+| `unicode-width` | 0.2.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/unicode-rs/unicode-width | `b4ac048d71ede7ee…` |
 | `url` | 2.5.8 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/rust-url | `ff67a8a4397373c3…` |
 | `urlpattern` | 0.3.0 | MIT | transitive | linked | https://github.com/denoland/rust-urlpattern | `70acd30e3aa1450b…` |
 | `utf8_iter` | 1.0.4 | Apache-2.0 OR MIT | transitive | linked | https://github.com/hsivonen/utf8_iter | `b6c140620e7ffbb2…` |
@@ -288,18 +315,29 @@ stays visible. Several other crates now do the same for the same reason.
 | `webview2-com-macros` | 0.8.1 | MIT | transitive | linked | https://github.com/wravery/webview2-rs | `67a921c1b6914c36…` |
 | `webview2-com-sys` | 0.38.2 | MIT | transitive | linked | https://github.com/wravery/webview2-rs | `381336cfffd77237…` |
 | `weezl` | 0.1.12 | MIT OR Apache-2.0 | transitive | linked | https://github.com/image-rs/weezl | `a28ac98ddc8b9274…` |
+| `wgpu` | 26.0.1 | MIT OR Apache-2.0 | direct | linked | https://github.com/gfx-rs/wgpu | `70b6ff82bbf6e920…` |
+| `wgpu-core` | 26.0.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/gfx-rs/wgpu | `d5f62f1053bd28c2…` |
+| `wgpu-core-deps-windows-linux-android` | 26.0.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/gfx-rs/wgpu | `720a5cb9d12b3d33…` |
+| `wgpu-hal` | 26.0.6 | MIT OR Apache-2.0 | transitive | linked | https://github.com/gfx-rs/wgpu | `a8d0e67224cc7305…` |
+| `wgpu-types` | 26.0.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/gfx-rs/wgpu | `eca7a8d8af57c18f…` |
 | `winapi-util` | 0.1.11 | Unlicense OR MIT | transitive | linked | https://github.com/BurntSushi/winapi-util | `c2a7b1c03c876122…` |
 | `window-vibrancy` | 0.6.0 | Apache-2.0 OR MIT | transitive | linked | https://github.com/tauri-apps/tauri-plugin-vibrancy | `d9bec5a31f3f9362…` |
+| `windows` | 0.58.0 | MIT OR Apache-2.0 | direct | linked | https://github.com/microsoft/windows-rs | `dd04d41d93c4992d…` |
 | `windows` | 0.61.3 | MIT OR Apache-2.0 | direct | linked | https://github.com/microsoft/windows-rs | `9babd3a767a4c1ae…` |
 | `windows-collections` | 0.2.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `3beeceb5e5cfd9eb…` |
+| `windows-core` | 0.58.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `6ba6d44ec8c2591c…` |
 | `windows-core` | 0.61.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `c0fdd3ddb90610c7…` |
 | `windows-future` | 0.2.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `fc6a41e98427b19f…` |
+| `windows-implement` | 0.58.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `2bbd5b46c938e506…` |
 | `windows-implement` | 0.60.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `053e2e040ab57b9d…` |
+| `windows-interface` | 0.58.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `053c4c462dc91d3b…` |
 | `windows-interface` | 0.59.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `3f316c4a2570ba26…` |
 | `windows-link` | 0.1.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `5e6ad25900d524ea…` |
 | `windows-link` | 0.2.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `f0805222e57f7521…` |
 | `windows-numerics` | 0.2.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `9150af68066c4c5c…` |
+| `windows-result` | 0.2.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `1d1043d8214f7918…` |
 | `windows-result` | 0.3.4 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `56f42bd332cc6c8e…` |
+| `windows-strings` | 0.1.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `4cd9b125c486025d…` |
 | `windows-strings` | 0.4.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `56e6c93f3a0c3b36…` |
 | `windows-sys` | 0.59.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `1e38bc4d79ed67fd…` |
 | `windows-sys` | 0.60.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `f2f500e4d28234f7…` |
@@ -368,13 +406,13 @@ underneath one of them.
 ## What the shell cost, in crates
 
 This is the honest number and it is worth stating plainly. Before the window, this record held
-**28** crates. With it, **299**. One dependency brought in roughly two hundred and thirty
+**28** crates. With it, **337**. One dependency brought in roughly two hundred and thirty
 others, which is what a browser engine, an async runtime, a CSS selector engine and a bundler
 amount to once they are counted rather than assumed.
 
 That was known when ADR-003 chose Tauri, and the alternative it was weighed against was writing a
 window and a rendering surface by hand. The number is recorded here so the trade is visible rather
-than implied. **41** of them are build-time only — compiled, run during the build, and
+than implied. **43** of them are build-time only — compiled, run during the build, and
 absent from anything this project would ship.
 
 An archive this size is not maintainable by hand, which is why it is not maintained by hand any

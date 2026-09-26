@@ -26,6 +26,7 @@ use std::time::Duration;
 use crate::cache::CelCache;
 use crate::compose;
 use crate::diagnostics::{Diagnostic, FrameLog};
+use crate::gpu::Gpu;
 use crate::model::{Id, Project};
 use crate::render::{self, Affine, FramePlan};
 use crate::time::FrameRate;
@@ -179,15 +180,47 @@ pub fn preview_frame_cached(
     cache: &mut CelCache,
 ) -> Result<WorkingBuffer, Diagnostic> {
     let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
-    // `tile_size` is the size an export renders in, measured on an export's extent. A draft
-    // frame is a quarter of that extent and is cut by its own measured size instead (P-03(f)):
-    // at `Full` the caller's size is used exactly, so a full-resolution preview and an export
-    // still go through the renderer identically.
-    let tile_size = match quality {
+    Ok(render::render(&scale_plan(plan, quality), tiles_for(quality, tile_size)))
+}
+
+/// `tile_size` is the size an export renders in, measured on an export's extent. A draft frame
+/// is a quarter of that extent and is cut by its own measured size instead (P-03(f)): at `Full`
+/// the caller's size is used exactly, so a full-resolution preview and an export still go
+/// through the renderer identically.
+fn tiles_for(quality: PreviewQuality, tile_size: usize) -> usize {
+    match quality {
         PreviewQuality::Full => tile_size,
         PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
+    }
+}
+
+/// [`preview_frame_cached`] drawn on the graphics card (B-44, D-100 (a)), already encoded as the
+/// eight-bit straight sRGB the viewer is sent, with its width and height.
+///
+/// A frame the card refuses or fails is drawn by the CPU instead, exactly as
+/// [`preview_frame_cached`] draws it, and the reason goes in `log` as `GPU_PREVIEW_ON_CPU`.
+#[allow(clippy::too_many_arguments)]
+pub fn preview_frame_srgb8(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    tile_size: usize,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
+    gpu: &mut Gpu,
+) -> Result<(Vec<u8>, usize, usize), Diagnostic> {
+    let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
+    let plan = scale_plan(plan, quality);
+    let pixels = match gpu.draw(&plan) {
+        Ok(pixels) => pixels,
+        Err(why) => {
+            log.record(frame, "GPU preview", why);
+            render::render(&plan, tiles_for(quality, tile_size)).to_srgb8_straight()
+        }
     };
-    Ok(render::render(&scale_plan(plan, quality), tile_size))
+    Ok((pixels, plan.width, plan.height))
 }
 
 /// Read the drawings `frame` will ask for, on a thread of its own, into `cache`'s pending list

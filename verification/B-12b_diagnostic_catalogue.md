@@ -68,24 +68,26 @@ One row per identifier this build can print, and the table where a person can re
 | `TIMESHEET_DRAWING_MISSING` | yes | `verification/B-28b_timesheet_table.md` |
 | `TIMESHEET_DRAWING_UNUSED` | yes | `verification/B-28b_timesheet_table.md` |
 | `TIMESHEET_NOT_USED` | yes | `verification/B-28b_timesheet_table.md` |
+| `GPU_PREVIEW_ON_CPU` | **no — added by a decision** | `verification/B-44_gpu_preview_table.md` |
 
 ## What the catalogue promises and the build does not have
 
 | Identifier | Why there is no code for it |
 |---|---|
-| `GPU_BACKEND_FAILED` | There is no GPU path; every frame is composited on the processor. |
-| `GPU_OUT_OF_MEMORY` | There is no GPU path; every frame is composited on the processor. |
+| `GPU_BACKEND_FAILED` | The only GPU path is B-44's viewer picture, and a card that fails there refuses nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, proposed). |
+| `GPU_OUT_OF_MEMORY` | The only GPU path is B-44's viewer picture, and a card out of memory there refuses nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, proposed). |
 | `INVALID_PATH` | Paths reach this build through Windows file dialogs and are read, not normalised; a path that cannot be read is reported by the identifier for what failed to read it. |
 | `DEPENDENCY_LICENSE_UNRESOLVED` | A distribution-time check rather than a running one: tools/archive_licenses.py and docs/DEPENDENCIES.md flag the unresolved entries and CI blocks on them. |
 
 ## What the build says that the catalogue does not list
 
-9 identifiers, every one of them registered as a decision in `Markdown/14_Decisions_Risks.md` rather than invented at a keyboard: D-19 for the four import ones, D-21 for the three command ones, D-28 for the blocked export. The reason they exist at all is the rule in document 28 itself — a library error string is not a user-facing identifier — so the alternative to naming a new condition was reusing an identifier that means something else, which is worse for exactly the person a catalogue is written for.
+10 identifiers, every one of them registered as a decision in `Markdown/14_Decisions_Risks.md` rather than invented at a keyboard: D-19 for the four import ones, D-21 for the three command ones, D-28 for the blocked export. The reason they exist at all is the rule in document 28 itself — a library error string is not a user-facing identifier — so the alternative to naming a new condition was reusing an identifier that means something else, which is worse for exactly the person a catalogue is written for.
 
 - `COMMAND_INVALID_VALUE`
 - `COMMAND_LAYER_LOCKED`
 - `COMMAND_TARGET_MISSING`
 - `EXPORT_BLOCKED_MISSING_MEDIA`
+- `GPU_PREVIEW_ON_CPU`
 - `MEDIA_SEQUENCE_DIMENSION_MISMATCH`
 - `MEDIA_SEQUENCE_DUPLICATE_NUMBER`
 - `MEDIA_SEQUENCE_NAME_VARIANT`
@@ -277,12 +279,15 @@ One row per identifier this build can print, and the table where a person can re
 | TIMESHEET_NOT_USED: the enum spells it the way the catalogue does | TIMESHEET_NOT_USED | TIMESHEET_NOT_USED | pass |
 | TIMESHEET_NOT_USED: says truthfully whether document 28 lists it | true | true | pass |
 | TIMESHEET_NOT_USED: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
+| GPU_PREVIEW_ON_CPU: the enum spells it the way the catalogue does | GPU_PREVIEW_ON_CPU | GPU_PREVIEW_ON_CPU | pass |
+| GPU_PREVIEW_ON_CPU: says truthfully whether document 28 lists it | false | false | pass |
+| GPU_PREVIEW_ON_CPU: a table somewhere shows a person this sentence | named in B-44_gpu_preview_table.md | named in B-44_gpu_preview_table.md | pass |
 | PROJECT_FEATURE_UNSUPPORTED is kept but raised by nothing | no source file raises it | no source file raises it | pass |
 | every catalogue entry is either built or written down as not built | none unaccounted for | none unaccounted for | pass |
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**185 of 185 checks pass.**
+**188 of 188 checks pass.**
 
 ## What this cannot cover
 

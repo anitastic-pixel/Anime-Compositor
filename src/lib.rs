@@ -24,6 +24,7 @@ pub mod effects;
 pub mod export;
 pub mod expr;
 pub mod film_out;
+pub mod gpu;
 pub mod mp4_out;
 pub mod keykind;
 mod line_smooth;

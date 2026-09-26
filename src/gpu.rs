@@ -1,0 +1,613 @@
+//! B-44, D-100 (a): the viewer's picture drawn on the graphics card.
+//!
+//! This is `render::render_tile` and `WorkingBuffer::to_srgb8_straight` again, as two compute
+//! shaders: one pass per layer blends it onto a running sum of the frame, and one last pass
+//! encodes the sum to eight-bit straight sRGB, so only the finished picture comes back. It is
+//! written fresh from those two functions; nothing is taken from `spikes/p07_gpu`.
+//!
+//! It is for the viewer only. Exports, fixtures and Full-quality checking stay on the CPU, which
+//! remains the authority (ADR-006 as amended by D-100). `tests/b44_gpu_preview.rs` holds the
+//! card's picture to within 1 level of 255 of the CPU's.
+//!
+//! Two rules from P-07:
+//! - Every inverse transform is made on the CPU in f64. The card gets the source position of the
+//!   first pixel it draws and the step per pixel, so it never adds a huge offset in f32.
+//! - Drawings stay on the card between frames, and only the eight-bit picture comes back. The
+//!   store keeps a `Weak` to each drawing it holds: while it does, no other drawing can be given
+//!   that drawing's address, so a drawing is never mistaken for a different one.
+
+use std::sync::{Arc, Weak};
+
+use wgpu::util::DeviceExt as _;
+
+use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
+use crate::model::BlendMode;
+use crate::perf::{self, Stage};
+use crate::render::{bounds, FramePlan};
+use crate::WorkingBuffer;
+
+/// What the card may hold in drawings before the least recently used go, like D-40's budget.
+pub const DEFAULT_BUDGET_BYTES: usize = 1024 * 1024 * 1024;
+
+const SHADER: &str = r#"
+struct Layer {
+    s0: vec2<f32>,
+    sx: vec2<f32>,
+    sy: vec2<f32>,
+    m0: vec2<f32>,
+    mx: vec2<f32>,
+    my: vec2<f32>,
+    origin: vec2<u32>,
+    size: vec2<u32>,
+    width: u32,
+    blend: u32,
+    matte: u32,
+    opacity: f32,
+}
+
+@group(0) @binding(0) var<uniform> L: Layer;
+@group(0) @binding(1) var source: texture_2d<f32>;
+@group(0) @binding(2) var matte: texture_2d<f32>;
+@group(0) @binding(3) var<storage, read_write> sum: array<vec4<f32>>;
+
+// render::sample_bilinear: pixel centres at +0.5, and a neighbour outside the drawing adds
+// nothing, which is transparent black.
+fn bilinear(t: texture_2d<f32>, p: vec2<f32>) -> vec4<f32> {
+    let size = vec2<f32>(textureDimensions(t));
+    let f = p - vec2(0.5);
+    // One pixel or more outside, every neighbour is outside. Tested before the conversion to
+    // integers, which a huge coordinate would overflow.
+    if !(all(f > vec2(-1.0)) && all(f < size)) {
+        return vec4(0.0);
+    }
+    let base = floor(f);
+    let u = f - base;
+    let b = vec2<i32>(base);
+    let n = vec2<i32>(size);
+    var out = vec4(0.0);
+    for (var j = 0; j < 2; j++) {
+        let wy = select(1.0 - u.y, u.y, j == 1);
+        let y = b.y + j;
+        if wy == 0.0 || y < 0 || y >= n.y {
+            continue;
+        }
+        for (var i = 0; i < 2; i++) {
+            let wx = select(1.0 - u.x, u.x, i == 1);
+            let x = b.x + i;
+            if wx == 0.0 || x < 0 || x >= n.x {
+                continue;
+            }
+            out += textureLoad(t, vec2(x, y), 0) * (wx * wy);
+        }
+    }
+    return out;
+}
+
+fn straight(p: vec4<f32>) -> vec3<f32> {
+    if p.w == 0.0 {
+        return vec3(0.0);
+    }
+    return p.xyz / p.w;
+}
+
+// composite::blend_pixel.
+fn blend(s: vec4<f32>, d: vec4<f32>) -> vec4<f32> {
+    if L.blend == 0u {
+        return s + d * (1.0 - s.w);
+    }
+    let cs = straight(s);
+    let cd = straight(d);
+    var b: vec3<f32>;
+    switch L.blend {
+        case 1u: { b = cs * cd; }
+        case 2u: { b = cs + cd - cs * cd; }
+        default: { b = min(cs + cd, vec3(1.0)); }
+    }
+    let rgb = (1.0 - s.w) * d.xyz + (1.0 - d.w) * s.xyz + s.w * d.w * b;
+    return vec4(rgb, s.w + d.w - s.w * d.w);
+}
+
+@compute @workgroup_size(16, 16)
+fn layer(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= L.size.x || id.y >= L.size.y {
+        return;
+    }
+    let d = vec2<f32>(id.xy);
+    var src = bilinear(source, L.s0 + L.sx * d.x + L.sy * d.y) * L.opacity;
+    if L.matte == 1u {
+        src *= bilinear(matte, L.m0 + L.mx * d.x + L.my * d.y).w;
+    }
+    let at = (L.origin.y + id.y) * L.width + L.origin.x + id.x;
+    sum[at] = blend(src, sum[at]);
+}
+
+struct Size {
+    width: u32,
+    height: u32,
+    pad0: u32,
+    pad1: u32,
+}
+
+@group(0) @binding(0) var<uniform> S: Size;
+@group(0) @binding(1) var<storage, read> frame: array<vec4<f32>>;
+@group(0) @binding(2) var<storage, read_write> bytes: array<u32>;
+
+// color::linear_to_srgb and color::quantise_u8.
+fn srgb(c: f32) -> f32 {
+    if c <= 0.0031308 {
+        return 12.92 * c;
+    }
+    return 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+}
+
+fn level(c: f32) -> u32 {
+    return u32(floor(clamp(c, 0.0, 1.0) * 255.0 + 0.5));
+}
+
+@compute @workgroup_size(16, 16)
+fn encode(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= S.width || id.y >= S.height {
+        return;
+    }
+    let at = id.y * S.width + id.x;
+    let p = frame[at];
+    let c = straight(p);
+    bytes[at] = level(srgb(c.x)) | (level(srgb(c.y)) << 8u) | (level(srgb(c.z)) << 16u)
+        | (level(p.w) << 24u);
+}
+"#;
+
+/// One drawing on the card.
+struct Stored {
+    held: Weak<WorkingBuffer>,
+    view: wgpu::TextureView,
+    bytes: usize,
+    /// The frame that last drew with it.
+    used: u64,
+}
+
+/// The buffers one frame size needs, kept while frames stay that size.
+struct Target {
+    width: usize,
+    height: usize,
+    sum: wgpu::Buffer,
+    bytes: wgpu::Buffer,
+    readback: wgpu::Buffer,
+    size: wgpu::Buffer,
+}
+
+pub struct Gpu {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    about: String,
+    limits: wgpu::Limits,
+    layer: wgpu::ComputePipeline,
+    encode: wgpu::ComputePipeline,
+    layer_layout: wgpu::BindGroupLayout,
+    encode_layout: wgpu::BindGroupLayout,
+    /// Bound as the matte of a layer that has none. Never read.
+    no_matte: wgpu::TextureView,
+    store: Vec<Stored>,
+    frame: u64,
+    target: Option<Target>,
+    /// Bytes of drawings the card may hold; public so the B-44 test can squeeze it.
+    pub budget: usize,
+}
+
+fn entry(binding: u32, ty: wgpu::BindingType) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty,
+        count: None,
+    }
+}
+
+fn uniform() -> wgpu::BindingType {
+    wgpu::BindingType::Buffer {
+        ty: wgpu::BufferBindingType::Uniform,
+        has_dynamic_offset: false,
+        min_binding_size: None,
+    }
+}
+
+fn storage(read_only: bool) -> wgpu::BindingType {
+    wgpu::BindingType::Buffer {
+        ty: wgpu::BufferBindingType::Storage { read_only },
+        has_dynamic_offset: false,
+        min_binding_size: None,
+    }
+}
+
+fn texture() -> wgpu::BindingType {
+    wgpu::BindingType::Texture {
+        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+        view_dimension: wgpu::TextureViewDimension::D2,
+        multisampled: false,
+    }
+}
+
+/// The frame the viewer asked the card for goes to the CPU, and why.
+fn on_cpu(severity: Severity, message: String, detail: String) -> Diagnostic {
+    Diagnostic::new(DiagnosticId::GpuPreviewOnCpu, severity, message, detail)
+}
+
+impl Gpu {
+    /// The fastest Direct3D 12 or Vulkan card on the machine, or why there is none.
+    pub fn new() -> Result<Gpu, String> {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::DX12 | wgpu::Backends::VULKAN,
+            ..Default::default()
+        });
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: None,
+        }))
+        .map_err(|e| format!("no Direct3D 12 or Vulkan graphics card answered ({e})"))?;
+        let info = adapter.get_info();
+        if info.device_type == wgpu::DeviceType::Cpu {
+            return Err(format!(
+                "the only one found, {}, is the processor pretending to be a card",
+                info.name
+            ));
+        }
+        let limits = adapter.limits();
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("B-44 preview"),
+            required_features: wgpu::Features::empty(),
+            required_limits: limits.clone(),
+            memory_hints: wgpu::MemoryHints::Performance,
+            trace: wgpu::Trace::Off,
+        }))
+        .map_err(|e| format!("{} would not start ({e})", info.name))?;
+        // Every call below runs inside error scopes, so this should never be reached. The
+        // default would end the program.
+        device.on_uncaptured_error(Box::new(|e| eprintln!("B-44: the card reported {e}")));
+
+        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("B-44"),
+            source: wgpu::ShaderSource::Wgsl(SHADER.into()),
+        });
+        let layer_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("B-44 layer"),
+            entries: &[entry(0, uniform()), entry(1, texture()), entry(2, texture()), entry(3, storage(false))],
+        });
+        let encode_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("B-44 encode"),
+            entries: &[entry(0, uniform()), entry(1, storage(true)), entry(2, storage(false))],
+        });
+        let pipeline = |layout: &wgpu::BindGroupLayout, entry_point: &str| {
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some(entry_point),
+                layout: Some(&device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: None,
+                    bind_group_layouts: &[layout],
+                    push_constant_ranges: &[],
+                })),
+                module: &module,
+                entry_point: Some(entry_point),
+                compilation_options: Default::default(),
+                cache: None,
+            })
+        };
+        let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
+        let no_matte = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("B-44 no matte"),
+                size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba32Float,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&Default::default());
+        let about = format!(
+            "{} ({:?}), driver {} {}, {:?}",
+            info.name, info.device_type, info.driver, info.driver_info, info.backend
+        );
+        Ok(Gpu {
+            device,
+            queue,
+            about,
+            limits,
+            layer,
+            encode,
+            layer_layout,
+            encode_layout,
+            no_matte,
+            store: Vec::new(),
+            frame: 0,
+            target: None,
+            budget: DEFAULT_BUDGET_BYTES,
+        })
+    }
+
+    /// The card, its driver and the backend, for tables and the switch.
+    pub fn about(&self) -> &str {
+        &self.about
+    }
+
+    /// Let go of every drawing on the card.
+    pub fn forget(&mut self) {
+        self.store.clear();
+    }
+
+    /// Where `source` is in the store, sending it first if it is not there.
+    fn resident(&mut self, source: &Arc<WorkingBuffer>) -> usize {
+        if let Some(i) = self.store.iter().position(|s| s.held.as_ptr() == Arc::as_ptr(source)) {
+            self.store[i].used = self.frame;
+            return i;
+        }
+        // A drawing nothing else holds can never be asked for again.
+        self.store.retain(|s| s.held.strong_count() > 0);
+        let (width, height) = (source.width(), source.height());
+        let bytes = width * height * 16;
+        // Least recently used first, never one this frame draws with. A frame that needs more
+        // than the budget still gets every drawing it needs.
+        while self.store.iter().map(|s| s.bytes).sum::<usize>() + bytes > self.budget {
+            let Some(oldest) = (0..self.store.len())
+                .filter(|&i| self.store[i].used < self.frame)
+                .min_by_key(|&i| self.store[i].used)
+            else {
+                break;
+            };
+            self.store.swap_remove(oldest);
+        }
+        let texture = self.device.create_texture_with_data(
+            &self.queue,
+            &wgpu::TextureDescriptor {
+                label: Some("B-44 drawing"),
+                size: wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba32Float,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
+            bytemuck::cast_slice(source.data()),
+        );
+        self.store.push(Stored {
+            held: Arc::downgrade(source),
+            view: texture.create_view(&Default::default()),
+            bytes,
+            used: self.frame,
+        });
+        self.store.len() - 1
+    }
+
+    fn target(&mut self, width: usize, height: usize) -> &Target {
+        if self.target.as_ref().is_none_or(|t| (t.width, t.height) != (width, height)) {
+            let n = (width * height) as u64;
+            let buffer = |label, size, usage| {
+                self.device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size, usage, mapped_at_creation: false })
+            };
+            use wgpu::BufferUsages as U;
+            self.target = Some(Target {
+                width,
+                height,
+                sum: buffer("B-44 sum", n * 16, U::STORAGE | U::COPY_DST),
+                bytes: buffer("B-44 bytes", n * 4, U::STORAGE | U::COPY_SRC),
+                readback: buffer("B-44 readback", n * 4, U::MAP_READ | U::COPY_DST),
+                size: self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("B-44 size"),
+                    contents: bytemuck::cast_slice(&[width as u32, height as u32, 0, 0]),
+                    usage: U::UNIFORM,
+                }),
+            });
+        }
+        self.target.as_ref().expect("made above")
+    }
+
+    /// Why this plan cannot go to the card, if it cannot.
+    fn refuse(&self, plan: &FramePlan) -> Option<Diagnostic> {
+        if plan.layers.iter().any(|l| l.adjust.is_some()) {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: it has an adjustment layer, which the GPU does not draw yet.".into(),
+                "B-44 draws a frame with an adjustment layer (D-66) wholly on the CPU.".into(),
+            ));
+        }
+        let most = self.limits.max_texture_dimension_2d as usize;
+        let frame_bytes = (plan.width * plan.height * 16) as u64;
+        let too_big = plan
+            .layers
+            .iter()
+            .flat_map(|l| std::iter::once(&l.source).chain(l.matte.as_ref().map(|m| &m.source)))
+            .find(|s| s.width() > most || s.height() > most)
+            .map(|s| format!("a drawing is {} by {}", s.width(), s.height()))
+            .or_else(|| {
+                (frame_bytes > self.limits.max_storage_buffer_binding_size as u64
+                    || frame_bytes > self.limits.max_buffer_size
+                    || plan.width.div_ceil(16) > self.limits.max_compute_workgroups_per_dimension as usize
+                    || plan.height.div_ceil(16) > self.limits.max_compute_workgroups_per_dimension as usize)
+                    .then(|| format!("the picture is {} by {}", plan.width, plan.height))
+            })?;
+        Some(on_cpu(
+            Severity::Info,
+            format!("The CPU drew this frame: {too_big}, larger than the card allows."),
+            format!("{}: largest texture side {most}.", self.about),
+        ))
+    }
+
+    /// The plan as eight-bit straight sRGB RGBA, the bytes `to_srgb8_straight` gives, or why the
+    /// CPU must draw it instead.
+    pub fn draw(&mut self, plan: &FramePlan) -> Result<Vec<u8>, Diagnostic> {
+        if let Some(refused) = self.refuse(plan) {
+            return Err(refused);
+        }
+        let (width, height) = (plan.width, plan.height);
+        if width == 0 || height == 0 {
+            return Ok(Vec::new());
+        }
+        self.frame += 1;
+        self.device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+        self.device.push_error_scope(wgpu::ErrorFilter::Validation);
+
+        // Each layer that can show anything: its drawing, its matte's, and its numbers, laid
+        // out as the shader's `Layer`. The same skips as `render_tile`.
+        let mut layers: Vec<(usize, Option<usize>, [u32; 20], (u32, u32))> = Vec::new();
+        perf::time(Stage::GpuUpload, || {
+            for layer in &plan.layers {
+                let Some(inverse) = layer.transform.invert() else {
+                    continue;
+                };
+                let matte = match &layer.matte {
+                    None => None,
+                    Some(m) => match m.transform.invert() {
+                        Some(inv) => Some((m, inv)),
+                        None => continue,
+                    },
+                };
+                if layer.source.width() == 0
+                    || layer.source.height() == 0
+                    || matte.is_some_and(|(m, _)| m.source.width() == 0 || m.source.height() == 0)
+                {
+                    continue;
+                }
+                // P-05: outside its box a layer samples only zero, which changes no pixel in any
+                // of the four modes, so only the box is dispatched. A box that cannot be
+                // computed is the whole frame, as it is in `render_tile`.
+                let (l, t, r, b) = bounds(layer);
+                let (x0, y0, x1, y1) = if [l, t, r, b].iter().all(|v| v.is_finite()) {
+                    (
+                        l.floor().clamp(0.0, width as f64) as u32,
+                        t.floor().clamp(0.0, height as f64) as u32,
+                        r.ceil().clamp(0.0, width as f64) as u32,
+                        b.ceil().clamp(0.0, height as f64) as u32,
+                    )
+                } else {
+                    (0, 0, width as u32, height as u32)
+                };
+                if x1 <= x0 || y1 <= y0 {
+                    continue;
+                }
+                let (ox, oy) = (x0 as f64 + 0.5, y0 as f64 + 0.5);
+                let s0 = inverse.apply(ox, oy);
+                let m = matte.map_or((0.0, 0.0, 0.0, 0.0, 0.0, 0.0), |(_, i)| {
+                    let m0 = i.apply(ox, oy);
+                    (m0.0, m0.1, i.a, i.b, i.c, i.d)
+                });
+                let f = |v: f64| (v as f32).to_bits();
+                let numbers = [
+                    f(s0.0), f(s0.1), f(inverse.a), f(inverse.b), f(inverse.c), f(inverse.d),
+                    f(m.0), f(m.1), f(m.2), f(m.3), f(m.4), f(m.5),
+                    x0, y0, x1 - x0, y1 - y0,
+                    width as u32,
+                    match layer.blend {
+                        BlendMode::Normal => 0,
+                        BlendMode::Multiply => 1,
+                        BlendMode::Screen => 2,
+                        BlendMode::Add => 3,
+                    },
+                    matte.is_some() as u32,
+                    layer.opacity.to_bits(),
+                ];
+                let source = self.resident(&layer.source);
+                let matte = matte.map(|(m, _)| self.resident(&m.source));
+                layers.push((source, matte, numbers, (x1 - x0, y1 - y0)));
+            }
+        });
+
+        let pixels = perf::time(Stage::GpuDraw, || {
+            let stride = 80usize.next_multiple_of(self.limits.min_uniform_buffer_offset_alignment as usize);
+            let mut numbers = vec![0u32; layers.len().max(1) * stride / 4];
+            for (i, layer) in layers.iter().enumerate() {
+                numbers[i * stride / 4..i * stride / 4 + 20].copy_from_slice(&layer.2);
+            }
+            let uniforms = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("B-44 layers"),
+                contents: bytemuck::cast_slice(&numbers),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+            self.target(width, height);
+            let target = self.target.as_ref().expect("made above");
+            let groups: Vec<wgpu::BindGroup> = layers
+                .iter()
+                .enumerate()
+                .map(|(i, (source, matte, _, _))| {
+                    self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: None,
+                        layout: &self.layer_layout,
+                        entries: &[
+                            wgpu::BindGroupEntry {
+                                binding: 0,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &uniforms,
+                                    offset: (i * stride) as u64,
+                                    size: wgpu::BufferSize::new(80),
+                                }),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 1,
+                                resource: wgpu::BindingResource::TextureView(&self.store[*source].view),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 2,
+                                resource: wgpu::BindingResource::TextureView(
+                                    matte.map_or(&self.no_matte, |m| &self.store[m].view),
+                                ),
+                            },
+                            wgpu::BindGroupEntry { binding: 3, resource: target.sum.as_entire_binding() },
+                        ],
+                    })
+                })
+                .collect();
+            let encode_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &self.encode_layout,
+                entries: &[
+                    wgpu::BindGroupEntry { binding: 0, resource: target.size.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 1, resource: target.sum.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 2, resource: target.bytes.as_entire_binding() },
+                ],
+            });
+
+            let mut encoder = self.device.create_command_encoder(&Default::default());
+            encoder.clear_buffer(&target.sum, 0, None);
+            {
+                let mut pass = encoder.begin_compute_pass(&Default::default());
+                pass.set_pipeline(&self.layer);
+                for (group, (_, _, _, (w, h))) in groups.iter().zip(&layers) {
+                    pass.set_bind_group(0, group, &[]);
+                    pass.dispatch_workgroups(w.div_ceil(16), h.div_ceil(16), 1);
+                }
+                pass.set_pipeline(&self.encode);
+                pass.set_bind_group(0, &encode_group, &[]);
+                pass.dispatch_workgroups((width as u32).div_ceil(16), (height as u32).div_ceil(16), 1);
+            }
+            let size = (width * height * 4) as u64;
+            encoder.copy_buffer_to_buffer(&target.bytes, 0, &target.readback, 0, size);
+            self.queue.submit([encoder.finish()]);
+
+            let invalid = pollster::block_on(self.device.pop_error_scope());
+            let memory = pollster::block_on(self.device.pop_error_scope());
+            if let Some(e) = memory.or(invalid) {
+                return Err(e.to_string());
+            }
+            let slice = target.readback.slice(..);
+            let (tell, told) = std::sync::mpsc::channel();
+            slice.map_async(wgpu::MapMode::Read, move |r| drop(tell.send(r)));
+            self.device.poll(wgpu::PollType::Wait).map_err(|e| e.to_string())?;
+            told.recv().map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+            let pixels = slice.get_mapped_range().to_vec();
+            target.readback.unmap();
+            Ok(pixels)
+        });
+        pixels.map_err(|e| {
+            // Whatever the card was holding may be what failed; start again from nothing.
+            self.store.clear();
+            self.target = None;
+            on_cpu(
+                Severity::Warning,
+                "The CPU drew this frame: the graphics card failed.".into(),
+                format!("{}: {e}", self.about),
+            )
+            .with_remediation("If it keeps happening, switch the preview back to CPU, or to Draft.")
+        })
+    }
+}

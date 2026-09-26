@@ -205,6 +205,11 @@ pub enum DiagnosticId {
     TimesheetDrawingUnused,
     /// Document 28, added by D-84: a folder or drawing beside the sheet that no column used.
     TimesheetNotUsed,
+    /// **Proposed (D-101).** The viewer asked the GPU for a frame (B-44) and the CPU drew it
+    /// instead, with the reason: an adjustment layer, a picture larger than the card allows, or
+    /// the card failing. INFO when planned, WARNING when the card failed. Nothing is refused, so
+    /// this is not document 28's GPU_BACKEND_FAILED, which is an ERROR.
+    GpuPreviewOnCpu,
 }
 
 impl DiagnosticId {
@@ -270,6 +275,7 @@ impl DiagnosticId {
             DiagnosticId::TimesheetDrawingMissing => "TIMESHEET_DRAWING_MISSING",
             DiagnosticId::TimesheetDrawingUnused => "TIMESHEET_DRAWING_UNUSED",
             DiagnosticId::TimesheetNotUsed => "TIMESHEET_NOT_USED",
+            DiagnosticId::GpuPreviewOnCpu => "GPU_PREVIEW_ON_CPU",
         }
     }
 

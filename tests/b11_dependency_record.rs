@@ -32,8 +32,9 @@
 //!
 //! # Where the expected values come from
 //!
-//! The workspace manifests, which are written by hand and name ten dependencies: `exr`, `gif`, `image`, `png`, `rayon`,
-//! `serde_json` and, on Windows, `windows` for the core, `tauri` and `tauri-plugin-dialog` for the shell, with
+//! The workspace manifests, which are written by hand and name thirteen dependencies: `bytemuck`, `exr`, `gif`, `image`,
+//! `png`, `pollster`, `rayon`, `serde_json`, `wgpu` and, on Windows, `windows` for the core, `tauri` and
+//! `tauri-plugin-dialog` for the shell, with
 //! `tauri-build` as its build-time half. Everything else in the graph arrived underneath one of
 //! those. The count is not a
 //! hand-derived value and is not asserted as one — the two-directional agreement is what is
@@ -359,7 +360,8 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
     // The workspace manifests are written by hand and name exactly these. `tauri-build` is
     // `tauri`'s build-time half and is asked for by name in `app/Cargo.toml`, so it counts as
     // direct even though nothing links it. `tauri-plugin-dialog` arrived with B-09's Open and
-    // Save dialogs, `exr` with D-62, `image` and `gif` with D-72, `windows` with D-72's MP4 (D-30), and this line is how a dependency added quietly stops being
+    // Save dialogs, `exr` with D-62, `image` and `gif` with D-72, `windows` with D-72's MP4 (D-30),
+    // `wgpu`, `pollster` and `bytemuck` with B-44's GPU preview (D-100), and this line is how a dependency added quietly stops being
     // quiet.
     let mut direct: Vec<String> = record
         .cells
@@ -373,7 +375,7 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
     direct.dedup();
     report.check(
         "the record marks as direct exactly the dependencies the manifests ask for",
-        "exr, gif, image, png, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog, windows",
+        "bytemuck, exr, gif, image, png, pollster, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog, wgpu, windows",
         joined(&direct),
     );
 

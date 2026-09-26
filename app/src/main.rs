@@ -56,6 +56,7 @@ use anime_compositor::export::{
 };
 use anime_compositor::mp4_out::Mp4Quality;
 use anime_compositor::exr_io::{self, ExrSamples};
+use anime_compositor::gpu::Gpu;
 use anime_compositor::audio;
 use anime_compositor::media;
 use anime_compositor::model::{
@@ -909,6 +910,56 @@ fn as_alpha_only(pixels: &mut [u8]) {
     }
 }
 
+/// B-44, D-100 (a): whether the viewer's picture is drawn on the graphics card, and the card.
+///
+/// The window's, not the project's, like the alpha view: it starts on the CPU at every launch,
+/// and exports never read it. The card is opened the first time the switch is pressed, so a
+/// person who never presses it pays nothing for it.
+#[derive(Default)]
+struct Card {
+    on: bool,
+    gpu: Option<Result<Gpu, String>>,
+}
+
+impl Card {
+    /// Press the switch, and say what happened.
+    fn switch(&mut self) -> String {
+        if self.on {
+            self.on = false;
+            return "The preview is drawn on the CPU again.".to_string();
+        }
+        match self.gpu.get_or_insert_with(Gpu::new) {
+            Ok(gpu) => {
+                self.on = true;
+                format!(
+                    "The preview is drawn on the graphics card: {}. Exports are still drawn on \
+                        the CPU. A frame the card cannot draw is drawn on the CPU, and the picture's \
+                        label says so.",
+                    gpu.about()
+                )
+            }
+            Err(why) => format!("The preview stays on the CPU: no usable graphics card, {why}."),
+        }
+    }
+
+    /// The card, when the switch is on.
+    fn drawing(&mut self) -> Option<&mut Gpu> {
+        match (self.on, &mut self.gpu) {
+            (true, Some(Ok(gpu))) => Some(gpu),
+            _ => None,
+        }
+    }
+
+    /// What the switch's tooltip says: the card, or why there is none, or nothing yet.
+    fn about(&self) -> String {
+        match &self.gpu {
+            None => String::new(),
+            Some(Ok(gpu)) => gpu.about().to_string(),
+            Some(Err(why)) => format!("no usable card: {why}"),
+        }
+    }
+}
+
 /// One frame's worth of viewer, copied out under the lock so that the render can run without it.
 ///
 /// P-04. Everything here is either cheap to copy - a project is layer and asset records, not
@@ -1034,7 +1085,7 @@ fn serve(
     ask: Ask,
     quality: Option<PreviewQuality>,
 ) -> Response<Vec<u8>> {
-    serve_logged(viewer, export, None, ask, quality)
+    serve_logged(viewer, export, None, None, ask, quality)
 }
 
 /// [`serve`], with the frame written into P-19's session log when its switch is on.
@@ -1042,6 +1093,7 @@ fn serve_logged(
     viewer: &Mutex<Viewer>,
     export: &Mutex<Export>,
     session: Option<&Mutex<SessionLog>>,
+    card: Option<&Mutex<Card>>,
     ask: Ask,
     quality: Option<PreviewQuality>,
 ) -> Response<Vec<u8>> {
@@ -1145,24 +1197,49 @@ fn serve_logged(
     // P-19: the counters are the cache's own running totals. The lock is held from here until
     // they are read again, so the difference is this frame's and no read-ahead's.
     let counted = (cache.hits(), cache.misses(), cache.effect_hits());
-    let made = preview::preview_frame_cached(
-        &taken.project,
-        &taken.composition,
-        taken.frame,
-        &taken.root,
-        taken.quality,
-        DEFAULT_TILE_SIZE,
-        &mut log,
-        &mut cache,
-    );
+    // B-44: on the card when the switch is on. The CPU path below is unchanged, so with the
+    // switch off every frame is exactly what it was.
+    enum Made {
+        Cpu(anime_compositor::WorkingBuffer),
+        Gpu(Vec<u8>, usize, usize),
+    }
+    let mut card = card.map(|c| c.lock().expect("the card lock was poisoned"));
+    let on_gpu = card.as_deref().is_some_and(|c| c.on);
+    let card_about = card.as_deref().map_or(String::new(), Card::about);
+    let made = match card.as_deref_mut().and_then(Card::drawing) {
+        Some(gpu) => preview::preview_frame_srgb8(
+            &taken.project,
+            &taken.composition,
+            taken.frame,
+            &taken.root,
+            taken.quality,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut cache,
+            gpu,
+        )
+        .map(|(pixels, width, height)| Made::Gpu(pixels, width, height)),
+        None => preview::preview_frame_cached(
+            &taken.project,
+            &taken.composition,
+            taken.frame,
+            &taken.root,
+            taken.quality,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut cache,
+        )
+        .map(Made::Cpu),
+    };
+    drop(card);
     let counted = (
         cache.hits() - counted.0,
         cache.misses() - counted.1,
         cache.effect_hits() - counted.2,
     );
     drop(cache);
-    let buffer = match made {
-        Ok(buffer) => buffer,
+    let made = match made {
+        Ok(made) => made,
         // Document 28: a frame that cannot be made is reported, never replaced by something
         // that looks like a frame. The page shows this sentence instead of a picture.
         Err(diagnostic) => {
@@ -1181,9 +1258,17 @@ fn serve_logged(
         preview::read_ahead(taken.project, taken.composition, next, taken.root, cache);
     }
 
-    let image = buffer.as_image();
-    let (width, height) = (image.width(), image.height());
-    let mut pixels = buffer.to_srgb8_straight();
+    let (mut pixels, width, height) = match made {
+        Made::Cpu(buffer) => (buffer.to_srgb8_straight(), buffer.width(), buffer.height()),
+        Made::Gpu(pixels, width, height) => (pixels, width, height),
+    };
+    // No silent fallback: a frame the switch sent to the card and the CPU drew says so.
+    let fell_back = log.ids_at(taken.frame).contains(&DiagnosticId::GpuPreviewOnCpu);
+    let drawn_on = match (on_gpu, fell_back) {
+        (false, _) => "CPU",
+        (true, false) => "GPU",
+        (true, true) => "CPU, not GPU",
+    };
     if taken.alpha_only {
         as_alpha_only(&mut pixels);
     }
@@ -1218,6 +1303,9 @@ fn serve_logged(
         // the encode, and stopping where the window's own work stops: the bytes are made, and
         // handing them to the web view is the next thing to happen and is not in here.
         .header("x-ms", format!("{ms:.1}"))
+        // B-44: which processor drew these pixels, and the card, for the switch's label.
+        .header("x-drawn-on", drawn_on)
+        .header("x-card", for_a_header(&card_about))
         .body(pixels)
         .expect("build the frame response")
 }
@@ -7022,6 +7110,16 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             .body(session_log_json(&log).into_bytes())
             .expect("build the session log response");
     }
+    // B-44: the CPU / GPU switch. The window's, like the alpha view, so it is answered here
+    // rather than by `edit_command`, which has only the viewer.
+    if path == "gpu-switch" {
+        let said = app.state::<Mutex<Card>>().lock().expect("the card lock was poisoned").switch();
+        announce(&viewer, said.clone());
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "text/plain; charset=utf-8")
+            .body(said.into_bytes())
+            .expect("build the command response");
+    }
     // An import with no files named is the button in the media bin, and what it needs is the
     // operating system's file dialog, which belongs to the app handle and not to the viewer.
     // Answered before `edit_command`, which would otherwise refuse it for naming no files.
@@ -7162,7 +7260,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
-                      /cancel-export, /collect, /check-package, /recent, /new, /session-log, or one of \
+                      /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -7218,6 +7316,8 @@ fn main() {
         .manage(Mutex::new(Export::default()))
         // P-19: empty and switched off at every launch, and gone when the window closes.
         .manage(Mutex::new(SessionLog::default()))
+        // B-44: the CPU / GPU switch, on the CPU at every launch.
+        .manage(Mutex::new(Card::default()))
         // The autosave timer. A thread rather than anything cleverer: it sleeps for all but a
         // few microseconds of its life, it must run whether or not the page is asking for
         // frames, and it holds the viewer lock only for as long as the check takes. It writes
@@ -7298,7 +7398,8 @@ fn main() {
             match parse(request.uri().path(), request.uri().query()) {
                 Some((ask, quality)) => {
                     let session = ctx.app_handle().state::<Mutex<SessionLog>>();
-                    serve_logged(&viewer, &export, Some(&session), ask, quality)
+                    let card = ctx.app_handle().state::<Mutex<Card>>();
+                    serve_logged(&viewer, &export, Some(&session), Some(&card), ask, quality)
                 }
                 None => allow_the_page_to_read_this(Response::builder().status(404))
                     .header("content-type", "text/plain; charset=utf-8")
@@ -17884,7 +17985,7 @@ mod editing {
         let session = Mutex::new(SessionLog::default());
         let rows = |s: &Mutex<SessionLog>| s.lock().unwrap().rows().len();
         let draw = |ask: Ask, quality: Option<PreviewQuality>| {
-            let got = serve_logged(&viewer, &export, Some(&session), ask, quality);
+            let got = serve_logged(&viewer, &export, Some(&session), None, ask, quality);
             assert_eq!(got.status(), 200, "the frame was drawn");
             got.headers()["x-ms"].to_str().unwrap().to_string()
         };
@@ -18918,6 +19019,83 @@ mod serving {
         );
     }
 
+    /// B-44: the CPU / GPU switch, through the same function every frame on screen comes from.
+    ///
+    /// Writes `verification/B-44_gpu_window_table.md`, or says NOT RUN when there is no card.
+    #[test]
+    fn the_gpu_switch_draws_the_same_picture_and_says_where() {
+        let out = repo("verification/B-44_gpu_window_table.md");
+        let mut rows: Vec<(String, String, String)> = Vec::new();
+        let viewer = Mutex::new(demo());
+        let export = Mutex::new(Export::default());
+        let card = Mutex::new(Card::default());
+        let frame = |ask: Ask, quality| {
+            serve_logged(&viewer, &export, None, Some(&card), ask, Some(quality))
+        };
+
+        let before = frame(Ask::Frame(100), PreviewQuality::Full);
+        rows.push(("the switch starts on the CPU".into(), "CPU".into(), header(&before, "x-drawn-on")));
+        let said = card.lock().unwrap().switch();
+        if !card.lock().unwrap().on {
+            std::fs::write(&out, format!("# B-44: the switch in the window
+
+**NOT RUN.** {said}
+"))
+                .expect("write the table");
+            return;
+        }
+        rows.push(("pressing it says which card".into(), "names the card".into(),
+            if said.contains(&card.lock().unwrap().about()) { "names the card".into() } else { said.clone() }));
+        for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+            card.lock().unwrap().on = false;
+            let cpu = frame(Ask::Frame(100), quality);
+            card.lock().unwrap().on = true;
+            let gpu = frame(Ask::Frame(100), quality);
+            rows.push((format!("frame 100 at {} says it was drawn on the GPU", quality.label()), "GPU".into(), header(&gpu, "x-drawn-on")));
+            let largest = cpu.body().iter().zip(gpu.body()).map(|(a, b)| a.abs_diff(*b)).max();
+            rows.push((
+                format!("and is within 1 level of the CPU's picture, at the same size"),
+                "at most 1, 1920×1080 or its draft".into(),
+                match (cpu.body().len() == gpu.body().len(), largest) {
+                    (true, Some(l)) if l <= 1 => "at most 1, 1920×1080 or its draft".into(),
+                    _ => format!("largest {largest:?}, {} against {} bytes", gpu.body().len(), cpu.body().len()),
+                },
+            ));
+        }
+        let said = card.lock().unwrap().switch();
+        let after = frame(Ask::Frame(100), PreviewQuality::Full);
+        rows.push(("pressing it again goes back to the CPU".into(), "CPU".into(), header(&after, "x-drawn-on")));
+        rows.push(("and says so".into(), "The preview is drawn on the CPU again.".into(), said));
+        rows.push((
+            "the CPU's picture after the GPU is byte for byte the one before it".into(),
+            "identical".into(),
+            if after.body() == before.body() { "identical".into() } else { "different".into() },
+        ));
+
+        let passed = rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut text = format!(
+            "# B-44: the switch in the window
+
+Written by `cargo test -p anime_compositor_app`. \
+    The reference shot, through `serve_logged`, the function every frame on screen comes \
+    from. Card: {}.
+
+**{passed} of {} checks pass.**
+
+| Check | Expected | Actual | Result |
+|---|---|---|---|
+",
+            card.lock().unwrap().about(),
+            rows.len()
+        );
+        for (what, expected, actual) in &rows {
+            text += &format!("| {what} | {expected} | {actual} | {} |
+", if expected == actual { "PASS" } else { "FAIL" });
+        }
+        std::fs::write(&out, text).expect("write the table");
+        assert_eq!(passed, rows.len(), "see {}", out.display());
+    }
+
     /// B-12a item 7: the two ways of looking at a frame, and the promise that neither changes it.
     ///
     /// Writes `verification/B-12a_inspect_table.md`.
@@ -19912,6 +20090,9 @@ mod contract {
         "curve",
         "export",
         "frame",
+        // B-44: the CPU / GPU switch. A route rather than a `viewer.` command because the card
+        // belongs to the window, not to the viewer `edit_command` is handed.
+        "gpu-switch",
         "new",
         "open",
         "play",
@@ -21937,7 +22118,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 67] = [
+    const CONTROLS: [&str; 68] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -21966,6 +22147,7 @@ mod contract {
         "fit100",
         "fwd",
         "gifdither",
+        "gpu",
         "graphall",
         "graphfit",
         "graphmode",

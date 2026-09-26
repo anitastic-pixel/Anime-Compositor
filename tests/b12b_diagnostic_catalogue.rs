@@ -331,6 +331,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "TIMESHEET_NOT_USED",
         "B-28b_timesheet_table.md",
     ),
+    (
+        DiagnosticId::GpuPreviewOnCpu,
+        "GPU_PREVIEW_ON_CPU",
+        "B-44_gpu_preview_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
@@ -338,11 +343,13 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
 const NOT_BUILT: &[(&str, &str)] = &[
     (
         "GPU_BACKEND_FAILED",
-        "There is no GPU path; every frame is composited on the processor.",
+        "The only GPU path is B-44's viewer picture, and a card that fails there refuses \
+            nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, proposed).",
     ),
     (
         "GPU_OUT_OF_MEMORY",
-        "There is no GPU path; every frame is composited on the processor.",
+        "The only GPU path is B-44's viewer picture, and a card out of memory there refuses \
+            nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, proposed).",
     ),
     (
         "INVALID_PATH",

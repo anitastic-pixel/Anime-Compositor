@@ -98,10 +98,14 @@ pub enum Stage {
     FrameAssembly,
     /// `WorkingBuffer::to_srgb8_straight`: unpremultiply, encode, quantise, for the page.
     Encode,
+    /// B-44: sending drawings the card does not hold yet.
+    GpuUpload,
+    /// B-44: the card drawing and encoding the frame, and the eight-bit picture coming back.
+    GpuDraw,
 }
 
 impl Stage {
-    pub const ALL: [Stage; 26] = [
+    pub const ALL: [Stage; 28] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -128,6 +132,8 @@ impl Stage {
         Stage::TileLoop,
         Stage::FrameAssembly,
         Stage::Encode,
+        Stage::GpuUpload,
+        Stage::GpuDraw,
     ];
 
     /// The name the artifact prints. Written for the owner, not for a log parser.
@@ -159,6 +165,8 @@ impl Stage {
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
             Stage::Encode => "encode for the page",
+            Stage::GpuUpload => "GPU: send drawings to the card",
+            Stage::GpuDraw => "GPU: draw, encode and bring the picture back",
         }
     }
 

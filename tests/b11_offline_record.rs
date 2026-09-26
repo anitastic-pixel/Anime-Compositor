@@ -282,16 +282,27 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
     // `color_quant` and `gif`; `weezl`, its LZW, was already here. D-72's MP4 added `windows`
     // and the ten `windows-*` crates under it: Microsoft's own bindings to Windows, already in
     // the shell under Tauri, and here only to reach the H.264 encoder Windows carries (D-30).
+    // B-44's `wgpu` (D-100) added the rest: its core, its shader compiler `naga`, the Direct3D 12
+    // and Vulkan halves (`ash`, `gpu-*`, `libloading`), and their helpers. None opens a socket;
+    // the check above says so.
     report.check(
         "and that part's whole dependency list is small enough to read",
-        "adler2, bit_field, bitflags, bytemuck, byteorder-lite, cfg-if, color_quant, crc32fast, \
-         crossbeam-deque, crossbeam-epoch, crossbeam-utils, either, exr, fax, fdeflate, flate2, \
-         gif, half, image, image-webp, itoa, lebe, libm, memchr, miniz_oxide, moxcms, num-complex, \
-         num-traits, paste, png, proc-macro2, pulp, pulp-wasm-simd-flag, pxfm, quick-error, \
-         quote, raw-cpuid, rayon, rayon-core, reborrow, serde_core, serde_json, simd-adler32, \
-         smallvec, syn, tiff, unicode-ident, weezl, windows, windows-collections, windows-core, \
-         windows-future, windows-implement, windows-interface, windows-link, windows-numerics, \
-         windows-result, windows-strings, windows-threading, zerocopy, zerocopy-derive, zlib-rs, zmij, \
+        "adler2, arrayvec, ash, bit-set, bit-vec, bit_field, bitflags, bytemuck, bytemuck_derive, \
+         byteorder-lite, cfg-if, codespan-reporting, color_quant, crc32fast, crossbeam-deque, \
+         crossbeam-epoch, crossbeam-utils, document-features, either, equivalent, exr, fax, \
+         fdeflate, flate2, foldhash, gif, gpu-alloc, gpu-alloc-types, gpu-allocator, \
+         gpu-descriptor, gpu-descriptor-types, half, hashbrown, hexf-parse, image, image-webp, \
+         indexmap, itoa, lebe, libloading, libm, litrs, lock_api, log, memchr, miniz_oxide, \
+         moxcms, naga, num-complex, num-traits, once_cell, ordered-float, parking_lot, \
+         parking_lot_core, paste, png, pollster, presser, proc-macro2, profiling, pulp, \
+         pulp-wasm-simd-flag, pxfm, quick-error, quote, range-alloc, raw-cpuid, \
+         raw-window-handle, rayon, rayon-core, reborrow, renderdoc-sys, rustc-hash, scopeguard, \
+         serde_core, serde_json, simd-adler32, smallvec, spirv, static_assertions, syn, \
+         thiserror, thiserror-impl, tiff, unicode-ident, unicode-width, weezl, wgpu, wgpu-core, \
+         wgpu-core-deps-windows-linux-android, wgpu-hal, wgpu-types, windows, \
+         windows-collections, windows-core, windows-future, windows-implement, windows-interface, \
+         windows-link, windows-numerics, windows-result, windows-strings, windows-targets, \
+         windows-threading, windows_x86_64_msvc, zerocopy, zerocopy-derive, zlib-rs, zmij, \
          zune-core, zune-inflate, zune-jpeg",
         joined(&in_core),
     );
