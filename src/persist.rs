@@ -879,8 +879,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::Exposure { stops } => {
             params.insert("stops".into(), num(*stops));
         }
-        Effect::GaussianBlur { sigma_px } => {
+        Effect::GaussianBlur { sigma_px, edges } => {
             params.insert("sigma_px".into(), num(*sigma_px));
+            put_edges(&mut params, edges);
         }
         Effect::Tint { color, amount } => {
             params.insert(
@@ -947,9 +948,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("tolerance".into(), num(*tolerance));
             params.insert("new_color".into(), J::from(new_color.as_str()));
         }
-        Effect::DirectionalBlur { direction, length } => {
+        Effect::DirectionalBlur {
+            direction,
+            length,
+            edges,
+        } => {
             params.insert("direction".into(), num(*direction));
             params.insert("length".into(), num(*length));
+            put_edges(&mut params, edges);
         }
         Effect::SelectColor {
             colors,
@@ -981,6 +987,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             kind,
             amount,
             center,
+            edges,
         } => {
             params.insert("type".into(), J::from(kind.as_str()));
             params.insert("amount".into(), num(*amount));
@@ -988,6 +995,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 "center".into(),
                 J::Array(center.iter().map(|c| num(*c)).collect()),
             );
+            put_edges(&mut params, edges);
         }
         Effect::Bloom {
             threshold,
@@ -1304,6 +1312,24 @@ fn effect_array<const N: usize>(
 /// D-87: the chosen colours, a list of strings, kept as written but in small letters. Whether
 /// each is a colour is the effect's own check (D-46), not the file's shape.
 /// D-89: a setting that is a word, kept as written so a wrong one is reported, not lost.
+/// D-109: a blur's `edges`, as written. A file without it is from before it, and means
+/// transparent.
+fn effect_edges(params: Option<&J>, at: &str) -> Result<String, Diagnostic> {
+    match params.and_then(|p| p.get("edges")) {
+        Some(_) => effect_word(params, "edges", at),
+        None => Ok("transparent".into()),
+    }
+}
+
+/// D-109: `transparent` is not written, so a file from before it saves the same.
+fn put_edges(params: &mut Map<String, J>, edges: &str) {
+    if edges == "transparent" {
+        params.remove("edges");
+    } else {
+        params.insert("edges".into(), J::from(edges));
+    }
+}
+
 fn effect_word(params: Option<&J>, key: &str, at: &str) -> Result<String, Diagnostic> {
     let params = effect_params(params, at)?;
     let at = format!("{at}/parameters/{key}");
@@ -2156,6 +2182,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 }),
                 crate::effects::GAUSSIAN_BLUR => Some(crate::effects::Effect::GaussianBlur {
                     sigma_px: effect_number(params, "sigma_px", &at)?,
+                    edges: effect_edges(params, &at)?,
                 }),
                 crate::effects::TINT => Some(crate::effects::Effect::Tint {
                     color: effect_array(params, "color", "a linear RGB triple", &at)?,
@@ -2195,6 +2222,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::DIRECTIONAL_BLUR => Some(crate::effects::Effect::DirectionalBlur {
                     direction: effect_number(params, "direction", &at)?,
                     length: effect_number(params, "length", &at)?,
+                    edges: effect_edges(params, &at)?,
                 }),
                 // D-93: keep is read as written; "Chosen" is not the word, and is reported.
                 crate::effects::SELECT_COLOR => Some(crate::effects::Effect::SelectColor {
@@ -2212,6 +2240,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     kind: effect_word(params, "type", &at)?,
                     amount: effect_number(params, "amount", &at)?,
                     center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                    edges: effect_edges(params, &at)?,
                 }),
                 crate::effects::BLOOM => Some(crate::effects::Effect::Bloom {
                     threshold: effect_number(params, "threshold", &at)?,

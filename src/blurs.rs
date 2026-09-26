@@ -92,18 +92,21 @@ pub(crate) fn line_frame(u: (f64, f64), width: usize, height: usize, grow: usize
 /// weighted sum of the line's samples at the column centres, and each pixel of the layer grown
 /// by `grow` the straight mix of the two lines round its centre. Mostly down is mostly across
 /// with x and y exchanged, read in place: turning the picture on its side and back cost more
-/// than the blur (B-42).
+/// than the blur (B-42). D-109: with `repeat`, each sample point is held inside the picture's
+/// pixel centres first.
 pub(crate) fn by_lines(
     source: &WorkingBuffer,
     u: (f64, f64),
     wt: &Weights,
     grow: usize,
+    repeat: bool,
 ) -> WorkingBuffer {
     // Below, x and y are across and down in the exchanged picture when `down`.
     let LineFrame { down, s, ow, oh, k0, k1 } = line_frame(u, source.width(), source.height(), grow);
     let g = grow as isize;
     let reach = wt.reach();
     let span = ow + 2 * reach;
+    let (sw, sh) = (source.width() as f64, source.height() as f64);
     // Whether a sample can be anything but zero: by each row's span across, or by the
     // drawing's box down, which is enough to skip an empty cel's lines.
     let spans = spans(source);
@@ -149,7 +152,10 @@ pub(crate) fn by_lines(
             for t in 0..span {
                 let x = t as isize - reach as isize - g;
                 let y = k as f64 + 0.5 + x as f64 * s;
-                v[t] = if !shows(x, y) {
+                v[t] = if repeat {
+                    let (px, py) = if down { (y, x as f64 + 0.5) } else { (x as f64 + 0.5, y) };
+                    sample_bilinear(source, px.max(0.5).min(sw - 0.5), py.max(0.5).min(sh - 0.5))
+                } else if !shows(x, y) {
                     [0.0; 4]
                 } else if down {
                     sample_bilinear(source, y, x as f64 + 0.5)
@@ -232,14 +238,15 @@ fn tent_integral(a: f64, b: f64) -> f64 {
 /// Average each pixel of `source` along a line `length` pixels long through it, in place, and
 /// return how far it grew on each side. Both settings are already inside their ranges; length 0
 /// changes nothing. D-98: each line, drawn straight between its column samples, is averaged
-/// over `2H = |u_x| * (length + length / ceil(length))` columns, mostly across.
-pub(crate) fn directional_blur(source: &mut WorkingBuffer, direction: f64, length: f64) -> usize {
+/// over `2H = |u_x| * (length + length / ceil(length))` columns, mostly across. D-109: with
+/// `repeat`, the edge pixels carry on past the edge and nothing grows.
+pub(crate) fn directional_blur(source: &mut WorkingBuffer, direction: f64, length: f64, repeat: bool) -> usize {
     if length == 0.0 {
         return 0;
     }
-    let grow = (length / 2.0).ceil() as usize;
+    let grow = if repeat { 0 } else { (length / 2.0).ceil() as usize };
     let u = along(direction);
-    *source = by_lines(source, u, &directional_weights(u, length), grow);
+    *source = by_lines(source, u, &directional_weights(u, length), grow, repeat);
     grow
 }
 
@@ -293,8 +300,9 @@ pub(crate) fn radial_turns(spin: bool, amount: f64) -> Vec<Vec<(f64, f64)>> {
 
 /// Average each pixel of `source` round `center`, in the buffer's pixels, in place: along the
 /// arc about it for a spin, along the line from it for a zoom. The settings are already inside
-/// their ranges; amount 0 changes nothing. The buffer keeps its size.
-pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, center: (f64, f64)) {
+/// their ranges; amount 0 changes nothing. The buffer keeps its size. D-109: with `repeat`,
+/// each sample point is held inside the buffer's pixel centres first.
+pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, center: (f64, f64), repeat: bool) {
     if amount == 0.0 {
         return;
     }
@@ -365,7 +373,8 @@ pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, c
                             || ay.min(by) - 1.0 > b
                     }
                 };
-                if missed {
+                // D-109: repeated, every path reads the drawing's edge.
+                if missed && !repeat {
                     continue;
                 }
                 // Summed in double precision: 256 single-precision additions would drift near
@@ -378,7 +387,12 @@ pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, c
                     } else {
                         (cx + a * dx, cy + a * dy)
                     };
-                    let s = sample_bilinear(src, sx, sy);
+                    let s = if repeat {
+                        let (w, h) = (w as f64, h as f64);
+                        sample_bilinear(src, sx.max(0.5).min(w - 0.5), sy.max(0.5).min(h - 0.5))
+                    } else {
+                        sample_bilinear(src, sx, sy)
+                    };
                     for i in 0..4 {
                         sum[i] += s[i] as f64;
                     }

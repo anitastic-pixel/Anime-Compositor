@@ -92,7 +92,7 @@ fn d99_draft_effects() {
         (
             "gaussian_blur",
             "Gaussian Blur, sigma 8",
-            Effect::GaussianBlur { sigma_px: 8.0 },
+            Effect::GaussianBlur { sigma_px: 8.0, edges: "transparent".into() },
         ),
         (
             "glow",
@@ -114,6 +114,7 @@ fn d99_draft_effects() {
             Effect::DirectionalBlur {
                 direction: 30.0,
                 length: 40.0,
+                edges: "transparent".into(),
             },
         ),
         (
@@ -135,6 +136,7 @@ fn d99_draft_effects() {
                 kind: "zoom".into(),
                 amount: 20.0,
                 center: [50.0, 50.0],
+                edges: "transparent".into(),
             },
         ),
         (

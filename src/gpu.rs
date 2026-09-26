@@ -202,6 +202,7 @@ struct Radial {
     center: vec2<f32>,
     amount: f32,
     spin: u32,
+    held: u32,
 }
 
 @group(0) @binding(0) var<uniform> R: Radial;
@@ -236,6 +237,10 @@ fn radial(@builtin(global_invocation_id) id: vec3<u32>) {
         if R.spin == 1u {
             p = R.center + vec2(d.x * t.y - d.y * t.x, d.x * t.x + d.y * t.y);
         }
+        // D-109: held inside the drawing's pixel centres.
+        if R.held == 1u {
+            p = clamp(p, vec2(0.5), vec2<f32>(size) - vec2(0.5));
+        }
         total += bilinear(still, p);
     }
     textureStore(moved, id.xy, total / f32(n));
@@ -266,7 +271,7 @@ struct Params {
     tolerance: u32,
     tinted: u32,
     screen: u32,
-    spare: u32,
+    held: u32,
 }
 
 @group(0) @binding(0) var<uniform> P: Params;
@@ -287,9 +292,13 @@ fn level(c: f32) -> u32 {
     return u32(floor(clamp(c, 0.0, 1.0) * 255.0 + 0.5));
 }
 
-// The pixel at `p` of `input`, or transparent black outside it.
+// The pixel at `p` of `input`, or transparent black outside it; (D-109) with `held`, the
+// nearest pixel of `input`, which for the straight mix of two is the mix at the held point.
 fn at(p: vec2<i32>) -> vec4<f32> {
     let size = vec2<i32>(textureDimensions(input));
+    if P.held == 1u {
+        return textureLoad(input, clamp(p, vec2(0), size - vec2(1)), 0);
+    }
     if any(p < vec2(0)) || any(p >= size) {
         return vec4(0.0);
     }
@@ -326,7 +335,7 @@ fn bright(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // effects::convolve: `output` is `input` grown by `count` on both ends of the axis, and each
-// pixel adds its taps in the same order.
+// pixel adds its taps in the same order. D-109, effects::held_blur: with `held`, the same size.
 @compute @workgroup_size(16, 16)
 fn gauss(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -335,7 +344,7 @@ fn gauss(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let r = i32(P.count);
     let step = select(vec2(1, 0), vec2(0, 1), P.axis == 1u);
-    let first = vec2<i32>(id.xy) - step * (2 * r);
+    let first = vec2<i32>(id.xy) - step * select(2 * r, r, P.held == 1u);
     var o = vec4(0.0);
     for (var k = 0; k <= 2 * r; k++) {
         o += at(first + step * k) * weights[k];
@@ -503,7 +512,7 @@ struct Params {
     tolerance: u32,
     tinted: u32,
     screen: u32,
-    spare: u32,
+    held: u32,
 }
 
 /// A compute pass and the bindings it takes.
@@ -1055,7 +1064,7 @@ impl Gpu {
             self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some(label), contents, usage })
         };
         let f = |v: f64| (v as f32).to_bits();
-        let settings = [f(r.center.0), f(r.center.1), f(r.amount), r.spin as u32];
+        let settings = [f(r.center.0), f(r.center.1), f(r.amount), r.spin as u32, r.repeat as u32, 0, 0, 0];
         let settings = init("B-46 settings", bytemuck::cast_slice(&settings), wgpu::BufferUsages::UNIFORM);
         let turns = init("B-46 turns", bytemuck::cast_slice(&turns), wgpu::BufferUsages::STORAGE);
         let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -1189,11 +1198,11 @@ impl Gpu {
     }
 
     /// B-49: `blurs::directional_blur` of `still`, `width` by `height`, into a texture of its own,
-    /// grown by half the length, which is returned with its size. What to dispatch is added to
-    /// `steps`.
+    /// grown by half the length (D-109: or not at all), which is returned with its size. What to
+    /// dispatch is added to `steps`.
     fn directional(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), d: Directional) -> (wgpu::TextureView, (usize, usize)) {
         let passes = self.bloom.as_ref().expect("a Directional Blur is refused without the passes");
-        let grow = (d.length / 2.0).ceil() as usize;
+        let grow = d.grow();
         let (gw, gh) = (w + 2 * grow, h + 2 * grow);
         let u = crate::blurs::along(d.direction);
         let wt = crate::blurs::directional_weights(u, d.length);
@@ -1218,6 +1227,7 @@ impl Gpu {
             width: f.ow as u32,
             reach: wt.reach() as u32,
             ends: wt.ends.len() as u32,
+            held: d.repeat as u32,
             ..Default::default()
         };
         self.step(steps, &passes.streak, p, still, Some(&lines), None, Some(&ends), ((count as u32).div_ceil(32), 1));
@@ -1228,22 +1238,24 @@ impl Gpu {
     }
 
     /// B-50: `effects::blur` of `still`, `width` by `height`, across and then down with Bloom's
-    /// `gauss` pass, into a texture grown by the kernel's radius, which is returned with its size.
+    /// `gauss` pass, into a texture grown by the kernel's radius (D-109: or not at all), which is
+    /// returned with its size.
     fn gaussian(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), g: Gaussian) -> (wgpu::TextureView, (usize, usize)) {
         let passes = self.bloom.as_ref().expect("a Gaussian Blur is refused without the passes");
         let r = crate::effects::kernel_radius(g.sigma);
+        let e = g.grow();
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
         let weights = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("B-50 weights"),
             contents: bytemuck::cast_slice(&crate::effects::gaussian_weights(g.sigma)),
             usage: wgpu::BufferUsages::STORAGE,
         });
-        let (wide, tall) = (self.scratch("B-50 wide", w + 2 * r, h), self.scratch("B-50 tall", w + 2 * r, h + 2 * r));
-        let across = Params { count: r as u32, axis: 0, ..Default::default() };
-        self.step(steps, &passes.gauss, across, still, Some(&wide), None, Some(&weights), tiles(w + 2 * r, h));
+        let (wide, tall) = (self.scratch("B-50 wide", w + 2 * e, h), self.scratch("B-50 tall", w + 2 * e, h + 2 * e));
+        let across = Params { count: r as u32, axis: 0, held: g.repeat as u32, ..Default::default() };
+        self.step(steps, &passes.gauss, across, still, Some(&wide), None, Some(&weights), tiles(w + 2 * e, h));
         let down = Params { axis: 1, ..across };
-        self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(&weights), tiles(w + 2 * r, h + 2 * r));
-        (tall, (w + 2 * r, h + 2 * r))
+        self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(&weights), tiles(w + 2 * e, h + 2 * e));
+        (tall, (w + 2 * e, h + 2 * e))
     }
 
     /// B-51: `glow::glow` of `still`, `width` by `height`: the light in Bloom's bright pass, blurred
@@ -1340,8 +1352,8 @@ impl Gpu {
         for l in &plan.layers {
             let (name, grow, halo) = match l.on_card {
                 Some(OnCard::Bloom(b)) => ("a Bloom", crate::bloom::reach(b.radius, b.lines, b.length), true),
-                Some(OnCard::Directional(d)) => ("a Directional Blur", (d.length / 2.0).ceil() as usize, false),
-                Some(OnCard::Gaussian(g)) => ("a Gaussian Blur", crate::effects::kernel_radius(g.sigma), false),
+                Some(OnCard::Directional(d)) => ("a Directional Blur", d.grow(), false),
+                Some(OnCard::Gaussian(g)) => ("a Gaussian Blur", g.grow(), false),
                 Some(OnCard::Glow(g)) => ("a Glow", crate::effects::kernel_radius(g.radius / 3.0), true),
                 _ => continue,
             };

@@ -1237,10 +1237,11 @@ fn resolve_rest(
         let mut effect = effects[i].effect.clone();
         effect.scale_distances(|d| d / pre);
         match effect {
-            crate::effects::Effect::RadialBlur { kind, amount, center } => Some(render::OnCard::Radial(render::Radial {
+            crate::effects::Effect::RadialBlur { kind, amount, center, edges } => Some(render::OnCard::Radial(render::Radial {
                 spin: kind == "spin",
                 amount,
                 center: crate::effects::radial_center(center, &source, offset),
+                repeat: edges == "repeat",
             })),
             // B-47: a Bloom that lights nothing changes nothing and grows nothing, on the CPU too,
             // so it is not left at all. One that does grows the drawing by its reach.
@@ -1256,17 +1257,17 @@ fn resolve_rest(
                 })
             }
             // B-49: length 0 changes nothing and grows nothing, so it is not left either.
-            crate::effects::Effect::DirectionalBlur { direction, length } => (length != 0.0).then(|| {
-                let grow = (length / 2.0).ceil() as usize;
-                offset = (offset.0 + grow, offset.1 + grow);
-                render::OnCard::Directional(render::Directional { direction, length })
+            crate::effects::Effect::DirectionalBlur { direction, length, edges } => (length != 0.0).then(|| {
+                let d = render::Directional { direction, length, repeat: edges == "repeat" };
+                offset = (offset.0 + d.grow(), offset.1 + d.grow());
+                render::OnCard::Directional(d)
             }),
             // B-50: a sigma too small to reach a neighbour changes nothing, so it is not left either.
-            crate::effects::Effect::GaussianBlur { sigma_px } => {
-                let grow = crate::effects::kernel_radius(sigma_px);
-                (grow != 0).then(|| {
-                    offset = (offset.0 + grow, offset.1 + grow);
-                    render::OnCard::Gaussian(render::Gaussian { sigma: sigma_px })
+            crate::effects::Effect::GaussianBlur { sigma_px, edges } => {
+                (crate::effects::kernel_radius(sigma_px) != 0).then(|| {
+                    let g = render::Gaussian { sigma: sigma_px, repeat: edges == "repeat" };
+                    offset = (offset.0 + g.grow(), offset.1 + g.grow());
+                    render::OnCard::Gaussian(g)
                 })
             }
             // B-51: as a Bloom, a Glow with nothing that glows changes nothing and is not left.

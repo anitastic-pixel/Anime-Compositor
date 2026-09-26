@@ -246,18 +246,36 @@ pub struct Glow {
 }
 
 /// B-50: a Gaussian Blur's sigma (`effects::blur`), already divided for Draft and large enough
-/// to reach a pixel, so the drawing grows by exactly `effects::kernel_radius` of it.
+/// to reach a pixel, so the drawing grows by exactly `effects::kernel_radius` of it, or (D-109)
+/// with `repeat`, by nothing (`effects::held_blur`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Gaussian {
     pub sigma: f64,
+    pub repeat: bool,
+}
+
+impl Gaussian {
+    /// How far the drawing grows on each side.
+    pub fn grow(&self) -> usize {
+        if self.repeat { 0 } else { crate::effects::kernel_radius(self.sigma) }
+    }
 }
 
 /// B-49: a Directional Blur's settings (`blurs::directional_blur`), the length already divided
-/// for Draft and never 0, so the drawing grows by exactly half the length, rounded up.
+/// for Draft and never 0, so the drawing grows by exactly half the length, rounded up, or
+/// (D-109) with `repeat`, by nothing.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Directional {
     pub direction: f64,
     pub length: f64,
+    pub repeat: bool,
+}
+
+impl Directional {
+    /// How far the drawing grows on each side.
+    pub fn grow(&self) -> usize {
+        if self.repeat { 0 } else { (self.length / 2.0).ceil() as usize }
+    }
 }
 
 /// B-47: a Bloom's settings (`bloom::bloom`), distances already divided for Draft. Left for the
@@ -278,6 +296,8 @@ pub struct Radial {
     pub spin: bool,
     pub amount: f64,
     pub center: (f64, f64),
+    /// D-109.
+    pub repeat: bool,
 }
 
 /// The matte layer as the renderer needs it: a source in the working space and the map from its
@@ -335,8 +355,8 @@ pub struct Tile {
 pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
     let grow = match layer.on_card {
         Some(OnCard::Bloom(b)) => 2 * crate::bloom::reach(b.radius, b.lines, b.length),
-        Some(OnCard::Directional(d)) => 2 * (d.length / 2.0).ceil() as usize,
-        Some(OnCard::Gaussian(g)) => 2 * crate::effects::kernel_radius(g.sigma),
+        Some(OnCard::Directional(d)) => 2 * d.grow(),
+        Some(OnCard::Gaussian(g)) => 2 * g.grow(),
         Some(OnCard::Glow(g)) => 2 * crate::effects::kernel_radius(g.radius / 3.0),
         _ => 0,
     };
@@ -428,7 +448,7 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
             match layer.on_card.take() {
                 None => {}
                 Some(OnCard::Radial(r)) => crate::perf::time(crate::perf::Stage::EffectRadial, || {
-                    crate::blurs::radial_blur(std::sync::Arc::make_mut(&mut layer.source), r.spin, r.amount, r.center)
+                    crate::blurs::radial_blur(std::sync::Arc::make_mut(&mut layer.source), r.spin, r.amount, r.center, r.repeat)
                 }),
                 Some(OnCard::Bloom(b)) => {
                     crate::perf::time(crate::perf::Stage::EffectBloom, || {
@@ -438,12 +458,17 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
                 }
                 Some(OnCard::Directional(d)) => {
                     crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
-                        crate::blurs::directional_blur(std::sync::Arc::make_mut(&mut layer.source), d.direction, d.length)
+                        crate::blurs::directional_blur(std::sync::Arc::make_mut(&mut layer.source), d.direction, d.length, d.repeat)
                     });
                 }
                 Some(OnCard::Gaussian(g)) => {
                     crate::perf::time(crate::perf::Stage::EffectBlur, || {
-                        crate::effects::blur(std::sync::Arc::make_mut(&mut layer.source), g.sigma)
+                        let source = std::sync::Arc::make_mut(&mut layer.source);
+                        if g.repeat {
+                            crate::effects::held_blur(source, g.sigma);
+                        } else {
+                            crate::effects::blur(source, g.sigma);
+                        }
                     });
                 }
                 Some(OnCard::Glow(g)) => {

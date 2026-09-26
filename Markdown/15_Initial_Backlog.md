@@ -499,6 +499,19 @@ B-51 / Glow on the graphics card / **BUILT on 2026-09-26 at the owner's "proceed
 - **Not built:**
   - A Glow followed by another effect, or on anything but a drawn layer. These stay on the CPU.
 
+B-52 / Repeat Edge Pixels for the three blurs / **BUILT on 2026-09-26 at the owner's "proceed, add to other blurs if needed", with D-109 proposed.** `verification/B-52_edges.md`. It answers the owner's "how do we get radial blur to not cause transparency from the edges". FX-EDGES-001 to 012 were committed before the code.
+- **What it builds:**
+  - Radial Blur, Blur (Gaussian) and Directional Blur each get a switch, **Edges**: **Transparent**, as before, or **Repeat Edge Pixels**. With the second, a blur reaching past the layer's edge takes the edge pixel, so a picture that fills the frame stays solid to its edges, and the layer does not grow.
+  - It starts at Transparent, and a file without it means Transparent and saves without it, so every existing project opens and saves as before. A misspelt word is kept and the blur left out with `EFFECT_PARAMETER_INVALID` (D-46).
+  - The card does the switch too, for each of the three blurs it already does (B-44, B-49, B-50).
+- **Measured:**
+  - 60 of 60 checks pass (`verification/B-52_edges_table.md`): FX-EDGES-001 to 012, within about 2e-7 of the reference, and the file, commands, reach and tiles.
+  - 108 of 108 checks pass on the card (`verification/B-52_gpu_edges_table.md`), within D-103, D-106 and D-107's 1 level of 255.
+  - On the reference shot's background, the see-through pixels at frame 0 fall from 320,748 to 0 for Radial Blur, 147,228 to 0 for Blur and 120,384 to 0 for Directional Blur (`verification/B-52_pictures_table.md`, pictures in `verification/B-52 pictures/`).
+- **Not built:**
+  - The switch on Bloom, Glow or Selective Colour Blur, which D-109 gives reasons to leave without it.
+  - Edges that mirror or wrap, which After Effects does not offer on these blurs either.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.

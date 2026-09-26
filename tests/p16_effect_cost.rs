@@ -84,9 +84,9 @@ fn cases() -> Vec<(&'static str, Effect)> {
     vec![
         ("Exposure +1", Effect::Exposure { stops: 1.0 }),
         ("Tint 50%", Effect::Tint { color: [1.0, 0.5, 0.25], amount: 0.5 }),
-        ("Gaussian Blur 4", Effect::GaussianBlur { sigma_px: 4.0 }),
-        ("Gaussian Blur 10", Effect::GaussianBlur { sigma_px: 10.0 }),
-        ("Gaussian Blur 40", Effect::GaussianBlur { sigma_px: 40.0 }),
+        ("Gaussian Blur 4", Effect::GaussianBlur { sigma_px: 4.0, edges: "transparent".into() }),
+        ("Gaussian Blur 10", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into() }),
+        ("Gaussian Blur 40", Effect::GaussianBlur { sigma_px: 40.0, edges: "transparent".into() }),
         ("Line Smooth", Effect::LineSmooth { softness: 50.0, threshold: 16.0 }),
         (
             "Selective Colour Blur 12",
@@ -117,8 +117,8 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 new_color: "#ff0000".into(),
             },
         ),
-        ("Directional Blur 10", Effect::DirectionalBlur { direction: 30.0, length: 10.0 }),
-        ("Directional Blur 100", Effect::DirectionalBlur { direction: 30.0, length: 100.0 }),
+        ("Directional Blur 10", Effect::DirectionalBlur { direction: 30.0, length: 10.0, edges: "transparent".into() }),
+        ("Directional Blur 100", Effect::DirectionalBlur { direction: 30.0, length: 100.0, edges: "transparent".into() }),
         (
             "Select Colour",
             Effect::SelectColor {
@@ -150,7 +150,7 @@ fn line_width(width: f64, based_on: &str) -> Effect {
 }
 
 fn radial(kind: &str, amount: f64) -> Effect {
-    Effect::RadialBlur { kind: kind.into(), amount, center: [50.0, 50.0] }
+    Effect::RadialBlur { kind: kind.into(), amount, center: [50.0, 50.0], edges: "transparent".into() }
 }
 
 fn bloom(streaks: &str) -> Effect {

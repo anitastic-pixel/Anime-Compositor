@@ -17,6 +17,7 @@ fn radial(kind: &str, amount: f64, center: [f64; 2]) -> Effect {
         kind: kind.to_string(),
         amount,
         center,
+        edges: "transparent".into(),
     }
 }
 

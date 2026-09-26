@@ -393,7 +393,7 @@ fn impulse(report: &mut Report) {
     let i = (cy * w + cx) * 4;
     buf.data_mut()[i..i + 4].copy_from_slice(&[1.0, 1.0, 1.0, 1.0]);
 
-    let (offset, _) = run(&mut buf, &only(Effect::GaussianBlur { sigma_px: sigma }));
+    let (offset, _) = run(&mut buf, &only(Effect::GaussianBlur { sigma_px: sigma, edges: "transparent".into() }));
 
     // "Expanded bounds": document 21's "bounds expand by the kernel radius", on all four sides.
     report.check(
@@ -502,7 +502,7 @@ fn impulse(report: &mut Report) {
     fringed.data_mut()[i..i + 4].copy_from_slice(&[0.4, 0.0, 0.0, 0.5]);
     run(
         &mut fringed,
-        &only(Effect::GaussianBlur { sigma_px: sigma }),
+        &only(Effect::GaussianBlur { sigma_px: sigma, edges: "transparent".into() }),
     );
     let mut hues = std::collections::BTreeSet::new();
     for p in fringed.data().chunks_exact(4) {
@@ -532,7 +532,7 @@ fn impulse(report: &mut Report) {
     let mut untouched = solid(4, 4, [0.5, 0.25, 0.125, 0.5]);
     let (zero_offset, _) = run(
         &mut untouched,
-        &only(Effect::GaussianBlur { sigma_px: 0.0 }),
+        &only(Effect::GaussianBlur { sigma_px: 0.0, edges: "transparent".into() }),
     );
     report.check(
         "a sigma of zero changes neither the pixels nor the bounds",
@@ -551,7 +551,7 @@ fn impulse(report: &mut Report) {
     // written as a division by the realised alpha rather than by the realised weight sum: that
     // arithmetic is 0/0 here, and a NaN in one pixel spreads through every later stage.
     let mut empty = WorkingBuffer::transparent(6, 6);
-    run(&mut empty, &only(Effect::GaussianBlur { sigma_px: 2.0 }));
+    run(&mut empty, &only(Effect::GaussianBlur { sigma_px: 2.0, edges: "transparent".into() }));
     let bad = empty
         .data()
         .iter()
@@ -567,7 +567,7 @@ fn impulse(report: &mut Report) {
     // again, but where a person would actually see it: a kernel summing to 0.999 would leave a
     // flat cel very slightly darker every time it was blurred.
     let mut flat = solid(41, 41, [0.5, 0.25, 0.125, 0.5]);
-    run(&mut flat, &only(Effect::GaussianBlur { sigma_px: 2.0 }));
+    run(&mut flat, &only(Effect::GaussianBlur { sigma_px: 2.0, edges: "transparent".into() }));
     report.check(
         "the middle of a large flat region is unchanged by a blur",
         q([0.5, 0.25, 0.125, 0.5]),
@@ -595,7 +595,7 @@ fn impulse(report: &mut Report) {
     // products of single-precision weights, and the last bit of that is not a fact about the
     // blur. Repeating the edge does not miss by a rounding error, it misses by whole pixels.
     let mut filled = solid(8, 8, [1.0, 1.0, 1.0, 1.0]);
-    run(&mut filled, &only(Effect::GaussianBlur { sigma_px: 1.0 }));
+    run(&mut filled, &only(Effect::GaussianBlur { sigma_px: 1.0, edges: "transparent".into() }));
     let total: f64 = filled.data().chunks_exact(4).map(|px| px[3] as f64).sum();
     report.check(
         "blurring an opaque 8x8 cel neither gains nor loses alpha",
@@ -651,8 +651,8 @@ fn stack(report: &mut Report) {
     let (offset, _) = run(
         &mut twice,
         &[
-            EffectInstance::new(Id::new("b1"), Effect::GaussianBlur { sigma_px: 1.0 }),
-            EffectInstance::new(Id::new("b2"), Effect::GaussianBlur { sigma_px: 2.0 }),
+            EffectInstance::new(Id::new("b1"), Effect::GaussianBlur { sigma_px: 1.0, edges: "transparent".into() }),
+            EffectInstance::new(Id::new("b2"), Effect::GaussianBlur { sigma_px: 2.0, edges: "transparent".into() }),
         ],
     );
     report.check(
@@ -711,7 +711,7 @@ fn stack(report: &mut Report) {
     let (_, reported) = run(
         &mut buf,
         &[
-            EffectInstance::new(Id::new("b"), Effect::GaussianBlur { sigma_px: -1.0 }),
+            EffectInstance::new(Id::new("b"), Effect::GaussianBlur { sigma_px: -1.0, edges: "transparent".into() }),
             exposure.clone(),
         ],
     );
@@ -737,7 +737,7 @@ fn stack(report: &mut Report) {
                 amount: 1.0
             }
             .bounds_expansion(),
-            Effect::GaussianBlur { sigma_px: 2.0 }.bounds_expansion(),
+            Effect::GaussianBlur { sigma_px: 2.0, edges: "transparent".into() }.bounds_expansion(),
             Effect::Unsupported {
                 type_id: "vendor.future.effect".to_string()
             }
@@ -771,7 +771,7 @@ fn through_the_renderer(report: &mut Report) {
         .apply(Command::AddEffect {
             composition: comp.clone(),
             layer_id: layer_id.clone(),
-            effect: EffectInstance::new(Id::new("fx-blur"), Effect::GaussianBlur { sigma_px: 1.0 }),
+            effect: EffectInstance::new(Id::new("fx-blur"), Effect::GaussianBlur { sigma_px: 1.0, edges: "transparent".into() }),
             index: None,
         })
         .expect("a sigma of one is a valid blur");
@@ -909,7 +909,7 @@ fn command_rules(report: &mut Report) {
     ))
     .expect("a first effect");
     doc.apply(add(
-        EffectInstance::new(Id::new("two"), Effect::GaussianBlur { sigma_px: 1.0 }),
+        EffectInstance::new(Id::new("two"), Effect::GaussianBlur { sigma_px: 1.0, edges: "transparent".into() }),
         None,
     ))
     .expect("a second effect");
@@ -961,7 +961,7 @@ fn command_rules(report: &mut Report) {
         "EFFECT_PARAMETER_INVALID: A Gaussian blur's sigma runs from 0 to 500, and this is -1.",
         outcome(
             doc.apply(add(
-                EffectInstance::new(Id::new("bad"), Effect::GaussianBlur { sigma_px: -1.0 }),
+                EffectInstance::new(Id::new("bad"), Effect::GaussianBlur { sigma_px: -1.0, edges: "transparent".into() }),
                 None,
             ))
             .map(|_| ()),
@@ -1095,7 +1095,7 @@ fn command_rules(report: &mut Report) {
             .map(|e| {
                 let params = match &e.effect {
                     Effect::Exposure { stops } => format!("{stops} stops"),
-                    Effect::GaussianBlur { sigma_px } => format!("sigma {sigma_px}"),
+                    Effect::GaussianBlur { sigma_px, .. } => format!("sigma {sigma_px}"),
                     Effect::Tint { amount, .. } => format!("amount {amount}"),
                     Effect::LineSmooth { softness, .. } => format!("softness {softness}"),
                     Effect::SelectiveColorBlur { blur, .. } => format!("blur {blur}"),

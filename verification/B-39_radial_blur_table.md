@@ -59,7 +59,7 @@ D-95, accepted by the owner on 2026-09-25; FX-RADIAL-012's directional blur is r
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | the most spin, far off the drawing, does not grow its bounds | 0 | yes |
-| a half-size draft preview changes nothing: the amount and the centre are shares | RadialBlur { kind: "zoom", amount: 40.0, center: [20.0, 70.0] } | yes |
+| a half-size draft preview changes nothing: the amount and the centre are shares | RadialBlur { kind: "zoom", amount: 40.0, center: [20.0, 70.0], edges: "transparent" } | yes |
 
 ## The file
 

@@ -117,7 +117,7 @@ pub(crate) fn bloom(
     // Length 0 is the light itself, whatever the lines.
     for j in 0..lines {
         let u = along(angle + j as f64 * 180.0 / lines as f64);
-        let streak = (length != 0.0).then(|| by_lines(&light, u, &streak_weights(u, length), grow));
+        let streak = (length != 0.0).then(|| by_lines(&light, u, &streak_weights(u, length), grow, false));
         let share = 1.0 / lines as f32;
         halo.data_mut()
             .par_chunks_exact_mut(gw * 4)

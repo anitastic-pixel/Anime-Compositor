@@ -6436,7 +6436,11 @@ const EFFECT_PARAMS = {
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
 // colours, as [name, label], or [name, label, [none, one]] for a colour that may be left empty;
 // and `chosen`, when it has a list of chosen colours, saying when the list is shown.
+// D-109: the three blurs' edges.
+const EDGES = ['edges', 'Edges', [['transparent', 'Transparent'], ['repeat', 'Repeat Edge Pixels']]];
 const EFFECT_WORDS = {
+  'core.gaussian_blur': { choices: [EDGES] },
+  'core.directional_blur': { choices: [EDGES] },
   'core.selective_color_blur': { chosen: () => true },
   // D-89. The colours show only when a glow is based on them, and are kept when it is not.
   'core.glow': {
@@ -6458,7 +6462,7 @@ const EFFECT_WORDS = {
   },
   // D-95.
   'core.radial_blur': {
-    choices: [['type', 'Type', [['spin', 'Spin'], ['zoom', 'Zoom']]]],
+    choices: [['type', 'Type', [['spin', 'Spin'], ['zoom', 'Zoom']]], EDGES],
   },
   // D-96.
   'core.bloom': {
@@ -6661,7 +6665,9 @@ function effectRow(layer, fx, at, of) {
   const spec = EFFECT_WORDS[fx.type_id] || {};
   const chosen = spec.chosen ? [...((fx.parameters || {}).colors || [])] : null;
   const words = {};
-  for (const [w] of [...(spec.choices || []), ...(spec.colours || [])]) words[w] = fx.parameters[w];
+  // A switch the file leaves out is at its first choice (D-109's edges).
+  for (const [w, , options] of spec.choices || []) words[w] = fx.parameters[w] ?? options[0][0];
+  for (const [w] of spec.colours || []) words[w] = fx.parameters[w];
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.

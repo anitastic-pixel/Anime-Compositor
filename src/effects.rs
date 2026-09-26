@@ -175,7 +175,8 @@ pub enum Effect {
     /// alpha is unchanged."
     Exposure { stops: f64 },
     /// Document 21: "parameter `sigma_px >= 0` ... kernel radius `ceil(3*sigma_px)`."
-    GaussianBlur { sigma_px: f64 },
+    /// D-109: `edges`, "transparent" or "repeat", as Directional and Radial Blur have.
+    GaussianBlur { sigma_px: f64, edges: String },
     /// Document 21: "parameter color is linear RGB and amount `t` in 0..1."
     Tint { color: [f64; 3], amount: f64 },
     /// D-86: "`softness`, 0 to 100 ... and `threshold`, 0 to 255". Document 21's line smoothing.
@@ -210,8 +211,8 @@ pub enum Effect {
         new_color: String,
     },
     /// D-92: `direction`, degrees clockwise from up, -3600 to 3600, and `length`, the whole
-    /// streak in pixels, 0 to 500.
-    DirectionalBlur { direction: f64, length: f64 },
+    /// streak in pixels, 0 to 500. D-109: `edges`, "transparent" or "repeat".
+    DirectionalBlur { direction: f64, length: f64, edges: String },
     /// D-93: `colors` and `tolerance` as D-88's, and `keep`, "chosen" or "others": the pixels
     /// kept, every other one made transparent.
     SelectColor {
@@ -229,11 +230,12 @@ pub enum Effect {
     },
     /// D-95: `kind`, the file's `type`, "spin" or "zoom"; `amount`, 0 to 100, degrees of arc
     /// or per cent of the distance; and `center`, per cent of the drawing's width and height,
-    /// each -1000 to 1000.
+    /// each -1000 to 1000. D-109: `edges`, "transparent" or "repeat".
     RadialBlur {
         kind: String,
         amount: f64,
         center: [f64; 2],
+        edges: String,
     },
     /// D-96: `threshold`, 0 to 100, glow's bright test; `radius`, 0 to 500 pixels; `intensity`,
     /// 0 to 10; `streaks`, "none", "cross" or "star"; `length`, 0 to 500 pixels each way; and
@@ -300,7 +302,7 @@ impl Effect {
         match self {
             // D-90: past 20 stops `2^e` soon overflows, and a sigma past 500 a machine's memory.
             Effect::Exposure { stops } => vec![("stops", vec![stops], -20.0, 20.0)],
-            Effect::GaussianBlur { sigma_px } => vec![("sigma_px", vec![sigma_px], 0.0, 500.0)],
+            Effect::GaussianBlur { sigma_px, .. } => vec![("sigma_px", vec![sigma_px], 0.0, 500.0)],
             // A colour in linear light has no range but being a number.
             Effect::Tint { color, amount } => vec![
                 ("color", color.iter_mut().collect(), f64::MIN, f64::MAX),
@@ -334,7 +336,7 @@ impl Effect {
             Effect::LineRecolor { tolerance, .. } | Effect::SelectColor { tolerance, .. } => {
                 vec![("tolerance", vec![tolerance], 0.0, 255.0)]
             }
-            Effect::DirectionalBlur { direction, length } => vec![
+            Effect::DirectionalBlur { direction, length, .. } => vec![
                 ("direction", vec![direction], -3600.0, 3600.0),
                 ("length", vec![length], 0.0, 500.0),
             ],
@@ -417,7 +419,7 @@ impl Effect {
             return;
         }
         match self {
-            Effect::GaussianBlur { sigma_px } => *sigma_px = scale(*sigma_px),
+            Effect::GaussianBlur { sigma_px, .. } => *sigma_px = scale(*sigma_px),
             // D-87's blur and D-89's radius are distances in pixels too.
             Effect::SelectiveColorBlur { blur, .. } => *blur = scale(*blur),
             Effect::Glow { radius, .. } => *radius = scale(*radius),
@@ -479,7 +481,13 @@ impl Effect {
     /// difference is never mistaken for a rendered result.
     pub fn bounds_expansion(&self) -> usize {
         match self {
-            Effect::GaussianBlur { sigma_px } => kernel_radius(*sigma_px),
+            // D-109: a blur repeating its edge pixels draws nothing past them.
+            Effect::GaussianBlur { edges, .. } | Effect::DirectionalBlur { edges, .. }
+                if edges == "repeat" =>
+            {
+                0
+            }
+            Effect::GaussianBlur { sigma_px, .. } => kernel_radius(*sigma_px),
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
             Effect::Glow { radius, .. } => kernel_radius(*radius / 3.0),
             // D-92: half the streak, on each side.
@@ -506,7 +514,9 @@ impl Effect {
         match self {
             // D-90: past 20 stops `2^e` soon overflows, and a sigma past 500 a machine's memory.
             Effect::Exposure { stops } => (-20.0..=20.0).contains(stops),
-            Effect::GaussianBlur { sigma_px } => (0.0..=500.0).contains(sigma_px),
+            Effect::GaussianBlur { sigma_px, .. } => {
+                (0.0..=500.0).contains(sigma_px) && self.fault().is_none()
+            }
             Effect::Tint { color, amount } => {
                 color.iter().all(|c| c.is_finite())
                     && amount.is_finite()
@@ -538,7 +548,7 @@ impl Effect {
             Effect::Exposure { stops } => {
                 format!("Exposure runs from -20 to 20 stops, and this is {stops}.")
             }
-            Effect::GaussianBlur { sigma_px } => {
+            Effect::GaussianBlur { sigma_px, .. } if !(0.0..=500.0).contains(sigma_px) => {
                 format!("A Gaussian blur's sigma runs from 0 to 500, and this is {sigma_px}.")
             }
             Effect::Tint { amount, .. } => {
@@ -609,7 +619,16 @@ impl Effect {
                 )
             })
         };
+        // D-109.
+        let edges = |e: &String| {
+            (!["transparent", "repeat"].contains(&e.as_str())).then(|| {
+                format!("{name}'s edges are \"transparent\" or \"repeat\", and this is \"{e}\".")
+            })
+        };
         let own = match self {
+            Effect::GaussianBlur { edges: e, .. } | Effect::DirectionalBlur { edges: e, .. } => {
+                edges(e)
+            }
             Effect::LineRecolor {
                 colors, new_color, ..
             } => chosen(colors).or_else(|| one("new colour", new_color)),
@@ -627,8 +646,10 @@ impl Effect {
                     )
                 })
             }),
-            Effect::RadialBlur { kind, .. } => (!["spin", "zoom"].contains(&kind.as_str()))
-                .then(|| format!("{name}'s type is \"spin\" or \"zoom\", and this is \"{kind}\".")),
+            Effect::RadialBlur { kind, edges: e, .. } => (!["spin", "zoom"]
+                .contains(&kind.as_str()))
+            .then(|| format!("{name}'s type is \"spin\" or \"zoom\", and this is \"{kind}\"."))
+            .or_else(|| edges(e)),
             Effect::Bloom { streaks, .. } => (!["none", "cross", "star"]
                 .contains(&streaks.as_str()))
             .then(|| {
@@ -801,9 +822,15 @@ pub fn apply_stack(
                     tint(source, *color, *amount)
                 })
             }
-            Effect::GaussianBlur { sigma_px } => {
-                let r =
-                    crate::perf::time(crate::perf::Stage::EffectBlur, || blur(source, *sigma_px));
+            Effect::GaussianBlur { sigma_px, edges } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectBlur, || {
+                    if edges == "repeat" {
+                        held_blur(source, *sigma_px);
+                        0
+                    } else {
+                        blur(source, *sigma_px)
+                    }
+                });
                 ox += r;
                 oy += r;
             }
@@ -849,9 +876,13 @@ pub fn apply_stack(
             } => crate::perf::time(crate::perf::Stage::EffectRecolor, || {
                 crate::cel_fx::line_recolor(source, colors, *tolerance, new_color)
             }),
-            Effect::DirectionalBlur { direction, length } => {
+            Effect::DirectionalBlur {
+                direction,
+                length,
+                edges,
+            } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
-                    crate::blurs::directional_blur(source, *direction, *length)
+                    crate::blurs::directional_blur(source, *direction, *length, edges == "repeat")
                 });
                 ox += r;
                 oy += r;
@@ -887,10 +918,11 @@ pub fn apply_stack(
                 kind,
                 amount,
                 center,
+                edges,
             } => {
                 let c = radial_center(*center, source, (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectRadial, || {
-                    crate::blurs::radial_blur(source, kind == "spin", *amount, c)
+                    crate::blurs::radial_blur(source, kind == "spin", *amount, c, edges == "repeat")
                 })
             }
             Effect::Bloom {
@@ -1031,6 +1063,43 @@ pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
 
     *source = tall;
     radius
+}
+
+/// D-109: [`blur`] with the edge pixels repeated. Each tap's column, and then its row, is held
+/// inside the picture, so nothing outside it is read and the buffer keeps its size. The taps of
+/// a pixel are added in [`convolve`]'s order.
+// ponytail: a pixel at a time, not P-16's runs; the runs are the upgrade if a repeated blur on
+// a full-frame plate shows up in a trace.
+pub(crate) fn held_blur(source: &mut WorkingBuffer, sigma_px: f64) {
+    let r = kernel_radius(sigma_px);
+    if r == 0 {
+        return;
+    }
+    let weights = gaussian_weights(sigma_px);
+    let (w, h) = (source.width(), source.height());
+    let pass = |src: &WorkingBuffer, axis: Axis| {
+        let mut dst = WorkingBuffer::transparent(w, h);
+        dst.data_mut()
+            .par_chunks_mut(w * 4)
+            .enumerate()
+            .for_each(|(y, out)| {
+                for (x, px) in out.chunks_exact_mut(4).enumerate() {
+                    for (k, &weight) in weights.iter().enumerate() {
+                        let (sx, sy) = match axis {
+                            Axis::X => ((x + k).saturating_sub(r).min(w - 1), y),
+                            Axis::Y => (x, (y + k).saturating_sub(r).min(h - 1)),
+                        };
+                        let i = (sy * w + sx) * 4;
+                        for (o, &v) in px.iter_mut().zip(&src.data()[i..i + 4]) {
+                            *o += v * weight;
+                        }
+                    }
+                }
+            });
+        dst
+    };
+    let wide = pass(source, Axis::X);
+    *source = pass(&wide, Axis::Y);
 }
 
 #[derive(Clone, Copy)]

@@ -55,7 +55,7 @@ D-92, accepted by the owner on 2026-09-25, read by D-98's lines since B-42 the s
 | length 4 grows the drawing's bounds by 2, half, rounded up | 2 | yes |
 | length 5 grows the drawing's bounds by 3, half, rounded up | 3 | yes |
 | length 500 grows the drawing's bounds by 250, half, rounded up | 250 | yes |
-| a half-size draft preview halves the length and keeps the direction | DirectionalBlur { direction: 90.0, length: 4.0 } | yes |
+| a half-size draft preview halves the length and keeps the direction | DirectionalBlur { direction: 90.0, length: 4.0, edges: "transparent" } | yes |
 
 ## The file
 

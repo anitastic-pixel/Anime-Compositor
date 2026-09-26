@@ -2708,7 +2708,10 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
 fn new_effect(type_id: &str) -> Option<Effect> {
     match type_id {
         EXPOSURE => Some(Effect::Exposure { stops: 0.0 }),
-        GAUSSIAN_BLUR => Some(Effect::GaussianBlur { sigma_px: 0.0 }),
+        GAUSSIAN_BLUR => Some(Effect::GaussianBlur {
+            sigma_px: 0.0,
+            edges: "transparent".to_string(),
+        }),
         TINT => Some(Effect::Tint {
             color: [0.0, 0.0, 0.0],
             amount: 0.0,
@@ -2740,6 +2743,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         DIRECTIONAL_BLUR => Some(Effect::DirectionalBlur {
             direction: 0.0,
             length: 10.0,
+            edges: "transparent".to_string(),
         }),
         // D-93: no colour chosen, so adding it changes nothing until one is.
         SELECT_COLOR => Some(Effect::SelectColor {
@@ -2759,6 +2763,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             kind: "spin".to_string(),
             amount: 10.0,
             center: [50.0, 50.0],
+            edges: "transparent".to_string(),
         }),
         // D-96: its own starting settings, no streaks.
         BLOOM => Some(Effect::Bloom {
@@ -2803,6 +2808,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             .map(|t| t.trim().to_ascii_lowercase())
             .ok_or_else(|| format!("What should {name} be set to?"))
     };
+    // D-109: a blur's edges, transparent when the command does not say.
+    let edges = || word("edges").unwrap_or_else(|_| "transparent".to_string());
     // Chosen colours as one comma-separated list, empty for none.
     let colors = || -> Result<Vec<String>, String> {
         Ok(word("colors")?
@@ -2817,6 +2824,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         }),
         GAUSSIAN_BLUR => Ok(Effect::GaussianBlur {
             sigma_px: number("sigma_px")?,
+            edges: edges(),
         }),
         TINT => {
             let Some(text) = parameter(query, "color") else {
@@ -2877,6 +2885,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         DIRECTIONAL_BLUR => Ok(Effect::DirectionalBlur {
             direction: number("direction")?,
             length: number("length")?,
+            edges: edges(),
         }),
         SELECT_COLOR => Ok(Effect::SelectColor {
             colors: colors()?,
@@ -2908,6 +2917,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 kind: word("type")?,
                 amount: number("amount")?,
                 center: [x, y],
+                edges: edges(),
             })
         }
         BLOOM => Ok(Effect::Bloom {
@@ -21246,7 +21256,7 @@ mod contract {
         run(&viewer, "edit.undo");
         report.check(
             "so undoing once goes back one commit, not back to before the field was touched",
-            "GaussianBlur { sigma_px: 6.0 }",
+            "GaussianBlur { sigma_px: 6.0, edges: \"transparent\" }",
             layer(&viewer, "layer-1", |l| {
                 l.effects
                     .iter()
@@ -21274,7 +21284,7 @@ mod contract {
         );
         report.check(
             "and the entry holds the last keystroke, not the first",
-            "GaussianBlur { sigma_px: 3.5 }",
+            "GaussianBlur { sigma_px: 3.5, edges: \"transparent\" }",
             layer(&viewer, "layer-1", |l| {
                 l.effects
                     .iter()

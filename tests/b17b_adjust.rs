@@ -354,7 +354,7 @@ fn b17b_adjust() {
         .find(|l| l.id.as_str() == "adj")
         .and_then(|l| l.adjust.as_ref())
         .and_then(|stack| match stack[0].effect {
-            Effect::GaussianBlur { sigma_px } => Some(sigma_px),
+            Effect::GaussianBlur { sigma_px, .. } => Some(sigma_px),
             _ => None,
         });
     t.row(
