@@ -544,6 +544,8 @@ B-61 / Outline, D-118, the eighth of the batch of ten: a coloured line round the
 
 B-62 / Noise, D-119, the ninth of the batch of ten: film grain, the same on every run for a seed, moving or held. **B-62a is written on 2026-09-26**: `verification/B-62a proposal/`, D-119 in document 14, the rule in document 21, FX-NOISE-001 to 018 in document 25 from `tools/noise_reference.py`, which writes `Fixtures/noise/`. **B-62b, the build, is next.**
 
+B-63 / Chromatic Aberration, D-120, the last of the batch of ten: red and blue split apart about a centre, as a lens does. **B-63a is written on 2026-09-26**: `verification/B-63a proposal/`, D-120 in document 14, the rule in document 21, FX-CHROMA-001 to 016 in document 25 from `tools/chromatic_aberration_reference.py`, which writes `Fixtures/chromatic_aberration/`. **B-63b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
