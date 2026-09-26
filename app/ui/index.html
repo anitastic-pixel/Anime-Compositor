@@ -988,6 +988,7 @@
         <option value="core.bloom">Bloom</option>
         <option value="core.color_key">Colour Key</option>
         <option value="core.curves">Curves</option>
+        <option value="core.levels">Levels</option>
       </select>
     </div>
   </section>
@@ -6391,6 +6392,7 @@ const EFFECT_NAMES = {
   'core.bloom': 'Bloom',
   'core.color_key': 'Colour Key',
   'core.curves': 'Curves',
+  'core.levels': 'Levels',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6436,6 +6438,12 @@ const EFFECT_PARAMS = {
     ['softness', 'Softness', 1, 0.5, '0 to 255']],
   // D-111: its four curves are lists of points, drawn apart in effectRow.
   'core.curves': [],
+  // D-112, named as After Effects names them, on the 0 to 255 scale of a drawing program.
+  'core.levels': [['input_black', 'Input Black', 1, 0.5, '0 to 255'],
+    ['input_white', 'Input White', 1, 0.5, '0 to 255'],
+    ['gamma', 'Gamma', 1, 0.01, '0.1 to 10, above 1 lightens the middle'],
+    ['output_black', 'Output Black', 1, 0.5, '0 to 255'],
+    ['output_white', 'Output White', 1, 0.5, '0 to 255']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

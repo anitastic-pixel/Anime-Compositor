@@ -1044,6 +1044,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 );
             }
         }
+        Effect::Levels {
+            input_black,
+            input_white,
+            gamma,
+            output_black,
+            output_white,
+        } => {
+            params.insert("input_black".into(), num(*input_black));
+            params.insert("input_white".into(), num(*input_white));
+            params.insert("gamma".into(), num(*gamma));
+            params.insert("output_black".into(), num(*output_black));
+            params.insert("output_white".into(), num(*output_white));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1411,6 +1424,11 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "width",
         "center",
         "angle",
+        "input_black",
+        "input_white",
+        "gamma",
+        "output_black",
+        "output_white",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2206,6 +2224,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::BLOOM,
                 crate::effects::COLOR_KEY,
                 crate::effects::CURVES,
+                crate::effects::LEVELS,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2301,6 +2320,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     red: effect_points(params, "red", &at)?,
                     green: effect_points(params, "green", &at)?,
                     blue: effect_points(params, "blue", &at)?,
+                }),
+                crate::effects::LEVELS => Some(crate::effects::Effect::Levels {
+                    input_black: effect_number(params, "input_black", &at)?,
+                    input_white: effect_number(params, "input_white", &at)?,
+                    gamma: effect_number(params, "gamma", &at)?,
+                    output_black: effect_number(params, "output_black", &at)?,
+                    output_white: effect_number(params, "output_white", &at)?,
                 }),
                 _ => None,
             };

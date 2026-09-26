@@ -1,8 +1,8 @@
 //! The batch of ten's colour effects, each a pixel at a time on a layer's own pixels: D-111's
-//! curves.
+//! curves and D-112's levels.
 //!
-//! This program's own methods; nothing is ported. `tools/curves_reference.py` is the same rule
-//! worked a second way, and `tests/b54_curves.rs` holds this to its numbers.
+//! This program's own methods; nothing is ported. Each effect's `tools/<name>_reference.py` is
+//! the same rule worked a second way, and its `tests/b5x_<name>.rs` holds this to its numbers.
 
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -25,20 +25,30 @@ fn to_srgb(c: f64) -> f64 {
 }
 
 /// The batch's shared colour rule: a pixel that shows is taken to its straight colour through
-/// the sRGB curve, each channel's 0 to 255 value goes through `f(channel, value)`, and the
-/// result, held inside 0 to 255, comes back to linear at the pixel's own covering. A pixel that
-/// does not show is left as it is.
+/// the sRGB curve, 0 to 1, goes through `f(pixel index, colour)`, and the result, held inside
+/// 0 to 1, comes back to linear at the pixel's own covering. A pixel that does not show is left
+/// as it is.
+fn grade_pixels(source: &mut WorkingBuffer, f: impl Fn(usize, [f64; 3]) -> [f64; 3] + Sync) {
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let e = std::array::from_fn(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)));
+            let out = f(i, e);
+            for c in 0..3 {
+                px[c] = (to_linear(out[c].clamp(0.0, 1.0)) * a) as f32;
+            }
+        });
+}
+
+/// The same, a channel at a time on the 0 to 255 scale: `f(channel, value)`.
 fn grade(source: &mut WorkingBuffer, f: impl Fn(usize, f64) -> f64 + Sync) {
-    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
-        let a = px[3] as f64;
-        if a <= 0.0 {
-            return;
-        }
-        for c in 0..3 {
-            let e = to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
-            px[c] = (to_linear((f(c, e * 255.0) / 255.0).clamp(0.0, 1.0)) * a) as f32;
-        }
-    });
+    grade_pixels(source, |_, e| std::array::from_fn(|c| f(c, e[c] * 255.0) / 255.0));
 }
 
 /// D-111's default curve, which changes nothing.
@@ -97,4 +107,21 @@ pub(crate) fn curves(source: &mut WorkingBuffer, master: &[Vec<f64>], rgb: [&[Ve
     let m = spline(master);
     let c = rgb.map(spline);
     grade(source, |i, x| m(c[i](x).clamp(0.0, 255.0)).clamp(0.0, 255.0));
+}
+
+/// D-112: each channel from the input range to 0..1, held there, bent by the gamma and laid on
+/// the output range. An input white equal to its black is a threshold. The settings are
+/// already valid and held; the defaults change nothing.
+pub(crate) fn levels(source: &mut WorkingBuffer, [ib, iw, gamma, ob, ow]: [f64; 5]) {
+    if [ib, iw, gamma, ob, ow] == [0.0, 255.0, 1.0, 0.0, 255.0] {
+        return;
+    }
+    grade(source, |_, x| {
+        let v = if iw == ib {
+            if x >= ib { 1.0 } else { 0.0 }
+        } else {
+            ((x - ib) / (iw - ib)).clamp(0.0, 1.0)
+        };
+        ob + v.powf(1.0 / gamma) * (ow - ob)
+    });
 }

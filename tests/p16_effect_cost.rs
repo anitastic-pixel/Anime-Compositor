@@ -154,6 +154,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 blue: vec![vec![0.0, 255.0], vec![255.0, 0.0]],
             },
         ),
+        (
+            "Levels, all five",
+            Effect::Levels {
+                input_black: 32.0,
+                input_white: 224.0,
+                gamma: 1.5,
+                output_black: 16.0,
+                output_white: 240.0,
+            },
+        ),
     ]
 }
 

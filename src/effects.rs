@@ -265,6 +265,16 @@ pub enum Effect {
         green: Vec<Vec<f64>>,
         blue: Vec<Vec<f64>>,
     },
+    /// D-112: `input_black` and `input_white`, 0 to 255, the range taken to 0..1; `gamma`, 0.1
+    /// to 10, above 1 lightening the middle; and `output_black` and `output_white`, 0 to 255,
+    /// the range it is laid on. A white below its black inverts.
+    Levels {
+        input_black: f64,
+        input_white: f64,
+        gamma: f64,
+        output_black: f64,
+        output_white: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -285,6 +295,7 @@ pub const RADIAL_BLUR: &str = "core.radial_blur";
 pub const BLOOM: &str = "core.bloom";
 pub const COLOR_KEY: &str = "core.color_key";
 pub const CURVES: &str = "core.curves";
+pub const LEVELS: &str = "core.levels";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -383,6 +394,19 @@ impl Effect {
             ],
             // D-111: points are not keyed, so a curve is no setting of numbers here.
             Effect::Curves { .. } => vec![],
+            Effect::Levels {
+                input_black,
+                input_white,
+                gamma,
+                output_black,
+                output_white,
+            } => vec![
+                ("input_black", vec![input_black], 0.0, 255.0),
+                ("input_white", vec![input_white], 0.0, 255.0),
+                ("gamma", vec![gamma], 0.1, 10.0),
+                ("output_black", vec![output_black], 0.0, 255.0),
+                ("output_white", vec![output_white], 0.0, 255.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -461,6 +485,7 @@ impl Effect {
             Effect::Bloom { .. } => "Bloom",
             Effect::ColorKey { .. } => "Colour Key",
             Effect::Curves { .. } => "Curves",
+            Effect::Levels { .. } => "Levels",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -481,6 +506,7 @@ impl Effect {
             Effect::Bloom { .. } => BLOOM,
             Effect::ColorKey { .. } => COLOR_KEY,
             Effect::Curves { .. } => CURVES,
+            Effect::Levels { .. } => LEVELS,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1010,6 +1036,18 @@ pub fn apply_stack(
                 blue,
             } => crate::perf::time(crate::perf::Stage::EffectCurves, || {
                 crate::grade::curves(source, master, [red, green, blue])
+            }),
+            Effect::Levels {
+                input_black,
+                input_white,
+                gamma,
+                output_black,
+                output_white,
+            } => crate::perf::time(crate::perf::Stage::EffectLevels, || {
+                crate::grade::levels(
+                    source,
+                    [*input_black, *input_white, *gamma, *output_black, *output_white],
+                )
             }),
         }
     }
