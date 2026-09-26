@@ -144,9 +144,9 @@ pub fn plan_frame_at(
 }
 
 /// B-46: [`plan_frame_at`] for a frame the graphics card will draw. A drawn layer whose stack
-/// ends in a Radial Blur has the effects before it run here and the blur left in
-/// [`LayerDraw::radial`] for the card. [`render::render`] runs a blur left there itself, so the
-/// plan is still the same frame if the CPU draws it after all.
+/// ends in a Radial Blur, or (B-47) a Bloom, has the effects before it run here and the last left
+/// in [`LayerDraw::on_card`] for the card. [`render::render`] runs an effect left there itself,
+/// so the plan is still the same frame if the CPU draws it after all.
 pub fn plan_frame_for_card(
     project: &Project,
     composition_id: &Id,
@@ -323,7 +323,7 @@ fn plan_inside(
                     .is_adjustment()
                     .then(|| layer.effects.iter().map(|i| i.at(frame)).collect()),
                 nested: resolved.nested,
-                radial: resolved.radial,
+                on_card: resolved.on_card,
             },
         ));
     }
@@ -351,8 +351,8 @@ struct ResolvedLayer {
     opacity: f32,
     /// D-67: the composition and the frame of it that `source` is, for a composition layer.
     nested: Option<(Id, i32)>,
-    /// B-46: a Radial Blur left for the graphics card.
-    radial: Option<render::Radial>,
+    /// B-46, B-47: an effect left for the graphics card.
+    on_card: Option<render::OnCard>,
 }
 
 /// Steps 1 through 6 of document 21 for one layer: find its drawing at this frame, decode it,
@@ -861,7 +861,7 @@ fn resolve_layer(
                         blend: crate::model::BlendMode::Normal,
                         adjust: None,
                         nested: None,
-                        radial: None,
+                        on_card: None,
                     }],
                 },
                 quality,
@@ -1125,13 +1125,17 @@ fn resolve_rest(
         .cloned()
         .collect();
 
-    // B-46: a drawing whose last effect switched on is a Radial Blur this build can draw has only
-    // the effects before it run here, when the plan is for the card. Those are what the effect
-    // cache is asked for, a stack of their own, so it never hands one path's result to the other.
+    // B-46: a drawing whose last effect switched on is a Radial Blur, or (B-47) a Bloom, this
+    // build can draw has only the effects before it run here, when the plan is for the card.
+    // Those are what the effect cache is asked for, a stack of their own, so it never hands one
+    // path's result to the other.
     let last = effects.iter().rposition(|i| i.enabled);
     let left = last.filter(|&i| {
         card && cel.is_some()
-            && matches!(effects[i].effect, crate::effects::Effect::RadialBlur { .. })
+            && matches!(
+                effects[i].effect,
+                crate::effects::Effect::RadialBlur { .. } | crate::effects::Effect::Bloom { .. }
+            )
             && effects[i].effect.is_valid()
     });
     let before = left.unwrap_or(effects.len());
@@ -1223,13 +1227,31 @@ fn resolve_rest(
             }
         }
     };
-    let radial = left.map(|i| match &effects[i].effect {
-        crate::effects::Effect::RadialBlur { kind, amount, center } => render::Radial {
-            spin: kind == "spin",
-            amount: *amount,
-            center: crate::effects::radial_center(*center, &source, offset),
-        },
-        _ => unreachable!("chosen above for being a Radial Blur"),
+    let mut offset = offset;
+    let on_card = left.and_then(|i| {
+        let mut effect = effects[i].effect.clone();
+        effect.scale_distances(|d| d / pre);
+        match effect {
+            crate::effects::Effect::RadialBlur { kind, amount, center } => Some(render::OnCard::Radial(render::Radial {
+                spin: kind == "spin",
+                amount,
+                center: crate::effects::radial_center(center, &source, offset),
+            })),
+            // B-47: a Bloom that lights nothing changes nothing and grows nothing, on the CPU too,
+            // so it is not left at all. One that does grows the drawing by its reach.
+            crate::effects::Effect::Bloom { threshold, radius, intensity, streaks, length, angle } => {
+                use rayon::prelude::*;
+                let lit = intensity != 0.0
+                    && source.data().par_chunks_exact(4).any(|px| crate::bloom::bright(px, threshold));
+                let lines = crate::bloom::lines(&streaks);
+                let grow = crate::bloom::reach(radius, lines, length);
+                lit.then(|| {
+                    offset = (offset.0 + grow, offset.1 + grow);
+                    render::OnCard::Bloom(render::Bloom { threshold, radius, intensity, lines, length, angle })
+                })
+            }
+            _ => unreachable!("chosen above for being a Radial Blur or a Bloom"),
+        }
     });
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of
@@ -1321,7 +1343,7 @@ fn resolve_rest(
 
     Some(ResolvedLayer {
         source,
-        radial,
+        on_card,
         // Document 21 step 4. Scale is a unit factor in the model (D-22); the divide by 100
         // lives at the file and UI boundaries, not here.
         //

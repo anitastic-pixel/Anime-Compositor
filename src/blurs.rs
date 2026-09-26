@@ -49,6 +49,38 @@ pub(crate) struct Weights {
     pub ends: Vec<(isize, f64)>,
 }
 
+/// D-98's lines over a `width` by `height` layer grown by `grow`: whether x and y are exchanged
+/// (mostly down), the slope, the grown size in the exchanged picture, and the first and last
+/// line. B-47's card draws the same lines from these.
+pub(crate) struct LineFrame {
+    pub down: bool,
+    pub s: f64,
+    pub ow: usize,
+    pub oh: usize,
+    pub k0: isize,
+    pub k1: isize,
+}
+
+pub(crate) fn line_frame(u: (f64, f64), width: usize, height: usize, grow: usize) -> LineFrame {
+    let down = u.0.abs() < u.1.abs();
+    let (u, w, h) = if down { ((u.1, u.0), height, width) } else { (u, width, height) };
+    let s = u.1 / u.0;
+    let g = grow as isize;
+    let (ow, oh) = (w + 2 * grow, h + 2 * grow);
+    // Line k runs through y = k + 0.5 + x s in layer pixels; the pixel (x, y) sits between
+    // lines floor(y - x s) and the one after, and the corners give the first and last needed.
+    let line_of = |x: isize, y: isize| (y as f64 - x as f64 * s).floor() as isize;
+    let corners = [
+        (-g, -g),
+        (ow as isize - 1 - g, -g),
+        (-g, oh as isize - 1 - g),
+        (ow as isize - 1 - g, oh as isize - 1 - g),
+    ];
+    let k0 = corners.iter().map(|&(x, y)| line_of(x, y)).min().unwrap();
+    let k1 = corners.iter().map(|&(x, y)| line_of(x, y)).max().unwrap() + 1;
+    LineFrame { down, s, ow, oh, k0, k1 }
+}
+
 /// D-98: `source` read along lines of step `u`, one pixel apart, each point of a line the
 /// weighted sum of the line's samples at the column centres, and each pixel of the layer grown
 /// by `grow` the straight mix of the two lines round its centre. Mostly down is mostly across
@@ -61,15 +93,8 @@ pub(crate) fn by_lines(
     grow: usize,
 ) -> WorkingBuffer {
     // Below, x and y are across and down in the exchanged picture when `down`.
-    let down = u.0.abs() < u.1.abs();
-    let (u, w, h) = if down {
-        ((u.1, u.0), source.height(), source.width())
-    } else {
-        (u, source.width(), source.height())
-    };
-    let s = u.1 / u.0;
+    let LineFrame { down, s, ow, oh, k0, k1 } = line_frame(u, source.width(), source.height(), grow);
     let g = grow as isize;
-    let (ow, oh) = (w + 2 * grow, h + 2 * grow);
     let reach = wt
         .ends
         .iter()
@@ -78,17 +103,6 @@ pub(crate) fn by_lines(
         .unwrap_or(0)
         .max(wt.inner);
     let span = ow + 2 * reach;
-    // Line k runs through y = k + 0.5 + x s in layer pixels; the pixel (x, y) sits between
-    // lines floor(y - x s) and the one after, and the corners give the first and last needed.
-    let line_of = |x: isize, y: isize| (y as f64 - x as f64 * s).floor() as isize;
-    let corners = [
-        (-g, -g),
-        (ow as isize - 1 - g, -g),
-        (-g, oh as isize - 1 - g),
-        (ow as isize - 1 - g, oh as isize - 1 - g),
-    ];
-    let k0 = corners.iter().map(|&(x, y)| line_of(x, y)).min().unwrap();
-    let k1 = corners.iter().map(|&(x, y)| line_of(x, y)).max().unwrap() + 1;
     // Whether a sample can be anything but zero: by each row's span across, or by the
     // drawing's box down, which is enough to skip an empty cel's lines.
     let spans = spans(source);

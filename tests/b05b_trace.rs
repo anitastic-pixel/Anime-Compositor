@@ -105,7 +105,7 @@ fn fixture_plan() -> FramePlan {
                 blend: BlendMode::Normal,
                 adjust: None,
                 nested: None,
-                radial: None,
+                on_card: None,
             },
             LayerDraw {
                 id: Id::new("fg"),
@@ -116,7 +116,7 @@ fn fixture_plan() -> FramePlan {
                 blend: BlendMode::Normal,
                 adjust: None,
                 nested: None,
-                radial: None,
+                on_card: None,
             },
         ],
     }
@@ -283,7 +283,7 @@ fn b05b_trace_fixtures() {
                 blend: BlendMode::Normal,
                 adjust: None,
                 nested: None,
-                radial: None,
+                on_card: None,
                 ..plan.layers[1].clone()
             }],
         },
@@ -511,7 +511,7 @@ fn b05b_trace_fixtures() {
                 blend: BlendMode::Normal,
                 adjust: None,
                 nested: None,
-                radial: None,
+                on_card: None,
             },
             LayerDraw {
                 id: Id::new(&long_id),
@@ -522,7 +522,7 @@ fn b05b_trace_fixtures() {
                 blend: BlendMode::Normal,
                 adjust: None,
                 nested: None,
-                radial: None,
+                on_card: None,
             },
         ],
     };
@@ -608,7 +608,7 @@ fn b05b_a_unicode_layer_id_survives_the_round_trip() {
             blend: BlendMode::Normal,
             adjust: None,
             nested: None,
-            radial: None,
+            on_card: None,
         }],
     };
     let (_, written) = render_traced(
@@ -703,7 +703,7 @@ fn reference_plan() -> Option<FramePlan> {
             blend: BlendMode::Normal,
             adjust: None,
             nested: None,
-            radial: None,
+            on_card: None,
         });
     }
     Some(FramePlan {

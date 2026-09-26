@@ -1,15 +1,16 @@
-//! B-46: Radial Blur on the graphics card, and the check that it blurs as the CPU does.
+//! B-47: Bloom on the graphics card, and the check that it blooms as the CPU does.
 //!
 //! What is compared is what the page receives, eight-bit straight sRGB: the CPU's frame through
 //! `preview_frame_cached`, and the card's through `preview_frame_srgb8`, whose plan leaves a
-//! layer's last Radial Blur to the card. The CPU stays the authority (ADR-006, D-100).
+//! layer's last Bloom to the card. The CPU stays the authority (ADR-006, D-100).
 //!
-//! Each row also says whether the blur was in fact left to the card, since a row where it was
-//! not compares the CPU with itself.
+//! Each row also says whether the bloom was in fact left to the card, since a row where it was
+//! not compares the CPU with itself. A Bloom that lights nothing is not left (it changes
+//! nothing), so on those rows the two pictures must be the same bytes.
 //!
-//! Writes `verification/B-46_gpu_radial_table.md` and, for the worst frame, three pictures in
-//! `verification/B-46 pictures/`. `b46_gpu_radial_timing`, run deliberately in release, writes
-//! `verification/B-46_gpu_radial_timing_table.md`.
+//! Writes `verification/B-47_gpu_bloom_table.md` and, for the worst frame, three pictures in
+//! `verification/B-47 pictures/`. `b47_gpu_bloom_timing`, run deliberately in release, writes
+//! `verification/B-47_gpu_bloom_timing_table.md`.
 
 use std::fmt::Write as _;
 use std::fs;
@@ -31,7 +32,7 @@ use serde_json::json;
 mod common;
 use common::repo;
 
-/// D-103's proposed tolerance, in levels of 255.
+/// D-104's proposed tolerance, in levels of 255.
 const LIMIT: u8 = 1;
 
 struct Shot {
@@ -40,31 +41,32 @@ struct Shot {
     root: PathBuf,
     comp: Id,
     frames: Vec<i32>,
-    /// FX-RADIAL-013 to 018 have a setting out of range: the blur is left out with a warning on
+    /// FX-BLOOM-020 to 028 have a setting out of range: the bloom is left out with a warning on
     /// either path, and nothing is left to the card.
     invalid: bool,
 }
 
-/// The reference shot with Radial Blurs added: a zoom on the first layer, a Gaussian Blur and
-/// then a spin on the second, so the centre is found after the buffer grew, and the most spin
-/// there is on the third, which takes 256 samples a pixel over most of it.
-fn blurred_reference() -> Shot {
+/// The reference shot with Blooms added: the defaults on the first layer; a Gaussian Blur and
+/// then a star of long streaks on the second, so the bloom starts from a buffer that already
+/// grew; and a low threshold with a slanted cross at twice the strength on the third.
+fn bloomed_reference() -> Shot {
     let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
-    let radial = |id: &str, kind: &str, amount: f64, center: [f64; 2]| {
-        json!({"instance_id": id, "type_id": "core.radial_blur", "enabled": true,
-               "parameters": {"type": kind, "amount": amount, "center": center}})
+    let bloom = |id: &str, threshold: f64, radius: f64, intensity: f64, streaks: &str, length: f64, angle: f64| {
+        json!({"instance_id": id, "type_id": "core.bloom", "enabled": true,
+               "parameters": {"threshold": threshold, "radius": radius, "intensity": intensity,
+                              "streaks": streaks, "length": length, "angle": angle}})
     };
     let layers = &mut j["compositions"][0]["layers"];
-    layers[0]["effects"] = json!([radial("b46-a", "zoom", 30.0, [50.0, 50.0])]);
+    layers[0]["effects"] = json!([bloom("b47-a", 80.0, 20.0, 1.0, "none", 0.0, 0.0)]);
     layers[1]["effects"] = json!([
-        {"instance_id": "b46-b", "type_id": "core.gaussian_blur", "enabled": true, "parameters": {"sigma_px": 4.0}},
-        radial("b46-c", "spin", 12.0, [35.0, 60.0])
+        {"instance_id": "b47-b", "type_id": "core.gaussian_blur", "enabled": true, "parameters": {"sigma_px": 4.0}},
+        bloom("b47-c", 60.0, 10.0, 1.0, "star", 60.0, 15.0)
     ]);
-    layers[2]["effects"] = json!([radial("b46-d", "spin", 100.0, [50.0, 50.0])]);
-    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the blurred reference shot: {}", d.message));
+    layers[2]["effects"] = json!([bloom("b47-d", 30.0, 6.0, 2.0, "cross", 25.0, 30.0)]);
+    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the bloomed reference shot: {}", d.message));
     Shot {
-        name: "the reference shot with three Radial Blurs".into(),
+        name: "the reference shot with three Blooms".into(),
         project: loaded.document.project().clone(),
         root: repo("Fixtures/reference_shot"),
         comp: Id::new("comp-reference-shot"),
@@ -73,17 +75,17 @@ fn blurred_reference() -> Shot {
     }
 }
 
-/// FX-RADIAL-001 to 018, each at every frame it has.
+/// FX-BLOOM-001 to 028, each at every frame it has.
 fn fixtures() -> Vec<Shot> {
-    (1..=18)
+    (1..=28)
         .map(|n| {
-            let name = format!("fx_radial_{n:03}");
-            let loaded = persist::load(&repo(&format!("Fixtures/radial_blur/{name}.json")))
+            let name = format!("fx_bloom_{n:03}");
+            let loaded = persist::load(&repo(&format!("Fixtures/bloom/{name}.json")))
                 .unwrap_or_else(|d| panic!("{name}: {}", d.message));
             let project = loaded.document.project().clone();
             let comp = &project.compositions[0];
             let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
-            Shot { name, project, root: repo("Fixtures/radial_blur"), comp: id, frames, invalid: n >= 13 }
+            Shot { name, project, root: repo("Fixtures/bloom"), comp: id, frames, invalid: n >= 20 }
         })
         .collect()
 }
@@ -100,32 +102,32 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     (largest, pixels)
 }
 
-/// How many layers of the card's plan have a Radial Blur left for the card.
+/// How many layers of the card's plan have a Bloom left for the card.
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> usize {
     let mut log = FrameLog::new(3);
     compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer())
         .expect("plan the frame")
         .layers
         .iter()
-        .filter(|l| matches!(l.on_card, Some(anime_compositor::render::OnCard::Radial(_))))
+        .filter(|l| matches!(l.on_card, Some(anime_compositor::render::OnCard::Bloom(_))))
         .count()
 }
 
 #[test]
-fn b46_gpu_radial() {
-    let out = repo("verification/B-46_gpu_radial_table.md");
+fn b47_gpu_bloom() {
+    let out = repo("verification/B-47_gpu_bloom_table.md");
     let mut gpu = match Gpu::new() {
         Ok(gpu) => gpu,
         Err(why) => {
-            fs::write(&out, format!("# B-46: Radial Blur on the GPU\n\n**NOT RUN.** No usable card: {why}\n\nNo check in this table was run, so none of them passes.\n"))
-                .expect("write the B-46 table");
+            fs::write(&out, format!("# B-47: Bloom on the GPU\n\n**NOT RUN.** No usable card: {why}\n\nNo check in this table was run, so none of them passes.\n"))
+                .expect("write the B-47 table");
             return;
         }
     };
     let (mut rows, mut checks, mut passed) = (String::new(), 0, 0);
     let mut worst: Option<((u8, usize), String, Vec<u8>, Vec<u8>, usize, usize)> = None;
     let mut shots = fixtures();
-    shots.push(blurred_reference());
+    shots.push(bloomed_reference());
     for shot in &shots {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &shot.frames {
@@ -151,7 +153,11 @@ fn b46_gpu_radial() {
                 let d = distance(&c, &g);
                 let pass = !on_cpu
                     && said_cpu == said_gpu
-                    && if shot.invalid { n == 0 && d == (0, 0) && said_gpu.contains("EFFECT_PARAMETER_INVALID") } else { n > 0 && d.0 <= LIMIT };
+                    && if shot.invalid {
+                        n == 0 && d == (0, 0) && said_gpu.contains("EFFECT_PARAMETER_INVALID")
+                    } else {
+                        (n > 0 && d.0 <= LIMIT) || (n == 0 && d == (0, 0))
+                    };
                 checks += 1;
                 passed += pass as usize;
                 let case = format!("{} frame {frame}, {}", shot.name, quality.label());
@@ -207,7 +213,7 @@ fn b46_gpu_radial() {
         );
     }
 
-    let pictures = repo("verification/B-46 pictures");
+    let pictures = repo("verification/B-47 pictures");
     fs::create_dir_all(&pictures).expect("make the pictures folder");
     let ((largest, count), worst_case, c, g, w, h) = worst.expect("something was compared");
     let mut diff = vec![0u8; c.len()];
@@ -228,25 +234,26 @@ fn b46_gpu_radial() {
     }
 
     let s = format!(
-        "# B-46: Radial Blur on the GPU against the CPU\n\n\
-         Written by `tests/b46_gpu_radial.rs`. The card: {}.\n\n\
+        "# B-47: Bloom on the GPU against the CPU\n\n\
+         Written by `tests/b47_gpu_bloom.rs`. The card: {}.\n\n\
          Each row compares the eight-bit picture the page receives, drawn by the CPU and by the \
-         GPU, with the layer's last Radial Blur done on the card. **The rule: no channel of any \
-         pixel more than {LIMIT} level of 255 apart** (D-103, proposed), and the blur must in fact \
-         have been left to the card. FX-RADIAL-013 to 018 each have a setting out of range: \
-         the blur is left out with the warning `EFFECT_PARAMETER_INVALID`, nothing goes to the \
-         card, and the two pictures must be the same bytes. On every row both paths must give \
-         the same warnings.\n\n\
+         GPU, with the layer's last Bloom done on the card. **The rule: no channel of any pixel \
+         more than {LIMIT} level of 255 apart** (D-104, proposed). A Bloom that lights nothing \
+         (intensity 0, or nothing as bright as the threshold) changes nothing, so it is not left \
+         to the card and the two pictures must be the same bytes. FX-BLOOM-020 to 028 each have \
+         a setting out of range: the bloom is left out with the warning \
+         `EFFECT_PARAMETER_INVALID`, nothing goes to the card, and the two pictures must be the \
+         same bytes. On every row both paths must give the same warnings.\n\n\
          **{passed} of {checks} checks pass.**\n\n\
          The worst comparison is \"{worst_case}\": largest difference {largest} of 255, pixels differing: {count}. \
-         Its pictures are in `verification/B-46 pictures/`: `cpu.png`, `gpu.png`, and \
+         Its pictures are in `verification/B-47 pictures/`: `cpu.png`, `gpu.png`, and \
          `difference.png`, black where the two agree and a white 7 by 7 square around every pixel \
          where they do not.\n\n\
-         | Case | Blurs left to the card | Largest difference (of 255) | Pixels differing | Warnings | Result |\n|---|---:|---:|---:|---|---|\n{rows}",
+         | Case | Blooms left to the card | Largest difference (of 255) | Pixels differing | Warnings | Result |\n|---|---:|---:|---:|---|---|\n{rows}",
         gpu.about(),
     );
-    fs::write(&out, s).expect("write the B-46 table");
-    assert_eq!(passed, checks, "B-46: {passed} of {checks} checks pass");
+    fs::write(&out, s).expect("write the B-47 table");
+    assert_eq!(passed, checks, "B-47: {passed} of {checks} checks pass");
 }
 
 fn median(mut v: Vec<f64>) -> f64 {
@@ -255,18 +262,18 @@ fn median(mut v: Vec<f64>) -> f64 {
 }
 
 #[test]
-#[ignore = "B-46: a measurement, run deliberately with --release --ignored"]
-fn b46_gpu_radial_timing() {
+#[ignore = "B-47: a measurement, run deliberately with --release --ignored"]
+fn b47_gpu_bloom_timing() {
     let mut gpu = Gpu::new().expect("a usable card");
-    let shot = blurred_reference();
+    let shot = bloomed_reference();
     let mut s = format!(
-        "# B-46: frame times with three Radial Blurs, CPU and GPU\n\n\
-         Written by `tests/b46_gpu_radial.rs` (`cargo test --release --test b46_gpu_radial -- \
+        "# B-47: frame times with three Blooms, CPU and GPU\n\n\
+         Written by `tests/b47_gpu_bloom.rs` (`cargo test --release --test b47_gpu_bloom -- \
          --ignored`).\n\n\
          - Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n\n\
-         The shot is the reference shot with the three Radial Blurs of the B-46 table. Every \
+         The shot is the reference shot with the three Blooms of the B-47 table. Every \
          frame of it is asked for as the viewer asks, whole: planning, the effects, drawing, and \
-         the eight-bit picture. On the CPU the three blurs run inside planning; on the GPU the \
+         the eight-bit picture. On the CPU the three blooms run inside planning; on the GPU the \
          card runs them. Each path starts with empty caches and plays the shot twice: the first \
          loop fills the caches, the second is what playing it again costs. Medians over all 240 \
          frames, in ms.\n\n\
@@ -300,5 +307,5 @@ fn b46_gpu_radial_timing() {
         }
         let _ = writeln!(s, "{row}");
     }
-    fs::write(repo("verification/B-46_gpu_radial_timing_table.md"), s).expect("write the timing table");
+    fs::write(repo("verification/B-47_gpu_bloom_timing_table.md"), s).expect("write the timing table");
 }

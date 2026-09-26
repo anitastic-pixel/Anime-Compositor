@@ -40,14 +40,16 @@ use crate::cache::{CelCache, Name};
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::BlendMode;
 use crate::perf::{self, Stage};
-use crate::render::{bounds, FramePlan, Radial};
+use crate::render::{bounds, Bloom, FramePlan, OnCard, Radial};
 use crate::WorkingBuffer;
 
 /// What the card may hold in drawings when Windows cannot say how much memory it has: D-40's
 /// gibibyte, the CPU's own budget.
 pub const DEFAULT_BUDGET_BYTES: usize = 1024 * 1024 * 1024;
 
-/// A drawing on the card costs eight bytes a pixel: four sixteen-bit floats.
+/// A drawing on the card costs eight bytes a pixel: four sixteen-bit floats. One a Bloom starts
+/// from costs sixteen, four 32-bit floats as the CPU holds it (B-47): the bright test compares
+/// each pixel with the threshold, and half precision moves pixels across it.
 const BYTES_PER_PIXEL: usize = 8;
 
 /// The card's own memory in bytes, found by its PCI vendor and device numbers, which Direct3D 12
@@ -240,6 +242,229 @@ fn radial(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 "#;
 
+/// B-47: `bloom::bloom` as passes, one after another: the light, the halo's four blurs, the
+/// streaks, and the bloom laid on the drawing. `halo` sums in the CPU's order. The streaks keep
+/// their running totals in double precision, as the CPU does, so this module needs a card that
+/// offers it (`SHADER_F64`); without one, a frame with a Bloom left for the card goes to the CPU.
+const BLOOM_SHADER: &str = r#"
+struct Params {
+    s: f64,
+    a: f64,
+    b: f64,
+    k0: i32,
+    n: u32,
+    count: u32,
+    g: i32,
+    down: u32,
+    level: u32,
+    weight: f32,
+    width: u32,
+    height: u32,
+    axis: u32,
+}
+
+@group(0) @binding(0) var<uniform> P: Params;
+@group(0) @binding(1) var input: texture_2d<f32>;
+@group(0) @binding(2) var output: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(3) var<storage, read_write> halo: array<vec4<f32>>;
+@group(0) @binding(4) var<storage, read> weights: array<f32>;
+
+// color::linear_to_srgb and color::quantise_u8.
+fn srgb(c: f32) -> f32 {
+    if c <= 0.0031308 {
+        return 12.92 * c;
+    }
+    return 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+}
+
+fn level(c: f32) -> u32 {
+    return u32(floor(clamp(c, 0.0, 1.0) * 255.0 + 0.5));
+}
+
+// The pixel at `p` of `input`, or transparent black outside it.
+fn at(p: vec2<i32>) -> vec4<f32> {
+    let size = vec2<i32>(textureDimensions(input));
+    if any(p < vec2(0)) || any(p >= size) {
+        return vec4(0.0);
+    }
+    return textureLoad(input, p, 0);
+}
+
+// bloom::bright: the pixel where its largest 8-bit channel reaches `level`, else nothing.
+@compute @workgroup_size(16, 16)
+fn bright(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    var light = vec4(0.0);
+    if p.w > 0.0 {
+        let c = p.xyz / p.w;
+        if max(level(srgb(c.x)), max(level(srgb(c.y)), level(srgb(c.z)))) >= P.level {
+            light = p;
+        }
+    }
+    textureStore(output, id.xy, light);
+}
+
+// effects::convolve: `output` is `input` grown by `count` on both ends of the axis, and each
+// pixel adds its taps in the same order.
+@compute @workgroup_size(16, 16)
+fn gauss(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let r = i32(P.count);
+    let step = select(vec2(1, 0), vec2(0, 1), P.axis == 1u);
+    let first = vec2<i32>(id.xy) - step * (2 * r);
+    var o = vec4(0.0);
+    for (var k = 0; k <= 2 * r; k++) {
+        o += at(first + step * k) * weights[k];
+    }
+    textureStore(output, id.xy, o);
+}
+
+// `input` added to the halo at `weight`, its corner `g` pixels in from the halo's.
+@compute @workgroup_size(16, 16)
+fn add(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= P.width || id.y >= P.height {
+        return;
+    }
+    let i = id.y * P.width + id.x;
+    halo[i] += at(vec2<i32>(id.xy) - vec2(P.g)) * P.weight;
+}
+
+// render::sample_bilinear at column c's centre, height y on line space; x and y exchanged when
+// the lines run mostly down.
+fn tap(c: i32, y: f64) -> vec4<f32> {
+    let f = y - 0.5lf;
+    let base = floor(f);
+    let u = f - base;
+    let r = i32(base);
+    var o = vec4(0.0);
+    if 1.0lf - u != 0.0lf {
+        o += at(select(vec2(c, r), vec2(r, c), P.down == 1u)) * f32(1.0lf - u);
+    }
+    if u != 0.0lf {
+        o += at(select(vec2(c, r + 1), vec2(r + 1, c), P.down == 1u)) * f32(u);
+    }
+    return o;
+}
+
+fn nz(v: vec4<f32>) -> u32 {
+    return select(0u, 1u, any(v != vec4(0.0)));
+}
+
+// blurs::by_lines for one line a thread: the tent a - b|j| over |j| <= n, from running totals
+// kept in double precision. `lp` and `rp` are the samples left and right of the point, `lw` and
+// `rw` the same times their distance, and `seen` how many in reach are not zero.
+@compute @workgroup_size(32)
+fn streak(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= P.count {
+        return;
+    }
+    let k = f64(P.k0 + i32(id.x)) + 0.5lf;
+    let n = i32(P.n);
+    let x0 = -P.g;
+    var lp = vec4<f64>(0.0lf);
+    var rp = lp;
+    var lw = lp;
+    var rw = lp;
+    var seen = 0u;
+    for (var j = 1; j <= n; j++) {
+        let vr = tap(x0 + j, k + f64(x0 + j) * P.s);
+        let vl = tap(x0 - j, k + f64(x0 - j) * P.s);
+        rp += vec4<f64>(vr);
+        rw += f64(j) * vec4<f64>(vr);
+        lp += vec4<f64>(vl);
+        lw += f64(j) * vec4<f64>(vl);
+        seen += nz(vr) + nz(vl);
+    }
+    var vc = tap(x0, k + f64(x0) * P.s);
+    seen += nz(vc);
+    for (var x = 0u; x < P.width; x++) {
+        let c = i32(x) + x0;
+        let r = P.a * (lp + vec4<f64>(vc) + rp) - P.b * (rw + lw);
+        textureStore(output, vec2(x, id.x), select(vec4<f32>(r), vec4(0.0), seen == 0u));
+        let vn = tap(c + n + 1, k + f64(c + n + 1) * P.s);
+        let vo = tap(c - n, k + f64(c - n) * P.s);
+        let v1 = tap(c + 1, k + f64(c + 1) * P.s);
+        rw = rw - rp + f64(n) * vec4<f64>(vn);
+        rp = rp - vec4<f64>(v1) + vec4<f64>(vn);
+        lw = lw + lp + vec4<f64>(vc) - f64(n + 1) * vec4<f64>(vo);
+        lp = lp + vec4<f64>(vc) - vec4<f64>(vo);
+        seen = seen + nz(vn) - nz(vo);
+        vc = v1;
+    }
+}
+
+// The two lines round each pixel of the halo, mixed straight, added at `weight`. `input` holds
+// the lines, one a row.
+@compute @workgroup_size(16, 16)
+fn mix(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= P.width || id.y >= P.height {
+        return;
+    }
+    let o = select(vec2<i32>(id.xy), vec2<i32>(id.yx), P.down == 1u);
+    let d = f64(o.y - P.g) - f64(o.x - P.g) * P.s;
+    let kf = floor(d);
+    let f = f32(d - kf);
+    let line = i32(kf) - P.k0;
+    let lo = textureLoad(input, vec2(o.x, line), 0);
+    let hi = textureLoad(input, vec2(o.x, line + 1), 0);
+    halo[id.y * P.width + id.x] += ((1.0 - f) * lo + f * hi) * P.weight;
+}
+
+// bloom::bloom's last step: the halo times the intensity, on the drawing, grown by `g`.
+@compute @workgroup_size(16, 16)
+fn combine(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = at(vec2<i32>(id.xy) - vec2(P.g));
+    let h = halo[id.y * size.x + id.x];
+    textureStore(output, id.xy, vec4(p.xyz + h.xyz * P.weight, min(p.w + h.w * P.weight, 1.0)));
+}
+"#;
+
+/// B-47: [`BLOOM_SHADER`]'s numbers, laid out as its `Params`; each pass reads what it needs.
+#[repr(C)]
+#[derive(Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
+struct Params {
+    s: f64,
+    a: f64,
+    b: f64,
+    k0: i32,
+    n: u32,
+    count: u32,
+    g: i32,
+    down: u32,
+    level: u32,
+    weight: f32,
+    width: u32,
+    height: u32,
+    axis: u32,
+}
+
+/// A compute pass and the bindings it takes.
+type Pass = (wgpu::ComputePipeline, wgpu::BindGroupLayout);
+
+/// B-47: [`BLOOM_SHADER`]'s passes.
+struct BloomPasses {
+    bright: Pass,
+    gauss: Pass,
+    add: Pass,
+    streak: Pass,
+    mix: Pass,
+    combine: Pass,
+}
+
+/// One dispatch before the layers are drawn: the pass, its bindings and its workgroups.
+type Step = (wgpu::ComputePipeline, wgpu::BindGroup, (u32, u32));
+
 /// B-45: the window's pixels the page leaves see-through, painted as the page would have.
 const SCREEN_SHADER: &str = r#"
 struct Paint {
@@ -350,8 +575,10 @@ struct Stored {
     bytes: usize,
     /// The frame that last drew with it.
     used: u64,
-    /// B-46: its last Radial Blur, kept while the settings stay the same.
-    blurred: Option<(Radial, wgpu::TextureView)>,
+    /// B-46, B-47: the last effect the card ran on it, kept while the settings stay the same.
+    applied: Option<(OnCard, wgpu::TextureView)>,
+    /// B-47: held in 32-bit floats, for a Bloom.
+    wide: bool,
 }
 
 /// The buffers one frame size needs, kept while frames stay that size.
@@ -380,6 +607,8 @@ pub struct Gpu {
     /// B-46.
     radial: wgpu::ComputePipeline,
     radial_layout: wgpu::BindGroupLayout,
+    /// B-47: `None` on a card without double precision.
+    bloom: Option<BloomPasses>,
     /// Bound as the matte of a layer that has none. Never read.
     no_matte: wgpu::TextureView,
     store: Vec<Stored>,
@@ -413,6 +642,14 @@ fn storage(read_only: bool) -> wgpu::BindingType {
         ty: wgpu::BufferBindingType::Storage { read_only },
         has_dynamic_offset: false,
         min_binding_size: None,
+    }
+}
+
+fn storage_texture() -> wgpu::BindingType {
+    wgpu::BindingType::StorageTexture {
+        access: wgpu::StorageTextureAccess::WriteOnly,
+        format: wgpu::TextureFormat::Rgba32Float,
+        view_dimension: wgpu::TextureViewDimension::D2,
     }
 }
 
@@ -450,9 +687,12 @@ impl Gpu {
             ));
         }
         let limits = adapter.limits();
+        // B-47: Bloom's streaks need double precision. Vulkan offers it on this machine's card;
+        // Direct3D 12 does not.
+        let f64 = adapter.features() & wgpu::Features::SHADER_F64;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("B-44 preview"),
-            required_features: wgpu::Features::empty(),
+            required_features: f64,
             required_limits: limits.clone(),
             memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::Off,
@@ -479,18 +719,11 @@ impl Gpu {
             entries: &[
                 entry(0, uniform()),
                 entry(1, texture()),
-                entry(
-                    2,
-                    wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba32Float,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                ),
+                entry(2, storage_texture()),
                 entry(3, storage(true)),
             ],
         });
-        let pipeline = |layout: &wgpu::BindGroupLayout, entry_point: &str| {
+        let pipeline_in = |module: &wgpu::ShaderModule, layout: &wgpu::BindGroupLayout, entry_point: &str| {
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some(entry_point),
                 layout: Some(&device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -498,12 +731,36 @@ impl Gpu {
                     bind_group_layouts: &[layout],
                     push_constant_ranges: &[],
                 })),
-                module: &module,
+                module,
                 entry_point: Some(entry_point),
                 compilation_options: Default::default(),
                 cache: None,
             })
         };
+        let pipeline = |layout: &wgpu::BindGroupLayout, entry_point: &str| pipeline_in(&module, layout, entry_point);
+        let bloom = (!f64.is_empty()).then(|| {
+            let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("B-47"),
+                source: wgpu::ShaderSource::Wgsl(BLOOM_SHADER.into()),
+            });
+            // Each pass's layout holds only the bindings it reads, so none needs a stand-in.
+            let pass = |entry_point: &str, bindings: &[u32]| {
+                let entries: Vec<_> = bindings
+                    .iter()
+                    .map(|&b| entry(b, [uniform(), texture(), storage_texture(), storage(false), storage(true)][b as usize]))
+                    .collect();
+                let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some(entry_point), entries: &entries });
+                (pipeline_in(&module, &layout, entry_point), layout)
+            };
+            BloomPasses {
+                bright: pass("bright", &[0, 1, 2]),
+                gauss: pass("gauss", &[0, 1, 2, 4]),
+                add: pass("add", &[0, 1, 3]),
+                streak: pass("streak", &[0, 1, 2]),
+                mix: pass("mix", &[0, 1, 3]),
+                combine: pass("combine", &[0, 1, 2, 3]),
+            }
+        });
         let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
         let radial = pipeline(&radial_layout, "radial");
         let no_matte = device
@@ -542,6 +799,7 @@ impl Gpu {
             encode_layout,
             radial,
             radial_layout,
+            bloom,
             no_matte,
             store: Vec::new(),
             frame: 0,
@@ -569,12 +827,13 @@ impl Gpu {
 
     /// `source` on the card, sending it first if it is not there. The view itself, not a place
     /// in the store, since sending one drawing can evict another this frame has not yet drawn.
-    fn resident(&mut self, uploads: &mut wgpu::CommandEncoder, source: &Arc<WorkingBuffer>, name: Option<Name>) -> wgpu::TextureView {
+    fn resident(&mut self, uploads: &mut wgpu::CommandEncoder, source: &Arc<WorkingBuffer>, name: Option<Name>, wide: bool) -> wgpu::TextureView {
         // A drawing the CPU still holds is found by its address; one it has let go of, by the
         // CPU cache's name for it.
         let found = self.store.iter_mut().find(|s| {
-            (s.held.strong_count() > 0 && s.held.as_ptr() == Arc::as_ptr(source))
-                || (name.is_some() && s.name == name)
+            s.wide == wide
+                && ((s.held.strong_count() > 0 && s.held.as_ptr() == Arc::as_ptr(source))
+                    || (name.is_some() && s.name == name))
         });
         if let Some(s) = found {
             s.held = Arc::downgrade(source);
@@ -584,7 +843,8 @@ impl Gpu {
         // A drawing nothing holds and nothing names can never be asked for again.
         self.store.retain(|s| s.name.is_some() || s.held.strong_count() > 0);
         let (width, height) = (source.width(), source.height());
-        let bytes = width * height * BYTES_PER_PIXEL;
+        let per_pixel = if wide { 16 } else { BYTES_PER_PIXEL };
+        let bytes = width * height * per_pixel;
         // Least recently used first, never one this frame draws with. A frame that needs more
         // than the budget still gets every drawing it needs.
         while self.store.iter().map(|s| s.bytes).sum::<usize>() + bytes > self.budget {
@@ -603,12 +863,12 @@ impl Gpu {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba16Float,
+            format: if wide { wgpu::TextureFormat::Rgba32Float } else { wgpu::TextureFormat::Rgba16Float },
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
         // Every thread converts rows straight into memory the card copies from.
-        let row = (width * BYTES_PER_PIXEL).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize);
+        let row = (width * per_pixel).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize);
         let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("B-44 sending"),
             size: (row * height) as u64,
@@ -617,11 +877,19 @@ impl Gpu {
         });
         {
             let mut mapped = staging.slice(..).get_mapped_range_mut();
-            let halves: &mut [half::f16] = bytemuck::cast_slice_mut(&mut mapped);
-            halves
-                .par_chunks_mut(row / 2)
-                .zip(source.data().par_chunks(width * 4))
-                .for_each(|(to, from)| to[..width * 4].convert_from_f32_slice(from));
+            if wide {
+                let floats: &mut [f32] = bytemuck::cast_slice_mut(&mut mapped);
+                floats
+                    .par_chunks_mut(row / 4)
+                    .zip(source.data().par_chunks(width * 4))
+                    .for_each(|(to, from)| to[..width * 4].copy_from_slice(from));
+            } else {
+                let halves: &mut [half::f16] = bytemuck::cast_slice_mut(&mut mapped);
+                halves
+                    .par_chunks_mut(row / 2)
+                    .zip(source.data().par_chunks(width * 4))
+                    .for_each(|(to, from)| to[..width * 4].convert_from_f32_slice(from));
+            }
         }
         staging.unmap();
         uploads.copy_buffer_to_texture(
@@ -634,46 +902,39 @@ impl Gpu {
         );
         self.sent += 1;
         let view = texture.create_view(&Default::default());
-        self.store.push(Stored { held: Arc::downgrade(source), name, view: view.clone(), bytes, used: self.frame, blurred: None });
+        self.store.push(Stored { held: Arc::downgrade(source), name, view: view.clone(), bytes, used: self.frame, applied: None, wide });
         view
     }
 
-    /// B-46: `blurs::radial_blur` of `source`, which [`Gpu::resident`] has just put on the card
-    /// as `still`. A blur already made of it with the same settings is reused; otherwise what to
-    /// dispatch is added to `blurs`, to run before the layers.
-    fn blurred(
-        &mut self,
-        blurs: &mut Vec<(wgpu::BindGroup, (u32, u32))>,
-        source: &Arc<WorkingBuffer>,
-        still: &wgpu::TextureView,
-        r: Radial,
-    ) -> wgpu::TextureView {
+    /// B-46, B-47: `effect` run on `source`, which [`Gpu::resident`] has just put on the card as
+    /// `still`. A result already made of it with the same settings is reused; otherwise what to
+    /// dispatch is added to `steps`, to run before the layers.
+    fn applied(&mut self, steps: &mut Vec<Step>, source: &Arc<WorkingBuffer>, still: &wgpu::TextureView, effect: OnCard) -> wgpu::TextureView {
         let stored = self.store.iter().position(|s| s.used == self.frame && &s.view == still);
-        if let Some((kept, view)) = stored.and_then(|i| self.store[i].blurred.as_ref()) {
-            if *kept == r {
+        if let Some((kept, view)) = stored.and_then(|i| self.store[i].applied.as_ref()) {
+            if *kept == effect {
                 return view.clone();
             }
         }
-        let (width, height) = (source.width() as u32, source.height() as u32);
-        let moved = self.blur(blurs, still, (width, height), r);
+        let size = (source.width(), source.height());
+        let (moved, (width, height)) = match effect {
+            OnCard::Radial(r) => (self.blur(steps, still, size, r), size),
+            OnCard::Bloom(b) => self.bloom(steps, still, size, b),
+        };
         if let Some(i) = stored {
             let s = &mut self.store[i];
-            if s.blurred.is_none() {
-                s.bytes += width as usize * height as usize * 16;
-            }
-            s.blurred = Some((r, moved.clone()));
+            s.bytes = size.0 * size.1 * if s.wide { 16 } else { BYTES_PER_PIXEL } + width * height * 16;
+            s.applied = Some((effect, moved.clone()));
         }
         moved
     }
 
-    /// `blurs::radial_blur` of `still`, `width` by `height`, into a texture of its own, which is
-    /// returned. What to dispatch is added to `blurs`, to run before the layers.
-    fn blur(&self, blurs: &mut Vec<(wgpu::BindGroup, (u32, u32))>, still: &wgpu::TextureView, (width, height): (u32, u32), r: Radial) -> wgpu::TextureView {
-        let moved = self
-            .device
+    /// A texture the passes write and the layers read, `width` by `height`.
+    fn scratch(&self, label: &str, width: usize, height: usize) -> wgpu::TextureView {
+        self.device
             .create_texture(&wgpu::TextureDescriptor {
-                label: Some("B-46 radial"),
-                size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+                label: Some(label),
+                size: wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
@@ -681,7 +942,13 @@ impl Gpu {
                 usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             })
-            .create_view(&Default::default());
+            .create_view(&Default::default())
+    }
+
+    /// `blurs::radial_blur` of `still`, `width` by `height`, into a texture of its own, which is
+    /// returned. What to dispatch is added to `steps`, to run before the layers.
+    fn blur(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (width, height): (usize, usize), r: Radial) -> wgpu::TextureView {
+        let moved = self.scratch("B-46 radial", width, height);
         let turns: Vec<[f32; 2]> = crate::blurs::radial_turns(r.spin, r.amount)
             .into_iter()
             .flatten()
@@ -704,8 +971,116 @@ impl Gpu {
                 wgpu::BindGroupEntry { binding: 3, resource: turns.as_entire_binding() },
             ],
         });
-        blurs.push((group, (width, height)));
+        steps.push((self.radial.clone(), group, ((width as u32).div_ceil(16), (height as u32).div_ceil(16))));
         moved
+    }
+
+    /// One pass of [`BLOOM_SHADER`], added to `steps`: its numbers, `input`, and whichever of
+    /// `output`, the halo and the weights the pass takes, over `width` by `height` threads.
+    #[allow(clippy::too_many_arguments)]
+    fn step(
+        &self,
+        steps: &mut Vec<Step>,
+        (pipeline, layout): &Pass,
+        p: Params,
+        input: &wgpu::TextureView,
+        output: Option<&wgpu::TextureView>,
+        halo: Option<&wgpu::Buffer>,
+        weights: Option<&wgpu::Buffer>,
+        groups: (u32, u32),
+    ) {
+        let numbers = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("B-47 numbers"),
+            contents: bytemuck::bytes_of(&p),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let mut entries = vec![
+            wgpu::BindGroupEntry { binding: 0, resource: numbers.as_entire_binding() },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(input) },
+        ];
+        if let Some(o) = output {
+            entries.push(wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(o) });
+        }
+        if let Some(h) = halo {
+            entries.push(wgpu::BindGroupEntry { binding: 3, resource: h.as_entire_binding() });
+        }
+        if let Some(w) = weights {
+            entries.push(wgpu::BindGroupEntry { binding: 4, resource: w.as_entire_binding() });
+        }
+        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout, entries: &entries });
+        steps.push((pipeline.clone(), group, groups));
+    }
+
+    /// B-47: `bloom::bloom` of `still`, `width` by `height`, into a texture of its own, grown by
+    /// the bloom's reach, which is returned with its size. What to dispatch is added to `steps`.
+    fn bloom(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), b: Bloom) -> (wgpu::TextureView, (usize, usize)) {
+        let passes = self.bloom.as_ref().expect("a Bloom is refused without the passes");
+        let grow = crate::bloom::reach(b.radius, b.lines, b.length);
+        let (gw, gh) = (w + 2 * grow, h + 2 * grow);
+        let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
+        let light = self.scratch("B-47 light", w, h);
+        let p = Params { level: crate::bloom::bright_level(b.threshold), ..Default::default() };
+        self.step(steps, &passes.bright, p, still, Some(&light), None, None, tiles(w, h));
+        // Made empty: wgpu clears every buffer it makes.
+        let halo = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("B-47 halo"),
+            size: (gw * gh * 16) as u64,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let add = Params { width: gw as u32, height: gh as u32, ..Default::default() };
+        for s in crate::bloom::SCALES {
+            let sigma = b.radius / 3.0 * s;
+            let r = crate::effects::kernel_radius(sigma);
+            let placed = Params { g: (grow - r) as i32, weight: 0.25, ..add };
+            if r == 0 {
+                self.step(steps, &passes.add, placed, &light, None, Some(&halo), None, tiles(gw, gh));
+                continue;
+            }
+            let weights = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("B-47 weights"),
+                contents: bytemuck::cast_slice(&crate::effects::gaussian_weights(sigma)),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
+            let (wide, tall) = (self.scratch("B-47 wide", w + 2 * r, h), self.scratch("B-47 tall", w + 2 * r, h + 2 * r));
+            let across = Params { count: r as u32, axis: 0, ..Default::default() };
+            self.step(steps, &passes.gauss, across, &light, Some(&wide), None, Some(&weights), tiles(w + 2 * r, h));
+            let down = Params { axis: 1, ..across };
+            self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(&weights), tiles(w + 2 * r, h + 2 * r));
+            self.step(steps, &passes.add, placed, &tall, None, Some(&halo), None, tiles(gw, gh));
+        }
+        let share = 1.0 / b.lines as f32;
+        for j in 0..b.lines {
+            let u = crate::blurs::along(b.angle + j as f64 * 180.0 / b.lines as f64);
+            if b.length == 0.0 {
+                let p = Params { g: grow as i32, weight: share, ..add };
+                self.step(steps, &passes.add, p, &light, None, Some(&halo), None, tiles(gw, gh));
+                continue;
+            }
+            let wt = crate::bloom::streak_weights(u, b.length);
+            let f = crate::blurs::line_frame(u, w, h, grow);
+            let count = (f.k1 - f.k0 + 1) as usize;
+            let lines = self.scratch("B-47 lines", f.ow, count);
+            let p = Params {
+                s: f.s,
+                a: wt.a,
+                b: wt.b,
+                k0: f.k0 as i32,
+                n: wt.inner as u32,
+                count: count as u32,
+                g: grow as i32,
+                down: f.down as u32,
+                width: f.ow as u32,
+                ..Default::default()
+            };
+            self.step(steps, &passes.streak, p, &light, Some(&lines), None, None, ((count as u32).div_ceil(32), 1));
+            let p = Params { weight: share, width: gw as u32, height: gh as u32, ..p };
+            self.step(steps, &passes.mix, p, &lines, None, Some(&halo), None, tiles(gw, gh));
+        }
+        let out = self.scratch("B-47 bloom", gw, gh);
+        let p = Params { g: grow as i32, weight: b.intensity as f32, ..Default::default() };
+        self.step(steps, &passes.combine, p, still, Some(&out), Some(&halo), None, tiles(gw, gh));
+        (out, (gw, gh))
     }
 
     fn target(&mut self, width: usize, height: usize) -> &Target {
@@ -739,6 +1114,31 @@ impl Gpu {
                 "The CPU drew this frame: it has an adjustment layer, which the GPU does not draw yet.".into(),
                 "B-44 draws a frame with an adjustment layer (D-66) wholly on the CPU.".into(),
             ));
+        }
+        // B-47: a Bloom needs double precision, and room for its grown drawing, its halo and
+        // its lines, which are never more than the grown width and height together.
+        for l in &plan.layers {
+            let Some(OnCard::Bloom(b)) = l.on_card else { continue };
+            if self.bloom.is_none() {
+                return Some(on_cpu(
+                    Severity::Info,
+                    "The CPU drew this frame: it has a Bloom, and this graphics card cannot do the double-precision sums a Bloom needs.".into(),
+                    format!("{}: no SHADER_F64. B-47 draws a Bloom on the card only where it can add as the CPU does.", self.about),
+                ));
+            }
+            let grow = crate::bloom::reach(b.radius, b.lines, b.length);
+            let (gw, gh) = (l.source.width() + 2 * grow, l.source.height() + 2 * grow);
+            let halo = (gw * gh * 16) as u64;
+            if gw + gh + 1 > self.limits.max_texture_dimension_2d as usize
+                || halo > self.limits.max_storage_buffer_binding_size as u64
+                || halo > self.limits.max_buffer_size
+            {
+                return Some(on_cpu(
+                    Severity::Info,
+                    format!("The CPU drew this frame: a Bloom grows a drawing to {gw} by {gh}, larger than the card allows."),
+                    format!("{}: largest texture side {}.", self.about, self.limits.max_texture_dimension_2d),
+                ));
+            }
         }
         let most = self.limits.max_texture_dimension_2d as usize;
         let frame_bytes = (plan.width * plan.height * 16) as u64;
@@ -798,7 +1198,7 @@ impl Gpu {
         // out as the shader's `Layer`. The same skips as `render_tile`.
         let mut layers: Vec<(wgpu::TextureView, Option<wgpu::TextureView>, [u32; 20], (u32, u32))> = Vec::new();
         let mut uploads = self.device.create_command_encoder(&Default::default());
-        let mut blurs = Vec::new();
+        let mut steps = Vec::new();
         perf::time(Stage::GpuUpload, || {
             for layer in &plan.layers {
                 let Some(inverse) = layer.transform.invert() else {
@@ -855,11 +1255,12 @@ impl Gpu {
                     matte.is_some() as u32,
                     layer.opacity.to_bits(),
                 ];
-                let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source));
-                if let Some(r) = layer.radial {
-                    source = self.blurred(&mut blurs, &layer.source, &source, r);
+                let wide = matches!(layer.on_card, Some(OnCard::Bloom(_)));
+                let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source), wide);
+                if let Some(effect) = layer.on_card {
+                    source = self.applied(&mut steps, &layer.source, &source, effect);
                 }
-                let matte = matte.map(|(m, _)| self.resident(&mut uploads, &m.source, cache.name_of(&m.source)));
+                let matte = matte.map(|(m, _)| self.resident(&mut uploads, &m.source, cache.name_of(&m.source), false));
                 layers.push((source, matte, numbers, (x1 - x0, y1 - y0)));
             }
         });
@@ -920,12 +1321,13 @@ impl Gpu {
 
             let mut encoder = self.device.create_command_encoder(&Default::default());
             encoder.clear_buffer(&target.sum, 0, None);
-            if !blurs.is_empty() {
+            if !steps.is_empty() {
+                // One after another: wgpu has each dispatch wait for what the one before wrote.
                 let mut pass = encoder.begin_compute_pass(&Default::default());
-                pass.set_pipeline(&self.radial);
-                for (group, (w, h)) in &blurs {
+                for (pipeline, group, (x, y)) in &steps {
+                    pass.set_pipeline(pipeline);
                     pass.set_bind_group(0, group, &[]);
-                    pass.dispatch_workgroups(w.div_ceil(16), h.div_ceil(16), 1);
+                    pass.dispatch_workgroups(*x, *y, 1);
                 }
             }
             {

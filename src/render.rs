@@ -210,10 +210,29 @@ pub struct LayerDraw {
     /// D-67: `Some` for a composition layer: the composition `source` is a render of, and the
     /// frame of it. The renderer does not read it; the trace names it.
     pub nested: Option<(crate::model::Id, i32)>,
-    /// B-46: `Some` when the layer's stack ends in a Radial Blur left for the graphics card
+    /// B-46, B-47: `Some` when the layer's stack ends in an effect left for the graphics card
     /// (`compose::plan_frame_for_card`): `source` is the drawing before it. The CPU runs it
     /// itself in [`render`], so a plan made for the card is the same frame on either.
-    pub radial: Option<Radial>,
+    pub on_card: Option<OnCard>,
+}
+
+/// An effect left for the graphics card, in the pixels of the buffer it runs on.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum OnCard {
+    Radial(Radial),
+    Bloom(Bloom),
+}
+
+/// B-47: a Bloom's settings (`bloom::bloom`), distances already divided for Draft. Left for the
+/// card only when it lights something, so the drawing grows by exactly `bloom::reach`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Bloom {
+    pub threshold: f64,
+    pub radius: f64,
+    pub intensity: f64,
+    pub lines: usize,
+    pub length: f64,
+    pub angle: f64,
 }
 
 /// B-46: a Radial Blur's settings in the pixels of the buffer it runs on (`blurs::radial_blur`).
@@ -269,14 +288,19 @@ pub struct Tile {
 ///
 /// An effect's `bounds_expansion` needs no term here: document 21 has the stack run whole-layer
 /// before the frame plan (ADR-017), so a blur's growth is already pixels of `layer.source` by
-/// the time the renderer sees it.
+/// the time the renderer sees it. The one exception is a Bloom left for the card (B-47), which
+/// grows the drawing by its reach on every side, so the box counts that growth.
 /// A layer's box in frame pixels: `(left, top, right, bottom)`.
 ///
 /// Computed once per layer per frame, never per tile: the corners do not change between the
 /// tiles of one frame, and on the fixtures the box excludes nothing, so every recomputation
 /// would have been spent on a skip that never fires.
 pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
-    let (w, h) = (layer.source.width() as f64, layer.source.height() as f64);
+    let grow = match layer.on_card {
+        Some(OnCard::Bloom(b)) => 2 * crate::bloom::reach(b.radius, b.lines, b.length),
+        _ => 0,
+    };
+    let (w, h) = ((layer.source.width() + grow) as f64, (layer.source.height() + grow) as f64);
     let corners = [
         layer.transform.apply(-1.0, -1.0),
         layer.transform.apply(w + 1.0, -1.0),
@@ -356,15 +380,22 @@ pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuff
 }
 
 fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> WorkingBuffer {
-    // B-46: a blur left for the card that the CPU is drawing after all is run first, exactly
-    // as `apply_stack` would have run it.
-    if plan.layers.iter().any(|l| l.radial.is_some()) {
+    // B-46, B-47: an effect left for the card that the CPU is drawing after all is run first,
+    // exactly as `apply_stack` would have run it.
+    if plan.layers.iter().any(|l| l.on_card.is_some()) {
         let mut plan = plan.clone();
         for layer in &mut plan.layers {
-            if let Some(r) = layer.radial.take() {
-                crate::perf::time(crate::perf::Stage::EffectRadial, || {
+            match layer.on_card.take() {
+                None => {}
+                Some(OnCard::Radial(r)) => crate::perf::time(crate::perf::Stage::EffectRadial, || {
                     crate::blurs::radial_blur(std::sync::Arc::make_mut(&mut layer.source), r.spin, r.amount, r.center)
-                });
+                }),
+                Some(OnCard::Bloom(b)) => {
+                    crate::perf::time(crate::perf::Stage::EffectBloom, || {
+                        let source = std::sync::Arc::make_mut(&mut layer.source);
+                        crate::bloom::bloom(source, b.threshold, b.radius, b.intensity, b.lines, b.length, b.angle)
+                    });
+                }
             }
         }
         return render_maybe_culled(&plan, tile_size, cull);

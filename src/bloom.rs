@@ -11,7 +11,7 @@ use crate::WorkingBuffer;
 use rayon::prelude::*;
 
 /// The halo's four blurs, each half as wide as the one before.
-const SCALES: [f64; 4] = [1.0, 0.5, 0.25, 0.125];
+pub(crate) const SCALES: [f64; 4] = [1.0, 0.5, 0.25, 0.125];
 
 /// How many streak lines the word asks for: none, a cross of two or a star of four.
 pub(crate) fn lines(streaks: &str) -> usize {
@@ -27,6 +27,36 @@ pub(crate) fn lines(streaks: &str) -> usize {
 pub(crate) fn reach(radius: f64, lines: usize, length: f64) -> usize {
     let streak = if lines > 0 { length.ceil() as usize } else { 0 };
     kernel_radius(radius / 3.0).max(streak)
+}
+
+/// One streak's tent along step `u`, `length` long: D-98's weights for [`by_lines`].
+pub(crate) fn streak_weights(u: (f64, f64), length: f64) -> Weights {
+    let top = u.0.abs().max(u.1.abs()) * length;
+    let inner = top.ceil() as usize - 1;
+    let n = inner as f64;
+    let total = (2.0 * n + 1.0) * top - n * (n + 1.0);
+    Weights {
+        inner,
+        a: top / total,
+        b: 1.0 / total,
+        ends: Vec::new(),
+    }
+}
+
+/// D-89's bright test on one premultiplied pixel: its 8-bit encoded colour's largest channel at
+/// or over `threshold` percent.
+pub(crate) fn bright(px: &[f32], threshold: f64) -> bool {
+    let a = px[3];
+    a > 0.0 && {
+        let q = [0, 1, 2].map(|i| quantise_u8(linear_to_srgb(px[i] / a)));
+        100.0 * *q.iter().max().unwrap() as f64 >= 255.0 * threshold
+    }
+}
+
+/// B-47: the lowest 8-bit level [`bright`] lets through, 256 for none, so the card compares
+/// whole numbers as the CPU does.
+pub(crate) fn bright_level(threshold: f64) -> u32 {
+    (0..256).find(|&q| 100.0 * q as f64 >= 255.0 * threshold).unwrap_or(256)
 }
 
 /// Lay the bloom of `source` on top of it, in place, and return how far it grew on each side.
@@ -53,12 +83,8 @@ pub(crate) fn bloom(
         .par_chunks_exact_mut(4)
         .zip(source.data().par_chunks_exact(4))
         .for_each(|(g, px)| {
-            let a = px[3];
-            if a > 0.0 {
-                let q = [0, 1, 2].map(|i| quantise_u8(linear_to_srgb(px[i] / a)));
-                if 100.0 * *q.iter().max().unwrap() as f64 >= 255.0 * threshold {
-                    g.copy_from_slice(px);
-                }
+            if bright(px, threshold) {
+                g.copy_from_slice(px);
             }
         });
     if light.data().chunks_exact(4).all(|g| g[3] == 0.0) {
@@ -91,21 +117,7 @@ pub(crate) fn bloom(
     // Length 0 is the light itself, whatever the lines.
     for j in 0..lines {
         let u = along(angle + j as f64 * 180.0 / lines as f64);
-        let streak = if length == 0.0 {
-            None
-        } else {
-            let top = u.0.abs().max(u.1.abs()) * length;
-            let inner = top.ceil() as usize - 1;
-            let n = inner as f64;
-            let total = (2.0 * n + 1.0) * top - n * (n + 1.0);
-            let wt = Weights {
-                inner,
-                a: top / total,
-                b: 1.0 / total,
-                ends: Vec::new(),
-            };
-            Some(by_lines(&light, u, &wt, grow))
-        };
+        let streak = (length != 0.0).then(|| by_lines(&light, u, &streak_weights(u, length), grow));
         let share = 1.0 / lines as f32;
         halo.data_mut()
             .par_chunks_exact_mut(gw * 4)

@@ -197,8 +197,8 @@ fn tiles_for(quality: PreviewQuality, tile_size: usize) -> usize {
 /// [`preview_frame_cached`] drawn on the graphics card (B-44, D-100 (a)), already encoded as the
 /// eight-bit straight sRGB the viewer is sent, with its width and height.
 ///
-/// B-46: a drawn layer's last Radial Blur is left in the plan for the card to run. A frame the
-/// card refuses or fails is drawn by the CPU instead, blur included, exactly as
+/// B-46, B-47: a drawn layer's last Radial Blur or Bloom is left in the plan for the card to run.
+/// A frame the card refuses or fails is drawn by the CPU instead, effect included, exactly as
 /// [`preview_frame_cached`] draws it, and the reason goes in `log` as `GPU_PREVIEW_ON_CPU`.
 #[allow(clippy::too_many_arguments)]
 pub fn preview_frame_srgb8(

@@ -1,6 +1,6 @@
 # B-46: Radial Blur on the card, by hand
 
-Built on 2026-09-26 against the B-46 entry in document 15. Not yet tried.
+Built on 2026-09-26 against the B-46 entry in document 15. **Passed on 2026-09-26 by the owner's word: "works; proceed to next".**
 
 `verification/B-46_gpu_radial.md` explains what was built, with the comparison pictures and the timings. This sheet covers what those cannot show: how the viewer feels with a Radial Blur on.
 

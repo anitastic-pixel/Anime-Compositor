@@ -415,7 +415,7 @@ B-45 / The graphics card paints the viewer's picture into the window / **BUILT o
   - Trying again after a failure without reopening the app.
   - ClearType text while the card paints, which Windows does not offer over a see-through page.
 
-B-46 / Radial Blur on the graphics card / **BUILT on 2026-09-26 at the owner's "let's proceed with gpu-acceleration on the effects", with D-103 proposed; it awaits the owner's playtest, `verification/B-46_playtest.md`.** `verification/B-46_gpu_radial.md`. It is the first of D-100's effects, each a unit of its own. It changes no export, fixture or CPU picture.
+B-46 / Radial Blur on the graphics card / **BUILT on 2026-09-26 at the owner's "let's proceed with gpu-acceleration on the effects", with D-103 proposed. The owner's playtest passed the same day: "works"** (`verification/B-46_playtest.md`). `verification/B-46_gpu_radial.md`. It is the first of D-100's effects, each a unit of its own. It changes no export, fixture or CPU picture.
 - **What it builds:**
   - With the switch on GPU, a drawn layer whose last effect is a Radial Blur has that blur done by the card. The effects before it still run on the CPU.
   - The card keeps each blur it makes while the drawing and the settings stay the same.
@@ -429,6 +429,23 @@ B-46 / Radial Blur on the graphics card / **BUILT on 2026-09-26 at the owner's "
 - **Not built:**
   - A Radial Blur followed by another effect, or on anything but a drawn layer. These stay on the CPU.
   - Bloom, Directional Blur, Gaussian Blur and Glow on the card, which come next, in that order.
+
+B-47 / Bloom on the graphics card / **BUILT on 2026-09-26 at the owner's "works; proceed to next", with D-104 proposed.** `verification/B-47_gpu_bloom.md`. It is the second of D-100's effects. It changes no export, fixture or CPU picture.
+- **What it builds:**
+  - With the switch on GPU, a drawn layer whose last effect is a Bloom has that bloom done by the card: the bright test, the halo's four blurs, the streaks and the combining. The effects before it still run on the CPU.
+  - A Bloom that lights nothing changes nothing, so it is not sent to the card at all.
+  - A drawing a Bloom starts from goes to the card in full precision (D-104).
+  - The card keeps each bloom it makes while the drawing and the settings stay the same.
+  - A frame the card cannot draw is drawn by the CPU, bloom included, byte for byte as before. That includes every frame with a Bloom on a card without double precision.
+- **Measured:**
+  - 288 of 288 checks pass (`verification/B-47_gpu_bloom_table.md`): FX-BLOOM-001 to 028 at every frame, and the reference shot with three Blooms, at Full and Draft.
+    - On every fixture frame the card's picture is the same bytes as the CPU's.
+    - The worst reference-shot frame differs at 0.13% of pixels, by 1 level each.
+  - At Full the reference shot with three Blooms takes 27 ms a frame against the CPU's 163. At Draft the two are even, 17 ms (`verification/B-47_gpu_bloom_timing_table.md`).
+- **Found and fixed on the way:** the card placed a grown drawing by its size before growing, which cut off its right and bottom edges. `render::bounds` now counts a Bloom's growth.
+- **Not built:**
+  - A Bloom followed by another effect, or on anything but a drawn layer. These stay on the CPU.
+  - Directional Blur, Gaussian Blur and Glow on the card, which come next, in that order.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
