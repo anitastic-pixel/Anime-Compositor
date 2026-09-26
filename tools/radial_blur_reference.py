@@ -2,8 +2,8 @@
 
 D-95 adds `core.radial_blur`. It smears a layer round a centre, as a camera spinning or zooming
 during the exposure would: each pixel becomes the plain average of samples taken along the arc
-of a circle about the centre through it (spin), or along the line from the centre through it
-(zoom). `amount` is 0 to 100: the arc in degrees for a spin, and the stretch in per cent of the
+of a circle about the centre through it (spin), or along the line from the centre to it (zoom),
+so a zoom smears the picture outward, away from the centre, as After Effects' does (D-110). `amount` is 0 to 100: the arc in degrees for a spin, and the stretch in per cent of the
 distance from the centre for a zoom. `center` is two numbers, per cent of the drawing's width and
 height, 50, 50 its middle. It is this program's own method, modelled on After Effects' Radial
 Blur; nothing is ported. Document 21 is the rule in words; this file is the reference for the
@@ -14,7 +14,8 @@ of the drawing's own size, p the centre of the output pixel, d = p - c and r = |
 r * amount * pi / 180 for a spin and r * amount / 100 for a zoom, and n = min(ceil(path) + 1,
 256). With n = 1 the output is the sample at p. Otherwise, for k = 0 to n - 1, a spin samples at
 c + d turned by -amount / 2 + k * amount / (n - 1) degrees, and a zoom at c + s_k * d with
-s_k = 1 - amount / 200 + k * (amount / 100) / (n - 1). The output is (1 / n) times the sum of
+s_k = 1 - amount / 100 + k * (amount / 100) / (n - 1): from the pixel back toward the centre
+(D-110; D-95's zoom sampled half each way, 1 - amount / 200 to 1 + amount / 200). The output is (1 / n) times the sum of
 document 21's bilinear samples of the layer there, transparent outside the layer; premultiplied
 red, green, blue and alpha are averaged alike. The layer does not grow: the blur is worked at
 the layer's own pixels only, so nothing is drawn outside it, and an earlier effect that grew the
@@ -93,7 +94,7 @@ def samples(kind, amount, center, x, y):
             out.append((cx + dx * math.cos(t) - dy * math.sin(t),
                         cy + dx * math.sin(t) + dy * math.cos(t)))
         else:
-            s = 1 - amount / 200 + k * (amount / 100) / (n - 1)
+            s = 1 - amount / 100 + k * (amount / 100) / (n - 1)
             out.append((cx + s * dx, cy + s * dy))
     return out
 
@@ -152,21 +153,22 @@ CASES = {
     "FX-RADIAL-001": ("Spin 30 about the middle: every edge smears round the centre, the "
                       "further out the longer, and the middle of the block stays solid.",
                       case(), [0]),
-    "FX-RADIAL-002": ("Zoom 30 about the middle: every edge smears along the line from the "
-                      "centre, the further out the longer.",
+    "FX-RADIAL-002": ("Zoom 30 about the middle: every edge smears outward, away from the "
+                      "centre, the further out the longer, and nothing smears inward.",
                       case(kind="zoom"), [0]),
     "FX-RADIAL-003": ("Amount 0: the drawing, untouched.",
                       case(amount=0), [0]),
     "FX-RADIAL-004": ("Spin 30 about the top left corner, centre 0, 0: the smears are arcs about "
                       "that corner, so the far corner smears most.",
                       case(center=(0, 0)), [0]),
-    "FX-RADIAL-005": ("Zoom 30 about centre 25, 50, the point (4, 5): the block, right of it, "
-                      "smears left and right, and the line, left of it, the other way.",
+    "FX-RADIAL-005": ("Zoom 30 about centre 25, 50, the point (4, 5): everything smears away "
+                      "from it, the block, right of it, to the right, and the line, left of it, "
+                      "to the left, off the drawing, so columns 1 to 3, between them, stay empty.",
                       case(kind="zoom", center=(25, 50)), [0]),
     "FX-RADIAL-006": ("Spin 100, the most: longer arcs than FX-RADIAL-001.",
                       case(amount=100), [0]),
-    "FX-RADIAL-007": ("Zoom 100, the most: samples from half to one and a half times the "
-                      "distance from the centre.",
+    "FX-RADIAL-007": ("Zoom 100, the most: each pixel samples all the way from the centre "
+                      "out to itself.",
                       case(kind="zoom", amount=100), [0]),
     "FX-RADIAL-008": ("Amount keyed from 0 at frame 0 to 40 at frame 4, spin, linear: frame 0 "
                       "untouched, frame 2 spins 20, frame 4 spins 40.",
@@ -272,20 +274,24 @@ def check(expected):
     # hardly sideways where it is level with the centre: under a hundredth.
     assert one[at(0, 1)][3] > 0 and one[at(0, 8)][3] > 0
     assert one[at(1, 4)][3] < 0.01 and one[at(1, 5)][3] < 0.01
-    # Zoom: the same line smears sideways, toward and away from the centre, and less past its
-    # ends.
-    assert two[at(1, 4)][3] > 0.2 and two[at(1, 5)][3] > 0.2
+    # Zoom (D-110): outward only. The line, the furthest out, feeds nothing nearer the centre,
+    # so column 1 stays empty, and thins where it stands; the block smears out on both sides,
+    # and less past the line's ends than a spin.
+    assert two[at(1, 4)][3] < 1e-9 and two[at(1, 5)][3] < 1e-9
+    assert two[at(0, 4)][3] < 1
+    assert two[at(4, 4)][3] > 0 and two[at(10, 4)][3] > 0
     assert two[at(0, 1)][3] < one[at(0, 1)][3]
     assert c["FX-RADIAL-004"]["0"] != one
     # About (4, 5): the line is left of the centre and the block right of it, so a zoom smears
-    # the line onto column 1 and the block onto column 10, and column 3, next to the centre,
-    # stays empty: its samples reach only half a pixel either way.
+    # the block onto column 10 and the line off the drawing's left edge, and columns 1 to 3,
+    # whose samples lie between them and the centre, stay empty.
     five = c["FX-RADIAL-005"]["0"]
-    assert five[at(1, 5)][3] > 0 and five[at(10, 4)][3] > 0
-    assert all(five[at(3, y)][3] < 1e-9 for y in range(H))
+    assert five[at(10, 4)][3] > 0 and five[at(0, 5)][3] < 1
+    assert all(five[at(x, y)][3] < 1e-9 for x in (1, 2, 3) for y in range(H))
     # The most smears further: the block's far corner is less covered at 100 than at 30.
     assert c["FX-RADIAL-006"]["0"][at(9, 6)][3] < one[at(9, 6)][3]
-    assert c["FX-RADIAL-007"]["0"][at(9, 6)][3] < two[at(9, 6)][3]
+    # A zoom reaches further at 100: (13, 8), four past the block, is reached then and not at 30.
+    assert c["FX-RADIAL-007"]["0"][at(13, 8)][3] > 0 and two[at(13, 8)][3] < 1e-9
     eight, nine = c["FX-RADIAL-008"], c["FX-RADIAL-009"]
     assert eight["0"] == drawn and near(eight["2"], render(case(amount=20), 0))
     assert near(eight["4"], render(case(amount=40), 0))
