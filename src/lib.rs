@@ -161,8 +161,9 @@ impl ImageBuffer {
                 actual: bytes.len(),
             });
         }
+        // P-18: across the pool. Each sample is its own, so the order of the work cannot move one.
         let data = perf::time(perf::Stage::Dequantise, || {
-            bytes.iter().map(|&v| color::dequantise_u8(v)).collect()
+            bytes.par_iter().map(|&v| color::dequantise_u8(v)).collect()
         });
         ImageBuffer::new(width, height, ColorSpace::Srgb, AlphaMode::Straight, data)
     }
@@ -206,8 +207,9 @@ impl ImageBuffer {
             alpha_mode,
             mut data,
         } = self;
+        // P-18: across the pool, as the dequantise before it. Each pixel is its own.
         perf::time(perf::Stage::ToLinear, || {
-            for px in data.chunks_exact_mut(4) {
+            data.par_chunks_exact_mut(4).with_min_len(4096).for_each(|px| {
                 if color_space == ColorSpace::Srgb {
                     for c in &mut px[..3] {
                         *c = color::srgb_to_linear(*c);
@@ -219,7 +221,7 @@ impl ImageBuffer {
                         *c *= a;
                     }
                 }
-            }
+            });
         });
         WorkingBuffer(ImageBuffer {
             width,

@@ -593,6 +593,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             alpha_only: viewer.alpha_only,
             cache: Arc::clone(&viewer.cache),
             frame,
+            ahead: None,
             reply: Response::builder(),
         }
     };
@@ -920,6 +921,9 @@ struct Snapshot {
     /// The decoded cels, which a render holds for its whole length and no command touches.
     cache: Arc<Mutex<CelCache>>,
     frame: i32,
+    /// P-18: the frame playback will ask for next, when this one came from the clock. Its
+    /// drawings are read while the page is still busy with this one.
+    ahead: Option<i32>,
     /// Everything the window has to say about this frame, already written into the response.
     /// Built under the lock rather than after the render, so that it describes the document the
     /// pixels were made from even if an edit lands while they are being made.
@@ -1095,6 +1099,10 @@ fn serve(
                 (shown.frame, shown.skipped)
             }
         };
+        let ahead = match ask {
+            Ask::At(_) | Ask::Play(_) => Some(viewer.playback.after(frame)),
+            Ask::Frame(_) => None,
+        };
         Snapshot {
             project: shown(viewer),
             composition: viewer.composition.clone(),
@@ -1103,6 +1111,7 @@ fn serve(
             alpha_only: viewer.alpha_only,
             cache: Arc::clone(&viewer.cache),
             frame,
+            ahead,
             reply: said_about(viewer, ask, frame, skipped, exporting, &exported)
                 .header("x-export-progress", progress),
         }
@@ -1129,6 +1138,12 @@ fn serve(
                 .expect("build the diagnostic response")
         }
     };
+
+    // P-18: the next frame's drawings are read while this one is encoded, sent and drawn.
+    if let Some(next) = taken.ahead {
+        let cache = Arc::clone(&taken.cache);
+        preview::read_ahead(taken.project, taken.composition, next, taken.root, cache);
+    }
 
     let image = buffer.as_image();
     let (width, height) = (image.width(), image.height());

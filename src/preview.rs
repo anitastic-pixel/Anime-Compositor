@@ -190,6 +190,31 @@ pub fn preview_frame_cached(
     Ok(render::render(&scale_plan(plan, quality), tile_size))
 }
 
+/// Read the drawings `frame` will ask for, on a thread of its own, into `cache`'s pending list
+/// (P-18). The viewer calls it for the frame after the one it just rendered, so those files are
+/// read while the page is still encoding, receiving and drawing this one.
+///
+/// It holds the cache while it reads, so a request that arrives first waits for it rather than
+/// reading the same files a second time. It only fills what [`CelCache::prewarm`] fills, so
+/// what the next frame looks like cannot depend on whether it got there in time.
+pub fn read_ahead(
+    project: Project,
+    composition_id: Id,
+    frame: i32,
+    root: std::path::PathBuf,
+    cache: std::sync::Arc<std::sync::Mutex<CelCache>>,
+) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || {
+        if let Some(comp) = project.composition(&composition_id) {
+            let wanted = compose::cels_at(&project, comp, frame, &root);
+            cache
+                .lock()
+                .expect("the cel cache lock was poisoned")
+                .prewarm(&wanted);
+        }
+    })
+}
+
 /// A work-area playback clock that holds real time and drops what it cannot deliver (D-32).
 ///
 /// The work area is a closed range of composition frames and playback loops within it, which is
@@ -271,6 +296,12 @@ impl Playback {
     /// How many frames the work area contains.
     pub fn length(&self) -> i64 {
         self.last as i64 - self.first as i64 + 1
+    }
+
+    /// The frame playback shows after `frame` when it keeps up: the next one, or the work area's
+    /// first after its last, since playback loops (P-18).
+    pub fn after(&self, frame: i32) -> i32 {
+        self.first + ((frame as i64 - self.first as i64 + 1).rem_euclid(self.length())) as i32
     }
 
     /// Which frame belongs on screen `elapsed` after playback began, and what was skipped.

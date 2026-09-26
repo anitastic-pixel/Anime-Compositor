@@ -105,7 +105,7 @@ pub fn budget_label(bytes: usize) -> String {
 }
 
 /// What makes two requests for a decoded cel the same request.
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 struct Key {
     path: PathBuf,
     len: u64,
@@ -146,6 +146,10 @@ struct EffectKey {
     /// that cannot writes nothing into the cel, so it cannot change what the stack reads.
     masks: Vec<Mask>,
     effects: Vec<EffectInstance>,
+    /// D-99: 1 for a full-size cel, the draft divisor for a cel taken down to draft size before
+    /// its stack ran. Without it a stack with no distance in it and no mask - an exposure alone -
+    /// would find the full-size result of the same cel at draft, a buffer four times too large.
+    divisor: usize,
 }
 
 /// What one evaluation of an effect stack produced, in full.
@@ -339,22 +343,31 @@ impl CelCache {
         if self.budget == 0 || wanted.is_empty() {
             return;
         }
-        let todo: Vec<Key> = wanted
+        let keys: Vec<Key> = wanted
             .iter()
             .filter_map(|(path, interpretation)| Key::of(path, *interpretation))
-            .filter(|key| !self.entries.iter().any(|(k, _)| k == key))
-            .fold(Vec::new(), |mut todo, key| {
+            .fold(Vec::new(), |mut keys, key| {
                 // A matte and the layer that uses it name the same file: decode it once.
-                if !todo.contains(&key) {
-                    todo.push(key);
+                if !keys.contains(&key) {
+                    keys.push(key);
                 }
-                todo
+                keys
             });
-        if todo.len() < 2 {
-            // One cel is not a fan-out, and the serial path already times its three stages
-            // properly. Nothing is lost by leaving it to the loop.
+        let todo: Vec<Key> = keys
+            .iter()
+            .filter(|key| !self.entries.iter().any(|(k, _)| k == *key))
+            .filter(|key| !self.pending.iter().any(|(k, _)| k == *key))
+            .cloned()
+            .collect();
+        if todo.is_empty() {
+            // P-18: everything is held or already read ahead. The window asks again for the
+            // frame on screen until the clock moves on, and such a request must not throw away
+            // what was read ahead for the next one.
             return;
         }
+        // P-18: a frame with something new to read. What was read ahead for a frame that is not
+        // this one goes, so `pending` never holds more than one frame's cels.
+        self.pending.retain(|(k, _)| keys.contains(k));
         let decoded: Vec<(Key, Arc<WorkingBuffer>)> =
             crate::perf::time(crate::perf::Stage::Prewarm, || {
                 todo.into_par_iter()
@@ -371,7 +384,7 @@ impl CelCache {
                     })
                     .collect()
             });
-        self.pending = decoded;
+        self.pending.extend(decoded);
     }
 
     /// The result of running `effects` over the cel at `path`, masked by `masks`, if this cache
@@ -386,11 +399,12 @@ impl CelCache {
         interpretation: Interpretation,
         masks: &[Mask],
         effects: &[EffectInstance],
+        divisor: usize,
     ) -> Option<EffectResult> {
         if self.effect_budget == 0 {
             return None;
         }
-        let key = self.effect_key(path, interpretation, masks, effects)?;
+        let key = self.effect_key(path, interpretation, masks, effects, divisor)?;
         crate::perf::time(crate::perf::Stage::EffectCache, || {
             match self.effect_entries.iter().position(|(k, _)| *k == key) {
                 Some(at) => {
@@ -416,12 +430,13 @@ impl CelCache {
         interpretation: Interpretation,
         masks: &[Mask],
         effects: &[EffectInstance],
+        divisor: usize,
         result: EffectResult,
     ) {
         if self.effect_budget == 0 {
             return;
         }
-        let Some(key) = self.effect_key(path, interpretation, masks, effects) else {
+        let Some(key) = self.effect_key(path, interpretation, masks, effects, divisor) else {
             return;
         };
         crate::perf::time(crate::perf::Stage::EffectCache, || {
@@ -445,11 +460,13 @@ impl CelCache {
         interpretation: Interpretation,
         masks: &[Mask],
         effects: &[EffectInstance],
+        divisor: usize,
     ) -> Option<EffectKey> {
         Some(EffectKey {
             cel: Key::of(path, interpretation)?,
             masks: masks.to_vec(),
             effects: effects.to_vec(),
+            divisor,
         })
     }
 

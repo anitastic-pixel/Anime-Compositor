@@ -192,35 +192,12 @@ fn plan_inside(
         ));
     }
 
-    // D-42: the layers some other layer uses as a matte-only source. They are still resolved as
-    // mattes below; what the flag buys is that they are not also drawn in their own right, which
-    // is document 21's "not separately composited into the final stack".
-    let matte_only: Vec<&Id> = comp
-        .layers_in_order()
-        .filter_map(|l| l.matte.as_ref())
-        .filter(|m| m.matte_only)
-        .map(|m| &m.layer_id)
-        .collect();
+    let matte_only = matte_only(comp);
 
     // P-03(b): decode this frame's cels together, before the loop that wants them one at a
-    // time. The list is exactly what the loop below will ask for and in the same order -- each
-    // drawn layer's cel, and the cel of any layer it uses as a matte, whether or not that one is
-    // itself drawn -- so this changes when the decoding happens and nothing about which decoding
-    // happens. `CelCache::prewarm` skips what it already holds, decodes one file once however
-    // many layers name it, and quietly leaves anything unusual to the loop, which diagnoses it.
-    let mut wanted = Vec::new();
-    for layer in comp.layers_in_order() {
-        if !layer.enabled || matte_only.contains(&&layer.id) {
-            continue;
-        }
-        wanted.extend(exposed_cel(project, layer, frame, root));
-        if let Some(matte) = &layer.matte {
-            if let Some(matte_layer) = comp.layer(&matte.layer_id) {
-                wanted.extend(exposed_cel(project, matte_layer, frame, root));
-            }
-        }
-    }
-    cache.prewarm(&wanted);
+    // time. `CelCache::prewarm` skips what it already holds, decodes one file once however many
+    // layers name it, and quietly leaves anything unusual to the loop, which diagnoses it.
+    cache.prewarm(&cels_at(project, comp, frame, root));
 
     // D-58: each drawn layer with the plane it ends up on, so the vector can be put in draw
     // order once every layer is resolved.
@@ -363,6 +340,45 @@ struct ResolvedLayer {
 /// The caller decides what to do with `opacity`: a drawn layer applies it at step 6, and a matte
 /// ignores it, because step 5 asks for the matte layer's post-transform *alpha* and opacity is a
 /// later step about how a layer joins the stack.
+/// D-42: the layers some other layer uses as a matte-only source. They are still resolved as
+/// mattes; what the flag buys is that they are not also drawn in their own right, which is
+/// document 21's "not separately composited into the final stack".
+fn matte_only(comp: &crate::model::Composition) -> Vec<&Id> {
+    comp.layers_in_order()
+        .filter_map(|l| l.matte.as_ref())
+        .filter(|m| m.matte_only)
+        .map(|m| &m.layer_id)
+        .collect()
+}
+
+/// The cels `comp`'s own layers will ask for at `frame`, in the order its layer loop asks: each
+/// drawn layer's cel, and the cel of any layer it uses as a matte, whether or not that one is
+/// itself drawn (P-03(b)). This decides when decoding happens and nothing about which decoding
+/// happens. The viewer also asks it for the frame after the one it just showed, to read that
+/// frame's drawings while the page is busy with this one (P-18). Best effort, as
+/// [`exposed_cel`] is: a composition layer's inner cels are left to its own frame.
+pub fn cels_at(
+    project: &Project,
+    comp: &crate::model::Composition,
+    frame: i32,
+    root: &Path,
+) -> Vec<(PathBuf, crate::model::Interpretation)> {
+    let matte_only = matte_only(comp);
+    let mut wanted = Vec::new();
+    for layer in comp.layers_in_order() {
+        if !layer.enabled || matte_only.contains(&&layer.id) {
+            continue;
+        }
+        wanted.extend(exposed_cel(project, layer, frame, root));
+        if let Some(matte) = &layer.matte {
+            if let Some(matte_layer) = comp.layer(&matte.layer_id) {
+                wanted.extend(exposed_cel(project, matte_layer, frame, root));
+            }
+        }
+    }
+    wanted
+}
+
 /// Which file a layer shows at `frame`, and how to interpret it, or nothing.
 ///
 /// Best effort on purpose (P-03(b)). This exists to tell [`CelCache::prewarm`] what to decode,
@@ -791,6 +807,32 @@ fn resolve_layer(
         (std::sync::Arc::new(shape), None)
     } else {
         let (source, cel) = decode_cel(project, layer, frame, root, cache, log)?;
+        // D-99: in a draft preview a drawing with effects is taken down to the draft size
+        // first, sampled exactly as the draft frame samples it, and its stack runs on that - a
+        // sixteenth of the pixels - as D-67 already does for a composition layer's picture.
+        // `Full` never enters here, so a full preview and an export are what they were.
+        if quality != PreviewQuality::Full && layer.effects.iter().any(|i| i.enabled) {
+            let d = quality.divisor();
+            let small = crate::preview::scale_plan(
+                FramePlan {
+                    width: source.width(),
+                    height: source.height(),
+                    layers: vec![LayerDraw {
+                        id: layer.id.clone(),
+                        source,
+                        transform: Affine::IDENTITY,
+                        opacity: 1.0,
+                        matte: None,
+                        blend: crate::model::BlendMode::Normal,
+                        adjust: None,
+                        nested: None,
+                    }],
+                },
+                quality,
+            );
+            let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
+            return resolve_rest(comp, layer, frame, cache, log, small, Some(cel), d as f64);
+        }
         (source, Some(cel))
     };
     resolve_rest(comp, layer, frame, cache, log, source, cel, 1.0)
@@ -1081,7 +1123,19 @@ fn resolve_rest(
             )
         }
         Some((path, interpretation)) => {
-            if let Some(hit) = cache.effect_result(path, *interpretation, &drawn_masks, &effects) {
+            // D-99: a cel taken down to draft size runs its stack with every distance divided
+            // by the divisor, as the composition layer's picture above does. The key holds the
+            // settings as the project states them, and the divisor beside them.
+            let divisor = pre as usize;
+            let mut stack = effects.clone();
+            if pre != 1.0 {
+                for instance in &mut stack {
+                    instance.effect.scale_distances(|d| d / pre);
+                }
+            }
+            if let Some(hit) =
+                cache.effect_result(path, *interpretation, &drawn_masks, &effects, divisor)
+            {
                 // P-11. ADR-017 fixes an evaluation's whole input to the cel, the mask and the stack, all
                 // three of which are in the key, so this buffer is the one `apply_stack` would have
                 // produced. It is handed back shared: the cache holds it too, so the transform below,
@@ -1099,7 +1153,7 @@ fn resolve_rest(
                     std::sync::Arc::make_mut(&mut source)
                 });
                 let mut bypassed: Vec<(usize, crate::effects::Bypassed)> = Vec::new();
-                let offset = crate::effects::apply_stack(pixels, &effects, |at, instance, why| {
+                let offset = crate::effects::apply_stack(pixels, &stack, |at, instance, why| {
                     bypassed.push((at, why));
                     report(instance, why);
                 });
@@ -1108,6 +1162,7 @@ fn resolve_rest(
                     *interpretation,
                     &drawn_masks,
                     &effects,
+                    divisor,
                     crate::cache::EffectResult {
                         buffer: std::sync::Arc::clone(&source),
                         offset,

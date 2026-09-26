@@ -178,19 +178,22 @@ fn key_notices_its_inputs() -> Vec<Check> {
     };
 
     let mut cache = CelCache::viewer();
-    cache.store_effect(&cel, interp, &square, &stack(4.0), stored);
+    cache.store_effect(&cel, interp, &square, &stack(4.0), 1, stored);
 
     let hit = cache
-        .effect_result(&cel, interp, &square, &stack(4.0))
+        .effect_result(&cel, interp, &square, &stack(4.0), 1)
         .is_some();
     let other_sigma = cache
-        .effect_result(&cel, interp, &square, &stack(4.5))
+        .effect_result(&cel, interp, &square, &stack(4.5), 1)
         .is_some();
     let other_mask = cache
-        .effect_result(&cel, interp, &moved, &stack(4.0))
+        .effect_result(&cel, interp, &moved, &stack(4.0), 1)
         .is_some();
     let no_mask = cache
-        .effect_result(&cel, interp, &[], &stack(4.0))
+        .effect_result(&cel, interp, &[], &stack(4.0), 1)
+        .is_some();
+    let draft = cache
+        .effect_result(&cel, interp, &square, &stack(4.0), 4)
         .is_some();
 
     vec![
@@ -213,6 +216,11 @@ fn key_notices_its_inputs() -> Vec<Check> {
             check: "a layer with no mask is not served a masked layer's result".to_string(),
             expected: "not found".to_string(),
             actual: if no_mask { "found" } else { "not found" }.to_string(),
+        },
+        Check {
+            check: "a draft-size cel (D-99) is not served the full-size cel's result".to_string(),
+            expected: "not found".to_string(),
+            actual: if draft { "found" } else { "not found" }.to_string(),
         },
     ]
 }

@@ -14,11 +14,12 @@ The timings are in `verification/P-11_effect_cache.md`. **This page is the other
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| 80 frames of the declared fixture rendered from the effect cache (72 hits, 152 evaluations) match the same frames rendered with no cache | 0 frames differ, and the cache was used | 0 frames differ, and the cache was used | pass |
+| 80 frames of the declared fixture rendered from the effect cache (110 hits, 114 evaluations) match the same frames rendered with no cache | 0 frames differ, and the cache was used | 0 frames differ, and the cache was used | pass |
 | the same cel, mask and effect stack is found again | found | found | pass |
 | a blur of 4.5 pixels is not served the result of a blur of 4.0 | not found | not found | pass |
 | a mask with a corner moved is not served the old mask's result | not found | not found | pass |
 | a layer with no mask is not served a masked layer's result | not found | not found | pass |
+| a draft-size cel (D-99) is not served the full-size cel's result | not found | not found | pass |
 | an unsupported effect warns on the frame that evaluated the stack and on the frame served from the cache (3 effect-cache hits) | 1 warning, then 1 warning | 1 warning, then 1 warning | pass |
 
 ## What is deliberately not here
