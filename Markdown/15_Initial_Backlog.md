@@ -512,7 +512,7 @@ B-52 / Repeat Edge Pixels for the three blurs / **BUILT on 2026-09-26 at the own
   - The switch on Bloom, Glow or Selective Colour Blur, which D-109 gives reasons to leave without it.
   - Edges that mirror or wrap, which After Effects does not offer on these blurs either.
 
-B-53 / Radial Blur's zoom smears outward only / **BUILT on 2026-09-26 at the owner's "improve the zoom/radial blur to behave like AE", with D-110 proposed.** The owner named the direction of the streaks as what differs. `verification/B-53_zoom.md`. The new values of FX-RADIAL-002, 005 and 007 and FX-EDGES-008 were committed before the code (cf7a2d9).
+B-53 / Radial Blur's zoom smears outward only / **BUILT on 2026-09-26 at the owner's "improve the zoom/radial blur to behave like AE", with D-110 proposed.** The owner named the direction of the streaks as what differs. `verification/B-53_zoom.md`. **Playtest passed on 2026-09-26** ("works fantastically"); D-110 is still proposed. The new values of FX-RADIAL-002, 005 and 007 and FX-EDGES-008 were committed before the code (cf7a2d9).
 - **What it builds:**
   - A zoom now takes each pixel's samples only between the pixel and the centre, so everything streaks away from the centre and nothing toward it. Amount keeps its meaning. Spin is unchanged.
   - The card does the same: it takes the same sample positions from the CPU.

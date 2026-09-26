@@ -1,6 +1,6 @@
 # B-53: the zoom's direction, by hand
 
-Built on 2026-09-26 against the B-53 entry in document 15. `verification/B-53_zoom.md` explains what changed, with before-and-after pictures. This sheet checks it in the app.
+Built on 2026-09-26 against the B-53 entry in document 15. **Playtest passed on 2026-09-26:** the owner wrote "works fantastically". `verification/B-53_zoom.md` explains what changed, with before-and-after pictures. This sheet checks it in the app.
 
 ## Before you start
 
