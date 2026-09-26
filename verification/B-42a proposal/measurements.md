@@ -1,6 +1,6 @@
 # D-98 proposal: what a running sum would change, and what it would save
 
-**Proposed, not accepted. Nothing is built.** D-92 and D-96's fixtures are unchanged, and so is every picture the program makes today.
+**Accepted by the owner on 2026-09-25 ("accept d98, proceed").** The values below replaced D-92's and D-96's fixtures before B-42 built it. The proposal missed one case: FX-RADIAL-012 has a directional blur ahead of the radial blur, so it moves too, 138 pixels by at most 0.017. The rest of this page is the proposal as it was written.
 
 ## First, a correction
 

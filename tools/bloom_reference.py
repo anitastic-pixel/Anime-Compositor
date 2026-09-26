@@ -3,8 +3,8 @@
 D-96 adds `core.bloom`. It makes the brightest parts of a drawing flood with light, the way
 strong light blooms on film: a soft halo, tight and bright near the source and wide and faint
 further out, and, if asked, streaks of light crossing it like a star filter on a lens. It is
-this program's own method, built from D-89's glow test, document 21's Gaussian blur and D-92's
-line samples; nothing is ported. Document 21 is the rule in words; this file is the reference
+this program's own method, built from D-89's glow test, document 21's Gaussian blur and D-98's
+lines; nothing is ported. Document 21 is the rule in words; this file is the reference
 for the numbers document 25 pins against it.
 
 The rule. (1) The light: each pixel that shows, whose brightest channel in 8-bit steps is at
@@ -12,10 +12,11 @@ least the threshold's share of 255, exactly as D-89's glow tests it; every other
 nothing. (2) The halo H: the plain average of four of document 21's Gaussian blurs of the
 light, at sigma radius / 3 times 1, 1/2, 1/4 and 1/8. (3) The streaks T, when `streaks` is
 `cross` or `star`: two lines, at `angle` and `angle` + 90 degrees, or four, at 45 degree steps,
-each direction measured clockwise from up as D-92's is. Along one line, with m = ceil(length),
-the light is sampled (document 21's bilinear sample, nothing outside the drawing) at
-t_k = (k - m) * length / m for k = 0 to 2m and weighted m - |k - m|, a tent, the weights
-summing to m * m; with m = 0 it is the light itself. T is the plain average of the lines.
+each direction measured clockwise from up as D-92's is. One line is read as D-98 reads a
+directional blur (`directional_blur_reference.line_mean`): with h = max(|u_x|, |u_y|) * length,
+the columns (or rows, mostly down) j from the line's own are weighted max(0, h - |j|), a tent,
+divided by their sum; with length 0 it is the light itself. T is the plain average of the
+lines.
 (4) The output is O + intensity * (H + T), T being nothing with streaks `none`; the covering
 stops at full and the colour is not cut off at white. The layer grows by ceil(radius), or by
 ceil(length) with streaks on if that is more.
@@ -33,12 +34,9 @@ and never to make a build pass.
 
     python tools/bloom_reference.py
 
-**D-98, proposed and not accepted**, reads each streak line as D-98 reads a directional blur,
-run with `--d98`: it writes `expected_bloom_d98.json` beside the D-96 file and leaves that file
-alone. With h = max(|u_x|, |u_y|) * length, the columns (or rows, mostly down) j from the line's
-own are weighted max(0, h - |j|), divided by their sum, and a pixel is the straight mix of the
-two lines round its centre (`directional_blur_reference.line_mean`); with length 0 it is the
-light itself. The halo and everything else are D-96's.
+D-96's first streak, a tent of 2 * ceil(length) + 1 samples along the line through each pixel,
+is retired by D-98; its numbers are in this file and the expected file as they were at commit
+ca2be49.
 """
 
 import json
@@ -59,7 +57,6 @@ TOLERANCE = 2e-5  # document 25's default for a filter
 MAX_THRESHOLD, MAX_RADIUS, MAX_INTENSITY, MAX_LENGTH, MAX_ANGLE = 100, 500, 10, 500, 3600
 SCALES = (1, 0.5, 0.25, 0.125)
 LINES = {"none": 0, "cross": 2, "star": 4}
-RULE = {"d98": False}
 
 
 # --- the rule -------------------------------------------------------------------------------
@@ -117,11 +114,6 @@ def bloom(pixels, c, frame_no, shift):
     light = [G.working(p) if G.glows(p, bright, threshold, 0) else [0.0] * 4 for p in pixels]
     lit = [(i % W, i // W) for i in range(W * H) if light[i][3] > 0]
     blurs = [gaussian(radius / 3 * s) for s in SCALES]
-
-    m = math.ceil(length)
-    ts = [(k - m) * length / m for k in range(2 * m + 1)] if m else [0.0]
-    weights = [m - abs(k - m) for k in range(2 * m + 1)] if m else [1]
-    total = sum(weights)
     dirs = [along(angle + j * 180 / lines) for j in range(lines)]
 
     out = []
@@ -137,21 +129,12 @@ def bloom(pixels, c, frame_no, shift):
                         k = one[i + reach] * one[j + reach] / len(SCALES)
                         for ch in range(4):
                             halo[ch] += light[ly * W + lx][ch] * k
-            # 3. The streaks: tent-weighted samples along each line, the lines averaged.
+            # 3. The streaks: a tent along each line, the lines averaged.
             streak = [0.0] * 4
             for u in dirs:
-                if RULE["d98"]:
-                    line = streak_d98(light, u, length, dx, y)
-                    for ch in range(4):
-                        streak[ch] += line[ch] / lines
-                    continue
-                line = [0.0] * 4
-                for t, wt in zip(ts, weights):
-                    s = bilinear(light, dx + 0.5 + t * u[0], y + 0.5 + t * u[1])
-                    for ch in range(4):
-                        line[ch] += s[ch] * wt
+                line = streak_line(light, u, length, dx, y)
                 for ch in range(4):
-                    streak[ch] += line[ch] / total / lines
+                    streak[ch] += line[ch] / lines
             # 4. Added on top of the drawing; the covering stops at full.
             g = [intensity * (halo[ch] + streak[ch]) for ch in range(4)]
             o = G.working(pixels[y * W + dx]) if 0 <= dx < W else [0.0] * 4
@@ -159,7 +142,7 @@ def bloom(pixels, c, frame_no, shift):
     return out
 
 
-def streak_d98(light, u, length, x, y):
+def streak_line(light, u, length, x, y):
     """D-98's one streak line at the pixel (x, y): a tent over whole columns, or rows."""
     if length == 0:
         return bilinear(light, x + 0.5, y + 0.5)
@@ -293,7 +276,6 @@ def write(fx, c):
 
 
 def main():
-    RULE["d98"] = "--d98" in sys.argv
     (OUT / "media").mkdir(parents=True, exist_ok=True)
     for name, pixels in DRAWINGS.items():
         (OUT / "media" / f"{name}.png").write_bytes(S.png(pixels))
@@ -315,8 +297,7 @@ def main():
                                  "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
 
-    name = "expected_bloom_d98.json" if RULE["d98"] else "expected_bloom.json"
-    (OUT / name).write_text(json.dumps(expected, indent=1) + "\n", encoding="utf-8")
+    (OUT / "expected_bloom.json").write_text(json.dumps(expected, indent=1) + "\n", encoding="utf-8")
     check(expected)
 
 
