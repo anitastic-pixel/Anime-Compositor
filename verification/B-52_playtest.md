@@ -1,6 +1,6 @@
 # B-52: Repeat Edge Pixels, by hand
 
-Built on 2026-09-26 against the B-52 entry in document 15. **Awaiting the owner's playtest.**
+Built on 2026-09-26 against the B-52 entry in document 15. **Playtest passed on 2026-09-26:** the owner wrote "repeat edge pixel does work".
 
 `verification/B-52_edges.md` explains what was built, with before-and-after pictures. This sheet covers what those cannot show: the switch in the app.
 

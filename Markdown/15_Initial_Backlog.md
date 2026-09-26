@@ -499,7 +499,7 @@ B-51 / Glow on the graphics card / **BUILT on 2026-09-26 at the owner's "proceed
 - **Not built:**
   - A Glow followed by another effect, or on anything but a drawn layer. These stay on the CPU.
 
-B-52 / Repeat Edge Pixels for the three blurs / **BUILT on 2026-09-26 at the owner's "proceed, add to other blurs if needed", with D-109 proposed.** `verification/B-52_edges.md`. It answers the owner's "how do we get radial blur to not cause transparency from the edges". FX-EDGES-001 to 012 were committed before the code.
+B-52 / Repeat Edge Pixels for the three blurs / **BUILT on 2026-09-26 at the owner's "proceed, add to other blurs if needed", with D-109 proposed.** `verification/B-52_edges.md`. **Playtest passed on 2026-09-26** ("repeat edge pixel does work"); D-109 is still proposed. It answers the owner's "how do we get radial blur to not cause transparency from the edges". FX-EDGES-001 to 012 were committed before the code.
 - **What it builds:**
   - Radial Blur, Blur (Gaussian) and Directional Blur each get a switch, **Edges**: **Transparent**, as before, or **Repeat Edge Pixels**. With the second, a blur reaching past the layer's edge takes the edge pixel, so a picture that fills the frame stays solid to its edges, and the layer does not grow.
   - It starts at Transparent, and a file without it means Transparent and saves without it, so every existing project opens and saves as before. A misspelt word is kept and the blur left out with `EFFECT_PARAMETER_INVALID` (D-46).
