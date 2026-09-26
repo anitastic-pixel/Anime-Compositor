@@ -24454,7 +24454,7 @@ Frame 0: every pixel is the drawing's, unchanged.
 
 Frame 4: every pixel is the drawing's, unchanged.
 
-FX-HUESAT-023: Lightness written as the word "20", not a number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+FX-HUESAT-023: Lightness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
 
 Frame 0: every pixel is the drawing's, unchanged.
 

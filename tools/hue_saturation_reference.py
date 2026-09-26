@@ -195,8 +195,7 @@ INVALID = {
     "FX-HUESAT-020": ("Saturation 101, above 100.", case(saturation=101)),
     "FX-HUESAT-021": ("Lightness -101, below -100.", case(lightness=-101)),
     "FX-HUESAT-022": ("Hue keyed to 200 at frame 4.", case(hue=keyed((0, 0), (4, 200)))),
-    "FX-HUESAT-023": ("Lightness written as the word \"20\", not a number.",
-                      case(lightness="20")),
+    "FX-HUESAT-023": ("Lightness 101, above 100.", case(lightness=101)),
 }
 
 

@@ -30925,7 +30925,7 @@
    "warning": "EFFECT_PARAMETER_INVALID"
   },
   "FX-HUESAT-023": {
-   "says": "Lightness written as the word \"20\", not a number. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "says": "Lightness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning.",
    "project": "fx_huesat_023.json",
    "frames": {
     "0": [

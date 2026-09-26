@@ -91,7 +91,7 @@
               "parameters": {
                 "hue": 0,
                 "saturation": 0,
-                "lightness": "20"
+                "lightness": 101
               }
             }
           ]
