@@ -56,19 +56,19 @@ What the discipline bought is visible in the answer's shape. The cache that was 
 
 | Feature | Stage | Priority | Value | Complexity | Risk | Requirement |
 |---|---|---|---:|---:|---:|---|
-| 2.5D flat planes and camera | G2 | Must-next | 5 | 5 | 5 | R-12 |
-| Parenting | G2 | Must-next | 4 | 3 | 3 | R-12 |
-| Native bounded expressions | G2 | Should-next | 4 | 5 | 5 | R-13 |
-| GPU render path | G2+ | Trigger-gated | 4 | 4 | 4 | ADR-006 |
+| 2.5D flat planes and camera | G2 | B-13, done; a camera that is a layer is B-111 (D-167) | 5 | 5 | 5 | R-12 |
+| Parenting | G2 | B-13, done | 4 | 3 | 3 | R-12 |
+| Native bounded expressions | G2 | B-14, done | 4 | 5 | 5 | R-13 |
+| GPU render path | G2+ | Built from B-44 on, under D-100 | 4 | 4 | 4 | ADR-006 |
 | Precompositions | G3 | B-18, done on 2026-09-18: D-67, the core in B-18b, the window in B-18c | 5 | 5 | 5 | - |
 | Adjustment layers | G3 | B-17 done on 2026-09-18 (D-66) | 4 | 4 | 4 | - |
 | Curve and graph editor | G3 | B-19 done on 2026-09-19 (D-52, D-68, D-69) | 3 | 4 | 3 | - |
-| EXR import and export | G3 | Validate | 4 | 4 | 4 | R-15 |
+| EXR import and export | G3 | B-16, done | 4 | 4 | 4 | R-15 |
 | WAV reference audio | G3 | B-20, asked for on 2026-09-19; D-71 accepted; the core is built (B-20b), the window is B-20c | 3 | 3 | 2 | R-15 |
-| Collect and package project | G3 | Should | 4 | 3 | 3 | R-14 |
-| Anime line smoothing | G3 | Research | 5 | 4 | 4 | - |
-| Line recolor and color key | G3 | Research | 5 | 3 | 3 | - |
-| Directional cel blur | G3 | Research | 4 | 3 | 3 | - |
+| Collect and package project | G3 | B-15, done | 4 | 3 | 3 | R-14 |
+| Anime line smoothing | G3 | B-30, built | 5 | 4 | 4 | - |
+| Line recolor and color key | G3 | B-35 and B-41, built | 5 | 3 | 3 | - |
+| Directional cel blur | G3 | B-36, built | 4 | 3 | 3 | - |
 | Particle system | Parked | Defer | 2 | 5 | 5 | - |
 | Tracking and roto automation | Parked | Defer | 3 | 5 | 5 | - |
 | Full 3D renderer | Excluded | Reject | 1 | 5 | 5 | - |
@@ -76,7 +76,7 @@ What the discipline bought is visible in the answer's shape. The cache that was 
 | AEP importer | Excluded | Reject | 3 | 5 | 5 | - |
 | AE binary plugin host | Excluded | Reject | 2 | 5 | 5 | - |
 
-The GPU path is deliberately listed as trigger-gated rather than scheduled. Its trigger is a stopwatch reading on the reference shot, per ADR-006.
+The GPU path was listed as trigger-gated rather than scheduled, its trigger a stopwatch reading on the reference shot per ADR-006. The trigger fired, and the owner opened it (D-100); it is built from B-44 on.
 
 ## Admission rule
 

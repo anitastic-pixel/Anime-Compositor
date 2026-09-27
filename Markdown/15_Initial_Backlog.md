@@ -4,7 +4,7 @@ Version 0.3 | 2026-09-04 | Accepted for baseline
 
 ## Backlog rules
 
-All tasks are NOT STARTED. Sequence reflects dependencies, not calendar. Every task attaches a verification artifact per document 12 before it closes. A task without an artifact the owner has reviewed is not done, regardless of test status.
+Each entry states its own progress; at version 0.3 every task began NOT STARTED. Sequence reflects dependencies, not calendar. Every task attaches a verification artifact per document 12 before it closes. A task without an artifact the owner has reviewed is not done, regardless of test status.
 
 One task per session. The dependency chain is deliberately narrow so that data model and rendering errors surface before an interface hides them.
 
@@ -192,9 +192,9 @@ B-25 / shape layers (D-75, document 04 amended): rectangle, ellipse and pen path
 
 A GPU render path is not a backlog item. It is trigger-gated on a stopwatch reading per ADR-006.
 
-## Performance, proposed on 2026-09-09 and not yet accepted
+## Performance, proposed on 2026-09-09, accepted or cut entry by entry
 
-This section is a plan, not a schedule. It was written on 2026-09-09 from `Markdown/32_Performance_Architecture_Investigation.md` and `Markdown/33_Hardware_Optimization_and_Future_Architecture_Research.md`, both of which are research and neither of which authorises anything, against the measurement that made them necessary: `verification/T-06_declared_fixture.md`, where the declared ten-layer fixture costs 264.17 ms a frame at the median of the tenth loop against the 41.7 ms a 24 fps clock allows. That gap is D-47 in document 14 and D-47 is OPEN; nothing below closes it. Every entry here is PROPOSED, and the owner accepts or cuts each one by name. Where the two research documents disagree, document 33 is the corrected reading: the tenth-loop median is 264.17 ms, not 267.17; the sRGB encode in `to_srgb8_straight` is on the preview path as well as the export path; After Effects' SmartFX does declare regions; Resolve reuses upstream nodes. Where they agree, they agree on the thing that matters most, which is that nobody has measured where the frame goes, so the first unit measures and builds nothing.
+This section is a plan, not a schedule. It was written on 2026-09-09 from `Markdown/32_Performance_Architecture_Investigation.md` and `Markdown/33_Hardware_Optimization_and_Future_Architecture_Research.md`, both of which are research and neither of which authorises anything, against the measurement that made them necessary: `verification/T-06_declared_fixture.md`, where the declared ten-layer fixture costs 264.17 ms a frame at the median of the tenth loop against the 41.7 ms a 24 fps clock allows. That gap is D-47 in document 14, accepted on 2026-09-12 as a stated limit of the envelope; nothing below closes it. Every entry here was PROPOSED, and the owner accepted or cut each one by name; each entry says which. Where the two research documents disagree, document 33 is the corrected reading: the tenth-loop median is 264.17 ms, not 267.17; the sRGB encode in `to_srgb8_straight` is on the preview path as well as the export path; After Effects' SmartFX does declare regions; Resolve reuses upstream nodes. Where they agree, they agree on the thing that matters most, which is that nobody has measured where the frame goes, so the first unit measures and builds nothing.
 
 Rules that bind every entry. **No expected value in `Fixtures/` or document 25 changes**, which is document 12's rule and needs no restating except that performance work is where the temptation is strongest. **No estimate from either research document is quoted as a result**; the only figures a P-entry reports are ones its own artifact measured, on the recorded machine, build and commit. **Savings are not added or multiplied**: document 33's arithmetic on this is right, and an item that saves half of a stage saves half of that stage, nothing more, until the timer says otherwise. **One unit at a time**, per document 04 line 45, and the order below is a dependency order rather than a promise. **ADR-006 stays with the owner**: its trigger has fired on a recorded measurement, which makes the record open to a decision, not reopened by an agent, and P-07 exists to put one number in front of that decision rather than to take it. **ADR-011, ADR-015 and ADR-017 hold as written** unless an entry says which one it would void and the owner amends it first.
 
@@ -638,7 +638,27 @@ B-106 / Rain, D-163, the last of the third batch of thirty: streaks of rain fall
 
 B-107 / The third batch of thirty on the graphics card, D-165: every one of the thirty but Motion Tile done by the card when it is the last effect of a drawn layer, as B-65 and B-76 did for the first twenty. **D-165 is proposed on 2026-09-27, and B-107 is built the same day** (`verification/B-107_gpu_fx.md`): 6802 of 6802 checks within 1 level of 255 (`verification/B-107_gpu_fx_table.md`), pictures of the worst frame in `verification/B-107 pictures/`, and at Full every one of the twenty-nine 24 to 35 ms a frame on the card against 37 to 120 on the CPU (`verification/B-107_gpu_fx_timing_table.md`). The owner's playtest is `verification/B-107_playtest.md`, **passed on 2026-09-27** ("everything works, much faster").
 
-## Reuse from open source, proposed on 2026-09-22 and not yet accepted
+## G4: the smaller gaps, then the redesign, from 2026-09-27
+
+The owner passed G3 and set G4 on 2026-09-27 (D-167): the gaps the roadmap audit of that day found, then the redesign. Each gap is written fixtures first as its `a` part and proposed in document 14 before code depends on it, as every B-entry since B-17 has been. Release work (installer, signing, licence texts, a clean-machine test) is not here: the tool is for the owner's own use.
+
+B-108 / Gradient fills and strokes on shape layers: a linear or radial gradient of two or more colour stops in place of a flat colour, its start and end points keyed as any point is. The first of the things D-78 kept out of shape layers. NOT STARTED.
+
+B-109 / Trim paths: a shape's stroke drawn from a start to an end along its path, with an offset, each keyed, as After Effects' Trim Paths draws a line on. NOT STARTED.
+
+B-110 / Shape styles over time, and line ends: a shape's fill colour, stroke colour, stroke width and their opacities keyed; line joins mitred, round or bevelled with a mitre limit; line caps butt, round or square. Until now a shape's colours and width are fixed and its joins and caps are round. NOT STARTED.
+
+B-111 / A camera that is a layer: D-58's camera placed in the timeline as a layer with its own keys, which a null can parent, as After Effects' camera layer. Document 24 records it as deferred rather than refused. NOT STARTED.
+
+B-112 / Reference audio beyond WAV: MP3, FLAC, Ogg Vorbis and AAC read as the same samples a WAV gives, so that R-15's reference audio is not limited to one format. The window already plays these; the project could not keep them. NOT STARTED.
+
+B-113 / The web view's own network traffic, D-39: switch off what Microsoft's web view fetches on its own account, and watch the window again as `verification/B-11_offline_run.md` did, so that R-11's "sends nothing anywhere" holds for the whole window. NOT STARTED.
+
+B-114 / The viewer's memory envelope measured with the cache the viewer really builds, D-49: the T-06 harness for the window's own viewer, which has never been written, and the envelope restated from it. NOT STARTED.
+
+The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
+
+## Reuse from open source, proposed on 2026-09-22, accepted or cut entry by entry
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
 

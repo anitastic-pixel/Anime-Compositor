@@ -43,7 +43,7 @@ Blur and resampling need operation-specific numeric and visual thresholds establ
 
 ## Gates
 
-G0 passes when stack experiments demonstrate save safety, alpha correctness and reproducible output. G1 passes all applicable T-01 through T-10, T-15 and T-16, completes W-01 and has no known reproducible project-corruption defect. G2 adds T-11 and T-12 plus W-04. T-13/T-14 become required only for shipped packaging/formats.
+G0 passes when stack experiments demonstrate save safety, alpha correctness and reproducible output. G1 passes all applicable T-01 through T-10, T-15 and T-16, completes W-01 and has no known reproducible project-corruption defect. G2 adds T-11 and T-12 plus W-04. T-13/T-14 become required only for shipped packaging/formats. G3 had no exit criterion here; the owner passed it on 2026-09-27 by the word that the foundation is reached (D-167), which also sets G4's: the smaller gaps B-108 to B-114 built and accepted, then the redesign, passing when the owner accepts the last redesigned screen and has used the tool on a real shot.
 
 For an artist alpha, collect known limitations and recovery instructions and use disposable copies of artwork. A failed correctness test blocks the relevant feature; a missed performance target triggers optimization or a revised supported envelope with documented rationale.
 
@@ -100,7 +100,7 @@ T-10 is RUN and its result is not clean. Read off the build, R-11 holds: `verifi
 
 T-07 still owes Q-01, "no known reproducible project corruption in the release candidate". That is a statement about a release candidate rather than a check that can be run, and it stays open until there is one.
 
-Video export is not covered by any test and cannot be until a codec is chosen. D-30 records that as an owner decision. R-09 asks for an image sequence and T-08 tests exactly that.
+Video export was not covered until a codec was chosen. D-72, accepted on 2026-09-19, chose them: GIF, animated PNG and MP4 are written by B-21c and B-21d and checked in `verification/B-21c_films_table.md` and `verification/B-21d_mp4_table.md`. R-09 asks for an image sequence and T-08 tests exactly that.
 
 Every other test remains NOT RUN.
 

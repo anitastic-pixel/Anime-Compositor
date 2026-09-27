@@ -1,6 +1,6 @@
 # Session handoff
 
-Rewritten 2026-09-08, at the end of B-12c. Read this first when opening Claude Code in this
+Rewritten 2026-09-08, at the end of B-12c; its state brought up to date on 2026-09-27, at G4. Read this first when opening Claude Code in this
 directory. It is orientation only: what this project is, what state it is in today, and the things
 a fresh session gets wrong. What each unit of work settled is in `Markdown/15_Initial_Backlog.md`
 entry by entry, and the evidence is one file per unit under `verification/`.
@@ -33,46 +33,23 @@ rather than declaring it done.
 
 ## Where things stand
 
-**G0 passed on 2026-09-04. G1-core is built, and B-12 — the acceptance run — is what is left.**
+**G0 to G3 are passed; G4 is current (D-167, 2026-09-27).** The editor does what the planning pack
+set out to do and more: exposure timing, layers, masks, shape layers, parenting, the camera,
+expressions, precompositions, adjustment layers, the graph editor, EXR, WAV, packaging, GIF and MP4
+export, over ninety effects, most of them also drawn by the graphics card, and an After
+Effects-style window around it. Every decision the owner had not yet answered was accepted on
+2026-09-27, and every playtest then waiting was accepted without a separate run.
 
-Everything G1-core names exists: the colour and compositing core, PNG import with gap, Unicode and
-format diagnostics, the rational time model and exposure spans, the command model with undo and
-redo, the tiled multithreaded renderer, trace mode, masks and mattes, effects, the bounded preview
-cache, persistence with autosave and recovery, PNG sequence export, the offline package, and the
-editing window in `app/`. Every W-01 and W-02 step is reachable in that window by keyboard.
-The last one to be built was **creating a composition**, which B-12d added on 2026-09-08 as
-`composition.create` on Ctrl+Shift+N; before that a composition came from a fixture script and the
-window only edited one that already existed. It is a new capability rather than a correction, and
-the acceptance run is the place the owner decides whether to keep it.
-
-**B-12 is a person, not a test.** The owner completes W-01 and W-02 on the reference shot unaided
-and writes down what was awkward. `verification/B-12_acceptance_run.md` is the sheet for that run,
-written to be used in front of the window: where each control is, what right looks like, what wrong
-looks like. Nothing an agent can run substitutes for it.
-
-**Three decisions are waiting on the owner before or during that run**, and they are all one
-measurement read three ways. `verification/B-12c_owner_brief.md` is the brief. In short: the
-performance fixture document 08 declares has now been built and measured
-(`verification/T-06_declared_fixture.md`), which closes **D-41**; that measurement fired the
-reopening condition **D-40** set for itself, so the cache budget is open again; and the same file
-shows the declared ten-layer shot rendering about nine times slower than a 24 fps clock allows,
-which is not in the register at all and probably should be. Do not act on any of them. Opening,
-closing or reopening a register entry is a note in `Markdown/14_Decisions_Risks.md`, and the
-register is the owner's.
-
-**Around twenty entries in document 14 are PROVISIONAL or OPEN.** None blocks work today, because
-each was assumed one way and the assumption is written down.
-`verification/B-12b_provisional_decisions.md` is the same courtesy done properly for the two
-newest, D-45 and D-46, and is the model to follow when an agent has to assume again.
+**G4 is the smaller gaps first, B-108 to B-114, then the redesign, W-31 onward.** Both are
+described at the end of `Markdown/15_Initial_Backlog.md`. The tool is for the owner's own use, so
+release work (installer, signing, licence texts, a clean-machine test) waits, and so does the name
+(D-11). `Markdown/00_Start_Here.md` is the running record of what was built when and what the owner
+said about it; read its last paragraphs for the latest state.
 
 ## Things a fresh session is likely to get wrong
 
 Do not treat fast code generation as a reason to widen scope. The bottleneck is owner verification
 time, and generating code does not reduce it. This is the most common way this project would fail.
-
-Do not propose a GPU path. ADR-006 gates it on a measured result on a real shot, and
-`verification/T-06_declared_fixture.md` is now exactly such a reading — which makes it the owner's
-question to open, not an agent's to answer by building.
 
 Do not propose C++ or a native UI toolkit without reading ADR-003 and ADR-004 first. Both were
 considered and rejected for reasons specific to this project.
@@ -80,9 +57,6 @@ considered and rejected for reasons specific to this project.
 Do not reuse anything under `spikes/`. It is quarantined by document 06, excluded from the cargo
 workspace, and written to be discarded. Do not cite SP-07 as evidence that the compositing math is
 correct: it measures cost and determinism, and its colour arithmetic is provisional.
-
-Do not start G1-rest or G2 work — camera and parenting, expressions, collect and package,
-additional formats. They are scoped and scheduled and none of them is next.
 
 Do not edit a `verification/*.md` by hand. Every one is written by a test or a script, CI runs
 `git diff --exit-code -- verification/`, and a hand-edited artifact is caught on the next run.

@@ -56,7 +56,7 @@ For suspected corruption: preserve the original project first, work on a copy, d
 
 ## Go and no-go record
 
-Release owner, product reviewer and verifier are all the same person. Record the build, gates passed, accepted limitations, unresolved risks and distribution scope. No gate is currently passed; this document plans future delivery and asserts nothing about the present.
+Release owner, product reviewer and verifier are all the same person. Record the build, gates passed, accepted limitations, unresolved risks and distribution scope. G0 to G3 are passed, the last on 2026-09-27 (D-167). No release is planned: the owner uses the tool alone, so the release procedure above waits until the owner wants to share it.
 
 If capacity proves insufficient for G1-core as scoped, narrow the scope again rather than extending silently. Document 04 describes how, and version 0.3 already did it once.
 
