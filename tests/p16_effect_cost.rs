@@ -496,6 +496,14 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 0,
             },
         ),
+        (
+            "Twirl, as it starts",
+            Effect::Twirl {
+                angle: 90.0,
+                radius: 50.0,
+                center: [50.0, 50.0],
+            },
+        ),
     ]
 }
 

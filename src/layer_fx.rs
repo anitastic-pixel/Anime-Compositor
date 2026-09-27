@@ -910,3 +910,33 @@ pub(crate) fn ripple(source: &mut WorkingBuffer, center: (f64, f64), amplitude: 
             px.copy_from_slice(&sample_bilinear(&drawing, x + s * vx, y + s * vy));
         });
 }
+
+
+/// D-151: each pixel within `radius` of `center`, a point in the buffer, read from a place
+/// turned back round it by `angle` degrees times the square of how near the centre it is, so a
+/// positive angle twists the picture clockwise, most at the middle. The settings are already
+/// valid.
+pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center: (f64, f64)) {
+    if angle == 0.0 || radius <= 0.0 {
+        return;
+    }
+    let w = source.width();
+    let turn = angle.to_radians();
+    let drawing = source.clone();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (vx, vy) = (x - center.0, y - center.1);
+            let d = vx.hypot(vy);
+            if d >= radius {
+                return;
+            }
+            let t = 1.0 - d / radius;
+            let (sin, cos) = (turn * t * t).sin_cos();
+            let (sx, sy) = (vx * cos + vy * sin, vy * cos - vx * sin);
+            px.copy_from_slice(&sample_bilinear(&drawing, center.0 + sx, center.1 + sy));
+        });
+}

@@ -1430,6 +1430,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("phase".into(), num(*phase));
             params.insert("fade".into(), num(*fade));
         }
+        Effect::Twirl {
+            angle,
+            radius,
+            center,
+        } => {
+            params.insert("angle".into(), num(*angle));
+            params.insert("radius".into(), num(*radius));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2700,6 +2712,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::DIFFUSION,
                 crate::effects::WAVE_WARP,
                 crate::effects::RIPPLE,
+                crate::effects::TWIRL,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3039,6 +3052,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     phase: effect_number(params, "phase", &at)?,
                     fade: effect_number(params, "fade", &at)?,
                     frame: 0,
+                }),
+                crate::effects::TWIRL => Some(crate::effects::Effect::Twirl {
+                    angle: effect_number(params, "angle", &at)?,
+                    radius: effect_number(params, "radius", &at)?,
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
                 }),
                 _ => None,
             };
