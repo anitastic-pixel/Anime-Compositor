@@ -628,6 +628,8 @@ B-102 / Simple Choker, D-159, the twenty-sixth of the third batch of thirty: the
 
 B-103 / Speed Lines, D-160, the twenty-seventh of the third batch of thirty: manga focus lines rushing in toward a point. **B-103a is written on 2026-09-26**: `verification/B-103a proposal/`, D-160 in document 14, the rule in document 21, FX-SPEED-001 to 029 in document 25 from `tools/speed_lines_reference.py`, which writes `Fixtures/speed_lines/`. **B-103b is built on 2026-09-26**: `src/layer_fx.rs`, the Speed Lines card, `tests/b103_speed_lines.rs` writing `verification/B-103_speed_lines_table.md`, 116 of 116, worst 1.9e-7; the owner's playtest is `verification/B-103_speed_lines_playtest.md`.
 
+B-104 / Cross Glare, D-161, the twenty-eighth of the third batch of thirty: the bright points streaked into a cross or a star. **B-104a is written on 2026-09-26**: `verification/B-104a proposal/`, D-161 in document 14, the rule in document 21, FX-GLARE-001 to 029 in document 25 from `tools/cross_glare_reference.py`, which writes `Fixtures/cross_glare/`. **B-104b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
