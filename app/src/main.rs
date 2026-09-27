@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -2954,6 +2954,15 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             brightness: 0.0,
             contrast: 0.0,
         }),
+        // D-136: the ranges as a paint program starts them.
+        BLACK_WHITE => Some(Effect::BlackWhite {
+            reds: 40.0,
+            yellows: 60.0,
+            greens: 40.0,
+            cyans: 60.0,
+            blues: 20.0,
+            magentas: 80.0,
+        }),
         _ => None,
     }
 }
@@ -3298,6 +3307,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         BRIGHTNESS_CONTRAST => Ok(Effect::BrightnessContrast {
             brightness: number("brightness")?,
             contrast: number("contrast")?,
+        }),
+        BLACK_WHITE => Ok(Effect::BlackWhite {
+            reds: number("reds")?,
+            yellows: number("yellows")?,
+            greens: number("greens")?,
+            cyans: number("cyans")?,
+            blues: number("blues")?,
+            magentas: number("magentas")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6189,8 +6206,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.noise, core.chromatic_aberration, core.distance_gradation, \
                              core.light_rays, core.exposure_flicker, core.vignette, \
                              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
-                             core.color_balance, core.offset, core.light_wrap, core.invert or \
-                             core.brightness_contrast."
+                             core.color_balance, core.offset, core.light_wrap, core.invert, \
+                             core.brightness_contrast or core.black_white."
                                 .to_string(),
                         );
                     };
@@ -6206,8 +6223,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.chromatic_aberration, core.distance_gradation, \
                              core.light_rays, core.exposure_flicker, core.vignette, \
                              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
-                             core.color_balance, core.offset, core.light_wrap, core.invert and \
-                             core.brightness_contrast."
+                             core.color_balance, core.offset, core.light_wrap, core.invert, \
+                             core.brightness_contrast and core.black_white."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10185,7 +10202,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the thirty-five are named",
+            "an effect type this build does not have is refused, and the thirty-six are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -10194,8 +10211,8 @@ mod editing {
              core.rim_light, core.outline, core.noise, core.chromatic_aberration, \
              core.distance_gradation, core.light_rays, core.exposure_flicker, core.vignette, \
              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
-             core.color_balance, core.offset, core.light_wrap, core.invert and \
-             core.brightness_contrast.",
+             core.color_balance, core.offset, core.light_wrap, core.invert, \
+             core.brightness_contrast and core.black_white.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10207,8 +10224,8 @@ mod editing {
              core.lens_blur, core.rim_light, core.outline, core.noise, \
              core.chromatic_aberration, core.distance_gradation, core.light_rays, \
              core.exposure_flicker, core.vignette, core.turbulent_displace, core.fractal_noise, \
-             core.gradient_map, core.color_balance, core.offset, core.light_wrap, core.invert \
-             or core.brightness_contrast.",
+             core.gradient_map, core.color_balance, core.offset, core.light_wrap, core.invert, \
+             core.brightness_contrast or core.black_white.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22575,6 +22592,8 @@ mod contract {
         ("core.invert", &[("channel", "alpha"), ("amount", "60")]),
         // D-135: the brightness and the contrast.
         ("core.brightness_contrast", &[("brightness", "30"), ("contrast", "40")]),
+        // D-136: the six ranges.
+        ("core.black_white", &[("reds", "120"), ("yellows", "110"), ("greens", "-10"), ("cyans", "-50"), ("blues", "-50"), ("magentas", "120")]),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

@@ -378,6 +378,17 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 contrast: 40.0,
             },
         ),
+        (
+            "Black & White, a red filter",
+            Effect::BlackWhite {
+                reds: 120.0,
+                yellows: 110.0,
+                greens: -10.0,
+                cyans: -50.0,
+                blues: -50.0,
+                magentas: 120.0,
+            },
+        ),
     ]
 }
 

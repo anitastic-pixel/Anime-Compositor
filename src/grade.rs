@@ -531,3 +531,22 @@ pub(crate) fn brightness_contrast(source: &mut WorkingBuffer, brightness: f64, c
     let k = if contrast <= 0.0 { 1.0 + contrast / 100.0 } else { 1.0 / (1.0 - 0.99 * contrast / 100.0) };
     grade_pixels(source, false, |_, e| e.map(|v| (v - 0.5) * k + 0.5 + brightness / 255.0))
 }
+
+/// D-136: grey from the largest, middle and smallest channel, weighted by the setting of the
+/// largest's colour and of the pair of the two largest. `w` is reds, yellows, greens, cyans,
+/// blues, magentas.
+pub(crate) fn black_white(source: &mut WorkingBuffer, w: [f64; 6]) {
+    grade_pixels(source, false, |_, e| {
+        let mut order = [0usize, 1, 2];
+        order.sort_by(|&i, &j| e[j].total_cmp(&e[i]));
+        let [hi, mid, lo] = order;
+        let primary = w[2 * hi];
+        let secondary = match hi + mid {
+            1 => w[1],
+            3 => w[3],
+            _ => w[5],
+        };
+        let g = e[lo] + (e[mid] - e[lo]) * secondary / 100.0 + (e[hi] - e[mid]) * primary / 100.0;
+        [g; 3]
+    })
+}

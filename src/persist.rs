@@ -1310,6 +1310,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("brightness".into(), num(*brightness));
             params.insert("contrast".into(), num(*contrast));
         }
+        Effect::BlackWhite { reds, yellows, greens, cyans, blues, magentas } => {
+            params.insert("reds".into(), num(*reds));
+            params.insert("yellows".into(), num(*yellows));
+            params.insert("greens".into(), num(*greens));
+            params.insert("cyans".into(), num(*cyans));
+            params.insert("blues".into(), num(*blues));
+            params.insert("magentas".into(), num(*magentas));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1729,6 +1737,12 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "midtones",
         "highlights",
         "shift",
+        "reds",
+        "yellows",
+        "greens",
+        "cyans",
+        "blues",
+        "magentas",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2546,6 +2560,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LIGHT_WRAP,
                 crate::effects::INVERT,
                 crate::effects::BRIGHTNESS_CONTRAST,
+                crate::effects::BLACK_WHITE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2804,6 +2819,14 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::BRIGHTNESS_CONTRAST => Some(crate::effects::Effect::BrightnessContrast {
                     brightness: effect_number(params, "brightness", &at)?,
                     contrast: effect_number(params, "contrast", &at)?,
+                }),
+                crate::effects::BLACK_WHITE => Some(crate::effects::Effect::BlackWhite {
+                    reds: effect_number(params, "reds", &at)?,
+                    yellows: effect_number(params, "yellows", &at)?,
+                    greens: effect_number(params, "greens", &at)?,
+                    cyans: effect_number(params, "cyans", &at)?,
+                    blues: effect_number(params, "blues", &at)?,
+                    magentas: effect_number(params, "magentas", &at)?,
                 }),
                 _ => None,
             };

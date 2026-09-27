@@ -157,5 +157,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - channel, amount - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.brightness_contrast` is an effect this build has | added | added | pass |
 | and the settings it sends for it - brightness, contrast - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.black_white` is an effect this build has | added | added | pass |
+| and the settings it sends for it - reds, yellows, greens, cyans, blues, magentas - are the ones the command reads | accepted | accepted | pass |
 
-**137 of 137 checks pass.**
+**139 of 139 checks pass.**

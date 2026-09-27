@@ -1015,6 +1015,7 @@
         <option value="core.light_wrap">Light Wrap</option>
         <option value="core.invert">Invert</option>
         <option value="core.brightness_contrast">Brightness & Contrast</option>
+        <option value="core.black_white">Black & White</option>
       </select>
     </div>
   </section>
@@ -6439,6 +6440,7 @@ const EFFECT_NAMES = {
   'core.light_wrap': 'Light Wrap',
   'core.invert': 'Invert',
   'core.brightness_contrast': 'Brightness & Contrast',
+  'core.black_white': 'Black & White',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6578,6 +6580,8 @@ const EFFECT_PARAMS = {
   'core.invert': [['amount', 'Amount', 1, 1, '% of the way to the opposite, 0 to 100']],
   // D-135.
   'core.brightness_contrast': [['brightness', 'Brightness', 1, 1, 'levels of 255 added, -150 to 150'], ['contrast', 'Contrast', 1, 1, '-100 flat grey to 100 pushed fully apart']],
+  // D-136.
+  'core.black_white': [['reds', 'Reds', 1, 1, '% lightness, -200 to 300'], ['yellows', 'Yellows', 1, 1, '% lightness, -200 to 300'], ['greens', 'Greens', 1, 1, '% lightness, -200 to 300'], ['cyans', 'Cyans', 1, 1, '% lightness, -200 to 300'], ['blues', 'Blues', 1, 1, '% lightness, -200 to 300'], ['magentas', 'Magentas', 1, 1, '% lightness, -200 to 300']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

@@ -485,6 +485,15 @@ pub enum Effect {
         brightness: f64,
         contrast: f64,
     },
+    /// D-136: how light each of six colour ranges turns in grey, -200 to 300 per cent.
+    BlackWhite {
+        reds: f64,
+        yellows: f64,
+        greens: f64,
+        cyans: f64,
+        blues: f64,
+        magentas: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -526,6 +535,7 @@ pub const OFFSET: &str = "core.offset";
 pub const LIGHT_WRAP: &str = "core.light_wrap";
 pub const INVERT: &str = "core.invert";
 pub const BRIGHTNESS_CONTRAST: &str = "core.brightness_contrast";
+pub const BLACK_WHITE: &str = "core.black_white";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -818,6 +828,14 @@ impl Effect {
                 ("brightness", vec![brightness], -150.0, 150.0),
                 ("contrast", vec![contrast], -100.0, 100.0),
             ],
+            Effect::BlackWhite { reds, yellows, greens, cyans, blues, magentas } => vec![
+                ("reds", vec![reds], -200.0, 300.0),
+                ("yellows", vec![yellows], -200.0, 300.0),
+                ("greens", vec![greens], -200.0, 300.0),
+                ("cyans", vec![cyans], -200.0, 300.0),
+                ("blues", vec![blues], -200.0, 300.0),
+                ("magentas", vec![magentas], -200.0, 300.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -949,6 +967,7 @@ impl Effect {
             Effect::LightWrap { .. } => "Light Wrap",
             Effect::Invert { .. } => "Invert",
             Effect::BrightnessContrast { .. } => "Brightness & Contrast",
+            Effect::BlackWhite { .. } => "Black & White",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -990,6 +1009,7 @@ impl Effect {
             Effect::LightWrap { .. } => LIGHT_WRAP,
             Effect::Invert { .. } => INVERT,
             Effect::BrightnessContrast { .. } => BRIGHTNESS_CONTRAST,
+            Effect::BlackWhite { .. } => BLACK_WHITE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1988,6 +2008,11 @@ pub(crate) fn apply_stack_at(
             Effect::BrightnessContrast { brightness, contrast } => {
                 crate::perf::time(crate::perf::Stage::EffectBrightnessContrast, || {
                     crate::grade::brightness_contrast(source, *brightness, *contrast)
+                })
+            }
+            Effect::BlackWhite { reds, yellows, greens, cyans, blues, magentas } => {
+                crate::perf::time(crate::perf::Stage::EffectBlackWhite, || {
+                    crate::grade::black_white(source, [*reds, *yellows, *greens, *cyans, *blues, *magentas])
                 })
             }
         }
