@@ -149,8 +149,11 @@ impl EffectInstance {
             if let Effect::Noise { animate, frame: f, .. } = &mut effect {
                 *f = if animate == "on" { frame } else { 0 };
             }
-            // D-125: the flicker's frame.
+            // D-125 and D-127: the flicker's and the wobble's frame.
             if let Effect::ExposureFlicker { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
+            if let Effect::TurbulentDisplace { frame: f, .. } = &mut effect {
                 *f = frame;
             }
         }
@@ -405,6 +408,21 @@ pub enum Effect {
         softness: f64,
         center: [f64; 2],
     },
+    /// D-127: `amount`, 0 to 1000 pixels; `size`, 1 to 1000 pixels a wave; `complexity`, 1 to
+    /// 8, its whole part counted; `evolution`, -100000 to 100000 degrees; `speed`, -360 to 360
+    /// degrees a frame; `seed`, 0 to 100000, its whole part counted; and `edges`,
+    /// "transparent" or "repeat", kept as written so a wrong one is reported. `frame` is not a
+    /// setting and is never saved: it is the composition frame, as Noise's is.
+    TurbulentDisplace {
+        amount: f64,
+        size: f64,
+        complexity: f64,
+        evolution: f64,
+        speed: f64,
+        seed: f64,
+        edges: String,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -438,6 +456,7 @@ pub const DISTANCE_GRADATION: &str = "core.distance_gradation";
 pub const LIGHT_RAYS: &str = "core.light_rays";
 pub const EXPOSURE_FLICKER: &str = "core.exposure_flicker";
 pub const VIGNETTE: &str = "core.vignette";
+pub const TURBULENT_DISPLACE: &str = "core.turbulent_displace";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -665,6 +684,22 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
+            Effect::TurbulentDisplace {
+                amount,
+                size,
+                complexity,
+                evolution,
+                speed,
+                seed,
+                ..
+            } => vec![
+                ("amount", vec![amount], 0.0, 1000.0),
+                ("size", vec![size], 1.0, 1000.0),
+                ("complexity", vec![complexity], 1.0, 8.0),
+                ("evolution", vec![evolution], -100000.0, 100000.0),
+                ("speed", vec![speed], -360.0, 360.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -724,6 +759,11 @@ impl Effect {
             }
             Effect::ChromaticAberration { amount, .. } => *amount = scale(*amount),
             Effect::DistanceGradation { width, .. } => *width = scale(*width),
+            Effect::TurbulentDisplace { amount, size, .. } => {
+                *amount = scale(*amount);
+                // A wave under a pixel is held at one, as its range is, rather than bypassed.
+                *size = scale(*size).max(1.0);
+            }
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -777,6 +817,7 @@ impl Effect {
             Effect::LightRays { .. } => "Light Rays",
             Effect::ExposureFlicker { .. } => "Exposure Flicker",
             Effect::Vignette { .. } => "Vignette",
+            Effect::TurbulentDisplace { .. } => "Turbulent Displace",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -810,6 +851,7 @@ impl Effect {
             Effect::LightRays { .. } => LIGHT_RAYS,
             Effect::ExposureFlicker { .. } => EXPOSURE_FLICKER,
             Effect::Vignette { .. } => VIGNETTE,
+            Effect::TurbulentDisplace { .. } => TURBULENT_DISPLACE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -866,6 +908,10 @@ impl Effect {
                 } else {
                     crate::layer_fx::lens_reach(*radius, *aspect).ceil() as usize
                 }
+            }
+            // D-127: the amount rounded up, unless a push past the edge reads the edge.
+            Effect::TurbulentDisplace { amount, edges, .. } if edges != "repeat" => {
+                amount.ceil() as usize
             }
             // D-115: the shadow's move, rounded up, and its blur's reach.
             Effect::DropShadow {
@@ -1096,6 +1142,7 @@ impl Effect {
             }
             Effect::LightRays { color, .. } => hex_fault("Light Rays", "colour", color),
             Effect::Vignette { color, .. } => hex_fault("Vignette", "colour", color),
+            Effect::TurbulentDisplace { edges: e, .. } => edges(e),
             _ => None,
         };
         own.or_else(|| {
@@ -1662,6 +1709,33 @@ pub(crate) fn apply_stack_at(
                 crate::perf::time(crate::perf::Stage::EffectVignette, || {
                     crate::grade::vignette(source, &v)
                 })
+            }
+            // D-127: one full turn of evolution moves the field one wave.
+            Effect::TurbulentDisplace {
+                amount,
+                size,
+                complexity,
+                evolution,
+                speed,
+                seed,
+                edges,
+                frame,
+            } => {
+                let z = (evolution + speed * *frame as f64) / 360.0;
+                let r = crate::perf::time(crate::perf::Stage::EffectTurbulentDisplace, || {
+                    crate::layer_fx::turbulent_displace(
+                        source,
+                        *amount,
+                        *size,
+                        complexity.floor() as usize,
+                        *seed,
+                        z,
+                        edges == "repeat",
+                        (ox, oy),
+                    )
+                });
+                ox += r;
+                oy += r;
             }
         }
     }

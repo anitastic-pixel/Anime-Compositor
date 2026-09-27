@@ -118,6 +118,8 @@ pub enum Stage {
     EffectExposureFlicker,
     /// D-126's vignette, per pixel.
     EffectVignette,
+    /// D-127's turbulent displace, per pixel.
+    EffectTurbulentDisplace,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -135,7 +137,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 43] = [
+    pub const ALL: [Stage; 44] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -172,6 +174,7 @@ impl Stage {
         Stage::EffectLightRays,
         Stage::EffectExposureFlicker,
         Stage::EffectVignette,
+        Stage::EffectTurbulentDisplace,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -220,6 +223,7 @@ impl Stage {
             Stage::EffectLightRays => "effect: light rays",
             Stage::EffectExposureFlicker => "effect: exposure flicker",
             Stage::EffectVignette => "effect: vignette",
+            Stage::EffectTurbulentDisplace => "effect: turbulent displace",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

@@ -312,6 +312,19 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 center: [50.0, 50.0],
             },
         ),
+        (
+            "Turbulent Displace, amount 10, complexity 2",
+            Effect::TurbulentDisplace {
+                amount: 10.0,
+                size: 60.0,
+                complexity: 2.0,
+                evolution: 0.0,
+                speed: 20.0,
+                seed: 0.0,
+                edges: "transparent".to_string(),
+                frame: 5,
+            },
+        ),
     ]
 }
 

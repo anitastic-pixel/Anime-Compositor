@@ -1224,6 +1224,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 J::Array(center.iter().map(|c| num(*c)).collect()),
             );
         }
+        Effect::TurbulentDisplace {
+            amount,
+            size,
+            complexity,
+            evolution,
+            speed,
+            seed,
+            edges,
+            ..
+        } => {
+            params.insert("amount".into(), num(*amount));
+            params.insert("size".into(), num(*size));
+            params.insert("complexity".into(), num(*complexity));
+            params.insert("evolution".into(), num(*evolution));
+            params.insert("speed".into(), num(*speed));
+            params.insert("seed".into(), num(*seed));
+            params.insert("edges".into(), J::from(edges.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1622,6 +1640,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "highlight_threshold",
         "hold",
         "size",
+        "complexity",
+        "evolution",
+        "speed",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2430,6 +2451,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LIGHT_RAYS,
                 crate::effects::EXPOSURE_FLICKER,
                 crate::effects::VIGNETTE,
+                crate::effects::TURBULENT_DISPLACE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2631,6 +2653,18 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     softness: effect_number(params, "softness", &at)?,
                     center: effect_array(params, "center", "two numbers, x then y", &at)?,
                 }),
+                crate::effects::TURBULENT_DISPLACE => {
+                    Some(crate::effects::Effect::TurbulentDisplace {
+                        amount: effect_number(params, "amount", &at)?,
+                        size: effect_number(params, "size", &at)?,
+                        complexity: effect_number(params, "complexity", &at)?,
+                        evolution: effect_number(params, "evolution", &at)?,
+                        speed: effect_number(params, "speed", &at)?,
+                        seed: effect_number(params, "seed", &at)?,
+                        edges: effect_word(params, "edges", &at)?,
+                        frame: 0,
+                    })
+                }
                 _ => None,
             };
             // P-17: keys on a setting this effect does not have are not its keys. The record
