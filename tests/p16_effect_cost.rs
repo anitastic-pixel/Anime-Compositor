@@ -456,6 +456,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 amount: 100.0,
             },
         ),
+        (
+            "Sharpen, as it starts",
+            Effect::Sharpen {
+                amount: 100.0,
+                radius: 1.0,
+            },
+        ),
     ]
 }
 

@@ -1026,6 +1026,7 @@
         <option value="core.mosaic">Mosaic</option>
         <option value="core.emboss">Emboss</option>
         <option value="core.find_edges">Find Edges</option>
+        <option value="core.sharpen">Sharpen</option>
       </select>
     </div>
   </section>
@@ -6461,6 +6462,7 @@ const EFFECT_NAMES = {
   'core.mosaic': 'Mosaic',
   'core.emboss': 'Emboss',
   'core.find_edges': 'Find Edges',
+  'core.sharpen': 'Sharpen',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6630,6 +6632,9 @@ const EFFECT_PARAMS = {
     ['contrast', 'Contrast', 1, 1, '0 to 1000, how strongly the ridges show']],
   // D-146.
   'core.find_edges': [['amount', 'Amount', 1, 1, '0 to 100, how far each pixel goes toward its line']],
+  // D-147.
+  'core.sharpen': [['amount', 'Amount', 1, 1, '0 to 500, how strongly edges are crisped'],
+    ['radius', 'Radius', 1, 0.1, 'pixels, 0 to 100, how wide the crisped edge is']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

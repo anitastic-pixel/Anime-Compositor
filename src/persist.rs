@@ -1384,6 +1384,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("amount".into(), num(*amount));
         }
+        Effect::Sharpen { amount, radius } => {
+            params.insert("amount".into(), num(*amount));
+            params.insert("radius".into(), num(*radius));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2645,6 +2649,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::MOSAIC,
                 crate::effects::EMBOSS,
                 crate::effects::FIND_EDGES,
+                crate::effects::SHARPEN,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2956,6 +2961,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::FIND_EDGES => Some(crate::effects::Effect::FindEdges {
                     invert: effect_word(params, "invert", &at)?,
                     amount: effect_number(params, "amount", &at)?,
+                }),
+                crate::effects::SHARPEN => Some(crate::effects::Effect::Sharpen {
+                    amount: effect_number(params, "amount", &at)?,
+                    radius: effect_number(params, "radius", &at)?,
                 }),
                 _ => None,
             };

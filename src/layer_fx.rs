@@ -759,3 +759,37 @@ pub(crate) fn find_edges(source: &mut WorkingBuffer, invert: bool, amount: f64) 
             }
         });
 }
+
+
+/// D-147: each pixel that shows pushed `amount` percent further from its colour blurred at
+/// sigma `radius`, both as written, the blur divided by its own covering. The settings are
+/// already valid.
+pub(crate) fn sharpen(source: &mut WorkingBuffer, amount: f64, radius: f64) {
+    if amount <= 0.0 || radius <= 0.0 {
+        return;
+    }
+    let mut blurred = source.clone();
+    let r = crate::effects::blur(&mut blurred, radius);
+    let k = amount / 100.0;
+    let w = source.width();
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3] as f64;
+                if a <= 0.0 {
+                    continue;
+                }
+                let b = blurred.pixel(x + r, y + r);
+                let ba = b[3] as f64;
+                for c in 0..3 {
+                    let e = crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
+                    let eb = if ba > 0.0 { crate::grade::to_srgb((b[c] as f64 / ba).clamp(0.0, 1.0)) } else { e };
+                    let e = e + k * (e - eb);
+                    px[c] = (crate::grade::to_linear(e.clamp(0.0, 1.0)) * a) as f32;
+                }
+            }
+        });
+}

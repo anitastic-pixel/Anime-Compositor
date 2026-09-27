@@ -551,6 +551,9 @@ pub enum Effect {
     /// D-146: `invert`, "off" for dark lines on white or "on" for light lines on black;
     /// `amount`, 0 to 100, how far each pixel goes toward its line.
     FindEdges { invert: String, amount: f64 },
+    /// D-147: `amount`, 0 to 500, how far each colour is pushed from its blur; `radius`, 0 to
+    /// 100 pixels, the sigma of that blur.
+    Sharpen { amount: f64, radius: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -603,6 +606,7 @@ pub const HALFTONE: &str = "core.halftone";
 pub const MOSAIC: &str = "core.mosaic";
 pub const EMBOSS: &str = "core.emboss";
 pub const FIND_EDGES: &str = "core.find_edges";
+pub const SHARPEN: &str = "core.sharpen";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -947,6 +951,10 @@ impl Effect {
                 ("contrast", vec![contrast], 0.0, 1000.0),
             ],
             Effect::FindEdges { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
+            Effect::Sharpen { amount, radius } => vec![
+                ("amount", vec![amount], 0.0, 500.0),
+                ("radius", vec![radius], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1018,6 +1026,7 @@ impl Effect {
             // D-144: a block under a pixel is one pixel, which changes nothing.
             Effect::Mosaic { size } => *size = scale(*size).max(1.0),
             Effect::Emboss { relief, .. } => *relief = scale(*relief),
+            Effect::Sharpen { radius, .. } => *radius = scale(*radius),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -1094,6 +1103,7 @@ impl Effect {
             Effect::Mosaic { .. } => "Mosaic",
             Effect::Emboss { .. } => "Emboss",
             Effect::FindEdges { .. } => "Find Edges",
+            Effect::Sharpen { .. } => "Sharpen",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1146,6 +1156,7 @@ impl Effect {
             Effect::Mosaic { .. } => MOSAIC,
             Effect::Emboss { .. } => EMBOSS,
             Effect::FindEdges { .. } => FIND_EDGES,
+            Effect::Sharpen { .. } => SHARPEN,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2240,6 +2251,9 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::FindEdges { invert, amount } => crate::perf::time(crate::perf::Stage::EffectFindEdges, || {
                 crate::layer_fx::find_edges(source, invert == "on", *amount)
+            }),
+            Effect::Sharpen { amount, radius } => crate::perf::time(crate::perf::Stage::EffectSharpen, || {
+                crate::layer_fx::sharpen(source, *amount, *radius)
             }),
         }
     }
