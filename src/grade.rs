@@ -1,5 +1,5 @@
 //! The batch of ten's colour effects, each a pixel at a time on a layer's own pixels: D-111's
-//! curves, D-112's levels, D-113's hue and saturation and D-114's gradient.
+//! curves, D-112's levels, D-113's hue and saturation, D-114's gradient and D-119's noise.
 //!
 //! This program's own methods; nothing is ported. Each effect's `tools/<name>_reference.py` is
 //! the same rule worked a second way, and its `tests/b5x_<name>.rs` holds this to its numbers.
@@ -244,4 +244,40 @@ pub(crate) fn gradient(source: &mut WorkingBuffer, g: &Gradient) {
                 px[c] = ((b + o * (mix(b, color) - b)) * a) as f32;
             }
         });
+}
+
+/// D-119: SplitMix64's finaliser, on 64-bit words.
+fn mix(z: u64) -> u64 {
+    let z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    let z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    let z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^ (z >> 31)
+}
+
+/// D-119: film grain. Each channel of a pixel that shows moves by up to `amount` / 200 either
+/// way through the sRGB curve, by a number in -1..1 fixed by the seed's whole part, the pixel's
+/// place in the drawing's own space (its corner at `(ox, oy)` in `source` after the effects
+/// above grew it), `frame` and the channel, or channel 0 for all three unless `color`. The
+/// settings are already valid; amount 0 changes nothing.
+pub(crate) fn noise(
+    source: &mut WorkingBuffer,
+    amount: f64,
+    color: bool,
+    seed: f64,
+    frame: i32,
+    (ox, oy): (usize, usize),
+) {
+    if amount == 0.0 {
+        return;
+    }
+    let w = source.width();
+    let (base, k) = (mix(seed.floor() as u64), amount / 200.0);
+    grade_pixels(source, |i, e| {
+        let (x, y) = ((i % w) as i64 - ox as i64, (i / w) as i64 - oy as i64);
+        let h = mix(mix(mix(base ^ x as u64) ^ y as u64) ^ frame as i64 as u64);
+        std::array::from_fn(|c| {
+            let n = (mix(h ^ if color { c as u64 } else { 0 }) >> 11) as f64;
+            e[c] + k * (n / (1u64 << 53) as f64 * 2.0 - 1.0)
+        })
+    });
 }

@@ -222,6 +222,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 opacity: 100.0,
             },
         ),
+        (
+            "Noise, amount 10, colour",
+            Effect::Noise {
+                amount: 10.0,
+                mode: "color".into(),
+                seed: 0.0,
+                animate: "on".into(),
+                frame: 0,
+            },
+        ),
     ]
 }
 

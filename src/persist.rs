@@ -1128,6 +1128,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("opacity".into(), num(*opacity));
         }
+        Effect::Noise {
+            amount,
+            mode,
+            seed,
+            animate,
+            ..
+        } => {
+            params.insert("amount".into(), num(*amount));
+            params.insert("mode".into(), J::from(mode.as_str()));
+            params.insert("seed".into(), num(*seed));
+            params.insert("animate".into(), J::from(animate.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1509,6 +1521,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "end_opacity",
         "distance",
         "opacity",
+        "seed",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2311,6 +2324,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LENS_BLUR,
                 crate::effects::RIM_LIGHT,
                 crate::effects::OUTLINE,
+                crate::effects::NOISE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2454,6 +2468,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     width: effect_number(params, "width", &at)?,
                     softness: effect_number(params, "softness", &at)?,
                     opacity: effect_number(params, "opacity", &at)?,
+                }),
+                crate::effects::NOISE => Some(crate::effects::Effect::Noise {
+                    amount: effect_number(params, "amount", &at)?,
+                    mode: effect_word(params, "mode", &at)?,
+                    seed: effect_number(params, "seed", &at)?,
+                    animate: effect_word(params, "animate", &at)?,
+                    frame: 0,
                 }),
                 _ => None,
             };

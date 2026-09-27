@@ -145,6 +145,10 @@ impl EffectInstance {
                     *v = v.clamp(low, high);
                 }
             }
+            // D-119: the grain's frame, 0 when it does not move.
+            if let Effect::Noise { animate, frame: f, .. } = &mut effect {
+                *f = if animate == "on" { frame } else { 0 };
+            }
         }
         EffectInstance {
             instance_id: self.instance_id.clone(),
@@ -330,6 +334,18 @@ pub enum Effect {
         softness: f64,
         opacity: f64,
     },
+    /// D-119: `amount`, 0 to 100; `mode`, "mono" or "color"; `seed`, 0 to 100000, its whole
+    /// part counted; and `animate`, "on" or "off". The words are kept as written, so a wrong
+    /// one is reported. `frame` is not a setting and is never saved: it is the composition frame
+    /// the settings were resolved at, or 0 when the grain does not move, so the grain and the
+    /// effect cache's key both change with it.
+    Noise {
+        amount: f64,
+        mode: String,
+        seed: f64,
+        animate: String,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -357,6 +373,7 @@ pub const DROP_SHADOW: &str = "core.drop_shadow";
 pub const LENS_BLUR: &str = "core.lens_blur";
 pub const RIM_LIGHT: &str = "core.rim_light";
 pub const OUTLINE: &str = "core.outline";
+pub const NOISE: &str = "core.noise";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -524,6 +541,10 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 100.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::Noise { amount, seed, .. } => vec![
+                ("amount", vec![amount], 0.0, 100.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -628,6 +649,7 @@ impl Effect {
             Effect::LensBlur { .. } => "Lens Blur",
             Effect::RimLight { .. } => "Rim Light",
             Effect::Outline { .. } => "Outline",
+            Effect::Noise { .. } => "Noise",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -655,6 +677,7 @@ impl Effect {
             Effect::LensBlur { .. } => LENS_BLUR,
             Effect::RimLight { .. } => RIM_LIGHT,
             Effect::Outline { .. } => OUTLINE,
+            Effect::Noise { .. } => NOISE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -904,6 +927,12 @@ impl Effect {
             }
             Effect::RimLight { color, .. } => hex_fault("Rim Light", "colour", color),
             Effect::Outline { color, .. } => hex_fault("Outline", "colour", color),
+            Effect::Noise { mode, .. } if mode != "mono" && mode != "color" => Some(format!(
+                "Noise's mode is \"mono\" or \"color\", and this is \"{mode}\"."
+            )),
+            Effect::Noise { animate, .. } if animate != "on" && animate != "off" => Some(format!(
+                "Noise's animate is \"on\" or \"off\", and this is \"{animate}\"."
+            )),
             _ => None,
         };
         own.or_else(|| {
@@ -1354,6 +1383,15 @@ pub fn apply_stack(
                 ox += r;
                 oy += r;
             }
+            Effect::Noise {
+                amount,
+                mode,
+                seed,
+                frame,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectNoise, || {
+                crate::grade::noise(source, *amount, mode == "color", *seed, *frame, (ox, oy))
+            }),
         }
     }
     (ox, oy)

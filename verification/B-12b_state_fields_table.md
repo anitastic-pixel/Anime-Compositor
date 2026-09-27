@@ -129,5 +129,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - color, direction, width, softness, intensity, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.outline` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, width, softness, opacity - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.noise` is an effect this build has | added | added | pass |
+| and the settings it sends for it - amount, mode, seed, animate - are the ones the command reads | accepted | accepted | pass |
 
-**109 of 109 checks pass.**
+**111 of 111 checks pass.**
