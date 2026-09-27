@@ -608,6 +608,8 @@ B-92 / Wave Warp, D-149, the sixteenth of the third batch of thirty: the picture
 
 B-93 / Ripple, D-150, the seventeenth of the third batch of thirty: rings spreading from a point, as on water. **B-93a is written on 2026-09-26**: `verification/B-93a proposal/`, D-150 in document 14, the rule in document 21, FX-RIPPLE-001 to 026 in document 25 from `tools/ripple_reference.py`, which writes `Fixtures/ripple/`. **B-93b is built on 2026-09-26**: `src/layer_fx.rs`, the Ripple card, `tests/b93_ripple.rs` writing `verification/B-93_ripple_table.md`, 111 of 111, worst 2.5e-7; the owner's playtest is `verification/B-93_ripple_playtest.md`.
 
+B-94 / Twirl, D-151, the eighteenth of the third batch of thirty: the picture twisted round a point, most at the middle. **B-94a is written on 2026-09-26**: `verification/B-94a proposal/`, D-151 in document 14, the rule in document 21, FX-TWIRL-001 to 021 in document 25 from `tools/twirl_reference.py`, which writes `Fixtures/twirl/`. **B-94b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
