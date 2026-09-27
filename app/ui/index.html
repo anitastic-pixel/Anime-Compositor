@@ -1028,6 +1028,7 @@
         <option value="core.find_edges">Find Edges</option>
         <option value="core.sharpen">Sharpen</option>
         <option value="core.diffusion">Diffusion</option>
+        <option value="core.wave_warp">Wave Warp</option>
       </select>
     </div>
   </section>
@@ -6465,6 +6466,7 @@ const EFFECT_NAMES = {
   'core.find_edges': 'Find Edges',
   'core.sharpen': 'Sharpen',
   'core.diffusion': 'Diffusion',
+  'core.wave_warp': 'Wave Warp',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6640,6 +6642,12 @@ const EFFECT_PARAMS = {
   // D-148.
   'core.diffusion': [['radius', 'Radius', 1, 1, 'pixels, 0 to 500, how far the glow spreads'],
     ['amount', 'Amount', 1, 1, '0 to 100, how much of the glow is laid on']],
+  // D-149.
+  'core.wave_warp': [['height', 'Height', 1, 0.5, 'pixels, 0 to 1000, how far the wave pushes'],
+    ['width', 'Width', 1, 1, 'pixels, 1 to 10000, how long one wave is'],
+    ['direction', 'Direction', 1, 1, 'degrees clockwise from up, the way the wave runs'],
+    ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360'],
+    ['phase', 'Phase', 1, 1, 'degrees']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6749,6 +6757,8 @@ const EFFECT_WORDS = {
   'core.find_edges': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]] },
   // D-148.
   'core.diffusion': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['lighten', 'Lighten'], ['normal', 'Normal']]]] },
+  // D-149.
+  'core.wave_warp': { choices: [['shape', 'Shape', [['sine', 'Sine'], ['triangle', 'Triangle']]], EDGES] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

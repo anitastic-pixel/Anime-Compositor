@@ -604,7 +604,7 @@ B-90 / Sharpen, D-147, the fourteenth of the third batch of thirty: edges made c
 
 B-91 / Diffusion, D-148, the fifteenth of the third batch of thirty: a soft glow of the picture laid over itself, anime compositing's diffusion. **B-91a is written on 2026-09-26**: `verification/B-91a proposal/`, D-148 in document 14, the rule in document 21, FX-DIFFUSE-001 to 018 in document 25 from `tools/diffusion_reference.py`, which writes `Fixtures/diffusion/`. **B-91b is built on 2026-09-26**: `src/layer_fx.rs`, the Diffusion card, `tests/b91_diffusion.rs` writing `verification/B-91_diffusion_table.md`, 75 of 75, worst 2e-7; the owner's playtest is `verification/B-91_diffusion_playtest.md`.
 
-B-92 / Wave Warp, D-149, the sixteenth of the third batch of thirty: the picture bent by a moving wave. **B-92a is written on 2026-09-26**: `verification/B-92a proposal/`, D-149 in document 14, the rule in document 21, FX-WAVE-001 to 024 in document 25 from `tools/wave_warp_reference.py`, which writes `Fixtures/wave_warp/`. **B-92b, the build, is next.**
+B-92 / Wave Warp, D-149, the sixteenth of the third batch of thirty: the picture bent by a moving wave. **B-92a is written on 2026-09-26**: `verification/B-92a proposal/`, D-149 in document 14, the rule in document 21, FX-WAVE-001 to 024 in document 25 from `tools/wave_warp_reference.py`, which writes `Fixtures/wave_warp/`. **B-92b is built on 2026-09-26**: `src/layer_fx.rs`, the Wave Warp card, `tests/b92_wave_warp.rs` writing `verification/B-92_wave_warp_table.md`, 103 of 103, worst 2.5e-7; the owner's playtest is `verification/B-92_wave_warp_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

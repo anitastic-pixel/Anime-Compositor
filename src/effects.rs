@@ -159,6 +159,10 @@ impl EffectInstance {
             if let Effect::FractalNoise { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-149: the wave's frame.
+            if let Effect::WaveWarp { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         EffectInstance {
             instance_id: self.instance_id.clone(),
@@ -561,6 +565,22 @@ pub enum Effect {
         amount: f64,
         blend: String,
     },
+    /// D-149: `shape`, "sine" or "triangle"; `height`, 0 to 1000 pixels, how far the wave
+    /// pushes; `width`, 1 to 10000 pixels, how long one wave is; `direction`, -3600 to 3600
+    /// degrees clockwise from up, the way the wave runs; `speed`, -360 to 360 degrees a frame;
+    /// `phase`, -100000 to 100000 degrees; and `edges`, "transparent" or "repeat". The words are
+    /// kept as written, so a wrong one is reported. `frame` is not a setting and is never saved:
+    /// it is the composition frame, as Noise's is.
+    WaveWarp {
+        shape: String,
+        height: f64,
+        width: f64,
+        direction: f64,
+        speed: f64,
+        phase: f64,
+        edges: String,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -615,6 +635,7 @@ pub const EMBOSS: &str = "core.emboss";
 pub const FIND_EDGES: &str = "core.find_edges";
 pub const SHARPEN: &str = "core.sharpen";
 pub const DIFFUSION: &str = "core.diffusion";
+pub const WAVE_WARP: &str = "core.wave_warp";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -967,6 +988,20 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 500.0),
                 ("amount", vec![amount], 0.0, 100.0),
             ],
+            Effect::WaveWarp {
+                height,
+                width,
+                direction,
+                speed,
+                phase,
+                ..
+            } => vec![
+                ("height", vec![height], 0.0, 1000.0),
+                ("width", vec![width], 1.0, 10000.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("speed", vec![speed], -360.0, 360.0),
+                ("phase", vec![phase], -100000.0, 100000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1040,6 +1075,10 @@ impl Effect {
             Effect::Emboss { relief, .. } => *relief = scale(*relief),
             Effect::Sharpen { radius, .. } => *radius = scale(*radius),
             Effect::Diffusion { radius, .. } => *radius = scale(*radius),
+            Effect::WaveWarp { height, width, .. } => {
+                *height = scale(*height);
+                *width = scale(*width).max(1.0);
+            }
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -1118,6 +1157,7 @@ impl Effect {
             Effect::FindEdges { .. } => "Find Edges",
             Effect::Sharpen { .. } => "Sharpen",
             Effect::Diffusion { .. } => "Diffusion",
+            Effect::WaveWarp { .. } => "Wave Warp",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1172,6 +1212,7 @@ impl Effect {
             Effect::FindEdges { .. } => FIND_EDGES,
             Effect::Sharpen { .. } => SHARPEN,
             Effect::Diffusion { .. } => DIFFUSION,
+            Effect::WaveWarp { .. } => WAVE_WARP,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1229,6 +1270,8 @@ impl Effect {
                     crate::layer_fx::lens_reach(*radius, *aspect).ceil() as usize
                 }
             }
+            // D-149: the height rounded up, unless a push past the edge reads the edge.
+            Effect::WaveWarp { height, edges, .. } if edges != "repeat" => height.ceil() as usize,
             // D-127: the amount rounded up, unless a push past the edge reads the edge.
             Effect::TurbulentDisplace { amount, edges, .. } if edges != "repeat" => {
                 amount.ceil() as usize
@@ -1542,6 +1585,9 @@ impl Effect {
             Effect::Diffusion { blend, .. } if !["screen", "lighten", "normal"].contains(&blend.as_str()) => Some(format!(
                 "Diffusion's blend is \"screen\", \"lighten\" or \"normal\", and this is \"{blend}\"."
             )),
+            Effect::WaveWarp { shape, edges: e, .. } => (!["sine", "triangle"].contains(&shape.as_str()))
+                .then(|| format!("{name}'s shape is \"sine\" or \"triangle\", and this is \"{shape}\"."))
+                .or_else(|| edges(e)),
             _ => None,
         };
         own.or_else(|| {
@@ -2276,6 +2322,31 @@ pub(crate) fn apply_stack_at(
             Effect::Diffusion { radius, amount, blend } => crate::perf::time(crate::perf::Stage::EffectDiffusion, || {
                 crate::layer_fx::diffusion(source, *radius, *amount, blend)
             }),
+            // D-149: the wave slides `speed` degrees a frame.
+            Effect::WaveWarp {
+                shape,
+                height,
+                width,
+                direction,
+                speed,
+                phase,
+                edges,
+                frame,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectWaveWarp, || {
+                    crate::layer_fx::wave_warp(
+                        source,
+                        shape == "triangle",
+                        (*height, *width),
+                        *direction,
+                        phase + speed * *frame as f64,
+                        edges == "repeat",
+                        (ox, oy),
+                    )
+                });
+                ox += r;
+                oy += r;
+            }
         }
     }
     (ox, oy)

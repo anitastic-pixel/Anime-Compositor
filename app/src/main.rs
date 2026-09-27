@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3021,6 +3021,17 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             amount: 50.0,
             blend: "screen".to_string(),
         }),
+        // D-149: a still sine wave, pushing up and down.
+        WAVE_WARP => Some(Effect::WaveWarp {
+            shape: "sine".to_string(),
+            height: 10.0,
+            width: 40.0,
+            direction: 90.0,
+            speed: 0.0,
+            phase: 0.0,
+            edges: "transparent".to_string(),
+            frame: 0,
+        }),
         _ => None,
     }
 }
@@ -3438,6 +3449,16 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             radius: number("radius")?,
             amount: number("amount")?,
             blend: word("blend")?,
+        }),
+        WAVE_WARP => Ok(Effect::WaveWarp {
+            shape: word("shape")?,
+            height: number("height")?,
+            width: number("width")?,
+            direction: number("direction")?,
+            speed: number("speed")?,
+            phase: number("phase")?,
+            edges: word("edges")?,
+            frame: 0,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6333,7 +6354,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.brightness_contrast, core.black_white, core.posterize, \
                              core.threshold, core.channel_mixer, core.vibrance, \
                              core.leave_color, core.solarize, core.halftone, core.mosaic, \
-                             core.emboss, core.find_edges, core.sharpen or core.diffusion."
+                             core.emboss, core.find_edges, core.sharpen, core.diffusion or \
+                             core.wave_warp."
                                 .to_string(),
                         );
                     };
@@ -6353,7 +6375,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.brightness_contrast, core.black_white, core.posterize, \
                              core.threshold, core.channel_mixer, core.vibrance, \
                              core.leave_color, core.solarize, core.halftone, core.mosaic, \
-                             core.emboss, core.find_edges, core.sharpen and core.diffusion."
+                             core.emboss, core.find_edges, core.sharpen, core.diffusion and \
+                             core.wave_warp."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10331,7 +10354,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the forty-eight are named",
+            "an effect type this build does not have is refused, and the forty-nine are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -10343,7 +10366,8 @@ mod editing {
              core.color_balance, core.offset, core.light_wrap, core.invert, \
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
              core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
-             core.mosaic, core.emboss, core.find_edges, core.sharpen and core.diffusion.",
+             core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion and \
+             core.wave_warp.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10358,7 +10382,8 @@ mod editing {
              core.gradient_map, core.color_balance, core.offset, core.light_wrap, core.invert, \
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
              core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
-             core.mosaic, core.emboss, core.find_edges, core.sharpen or core.diffusion.",
+             core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion or \
+             core.wave_warp.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22784,6 +22809,19 @@ mod contract {
         ("core.sharpen", &[("amount", "250"), ("radius", "2")]),
         // D-148: both numbers and the blend.
         ("core.diffusion", &[("radius", "25"), ("amount", "70"), ("blend", "lighten")]),
+        // D-149: the five numbers and both words.
+        (
+            "core.wave_warp",
+            &[
+                ("shape", "triangle"),
+                ("height", "6"),
+                ("width", "30"),
+                ("direction", "45"),
+                ("speed", "12"),
+                ("phase", "90"),
+                ("edges", "repeat"),
+            ],
+        ),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

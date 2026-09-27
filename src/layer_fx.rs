@@ -831,3 +831,50 @@ pub(crate) fn diffusion(source: &mut WorkingBuffer, radius: f64, amount: f64, bl
             }
         });
 }
+
+
+/// D-149: each pixel read from a place pushed `height` pixels across a wave `width` pixels
+/// long running along `direction`, at `phase` degrees, fixed to the drawing's own space (its
+/// corner at `origin` in `source`). With transparent edges the layer first grows by the height
+/// rounded up, returned; with `repeat` a place past the edge reads the edge. The settings are
+/// already valid; height 0 changes nothing.
+pub(crate) fn wave_warp(
+    source: &mut WorkingBuffer,
+    triangle: bool,
+    (height, width): (f64, f64),
+    direction: f64,
+    phase: f64,
+    repeat: bool,
+    origin: (usize, usize),
+) -> usize {
+    if height == 0.0 {
+        return 0;
+    }
+    let g = if repeat { 0 } else { height.ceil() as usize };
+    let (w, h) = (source.width() + 2 * g, source.height() + 2 * g);
+    let (ox, oy) = ((origin.0 + g) as f64, (origin.1 + g) as f64);
+    let (tx, ty) = crate::blurs::along(direction);
+    let (nx, ny) = (-ty, tx);
+    let phi = phase.to_radians();
+    let tau = std::f64::consts::TAU;
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let s = tx * (x - ox) + ty * (y - oy);
+            let a = tau * s / width + phi;
+            let v = if triangle { a.sin().asin() * 2.0 / std::f64::consts::PI } else { a.sin() };
+            let mut sx = x - height * v * nx;
+            let mut sy = y - height * v * ny;
+            if repeat {
+                sx = sx.clamp(0.5, w as f64 - 0.5);
+                sy = sy.clamp(0.5, h as f64 - 0.5);
+            }
+            px.copy_from_slice(&sample_bilinear(drawing, sx - g as f64, sy - g as f64));
+        });
+    *source = out;
+    g
+}

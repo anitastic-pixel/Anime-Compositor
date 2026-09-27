@@ -471,6 +471,19 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 blend: "screen".to_string(),
             },
         ),
+        (
+            "Wave Warp, as it starts",
+            Effect::WaveWarp {
+                shape: "sine".to_string(),
+                height: 10.0,
+                width: 40.0,
+                direction: 90.0,
+                speed: 0.0,
+                phase: 0.0,
+                edges: "transparent".to_string(),
+                frame: 0,
+            },
+        ),
     ]
 }
 

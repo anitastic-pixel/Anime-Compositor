@@ -160,6 +160,8 @@ pub enum Stage {
     EffectSharpen,
     /// D-148's diffusion, a blur and a pass per pixel.
     EffectDiffusion,
+    /// D-149's wave warp, per pixel.
+    EffectWaveWarp,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -177,7 +179,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 64] = [
+    pub const ALL: [Stage; 65] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -235,6 +237,7 @@ impl Stage {
         Stage::EffectFindEdges,
         Stage::EffectSharpen,
         Stage::EffectDiffusion,
+        Stage::EffectWaveWarp,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -304,6 +307,7 @@ impl Stage {
             Stage::EffectFindEdges => "effect: find edges",
             Stage::EffectSharpen => "effect: sharpen",
             Stage::EffectDiffusion => "effect: diffusion",
+            Stage::EffectWaveWarp => "effect: wave warp",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

@@ -1393,6 +1393,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("amount".into(), num(*amount));
             params.insert("blend".into(), J::from(blend.as_str()));
         }
+        Effect::WaveWarp {
+            shape,
+            height,
+            width,
+            direction,
+            speed,
+            phase,
+            edges,
+            ..
+        } => {
+            params.insert("shape".into(), J::from(shape.as_str()));
+            params.insert("height".into(), num(*height));
+            params.insert("width".into(), num(*width));
+            params.insert("direction".into(), num(*direction));
+            params.insert("speed".into(), num(*speed));
+            params.insert("phase".into(), num(*phase));
+            params.insert("edges".into(), J::from(edges.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1825,6 +1843,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "blue",
         "vibrance",
         "relief",
+        "height",
+        "phase",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2656,6 +2676,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::FIND_EDGES,
                 crate::effects::SHARPEN,
                 crate::effects::DIFFUSION,
+                crate::effects::WAVE_WARP,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2976,6 +2997,16 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     radius: effect_number(params, "radius", &at)?,
                     amount: effect_number(params, "amount", &at)?,
                     blend: effect_word(params, "blend", &at)?,
+                }),
+                crate::effects::WAVE_WARP => Some(crate::effects::Effect::WaveWarp {
+                    shape: effect_word(params, "shape", &at)?,
+                    height: effect_number(params, "height", &at)?,
+                    width: effect_number(params, "width", &at)?,
+                    direction: effect_number(params, "direction", &at)?,
+                    speed: effect_number(params, "speed", &at)?,
+                    phase: effect_number(params, "phase", &at)?,
+                    edges: effect_word(params, "edges", &at)?,
+                    frame: 0,
                 }),
                 _ => None,
             };
