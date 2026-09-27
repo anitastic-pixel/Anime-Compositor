@@ -360,6 +360,10 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 highlights: vec![30.0, 10.0, -20.0],
             },
         ),
+        (
+            "Offset, a part-pixel slide",
+            Effect::Offset { shift: [40.5, -12.25] },
+        ),
     ]
 }
 

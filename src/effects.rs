@@ -463,6 +463,8 @@ pub enum Effect {
         midtones: Vec<f64>,
         highlights: Vec<f64>,
     },
+    /// D-131: `shift`, x then y in pixels, each -100000 to 100000, slid with wrap-around.
+    Offset { shift: [f64; 2] },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -500,6 +502,7 @@ pub const TURBULENT_DISPLACE: &str = "core.turbulent_displace";
 pub const FRACTAL_NOISE: &str = "core.fractal_noise";
 pub const GRADIENT_MAP: &str = "core.gradient_map";
 pub const COLOR_BALANCE: &str = "core.color_balance";
+pub const OFFSET: &str = "core.offset";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -778,6 +781,9 @@ impl Effect {
                 ("midtones", midtones.iter_mut().collect(), -100.0, 100.0),
                 ("highlights", highlights.iter_mut().collect(), -100.0, 100.0),
             ],
+            Effect::Offset { shift } => {
+                vec![("shift", shift.iter_mut().collect(), -100000.0, 100000.0)]
+            }
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -863,6 +869,8 @@ impl Effect {
                 *distance = scale(*distance);
                 *softness = scale(*softness);
             }
+            // D-131: the shift is a distance, so a draft slides by its share.
+            Effect::Offset { shift } => *shift = shift.map(&scale),
             _ => {}
         }
     }
@@ -901,6 +909,7 @@ impl Effect {
             Effect::FractalNoise { .. } => "Fractal Noise",
             Effect::GradientMap { .. } => "Gradient Map",
             Effect::ColorBalance { .. } => "Color Balance",
+            Effect::Offset { .. } => "Offset",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -938,6 +947,7 @@ impl Effect {
             Effect::FractalNoise { .. } => FRACTAL_NOISE,
             Effect::GradientMap { .. } => GRADIENT_MAP,
             Effect::ColorBalance { .. } => COLOR_BALANCE,
+            Effect::Offset { .. } => OFFSET,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1909,6 +1919,9 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectColorBalance, || {
                 let tone = |t: &[f64]| [t[0], t[1], t[2]];
                 crate::grade::color_balance(source, tone(shadows), tone(midtones), tone(highlights))
+            }),
+            Effect::Offset { shift } => crate::perf::time(crate::perf::Stage::EffectOffset, || {
+                crate::layer_fx::offset(source, *shift)
             }),
         }
     }

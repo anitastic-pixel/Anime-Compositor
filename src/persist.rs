@@ -1290,6 +1290,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(name.into(), J::Array(tone.iter().map(|v| num(*v)).collect()));
             }
         }
+        Effect::Offset { shift } => {
+            params.insert("shift".into(), J::Array(shift.iter().map(|v| num(*v)).collect()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1708,6 +1711,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "shadows",
         "midtones",
         "highlights",
+        "shift",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -1724,7 +1728,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         let (count, what) = match name {
             "color" => (3, "a linear RGB triple"),
             "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
-            "center" | "start" | "end" => (2, "two numbers, x then y"),
+            "center" | "start" | "end" | "shift" => (2, "two numbers, x then y"),
             _ => (1, ""),
         };
         let mut track = Vec::new();
@@ -2521,6 +2525,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::FRACTAL_NOISE,
                 crate::effects::GRADIENT_MAP,
                 crate::effects::COLOR_BALANCE,
+                crate::effects::OFFSET,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2763,6 +2768,9 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     shadows: effect_list(params, "shadows", &at)?,
                     midtones: effect_list(params, "midtones", &at)?,
                     highlights: effect_list(params, "highlights", &at)?,
+                }),
+                crate::effects::OFFSET => Some(crate::effects::Effect::Offset {
+                    shift: effect_array(params, "shift", "two numbers, x then y", &at)?,
                 }),
                 _ => None,
             };

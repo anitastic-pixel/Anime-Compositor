@@ -1011,6 +1011,7 @@
         <option value="core.fractal_noise">Fractal Noise</option>
         <option value="core.gradient_map">Gradient Map</option>
         <option value="core.color_balance">Color Balance</option>
+        <option value="core.offset">Offset</option>
       </select>
     </div>
   </section>
@@ -6431,6 +6432,7 @@ const EFFECT_NAMES = {
   'core.fractal_noise': 'Fractal Noise',
   'core.gradient_map': 'Gradient Map',
   'core.color_balance': 'Color Balance',
+  'core.offset': 'Offset',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6561,6 +6563,8 @@ const EFFECT_PARAMS = {
   'core.color_balance': [['shadows', 'Shadows', 3, 1, 'red, green, blue, -100 to 100'],
     ['midtones', 'Midtones', 3, 1, 'red, green, blue, -100 to 100'],
     ['highlights', 'Highlights', 3, 1, 'red, green, blue, -100 to 100']],
+  // D-131.
+  'core.offset': [['shift', 'Shift', 2, 1, 'pixels, x then y, -100000 to 100000']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7429,7 +7433,8 @@ function effectRow(layer, fx, at, of) {
   }
   // The card's picture, above its numbers, as After Effects puts it.
   const k = { fields, words, live, close, send: () => sendParameters(), redraws };
-  const pairs = known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
+  // A shift is pixels, not a place on the drawing, so the offset has no point box.
+  const pairs = fx.type_id === 'core.offset' ? [] : known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
   const picture = fx.type_id === 'core.levels' ? fxLevels(k, label)
     : fx.type_id === 'core.hue_saturation' ? fxHues(k, label)
       : fx.type_id === 'core.lens_blur' ? fxIris(k, label)
