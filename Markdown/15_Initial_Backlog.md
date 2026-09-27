@@ -616,7 +616,7 @@ B-96 / Mirror, D-153, the twentieth of the third batch of thirty: one side of th
 
 B-97 / Motion Tile, D-154, the twenty-first of the third batch of thirty: the picture repeated round itself, plain or mirrored. **B-97a is written on 2026-09-26**: `verification/B-97a proposal/`, D-154 in document 14, the rule in document 21, FX-TILE-001 to 023 in document 25 from `tools/motion_tile_reference.py`, which writes `Fixtures/motion_tile/`. **B-97b is built on 2026-09-26**: `src/layer_fx.rs`, the Motion Tile card, `tests/b97_motion_tile.rs` writing `verification/B-97_motion_tile_table.md`, 91 of 91, worst 1.9e-7; the owner's playtest is `verification/B-97_motion_tile_playtest.md`.
 
-B-98 / Linear Wipe, D-155, the twenty-second of the third batch of thirty: the picture wiped away by a straight edge. **B-98a is written on 2026-09-26**: `verification/B-98a proposal/`, D-155 in document 14, the rule in document 21, FX-LWIPE-001 to 032 in document 25 from `tools/linear_wipe_reference.py`, which writes `Fixtures/linear_wipe/`. **B-98b, the build, is next.**
+B-98 / Linear Wipe, D-155, the twenty-second of the third batch of thirty: the picture wiped away by a straight edge. **B-98a is written on 2026-09-26**: `verification/B-98a proposal/`, D-155 in document 14, the rule in document 21, FX-LWIPE-001 to 032 in document 25 from `tools/linear_wipe_reference.py`, which writes `Fixtures/linear_wipe/`. **B-98b is built on 2026-09-26**: `src/layer_fx.rs`, the Linear Wipe card, `tests/b98_linear_wipe.rs` writing `verification/B-98_linear_wipe_table.md`, 118 of 118, worst 1.9e-7; the owner's playtest is `verification/B-98_linear_wipe_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

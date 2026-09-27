@@ -527,6 +527,14 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 mirror: "off".to_string(),
             },
         ),
+        (
+            "Linear Wipe, half way",
+            Effect::LinearWipe {
+                completion: 50.0,
+                angle: 90.0,
+                feather: 0.0,
+            },
+        ),
     ]
 }
 

@@ -1028,3 +1028,50 @@ pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: 
     *source = out;
     (gx, gy)
 }
+
+
+/// D-155: every pixel behind a straight edge moving along `angle` gone, `completion` per cent of
+/// the way across the drawing, whose corner is at `origin` in the buffer, softened over
+/// `feather` pixels. The settings are already valid.
+pub(crate) fn linear_wipe(
+    source: &mut WorkingBuffer,
+    completion: f64,
+    angle: f64,
+    feather: f64,
+    origin: (usize, usize),
+) {
+    if completion == 0.0 {
+        return;
+    }
+    if completion == 100.0 {
+        source.data_mut().fill(0.0);
+        return;
+    }
+    let w = source.width();
+    let (w0, h0) = ((w - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
+    let (ux, uy) = crate::blurs::along(angle);
+    let corners = [0.0, ux * w0, uy * h0, ux * w0 + uy * h0];
+    let low = corners.iter().copied().fold(f64::INFINITY, f64::min);
+    let high = corners.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let edge = low - feather / 2.0 + completion / 100.0 * (high - low + feather);
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let x = (i % w) as f64 - ox + 0.5;
+            let y = (i / w) as f64 - oy + 0.5;
+            let s = ux * x + uy * y;
+            let k = if feather > 0.0 {
+                ((s - edge) / feather + 0.5).clamp(0.0, 1.0)
+            } else if s >= edge {
+                1.0
+            } else {
+                0.0
+            };
+            for v in px.iter_mut() {
+                *v *= k as f32;
+            }
+        });
+}

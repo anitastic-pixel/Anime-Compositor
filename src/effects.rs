@@ -625,6 +625,13 @@ pub enum Effect {
         output_height: f64,
         mirror: String,
     },
+    /// D-155: `completion`, 0 to 100 per cent, how far the edge has gone; `angle`, -3600 to 3600
+    /// degrees, the way it moves, 90 to the right; `feather`, 0 to 10000 pixels, how soft it is.
+    LinearWipe {
+        completion: f64,
+        angle: f64,
+        feather: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -685,6 +692,7 @@ pub const TWIRL: &str = "core.twirl";
 pub const BULGE: &str = "core.bulge";
 pub const MIRROR: &str = "core.mirror";
 pub const MOTION_TILE: &str = "core.motion_tile";
+pub const LINEAR_WIPE: &str = "core.linear_wipe";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1097,6 +1105,15 @@ impl Effect {
                 ("output_width", vec![output_width], 100.0, 1000.0),
                 ("output_height", vec![output_height], 100.0, 1000.0),
             ],
+            Effect::LinearWipe {
+                completion,
+                angle,
+                feather,
+            } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+                ("feather", vec![feather], 0.0, 10000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1186,6 +1203,7 @@ impl Effect {
             }
             Effect::Twirl { radius, .. } => *radius = scale(*radius),
             Effect::Bulge { radius, .. } => *radius = scale(*radius),
+            Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -1270,6 +1288,7 @@ impl Effect {
             Effect::Bulge { .. } => "Bulge",
             Effect::Mirror { .. } => "Mirror",
             Effect::MotionTile { .. } => "Motion Tile",
+            Effect::LinearWipe { .. } => "Linear Wipe",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1330,6 +1349,7 @@ impl Effect {
             Effect::Bulge { .. } => BULGE,
             Effect::Mirror { .. } => MIRROR,
             Effect::MotionTile { .. } => MOTION_TILE,
+            Effect::LinearWipe { .. } => LINEAR_WIPE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2525,6 +2545,14 @@ pub(crate) fn apply_stack_at(
                 ox += gx;
                 oy += gy;
             }
+            // D-155: the edge crosses the drawing's own box, however an effect above grew it.
+            Effect::LinearWipe {
+                completion,
+                angle,
+                feather,
+            } => crate::perf::time(crate::perf::Stage::EffectLinearWipe, || {
+                crate::layer_fx::linear_wipe(source, *completion, *angle, *feather, (ox, oy))
+            }),
         }
     }
     (ox, oy)

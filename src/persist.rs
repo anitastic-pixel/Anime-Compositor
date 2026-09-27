@@ -1470,6 +1470,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("output_height".into(), num(*output_height));
             params.insert("mirror".into(), J::from(mirror.as_str()));
         }
+        Effect::LinearWipe {
+            completion,
+            angle,
+            feather,
+        } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("angle".into(), num(*angle));
+            params.insert("feather".into(), num(*feather));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1909,6 +1918,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "fade",
         "output_width",
         "output_height",
+        "completion",
+        "feather",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2746,6 +2757,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::BULGE,
                 crate::effects::MIRROR,
                 crate::effects::MOTION_TILE,
+                crate::effects::LINEAR_WIPE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3104,6 +3116,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     output_width: effect_number(params, "output_width", &at)?,
                     output_height: effect_number(params, "output_height", &at)?,
                     mirror: effect_word(params, "mirror", &at)?,
+                }),
+                crate::effects::LINEAR_WIPE => Some(crate::effects::Effect::LinearWipe {
+                    completion: effect_number(params, "completion", &at)?,
+                    angle: effect_number(params, "angle", &at)?,
+                    feather: effect_number(params, "feather", &at)?,
                 }),
                 _ => None,
             };

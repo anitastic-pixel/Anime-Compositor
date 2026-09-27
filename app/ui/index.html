@@ -1034,6 +1034,7 @@
         <option value="core.bulge">Bulge</option>
         <option value="core.mirror">Mirror</option>
         <option value="core.motion_tile">Motion Tile</option>
+        <option value="core.linear_wipe">Linear Wipe</option>
       </select>
     </div>
   </section>
@@ -6477,6 +6478,7 @@ const EFFECT_NAMES = {
   'core.bulge': 'Bulge',
   'core.mirror': 'Mirror',
   'core.motion_tile': 'Motion Tile',
+  'core.linear_wipe': 'Linear Wipe',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6679,6 +6681,10 @@ const EFFECT_PARAMS = {
   // D-154.
   'core.motion_tile': [['output_width', 'Output width', 1, 1, '% of the drawing, 100 to 1000'],
     ['output_height', 'Output height', 1, 1, '% of the drawing, 100 to 1000']],
+  // D-155.
+  'core.linear_wipe': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
+    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 90 wipes from the left'],
+    ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the edge is']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
