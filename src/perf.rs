@@ -158,6 +158,8 @@ pub enum Stage {
     EffectFindEdges,
     /// D-147's sharpen, a blur and a pass per pixel.
     EffectSharpen,
+    /// D-148's diffusion, a blur and a pass per pixel.
+    EffectDiffusion,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -175,7 +177,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 63] = [
+    pub const ALL: [Stage; 64] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -232,6 +234,7 @@ impl Stage {
         Stage::EffectEmboss,
         Stage::EffectFindEdges,
         Stage::EffectSharpen,
+        Stage::EffectDiffusion,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -300,6 +303,7 @@ impl Stage {
             Stage::EffectEmboss => "effect: emboss",
             Stage::EffectFindEdges => "effect: find edges",
             Stage::EffectSharpen => "effect: sharpen",
+            Stage::EffectDiffusion => "effect: diffusion",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

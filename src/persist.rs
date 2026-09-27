@@ -1388,6 +1388,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("amount".into(), num(*amount));
             params.insert("radius".into(), num(*radius));
         }
+        Effect::Diffusion { radius, amount, blend } => {
+            params.insert("radius".into(), num(*radius));
+            params.insert("amount".into(), num(*amount));
+            params.insert("blend".into(), J::from(blend.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2650,6 +2655,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::EMBOSS,
                 crate::effects::FIND_EDGES,
                 crate::effects::SHARPEN,
+                crate::effects::DIFFUSION,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2965,6 +2971,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::SHARPEN => Some(crate::effects::Effect::Sharpen {
                     amount: effect_number(params, "amount", &at)?,
                     radius: effect_number(params, "radius", &at)?,
+                }),
+                crate::effects::DIFFUSION => Some(crate::effects::Effect::Diffusion {
+                    radius: effect_number(params, "radius", &at)?,
+                    amount: effect_number(params, "amount", &at)?,
+                    blend: effect_word(params, "blend", &at)?,
                 }),
                 _ => None,
             };

@@ -793,3 +793,41 @@ pub(crate) fn sharpen(source: &mut WorkingBuffer, amount: f64, radius: f64) {
             }
         });
 }
+
+
+/// D-148: each pixel that shows moved `amount` percent of the way toward its colour laid with
+/// `blend` under the picture blurred at a third of `radius`, the blur divided by its own
+/// covering, in linear light and not clamped. The settings are already valid.
+pub(crate) fn diffusion(source: &mut WorkingBuffer, radius: f64, amount: f64, blend: &str) {
+    if amount <= 0.0 || radius <= 0.0 {
+        return;
+    }
+    let mut blurred = source.clone();
+    let r = crate::effects::blur(&mut blurred, radius / 3.0);
+    let k = amount / 100.0;
+    let w = source.width();
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3] as f64;
+                if a <= 0.0 {
+                    continue;
+                }
+                let g = blurred.pixel(x + r, y + r);
+                let ga = g[3] as f64;
+                for c in 0..3 {
+                    let b = px[c] as f64 / a;
+                    let g = if ga > 0.0 { g[c] as f64 / ga } else { b };
+                    let f = match blend {
+                        "screen" => 1.0 - (1.0 - b) * (1.0 - g),
+                        "lighten" => b.max(g),
+                        _ => g,
+                    };
+                    px[c] = ((b + k * (f - b)) * a) as f32;
+                }
+            }
+        });
+}

@@ -463,6 +463,14 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 radius: 1.0,
             },
         ),
+        (
+            "Diffusion, as it starts",
+            Effect::Diffusion {
+                radius: 10.0,
+                amount: 50.0,
+                blend: "screen".to_string(),
+            },
+        ),
     ]
 }
 

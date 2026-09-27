@@ -1027,6 +1027,7 @@
         <option value="core.emboss">Emboss</option>
         <option value="core.find_edges">Find Edges</option>
         <option value="core.sharpen">Sharpen</option>
+        <option value="core.diffusion">Diffusion</option>
       </select>
     </div>
   </section>
@@ -6463,6 +6464,7 @@ const EFFECT_NAMES = {
   'core.emboss': 'Emboss',
   'core.find_edges': 'Find Edges',
   'core.sharpen': 'Sharpen',
+  'core.diffusion': 'Diffusion',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6635,6 +6637,9 @@ const EFFECT_PARAMS = {
   // D-147.
   'core.sharpen': [['amount', 'Amount', 1, 1, '0 to 500, how strongly edges are crisped'],
     ['radius', 'Radius', 1, 0.1, 'pixels, 0 to 100, how wide the crisped edge is']],
+  // D-148.
+  'core.diffusion': [['radius', 'Radius', 1, 1, 'pixels, 0 to 500, how far the glow spreads'],
+    ['amount', 'Amount', 1, 1, '0 to 100, how much of the glow is laid on']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6742,6 +6747,8 @@ const EFFECT_WORDS = {
   'core.emboss': { choices: [['mode', 'Mode', [['grey', 'Grey'], ['color', 'Over the colours']]]] },
   // D-146.
   'core.find_edges': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]] },
+  // D-148.
+  'core.diffusion': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['lighten', 'Lighten'], ['normal', 'Normal']]]] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

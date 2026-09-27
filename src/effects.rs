@@ -554,6 +554,13 @@ pub enum Effect {
     /// D-147: `amount`, 0 to 500, how far each colour is pushed from its blur; `radius`, 0 to
     /// 100 pixels, the sigma of that blur.
     Sharpen { amount: f64, radius: f64 },
+    /// D-148: `radius`, 0 to 500 pixels, how far the glow spreads, three times its blur's sigma;
+    /// `amount`, 0 to 100, how much of it is laid on; `blend`, "screen", "lighten" or "normal".
+    Diffusion {
+        radius: f64,
+        amount: f64,
+        blend: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -607,6 +614,7 @@ pub const MOSAIC: &str = "core.mosaic";
 pub const EMBOSS: &str = "core.emboss";
 pub const FIND_EDGES: &str = "core.find_edges";
 pub const SHARPEN: &str = "core.sharpen";
+pub const DIFFUSION: &str = "core.diffusion";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -955,6 +963,10 @@ impl Effect {
                 ("amount", vec![amount], 0.0, 500.0),
                 ("radius", vec![radius], 0.0, 100.0),
             ],
+            Effect::Diffusion { radius, amount, .. } => vec![
+                ("radius", vec![radius], 0.0, 500.0),
+                ("amount", vec![amount], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1027,6 +1039,7 @@ impl Effect {
             Effect::Mosaic { size } => *size = scale(*size).max(1.0),
             Effect::Emboss { relief, .. } => *relief = scale(*relief),
             Effect::Sharpen { radius, .. } => *radius = scale(*radius),
+            Effect::Diffusion { radius, .. } => *radius = scale(*radius),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -1104,6 +1117,7 @@ impl Effect {
             Effect::Emboss { .. } => "Emboss",
             Effect::FindEdges { .. } => "Find Edges",
             Effect::Sharpen { .. } => "Sharpen",
+            Effect::Diffusion { .. } => "Diffusion",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1157,6 +1171,7 @@ impl Effect {
             Effect::Emboss { .. } => EMBOSS,
             Effect::FindEdges { .. } => FIND_EDGES,
             Effect::Sharpen { .. } => SHARPEN,
+            Effect::Diffusion { .. } => DIFFUSION,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1523,6 +1538,9 @@ impl Effect {
             )),
             Effect::FindEdges { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "Find Edges's invert is \"off\" or \"on\", and this is \"{invert}\"."
+            )),
+            Effect::Diffusion { blend, .. } if !["screen", "lighten", "normal"].contains(&blend.as_str()) => Some(format!(
+                "Diffusion's blend is \"screen\", \"lighten\" or \"normal\", and this is \"{blend}\"."
             )),
             _ => None,
         };
@@ -2254,6 +2272,9 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::Sharpen { amount, radius } => crate::perf::time(crate::perf::Stage::EffectSharpen, || {
                 crate::layer_fx::sharpen(source, *amount, *radius)
+            }),
+            Effect::Diffusion { radius, amount, blend } => crate::perf::time(crate::perf::Stage::EffectDiffusion, || {
+                crate::layer_fx::diffusion(source, *radius, *amount, blend)
             }),
         }
     }

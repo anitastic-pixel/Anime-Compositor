@@ -602,7 +602,7 @@ B-89 / Find Edges, D-146, the thirteenth of the third batch of thirty: the pictu
 
 B-90 / Sharpen, D-147, the fourteenth of the third batch of thirty: edges made crisper by an unsharp mask. **B-90a is written on 2026-09-26**: `verification/B-90a proposal/`, D-147 in document 14, the rule in document 21, FX-SHARPEN-001 to 018 in document 25 from `tools/sharpen_reference.py`, which writes `Fixtures/sharpen/`. **B-90b is built on 2026-09-26**: `src/layer_fx.rs`, the Sharpen card, `tests/b90_sharpen.rs` writing `verification/B-90_sharpen_table.md`, 75 of 75, worst 8.4e-7; the owner's playtest is `verification/B-90_sharpen_playtest.md`.
 
-B-91 / Diffusion, D-148, the fifteenth of the third batch of thirty: a soft glow of the picture laid over itself, anime compositing's diffusion. **B-91a is written on 2026-09-26**: `verification/B-91a proposal/`, D-148 in document 14, the rule in document 21, FX-DIFFUSE-001 to 018 in document 25 from `tools/diffusion_reference.py`, which writes `Fixtures/diffusion/`. **B-91b, the build, is next.**
+B-91 / Diffusion, D-148, the fifteenth of the third batch of thirty: a soft glow of the picture laid over itself, anime compositing's diffusion. **B-91a is written on 2026-09-26**: `verification/B-91a proposal/`, D-148 in document 14, the rule in document 21, FX-DIFFUSE-001 to 018 in document 25 from `tools/diffusion_reference.py`, which writes `Fixtures/diffusion/`. **B-91b is built on 2026-09-26**: `src/layer_fx.rs`, the Diffusion card, `tests/b91_diffusion.rs` writing `verification/B-91_diffusion_table.md`, 75 of 75, worst 2e-7; the owner's playtest is `verification/B-91_diffusion_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
