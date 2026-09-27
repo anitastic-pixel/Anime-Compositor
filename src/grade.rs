@@ -18,7 +18,7 @@ pub(crate) fn to_linear(c: f64) -> f64 {
     }
 }
 
-fn to_srgb(c: f64) -> f64 {
+pub(crate) fn to_srgb(c: f64) -> f64 {
     if c <= 0.0031308 {
         12.92 * c
     } else {
