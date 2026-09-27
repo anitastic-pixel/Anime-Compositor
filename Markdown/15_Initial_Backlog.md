@@ -566,6 +566,8 @@ B-74 / Offset, D-131, the ninth of the second batch of ten: the picture slid acr
 
 B-69 / Vignette, D-126, the fourth of the second batch of ten: the corners darkened, or tinted, in an oval about a centre. **B-69a is written on 2026-09-26**: `verification/B-69a proposal/`, D-126 in document 14, the rule in document 21, FX-VIGNETTE-001 to 025 in document 25 from `tools/vignette_reference.py`, which writes `Fixtures/vignette/`. **B-69b, the build, is next.**
 
+B-70 / Turbulent Displace, D-127, the fifth of the second batch of ten: the drawing pushed about by a smooth moving noise, a heat haze or a wobble. **B-70a is written on 2026-09-26**: `verification/B-70a proposal/`, D-127 in document 14, the rule in document 21, FX-TURB-001 to 026 in document 25 from `tools/turbulent_displace_reference.py`, which writes `Fixtures/turbulent_displace/`. **B-70b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
