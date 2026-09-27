@@ -3709,6 +3709,7 @@ const ANSWERS: &[&str] = &[
     "effect.move",
     "effect.move_down",
     "effect.move_up",
+    "effect.paste",
     "effect.set_parameters",
     "effect.toggle_bypass",
     "exposure.set_span",
@@ -6615,6 +6616,42 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         effect: EffectInstance::new(unused_effect_id(project), effect),
                         index,
                     }
+                }
+                // W-31: effects copied off a layer or kept as a preset, in the file's own words,
+                // put on the end of the stack in the order they came, under identifiers nothing
+                // is using, as one entry to undo (the list D-57's deletion fills is applied as
+                // one). The file's rules read them, and refuse what this build would drop.
+                "effect.paste" => {
+                    let Some(text) = parameter(query, "effects") else {
+                        return Some("Which effects? Copy some first, or choose a preset.".to_string());
+                    };
+                    let pasted = match persist::read_effects(&text) {
+                        Ok(pasted) => pasted,
+                        Err(diagnostic) => return Some(sentence(&diagnostic)),
+                    };
+                    let next = unused_effect_id(project)
+                        .as_str()
+                        .strip_prefix("fx-")
+                        .and_then(|n| n.parse::<u64>().ok())
+                        .unwrap_or(1);
+                    let mut adds: Vec<Command> = pasted
+                        .into_iter()
+                        .enumerate()
+                        .map(|(k, effect)| Command::AddEffect {
+                            composition: composition.clone(),
+                            layer_id: layer_id.clone(),
+                            effect: EffectInstance {
+                                instance_id: Id::new(format!("fx-{}", next + k as u64)),
+                                ..effect
+                            },
+                            index: None,
+                        })
+                        .collect();
+                    let Some(last) = adds.pop() else {
+                        return Some("There were no effects to paste.".to_string());
+                    };
+                    unparent = adds;
+                    last
                 }
                 // The other six all name an instance that is already on the layer, so the
                 // lookup and its refusal are written once.
@@ -10230,6 +10267,51 @@ mod editing {
             .find(|e| e["instance_id"] == instance)
             .map(|e| e["parameters"].to_string())
             .unwrap_or_else(|| "(no such effect)".to_string())
+    }
+
+    /// W-31: effects pasted from a copy or a preset arrive whole, keys and all, as one entry to
+    /// undo, and what this build would drop is refused rather than pasted in part.
+    #[test]
+    fn pasted_effects_arrive_whole_or_not_at_all() {
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let l = "layer-cel";
+        let paste = |effects: &str| run(&viewer, &format!("effect.paste?layer={l}&effects={effects}"));
+        run(&viewer, "effect.add?layer=layer-cel&type=core.tint");
+        run(&viewer, "effect.set_parameters?layer=layer-cel&effect=fx-1&color=1,0,0&amount=0.25");
+        run(&viewer, "keyframe.add_remove?layer=layer-cel&prop=fx:fx-1:amount&frame=0");
+        run(&viewer, "effect.add?layer=layer-cel&type=core.gaussian_blur");
+        let records = effect_records(&viewer, l);
+        let [unknown, tint, blur] = &records[..] else { panic!("three effects: {records:?}") };
+        let copied = serde_json::json!([tint, blur]).to_string();
+        let depth = held(&viewer).document.undo_depth();
+
+        assert_eq!(paste(&copied), "Add Tint and 1 more");
+        assert_eq!(held(&viewer).document.undo_depth(), depth + 1, "one entry to undo");
+        let after = effect_records(&viewer, l);
+        assert_eq!(after.len(), 5);
+        // The copies are the originals under new identifiers, the tint's key with them.
+        for (copy, original, id) in [(&after[3], tint, "fx-3"), (&after[4], blur, "fx-4")] {
+            assert_eq!(copy["instance_id"], id);
+            let mut same = copy.clone();
+            same["instance_id"] = original["instance_id"].clone();
+            assert_eq!(&same, original);
+        }
+        run(&viewer, "edit.undo");
+        assert_eq!(effect_records(&viewer, l).len(), 3, "one undo takes both away");
+
+        // Refused whole, with nothing changed.
+        let depth = held(&viewer).document.undo_depth();
+        let said = paste(&serde_json::json!([blur, unknown]).to_string());
+        assert!(said.contains("vendor.future.effect cannot be pasted: this build does not have it."), "{said}");
+        let mut odd = tint.clone();
+        odd["parameters"]["sparkle"] = serde_json::json!(3);
+        let said = paste(&serde_json::json!([odd]).to_string());
+        assert!(said.contains("sparkle"), "{said}");
+        assert_eq!(held(&viewer).document.undo_depth(), depth);
+        assert_eq!(effect_records(&viewer, l).len(), 3);
     }
 
     #[test]
@@ -21063,6 +21145,7 @@ mod contract {
         "effect.move",
         "effect.move_down",
         "effect.move_up",
+        "effect.paste",
         "effect.set_parameters",
         "effect.toggle_bypass",
         "exposure.set_span",
@@ -21574,6 +21657,7 @@ mod contract {
         ("effect.move_up", "a command the window answers"),
         ("effect.move_down", "a command the window answers"),
         ("effect.move", "a command the window answers"),
+        ("effect.paste", "a command the window answers"),
         ("viewer.fit", "the page, with no request"),
         ("viewer.zoom_100", "the page, with no request"),
         ("viewer.toggle_checkerboard", "a command the window answers"),
@@ -21581,6 +21665,7 @@ mod contract {
         ("render.preview_current", "the page, with no request"),
         ("export.sequence", "a route the shell answers"),
         ("app.command_palette", "the page, with no request"),
+        ("app.effects_console", "the page, with no request"),
     ];
 
     /// Document 24's identifier, and the text in the page that binds the shortcut it promises.
@@ -21641,6 +21726,8 @@ mod contract {
         ("composition.set_settings", "Ctrl+K", "e.code === 'KeyK'"),
         ("layer.copy", "Ctrl+C", "copyLayers()"),
         ("layer.paste", "Ctrl+V", "pasteLayers()"),
+        ("effect.paste", "Ctrl+V", "pasteCopiedEffects()"),
+        ("app.effects_console", "Ctrl+Space", "fxConsole()"),
         ("layer.toggle_lock", "Ctrl+L", "toggleLayers('lock')"),
         (
             "layer.toggle_visibility",
@@ -21838,6 +21925,7 @@ mod contract {
         "viewer.fit",
         "viewer.zoom_100",
         "app.command_palette",
+        "app.effects_console",
         "sheet.print",
     ];
 
@@ -23534,7 +23622,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 72] = [
+    const CONTROLS: [&str; 73] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -23589,6 +23677,7 @@ mod contract {
         "resetworkspace",
         "save",
         "saveas",
+        "savepreset",
         "saveworkspace",
         "sessionlogbutton",
         "sessionlogclear",

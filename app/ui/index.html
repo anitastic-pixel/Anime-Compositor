@@ -275,7 +275,7 @@
     position: fixed; left: 50%; top: 12%; transform: translateX(-50%); z-index: 50;
     width: min(480px, calc(100vw - 32px)); max-height: 60vh; display: flex; flex-direction: column;
   }
-  .menu.palette input { margin: 6px; }
+  .menu.palette input { margin: 6px; max-width: none; }
   .menu.palette [role="listbox"] { overflow: auto; }
   .menu.palette button.current { background: #3a4a6a; }
   #ruler .tick {
@@ -658,7 +658,20 @@
   }
   #fxlist .fxitem:hover, #fxlist .fxitem:focus { background: #2c3a52; }
   #fxbrowser.nolayer .fxitem { color: #75757c; }
-  #layers li.fxdrop, #inspector.fxdrop { outline: 2px solid #6ea8fe; outline-offset: -2px; }
+  #layers li.fxdrop, #inspector.fxdrop, #stage.fxdrop { outline: 2px solid #6ea8fe; outline-offset: -2px; }
+  /* W-30: a star beside each effect, a cross beside each preset, the card a Ctrl+C copies, and
+     the effects console at the pointer. */
+  #fxlist .fxrow { display: flex; align-items: center; }
+  #fxlist .fxrow .fxitem { flex: 1; min-width: 0; }
+  #fxlist .fxside { border: 0; background: none; padding: 0 6px; color: #75757c; cursor: pointer; }
+  #fxlist .fxside:hover { color: #e0e0e6; }
+  #fxlist .fxside.on { color: #e8c35a; }
+  #inspector #savepreset { margin-top: 8px; }
+  #effects .effect .head:focus { outline: 1px solid #6ea8fe; outline-offset: -1px; }
+  .menu.palette .hint { margin: 0 8px 6px; font-size: 11px; color: #909096; }
+  .menu.palette.fxconsole { transform: none; top: auto; width: min(380px, calc(100vw - 32px)); max-height: 50vh; }
+  .menu.palette.fxconsole button { display: block; width: 100%; text-align: left; }
+  .menu.palette.fxconsole small { display: block; color: #909096; font-size: 11px; }
   #inspector details { margin: 14px 0; }
   #inspector summary { cursor: pointer; color: #b8b8c0; }
   /* One row per exposure span, in frame order: which frames it covers and which drawing they
@@ -1014,6 +1027,7 @@
       <h2>Effects</h2>
       <div id="effects"><p class="empty">No layer is selected.</p></div>
       <button id="addeffect" title="Opens the Effects panel with its search ready to type into">Add effect&hellip;</button>
+      <button id="savepreset" title="Keeps this layer's effects and their settings under a name, in the Effects panel's Presets folder">Save as preset&hellip;</button>
     </div>
   </section>
   </div>
@@ -3135,6 +3149,9 @@ function palette() {
     ['Fit the layer to the composition', 'Ctrl+Alt+F', { key: 'f', code: 'KeyF', ctrlKey: true, altKey: true }],
     ['Key speed and influence', '', velocityDialog],
     ['Show effect controls', 'E', { key: 'e' }],
+    ['Find an effect or preset', 'Ctrl+Space', fxConsole],
+    ['Paste effects', 'Ctrl+V', pasteCopiedEffects],
+    ['Save the effects as a preset', '', () => savePreset()],
     ['Show changed properties', 'UU', () => showProps('changed')],
     ['Fill the window with the panel', '`', maximise],
     ['Error details', '', () => $('notedetails').click()],
@@ -3217,6 +3234,7 @@ function layerMenu(x, y, first = []) {
     ['Send to back', 'Ctrl+Shift+[', () => toEnd(false)],
     ['Copy', 'Ctrl+C', copyLayers],
     ['Paste', 'Ctrl+V', pasteLayers],
+    ['Paste effects', 'Ctrl+V', pasteCopiedEffects, clip === 'effects' && copiedEffects.length > 0],
     ...BLENDS.map((mode) => ['Blend: ' + mode, '', () => blendLayers(mode)]),
     ['Delete', 'Delete', () => $('dellayer').click()],
   ];
@@ -6551,6 +6569,73 @@ const EFFECT_SEARCH = {
   'core.venetian_blinds': 'stripes slats wipe reveal transition',
   'core.iris_wipe': 'circle reveal transition',
 };
+// W-30: what each effect does, in one line, shown on hover in the Effects panel and under each
+// name in the effects console. Kept out of the search, so that "wipe" still finds only the wipes.
+const EFFECT_ABOUT = {
+  'core.gaussian_blur': 'Softens the whole layer evenly.',
+  'core.exposure': 'Brightens or darkens in camera stops, as opening or closing the lens would.',
+  'core.tint': 'Maps the dark and light of the layer to two colours of your choice.',
+  'core.line_smooth': 'Smooths the jagged, stair-stepped edges of drawn lines.',
+  'core.selective_color_blur': 'Blurs only the areas painted in the colours you choose, such as the shadows.',
+  'core.glow': 'Makes the bright parts shine softly into their surroundings.',
+  'core.line_recolor': 'Recolours the drawing\'s lines, for coloured trace lines.',
+  'core.directional_blur': 'Smears the layer along one direction, as fast motion does.',
+  'core.select_color': 'Keeps only the colours you choose and makes the rest transparent, or the reverse.',
+  'core.line_width': 'Thickens or thins the drawn lines.',
+  'core.radial_blur': 'Blurs outward from a point (zoom) or around it (spin).',
+  'core.bloom': 'Lets strong highlights bleed light, with optional streaks.',
+  'core.color_key': 'Makes one colour transparent, as a green screen does.',
+  'core.curves': 'Reshapes brightness and each colour channel with a curve.',
+  'core.levels': 'Sets the black point, white point and midtones.',
+  'core.hue_saturation': 'Turns the colours around the colour wheel, and changes how strong and bright they are.',
+  'core.gradient': 'Fills the layer with a blend between two colours.',
+  'core.drop_shadow': 'Casts a soft shadow of the layer behind it.',
+  'core.lens_blur': 'Out-of-focus blur like a real lens, with shaped bokeh highlights.',
+  'core.rim_light': 'Lights one edge of the drawing, as a light from behind would.',
+  'core.outline': 'Draws a coloured line around the drawing\'s shape.',
+  'core.noise': 'Adds film grain, still or moving.',
+  'core.chromatic_aberration': 'Splits red, green and blue apart toward the edges, as a cheap lens does.',
+  'core.distance_gradation': 'Shades a colour in from the drawing\'s edge, darkest at the edge.',
+  'core.light_rays': 'Beams of light streaming from a point through the bright parts.',
+  'core.exposure_flicker': 'Makes the brightness jump from frame to frame, as old film does.',
+  'core.vignette': 'Darkens the corners and edges of the frame.',
+  'core.turbulent_displace': 'Warps the layer with rolling noise, for heat haze or wobble.',
+  'core.fractal_noise': 'Draws cloudy, smoky noise, still or moving.',
+  'core.gradient_map': 'Replaces each brightness with a colour from a ramp.',
+  'core.color_balance': 'Pushes the shadows, midtones and highlights toward other colours.',
+  'core.offset': 'Slides the layer across the frame, wrapping it around the edges.',
+  'core.light_wrap': 'Lets the background\'s light spill around the layer\'s edges, to sit it in the scene.',
+  'core.invert': 'Turns the colours into their negative.',
+  'core.brightness_contrast': 'Simple brightness and contrast.',
+  'core.black_white': 'Turns the layer grey, with control over how bright each colour becomes.',
+  'core.posterize': 'Cuts the colours down to a few flat bands.',
+  'core.threshold': 'Turns every pixel pure black or pure white.',
+  'core.channel_mixer': 'Builds each colour channel from a mix of the others.',
+  'core.vibrance': 'Strengthens the dull colours more than the strong ones.',
+  'core.leave_color': 'Takes the colour out of everything except one chosen colour.',
+  'core.solarize': 'Turns the brightest parts negative, as an overexposed print does.',
+  'core.halftone': 'Prints the picture as dots, like screentone or a comic.',
+  'core.mosaic': 'Breaks the layer into big square blocks.',
+  'core.emboss': 'Makes the picture look pressed into metal or paper.',
+  'core.find_edges': 'Keeps only the edges, like a pencil sketch.',
+  'core.sharpen': 'Crisps up edges and fine detail.',
+  'core.diffusion': 'A soft glow of the picture laid over itself, the dreamy anime look.',
+  'core.wave_warp': 'Bends the layer in waves.',
+  'core.ripple': 'Rings spreading from a point, as on water.',
+  'core.twirl': 'Swirls the layer around a point.',
+  'core.bulge': 'Swells or pinches a round area, as a magnifying glass does.',
+  'core.mirror': 'Reflects the layer across a line.',
+  'core.motion_tile': 'Repeats the layer in tiles around itself.',
+  'core.linear_wipe': 'Reveals or hides the layer with a straight edge sweeping across.',
+  'core.radial_wipe': 'Reveals or hides the layer like a clock hand sweeping round.',
+  'core.venetian_blinds': 'Reveals or hides the layer in stripes, like blinds.',
+  'core.iris_wipe': 'Reveals or hides the layer through a growing or shrinking shape.',
+  'core.simple_choker': 'Shrinks or spreads the layer\'s edges.',
+  'core.speed_lines': 'Manga action lines rushing toward a focus point.',
+  'core.cross_glare': 'Star-shaped sparkles on the bright points.',
+  'core.camera_shake': 'Shakes the whole layer as a jolted camera would.',
+  'core.rain': 'Falling rain streaks over the layer.',
+};
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
 // whether the field takes one number or three, how far one pixel of drag moves it, and the range
@@ -7585,6 +7670,7 @@ function fxKeptPaint(k, type) {
 function effectRow(layer, fx, at, of) {
   const box = document.createElement('div');
   box.className = 'effect';
+  box.dataset.effect = fx.instance_id;
   const known = EFFECT_PARAMS[fx.type_id];
   const label = EFFECT_NAMES[fx.type_id] || fx.type_id;
   const where = '?layer=' + encodeURIComponent(layer.id)
@@ -7599,8 +7685,21 @@ function effectRow(layer, fx, at, of) {
     className: fx.enabled ? 'name' : 'name off',
     textContent: label,
   });
-  head.title = 'Drag up or down to reorder';
+  head.title = 'Drag up or down to reorder. Click it, then Ctrl+C copies this effect. Right-click for more';
+  // W-30: the card clicked is the one Ctrl+C copies, and its menu copies, pastes and saves.
+  head.tabIndex = -1;
+  head.oncontextmenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    popMenu(e.clientX, e.clientY, [
+      ['Copy this effect', 'Ctrl+C', () => copyEffects([fx])],
+      ['Copy all effects', '', () => copyEffects(layer.effects || [])],
+      ['Paste effects', 'Ctrl+V', pasteCopiedEffects, clip === 'effects' && copiedEffects.length > 0],
+      ['Save the effects as a preset\u2026', '', () => savePreset(layer)],
+    ]);
+  };
   head.onpointerdown = (e) => {
+    if (!e.target.closest('button')) head.focus({ preventScroll: true });
     if (e.button !== 0 || e.target.closest('button')) return;
     e.preventDefault();
     dragging = true;
@@ -7924,6 +8023,7 @@ function drawEffects() {
   const layer = selected();
   const into = $('effects');
   $('addeffect').disabled = !takesEffects(layer);
+  $('savepreset').disabled = !takesEffects(layer) || !(layer.effects || []).length;
   $('fxbrowser').classList.toggle('nolayer', !takesEffects(layer));
   $('fxtarget').textContent = takesEffects(layer) ? 'Adds to: ' + layer.name
     : layer ? 'This layer takes no effects.' : 'Select a layer to add effects to it.';
@@ -9792,9 +9892,136 @@ function takesEffects(layer) { return !!layer && layer.kind !== 'audio' && layer
 let recentEffects = [];
 try { recentEffects = (JSON.parse(localStorage.getItem('recentEffects') || '[]') || []).filter((t) => EFFECT_NAMES[t]); } catch (e) { recentEffects = []; }
 const closedFolders = new Set();
+// W-30: favourites and presets are kept by this window, as workspaces are, not in the project
+// (D-166). A preset is a stack of effects written as the project file writes them, and goes on a
+// layer by `effect.paste`, which reads it by the file's own rules.
+function fxStored(name) {
+  try { return JSON.parse(localStorage.getItem(name) || '[]') || []; } catch (e) { return []; }
+}
+function fxStore(name, value) {
+  try { localStorage.setItem(name, JSON.stringify(value)); } catch (e) { /* kept for this run only */ }
+}
+let favouriteEffects = fxStored('favouriteEffects').filter((t) => EFFECT_NAMES[t]);
+let effectPresets = fxStored('effectPresets').filter((p) => p && typeof p.name === 'string' && Array.isArray(p.effects));
+let copiedEffects = [];
+const layerById = (id) => layers().find((l) => l.id === id);
+// A line of the panel or the console is an effect's type, or 'preset:' and a preset's name.
+const presetOf = (key) => effectPresets.find((p) => 'preset:' + p.name === key);
+const itemName = (key) => (key.startsWith('preset:') ? key.slice(7) : EFFECT_NAMES[key]);
+function itemAbout(key) {
+  const preset = presetOf(key);
+  return preset ? 'Preset: ' + preset.effects.map((fx) => EFFECT_NAMES[fx.type_id] || fx.type_id).join(', ')
+    : EFFECT_ABOUT[key] || '';
+}
+function itemWords(key) {
+  const folder = key.startsWith('preset:') ? 'Presets'
+    : (EFFECT_GROUPS.find(([, ids]) => ids.includes(key)) || ['Other'])[0];
+  return searchable(itemName(key) + ' ' + folder + ' '
+    + (key.startsWith('preset:') ? itemAbout(key) : EFFECT_SEARCH[key] || ''));
+}
+function applyItem(key, layerId) {
+  if (!key.startsWith('preset:')) return addEffect(key, layerId);
+  const preset = presetOf(key);
+  return preset ? pasteEffects(preset.effects, layerId) : undefined;
+}
+// Several layers one after another, each its own entry to undo.
+function applyToLayers(key, ids) {
+  nudge = nudge.then(async () => { for (const id of ids) await applyItem(key, id); });
+}
+function pasteEffects(effects, layerId) {
+  if (!takesEffects(layerById(layerId)) || !effects.length) return undefined;
+  return command('/effect.paste?layer=' + encodeURIComponent(layerId)
+    + '&effects=' + encodeURIComponent(JSON.stringify(effects)));
+}
+function copyEffects(effects) {
+  if (!effects.length) return;
+  clip = 'effects';
+  copiedEffects = JSON.parse(JSON.stringify(effects));
+  $('status').textContent = (effects.length === 1
+    ? (EFFECT_NAMES[effects[0].type_id] || effects[0].type_id) + ' copied'
+    : effects.length + ' effects copied') + (effects.length === 1 ? ' with its settings' : ' with their settings')
+    + '. Select layers and press Ctrl+V.';
+}
+function pasteCopiedEffects() {
+  const onto = selection.filter((id) => takesEffects(layerById(id)));
+  if (!copiedEffects.length) { $('status').textContent = 'No effects are copied.'; return; }
+  if (!onto.length) { $('status').textContent = 'Select a layer that takes effects to paste them onto.'; return; }
+  nudge = nudge.then(async () => { for (const id of onto) await pasteEffects(copiedEffects, id); });
+}
+// The effect whose card was clicked last, while its card still has the keyboard.
+function cardInHand() {
+  const card = document.activeElement && document.activeElement.closest
+    && document.activeElement.closest('#effects .effect');
+  const layer = selected();
+  return (card && layer && (layer.effects || []).find((fx) => fx.instance_id === card.dataset.effect)) || null;
+}
+function toggleFavourite(type) {
+  favouriteEffects = favouriteEffects.includes(type)
+    ? favouriteEffects.filter((t) => t !== type) : [...favouriteEffects, type];
+  fxStore('favouriteEffects', favouriteEffects);
+  drawEffectList();
+}
+// A preset goes by two presses within three seconds, as a new project does, since nothing undoes it.
+let forgetAsked = '';
+let forgetAt = 0;
+function forgetPreset(name) {
+  if (forgetAsked !== name || performance.now() - forgetAt > 3000) {
+    forgetAsked = name;
+    forgetAt = performance.now();
+    $('status').textContent = 'Press again within three seconds to remove the preset "' + name + '". Undo cannot bring it back.';
+    return;
+  }
+  forgetAsked = '';
+  effectPresets = effectPresets.filter((p) => p.name !== name);
+  fxStore('effectPresets', effectPresets);
+  $('status').textContent = 'The preset "' + name + '" is removed.';
+  drawEffectList();
+}
+// A name asked for in a small box at the top of the window: Enter keeps it, Escape does not.
+function askName(title, start, hint, done) {
+  const box = document.createElement('div');
+  box.className = 'menu palette';
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-label', title);
+  const input = Object.assign(document.createElement('input'), { type: 'text', value: start, placeholder: title });
+  input.setAttribute('aria-label', title);
+  box.append(input, Object.assign(document.createElement('p'), { className: 'hint', textContent: hint }));
+  const away = (p) => { if (!box.contains(p.target)) close(); };
+  const close = () => { box.remove(); removeEventListener('pointerdown', away, true); };
+  input.onkeydown = (k) => {
+    k.stopPropagation();
+    if (k.key === 'Escape') close();
+    else if (k.key === 'Enter' && input.value.trim()) { k.preventDefault(); close(); done(input.value.trim()); }
+  };
+  document.body.append(box);
+  addEventListener('pointerdown', away, true);
+  input.focus();
+  input.select();
+}
+function savePreset(layer = selected()) {
+  const stack = (layer && layer.effects) || [];
+  if (!stack.length) { $('status').textContent = 'This layer has no effects to keep as a preset.'; return; }
+  const odd = stack.filter((fx) => !EFFECT_NAMES[fx.type_id]).map((fx) => fx.type_id);
+  if (odd.length) {
+    $('status').textContent = 'This build does not have ' + odd.join(', ')
+      + ', so these effects cannot be kept as a preset. Remove it first, or copy the others one by one.';
+    return;
+  }
+  askName('Name the preset', stack.map((fx) => EFFECT_NAMES[fx.type_id]).join(' + '),
+    'Enter keeps it in the Effects panel under Presets, Escape does not. The same name replaces the old one.',
+    (name) => {
+      const replaced = effectPresets.some((p) => p.name === name);
+      effectPresets = [...effectPresets.filter((p) => p.name !== name), { name, effects: JSON.parse(JSON.stringify(stack)) }];
+      fxStore('effectPresets', effectPresets);
+      drawEffectList();
+      $('status').textContent = (replaced ? 'Replaced the preset "' : 'Saved the preset "') + name + '": '
+        + stack.length + (stack.length === 1 ? ' effect' : ' effects') + ' with their settings.';
+    });
+}
+$('savepreset').onclick = () => savePreset();
 function addEffect(type, layerId) {
-  if (!takesEffects(layers().find((l) => l.id === layerId))) return;
-  command('/effect.add?layer=' + encodeURIComponent(layerId) + '&type=' + type);
+  if (!takesEffects(layers().find((l) => l.id === layerId))) return undefined;
+  const sent = command('/effect.add?layer=' + encodeURIComponent(layerId) + '&type=' + type);
   recentEffects = [type, ...recentEffects.filter((t) => t !== type)].slice(0, 5);
   try { localStorage.setItem('recentEffects', JSON.stringify(recentEffects)); } catch (e) { /* kept for this run only */ }
   if (!$('fxsearch').value.trim()) {
@@ -9802,39 +10029,69 @@ function addEffect(type, layerId) {
     drawEffectList();
     if (had) $('fxlist').querySelector('.fxitem[data-type="' + type + '"]').focus();
   }
+  return sent;
 }
-function effectItem(type) {
+function effectItem(key) {
+  const preset = key.startsWith('preset:');
   const b = Object.assign(document.createElement('button'),
-    { type: 'button', className: 'fxitem', textContent: EFFECT_NAMES[type], draggable: true });
-  b.dataset.type = type;
-  b.title = 'Double-click or press Enter to add it to the selected layer, or drag it onto a layer';
-  b.ondblclick = () => addEffect(type, selectedLayer);
+    { type: 'button', className: 'fxitem', textContent: itemName(key), draggable: true });
+  b.dataset.type = key;
+  b.title = itemAbout(key) + '\nDouble-click or press Enter to add it to the selected layer, or drag it onto a layer or the picture. Right-click for more.';
+  b.ondblclick = () => applyItem(key, selectedLayer);
+  b.oncontextmenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    popMenu(e.clientX, e.clientY, [
+      ['Add to the selected layers', 'Enter', () => applyToLayers(key, selection.filter((id) => takesEffects(layerById(id))))],
+      preset ? ['Remove the preset', 'Delete', () => forgetPreset(key.slice(7))]
+        : [favouriteEffects.includes(key) ? 'Take out of Favourites' : 'Add to Favourites', '', () => toggleFavourite(key)],
+    ]);
+  };
   b.onkeydown = (e) => {
     const all = [...$('fxlist').querySelectorAll('details[open] .fxitem')];
     const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
-    if (e.key === 'Enter') { e.preventDefault(); addEffect(type, selectedLayer); }
+    if (e.key === 'Enter') { e.preventDefault(); applyItem(key, selectedLayer); }
+    else if (preset && e.key === 'Delete') { e.preventDefault(); forgetPreset(key.slice(7)); }
     else if (step) {
       e.preventDefault();
       const to = all.indexOf(b) + step;
       (to < 0 ? $('fxsearch') : all[Math.min(to, all.length - 1)]).focus();
     }
   };
-  b.ondragstart = (e) => { e.dataTransfer.setData('text/x-effect', type); e.dataTransfer.effectAllowed = 'copy'; };
-  return b;
+  b.ondragstart = (e) => { e.dataTransfer.setData('text/x-effect', key); e.dataTransfer.effectAllowed = 'copy'; };
+  // Beside it, a star that pins an effect to Favourites, or a cross that removes a preset. Both
+  // are in the line's right-click menu too, which the keyboard's menu key opens.
+  const side = Object.assign(document.createElement('button'), { type: 'button', tabIndex: -1 });
+  if (preset) {
+    side.className = 'fxside';
+    side.textContent = '\u2715';
+    side.title = 'Remove this preset (press twice)';
+    side.onclick = () => forgetPreset(key.slice(7));
+  } else {
+    const on = favouriteEffects.includes(key);
+    side.className = on ? 'fxside on' : 'fxside';
+    side.textContent = on ? '\u2605' : '\u2606';
+    side.title = on ? 'Take out of Favourites' : 'Add to Favourites';
+    side.onclick = () => toggleFavourite(key);
+  }
+  const row = Object.assign(document.createElement('div'), { className: 'fxrow' });
+  row.append(b, side);
+  return row;
 }
 const searchable = (s) => s.toLowerCase().replace(/colour/g, 'color');
 function drawEffectList() {
   const words = searchable($('fxsearch').value).split(/\s+/).filter(Boolean);
   const grouped = new Set(EFFECT_GROUPS.flatMap(([, ids]) => ids));
   const folders = [
+    ...(words.length || !favouriteEffects.length ? [] : [['Favourites', favouriteEffects]]),
     ...(words.length || !recentEffects.length ? [] : [['Recently used', recentEffects]]),
+    ...(effectPresets.length ? [['Presets', effectPresets.map((p) => 'preset:' + p.name)]] : []),
     ...EFFECT_GROUPS,
     ['Other', Object.keys(EFFECT_NAMES).filter((t) => !grouped.has(t))],
   ];
   const out = [];
   for (const [folder, ids] of folders) {
-    const hits = ids.filter((t) => words.every((w) =>
-      searchable(EFFECT_NAMES[t] + ' ' + folder + ' ' + (EFFECT_SEARCH[t] || '')).includes(w)));
+    const hits = ids.filter((t) => words.every((w) => itemWords(t).includes(w)));
     if (!hits.length) continue;
     const box = document.createElement('details');
     // A search opens every folder it finds something in; otherwise each stays as it was left.
@@ -9852,7 +10109,7 @@ function drawEffectList() {
 $('fxsearch').oninput = drawEffectList;
 $('fxsearch').onkeydown = (e) => {
   const first = $('fxlist').querySelector('details[open] .fxitem');
-  if (e.key === 'Enter' && first && $('fxsearch').value.trim()) addEffect(first.dataset.type, selectedLayer);
+  if (e.key === 'Enter' && first && $('fxsearch').value.trim()) applyItem(first.dataset.type, selectedLayer);
   else if (e.key === 'ArrowDown' && first) { e.preventDefault(); first.focus(); }
   else if (e.key === 'Escape' && $('fxsearch').value) { e.stopPropagation(); $('fxsearch').value = ''; drawEffectList(); }
 };
@@ -9882,8 +10139,114 @@ for (const [into, target] of [
     light(null);
     if (!el) return;
     e.preventDefault();
-    addEffect(e.dataTransfer.getData('text/x-effect'), layerOf(el));
+    applyItem(e.dataTransfer.getData('text/x-effect'), layerOf(el));
   });
+}
+// W-30: dropped on the picture, an effect or preset goes to the layer under the pointer, or to the
+// selected one where there is none.
+function stageDropLayer(e) {
+  const id = layerUnder(...atCanvas(e)) || selectedLayer;
+  return takesEffects(layerById(id)) ? id : null;
+}
+stage.addEventListener('dragover', (e) => {
+  if (!e.dataTransfer.types.includes('text/x-effect')) return;
+  const id = stageDropLayer(e);
+  stage.classList.toggle('fxdrop', !!id);
+  if (!id) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  const words = 'Drop to add it to ' + layerById(id).name + '.';
+  if ($('status').textContent !== words) $('status').textContent = words;
+});
+stage.addEventListener('dragleave', (e) => { if (!stage.contains(e.relatedTarget)) stage.classList.remove('fxdrop'); });
+stage.addEventListener('drop', (e) => {
+  stage.classList.remove('fxdrop');
+  const id = e.dataTransfer.types.includes('text/x-effect') && stageDropLayer(e);
+  if (!id) return;
+  e.preventDefault();
+  applyItem(e.dataTransfer.getData('text/x-effect'), id);
+});
+// W-30: the owner's request, "it can work like fx console from video copilot". Ctrl+Space opens a
+// search at the pointer over every effect and preset. With nothing typed it offers the favourites,
+// the recently used and the presets. Names starting with what is typed come first. The arrows
+// choose, Enter adds to every selected layer that takes effects, and Escape or a click elsewhere
+// closes it.
+let pointerXY = null;
+addEventListener('pointermove', (e) => { pointerXY = [e.clientX, e.clientY]; }, { capture: true, passive: true });
+function fxConsole() {
+  if (document.querySelector('.fxconsole')) return;
+  const onto = () => selection.filter((id) => takesEffects(layerById(id)));
+  const box = document.createElement('div');
+  box.className = 'menu palette fxconsole';
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-label', 'Find an effect or preset');
+  const input = document.createElement('input');
+  input.type = 'text';
+  const names = onto().map((id) => layerById(id).name);
+  input.placeholder = !names.length ? 'Select a layer first, then search'
+    : 'Add to ' + (names.length === 1 ? names[0] : names.length + ' layers') + ': type an effect or preset';
+  input.setAttribute('aria-label', 'Find an effect or preset');
+  const list = document.createElement('div');
+  list.setAttribute('role', 'listbox');
+  box.append(input, list);
+  let matches = [];
+  let at = 0;
+  const away = (p) => { if (!box.contains(p.target)) close(); };
+  const close = () => { box.remove(); removeEventListener('pointerdown', away, true); };
+  const run = (key) => {
+    close();
+    const ids = onto();
+    if (!ids.length) { $('status').textContent = 'Select a layer that takes effects, then press Ctrl+Space again.'; return; }
+    applyToLayers(key, ids);
+  };
+  const draw = () => {
+    const words = searchable(input.value).split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      const offered = [...new Set([...favouriteEffects, ...recentEffects, ...effectPresets.map((p) => 'preset:' + p.name)])];
+      matches = offered.length ? offered : Object.keys(EFFECT_NAMES);
+    } else {
+      const starts = (key) => (searchable(itemName(key)).startsWith(words[0]) ? 0 : 1);
+      matches = [...effectPresets.map((p) => 'preset:' + p.name), ...Object.keys(EFFECT_NAMES)]
+        .filter((key) => words.every((w) => itemWords(key).includes(w)))
+        .sort((a, b) => starts(a) - starts(b));
+    }
+    at = Math.min(at, Math.max(0, matches.length - 1));
+    list.replaceChildren(...matches.map((key, i) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.tabIndex = -1;
+      item.setAttribute('role', 'option');
+      if (i === at) item.className = 'current';
+      item.append((key.startsWith('preset:') ? '\u2630 ' : favouriteEffects.includes(key) ? '\u2605 ' : '') + itemName(key),
+        Object.assign(document.createElement('small'), { textContent: itemAbout(key) }));
+      item.onclick = () => run(key);
+      return item;
+    }));
+    if (!matches.length) {
+      list.append(Object.assign(document.createElement('p'), { className: 'hint', textContent: 'No effect or preset matches.' }));
+    }
+    if (list.children[at]) list.children[at].scrollIntoView({ block: 'nearest' });
+  };
+  input.oninput = () => { at = 0; draw(); };
+  input.onkeydown = (k) => {
+    k.stopPropagation();
+    if (k.key === 'Escape' || (k.ctrlKey && k.key === ' ')) { k.preventDefault(); close(); }
+    else if (k.key === 'ArrowDown' || k.key === 'ArrowUp') {
+      k.preventDefault();
+      at = (at + (k.key === 'ArrowDown' ? 1 : matches.length - 1)) % Math.max(1, matches.length);
+      draw();
+    } else if (k.key === 'Enter' && matches[at]) { k.preventDefault(); run(matches[at]); }
+  };
+  draw();
+  document.body.append(box);
+  // At the pointer, kept inside the window: the box is never taller than half the window, so a
+  // top no lower than the middle always leaves it room to grow as the list does.
+  const width = box.getBoundingClientRect().width;
+  const [x, y] = pointerXY || [(innerWidth - width) / 2, innerHeight * 0.2];
+  box.style.left = Math.max(4, Math.min(x - 16, innerWidth - width - 4)) + 'px';
+  box.style.top = Math.max(4, Math.min(y - 16, innerHeight / 2 - 4)) + 'px';
+  addEventListener('pointerdown', away, true);
+  input.focus();
 }
 drawEffectList();
 $('undo').onclick = () => command('/edit.undo');
@@ -10025,6 +10388,8 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); newProject(); }
   // W-24: document 24's command palette. By the key's place, as Shift changes the letter.
   else if (e.ctrlKey && e.shiftKey && e.code === 'KeyP') { e.preventDefault(); palette(); }
+  // W-30: Video Copilot's FX Console key, a search for an effect or preset at the pointer.
+  else if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); fxConsole(); }
   // D-84d: Ctrl+P prints the Sheet, from anywhere, since printing the window itself is no use.
   else if (e.ctrlKey && !e.altKey && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); printSheet(); }
   // Document 24: Ctrl+Z undo, Ctrl+Shift+Z redo, Ctrl+Alt+L add layer, Ctrl+] and Ctrl+[ move
@@ -10066,6 +10431,8 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && e.altKey && e.code === 'KeyG') { e.preventDefault(); holdKeys(); }
   // B-18c: After Effects' Ctrl+Shift+C, ahead of Ctrl+C, which would otherwise take it.
   else if (e.ctrlKey && e.shiftKey && !typing && e.code === 'KeyC') { e.preventDefault(); precompose(); }
+  // W-30: with an effect's card clicked, Ctrl+C copies that effect and its settings.
+  else if (e.ctrlKey && !typing && cardInHand() && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyEffects([cardInHand()]); }
   else if (e.ctrlKey && !typing && pickedKeys.size && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); }
   // W-25: with no keys chosen, Ctrl+C copies the selected layers, and Ctrl+V pastes whichever was
   // copied last. Ctrl+Alt+V hides and shows, Ctrl+L locks, Ctrl+K is the composition's settings
@@ -10074,6 +10441,7 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && e.altKey && !typing && e.code === 'KeyV') { e.preventDefault(); toggleLayers('visibility'); }
   else if (e.ctrlKey && !typing && clip === 'keys' && copied.length && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
   else if (e.ctrlKey && !typing && clip === 'layers' && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteLayers(); }
+  else if (e.ctrlKey && !typing && clip === 'effects' && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteCopiedEffects(); }
   else if (e.ctrlKey && !e.altKey && !typing && e.code === 'KeyL') { e.preventDefault(); toggleLayers('lock'); }
   else if (e.ctrlKey && e.code === 'KeyK') { e.preventDefault(); compSettings(); }
   else if (e.ctrlKey && e.key === 'Home') { e.preventDefault(); alignLayers(e.altKey ? 'anchor' : 'layer'); }

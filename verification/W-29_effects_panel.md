@@ -1,6 +1,6 @@
 # W-29: the Effects panel
 
-Asked for on 2026-09-27: "the effects is now a very large sliding bar list, let's improve the effects section ui, add a search, have a dedicated effects list section so it doesn't take up space for the effect controls like AE".
+Asked for on 2026-09-27: "the effects is now a very large sliding bar list, let's improve the effects section ui, add a search, have a dedicated effects list section so it doesn't take up space for the effect controls like AE". **Playtest passed on 2026-09-27:** the owner wrote "works".
 
 Nothing about the picture the effects make has changed, only how you find and add them, so there is no fixture table. The two photographs in `verification/W-29 pictures/` were taken in a browser, with the real page and made-up settings:
 

@@ -2414,6 +2414,587 @@ fn parse_asset(v: &J, pointer: &str) -> Result<Asset, Diagnostic> {
     })
 }
 
+/// One of document 19's effect instances, read by the rules a layer's `effects` list is read by.
+/// W-31: pasted effects and presets are read here too, so that they obey the file's rules.
+fn parse_effect(
+    effect: &J,
+    at: &str,
+    name: &str,
+    id: &Id,
+    warnings: &mut Vec<Diagnostic>,
+) -> Result<crate::effects::EffectInstance, Diagnostic> {
+    as_object(effect, &at)?;
+    let type_id =
+        as_str(field(effect, &at, "type_id")?, &format!("{at}/type_id"))?.to_string();
+    let instance_id = as_id(
+        field(effect, &at, "instance_id")?,
+        &format!("{at}/instance_id"),
+    )?;
+    let enabled = match effect.get("enabled") {
+        None | Some(J::Null) => true,
+        Some(b) => as_bool(b, &format!("{at}/enabled"))?,
+    };
+    let known = [
+        crate::effects::EXPOSURE,
+        crate::effects::GAUSSIAN_BLUR,
+        crate::effects::TINT,
+        crate::effects::LINE_SMOOTH,
+        crate::effects::SELECTIVE_COLOR_BLUR,
+        crate::effects::GLOW,
+        crate::effects::LINE_RECOLOR,
+        crate::effects::DIRECTIONAL_BLUR,
+        crate::effects::SELECT_COLOR,
+        crate::effects::LINE_WIDTH,
+        crate::effects::RADIAL_BLUR,
+        crate::effects::BLOOM,
+        crate::effects::COLOR_KEY,
+        crate::effects::CURVES,
+        crate::effects::LEVELS,
+        crate::effects::HUE_SATURATION,
+        crate::effects::GRADIENT,
+        crate::effects::DROP_SHADOW,
+        crate::effects::LENS_BLUR,
+        crate::effects::RIM_LIGHT,
+        crate::effects::OUTLINE,
+        crate::effects::NOISE,
+        crate::effects::CHROMATIC_ABERRATION,
+        crate::effects::DISTANCE_GRADATION,
+        crate::effects::LIGHT_RAYS,
+        crate::effects::EXPOSURE_FLICKER,
+        crate::effects::VIGNETTE,
+        crate::effects::TURBULENT_DISPLACE,
+        crate::effects::FRACTAL_NOISE,
+        crate::effects::GRADIENT_MAP,
+        crate::effects::COLOR_BALANCE,
+        crate::effects::OFFSET,
+        crate::effects::LIGHT_WRAP,
+        crate::effects::INVERT,
+        crate::effects::BRIGHTNESS_CONTRAST,
+        crate::effects::BLACK_WHITE,
+        crate::effects::POSTERIZE,
+        crate::effects::THRESHOLD,
+        crate::effects::CHANNEL_MIXER,
+        crate::effects::VIBRANCE,
+        crate::effects::LEAVE_COLOR,
+        crate::effects::SOLARIZE,
+        crate::effects::HALFTONE,
+        crate::effects::MOSAIC,
+        crate::effects::EMBOSS,
+        crate::effects::FIND_EDGES,
+        crate::effects::SHARPEN,
+        crate::effects::DIFFUSION,
+        crate::effects::WAVE_WARP,
+        crate::effects::RIPPLE,
+        crate::effects::TWIRL,
+        crate::effects::BULGE,
+        crate::effects::MIRROR,
+        crate::effects::MOTION_TILE,
+        crate::effects::LINEAR_WIPE,
+        crate::effects::RADIAL_WIPE,
+        crate::effects::VENETIAN_BLINDS,
+        crate::effects::IRIS_WIPE,
+        crate::effects::SIMPLE_CHOKER,
+        crate::effects::SPEED_LINES,
+        crate::effects::CROSS_GLARE,
+        crate::effects::CAMERA_SHAKE,
+        crate::effects::RAIN,
+    ]
+    .contains(&type_id.as_str());
+    let (plain, tracks) = if known {
+        effect_tracks(effect.get("parameters"), &at)?
+    } else {
+        (None, std::collections::BTreeMap::new())
+    };
+    let params = plain.as_ref().or(effect.get("parameters"));
+    let parsed = match type_id.as_str() {
+        crate::effects::EXPOSURE => Some(crate::effects::Effect::Exposure {
+            stops: effect_number(params, "stops", &at)?,
+        }),
+        crate::effects::GAUSSIAN_BLUR => Some(crate::effects::Effect::GaussianBlur {
+            sigma_px: effect_number(params, "sigma_px", &at)?,
+            edges: effect_edges(params, &at)?,
+        }),
+        crate::effects::TINT => Some(crate::effects::Effect::Tint {
+            color: effect_array(params, "color", "a linear RGB triple", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+        }),
+        crate::effects::LINE_SMOOTH => Some(crate::effects::Effect::LineSmooth {
+            softness: effect_number(params, "softness", &at)?,
+            threshold: effect_number(params, "threshold", &at)?,
+        }),
+        crate::effects::SELECTIVE_COLOR_BLUR => {
+            Some(crate::effects::Effect::SelectiveColorBlur {
+                blur: effect_number(params, "blur", &at)?,
+                colors: effect_colors(params, &at)?,
+                // D-88: a file without it is from before it, and means exact.
+                tolerance: match params.and_then(|p| p.get("tolerance")) {
+                    Some(_) => effect_number(params, "tolerance", &at)?,
+                    None => 0.0,
+                },
+            })
+        }
+        crate::effects::GLOW => Some(crate::effects::Effect::Glow {
+            based_on: effect_word(params, "based_on", &at)?,
+            threshold: effect_number(params, "threshold", &at)?,
+            colors: effect_colors(params, &at)?,
+            tolerance: effect_number(params, "tolerance", &at)?,
+            radius: effect_number(params, "radius", &at)?,
+            intensity: effect_number(params, "intensity", &at)?,
+            operation: effect_word(params, "operation", &at)?,
+            // D-89: a colour is read in small letters, as D-87's are.
+            tint: effect_word(params, "tint", &at)?.to_ascii_lowercase(),
+        }),
+        crate::effects::LINE_RECOLOR => Some(crate::effects::Effect::LineRecolor {
+            colors: effect_colors(params, &at)?,
+            tolerance: effect_number(params, "tolerance", &at)?,
+            new_color: effect_word(params, "new_color", &at)?.to_ascii_lowercase(),
+        }),
+        crate::effects::DIRECTIONAL_BLUR => Some(crate::effects::Effect::DirectionalBlur {
+            direction: effect_number(params, "direction", &at)?,
+            length: effect_number(params, "length", &at)?,
+            edges: effect_edges(params, &at)?,
+        }),
+        // D-93: keep is read as written; "Chosen" is not the word, and is reported.
+        crate::effects::SELECT_COLOR => Some(crate::effects::Effect::SelectColor {
+            colors: effect_colors(params, &at)?,
+            tolerance: effect_number(params, "tolerance", &at)?,
+            keep: effect_word(params, "keep", &at)?,
+        }),
+        crate::effects::LINE_WIDTH => Some(crate::effects::Effect::LineWidth {
+            width: effect_number(params, "width", &at)?,
+            based_on: effect_word(params, "based_on", &at)?,
+            colors: effect_colors(params, &at)?,
+            tolerance: effect_number(params, "tolerance", &at)?,
+        }),
+        crate::effects::RADIAL_BLUR => Some(crate::effects::Effect::RadialBlur {
+            kind: effect_word(params, "type", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            edges: effect_edges(params, &at)?,
+        }),
+        crate::effects::BLOOM => Some(crate::effects::Effect::Bloom {
+            threshold: effect_number(params, "threshold", &at)?,
+            radius: effect_number(params, "radius", &at)?,
+            intensity: effect_number(params, "intensity", &at)?,
+            streaks: effect_word(params, "streaks", &at)?,
+            length: effect_number(params, "length", &at)?,
+            angle: effect_number(params, "angle", &at)?,
+        }),
+        // D-97: match is read as written; "RGB" is not the word, and is reported.
+        crate::effects::COLOR_KEY => Some(crate::effects::Effect::ColorKey {
+            colors: effect_colors(params, &at)?,
+            tolerance: effect_number(params, "tolerance", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            match_by: effect_word(params, "match", &at)?,
+        }),
+        // D-111: a point of the wrong count is kept and reported, as a wrong word is.
+        crate::effects::CURVES => Some(crate::effects::Effect::Curves {
+            master: effect_points(params, "master", &at)?,
+            red: effect_points(params, "red", &at)?,
+            green: effect_points(params, "green", &at)?,
+            blue: effect_points(params, "blue", &at)?,
+        }),
+        crate::effects::LEVELS => Some(crate::effects::Effect::Levels {
+            input_black: effect_number(params, "input_black", &at)?,
+            input_white: effect_number(params, "input_white", &at)?,
+            gamma: effect_number(params, "gamma", &at)?,
+            output_black: effect_number(params, "output_black", &at)?,
+            output_white: effect_number(params, "output_white", &at)?,
+        }),
+        crate::effects::HUE_SATURATION => Some(crate::effects::Effect::HueSaturation {
+            hue: effect_number(params, "hue", &at)?,
+            saturation: effect_number(params, "saturation", &at)?,
+            lightness: effect_number(params, "lightness", &at)?,
+        }),
+        // D-114: the colours are read in small letters, as a new colour is.
+        crate::effects::GRADIENT => Some(crate::effects::Effect::Gradient {
+            shape: effect_word(params, "shape", &at)?,
+            start: effect_array(params, "start", "two numbers, x then y", &at)?,
+            end: effect_array(params, "end", "two numbers, x then y", &at)?,
+            start_color: effect_word(params, "start_color", &at)?.to_ascii_lowercase(),
+            end_color: effect_word(params, "end_color", &at)?.to_ascii_lowercase(),
+            start_opacity: effect_number(params, "start_opacity", &at)?,
+            end_opacity: effect_number(params, "end_opacity", &at)?,
+            blend: effect_word(params, "blend", &at)?,
+        }),
+        crate::effects::DROP_SHADOW => Some(crate::effects::Effect::DropShadow {
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            distance: effect_number(params, "distance", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+        }),
+        crate::effects::LENS_BLUR => Some(crate::effects::Effect::LensBlur {
+            radius: effect_number(params, "radius", &at)?,
+            edges: effect_word(params, "edges", &at)?,
+            iris: match params.and_then(|p| p.get("iris")) {
+                Some(_) => effect_word(params, "iris", &at)?,
+                None => "circle".into(),
+            },
+            roundness: effect_number_or(params, "roundness", &at, 0.0)?,
+            rotation: effect_number_or(params, "rotation", &at, 0.0)?,
+            aspect: effect_number_or(params, "aspect", &at, 1.0)?,
+            highlight_gain: effect_number_or(params, "highlight_gain", &at, 0.0)?,
+            highlight_threshold: effect_number_or(params, "highlight_threshold", &at, 100.0)?,
+        }),
+        crate::effects::RIM_LIGHT => Some(crate::effects::Effect::RimLight {
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            direction: effect_number(params, "direction", &at)?,
+            width: effect_number(params, "width", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            intensity: effect_number(params, "intensity", &at)?,
+            blend: effect_word(params, "blend", &at)?,
+        }),
+        crate::effects::OUTLINE => Some(crate::effects::Effect::Outline {
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            width: effect_number(params, "width", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+        }),
+        crate::effects::NOISE => Some(crate::effects::Effect::Noise {
+            amount: effect_number(params, "amount", &at)?,
+            mode: effect_word(params, "mode", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            animate: effect_word(params, "animate", &at)?,
+            frame: 0,
+        }),
+        crate::effects::CHROMATIC_ABERRATION => {
+            Some(crate::effects::Effect::ChromaticAberration {
+                amount: effect_number(params, "amount", &at)?,
+                center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            })
+        }
+        // D-123: the colour is read in small letters, as a new colour is.
+        crate::effects::DISTANCE_GRADATION => {
+            Some(crate::effects::Effect::DistanceGradation {
+                color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                width: effect_number(params, "width", &at)?,
+                opacity: effect_number(params, "opacity", &at)?,
+                invert: effect_word(params, "invert", &at)?,
+                blend: effect_word(params, "blend", &at)?,
+            })
+        }
+        // D-124: the colour is read in small letters, as a new colour is.
+        crate::effects::LIGHT_RAYS => Some(crate::effects::Effect::LightRays {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            length: effect_number(params, "length", &at)?,
+            threshold: effect_number(params, "threshold", &at)?,
+            intensity: effect_number(params, "intensity", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+        }),
+        crate::effects::EXPOSURE_FLICKER => {
+            Some(crate::effects::Effect::ExposureFlicker {
+                amount: effect_number(params, "amount", &at)?,
+                hold: effect_number(params, "hold", &at)?,
+                seed: effect_number(params, "seed", &at)?,
+                frame: 0,
+            })
+        }
+        // D-126: the colour is read in small letters, as a new colour is.
+        crate::effects::VIGNETTE => Some(crate::effects::Effect::Vignette {
+            amount: effect_number(params, "amount", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            size: effect_number(params, "size", &at)?,
+            roundness: effect_number(params, "roundness", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+        }),
+        crate::effects::TURBULENT_DISPLACE => {
+            Some(crate::effects::Effect::TurbulentDisplace {
+                amount: effect_number(params, "amount", &at)?,
+                size: effect_number(params, "size", &at)?,
+                complexity: effect_number(params, "complexity", &at)?,
+                evolution: effect_number(params, "evolution", &at)?,
+                speed: effect_number(params, "speed", &at)?,
+                seed: effect_number(params, "seed", &at)?,
+                edges: effect_word(params, "edges", &at)?,
+                frame: 0,
+            })
+        }
+        // D-128: the colours are read in small letters, as a new colour is.
+        crate::effects::FRACTAL_NOISE => Some(crate::effects::Effect::FractalNoise {
+            size: effect_number(params, "size", &at)?,
+            complexity: effect_number(params, "complexity", &at)?,
+            contrast: effect_number(params, "contrast", &at)?,
+            brightness: effect_number(params, "brightness", &at)?,
+            evolution: effect_number(params, "evolution", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            dark_color: effect_word(params, "dark_color", &at)?.to_ascii_lowercase(),
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            blend: effect_word(params, "blend", &at)?,
+            frame: 0,
+        }),
+        // D-129: the colours are read in small letters, as a new colour is.
+        crate::effects::GRADIENT_MAP => Some(crate::effects::Effect::GradientMap {
+            shadow_color: effect_word(params, "shadow_color", &at)?.to_ascii_lowercase(),
+            midtone_color: effect_word(params, "midtone_color", &at)?
+                .to_ascii_lowercase(),
+            highlight_color: effect_word(params, "highlight_color", &at)?
+                .to_ascii_lowercase(),
+            midpoint: effect_number(params, "midpoint", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+        }),
+        crate::effects::COLOR_BALANCE => Some(crate::effects::Effect::ColorBalance {
+            shadows: effect_list(params, "shadows", &at)?,
+            midtones: effect_list(params, "midtones", &at)?,
+            highlights: effect_list(params, "highlights", &at)?,
+        }),
+        crate::effects::OFFSET => Some(crate::effects::Effect::Offset {
+            shift: effect_array(params, "shift", "two numbers, x then y", &at)?,
+        }),
+        crate::effects::LIGHT_WRAP => Some(crate::effects::Effect::LightWrap {
+            width: effect_number(params, "width", &at)?,
+            intensity: effect_number(params, "intensity", &at)?,
+            blend: effect_word(params, "blend", &at)?,
+        }),
+        crate::effects::INVERT => Some(crate::effects::Effect::Invert {
+            channel: effect_word(params, "channel", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+        }),
+        crate::effects::BRIGHTNESS_CONTRAST => Some(crate::effects::Effect::BrightnessContrast {
+            brightness: effect_number(params, "brightness", &at)?,
+            contrast: effect_number(params, "contrast", &at)?,
+        }),
+        crate::effects::BLACK_WHITE => Some(crate::effects::Effect::BlackWhite {
+            reds: effect_number(params, "reds", &at)?,
+            yellows: effect_number(params, "yellows", &at)?,
+            greens: effect_number(params, "greens", &at)?,
+            cyans: effect_number(params, "cyans", &at)?,
+            blues: effect_number(params, "blues", &at)?,
+            magentas: effect_number(params, "magentas", &at)?,
+        }),
+        crate::effects::POSTERIZE => Some(crate::effects::Effect::Posterize {
+            levels: effect_number(params, "levels", &at)?,
+        }),
+        crate::effects::THRESHOLD => Some(crate::effects::Effect::Threshold {
+            level: effect_number(params, "level", &at)?,
+        }),
+        crate::effects::CHANNEL_MIXER => Some(crate::effects::Effect::ChannelMixer {
+            red: effect_list(params, "red", &at)?,
+            green: effect_list(params, "green", &at)?,
+            blue: effect_list(params, "blue", &at)?,
+            monochrome: effect_word(params, "monochrome", &at)?,
+        }),
+        crate::effects::VIBRANCE => Some(crate::effects::Effect::Vibrance {
+            vibrance: effect_number(params, "vibrance", &at)?,
+            saturation: effect_number(params, "saturation", &at)?,
+        }),
+        crate::effects::LEAVE_COLOR => Some(crate::effects::Effect::LeaveColor {
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            tolerance: effect_number(params, "tolerance", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+        }),
+        crate::effects::SOLARIZE => Some(crate::effects::Effect::Solarize {
+            threshold: effect_number(params, "threshold", &at)?,
+        }),
+        crate::effects::HALFTONE => Some(crate::effects::Effect::Halftone {
+            size: effect_number(params, "size", &at)?,
+            angle: effect_number(params, "angle", &at)?,
+            ink: effect_word(params, "ink", &at)?.to_ascii_lowercase(),
+            paper: effect_word(params, "paper", &at)?.to_ascii_lowercase(),
+            amount: effect_number(params, "amount", &at)?,
+        }),
+        crate::effects::MOSAIC => Some(crate::effects::Effect::Mosaic {
+            size: effect_number(params, "size", &at)?,
+        }),
+        crate::effects::EMBOSS => Some(crate::effects::Effect::Emboss {
+            direction: effect_number(params, "direction", &at)?,
+            relief: effect_number(params, "relief", &at)?,
+            contrast: effect_number(params, "contrast", &at)?,
+            mode: effect_word(params, "mode", &at)?,
+        }),
+        crate::effects::FIND_EDGES => Some(crate::effects::Effect::FindEdges {
+            invert: effect_word(params, "invert", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+        }),
+        crate::effects::SHARPEN => Some(crate::effects::Effect::Sharpen {
+            amount: effect_number(params, "amount", &at)?,
+            radius: effect_number(params, "radius", &at)?,
+        }),
+        crate::effects::DIFFUSION => Some(crate::effects::Effect::Diffusion {
+            radius: effect_number(params, "radius", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+            blend: effect_word(params, "blend", &at)?,
+        }),
+        crate::effects::WAVE_WARP => Some(crate::effects::Effect::WaveWarp {
+            shape: effect_word(params, "shape", &at)?,
+            height: effect_number(params, "height", &at)?,
+            width: effect_number(params, "width", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            phase: effect_number(params, "phase", &at)?,
+            edges: effect_word(params, "edges", &at)?,
+            frame: 0,
+        }),
+        crate::effects::RIPPLE => Some(crate::effects::Effect::Ripple {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            amplitude: effect_number(params, "amplitude", &at)?,
+            wavelength: effect_number(params, "wavelength", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            phase: effect_number(params, "phase", &at)?,
+            fade: effect_number(params, "fade", &at)?,
+            frame: 0,
+        }),
+        crate::effects::TWIRL => Some(crate::effects::Effect::Twirl {
+            angle: effect_number(params, "angle", &at)?,
+            radius: effect_number(params, "radius", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+        }),
+        crate::effects::BULGE => Some(crate::effects::Effect::Bulge {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            radius: effect_number(params, "radius", &at)?,
+            height: effect_number(params, "height", &at)?,
+        }),
+        crate::effects::MIRROR => Some(crate::effects::Effect::Mirror {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            angle: effect_number(params, "angle", &at)?,
+        }),
+        crate::effects::MOTION_TILE => Some(crate::effects::Effect::MotionTile {
+            output_width: effect_number(params, "output_width", &at)?,
+            output_height: effect_number(params, "output_height", &at)?,
+            mirror: effect_word(params, "mirror", &at)?,
+        }),
+        crate::effects::LINEAR_WIPE => Some(crate::effects::Effect::LinearWipe {
+            completion: effect_number(params, "completion", &at)?,
+            angle: effect_number(params, "angle", &at)?,
+            feather: effect_number(params, "feather", &at)?,
+        }),
+        crate::effects::RADIAL_WIPE => Some(crate::effects::Effect::RadialWipe {
+            completion: effect_number(params, "completion", &at)?,
+            start_angle: effect_number(params, "start_angle", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            wipe: effect_word(params, "wipe", &at)?,
+            feather: effect_number(params, "feather", &at)?,
+        }),
+        crate::effects::VENETIAN_BLINDS => Some(crate::effects::Effect::VenetianBlinds {
+            completion: effect_number(params, "completion", &at)?,
+            angle: effect_number(params, "angle", &at)?,
+            width: effect_number(params, "width", &at)?,
+            feather: effect_number(params, "feather", &at)?,
+        }),
+        crate::effects::IRIS_WIPE => Some(crate::effects::Effect::IrisWipe {
+            completion: effect_number(params, "completion", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            feather: effect_number(params, "feather", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+        }),
+        crate::effects::SIMPLE_CHOKER => Some(crate::effects::Effect::SimpleChoker {
+            choke: effect_number(params, "choke", &at)?,
+        }),
+        crate::effects::SPEED_LINES => Some(crate::effects::Effect::SpeedLines {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            count: effect_number(params, "count", &at)?,
+            thickness: effect_number(params, "thickness", &at)?,
+            inner: effect_number(params, "inner", &at)?,
+            inner_jitter: effect_number(params, "inner_jitter", &at)?,
+            angle_jitter: effect_number(params, "angle_jitter", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            hold: effect_number(params, "hold", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            frame: 0,
+        }),
+        crate::effects::CROSS_GLARE => Some(crate::effects::Effect::CrossGlare {
+            threshold: effect_number(params, "threshold", &at)?,
+            length: effect_number(params, "length", &at)?,
+            points: effect_number(params, "points", &at)?,
+            angle: effect_number(params, "angle", &at)?,
+            intensity: effect_number(params, "intensity", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+        }),
+        crate::effects::CAMERA_SHAKE => Some(crate::effects::Effect::CameraShake {
+            amount: effect_number(params, "amount", &at)?,
+            rotation: effect_number(params, "rotation", &at)?,
+            hold: effect_number(params, "hold", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            frame: 0,
+        }),
+        crate::effects::RAIN => Some(crate::effects::Effect::Rain {
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            density: effect_number(params, "density", &at)?,
+            spacing: effect_number(params, "spacing", &at)?,
+            length: effect_number(params, "length", &at)?,
+            width: effect_number(params, "width", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            frame: 0,
+        }),
+        _ => None,
+    };
+    // P-17: keys on a setting this effect does not have are not its keys. The record
+    // stays in the file exactly as written, as any setting it does not have does;
+    // taken as keys, saving wrote it back inside itself and the file would not reopen.
+    let mut tracks = tracks;
+    if let Some(e) = &parsed {
+        tracks.retain(|name, _| e.arity(name).is_some());
+    }
+    let effect_value = match parsed {
+        Some(e) => {
+            // Document 28: a parameter outside its contract is reported, and the record
+            // is kept as written. It is not repaired here -- a repaired file would open
+            // clean the next time and quietly render something nobody chose.
+            let whole = crate::effects::EffectInstance {
+                instance_id: instance_id.clone(),
+                enabled,
+                effect: e.clone(),
+                tracks: tracks.clone(),
+            };
+            if let Some(bad) = whole.invalid() {
+                warnings.push(
+                    Diagnostic::new(
+                        DiagnosticId::EffectParameterInvalid,
+                        Severity::Warning,
+                        format!(
+                            "The layer \"{name}\" has a {type_id} whose settings this \
+                             build cannot use."
+                        ),
+                        format!("{} The effect is kept and bypassed.", bad.why_invalid()),
+                    )
+                    .with_remediation(
+                        "Set the parameter to a value inside its range, or remove the \
+                         effect.",
+                    ),
+                );
+            }
+            e
+        }
+        None => {
+            warnings.push(
+                Diagnostic::new(
+                    DiagnosticId::EffectUnsupported,
+                    Severity::Warning,
+                    format!(
+                        "The layer \"{name}\" uses the effect \"{type_id}\", which this \
+                         build does not have."
+                    ),
+                    format!(
+                        "Effect instance {instance_id} of type {type_id} on layer {id} is \
+                         kept in the project exactly as it was and is bypassed when \
+                          rendering."
+                    ),
+                )
+                .with_remediation(
+                    "Nothing was lost. Saving this project writes the effect back \
+                     unchanged, but any frame rendered here is missing what it would \
+                      have done.",
+                ),
+            );
+            crate::effects::Effect::Unsupported { type_id }
+        }
+    };
+    Ok(crate::effects::EffectInstance {
+        instance_id,
+        enabled,
+        effect: effect_value,
+        tracks,
+    })
+}
+
 fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<Layer, Diagnostic> {
     as_object(v, pointer)?;
     let kind = match as_enum(
@@ -2820,577 +3401,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     if let Some(effects_json) = v.get("effects") {
         let at = format!("{pointer}/effects");
         for (i, effect) in as_array(effects_json, &at)?.iter().enumerate() {
-            let at = format!("{at}/{i}");
-            as_object(effect, &at)?;
-            let type_id =
-                as_str(field(effect, &at, "type_id")?, &format!("{at}/type_id"))?.to_string();
-            let instance_id = as_id(
-                field(effect, &at, "instance_id")?,
-                &format!("{at}/instance_id"),
-            )?;
-            let enabled = match effect.get("enabled") {
-                None | Some(J::Null) => true,
-                Some(b) => as_bool(b, &format!("{at}/enabled"))?,
-            };
-            let known = [
-                crate::effects::EXPOSURE,
-                crate::effects::GAUSSIAN_BLUR,
-                crate::effects::TINT,
-                crate::effects::LINE_SMOOTH,
-                crate::effects::SELECTIVE_COLOR_BLUR,
-                crate::effects::GLOW,
-                crate::effects::LINE_RECOLOR,
-                crate::effects::DIRECTIONAL_BLUR,
-                crate::effects::SELECT_COLOR,
-                crate::effects::LINE_WIDTH,
-                crate::effects::RADIAL_BLUR,
-                crate::effects::BLOOM,
-                crate::effects::COLOR_KEY,
-                crate::effects::CURVES,
-                crate::effects::LEVELS,
-                crate::effects::HUE_SATURATION,
-                crate::effects::GRADIENT,
-                crate::effects::DROP_SHADOW,
-                crate::effects::LENS_BLUR,
-                crate::effects::RIM_LIGHT,
-                crate::effects::OUTLINE,
-                crate::effects::NOISE,
-                crate::effects::CHROMATIC_ABERRATION,
-                crate::effects::DISTANCE_GRADATION,
-                crate::effects::LIGHT_RAYS,
-                crate::effects::EXPOSURE_FLICKER,
-                crate::effects::VIGNETTE,
-                crate::effects::TURBULENT_DISPLACE,
-                crate::effects::FRACTAL_NOISE,
-                crate::effects::GRADIENT_MAP,
-                crate::effects::COLOR_BALANCE,
-                crate::effects::OFFSET,
-                crate::effects::LIGHT_WRAP,
-                crate::effects::INVERT,
-                crate::effects::BRIGHTNESS_CONTRAST,
-                crate::effects::BLACK_WHITE,
-                crate::effects::POSTERIZE,
-                crate::effects::THRESHOLD,
-                crate::effects::CHANNEL_MIXER,
-                crate::effects::VIBRANCE,
-                crate::effects::LEAVE_COLOR,
-                crate::effects::SOLARIZE,
-                crate::effects::HALFTONE,
-                crate::effects::MOSAIC,
-                crate::effects::EMBOSS,
-                crate::effects::FIND_EDGES,
-                crate::effects::SHARPEN,
-                crate::effects::DIFFUSION,
-                crate::effects::WAVE_WARP,
-                crate::effects::RIPPLE,
-                crate::effects::TWIRL,
-                crate::effects::BULGE,
-                crate::effects::MIRROR,
-                crate::effects::MOTION_TILE,
-                crate::effects::LINEAR_WIPE,
-                crate::effects::RADIAL_WIPE,
-                crate::effects::VENETIAN_BLINDS,
-                crate::effects::IRIS_WIPE,
-                crate::effects::SIMPLE_CHOKER,
-                crate::effects::SPEED_LINES,
-                crate::effects::CROSS_GLARE,
-                crate::effects::CAMERA_SHAKE,
-                crate::effects::RAIN,
-            ]
-            .contains(&type_id.as_str());
-            let (plain, tracks) = if known {
-                effect_tracks(effect.get("parameters"), &at)?
-            } else {
-                (None, std::collections::BTreeMap::new())
-            };
-            let params = plain.as_ref().or(effect.get("parameters"));
-            let parsed = match type_id.as_str() {
-                crate::effects::EXPOSURE => Some(crate::effects::Effect::Exposure {
-                    stops: effect_number(params, "stops", &at)?,
-                }),
-                crate::effects::GAUSSIAN_BLUR => Some(crate::effects::Effect::GaussianBlur {
-                    sigma_px: effect_number(params, "sigma_px", &at)?,
-                    edges: effect_edges(params, &at)?,
-                }),
-                crate::effects::TINT => Some(crate::effects::Effect::Tint {
-                    color: effect_array(params, "color", "a linear RGB triple", &at)?,
-                    amount: effect_number(params, "amount", &at)?,
-                }),
-                crate::effects::LINE_SMOOTH => Some(crate::effects::Effect::LineSmooth {
-                    softness: effect_number(params, "softness", &at)?,
-                    threshold: effect_number(params, "threshold", &at)?,
-                }),
-                crate::effects::SELECTIVE_COLOR_BLUR => {
-                    Some(crate::effects::Effect::SelectiveColorBlur {
-                        blur: effect_number(params, "blur", &at)?,
-                        colors: effect_colors(params, &at)?,
-                        // D-88: a file without it is from before it, and means exact.
-                        tolerance: match params.and_then(|p| p.get("tolerance")) {
-                            Some(_) => effect_number(params, "tolerance", &at)?,
-                            None => 0.0,
-                        },
-                    })
-                }
-                crate::effects::GLOW => Some(crate::effects::Effect::Glow {
-                    based_on: effect_word(params, "based_on", &at)?,
-                    threshold: effect_number(params, "threshold", &at)?,
-                    colors: effect_colors(params, &at)?,
-                    tolerance: effect_number(params, "tolerance", &at)?,
-                    radius: effect_number(params, "radius", &at)?,
-                    intensity: effect_number(params, "intensity", &at)?,
-                    operation: effect_word(params, "operation", &at)?,
-                    // D-89: a colour is read in small letters, as D-87's are.
-                    tint: effect_word(params, "tint", &at)?.to_ascii_lowercase(),
-                }),
-                crate::effects::LINE_RECOLOR => Some(crate::effects::Effect::LineRecolor {
-                    colors: effect_colors(params, &at)?,
-                    tolerance: effect_number(params, "tolerance", &at)?,
-                    new_color: effect_word(params, "new_color", &at)?.to_ascii_lowercase(),
-                }),
-                crate::effects::DIRECTIONAL_BLUR => Some(crate::effects::Effect::DirectionalBlur {
-                    direction: effect_number(params, "direction", &at)?,
-                    length: effect_number(params, "length", &at)?,
-                    edges: effect_edges(params, &at)?,
-                }),
-                // D-93: keep is read as written; "Chosen" is not the word, and is reported.
-                crate::effects::SELECT_COLOR => Some(crate::effects::Effect::SelectColor {
-                    colors: effect_colors(params, &at)?,
-                    tolerance: effect_number(params, "tolerance", &at)?,
-                    keep: effect_word(params, "keep", &at)?,
-                }),
-                crate::effects::LINE_WIDTH => Some(crate::effects::Effect::LineWidth {
-                    width: effect_number(params, "width", &at)?,
-                    based_on: effect_word(params, "based_on", &at)?,
-                    colors: effect_colors(params, &at)?,
-                    tolerance: effect_number(params, "tolerance", &at)?,
-                }),
-                crate::effects::RADIAL_BLUR => Some(crate::effects::Effect::RadialBlur {
-                    kind: effect_word(params, "type", &at)?,
-                    amount: effect_number(params, "amount", &at)?,
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                    edges: effect_edges(params, &at)?,
-                }),
-                crate::effects::BLOOM => Some(crate::effects::Effect::Bloom {
-                    threshold: effect_number(params, "threshold", &at)?,
-                    radius: effect_number(params, "radius", &at)?,
-                    intensity: effect_number(params, "intensity", &at)?,
-                    streaks: effect_word(params, "streaks", &at)?,
-                    length: effect_number(params, "length", &at)?,
-                    angle: effect_number(params, "angle", &at)?,
-                }),
-                // D-97: match is read as written; "RGB" is not the word, and is reported.
-                crate::effects::COLOR_KEY => Some(crate::effects::Effect::ColorKey {
-                    colors: effect_colors(params, &at)?,
-                    tolerance: effect_number(params, "tolerance", &at)?,
-                    softness: effect_number(params, "softness", &at)?,
-                    match_by: effect_word(params, "match", &at)?,
-                }),
-                // D-111: a point of the wrong count is kept and reported, as a wrong word is.
-                crate::effects::CURVES => Some(crate::effects::Effect::Curves {
-                    master: effect_points(params, "master", &at)?,
-                    red: effect_points(params, "red", &at)?,
-                    green: effect_points(params, "green", &at)?,
-                    blue: effect_points(params, "blue", &at)?,
-                }),
-                crate::effects::LEVELS => Some(crate::effects::Effect::Levels {
-                    input_black: effect_number(params, "input_black", &at)?,
-                    input_white: effect_number(params, "input_white", &at)?,
-                    gamma: effect_number(params, "gamma", &at)?,
-                    output_black: effect_number(params, "output_black", &at)?,
-                    output_white: effect_number(params, "output_white", &at)?,
-                }),
-                crate::effects::HUE_SATURATION => Some(crate::effects::Effect::HueSaturation {
-                    hue: effect_number(params, "hue", &at)?,
-                    saturation: effect_number(params, "saturation", &at)?,
-                    lightness: effect_number(params, "lightness", &at)?,
-                }),
-                // D-114: the colours are read in small letters, as a new colour is.
-                crate::effects::GRADIENT => Some(crate::effects::Effect::Gradient {
-                    shape: effect_word(params, "shape", &at)?,
-                    start: effect_array(params, "start", "two numbers, x then y", &at)?,
-                    end: effect_array(params, "end", "two numbers, x then y", &at)?,
-                    start_color: effect_word(params, "start_color", &at)?.to_ascii_lowercase(),
-                    end_color: effect_word(params, "end_color", &at)?.to_ascii_lowercase(),
-                    start_opacity: effect_number(params, "start_opacity", &at)?,
-                    end_opacity: effect_number(params, "end_opacity", &at)?,
-                    blend: effect_word(params, "blend", &at)?,
-                }),
-                crate::effects::DROP_SHADOW => Some(crate::effects::Effect::DropShadow {
-                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                    opacity: effect_number(params, "opacity", &at)?,
-                    direction: effect_number(params, "direction", &at)?,
-                    distance: effect_number(params, "distance", &at)?,
-                    softness: effect_number(params, "softness", &at)?,
-                }),
-                crate::effects::LENS_BLUR => Some(crate::effects::Effect::LensBlur {
-                    radius: effect_number(params, "radius", &at)?,
-                    edges: effect_word(params, "edges", &at)?,
-                    iris: match params.and_then(|p| p.get("iris")) {
-                        Some(_) => effect_word(params, "iris", &at)?,
-                        None => "circle".into(),
-                    },
-                    roundness: effect_number_or(params, "roundness", &at, 0.0)?,
-                    rotation: effect_number_or(params, "rotation", &at, 0.0)?,
-                    aspect: effect_number_or(params, "aspect", &at, 1.0)?,
-                    highlight_gain: effect_number_or(params, "highlight_gain", &at, 0.0)?,
-                    highlight_threshold: effect_number_or(params, "highlight_threshold", &at, 100.0)?,
-                }),
-                crate::effects::RIM_LIGHT => Some(crate::effects::Effect::RimLight {
-                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                    direction: effect_number(params, "direction", &at)?,
-                    width: effect_number(params, "width", &at)?,
-                    softness: effect_number(params, "softness", &at)?,
-                    intensity: effect_number(params, "intensity", &at)?,
-                    blend: effect_word(params, "blend", &at)?,
-                }),
-                crate::effects::OUTLINE => Some(crate::effects::Effect::Outline {
-                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                    width: effect_number(params, "width", &at)?,
-                    softness: effect_number(params, "softness", &at)?,
-                    opacity: effect_number(params, "opacity", &at)?,
-                }),
-                crate::effects::NOISE => Some(crate::effects::Effect::Noise {
-                    amount: effect_number(params, "amount", &at)?,
-                    mode: effect_word(params, "mode", &at)?,
-                    seed: effect_number(params, "seed", &at)?,
-                    animate: effect_word(params, "animate", &at)?,
-                    frame: 0,
-                }),
-                crate::effects::CHROMATIC_ABERRATION => {
-                    Some(crate::effects::Effect::ChromaticAberration {
-                        amount: effect_number(params, "amount", &at)?,
-                        center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                    })
-                }
-                // D-123: the colour is read in small letters, as a new colour is.
-                crate::effects::DISTANCE_GRADATION => {
-                    Some(crate::effects::Effect::DistanceGradation {
-                        color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                        width: effect_number(params, "width", &at)?,
-                        opacity: effect_number(params, "opacity", &at)?,
-                        invert: effect_word(params, "invert", &at)?,
-                        blend: effect_word(params, "blend", &at)?,
-                    })
-                }
-                // D-124: the colour is read in small letters, as a new colour is.
-                crate::effects::LIGHT_RAYS => Some(crate::effects::Effect::LightRays {
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                    length: effect_number(params, "length", &at)?,
-                    threshold: effect_number(params, "threshold", &at)?,
-                    intensity: effect_number(params, "intensity", &at)?,
-                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                }),
-                crate::effects::EXPOSURE_FLICKER => {
-                    Some(crate::effects::Effect::ExposureFlicker {
-                        amount: effect_number(params, "amount", &at)?,
-                        hold: effect_number(params, "hold", &at)?,
-                        seed: effect_number(params, "seed", &at)?,
-                        frame: 0,
-                    })
-                }
-                // D-126: the colour is read in small letters, as a new colour is.
-                crate::effects::VIGNETTE => Some(crate::effects::Effect::Vignette {
-                    amount: effect_number(params, "amount", &at)?,
-                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                    size: effect_number(params, "size", &at)?,
-                    roundness: effect_number(params, "roundness", &at)?,
-                    softness: effect_number(params, "softness", &at)?,
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                }),
-                crate::effects::TURBULENT_DISPLACE => {
-                    Some(crate::effects::Effect::TurbulentDisplace {
-                        amount: effect_number(params, "amount", &at)?,
-                        size: effect_number(params, "size", &at)?,
-                        complexity: effect_number(params, "complexity", &at)?,
-                        evolution: effect_number(params, "evolution", &at)?,
-                        speed: effect_number(params, "speed", &at)?,
-                        seed: effect_number(params, "seed", &at)?,
-                        edges: effect_word(params, "edges", &at)?,
-                        frame: 0,
-                    })
-                }
-                // D-128: the colours are read in small letters, as a new colour is.
-                crate::effects::FRACTAL_NOISE => Some(crate::effects::Effect::FractalNoise {
-                    size: effect_number(params, "size", &at)?,
-                    complexity: effect_number(params, "complexity", &at)?,
-                    contrast: effect_number(params, "contrast", &at)?,
-                    brightness: effect_number(params, "brightness", &at)?,
-                    evolution: effect_number(params, "evolution", &at)?,
-                    speed: effect_number(params, "speed", &at)?,
-                    seed: effect_number(params, "seed", &at)?,
-                    dark_color: effect_word(params, "dark_color", &at)?.to_ascii_lowercase(),
-                    light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
-                    opacity: effect_number(params, "opacity", &at)?,
-                    blend: effect_word(params, "blend", &at)?,
-                    frame: 0,
-                }),
-                // D-129: the colours are read in small letters, as a new colour is.
-                crate::effects::GRADIENT_MAP => Some(crate::effects::Effect::GradientMap {
-                    shadow_color: effect_word(params, "shadow_color", &at)?.to_ascii_lowercase(),
-                    midtone_color: effect_word(params, "midtone_color", &at)?
-                        .to_ascii_lowercase(),
-                    highlight_color: effect_word(params, "highlight_color", &at)?
-                        .to_ascii_lowercase(),
-                    midpoint: effect_number(params, "midpoint", &at)?,
-                    amount: effect_number(params, "amount", &at)?,
-                }),
-                crate::effects::COLOR_BALANCE => Some(crate::effects::Effect::ColorBalance {
-                    shadows: effect_list(params, "shadows", &at)?,
-                    midtones: effect_list(params, "midtones", &at)?,
-                    highlights: effect_list(params, "highlights", &at)?,
-                }),
-                crate::effects::OFFSET => Some(crate::effects::Effect::Offset {
-                    shift: effect_array(params, "shift", "two numbers, x then y", &at)?,
-                }),
-                crate::effects::LIGHT_WRAP => Some(crate::effects::Effect::LightWrap {
-                    width: effect_number(params, "width", &at)?,
-                    intensity: effect_number(params, "intensity", &at)?,
-                    blend: effect_word(params, "blend", &at)?,
-                }),
-                crate::effects::INVERT => Some(crate::effects::Effect::Invert {
-                    channel: effect_word(params, "channel", &at)?,
-                    amount: effect_number(params, "amount", &at)?,
-                }),
-                crate::effects::BRIGHTNESS_CONTRAST => Some(crate::effects::Effect::BrightnessContrast {
-                    brightness: effect_number(params, "brightness", &at)?,
-                    contrast: effect_number(params, "contrast", &at)?,
-                }),
-                crate::effects::BLACK_WHITE => Some(crate::effects::Effect::BlackWhite {
-                    reds: effect_number(params, "reds", &at)?,
-                    yellows: effect_number(params, "yellows", &at)?,
-                    greens: effect_number(params, "greens", &at)?,
-                    cyans: effect_number(params, "cyans", &at)?,
-                    blues: effect_number(params, "blues", &at)?,
-                    magentas: effect_number(params, "magentas", &at)?,
-                }),
-                crate::effects::POSTERIZE => Some(crate::effects::Effect::Posterize {
-                    levels: effect_number(params, "levels", &at)?,
-                }),
-                crate::effects::THRESHOLD => Some(crate::effects::Effect::Threshold {
-                    level: effect_number(params, "level", &at)?,
-                }),
-                crate::effects::CHANNEL_MIXER => Some(crate::effects::Effect::ChannelMixer {
-                    red: effect_list(params, "red", &at)?,
-                    green: effect_list(params, "green", &at)?,
-                    blue: effect_list(params, "blue", &at)?,
-                    monochrome: effect_word(params, "monochrome", &at)?,
-                }),
-                crate::effects::VIBRANCE => Some(crate::effects::Effect::Vibrance {
-                    vibrance: effect_number(params, "vibrance", &at)?,
-                    saturation: effect_number(params, "saturation", &at)?,
-                }),
-                crate::effects::LEAVE_COLOR => Some(crate::effects::Effect::LeaveColor {
-                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                    tolerance: effect_number(params, "tolerance", &at)?,
-                    softness: effect_number(params, "softness", &at)?,
-                    amount: effect_number(params, "amount", &at)?,
-                }),
-                crate::effects::SOLARIZE => Some(crate::effects::Effect::Solarize {
-                    threshold: effect_number(params, "threshold", &at)?,
-                }),
-                crate::effects::HALFTONE => Some(crate::effects::Effect::Halftone {
-                    size: effect_number(params, "size", &at)?,
-                    angle: effect_number(params, "angle", &at)?,
-                    ink: effect_word(params, "ink", &at)?.to_ascii_lowercase(),
-                    paper: effect_word(params, "paper", &at)?.to_ascii_lowercase(),
-                    amount: effect_number(params, "amount", &at)?,
-                }),
-                crate::effects::MOSAIC => Some(crate::effects::Effect::Mosaic {
-                    size: effect_number(params, "size", &at)?,
-                }),
-                crate::effects::EMBOSS => Some(crate::effects::Effect::Emboss {
-                    direction: effect_number(params, "direction", &at)?,
-                    relief: effect_number(params, "relief", &at)?,
-                    contrast: effect_number(params, "contrast", &at)?,
-                    mode: effect_word(params, "mode", &at)?,
-                }),
-                crate::effects::FIND_EDGES => Some(crate::effects::Effect::FindEdges {
-                    invert: effect_word(params, "invert", &at)?,
-                    amount: effect_number(params, "amount", &at)?,
-                }),
-                crate::effects::SHARPEN => Some(crate::effects::Effect::Sharpen {
-                    amount: effect_number(params, "amount", &at)?,
-                    radius: effect_number(params, "radius", &at)?,
-                }),
-                crate::effects::DIFFUSION => Some(crate::effects::Effect::Diffusion {
-                    radius: effect_number(params, "radius", &at)?,
-                    amount: effect_number(params, "amount", &at)?,
-                    blend: effect_word(params, "blend", &at)?,
-                }),
-                crate::effects::WAVE_WARP => Some(crate::effects::Effect::WaveWarp {
-                    shape: effect_word(params, "shape", &at)?,
-                    height: effect_number(params, "height", &at)?,
-                    width: effect_number(params, "width", &at)?,
-                    direction: effect_number(params, "direction", &at)?,
-                    speed: effect_number(params, "speed", &at)?,
-                    phase: effect_number(params, "phase", &at)?,
-                    edges: effect_word(params, "edges", &at)?,
-                    frame: 0,
-                }),
-                crate::effects::RIPPLE => Some(crate::effects::Effect::Ripple {
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                    amplitude: effect_number(params, "amplitude", &at)?,
-                    wavelength: effect_number(params, "wavelength", &at)?,
-                    speed: effect_number(params, "speed", &at)?,
-                    phase: effect_number(params, "phase", &at)?,
-                    fade: effect_number(params, "fade", &at)?,
-                    frame: 0,
-                }),
-                crate::effects::TWIRL => Some(crate::effects::Effect::Twirl {
-                    angle: effect_number(params, "angle", &at)?,
-                    radius: effect_number(params, "radius", &at)?,
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                }),
-                crate::effects::BULGE => Some(crate::effects::Effect::Bulge {
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                    radius: effect_number(params, "radius", &at)?,
-                    height: effect_number(params, "height", &at)?,
-                }),
-                crate::effects::MIRROR => Some(crate::effects::Effect::Mirror {
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                    angle: effect_number(params, "angle", &at)?,
-                }),
-                crate::effects::MOTION_TILE => Some(crate::effects::Effect::MotionTile {
-                    output_width: effect_number(params, "output_width", &at)?,
-                    output_height: effect_number(params, "output_height", &at)?,
-                    mirror: effect_word(params, "mirror", &at)?,
-                }),
-                crate::effects::LINEAR_WIPE => Some(crate::effects::Effect::LinearWipe {
-                    completion: effect_number(params, "completion", &at)?,
-                    angle: effect_number(params, "angle", &at)?,
-                    feather: effect_number(params, "feather", &at)?,
-                }),
-                crate::effects::RADIAL_WIPE => Some(crate::effects::Effect::RadialWipe {
-                    completion: effect_number(params, "completion", &at)?,
-                    start_angle: effect_number(params, "start_angle", &at)?,
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                    wipe: effect_word(params, "wipe", &at)?,
-                    feather: effect_number(params, "feather", &at)?,
-                }),
-                crate::effects::VENETIAN_BLINDS => Some(crate::effects::Effect::VenetianBlinds {
-                    completion: effect_number(params, "completion", &at)?,
-                    angle: effect_number(params, "angle", &at)?,
-                    width: effect_number(params, "width", &at)?,
-                    feather: effect_number(params, "feather", &at)?,
-                }),
-                crate::effects::IRIS_WIPE => Some(crate::effects::Effect::IrisWipe {
-                    completion: effect_number(params, "completion", &at)?,
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                    feather: effect_number(params, "feather", &at)?,
-                    invert: effect_word(params, "invert", &at)?,
-                }),
-                crate::effects::SIMPLE_CHOKER => Some(crate::effects::Effect::SimpleChoker {
-                    choke: effect_number(params, "choke", &at)?,
-                }),
-                crate::effects::SPEED_LINES => Some(crate::effects::Effect::SpeedLines {
-                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
-                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                    count: effect_number(params, "count", &at)?,
-                    thickness: effect_number(params, "thickness", &at)?,
-                    inner: effect_number(params, "inner", &at)?,
-                    inner_jitter: effect_number(params, "inner_jitter", &at)?,
-                    angle_jitter: effect_number(params, "angle_jitter", &at)?,
-                    seed: effect_number(params, "seed", &at)?,
-                    hold: effect_number(params, "hold", &at)?,
-                    opacity: effect_number(params, "opacity", &at)?,
-                    frame: 0,
-                }),
-                crate::effects::CROSS_GLARE => Some(crate::effects::Effect::CrossGlare {
-                    threshold: effect_number(params, "threshold", &at)?,
-                    length: effect_number(params, "length", &at)?,
-                    points: effect_number(params, "points", &at)?,
-                    angle: effect_number(params, "angle", &at)?,
-                    intensity: effect_number(params, "intensity", &at)?,
-                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                }),
-                crate::effects::CAMERA_SHAKE => Some(crate::effects::Effect::CameraShake {
-                    amount: effect_number(params, "amount", &at)?,
-                    rotation: effect_number(params, "rotation", &at)?,
-                    hold: effect_number(params, "hold", &at)?,
-                    seed: effect_number(params, "seed", &at)?,
-                    frame: 0,
-                }),
-                crate::effects::RAIN => Some(crate::effects::Effect::Rain {
-                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                    density: effect_number(params, "density", &at)?,
-                    spacing: effect_number(params, "spacing", &at)?,
-                    length: effect_number(params, "length", &at)?,
-                    width: effect_number(params, "width", &at)?,
-                    direction: effect_number(params, "direction", &at)?,
-                    speed: effect_number(params, "speed", &at)?,
-                    seed: effect_number(params, "seed", &at)?,
-                    opacity: effect_number(params, "opacity", &at)?,
-                    frame: 0,
-                }),
-                _ => None,
-            };
-            // P-17: keys on a setting this effect does not have are not its keys. The record
-            // stays in the file exactly as written, as any setting it does not have does;
-            // taken as keys, saving wrote it back inside itself and the file would not reopen.
-            let mut tracks = tracks;
-            if let Some(e) = &parsed {
-                tracks.retain(|name, _| e.arity(name).is_some());
-            }
-            let effect_value = match parsed {
-                Some(e) => {
-                    // Document 28: a parameter outside its contract is reported, and the record
-                    // is kept as written. It is not repaired here -- a repaired file would open
-                    // clean the next time and quietly render something nobody chose.
-                    let whole = crate::effects::EffectInstance {
-                        instance_id: instance_id.clone(),
-                        enabled,
-                        effect: e.clone(),
-                        tracks: tracks.clone(),
-                    };
-                    if let Some(bad) = whole.invalid() {
-                        warnings.push(
-                            Diagnostic::new(
-                                DiagnosticId::EffectParameterInvalid,
-                                Severity::Warning,
-                                format!(
-                                    "The layer \"{name}\" has a {type_id} whose settings this \
-                                     build cannot use."
-                                ),
-                                format!("{} The effect is kept and bypassed.", bad.why_invalid()),
-                            )
-                            .with_remediation(
-                                "Set the parameter to a value inside its range, or remove the \
-                                 effect.",
-                            ),
-                        );
-                    }
-                    e
-                }
-                None => {
-                    warnings.push(
-                        Diagnostic::new(
-                            DiagnosticId::EffectUnsupported,
-                            Severity::Warning,
-                            format!(
-                                "The layer \"{name}\" uses the effect \"{type_id}\", which this \
-                                 build does not have."
-                            ),
-                            format!(
-                                "Effect instance {instance_id} of type {type_id} on layer {id} is \
-                                 kept in the project exactly as it was and is bypassed when \
-                                  rendering."
-                            ),
-                        )
-                        .with_remediation(
-                            "Nothing was lost. Saving this project writes the effect back \
-                             unchanged, but any frame rendered here is missing what it would \
-                              have done.",
-                        ),
-                    );
-                    crate::effects::Effect::Unsupported { type_id }
-                }
-            };
-            effects.push(crate::effects::EffectInstance {
-                instance_id: instance_id.clone(),
-                enabled,
-                effect: effect_value,
-                tracks,
-            });
+            effects.push(parse_effect(effect, &format!("{at}/{i}"), &name, &id, warnings)?);
         }
     }
 
@@ -4378,6 +4389,66 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
         preserved: Preserved { root },
         warnings,
     })
+}
+
+/// W-31: effects copied off a layer or kept as a preset, a JSON list written the way a layer's
+/// `effects` are, read by the same rules.
+///
+/// Refused whole rather than read in part (document 28). A pasted effect has no place in a file
+/// for anything this build does not understand to be preserved in, so an effect this build does
+/// not have, or anything in one that saving would not write back, would be lost without a word.
+/// Settings out of range are read as a file's are: kept, and the effect is not drawn.
+pub fn read_effects(text: &str) -> Result<Vec<crate::effects::EffectInstance>, Diagnostic> {
+    let v: J = serde_json::from_str(text)
+        .map_err(|e| invalid("/", &format!("a list of effects written as JSON ({e})")))?;
+    let mut ignored = Vec::new();
+    let mut out = Vec::new();
+    for (i, one) in as_array(&v, "/")?.iter().enumerate() {
+        let at = format!("/{i}");
+        let instance = parse_effect(one, &at, "pasted", &Id::new("pasted"), &mut ignored)?;
+        let type_id = instance.type_id().to_string();
+        let refuse = |why: String| {
+            Diagnostic::new(
+                DiagnosticId::EffectUnsupported,
+                Severity::Error,
+                format!("The effect {type_id} cannot be pasted: {why}"),
+                format!("{type_id}: {why}"),
+            )
+            .with_remediation(
+                "Nothing was pasted and nothing was changed. Paste it in the build that copied it.",
+            )
+        };
+        if let crate::effects::Effect::Unsupported { .. } = instance.effect {
+            return Err(refuse("this build does not have it.".to_string()));
+        }
+        // What saving writes, against the same with the pasted text underneath: anything only the
+        // second has is something this build would drop.
+        let kept = effect_json(Some(one), &instance);
+        let written = effect_json(None, &instance);
+        if kept != written {
+            let keys = |j: &J, sub: Option<&str>| -> Vec<String> {
+                let j = sub.map_or(Some(j), |s| j.get(s));
+                j.and_then(J::as_object)
+                    .map(|m| m.keys().cloned().collect())
+                    .unwrap_or_default()
+            };
+            let lost: Vec<String> = keys(&kept, None)
+                .into_iter()
+                .filter(|k| written.get(k).is_none())
+                .chain(
+                    keys(&kept, Some("parameters"))
+                        .into_iter()
+                        .filter(|k| written["parameters"].get(k).is_none()),
+                )
+                .collect();
+            return Err(refuse(format!(
+                "it carries {}, which this build does not understand and would not keep.",
+                if lost.is_empty() { "settings".to_string() } else { lost.join(", ") }
+            )));
+        }
+        out.push(instance);
+    }
+    Ok(out)
 }
 
 /// Open a project file.
