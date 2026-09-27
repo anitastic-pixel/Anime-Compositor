@@ -208,6 +208,33 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 highlight_threshold: 100.0,
             },
         ),
+        // P-21: D-121's iris and a large radius, the cases that cost the most.
+        (
+            "Lens Blur, radius 40",
+            Effect::LensBlur {
+                radius: 40.0,
+                edges: "transparent".into(),
+                iris: "circle".into(),
+                roundness: 0.0,
+                rotation: 0.0,
+                aspect: 1.0,
+                highlight_gain: 0.0,
+                highlight_threshold: 100.0,
+            },
+        ),
+        (
+            "Lens Blur 10, hexagon, highlights",
+            Effect::LensBlur {
+                radius: 10.0,
+                edges: "transparent".into(),
+                iris: "hexagon".into(),
+                roundness: 20.0,
+                rotation: 15.0,
+                aspect: 1.5,
+                highlight_gain: 3.0,
+                highlight_threshold: 80.0,
+            },
+        ),
         (
             "Rim Light, the defaults",
             Effect::RimLight {

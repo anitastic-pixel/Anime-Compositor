@@ -55,9 +55,9 @@ pub(crate) fn drop_shadow(
     let r = kernel_radius(s) as isize;
     let g = distance.ceil() as usize + r as usize;
     let mut covering = source.clone();
-    for px in covering.data_mut().chunks_exact_mut(4) {
+    covering.data_mut().par_chunks_exact_mut(4).for_each(|px| {
         px[..3].fill(0.0);
-    }
+    });
     blur(&mut covering, s);
     let (ux, uy) = crate::blurs::along(direction);
     let (k, c) = (opacity / 100.0, color.map(crate::grade::to_linear));
@@ -176,15 +176,15 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, i
     let lit: Vec<f32>;
     let src = if iris.gain > 0.0 {
         let (m, at) = ((1.0 + iris.gain) as f32, (iris.threshold / 100.0) as f32);
-        lit = source
-            .data()
-            .chunks_exact(4)
-            .flat_map(|p| {
-                let bright = p[3] > 0.0 && p[0].max(p[1]).max(p[2]) / p[3] >= at;
-                let k = if bright { m } else { 1.0 };
-                [p[0] * k, p[1] * k, p[2] * k, p[3]]
-            })
-            .collect();
+        let mut copy = source.data().to_vec();
+        copy.par_chunks_exact_mut(4).for_each(|p| {
+            let bright = p[3] > 0.0 && p[0].max(p[1]).max(p[2]) / p[3] >= at;
+            let k = if bright { m } else { 1.0 };
+            for c in &mut p[..3] {
+                *c *= k;
+            }
+        });
+        lit = copy;
         &lit[..]
     } else {
         source.data()
@@ -202,6 +202,8 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, i
             s
         })
         .collect();
+    // P-21: a row with nothing on it adds only +0 to sums that started at +0.
+    let empty: Vec<bool> = src.par_chunks(w as usize * 4).map(|row| row.iter().all(|&v| v == 0.0)).collect();
     let ow = w as usize + 2 * g;
     let mut out = WorkingBuffer::transparent(ow, h as usize + 2 * g);
     out.data_mut()
@@ -209,17 +211,35 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, i
         .enumerate()
         .for_each(|(oy, line)| {
             let y = oy as isize - g as isize;
-            for (ox, px) in line.chunks_exact_mut(4).enumerate() {
-                let x = ox as isize - g as isize;
-                let mut acc = [0.0f64; 4];
-                for &[dy, lo, hi] in &runs {
-                    let mut sy = y - dy;
-                    if repeat {
-                        sy = sy.clamp(0, h - 1);
-                    } else if sy < 0 || sy >= h {
-                        continue;
+            // P-21: an iris row at a time along the whole output row, each pixel still taking
+            // the runs in order, so the bits are the pixel-at-a-time loop's.
+            let mut sum = vec![[0.0f64; 4]; ow];
+            for &[dy, lo, hi] in &runs {
+                let mut sy = y - dy;
+                if repeat {
+                    sy = sy.clamp(0, h - 1);
+                } else if sy < 0 || sy >= h {
+                    continue;
+                }
+                if empty[sy as usize] {
+                    continue;
+                }
+                let (s, row) = (&sums[sy as usize], sy as usize * w as usize * 4);
+                if !repeat {
+                    // Only the pixels whose run meets the row, where it is never empty.
+                    let (first, last) = ((lo + g as isize).max(0), (w - 1 + hi + g as isize).min(ow as isize - 1));
+                    for ox in first..=last {
+                        let x = ox - g as isize;
+                        let (l, r) = ((x - hi).max(0) as usize, (x - lo).min(w - 1) as usize);
+                        let acc = &mut sum[ox as usize];
+                        for i in 0..4 {
+                            acc[i] += s[r + 1][i] - s[l][i];
+                        }
                     }
-                    let (s, row) = (&sums[sy as usize], sy as usize * w as usize * 4);
+                    continue;
+                }
+                for (ox, acc) in sum.iter_mut().enumerate() {
+                    let x = ox as isize - g as isize;
                     let (a, b) = (x - hi, x - lo);
                     let (lo, hi) = (a.max(0), b.min(w - 1));
                     for i in 0..4 {
@@ -234,6 +254,8 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, i
                         }
                     }
                 }
+            }
+            for (px, acc) in line.chunks_exact_mut(4).zip(&mut sum) {
                 if iris.gain > 0.0 {
                     for i in 0..3 {
                         acc[i] = acc[i].min(acc[3]);
@@ -268,9 +290,9 @@ pub(crate) fn rim_light(
     let s = softness / 3.0;
     let r = kernel_radius(s) as f64;
     let mut covering = source.clone();
-    for px in covering.data_mut().chunks_exact_mut(4) {
+    covering.data_mut().par_chunks_exact_mut(4).for_each(|px| {
         px[..3].fill(0.0);
-    }
+    });
     blur(&mut covering, s);
     let (ux, uy) = crate::blurs::along(direction);
     let (k, c) = (intensity / 100.0, color.map(crate::grade::to_linear));
@@ -316,10 +338,12 @@ pub(crate) fn outline(
     // `row[sy][bx]`, the greatest covering in row sy within k of column bx - n, widened one step
     // of k at a time; each disc row of half-width k takes its maximum from it.
     let alpha = |x: isize, y: usize| at(source, x, y as isize)[3];
-    let mut row: Vec<f32> = (0..h)
-        .flat_map(|sy| (0..bw).map(move |bx| (bx, sy)))
-        .map(|(bx, sy)| alpha(bx as isize - n as isize, sy))
-        .collect();
+    let mut row = vec![0.0f32; h * bw];
+    row.par_chunks_mut(bw).enumerate().for_each(|(sy, line)| {
+        for (bx, v) in line.iter_mut().enumerate() {
+            *v = alpha(bx as isize - n as isize, sy);
+        }
+    });
     let mut band = vec![0.0f32; bw * bh];
     let top = runs.iter().map(|&(_, hw)| hw).max().unwrap_or(0);
     for k in 0..=top {
@@ -346,9 +370,9 @@ pub(crate) fn outline(
         });
     }
     let mut ring = WorkingBuffer::transparent(bw, bh);
-    for (px, &a) in ring.data_mut().chunks_exact_mut(4).zip(&band) {
+    ring.data_mut().par_chunks_exact_mut(4).zip(&band).for_each(|(px, &a)| {
         px[3] = a;
-    }
+    });
     let g = n + blur(&mut ring, softness / 3.0);
     let (k, c) = (opacity / 100.0, color.map(crate::grade::to_linear));
     let ow = ring.width();

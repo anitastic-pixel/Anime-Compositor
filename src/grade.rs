@@ -28,27 +28,47 @@ fn to_srgb(c: f64) -> f64 {
 /// the sRGB curve, 0 to 1, goes through `f(pixel index, colour)`, and the result, held inside
 /// 0 to 1, comes back to linear at the pixel's own covering. A pixel that does not show is left
 /// as it is.
-fn grade_pixels(source: &mut WorkingBuffer, f: impl Fn(usize, [f64; 3]) -> [f64; 3] + Sync) {
+///
+/// P-21: a row at a time. A cel is painted in flat colours, so a pixel whose four numbers are
+/// bit for bit the pixel's before it on the row takes that pixel's colour through the curve,
+/// and, unless `placed` says `f` reads the pixel's index, its result too: the same bits,
+/// without the powers.
+fn grade_pixels(source: &mut WorkingBuffer, placed: bool, f: impl Fn(usize, [f64; 3]) -> [f64; 3] + Sync) {
+    let w = source.width().max(1);
     source
         .data_mut()
-        .par_chunks_exact_mut(4)
+        .par_chunks_mut(w * 4)
         .enumerate()
-        .for_each(|(i, px)| {
-            let a = px[3] as f64;
-            if a <= 0.0 {
-                return;
-            }
-            let e = std::array::from_fn(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)));
-            let out = f(i, e);
-            for c in 0..3 {
-                px[c] = (to_linear(out[c].clamp(0.0, 1.0)) * a) as f32;
+        .for_each(|(y, row)| {
+            let mut last: Option<([u32; 4], [f64; 3], [f32; 3])> = None;
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3] as f64;
+                if a <= 0.0 {
+                    continue;
+                }
+                let key = [px[0].to_bits(), px[1].to_bits(), px[2].to_bits(), px[3].to_bits()];
+                let e = match last {
+                    Some((k, e, out)) if k == key => {
+                        if !placed {
+                            px[..3].copy_from_slice(&out);
+                            continue;
+                        }
+                        e
+                    }
+                    _ => std::array::from_fn(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0))),
+                };
+                let out = f(y * w + x, e);
+                for c in 0..3 {
+                    px[c] = (to_linear(out[c].clamp(0.0, 1.0)) * a) as f32;
+                }
+                last = Some((key, e, [px[0], px[1], px[2]]));
             }
         });
 }
 
 /// The same, a channel at a time on the 0 to 255 scale: `f(channel, value)`.
 fn grade(source: &mut WorkingBuffer, f: impl Fn(usize, f64) -> f64 + Sync) {
-    grade_pixels(source, |_, e| std::array::from_fn(|c| f(c, e[c] * 255.0) / 255.0));
+    grade_pixels(source, false, |_, e| std::array::from_fn(|c| f(c, e[c] * 255.0) / 255.0));
 }
 
 /// D-111's default curve, which changes nothing.
@@ -169,7 +189,7 @@ pub(crate) fn hue_saturation(source: &mut WorkingBuffer, hue: f64, saturation: f
     if hue == 0.0 && saturation == 0.0 && lightness == 0.0 {
         return;
     }
-    grade_pixels(source, |_, e| {
+    grade_pixels(source, false, |_, e| {
         let [h, s, l] = to_hsl(e);
         let l = if lightness >= 0.0 {
             l + (1.0 - l) * lightness / 100.0
@@ -272,7 +292,7 @@ pub(crate) fn noise(
     }
     let w = source.width();
     let (base, k) = (mix(seed.floor() as u64), amount / 200.0);
-    grade_pixels(source, |i, e| {
+    grade_pixels(source, true, |i, e| {
         let (x, y) = ((i % w) as i64 - ox as i64, (i / w) as i64 - oy as i64);
         let h = mix(mix(mix(base ^ x as u64) ^ y as u64) ^ frame as i64 as u64);
         std::array::from_fn(|c| {
