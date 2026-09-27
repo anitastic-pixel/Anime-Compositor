@@ -422,6 +422,10 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 amount: 100.0,
             },
         ),
+        (
+            "Solarize, at the middle",
+            Effect::Solarize { threshold: 128.0 },
+        ),
     ]
 }
 

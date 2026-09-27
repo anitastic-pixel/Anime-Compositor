@@ -651,3 +651,20 @@ pub(crate) fn leave_color(source: &mut WorkingBuffer, color: [f64; 3], tolerance
         }
     });
 }
+
+/// D-142: each channel at or above `threshold` of 255 turned to its opposite; the rest kept bit
+/// for bit.
+pub(crate) fn solarize(source: &mut WorkingBuffer, threshold: f64) {
+    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        for c in 0..3 {
+            let e = to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
+            if 255.0 * e + 1e-4 >= threshold {
+                px[c] = (to_linear(1.0 - e) * a) as f32;
+            }
+        }
+    });
+}

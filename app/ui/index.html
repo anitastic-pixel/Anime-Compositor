@@ -1021,6 +1021,7 @@
         <option value="core.channel_mixer">Channel Mixer</option>
         <option value="core.vibrance">Vibrance</option>
         <option value="core.leave_color">Leave Color</option>
+        <option value="core.solarize">Solarize</option>
       </select>
     </div>
   </section>
@@ -6451,6 +6452,7 @@ const EFFECT_NAMES = {
   'core.channel_mixer': 'Channel Mixer',
   'core.vibrance': 'Vibrance',
   'core.leave_color': 'Leave Color',
+  'core.solarize': 'Solarize',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6606,6 +6608,8 @@ const EFFECT_PARAMS = {
   'core.leave_color': [['tolerance', 'Tolerance', 1, 1, '0 to 100, how far round the colour wheel is kept whole'],
     ['softness', 'Softness', 1, 1, '0 to 100, the fade past the tolerance'],
     ['amount', 'Amount', 1, 1, '0 to 100, how grey the rest turns']],
+  // D-142.
+  'core.solarize': [['threshold', 'Threshold', 1, 1, 'a channel of 255 at or above it is turned over, 0 to 255']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

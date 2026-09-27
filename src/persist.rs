@@ -1350,6 +1350,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("amount".into(), num(*amount));
         }
+        Effect::Solarize { threshold } => {
+            params.insert("threshold".into(), num(*threshold));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2605,6 +2608,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::CHANNEL_MIXER,
                 crate::effects::VIBRANCE,
                 crate::effects::LEAVE_COLOR,
+                crate::effects::SOLARIZE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2893,6 +2897,9 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     tolerance: effect_number(params, "tolerance", &at)?,
                     softness: effect_number(params, "softness", &at)?,
                     amount: effect_number(params, "amount", &at)?,
+                }),
+                crate::effects::SOLARIZE => Some(crate::effects::Effect::Solarize {
+                    threshold: effect_number(params, "threshold", &at)?,
                 }),
                 _ => None,
             };

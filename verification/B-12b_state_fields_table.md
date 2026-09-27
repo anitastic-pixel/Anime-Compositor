@@ -169,5 +169,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - vibrance, saturation - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.leave_color` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, tolerance, softness, amount - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.solarize` is an effect this build has | added | added | pass |
+| and the settings it sends for it - threshold - are the ones the command reads | accepted | accepted | pass |
 
-**149 of 149 checks pass.**
+**151 of 151 checks pass.**
