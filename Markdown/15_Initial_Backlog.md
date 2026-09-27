@@ -636,6 +636,8 @@ B-105 / Camera Shake, D-162, the twenty-ninth of the third batch of thirty: the 
 
 B-106 / Rain, D-163, the last of the third batch of thirty: streaks of rain falling across the picture. **B-106a is written on 2026-09-26**: `verification/B-106a proposal/`, D-163 in document 14, the rule in document 21, FX-RAIN-001 to 027 in document 25 from `tools/rain_reference.py`, which writes `Fixtures/rain/`. **B-106b is built on 2026-09-26**: `src/layer_fx.rs`, the Rain card, `tests/b106_rain.rs` writing `verification/B-106_rain_table.md`, 108 of 108, worst 2e-7; the owner's playtest is `verification/B-106_rain_playtest.md`.
 
+B-107 / The third batch of thirty on the graphics card, D-165: every one of the thirty but Motion Tile done by the card when it is the last effect of a drawn layer, as B-65 and B-76 did for the first twenty. **D-165 is proposed on 2026-09-27.** It is judged by a table in the pattern of B-76's, every fixture frame of the twenty-nine and the reference shot with each at Full and Draft, within 1 level of 255, with pictures of the worst frame, and a timing table.
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
