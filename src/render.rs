@@ -217,13 +217,23 @@ pub struct LayerDraw {
 }
 
 /// An effect left for the graphics card, in the pixels of the buffer it runs on.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum OnCard {
     Radial(Radial),
     Bloom(Bloom),
     Directional(Directional),
     Gaussian(Gaussian),
     Glow(Glow),
+    Fx(Fx),
+}
+
+/// B-65: one of the batch of ten (D-122), its distances already divided for Draft, with the
+/// drawing's corner in the buffer after the effects before it grew it, and how far it grows it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fx {
+    pub instance: crate::effects::EffectInstance,
+    pub origin: (usize, usize),
+    pub grow: usize,
 }
 
 /// B-51: a Glow's settings (`glow::settings`), the radius already divided for Draft. Left for the
@@ -353,11 +363,12 @@ pub struct Tile {
 /// tiles of one frame, and on the fixtures the box excludes nothing, so every recomputation
 /// would have been spent on a skip that never fires.
 pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
-    let grow = match layer.on_card {
+    let grow = match &layer.on_card {
         Some(OnCard::Bloom(b)) => 2 * crate::bloom::reach(b.radius, b.lines, b.length),
         Some(OnCard::Directional(d)) => 2 * d.grow(),
         Some(OnCard::Gaussian(g)) => 2 * g.grow(),
         Some(OnCard::Glow(g)) => 2 * crate::effects::kernel_radius(g.radius / 3.0),
+        Some(OnCard::Fx(f)) => 2 * f.grow,
         _ => 0,
     };
     let (w, h) = ((layer.source.width() + grow) as f64, (layer.source.height() + grow) as f64);
@@ -440,7 +451,7 @@ pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuff
 }
 
 fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> WorkingBuffer {
-    // B-46, B-47, B-49, B-50, B-51: an effect left for the card that the CPU is drawing after all is run first,
+    // B-46, B-47, B-49, B-50, B-51, B-65: an effect left for the card that the CPU is drawing after all is run first,
     // exactly as `apply_stack` would have run it.
     if plan.layers.iter().any(|l| l.on_card.is_some()) {
         let mut plan = plan.clone();
@@ -475,6 +486,10 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
                     crate::perf::time(crate::perf::Stage::EffectGlow, || {
                         crate::glow::glow(std::sync::Arc::make_mut(&mut layer.source), &g)
                     });
+                }
+                Some(OnCard::Fx(f)) => {
+                    let source = std::sync::Arc::make_mut(&mut layer.source);
+                    crate::effects::apply_stack_at(source, std::slice::from_ref(&f.instance), f.origin, |_, _, _| {});
                 }
             }
         }

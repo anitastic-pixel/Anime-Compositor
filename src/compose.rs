@@ -1126,7 +1126,7 @@ fn resolve_rest(
         .collect();
 
     // B-46: a drawing whose last effect switched on is a Radial Blur, (B-47) a Bloom, (B-49) a
-    // Directional Blur, (B-50) a Gaussian Blur or (B-51) a Glow this build can draw has only the effects before it run here, when the plan
+    // Directional Blur, (B-50) a Gaussian Blur, (B-51) a Glow or (B-65) one of the batch of ten this build can draw has only the effects before it run here, when the plan
     // is for the card.
     // Those are what the effect cache is asked for, a stack of their own, so it never hands one
     // path's result to the other.
@@ -1140,7 +1140,20 @@ fn resolve_rest(
                     | crate::effects::Effect::DirectionalBlur { .. }
                     | crate::effects::Effect::GaussianBlur { .. }
                     | crate::effects::Effect::Glow { .. }
+                    | crate::effects::Effect::Curves { .. }
+                    | crate::effects::Effect::Levels { .. }
+                    | crate::effects::Effect::HueSaturation { .. }
+                    | crate::effects::Effect::Gradient { .. }
+                    | crate::effects::Effect::DropShadow { .. }
+                    | crate::effects::Effect::LensBlur { .. }
+                    | crate::effects::Effect::RimLight { .. }
+                    | crate::effects::Effect::Outline { .. }
+                    | crate::effects::Effect::Noise { .. }
+                    | crate::effects::Effect::ChromaticAberration { .. }
             )
+            // D-122: a Levels whose input white is its black is a threshold, which a rounding
+            // either side of would turn from black to white, so it stays on the CPU.
+            && !matches!(effects[i].effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
             && effects[i].effect.is_valid()
     });
     let before = left.unwrap_or(effects.len());
@@ -1281,7 +1294,33 @@ fn resolve_rest(
                     render::OnCard::Glow(g)
                 })
             }
-            _ => unreachable!("chosen above for being a Radial Blur, a Bloom, a Directional Blur, a Gaussian Blur or a Glow"),
+            // B-65: the batch of ten, run as `apply_stack` runs them, from the drawing's corner so
+            // far. One that changes nothing and grows nothing, as each says of its settings, is
+            // not left.
+            effect => {
+                use crate::effects::Effect as E;
+                let nothing = match &effect {
+                    E::Curves { master, red, green, blue } => {
+                        [master, red, green, blue].iter().all(|c| crate::grade::is_straight(c))
+                    }
+                    E::Levels { input_black, input_white, gamma, output_black, output_white } => {
+                        [*input_black, *input_white, *gamma, *output_black, *output_white] == [0.0, 255.0, 1.0, 0.0, 255.0]
+                    }
+                    E::HueSaturation { hue, saturation, lightness } => [*hue, *saturation, *lightness] == [0.0; 3],
+                    E::Gradient { start_opacity, end_opacity, .. } => [*start_opacity, *end_opacity] == [0.0; 2],
+                    E::RimLight { intensity, .. } => *intensity == 0.0,
+                    E::Outline { width, .. } => *width == 0.0,
+                    E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } => *amount == 0.0,
+                    _ => false,
+                };
+                let grow = effect.bounds_expansion();
+                let instance = crate::effects::EffectInstance { effect, ..effects[i].clone() };
+                let fx = render::Fx { instance, origin: offset, grow };
+                (!nothing).then(|| {
+                    offset = (offset.0 + grow, offset.1 + grow);
+                    render::OnCard::Fx(fx)
+                })
+            }
         }
     });
 

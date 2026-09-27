@@ -76,9 +76,9 @@ pub(crate) fn is_straight(points: &[Vec<f64>]) -> bool {
     points == [vec![0.0, 0.0], vec![255.0, 255.0]]
 }
 
-/// D-111: the natural cubic spline through `points`, which are valid, flat outside its end
-/// points.
-fn spline(points: &[Vec<f64>]) -> impl Fn(f64) -> f64 {
+/// D-111: the natural cubic spline through `points`, which are valid: each point's in and out,
+/// and the second derivative there. B-65 sends these to the card.
+pub(crate) fn knots(points: &[Vec<f64>]) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let xs: Vec<f64> = points.iter().map(|p| p[0]).collect();
     let ys: Vec<f64> = points.iter().map(|p| p[1]).collect();
     let n = xs.len();
@@ -103,6 +103,14 @@ fn spline(points: &[Vec<f64>]) -> impl Fn(f64) -> f64 {
             m[j + 1] = (rhs[j] - next) / dia[j];
         }
     }
+    (xs, ys, m)
+}
+
+/// D-111: the spline through `points`, flat outside its end points.
+fn spline(points: &[Vec<f64>]) -> impl Fn(f64) -> f64 {
+    let (xs, ys, m) = knots(points);
+    let n = xs.len();
+    let h: Vec<f64> = (0..n - 1).map(|i| xs[i + 1] - xs[i]).collect();
     move |x: f64| {
         if x <= xs[0] {
             return ys[0];
@@ -267,7 +275,7 @@ pub(crate) fn gradient(source: &mut WorkingBuffer, g: &Gradient) {
 }
 
 /// D-119: SplitMix64's finaliser, on 64-bit words.
-fn mix(z: u64) -> u64 {
+pub(crate) fn mix(z: u64) -> u64 {
     let z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
     let z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     let z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);

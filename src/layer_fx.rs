@@ -22,7 +22,7 @@ fn at(b: &WorkingBuffer, x: isize, y: isize) -> [f32; 4] {
 
 /// Each row of the whole steps within `radius` of a pixel, its offset and half-width: the widest
 /// whole dx with dx^2 + dy^2 <= radius^2.
-fn disc_runs(radius: f64) -> Vec<(isize, isize)> {
+pub(crate) fn disc_runs(radius: f64) -> Vec<(isize, isize)> {
     let rr = radius * radius;
     let r = radius.floor() as isize;
     (-r..=r)
@@ -130,7 +130,7 @@ fn iris_measure(dx: f64, dy: f64, n: usize, roundness: f64, rotation: f64, aspec
 /// D-121: each row of the iris's whole steps, its offset and its first and last step across. A
 /// step exactly on the edge counts, with a billionth of a pixel of slack. The iris is convex,
 /// so each row is one run.
-fn iris_runs(radius: f64, n: usize, roundness: f64, rotation: f64, aspect: f64) -> Vec<[isize; 3]> {
+pub(crate) fn iris_runs(radius: f64, n: usize, roundness: f64, rotation: f64, aspect: f64) -> Vec<[isize; 3]> {
     const SLACK: f64 = 1e-9;
     if radius < 1.0 {
         return vec![[0, 0, 0]];

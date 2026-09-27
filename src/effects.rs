@@ -1015,7 +1015,7 @@ fn hex_fault(effect: &str, what: &str, c: &str) -> Option<String> {
 }
 
 /// A colour already found valid, encoded 0 to 1.
-fn encoded(c: &str) -> [f64; 3] {
+pub(crate) fn encoded(c: &str) -> [f64; 3] {
     crate::selective_blur::parse_hex(c)
         .unwrap_or_default()
         .map(|v| v as f64 / 255.0)
@@ -1168,9 +1168,21 @@ pub(crate) fn radial_center(center: [f64; 2], source: &WorkingBuffer, (ox, oy): 
 pub fn apply_stack(
     source: &mut WorkingBuffer,
     stack: &[EffectInstance],
+    report: impl FnMut(usize, &EffectInstance, Bypassed),
+) -> (usize, usize) {
+    apply_stack_at(source, stack, (0, 0), report)
+}
+
+/// B-65: [`apply_stack`] on a buffer the effects before `stack` have already grown, the drawing's
+/// corner at `origin`, as Gradient, Noise and Chromatic Aberration read it. Returns the corner
+/// after `stack`, `origin` included.
+pub(crate) fn apply_stack_at(
+    source: &mut WorkingBuffer,
+    stack: &[EffectInstance],
+    origin: (usize, usize),
     mut report: impl FnMut(usize, &EffectInstance, Bypassed),
 ) -> (usize, usize) {
-    let (mut ox, mut oy) = (0usize, 0usize);
+    let (mut ox, mut oy) = origin;
     // The position is reported alongside the instance because P-11's effect cache replays a
     // bypass on a hit, and a position is the one thing about an instance that survives being
     // written down and read back next frame.
