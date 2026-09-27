@@ -600,6 +600,8 @@ B-88 / Emboss, D-145, the twelfth of the third batch of thirty: the picture pres
 
 B-89 / Find Edges, D-146, the thirteenth of the third batch of thirty: the picture's edges drawn as lines. **B-89a is written on 2026-09-26**: `verification/B-89a proposal/`, D-146 in document 14, the rule in document 21, FX-FINDEDGES-001 to 019 in document 25 from `tools/find_edges_reference.py`, which writes `Fixtures/find_edges/`. **B-89b is built on 2026-09-26**: `src/layer_fx.rs`, the Find Edges card, `tests/b89_find_edges.rs` writing `verification/B-89_find_edges_table.md`, 75 of 75, worst 1.9e-7; the owner's playtest is `verification/B-89_find_edges_playtest.md`.
 
+B-90 / Sharpen, D-147, the fourteenth of the third batch of thirty: edges made crisper by an unsharp mask. **B-90a is written on 2026-09-26**: `verification/B-90a proposal/`, D-147 in document 14, the rule in document 21, FX-SHARPEN-001 to 018 in document 25 from `tools/sharpen_reference.py`, which writes `Fixtures/sharpen/`. **B-90b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
