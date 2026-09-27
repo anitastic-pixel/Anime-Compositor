@@ -622,6 +622,8 @@ B-99 / Radial Wipe, D-156, the twenty-third of the third batch of thirty: the pi
 
 B-100 / Venetian Blinds, D-157, the twenty-fourth of the third batch of thirty: the picture wiped away in stripes. **B-100a is written on 2026-09-26**: `verification/B-100a proposal/`, D-157 in document 14, the rule in document 21, FX-BLINDS-001 to 026 in document 25 from `tools/venetian_blinds_reference.py`, which writes `Fixtures/venetian_blinds/`. **B-100b is built on 2026-09-26**: `src/layer_fx.rs`, the Venetian Blinds card, `tests/b100_venetian_blinds.rs` writing `verification/B-100_venetian_blinds_table.md`, 102 of 102, worst 1.9e-7; the owner's playtest is `verification/B-100_venetian_blinds_playtest.md`.
 
+B-101 / Iris Wipe, D-158, the twenty-fifth of the third batch of thirty: a circle closing on a point, the cartoon ending. **B-101a is written on 2026-09-26**: `verification/B-101a proposal/`, D-158 in document 14, the rule in document 21, FX-IRIS-001 to 027 in document 25 from `tools/iris_wipe_reference.py`, which writes `Fixtures/iris_wipe/`. **B-101b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
