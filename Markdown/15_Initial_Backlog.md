@@ -584,6 +584,8 @@ B-80 / Posterize, D-137, the fourth of the third batch of thirty: each colour ch
 
 B-81 / Threshold, D-138, the fifth of the third batch of thirty: every pixel made black or white by its lightness. **B-81a is written on 2026-09-26**: `verification/B-81a proposal/`, D-138 in document 14, the rule in document 21, FX-THRESH-001 to 019 in document 25 from `tools/threshold_reference.py`, which writes `Fixtures/threshold/`. **B-81b is built on 2026-09-26**: `src/grade.rs`, the Threshold card, `tests/b81_threshold.rs` writing `verification/B-81_threshold_table.md`, 75 of 75, worst 1.9e-7, with FX-THRESH-019 in dispute under D-164, proposed; the owner's playtest is `verification/B-81_threshold_playtest.md`.
 
+B-82 / Channel Mixer, D-139, the sixth of the third batch of thirty: each colour channel remade from a mix of all three. **B-82a is written on 2026-09-26**: `verification/B-82a proposal/`, D-139 in document 14, the rule in document 21, FX-MIXER-001 to 022 in document 25 from `tools/channel_mixer_reference.py`, which writes `Fixtures/channel_mixer/`. **B-82b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
