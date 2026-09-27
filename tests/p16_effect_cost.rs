@@ -440,6 +440,15 @@ fn cases() -> Vec<(&'static str, Effect)> {
             "Mosaic, as it starts",
             Effect::Mosaic { size: 10.0 },
         ),
+        (
+            "Emboss, as it starts",
+            Effect::Emboss {
+                direction: 135.0,
+                relief: 1.0,
+                contrast: 100.0,
+                mode: "grey".to_string(),
+            },
+        ),
     ]
 }
 

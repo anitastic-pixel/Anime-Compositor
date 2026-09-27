@@ -676,3 +676,46 @@ pub(crate) fn mosaic(source: &mut WorkingBuffer, size: f64, (ox, oy): (usize, us
         }
     }
 }
+
+/// The picture luma of a premultiplied pixel, its colour over black, encoded.
+fn picture_luma(p: [f32; 4]) -> f64 {
+    let y = 0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64;
+    crate::grade::to_srgb(y.clamp(0.0, 1.0))
+}
+
+/// D-145: each pixel that shows lit by the difference in picture luma `relief` pixels ahead of
+/// it along `direction` and as far behind, each read between pixels with the point held inside
+/// the layer; grey, or with `color` laid over its own colours. The settings are already valid.
+pub(crate) fn emboss(source: &mut WorkingBuffer, direction: f64, relief: f64, contrast: f64, color: bool) {
+    let (w, h) = (source.width(), source.height());
+    let (ux, uy) = crate::blurs::along(direction);
+    let (dx, dy) = (relief * ux, relief * uy);
+    let (fw, fh) = (w as f64, h as f64);
+    let hold = |x: f64, y: f64| (x.max(0.5).min(fw - 0.5), y.max(0.5).min(fh - 0.5));
+    let k = contrast / 100.0;
+    let drawing = source.clone();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (ax, ay) = hold(x + dx, y + dy);
+            let (bx, by) = hold(x - dx, y - dy);
+            let ahead = picture_luma(sample_bilinear(&drawing, ax, ay));
+            let behind = picture_luma(sample_bilinear(&drawing, bx, by));
+            let v = 0.5 + (ahead - behind) * k;
+            for c in 0..3 {
+                let e = if color {
+                    crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)) + v - 0.5
+                } else {
+                    v
+                };
+                px[c] = (crate::grade::to_linear(e.clamp(0.0, 1.0)) * a) as f32;
+            }
+        });
+}

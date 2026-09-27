@@ -596,7 +596,7 @@ B-86 / Halftone, D-143, the tenth of the third batch of thirty: the picture as d
 
 B-87 / Mosaic, D-144, the eleventh of the third batch of thirty: the picture cut into square blocks of flat colour. **B-87a is written on 2026-09-26**: `verification/B-87a proposal/`, D-144 in document 14, the rule in document 21, FX-MOSAIC-001 to 020 in document 25 from `tools/mosaic_reference.py`, which writes `Fixtures/mosaic/`. **B-87b is built on 2026-09-26**: `src/layer_fx.rs`, the Mosaic card, `tests/b87_mosaic.rs` writing `verification/B-87_mosaic_table.md`, 76 of 76, worst 2e-7; the owner's playtest is `verification/B-87_mosaic_playtest.md`.
 
-B-88 / Emboss, D-145, the twelfth of the third batch of thirty: the picture pressed into relief, lit from one side. **B-88a is written on 2026-09-26**: `verification/B-88a proposal/`, D-145 in document 14, the rule in document 21, FX-EMBOSS-001 to 026 in document 25 from `tools/emboss_reference.py`, which writes `Fixtures/emboss/`. **B-88b, the build, is next.**
+B-88 / Emboss, D-145, the twelfth of the third batch of thirty: the picture pressed into relief, lit from one side. **B-88a is written on 2026-09-26**: `verification/B-88a proposal/`, D-145 in document 14, the rule in document 21, FX-EMBOSS-001 to 026 in document 25 from `tools/emboss_reference.py`, which writes `Fixtures/emboss/`. **B-88b is built on 2026-09-26**: `src/layer_fx.rs`, the Emboss card, `tests/b88_emboss.rs` writing `verification/B-88_emboss_table.md`, 95 of 95, worst 2.2e-7; the owner's playtest is `verification/B-88_emboss_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -2998,6 +2998,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         }),
         // D-144: blocks ten pixels wide.
         MOSAIC => Some(Effect::Mosaic { size: 10.0 }),
+        // D-145: grey relief, lit from the top left.
+        EMBOSS => Some(Effect::Emboss {
+            direction: 135.0,
+            relief: 1.0,
+            contrast: 100.0,
+            mode: "grey".to_string(),
+        }),
         _ => None,
     }
 }
@@ -3396,6 +3403,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         }),
         MOSAIC => Ok(Effect::Mosaic {
             size: number("size")?,
+        }),
+        EMBOSS => Ok(Effect::Emboss {
+            direction: number("direction")?,
+            relief: number("relief")?,
+            contrast: number("contrast")?,
+            mode: word("mode")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6290,7 +6303,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_balance, core.offset, core.light_wrap, core.invert, \
                              core.brightness_contrast, core.black_white, core.posterize, \
                              core.threshold, core.channel_mixer, core.vibrance, \
-                             core.leave_color, core.solarize, core.halftone or core.mosaic."
+                             core.leave_color, core.solarize, core.halftone, core.mosaic or \
+                             core.emboss."
                                 .to_string(),
                         );
                     };
@@ -6309,7 +6323,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_balance, core.offset, core.light_wrap, core.invert, \
                              core.brightness_contrast, core.black_white, core.posterize, \
                              core.threshold, core.channel_mixer, core.vibrance, \
-                             core.leave_color, core.solarize, core.halftone and core.mosaic."
+                             core.leave_color, core.solarize, core.halftone, core.mosaic and \
+                             core.emboss."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10287,7 +10302,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the forty-four are named",
+            "an effect type this build does not have is refused, and the forty-five are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -10298,8 +10313,8 @@ mod editing {
              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
              core.color_balance, core.offset, core.light_wrap, core.invert, \
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
-             core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone \
-             and core.mosaic.",
+             core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
+             core.mosaic and core.emboss.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10313,8 +10328,8 @@ mod editing {
              core.exposure_flicker, core.vignette, core.turbulent_displace, core.fractal_noise, \
              core.gradient_map, core.color_balance, core.offset, core.light_wrap, core.invert, \
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
-             core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone \
-             or core.mosaic.",
+             core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
+             core.mosaic or core.emboss.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22724,6 +22739,16 @@ mod contract {
         ),
         // D-144: the size.
         ("core.mosaic", &[("size", "24")]),
+        // D-145: the three numbers and the mode.
+        (
+            "core.emboss",
+            &[
+                ("direction", "90"),
+                ("relief", "3"),
+                ("contrast", "250"),
+                ("mode", "color"),
+            ],
+        ),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

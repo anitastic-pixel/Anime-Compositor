@@ -1024,6 +1024,7 @@
         <option value="core.solarize">Solarize</option>
         <option value="core.halftone">Halftone</option>
         <option value="core.mosaic">Mosaic</option>
+        <option value="core.emboss">Emboss</option>
       </select>
     </div>
   </section>
@@ -6457,6 +6458,7 @@ const EFFECT_NAMES = {
   'core.solarize': 'Solarize',
   'core.halftone': 'Halftone',
   'core.mosaic': 'Mosaic',
+  'core.emboss': 'Emboss',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6620,6 +6622,10 @@ const EFFECT_PARAMS = {
     ['amount', 'Amount', 1, 1, '0 to 100, how strongly the dots are laid over']],
   // D-144.
   'core.mosaic': [['size', 'Size', 1, 1, 'pixels across each block, 1 to 1000']],
+  // D-145.
+  'core.emboss': [['direction', 'Direction', 1, 1, 'degrees clockwise from up, toward the lit side'],
+    ['relief', 'Relief', 1, 0.5, 'pixels, 0 to 100, how wide the ridges are'],
+    ['contrast', 'Contrast', 1, 1, '0 to 1000, how strongly the ridges show']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6723,6 +6729,8 @@ const EFFECT_WORDS = {
   'core.leave_color': { colours: [['color', 'Colour to keep']] },
   // D-143.
   'core.halftone': { colours: [['ink', 'Ink'], ['paper', 'Paper']] },
+  // D-145.
+  'core.emboss': { choices: [['mode', 'Mode', [['grey', 'Grey'], ['color', 'Over the colours']]]] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

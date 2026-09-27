@@ -539,6 +539,15 @@ pub enum Effect {
     },
     /// D-144: `size`, 1 to 1000 pixels, each square block painted its mean colour.
     Mosaic { size: f64 },
+    /// D-145: `direction`, -3600 to 3600 degrees clockwise from up, where the light comes from;
+    /// `relief`, 0 to 100 pixels, how far ahead and behind each pixel looks; `contrast`, 0 to
+    /// 1000, how strongly a difference shows; `mode`, "grey" or "color".
+    Emboss {
+        direction: f64,
+        relief: f64,
+        contrast: f64,
+        mode: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -589,6 +598,7 @@ pub const LEAVE_COLOR: &str = "core.leave_color";
 pub const SOLARIZE: &str = "core.solarize";
 pub const HALFTONE: &str = "core.halftone";
 pub const MOSAIC: &str = "core.mosaic";
+pub const EMBOSS: &str = "core.emboss";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -922,6 +932,16 @@ impl Effect {
                 ("amount", vec![amount], 0.0, 100.0),
             ],
             Effect::Mosaic { size } => vec![("size", vec![size], 1.0, 1000.0)],
+            Effect::Emboss {
+                direction,
+                relief,
+                contrast,
+                ..
+            } => vec![
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("relief", vec![relief], 0.0, 100.0),
+                ("contrast", vec![contrast], 0.0, 1000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -992,6 +1012,7 @@ impl Effect {
             Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),
             // D-144: a block under a pixel is one pixel, which changes nothing.
             Effect::Mosaic { size } => *size = scale(*size).max(1.0),
+            Effect::Emboss { relief, .. } => *relief = scale(*relief),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -1066,6 +1087,7 @@ impl Effect {
             Effect::Solarize { .. } => "Solarize",
             Effect::Halftone { .. } => "Halftone",
             Effect::Mosaic { .. } => "Mosaic",
+            Effect::Emboss { .. } => "Emboss",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1116,6 +1138,7 @@ impl Effect {
             Effect::Solarize { .. } => SOLARIZE,
             Effect::Halftone { .. } => HALFTONE,
             Effect::Mosaic { .. } => MOSAIC,
+            Effect::Emboss { .. } => EMBOSS,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1477,6 +1500,9 @@ impl Effect {
             Effect::Halftone { ink, paper, .. } => {
                 hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
             }
+            Effect::Emboss { mode, .. } if !["grey", "color"].contains(&mode.as_str()) => Some(format!(
+                "Emboss's mode is \"grey\" or \"color\", and this is \"{mode}\"."
+            )),
             _ => None,
         };
         own.or_else(|| {
@@ -2193,6 +2219,14 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::Mosaic { size } => crate::perf::time(crate::perf::Stage::EffectMosaic, || {
                 crate::layer_fx::mosaic(source, *size, (ox, oy))
+            }),
+            Effect::Emboss {
+                direction,
+                relief,
+                contrast,
+                mode,
+            } => crate::perf::time(crate::perf::Stage::EffectEmboss, || {
+                crate::layer_fx::emboss(source, *direction, *relief, *contrast, mode == "color")
             }),
         }
     }
