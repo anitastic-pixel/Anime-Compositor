@@ -9,7 +9,7 @@ The six were:
 3. favourites
 4. copying and pasting effects between layers
 5. dropping an effect onto the viewer
-6. a search at the pointer on Ctrl+Space, like FX Console
+6. a search on Ctrl+Space, like FX Console
 
 Nothing about the picture the effects make has changed, only how you find, keep and add them, so there is no fixture table. D-166, where presets and favourites are kept and how a pasted effect is checked, is proposed in document 14.
 
@@ -18,7 +18,7 @@ The five photographs in `verification/W-30 pictures/` were taken in a browser, w
 - `effects_panel_favourites_presets.png`: the Effects panel with a Favourites folder and a Presets folder on top.
 - `effect_card_menu.png`: the right-click menu on an effect card's title, with copy, paste and save as preset.
 - `preset_name_box.png`: the box that asks for a preset's name.
-- `fx_console_empty.png`: Ctrl+Space with nothing typed, showing favourites, recent effects and presets.
+- `fx_console_empty.png`: Ctrl+Space with nothing typed, showing favourites, recent effects and presets. Redrawn on 2026-09-27 after the owner asked for it "centered, and similar in look to fx console".
 - `fx_console_glo.png`: the same with `glo` typed.
 
 ## What was added
@@ -39,8 +39,8 @@ The five photographs in `verification/W-30 pictures/` were taken in a browser, w
   - When no effects are copied, Ctrl+V still pastes layers, as before.
 - **Drop onto the viewer.** Drag an effect or preset from the panel onto the picture. It is added to the layer under the pointer. Where no layer is under it, it goes to the selected layer. The line at the bottom says `Drop to add it to` and the layer's name while you drag.
 - **Ctrl+Space, like FX Console.**
-  - A small search box opens where the pointer is. Its grey text says which layer, or how many layers, it adds to.
-  - With nothing typed it lists your favourites (★), recent effects and presets (☰). Each line has a small description.
+  - A wide search bar opens in the middle of the window, as FX Console does. On its right it says which layer, or how many layers, it adds to.
+  - With nothing typed it lists your favourites (★), recent effects and presets (☰). Each line shows its folder on the right, and the highlighted one's description is along the bottom.
   - Typing narrows the list, with names that start with what you typed first.
   - The arrows move, Enter adds the highlighted one to every selected layer, and Escape, Ctrl+Space again or a click elsewhere closes it.
 
@@ -57,7 +57,7 @@ Open a project with at least two drawn layers, for example the reference shot th
 5. **Copy and paste.** On the first layer, click the **Glow** card's title and press Ctrl+C. The bottom line says `Glow copied with its settings. Select layers and press Ctrl+V.` Select two other layers together and press Ctrl+V. Each gets a Glow with the same settings.
 6. **The card's menu.** Right-click an effect card's title. The menu offers Copy this effect, Copy all effects, Paste effects and Save the effects as a preset…, as in `effect_card_menu.png`.
 7. **Drop onto the viewer.** Drag **Mosaic** from the panel onto a layer you can see in the picture that is not selected. While you drag, the viewer has a blue outline and the bottom line names that layer. Let go: Mosaic is added to that layer, not to the selected one.
-8. **Ctrl+Space.** Select two layers, put the pointer over the middle of the timeline, and press Ctrl+Space. A box opens at the pointer showing your favourites and Soft light. Type `glo`: Glow and the other glows are listed. Press the down arrow, then Enter. The highlighted effect is added to both layers and the box closes. Press Ctrl+Space again, then Escape: it closes and adds nothing.
+8. **Ctrl+Space.** Select two layers, and press Ctrl+Space. A search bar opens in the middle of the window, says `to 2 layers`, and shows your favourites and Soft light. Type `glo`: Glow and the other glows are listed. Press the down arrow, then Enter. The highlighted effect is added to both layers and the box closes. Press Ctrl+Space again, then Escape: it closes and adds nothing.
 9. **Removing a preset.** Press the ✕ beside **Soft light** once: the bottom line asks you to press again. Press it again within three seconds: it is gone.
 10. **Nothing is lost.** Everything from W-29 still works: search, Recently used, double click, drag onto a layer's row.
 
@@ -85,7 +85,7 @@ Open a project with at least two drawn layers, for example the reference shot th
   - Ctrl+C on a card and Ctrl+V on a layer send `effect.paste` with that card's settings
   - a preset saved as `Glow + Tint` and applied to two layers sends one `effect.paste` for each
   - `soft` finds the preset, Blur and Diffusion, and `wipe` still finds only the four wipes
-  - Ctrl+Space opens at the pointer, and the down arrow then Enter sends `effect.add` for both selected layers
+  - Ctrl+Space opens in the middle of the window, and the down arrow then Enter sends `effect.add` for both selected layers, or `effect.paste` when the highlighted line is a preset
   - a drop onto the viewer sends `effect.add` for the layer under the pointer, and a drag of plain text is ignored
   - removing a preset takes two presses
 

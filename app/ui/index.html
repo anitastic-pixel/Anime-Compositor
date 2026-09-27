@@ -660,7 +660,7 @@
   #fxbrowser.nolayer .fxitem { color: #75757c; }
   #layers li.fxdrop, #inspector.fxdrop, #stage.fxdrop { outline: 2px solid #6ea8fe; outline-offset: -2px; }
   /* W-30: a star beside each effect, a cross beside each preset, the card a Ctrl+C copies, and
-     the effects console at the pointer. */
+     the effects console. */
   #fxlist .fxrow { display: flex; align-items: center; }
   #fxlist .fxrow .fxitem { flex: 1; min-width: 0; }
   #fxlist .fxside { border: 0; background: none; padding: 0 6px; color: #75757c; cursor: pointer; }
@@ -669,9 +669,35 @@
   #inspector #savepreset { margin-top: 8px; }
   #effects .effect .head:focus { outline: 1px solid #6ea8fe; outline-offset: -1px; }
   .menu.palette .hint { margin: 0 8px 6px; font-size: 11px; color: #909096; }
-  .menu.palette.fxconsole { transform: none; top: auto; width: min(380px, calc(100vw - 32px)); max-height: 50vh; }
-  .menu.palette.fxconsole button { display: block; width: 100%; text-align: left; }
-  .menu.palette.fxconsole small { display: block; color: #909096; font-size: 11px; }
+  /* The console, after Video Copilot's FX Console: a wide search bar in the middle of the
+     window, the list under it, and the chosen effect's description along the bottom. */
+  .menu.palette.fxconsole {
+    top: 22vh; width: min(600px, calc(100vw - 32px)); max-height: 62vh; padding: 0;
+    border: 1px solid #ffffff1f; border-radius: 10px; overflow: hidden;
+    background: #1b1b1ff2; backdrop-filter: blur(12px); box-shadow: 0 18px 60px #000d;
+  }
+  .fxconsole .fxbar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #ffffff14;
+  }
+  .fxconsole .fxbar svg { flex: none; color: #909096; }
+  .menu.palette.fxconsole input {
+    flex: 1; min-width: 0; margin: 0; padding: 4px 0; border: 0; background: none; outline: none;
+    color: #f0f0f2; font-size: 18px;
+  }
+  .fxconsole .fxtarget { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #909096; }
+  .fxconsole [role="listbox"] { padding: 6px; }
+  .menu.palette.fxconsole button {
+    display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 7px 10px; border-radius: 6px; font-size: 14px;
+  }
+  .fxconsole button .mark { flex: none; width: 1.1em; color: #e8c35a; }
+  .fxconsole button .folder { margin-left: auto; padding-left: 12px; font-size: 11px; color: #75757c; white-space: nowrap; }
+  .menu.palette.fxconsole button.current { background: linear-gradient(#3a70c2, #2c5aa3); color: #fff; }
+  .fxconsole button.current .folder, .fxconsole button.current .mark { color: #dbe7ff; }
+  .fxconsole .fxfoot {
+    display: flex; gap: 16px; padding: 8px 14px; border-top: 1px solid #ffffff14; font-size: 12px; color: #b4b4ba;
+  }
+  .fxconsole .fxfoot span:first-child { flex: 1; min-height: 1.4em; }
+  .fxconsole .fxfoot kbd { color: #75757c; font: inherit; white-space: nowrap; }
   #inspector details { margin: 14px 0; }
   #inspector summary { cursor: pointer; color: #b8b8c0; }
   /* One row per exposure span, in frame order: which frames it covers and which drawing they
@@ -9914,10 +9940,12 @@ function itemAbout(key) {
     : EFFECT_ABOUT[key] || '';
 }
 function itemWords(key) {
-  const folder = key.startsWith('preset:') ? 'Presets'
-    : (EFFECT_GROUPS.find(([, ids]) => ids.includes(key)) || ['Other'])[0];
-  return searchable(itemName(key) + ' ' + folder + ' '
+  return searchable(itemName(key) + ' ' + itemFolder(key) + ' '
     + (key.startsWith('preset:') ? itemAbout(key) : EFFECT_SEARCH[key] || ''));
+}
+function itemFolder(key) {
+  return key.startsWith('preset:') ? 'Presets'
+    : (EFFECT_GROUPS.find(([, ids]) => ids.includes(key)) || ['Other'])[0];
 }
 function applyItem(key, layerId) {
   if (!key.startsWith('preset:')) return addEffect(key, layerId);
@@ -10167,12 +10195,10 @@ stage.addEventListener('drop', (e) => {
   applyItem(e.dataTransfer.getData('text/x-effect'), id);
 });
 // W-30: the owner's request, "it can work like fx console from video copilot". Ctrl+Space opens a
-// search at the pointer over every effect and preset. With nothing typed it offers the favourites,
+// search in the middle of the window over every effect and preset. With nothing typed it offers the favourites,
 // the recently used and the presets. Names starting with what is typed come first. The arrows
 // choose, Enter adds to every selected layer that takes effects, and Escape or a click elsewhere
 // closes it.
-let pointerXY = null;
-addEventListener('pointermove', (e) => { pointerXY = [e.clientX, e.clientY]; }, { capture: true, passive: true });
 function fxConsole() {
   if (document.querySelector('.fxconsole')) return;
   const onto = () => selection.filter((id) => takesEffects(layerById(id)));
@@ -10182,13 +10208,24 @@ function fxConsole() {
   box.setAttribute('aria-label', 'Find an effect or preset');
   const input = document.createElement('input');
   input.type = 'text';
-  const names = onto().map((id) => layerById(id).name);
-  input.placeholder = !names.length ? 'Select a layer first, then search'
-    : 'Add to ' + (names.length === 1 ? names[0] : names.length + ' layers') + ': type an effect or preset';
+  input.placeholder = 'Search effects and presets';
   input.setAttribute('aria-label', 'Find an effect or preset');
+  const names = onto().map((id) => layerById(id).name);
+  const bar = document.createElement('div');
+  bar.className = 'fxbar';
+  bar.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" '
+    + 'stroke-width="2" aria-hidden="true"><circle cx="7.5" cy="7.5" r="5.5"/><path d="M11.5 11.5 16 16"/></svg>';
+  bar.append(input, Object.assign(document.createElement('span'), {
+    className: 'fxtarget',
+    textContent: !names.length ? 'no layer selected' : 'to ' + (names.length === 1 ? names[0] : names.length + ' layers'),
+  }));
   const list = document.createElement('div');
   list.setAttribute('role', 'listbox');
-  box.append(input, list);
+  const about = document.createElement('span');
+  const foot = document.createElement('div');
+  foot.className = 'fxfoot';
+  foot.append(about, Object.assign(document.createElement('kbd'), { textContent: '\u2191\u2193 choose · Enter add · Esc close' }));
+  box.append(bar, list, foot);
   let matches = [];
   let at = 0;
   const away = (p) => { if (!box.contains(p.target)) close(); };
@@ -10217,14 +10254,20 @@ function fxConsole() {
       item.tabIndex = -1;
       item.setAttribute('role', 'option');
       if (i === at) item.className = 'current';
-      item.append((key.startsWith('preset:') ? '\u2630 ' : favouriteEffects.includes(key) ? '\u2605 ' : '') + itemName(key),
-        Object.assign(document.createElement('small'), { textContent: itemAbout(key) }));
+      item.append(
+        Object.assign(document.createElement('span'), {
+          className: 'mark', textContent: key.startsWith('preset:') ? '\u2630' : favouriteEffects.includes(key) ? '\u2605' : '',
+        }),
+        itemName(key),
+        Object.assign(document.createElement('span'), { className: 'folder', textContent: itemFolder(key) }));
+      item.title = itemAbout(key);
       item.onclick = () => run(key);
       return item;
     }));
     if (!matches.length) {
       list.append(Object.assign(document.createElement('p'), { className: 'hint', textContent: 'No effect or preset matches.' }));
     }
+    about.textContent = matches[at] ? itemAbout(matches[at]) : '';
     if (list.children[at]) list.children[at].scrollIntoView({ block: 'nearest' });
   };
   input.oninput = () => { at = 0; draw(); };
@@ -10239,12 +10282,6 @@ function fxConsole() {
   };
   draw();
   document.body.append(box);
-  // At the pointer, kept inside the window: the box is never taller than half the window, so a
-  // top no lower than the middle always leaves it room to grow as the list does.
-  const width = box.getBoundingClientRect().width;
-  const [x, y] = pointerXY || [(innerWidth - width) / 2, innerHeight * 0.2];
-  box.style.left = Math.max(4, Math.min(x - 16, innerWidth - width - 4)) + 'px';
-  box.style.top = Math.max(4, Math.min(y - 16, innerHeight / 2 - 4)) + 'px';
   addEventListener('pointerdown', away, true);
   input.focus();
 }
@@ -10388,7 +10425,7 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); newProject(); }
   // W-24: document 24's command palette. By the key's place, as Shift changes the letter.
   else if (e.ctrlKey && e.shiftKey && e.code === 'KeyP') { e.preventDefault(); palette(); }
-  // W-30: Video Copilot's FX Console key, a search for an effect or preset at the pointer.
+  // W-30: Video Copilot's FX Console key, a search for an effect or preset.
   else if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); fxConsole(); }
   // D-84d: Ctrl+P prints the Sheet, from anywhere, since printing the window itself is no use.
   else if (e.ctrlKey && !e.altKey && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); printSheet(); }
