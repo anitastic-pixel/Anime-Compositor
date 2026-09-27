@@ -590,6 +590,8 @@ B-83 / Vibrance, D-140, the seventh of the third batch of thirty: the dull colou
 
 B-84 / Leave Color, D-141, the eighth of the third batch of thirty: everything turned grey except one chosen colour. **B-84a is written on 2026-09-26**: `verification/B-84a proposal/`, D-141 in document 14, the rule in document 21, FX-LEAVE-001 to 022 in document 25 from `tools/leave_color_reference.py`, which writes `Fixtures/leave_color/`. **B-84b is built on 2026-09-26**: `src/grade.rs`, the Leave Color card, `tests/b84_leave_color.rs` writing `verification/B-84_leave_color_table.md`, 86 of 86, worst 1.9e-7; the owner's playtest is `verification/B-84_leave_color_playtest.md`.
 
+B-85 / Solarize, D-142, the ninth of the third batch of thirty: the channels above a level turned to their opposites, as a darkroom solarization. **B-85a is written on 2026-09-26**: `verification/B-85a proposal/`, D-142 in document 14, the rule in document 21, FX-SOLAR-001 to 016 in document 25 from `tools/solarize_reference.py`, which writes `Fixtures/solarize/`. **B-85b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
