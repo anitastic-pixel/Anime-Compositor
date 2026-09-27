@@ -1,6 +1,6 @@
 # B-107: the third batch on the card, by hand
 
-Built on 2026-09-27 against the B-107 entry in document 15. **Awaiting the owner's playtest.**
+Built on 2026-09-27 against the B-107 entry in document 15. **Playtest passed on 2026-09-27:** the owner wrote "everything works, much faster".
 
 `verification/B-107_gpu_fx.md` explains what was built, with the comparison pictures and the timings. This sheet covers what those cannot show: how the viewer feels with these effects on.
 

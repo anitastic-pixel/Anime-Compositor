@@ -67,7 +67,7 @@
     --rightcol: minmax(150px, var(--inspector, 280px)); --rightsplit: 5px;
     grid-template-columns:
       var(--leftcol) var(--leftsplit) minmax(180px, 1fr) var(--rightsplit) var(--rightcol);
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
     background: #101010; overflow-x: auto;
   }
   /* W-13: the borders between the panels, which the fourth sitting asked to be able to pull, as
@@ -90,13 +90,20 @@
      height whichever panel is in front, so bringing one forward never takes room from the viewer. */
   #left { grid-column: 1; } #splitbin { grid-column: 2; } #centre { grid-column: 3; }
   #splitinspector { grid-column: 4; } #right { grid-column: 5; }
+  /* W-29: the lower left, under the Project panel, where the Effects panel starts. The left
+     column folds away only when both of its places are empty. */
+  #splitbin, #centre, #splitinspector, #right { grid-row: 1 / -1; }
+  #splitfx { grid-column: 1; grid-row: 2; }
+  #leftlow { grid-column: 1; grid-row: 3; height: var(--effects, 300px); min-height: 60px; }
+  body.noleft #leftlow { grid-row: 1 / -1; height: auto; }
   .place { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: #1e1e1e; }
   .place > .panel { flex: 1 1 0; }
   .place > .panel[hidden], .stack[hidden] { display: none; }
   #bottom { height: 33vh; min-height: 60px; }
-  body.noleft #work { --leftcol: 0px; --leftsplit: 0px; }
+  body.noleft.noleftlow #work { --leftcol: 0px; --leftsplit: 0px; }
   body.noright #work { --rightcol: 0px; --rightsplit: 0px; }
-  body.noleft #left, body.noleft #splitbin, body.noright #right, body.noright #splitinspector,
+  body.noleft #left, body.noleft.noleftlow #splitbin, body.noright #right, body.noright #splitinspector,
+  body.noleft #splitfx, body.noleftlow #splitfx, body.noleftlow #leftlow,
   body.nobottom #bottom, body.nobottom #splitsheet { display: none; }
   .stack { display: flex; gap: 2px; padding: 3px 4px 0; background: #181818; border-bottom: 1px solid #101010; }
   .stack button { font-size: 11px; padding: 2px 10px; border-radius: 3px 3px 0 0; cursor: grab; }
@@ -569,7 +576,7 @@
   body.maxed #work > :not(.max), body.maxed .split { display: none; }
   body.maxed #work { grid-template-columns: minmax(0, 1fr); }
   body.maxed #work:not(:has(.max)) { display: none; }
-  body.maxed #work > .max { grid-column: 1 / -1; }
+  body.maxed #work > .max { grid-column: 1 / -1; grid-row: 1 / -1; height: auto; }
   body.maxed #bottom.max { flex: 1; height: auto; }
   body.maxed #bottom:not(.max) { display: none; }
   body.maxed #work { min-height: 0; }
@@ -638,6 +645,20 @@
      column. One block per effect, in the order document 21 evaluates them. */
   #inspector h2 ~ h2 { margin-top: 14px; }
   #inspector #addeffect, #inspector #addexposure { margin-top: 8px; }
+  /* W-29: the Effects panel. The search stays at the top while the folders scroll under it. */
+  #fxbrowser .body { padding-top: 0; }
+  #fxbrowser .find { position: sticky; top: 0; background: #1e1e1e; padding: 8px 0 4px; z-index: 1; }
+  #fxsearch { width: 100%; box-sizing: border-box; }
+  #fxtarget { margin: 4px 0 0; font-size: 11px; color: #909096; }
+  #fxlist details { margin: 2px 0; }
+  #fxlist summary { cursor: pointer; color: #b8b8c0; font-size: 12px; padding: 2px 0; }
+  #fxlist .fxitem {
+    display: block; width: 100%; text-align: left; padding: 2px 4px 2px 18px;
+    border-color: transparent; background: transparent; cursor: grab;
+  }
+  #fxlist .fxitem:hover, #fxlist .fxitem:focus { background: #2c3a52; }
+  #fxbrowser.nolayer .fxitem { color: #75757c; }
+  #layers li.fxdrop, #inspector.fxdrop { outline: 2px solid #6ea8fe; outline-offset: -2px; }
   #inspector details { margin: 14px 0; }
   #inspector summary { cursor: pointer; color: #b8b8c0; }
   /* One row per exposure span, in frame order: which frames it covers and which drawing they
@@ -920,6 +941,20 @@
     </div>
   </section>
   </div>
+  <div class="split row" id="splitfx" role="separator" aria-orientation="horizontal" tabindex="0"
+    aria-label="The border above the Effects panel. Drag it, or use the arrow keys."></div>
+  <div class="place" id="leftlow"><nav class="stack" hidden></nav>
+  <section class="panel" id="fxbrowser">
+    <div class="tab">Effects</div>
+    <div class="body">
+      <div class="find">
+        <input id="fxsearch" type="search" placeholder="Search effects" aria-label="Search the effects">
+        <p id="fxtarget"></p>
+      </div>
+      <div id="fxlist"></div>
+    </div>
+  </section>
+  </div>
   <div class="split col" id="splitbin" role="separator" aria-orientation="vertical" tabindex="0"
     aria-label="The border between the media bin and the viewer. Drag it, or use the arrow keys."></div>
   <div class="place" id="centre"><nav class="stack" hidden></nav>
@@ -978,72 +1013,7 @@
       <div id="camera"><p class="empty">No composition is open.</p></div>
       <h2>Effects</h2>
       <div id="effects"><p class="empty">No layer is selected.</p></div>
-      <select id="addeffect" aria-label="Add an effect to the selected layer">
-        <option value="">Add effect&hellip;</option>
-        <option value="core.gaussian_blur">Blur</option>
-        <option value="core.exposure">Exposure</option>
-        <option value="core.tint">Tint</option>
-        <option value="core.line_smooth">Line Smoothing</option>
-        <option value="core.selective_color_blur">Selective Colour Blur</option>
-        <option value="core.glow">Glow</option>
-        <option value="core.line_recolor">Line Recolour</option>
-        <option value="core.directional_blur">Directional Blur</option>
-        <option value="core.select_color">Select Colour</option>
-        <option value="core.line_width">Line Width</option>
-        <option value="core.radial_blur">Radial Blur</option>
-        <option value="core.bloom">Bloom</option>
-        <option value="core.color_key">Colour Key</option>
-        <option value="core.curves">Curves</option>
-        <option value="core.levels">Levels</option>
-        <option value="core.hue_saturation">Hue/Saturation</option>
-        <option value="core.gradient">Gradient</option>
-        <option value="core.drop_shadow">Drop Shadow</option>
-        <option value="core.lens_blur">Lens Blur</option>
-        <option value="core.rim_light">Rim Light</option>
-        <option value="core.outline">Outline</option>
-        <option value="core.noise">Noise</option>
-        <option value="core.chromatic_aberration">Chromatic Aberration</option>
-        <option value="core.distance_gradation">Distance Gradation</option>
-        <option value="core.light_rays">Light Rays</option>
-        <option value="core.exposure_flicker">Exposure Flicker</option>
-        <option value="core.vignette">Vignette</option>
-        <option value="core.turbulent_displace">Turbulent Displace</option>
-        <option value="core.fractal_noise">Fractal Noise</option>
-        <option value="core.gradient_map">Gradient Map</option>
-        <option value="core.color_balance">Color Balance</option>
-        <option value="core.offset">Offset</option>
-        <option value="core.light_wrap">Light Wrap</option>
-        <option value="core.invert">Invert</option>
-        <option value="core.brightness_contrast">Brightness & Contrast</option>
-        <option value="core.black_white">Black & White</option>
-        <option value="core.posterize">Posterize</option>
-        <option value="core.threshold">Threshold</option>
-        <option value="core.channel_mixer">Channel Mixer</option>
-        <option value="core.vibrance">Vibrance</option>
-        <option value="core.leave_color">Leave Color</option>
-        <option value="core.solarize">Solarize</option>
-        <option value="core.halftone">Halftone</option>
-        <option value="core.mosaic">Mosaic</option>
-        <option value="core.emboss">Emboss</option>
-        <option value="core.find_edges">Find Edges</option>
-        <option value="core.sharpen">Sharpen</option>
-        <option value="core.diffusion">Diffusion</option>
-        <option value="core.wave_warp">Wave Warp</option>
-        <option value="core.ripple">Ripple</option>
-        <option value="core.twirl">Twirl</option>
-        <option value="core.bulge">Bulge</option>
-        <option value="core.mirror">Mirror</option>
-        <option value="core.motion_tile">Motion Tile</option>
-        <option value="core.linear_wipe">Linear Wipe</option>
-        <option value="core.radial_wipe">Radial Wipe</option>
-        <option value="core.venetian_blinds">Venetian Blinds</option>
-        <option value="core.iris_wipe">Iris Wipe</option>
-        <option value="core.simple_choker">Simple Choker</option>
-        <option value="core.speed_lines">Speed Lines</option>
-        <option value="core.cross_glare">Cross Glare</option>
-        <option value="core.camera_shake">Camera Shake</option>
-        <option value="core.rain">Rain</option>
-      </select>
+      <button id="addeffect" title="Opens the Effects panel with its search ready to type into">Add effect&hellip;</button>
     </div>
   </section>
   </div>
@@ -5504,6 +5474,7 @@ const BORDERS = {
   splitbin: ['--bin', 'left', 120, 1],
   splitinspector: ['--inspector', 'right', 150, -1],
   splitsheet: ['--sheet', 'bottom', 80, -1],
+  splitfx: ['--effects', 'leftlow', 60, -1],
 };
 let layout = {};
 try { layout = JSON.parse(localStorage.getItem('layout') || '{}') || {}; } catch (e) { layout = {}; }
@@ -5518,10 +5489,11 @@ function saveLayout() {
 }
 for (const [id, [prop, panel, min, sign]] of Object.entries(BORDERS)) {
   const split = $(id);
-  const vertical = prop === '--sheet';
+  const vertical = split.classList.contains('row');
   // The most a panel may take: the viewer keeps its 180px column beside the other side panel,
   // and the panels above the timeline keep the 120px floor the stylesheet gives them.
-  const most = () => vertical
+  const most = () => prop === '--effects' ? $('work').getBoundingClientRect().height - 60
+    : vertical
     ? $('work').getBoundingClientRect().height + $('bottom').getBoundingClientRect().height - 120
     : $('work').clientWidth - 180 - 10
       - $(panel === 'left' ? 'right' : 'left').getBoundingClientRect().width;
@@ -6495,6 +6467,89 @@ const EFFECT_NAMES = {
   'core.cross_glare': 'Cross Glare',
   'core.camera_shake': 'Camera Shake',
   'core.rain': 'Rain',
+};
+
+// W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
+// every folder still shows, under Other, so a new one can never go missing from the panel.
+const EFFECT_GROUPS = [
+  ['Blur & Sharpen', ['core.gaussian_blur', 'core.directional_blur', 'core.radial_blur',
+    'core.lens_blur', 'core.selective_color_blur', 'core.sharpen', 'core.diffusion']],
+  ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
+    'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
+    'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.invert']],
+  ['Light & Glow', ['core.glow', 'core.bloom', 'core.light_rays', 'core.rim_light',
+    'core.light_wrap', 'core.cross_glare', 'core.exposure_flicker']],
+  ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_recolor', 'core.outline',
+    'core.simple_choker', 'core.select_color', 'core.color_key']],
+  ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple', 'core.twirl',
+    'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile']],
+  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain']],
+  ['Stylize', ['core.drop_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
+    'core.posterize', 'core.threshold', 'core.solarize']],
+  ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
+    'core.camera_shake']],
+  ['Transition', ['core.linear_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe']],
+];
+// Other words the search finds an effect by: After Effects' names for it, and what it is for.
+const EFFECT_SEARCH = {
+  'core.gaussian_blur': 'gaussian fast soften',
+  'core.directional_blur': 'motion',
+  'core.radial_blur': 'zoom spin',
+  'core.lens_blur': 'camera bokeh depth focus defocus',
+  'core.sharpen': 'unsharp crisp',
+  'core.diffusion': 'soft glow haze dreamy',
+  'core.brightness_contrast': 'brighten darken',
+  'core.exposure': 'stops brighten darken',
+  'core.hue_saturation': 'colorize desaturate',
+  'core.vibrance': 'saturation',
+  'core.black_white': 'greyscale grayscale monochrome desaturate',
+  'core.tint': 'monochrome',
+  'core.gradient_map': 'tritone colorama',
+  'core.leave_color': 'keep one',
+  'core.invert': 'negative',
+  'core.glow': 'shine',
+  'core.bloom': 'glow shine highlights',
+  'core.light_rays': 'god rays shaft beams',
+  'core.rim_light': 'edge light backlight',
+  'core.light_wrap': 'edge spill background',
+  'core.cross_glare': 'star sparkle twinkle flare',
+  'core.exposure_flicker': 'flicker strobe',
+  'core.line_smooth': 'antialias jaggies',
+  'core.line_width': 'thicken thin stroke',
+  'core.line_recolor': 'colour trace',
+  'core.outline': 'stroke border edge',
+  'core.simple_choker': 'matte shrink spread choke',
+  'core.select_color': 'key matte',
+  'core.color_key': 'green screen transparent',
+  'core.turbulent_displace': 'heat haze warp wobble',
+  'core.wave_warp': 'wave wobble',
+  'core.ripple': 'water rings',
+  'core.twirl': 'swirl spiral',
+  'core.bulge': 'magnify lens bubble',
+  'core.mirror': 'reflect flip symmetry',
+  'core.offset': 'wrap scroll pan',
+  'core.motion_tile': 'repeat tile',
+  'core.gradient': 'ramp',
+  'core.fractal_noise': 'clouds smoke fog',
+  'core.noise': 'grain film',
+  'core.speed_lines': 'action focus concentration manga',
+  'core.rain': 'weather storm',
+  'core.drop_shadow': 'shade',
+  'core.halftone': 'dots screentone manga comic print',
+  'core.mosaic': 'pixelate censor blocks',
+  'core.emboss': 'relief',
+  'core.find_edges': 'lines sketch',
+  'core.posterize': 'bands levels',
+  'core.threshold': 'black white',
+  'core.solarize': 'sabattier',
+  'core.vignette': 'dark corners',
+  'core.chromatic_aberration': 'rgb split fringe',
+  'core.distance_gradation': 'depth fog atmosphere haze',
+  'core.camera_shake': 'wiggle jitter impact',
+  'core.linear_wipe': 'reveal transition',
+  'core.radial_wipe': 'clock reveal transition',
+  'core.venetian_blinds': 'stripes slats wipe reveal transition',
+  'core.iris_wipe': 'circle reveal transition',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7868,7 +7923,10 @@ function drawEffects() {
   if (dragging) return;
   const layer = selected();
   const into = $('effects');
-  $('addeffect').disabled = !layer || layer.kind === 'audio' || layer.kind === 'null';
+  $('addeffect').disabled = !takesEffects(layer);
+  $('fxbrowser').classList.toggle('nolayer', !takesEffects(layer));
+  $('fxtarget').textContent = takesEffects(layer) ? 'Adds to: ' + layer.name
+    : layer ? 'This layer takes no effects.' : 'Select a layer to add effects to it.';
   const empty = (words) => Object.assign(document.createElement('p'),
     { className: 'empty', textContent: words });
   if (!layer) { into.replaceChildren(empty('No layer is selected.')); return; }
@@ -9418,11 +9476,11 @@ function maximise() {
 // dragging its name or its title bar onto another place, or from the menu a right click on either
 // opens. A workspace is where each panel is and how big the places are, kept in the browser's
 // storage beside the sizes and never in the project, as W-13 keeps the sizes.
-const PANELS = { bin: 'Project', viewer: 'Composition', inspector: 'Effect controls', timeline: 'Timeline', sheetpanel: 'Sheet' };
-const PLACES = { left: 'the left', centre: 'the centre', right: 'the right', bottom: 'the bottom' };
+const PANELS = { bin: 'Project', fxbrowser: 'Effects', viewer: 'Composition', inspector: 'Effect controls', timeline: 'Timeline', sheetpanel: 'Sheet' };
+const PLACES = { left: 'the left', leftlow: 'the lower left', centre: 'the centre', right: 'the right', bottom: 'the bottom' };
 const BUILT_IN = {
-  Standard: { places: { left: ['bin'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline', 'sheetpanel'] }, sizes: {} },
-  Timing: { places: { left: ['sheetpanel', 'bin'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'] }, sizes: { '--bin': 320 } },
+  Standard: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline', 'sheetpanel'] }, sizes: {} },
+  Timing: { places: { left: ['sheetpanel', 'bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'] }, sizes: { '--bin': 320 } },
 };
 let savedWorkspaces = {};
 try { savedWorkspaces = JSON.parse(localStorage.getItem('workspaces') || '{}') || {}; } catch (e) { savedWorkspaces = {}; }
@@ -9434,7 +9492,7 @@ if (!workspace || !(BUILT_IN[workspace.name] || savedWorkspaces[workspace.name])
 // Every panel once: one listed twice keeps its first place, and one missing, as a panel added
 // since the workspace was saved would be, goes where Standard has it.
 function settle(places) {
-  const out = { left: [], centre: [], right: [], bottom: [] };
+  const out = { left: [], leftlow: [], centre: [], right: [], bottom: [] };
   const seen = new Set();
   for (const place of Object.keys(out)) {
     for (const id of (places && Array.isArray(places[place]) && places[place]) || []) {
@@ -9727,13 +9785,107 @@ $('addexposure').onclick = () => {
   command('/exposure.set_span?layer=' + encodeURIComponent(layer.id)
     + '&start=' + start + '&end=' + (start + 1) + '&drawing=' + drawing);
 };
-$('addeffect').onchange = (e) => {
-  const chosen = e.target.value;
-  e.target.selectedIndex = 0;
-  if (chosen && selectedLayer) {
-    command('/effect.add?layer=' + encodeURIComponent(selectedLayer) + '&type=' + chosen);
+// W-29: the Effects panel. Every effect in folders, a search over names, folders and the other
+// words above, and the last few used at the top. A double click, Enter, or a drag onto a layer's
+// row or the Effect controls adds one; the inspector's button brings the panel up to search.
+function takesEffects(layer) { return !!layer && layer.kind !== 'audio' && layer.kind !== 'null'; }
+let recentEffects = [];
+try { recentEffects = (JSON.parse(localStorage.getItem('recentEffects') || '[]') || []).filter((t) => EFFECT_NAMES[t]); } catch (e) { recentEffects = []; }
+const closedFolders = new Set();
+function addEffect(type, layerId) {
+  if (!takesEffects(layers().find((l) => l.id === layerId))) return;
+  command('/effect.add?layer=' + encodeURIComponent(layerId) + '&type=' + type);
+  recentEffects = [type, ...recentEffects.filter((t) => t !== type)].slice(0, 5);
+  try { localStorage.setItem('recentEffects', JSON.stringify(recentEffects)); } catch (e) { /* kept for this run only */ }
+  if (!$('fxsearch').value.trim()) {
+    const had = $('fxlist').contains(document.activeElement);
+    drawEffectList();
+    if (had) $('fxlist').querySelector('.fxitem[data-type="' + type + '"]').focus();
   }
+}
+function effectItem(type) {
+  const b = Object.assign(document.createElement('button'),
+    { type: 'button', className: 'fxitem', textContent: EFFECT_NAMES[type], draggable: true });
+  b.dataset.type = type;
+  b.title = 'Double-click or press Enter to add it to the selected layer, or drag it onto a layer';
+  b.ondblclick = () => addEffect(type, selectedLayer);
+  b.onkeydown = (e) => {
+    const all = [...$('fxlist').querySelectorAll('details[open] .fxitem')];
+    const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    if (e.key === 'Enter') { e.preventDefault(); addEffect(type, selectedLayer); }
+    else if (step) {
+      e.preventDefault();
+      const to = all.indexOf(b) + step;
+      (to < 0 ? $('fxsearch') : all[Math.min(to, all.length - 1)]).focus();
+    }
+  };
+  b.ondragstart = (e) => { e.dataTransfer.setData('text/x-effect', type); e.dataTransfer.effectAllowed = 'copy'; };
+  return b;
+}
+const searchable = (s) => s.toLowerCase().replace(/colour/g, 'color');
+function drawEffectList() {
+  const words = searchable($('fxsearch').value).split(/\s+/).filter(Boolean);
+  const grouped = new Set(EFFECT_GROUPS.flatMap(([, ids]) => ids));
+  const folders = [
+    ...(words.length || !recentEffects.length ? [] : [['Recently used', recentEffects]]),
+    ...EFFECT_GROUPS,
+    ['Other', Object.keys(EFFECT_NAMES).filter((t) => !grouped.has(t))],
+  ];
+  const out = [];
+  for (const [folder, ids] of folders) {
+    const hits = ids.filter((t) => words.every((w) =>
+      searchable(EFFECT_NAMES[t] + ' ' + folder + ' ' + (EFFECT_SEARCH[t] || '')).includes(w)));
+    if (!hits.length) continue;
+    const box = document.createElement('details');
+    // A search opens every folder it finds something in; otherwise each stays as it was left.
+    box.open = words.length > 0 || !closedFolders.has(folder);
+    box.ontoggle = () => {
+      if (!words.length) { if (box.open) closedFolders.delete(folder); else closedFolders.add(folder); }
+    };
+    box.append(Object.assign(document.createElement('summary'), { textContent: folder + ' (' + hits.length + ')' }),
+      ...hits.map(effectItem));
+    out.push(box);
+  }
+  $('fxlist').replaceChildren(...(out.length ? out : [Object.assign(document.createElement('p'),
+    { className: 'empty', textContent: 'No effect matches "' + $('fxsearch').value.trim() + '".' })]));
+}
+$('fxsearch').oninput = drawEffectList;
+$('fxsearch').onkeydown = (e) => {
+  const first = $('fxlist').querySelector('details[open] .fxitem');
+  if (e.key === 'Enter' && first && $('fxsearch').value.trim()) addEffect(first.dataset.type, selectedLayer);
+  else if (e.key === 'ArrowDown' && first) { e.preventDefault(); first.focus(); }
+  else if (e.key === 'Escape' && $('fxsearch').value) { e.stopPropagation(); $('fxsearch').value = ''; drawEffectList(); }
 };
+$('addeffect').onclick = () => {
+  toFront('fxbrowser');
+  $('fxsearch').focus();
+  $('fxsearch').select();
+};
+// Dropping an effect: onto a layer's row adds it to that layer, onto the Effect controls to the
+// selected one. A layer that takes no effects shows no outline and takes no drop.
+for (const [into, target] of [
+  ['layers', (e) => e.target.closest('#layers li:not(.prop)[data-id]')],
+  ['inspector', () => $('inspector')],
+]) {
+  const layerOf = (el) => (el === $('inspector') ? selectedLayer : el.dataset.id);
+  let lit = null;
+  const light = (el) => { if (lit !== el) { if (lit) lit.classList.remove('fxdrop'); lit = el; if (el) el.classList.add('fxdrop'); } };
+  $(into).addEventListener('dragover', (e) => {
+    const el = e.dataTransfer.types.includes('text/x-effect') && target(e);
+    const ok = el && takesEffects(layers().find((l) => l.id === layerOf(el)));
+    light(ok ? el : null);
+    if (ok) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+  });
+  $(into).addEventListener('dragleave', (e) => { if (!$(into).contains(e.relatedTarget)) light(null); });
+  $(into).addEventListener('drop', (e) => {
+    const el = lit;
+    light(null);
+    if (!el) return;
+    e.preventDefault();
+    addEffect(e.dataTransfer.getData('text/x-effect'), layerOf(el));
+  });
+}
+drawEffectList();
 $('undo').onclick = () => command('/edit.undo');
 $('redo').onclick = () => command('/edit.redo');
 

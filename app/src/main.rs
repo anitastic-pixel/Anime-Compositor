@@ -23534,7 +23534,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 71] = [
+    const CONTROLS: [&str; 72] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -23562,6 +23562,7 @@ mod contract {
         "fit",
         "fit100",
         "fwd",
+        "fxsearch",
         "gifdither",
         "gpu",
         "graphall",

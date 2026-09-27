@@ -1,6 +1,6 @@
 # W-28: dials and pictures on the third batch's cards
 
-Asked for on 2026-09-27 with the card work: "also improve the visual designs or interactibility/features of effects if needed."
+Asked for on 2026-09-27 with the card work: "also improve the visual designs or interactibility/features of effects if needed." **Playtest passed on 2026-09-27:** the owner wrote "everything works, much faster".
 
 Nothing about the picture the effects make has changed, only how their settings are shown and changed, so there is no fixture table. The two photographs in `verification/W-28 pictures/` were taken in a browser, with the real page and made-up settings:
 
