@@ -690,6 +690,12 @@
   /* D-87's hex boxes: seven characters, so a colour and its ✕ fit the panel's width. */
   .effect input.hex { width: calc(7ch + 14px); }
   .effect input.points { width: 100%; box-sizing: border-box; }
+  /* The card's pictures: an angle's dial beside its number, and a graph or box the card's width. */
+  .effect canvas.dial { width: 26px; height: 26px; vertical-align: middle; margin-right: 6px; cursor: grab; }
+  .effect canvas.fxview {
+    display: block; width: 100%; height: auto; margin: 4px 0; border-radius: 3px; cursor: crosshair;
+    touch-action: none;
+  }
   .effect input[type=color] {
     width: 2.4em; height: 1.7em; padding: 0 1px; vertical-align: middle;
     border: 1px solid #4a4a4a; border-radius: 3px; background: #141414;
@@ -6414,7 +6420,8 @@ const EFFECT_NAMES = {
 // Each effect's parameters, named as the file names them, with the words a person reads,
 // whether the field takes one number or three, how far one pixel of drag moves it, and the range
 // the core holds it to, which the label shows on hover so the row stays one short line. Document
-// 21 states the units, and they are the file's own here as everywhere else in this panel.
+// 21 states the units, and they are the file's own here as everywhere else in this panel. An
+// angle ends in 'dial', or 'hue' for one held inside -180 to 180, and gets a dial beside it.
 const EFFECT_PARAMS = {
   'core.gaussian_blur': [['sigma_px', 'Radius σ (px)', 1, 0.1, '0 to 500 source pixels']],
   'core.exposure': [['stops', 'Exposure (stops)', 1, 0.02, '-20 to 20 stops']],
@@ -6434,7 +6441,7 @@ const EFFECT_PARAMS = {
   // D-91. Its colours and its new colour are drawn apart, in effectRow.
   'core.line_recolor': [['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
   // D-92: degrees clockwise from up, and the whole streak in pixels.
-  'core.directional_blur': [['direction', 'Direction', 1, 1, '-3600 to 3600 degrees, 0 is up and down'],
+  'core.directional_blur': [['direction', 'Direction', 1, 1, '-3600 to 3600 degrees, 0 is up and down', 'dial'],
     ['length', 'Length', 1, 0.5, '0 to 500 px']],
   'core.select_color': [['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
   // D-94: pixels thicker, or thinner below 0.
@@ -6448,7 +6455,7 @@ const EFFECT_PARAMS = {
     ['radius', 'Radius', 1, 0.5, '0 to 500 px'],
     ['intensity', 'Intensity', 1, 0.02, '0 to 10'],
     ['length', 'Streak Length', 1, 0.5, '0 to 500 px, used with streaks'],
-    ['angle', 'Streak Angle', 1, 1, '-3600 to 3600 degrees, used with streaks']],
+    ['angle', 'Streak Angle', 1, 1, '-3600 to 3600 degrees, used with streaks', 'dial']],
   // D-97: past the tolerance, the softness is how far the fade reaches.
   'core.color_key': [['tolerance', 'Tolerance', 1, 0.5, '0 to 255'],
     ['softness', 'Softness', 1, 0.5, '0 to 255']],
@@ -6461,7 +6468,7 @@ const EFFECT_PARAMS = {
     ['output_black', 'Output Black', 1, 0.5, '0 to 255'],
     ['output_white', 'Output White', 1, 0.5, '0 to 255']],
   // D-113, named as After Effects names them.
-  'core.hue_saturation': [['hue', 'Hue', 1, 1, '-180 to 180 degrees'],
+  'core.hue_saturation': [['hue', 'Hue', 1, 1, '-180 to 180 degrees', 'hue'],
     ['saturation', 'Saturation', 1, 0.5, '-100 to 100'],
     ['lightness', 'Lightness', 1, 0.5, '-100 to 100']],
   // D-114: the two points as shares of the drawing, as Radial Blur's centre is.
@@ -6471,13 +6478,13 @@ const EFFECT_PARAMS = {
     ['end_opacity', 'End Opacity', 1, 0.5, '0 to 100']],
   // D-115, named as After Effects names them.
   'core.drop_shadow': [['opacity', 'Opacity', 1, 0.5, '0 to 100'],
-    ['direction', 'Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600'],
+    ['direction', 'Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600', 'dial'],
     ['distance', 'Distance', 1, 0.5, 'pixels, 0 to 1000'],
     ['softness', 'Softness', 1, 0.5, 'pixels, 0 to 500']],
   // D-116.
   'core.lens_blur': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 200']],
   // D-117.
-  'core.rim_light': [['direction', 'Light Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600'],
+  'core.rim_light': [['direction', 'Light Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600', 'dial'],
     ['width', 'Width', 1, 0.5, 'pixels, 0 to 100'],
     ['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100'],
     ['intensity', 'Intensity', 1, 0.5, '0 to 100']],
@@ -6657,6 +6664,447 @@ function drawExposures() {
   into.replaceChildren(...spans.map((span) => exposureRow(layer, span, drawings)));
 }
 
+// The pictures After Effects draws on an effect's card: a dial for an angle, the graph of a
+// curve, the levels' triangles, the hue bars and a box of points. Each drives the numbers
+// beside it, which stay the exact value and the keyboard's way in (document 05), and each is
+// drawn from those numbers, so what the picture shows is what is sent.
+
+// A canvas `w` by `h` in its own units, drawn at twice that for a sharp line.
+function fxCanvas(w, h, className, aria) {
+  const c = Object.assign(document.createElement('canvas'), { width: w * 2, height: h * 2, className });
+  c.setAttribute('role', 'img');
+  c.setAttribute('aria-label', aria);
+  c.getContext('2d').scale(2, 2);
+  return c;
+}
+
+// Where a pointer is on a canvas, in the canvas's own units.
+function fxAt(c, e) {
+  const r = c.getBoundingClientRect();
+  return [(e.clientX - r.left) * (c.width / 2) / r.width, (e.clientY - r.top) * (c.height / 2) / r.height];
+}
+
+// A drag begun on a canvas: `move` on every move of the pointer, `end(cancelled)` when it is let
+// go, or with `true` on Escape, which document 24 says restores the pre-drag value.
+function fxDrag(c, e, move, end) {
+  e.preventDefault();
+  e.stopPropagation();
+  c.setPointerCapture(e.pointerId);
+  const escape = (k) => { if (k.key === 'Escape') { k.stopPropagation(); stop(true); } };
+  const stop = (cancelled) => {
+    c.onpointermove = null;
+    c.onpointerup = null;
+    window.removeEventListener('keydown', escape, true);
+    end(cancelled);
+  };
+  c.onpointermove = (m) => move(fxAt(c, m), m);
+  c.onpointerup = () => stop(false);
+  window.addEventListener('keydown', escape, true);
+}
+
+// An angle as After Effects draws one: a dial whose line points the way, clockwise from up,
+// turned by dragging round it, with the degrees in the number beside it. The whole turns are
+// kept, so a drag past the top winds on rather than jumping back; `hue` holds it inside -180 to
+// 180 instead. Shift snaps to 15 degrees.
+function fxDial(aria, field, send, close, hue, redraws) {
+  const c = fxCanvas(26, 26, 'dial', aria + ' dial');
+  c.title = 'Drag round the dial to turn ' + aria + '; Shift snaps to 15 degrees';
+  const g = c.getContext('2d');
+  const draw = () => {
+    const a = (Number(field.value) * Math.PI) / 180;
+    g.clearRect(0, 0, 26, 26);
+    g.fillStyle = '#141414';
+    g.strokeStyle = '#5a5a60';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.arc(13, 13, 11, 0, 2 * Math.PI);
+    g.fill();
+    g.stroke();
+    g.strokeStyle = '#6aa0ff';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(13, 13);
+    g.lineTo(13 + 10 * Math.sin(a), 13 - 10 * Math.cos(a));
+    g.stroke();
+  };
+  draw();
+  redraws.push(draw);
+  c.onpointerdown = (e) => {
+    if (e.button !== 0) return;
+    const start = field.value;
+    const turn = ([x, y], m) => {
+      let to = (Math.atan2(x - 13, 13 - y) * 180) / Math.PI;
+      if (m.shiftKey) to = Math.round(to / 15) * 15;
+      const now = Number(field.value);
+      let v = now + ((((to - now) % 360) + 540) % 360) - 180;
+      if (hue) v = ((((v + 180) % 360) + 360) % 360) - 180;
+      field.value = Math.round(v * 100) / 100;
+      send();
+    };
+    turn(fxAt(c, e), e);
+    fxDrag(c, e, turn, (cancelled) => {
+      if (cancelled) { field.value = start; draw(); }
+      close(cancelled);
+    });
+  };
+  return c;
+}
+
+// D-111's natural cubic spline, as `src/grade.rs` draws it, so the line on the graph is the
+// curve the picture goes through. Flat outside its end points.
+function fxSpline(pts) {
+  const n = pts.length;
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const h = xs.slice(1).map((x, i) => x - xs[i]);
+  const m = new Array(n).fill(0);
+  if (n > 2) {
+    const k = n - 2;
+    const dia = [];
+    const rhs = [];
+    for (let i = 1; i < n - 1; i++) {
+      dia.push(2 * (h[i - 1] + h[i]));
+      rhs.push(6 * ((ys[i + 1] - ys[i]) / h[i] - (ys[i] - ys[i - 1]) / h[i - 1]));
+    }
+    for (let j = 1; j < k; j++) {
+      const f = h[j] / dia[j - 1];
+      dia[j] -= f * h[j];
+      rhs[j] -= f * rhs[j - 1];
+    }
+    for (let j = k - 1; j >= 0; j--) m[j + 1] = (rhs[j] - (j + 1 < k ? h[j + 1] * m[j + 2] : 0)) / dia[j];
+  }
+  return (x) => {
+    if (x <= xs[0]) return ys[0];
+    if (x >= xs[n - 1]) return ys[n - 1];
+    let i = n - 2;
+    while (xs[i] > x) i--;
+    const t = x - xs[i];
+    const hi = h[i];
+    return ys[i] + t * ((ys[i + 1] - ys[i]) / hi - (hi * (2 * m[i] + m[i + 1])) / 6)
+      + (t * t * m[i]) / 2 + (t ** 3 * (m[i + 1] - m[i])) / (6 * hi);
+  };
+}
+
+// A curve's points as the card keeps them, "in out, in out", and back.
+const fxPointsOf = (text) => text.split(',').map((p) => p.trim().split(/\s+/).map(Number));
+const fxTextOf = (pts) => pts.map((p) => p.map(number).join(' ')).join(', ');
+
+// The curve each Curves card shows, by instance, for as long as the window is open.
+const curvesShown = new Map();
+const CURVE_COLOURS = { master: '#d8d8dc', red: '#e0605a', green: '#5ac06a', blue: '#5a8ae0' };
+
+// D-111's graph, in against out on 0 to 255, one curve at a time. A press on the graph adds a
+// point on the line there and drags it; a point is dragged by itself, cannot pass its
+// neighbours, since the ins go up, and goes when it is dragged off the graph or double-clicked,
+// down to the two a curve needs. The other curves that bend are drawn faintly behind.
+function fxCurves(k, id, channels, label) {
+  const S = 200;
+  const c = fxCanvas(S, S, 'fxview', label + ' graph');
+  c.title = 'Press to add a point, drag a point to move it, drag it off or double-click it to '
+    + 'take it away';
+  const g = c.getContext('2d');
+  const shown = () => curvesShown.get(id) || 'master';
+  const X = (v) => (v / 255) * S;
+  const Y = (v) => S - (v / 255) * S;
+  const line = (pts, colour, width) => {
+    const f = fxSpline(pts);
+    g.strokeStyle = colour;
+    g.lineWidth = width;
+    g.beginPath();
+    for (let v = 0; v <= 255; v++) g.lineTo(X(v), Y(Math.min(255, Math.max(0, f(v)))));
+    g.stroke();
+  };
+  const draw = () => {
+    g.fillStyle = '#141414';
+    g.fillRect(0, 0, S, S);
+    g.strokeStyle = '#2c2c30';
+    g.lineWidth = 1;
+    for (let q = 1; q < 4; q++) {
+      g.beginPath();
+      g.moveTo((q * S) / 4, 0);
+      g.lineTo((q * S) / 4, S);
+      g.moveTo(0, (q * S) / 4);
+      g.lineTo(S, (q * S) / 4);
+      g.stroke();
+    }
+    g.setLineDash([3, 3]);
+    g.beginPath();
+    g.moveTo(0, S);
+    g.lineTo(S, 0);
+    g.stroke();
+    g.setLineDash([]);
+    for (const [name] of channels) {
+      if (name !== shown() && k.words[name] !== '0 0, 255 255') {
+        g.globalAlpha = 0.35;
+        line(fxPointsOf(k.words[name]), CURVE_COLOURS[name], 1);
+        g.globalAlpha = 1;
+      }
+    }
+    const pts = fxPointsOf(k.words[shown()]);
+    line(pts, CURVE_COLOURS[shown()], 1.5);
+    g.fillStyle = '#141414';
+    g.strokeStyle = CURVE_COLOURS[shown()];
+    for (const [x, y] of pts) {
+      g.fillRect(X(x) - 3, Y(y) - 3, 6, 6);
+      g.strokeRect(X(x) - 3, Y(y) - 3, 6, 6);
+    }
+  };
+  draw();
+  k.redraws.push(draw);
+  const near = (pts, [x, y]) => pts.findIndex((p) => Math.hypot(X(p[0]) - x, Y(p[1]) - y) < 7);
+  c.onpointerdown = (e) => {
+    if (e.button !== 0) return;
+    const name = shown();
+    const pts = fxPointsOf(k.words[name]);
+    const at = fxAt(c, e);
+    let i = near(pts, at);
+    if (i < 0) {
+      const x = Math.round((at[0] / S) * 255);
+      if (pts.length >= 16 || pts.some((p) => p[0] === x)) return;
+      i = pts.findIndex((p) => p[0] > x);
+      if (i < 0) i = pts.length;
+      pts.splice(i, 0, [x, Math.round(Math.min(255, Math.max(0, fxSpline(pts)(x))))]);
+      k.words[name] = fxTextOf(pts);
+      k.live();
+    }
+    fxDrag(c, e, ([x, y]) => {
+      const lo = i > 0 ? pts[i - 1][0] + 1 : 0;
+      const hi = i < pts.length - 1 ? pts[i + 1][0] - 1 : 255;
+      pts[i] = [Math.min(hi, Math.max(lo, Math.round((x / S) * 255))),
+        Math.min(255, Math.max(0, Math.round(((S - y) / S) * 255)))];
+      const off = x < -16 || x > S + 16 || y < -16 || y > S + 16;
+      k.words[name] = fxTextOf(off && pts.length > 2 ? pts.filter((p, j) => j !== i) : pts);
+      k.live();
+    }, k.close);
+  };
+  c.ondblclick = (e) => {
+    const name = shown();
+    const pts = fxPointsOf(k.words[name]);
+    const i = near(pts, fxAt(c, e));
+    if (i < 0 || pts.length <= 2) return;
+    pts.splice(i, 1);
+    k.words[name] = fxTextOf(pts);
+    k.send();
+  };
+  return c;
+}
+
+// D-112 as After Effects draws Levels: the input ramp with its black, grey and white triangles
+// and the output ramp with its black and white, and above them the line the levels make of
+// the ramp, since the card has no histogram of the layer to show. The grey triangle sits where
+// the middle of the output falls, so dragging it sets the gamma.
+function fxLevels(k, label) {
+  const W = 240;
+  const H = 132;
+  const x0 = 6;
+  const xw = W - 12;
+  const c = fxCanvas(W, H, 'fxview', label + ' ramps');
+  c.title = 'Drag a triangle: input black, gamma and white above, output black and white below';
+  const g = c.getContext('2d');
+  const v = (n) => Number(k.fields[n][0].value);
+  const X = (n) => x0 + (n / 255) * xw;
+  const handles = () => {
+    const [ib, iw, gamma] = [v('input_black'), v('input_white'), v('gamma')];
+    return [['input_black', X(ib), 0], ['gamma', X(ib + (iw - ib) * 0.5 ** gamma), 0],
+      ['input_white', X(iw), 0], ['output_black', X(v('output_black')), 1],
+      ['output_white', X(v('output_white')), 1]];
+  };
+  const ramp = (y) => {
+    const r = g.createLinearGradient(x0, 0, x0 + xw, 0);
+    r.addColorStop(0, '#000');
+    r.addColorStop(1, '#fff');
+    g.fillStyle = r;
+    g.fillRect(x0, y, xw, 12);
+    g.strokeStyle = '#4a4a50';
+    g.strokeRect(x0, y, xw, 12);
+  };
+  const draw = () => {
+    const [ib, iw, gamma, ob, ow] = ['input_black', 'input_white', 'gamma', 'output_black', 'output_white'].map(v);
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = '#141414';
+    g.fillRect(x0, 2, xw, 64);
+    g.strokeStyle = '#2c2c30';
+    g.lineWidth = 1;
+    g.setLineDash([3, 3]);
+    g.beginPath();
+    g.moveTo(x0, 66);
+    g.lineTo(x0 + xw, 2);
+    g.stroke();
+    g.setLineDash([]);
+    g.strokeStyle = '#d8d8dc';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    for (let x = 0; x <= 255; x++) {
+      const t = iw === ib ? (x >= ib ? 1 : 0) : Math.min(1, Math.max(0, (x - ib) / (iw - ib)));
+      g.lineTo(X(x), 66 - ((ob + t ** (1 / gamma) * (ow - ob)) / 255) * 64);
+    }
+    g.stroke();
+    ramp(72);
+    ramp(104);
+    const fill = { input_black: '#000', gamma: '#808080', input_white: '#fff', output_black: '#000', output_white: '#fff' };
+    for (const [name, x, row] of handles()) {
+      const y = row ? 116 : 84;
+      g.fillStyle = fill[name];
+      g.strokeStyle = '#b0b0b8';
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x - 5, y + 10);
+      g.lineTo(x + 5, y + 10);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
+  };
+  draw();
+  k.redraws.push(draw);
+  c.onpointerdown = (e) => {
+    if (e.button !== 0) return;
+    const [x, y] = fxAt(c, e);
+    const row = y < 98 ? 0 : 1;
+    const mine = handles().filter((h) => h[2] === row);
+    const best = Math.min(...mine.map((h) => Math.abs(h[1] - x)));
+    const tied = mine.filter((h) => Math.abs(h[1] - x) <= best + 0.5);
+    // Triangles on top of each other are told apart by the side the press is on.
+    const [name] = tied.length > 1 && x > tied[0][1] ? tied[tied.length - 1] : tied[0];
+    if (name === 'gamma' && v('input_white') === v('input_black')) return;
+    fxDrag(c, e, ([px]) => {
+      const at = Math.min(255, Math.max(0, Math.round(((px - x0) / xw) * 255)));
+      const [ib, iw] = [v('input_black'), v('input_white')];
+      let to = at;
+      if (name === 'input_black') to = Math.min(at, iw);
+      if (name === 'input_white') to = Math.max(at, ib);
+      if (name === 'gamma') {
+        const t = Math.min(0.999, Math.max(0.001, ((px - x0) / xw * 255 - ib) / (iw - ib)));
+        to = Math.min(10, Math.max(0.1, Math.round((Math.log(t) / Math.log(0.5)) * 100) / 100));
+      }
+      k.fields[name][0].value = to;
+      k.live(name);
+    }, k.close);
+  };
+  return c;
+}
+
+// D-113 as After Effects draws Hue/Saturation: the colours going in on the top bar and what
+// each becomes under it, worked as `src/grade.rs` works them, which is the sRGB a CSS colour is.
+function fxHues(k, label) {
+  const W = 240;
+  const c = fxCanvas(W, 34, 'fxview', label + ' colour bars');
+  c.title = 'Top: the colours going in. Under it: what each one becomes';
+  const g = c.getContext('2d');
+  const draw = () => {
+    const [hue, sat, light] = ['hue', 'saturation', 'lightness'].map((n) => Number(k.fields[n][0].value));
+    const s = Math.min(1, Math.max(0, 1 + sat / 100)) * 100;
+    const l = (light >= 0 ? 0.5 + (0.5 * light) / 100 : 0.5 * (1 + light / 100)) * 100;
+    for (let x = 0; x < W; x++) {
+      const h = (x / W) * 360;
+      g.fillStyle = 'hsl(' + h + ',100%,50%)';
+      g.fillRect(x, 2, 1.5, 13);
+      g.fillStyle = 'hsl(' + (h + hue) + ',' + s + '%,' + l + '%)';
+      g.fillRect(x, 19, 1.5, 13);
+    }
+  };
+  draw();
+  k.redraws.push(draw);
+  return c;
+}
+
+// A box standing for the drawing, with a mark for each of the effect's points, as the share of
+// the drawing the numbers are. A press moves the nearest mark there and drags it. `paint` draws
+// what the points make, under them.
+function fxPointBox(k, points, label, paint) {
+  const comp = composition();
+  const W = 240;
+  const H = Math.round(Math.min(170, Math.max(90, (W * ((comp && comp.height) || 9)) / ((comp && comp.width) || 16))));
+  const pad = 14;
+  const [iw, ih] = [W - 2 * pad, H - 2 * pad];
+  const c = fxCanvas(W, H, 'fxview', label + ' points');
+  c.title = 'Drag a point; the box is the drawing';
+  const g = c.getContext('2d');
+  const at = (n) => [pad + (Number(k.fields[n][0].value) / 100) * iw, pad + (Number(k.fields[n][1].value) / 100) * ih];
+  const draw = () => {
+    g.fillStyle = '#141414';
+    g.fillRect(0, 0, W, H);
+    for (let y = 0; y < ih; y += 8) {
+      for (let x = (y / 8) % 2 ? 8 : 0; x < iw; x += 16) {
+        g.fillStyle = '#26262a';
+        g.fillRect(pad + x, pad + y, Math.min(8, iw - x), Math.min(8, ih - y));
+      }
+    }
+    if (paint) paint(g, at, pad, iw, ih);
+    g.strokeStyle = '#5a5a60';
+    g.lineWidth = 1;
+    g.strokeRect(pad, pad, iw, ih);
+    g.font = '10px sans-serif';
+    for (const [n, words] of points) {
+      const [x, y] = at(n).map((p, i) => Math.min(i ? H - 3 : W - 3, Math.max(3, p)));
+      g.strokeStyle = '#000';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(x, y, 5, 0, 2 * Math.PI);
+      g.stroke();
+      g.strokeStyle = '#fff';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.beginPath();
+      g.moveTo(x - 9, y);
+      g.lineTo(x + 9, y);
+      g.moveTo(x, y - 9);
+      g.lineTo(x, y + 9);
+      g.stroke();
+      if (points.length > 1) {
+        g.fillStyle = '#fff';
+        g.fillText(words, Math.min(x + 8, W - 40), Math.max(y - 6, 10));
+      }
+    }
+  };
+  draw();
+  k.redraws.push(draw);
+  c.onpointerdown = (e) => {
+    if (e.button !== 0) return;
+    const [x, y] = fxAt(c, e);
+    const [n] = points.map(([p]) => [p, Math.hypot(at(p)[0] - x, at(p)[1] - y)]).sort((a, b) => a[1] - b[1])[0];
+    const put = ([px, py]) => {
+      k.fields[n][0].value = Math.round(((px - pad) / iw) * 1000) / 10;
+      k.fields[n][1].value = Math.round(((py - pad) / ih) * 1000) / 10;
+      k.live(n);
+    };
+    put([x, y]);
+    fxDrag(c, e, put, k.close);
+  };
+  return c;
+}
+
+// D-114's ramp, laid over the box as the gradient lays it over the drawing, in the colours and
+// opacities the card has.
+function fxGradientPaint(k) {
+  const rgba = (hex, a) => 'rgba(' + [1, 3, 5].map((i) => parseInt((hex || '#000000').slice(i, i + 2), 16)).join(',')
+    + ',' + Math.min(1, Math.max(0, a / 100)) + ')';
+  return (g, at, pad, iw, ih) => {
+    const [s, e] = [at('start'), at('end')];
+    const from = rgba(k.words.start_color, Number(k.fields.start_opacity[0].value));
+    const to = rgba(k.words.end_color, Number(k.fields.end_opacity[0].value));
+    const reach = Math.hypot(e[0] - s[0], e[1] - s[1]);
+    // Two points on top of each other leave the whole drawing at the end, as the core does.
+    if (reach === 0) g.fillStyle = to;
+    else {
+      const ramp = k.words.shape === 'radial'
+        ? g.createRadialGradient(s[0], s[1], 0, s[0], s[1], reach)
+        : g.createLinearGradient(s[0], s[1], e[0], e[1]);
+      ramp.addColorStop(0, from);
+      ramp.addColorStop(1, to);
+      g.fillStyle = ramp;
+    }
+    g.fillRect(pad, pad, iw, ih);
+    g.strokeStyle = 'rgba(255,255,255,0.6)';
+    g.setLineDash([3, 3]);
+    g.beginPath();
+    g.moveTo(...s);
+    g.lineTo(...e);
+    g.stroke();
+    g.setLineDash([]);
+  };
+}
+
 // One effect in the stack: whether it is bypassed, what it is, where in the order it sits, a
 // way to remove it, and its settings. Every parameter of the effect travels on every change,
 // because a request that named one would leave the core to guess the others and guessing would
@@ -6760,7 +7208,10 @@ function effectRow(layer, fx, at, of) {
   // before, a keyed one among them as the base it already has.
   const typed = (name) => fields[name].map((f) => f.value.trim()).join(',');
   const keyed = (name) => keysOf(layer, fxName(fx, name)).length > 0;
+  // The pictures on the card follow every change the hand makes, from whichever control.
+  const redraws = [];
   const sendParameters = (extra = '', changed = null) => {
+    redraws.forEach((draw) => draw());
     if (pick) pick.value = hexOf(fields.color.map((f) => Number(f.value) || 0));
     if (changed && keyed(changed)) {
       command('/property.set_base?' + whose(layer) + '&prop=' + encodeURIComponent(fxName(fx, changed))
@@ -6787,7 +7238,7 @@ function effectRow(layer, fx, at, of) {
     dragging = false;
     command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
   };
-  for (const [name, words, count, step, range] of known) {
+  for (const [name, words, count, step, range, turn] of known) {
     const dt = document.createElement('dt');
     dt.title = words + ', ' + range;
     // B-19d: the stopwatch a transform's property has, and the ease of a key on this frame.
@@ -6819,6 +7270,7 @@ function effectRow(layer, fx, at, of) {
       const part = count === 3 ? 'rgb'[i] : count === 2 ? 'xy'[i] : '';
       const input = scrubValue({
         value,
+        suffix: turn ? '°' : '',
         label: label + ' ' + words + (part ? ' ' + part : ''),
         title: 'Drag to change ' + words + ' (' + range + '), press to type it, or use the '
           + 'arrow keys',
@@ -6827,6 +7279,7 @@ function effectRow(layer, fx, at, of) {
         done: (cancelled) => close(cancelled),
         commit: () => sendParameters('', name),
       });
+      if (turn) dd.append(fxDial(label + ' ' + words, input, () => live(name), close, turn === 'hue', redraws));
       if (rgb) {
         const cell = Object.assign(document.createElement('label'), { textContent: part.toUpperCase() + ' ' });
         cell.append(input);
@@ -6835,6 +7288,18 @@ function effectRow(layer, fx, at, of) {
       fields[name].push(input);
     });
     dl.append(dt, dd, ...(rgb ? [rgb] : []));
+  }
+  // The card's picture, above its numbers, as After Effects puts it.
+  const k = { fields, words, live, close, send: () => sendParameters(), redraws };
+  const pairs = known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
+  const picture = fx.type_id === 'core.levels' ? fxLevels(k, label)
+    : fx.type_id === 'core.hue_saturation' ? fxHues(k, label)
+      : pairs.length ? fxPointBox(k, pairs, label, fx.type_id === 'core.gradient' ? fxGradientPaint(k) : null)
+        : null;
+  if (picture) {
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    dd.append(picture);
+    dl.prepend(dd);
   }
   // The hex is typed, because the Windows colour window has no box for one and the match is
   // exact. Enter or leaving the box sends it, the # optional; Escape puts it back. The panel
@@ -6895,17 +7360,32 @@ function effectRow(layer, fx, at, of) {
     }
     dl.append(dt, dd);
   }
-  // D-111: a curve's points as text, in then out, a comma between points, since a point is two
-  // numbers a person reads off After Effects' own graph. Enter or leaving the box sends it;
-  // Escape puts it back. Points are not keyed.
-  for (const [name, title] of spec.lists || []) {
-    const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });
+  // D-111: the graph of the curve picked above it, and its points as text under it, in then
+  // out, a comma between points, for exact numbers and the keyboard. Enter or leaving the box
+  // sends it; Escape puts it back. Points are not keyed.
+  const curveShown = spec.lists && (curvesShown.get(fx.instance_id) || spec.lists[0][0]);
+  if (spec.lists) {
+    const which = document.createElement('select');
+    which.setAttribute('aria-label', label + ' curve shown');
+    for (const [value, text] of spec.lists) which.append(new Option(text, value));
+    which.value = curveShown;
+    which.onchange = () => { curvesShown.set(fx.instance_id, which.value); drawEffects(); };
+    const reset = Object.assign(document.createElement('button'), { textContent: 'Reset' });
+    reset.title = 'Put the curve shown back to the straight line';
+    reset.onclick = () => { words[curveShown] = '0 0, 255 255'; sendParameters(); };
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    dd.append(which, ' ', reset, fxCurves(k, fx.instance_id, spec.lists, label));
+    dl.append(dd);
+  }
+  for (const [name, title] of (spec.lists || []).filter((l) => l[0] === curveShown)) {
+    const dt = Object.assign(document.createElement('dt'), { textContent: title + ' points', className: 'wide' });
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
     const was = words[name];
     const text = Object.assign(document.createElement('input'),
       { type: 'text', className: 'points', value: was, placeholder: '0 0, 255 255', spellcheck: false });
     text.title = 'Points, in then out, each 0 to 255, a comma between points; 2 to 16 of them';
     text.setAttribute('aria-label', label + ' ' + title + ' points');
+    redraws.push(() => { if (document.activeElement !== text) text.value = words[name]; });
     text.onfocus = () => { dragging = true; };
     text.onkeydown = (e) => {
       e.stopPropagation();
