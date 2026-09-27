@@ -68,6 +68,25 @@ fn grade_pixels(source: &mut WorkingBuffer, placed: bool, f: impl Fn(usize, [f64
         });
 }
 
+/// P-22: `f` on each pixel, a row at a time, a pixel bit for bit the one before it on its row
+/// given that one's result, as `grade_pixels` does. `f` reads nothing but the pixel.
+fn each_pixel(source: &mut WorkingBuffer, f: impl Fn(&mut [f32]) + Sync) {
+    let w = source.width().max(1);
+    source.data_mut().par_chunks_mut(w * 4).for_each(|row| {
+        let mut last: Option<([u32; 4], [f32; 4])> = None;
+        for px in row.chunks_exact_mut(4) {
+            let key = [px[0].to_bits(), px[1].to_bits(), px[2].to_bits(), px[3].to_bits()];
+            match last {
+                Some((k, out)) if k == key => px.copy_from_slice(&out),
+                _ => {
+                    f(px);
+                    last = Some((key, [px[0], px[1], px[2], px[3]]));
+                }
+            }
+        }
+    });
+}
+
 /// The same, a channel at a time on the 0 to 255 scale: `f(channel, value)`.
 fn grade(source: &mut WorkingBuffer, f: impl Fn(usize, f64) -> f64 + Sync) {
     grade_pixels(source, false, |_, e| std::array::from_fn(|c| f(c, e[c] * 255.0) / 255.0));
@@ -491,7 +510,7 @@ pub(crate) fn invert(source: &mut WorkingBuffer, channel: usize, amount: f64) {
         return;
     }
     let t = amount / 100.0;
-    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+    each_pixel(source, |px| {
         let a = px[3] as f64;
         if a <= 0.0 {
             return;
@@ -621,7 +640,7 @@ pub(crate) fn leave_color(source: &mut WorkingBuffer, color: [f64; 3], tolerance
     }
     let hc = hsv_hue(color);
     let (t, s, o) = (tolerance / 100.0, softness / 100.0, amount / 100.0);
-    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+    each_pixel(source, |px| {
         let a = px[3] as f64;
         if a <= 0.0 {
             return;
@@ -655,7 +674,7 @@ pub(crate) fn leave_color(source: &mut WorkingBuffer, color: [f64; 3], tolerance
 /// D-142: each channel at or above `threshold` of 255 turned to its opposite; the rest kept bit
 /// for bit.
 pub(crate) fn solarize(source: &mut WorkingBuffer, threshold: f64) {
-    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+    each_pixel(source, |px| {
         let a = px[3] as f64;
         if a <= 0.0 {
             return;

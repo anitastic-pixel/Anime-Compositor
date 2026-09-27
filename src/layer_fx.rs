@@ -651,13 +651,19 @@ pub(crate) fn mosaic(source: &mut WorkingBuffer, size: f64, (ox, oy): (usize, us
         runs
     };
     let (columns, rows) = (runs(w, ox), runs(h, oy));
-    let data = source.data_mut();
-    // ponytail: one pass on one thread, each pixel read and written once; split the rows of
-    // blocks across threads if a profile shows it.
+    // P-22: each row of blocks on a thread of its own, its rows cut from the buffer in order.
+    let mut rest = source.data_mut();
+    let mut bands = Vec::new();
     for ys in &rows {
+        let (band, tail) = rest.split_at_mut(ys.len() * w * 4);
+        bands.push(band);
+        rest = tail;
+    }
+    bands.into_par_iter().for_each(|data| {
+        let n_rows = data.len() / (w * 4);
         for xs in &columns {
             let mut sum = [0.0f64; 4];
-            for y in ys.clone() {
+            for y in 0..n_rows {
                 for x in xs.clone() {
                     let i = 4 * (y * w + x);
                     for c in 0..4 {
@@ -665,16 +671,16 @@ pub(crate) fn mosaic(source: &mut WorkingBuffer, size: f64, (ox, oy): (usize, us
                     }
                 }
             }
-            let n = (ys.len() * xs.len()) as f64;
+            let n = (n_rows * xs.len()) as f64;
             let mean = sum.map(|v| (v / n) as f32);
-            for y in ys.clone() {
+            for y in 0..n_rows {
                 for x in xs.clone() {
                     let i = 4 * (y * w + x);
                     data[i..i + 4].copy_from_slice(&mean);
                 }
             }
         }
-    }
+    });
 }
 
 /// The picture luma of a premultiplied pixel, its colour over black, encoded.
@@ -729,7 +735,7 @@ pub(crate) fn find_edges(source: &mut WorkingBuffer, invert: bool, amount: f64) 
         return;
     }
     let (w, h) = (source.width() as i64, source.height() as i64);
-    let lumas: Vec<f64> = source.data().chunks_exact(4).map(|p| picture_luma([p[0], p[1], p[2], p[3]])).collect();
+    let lumas: Vec<f64> = source.data().par_chunks_exact(4).map(|p| picture_luma([p[0], p[1], p[2], p[3]])).collect();
     let at = |x: i64, y: i64| lumas[(y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize];
     let t = amount / 100.0;
     source
@@ -1453,7 +1459,39 @@ pub(crate) fn cross_glare(
     let fade: Vec<f64> = (1..=l).map(|t| (1.0 - t as f64 / (l + 1) as f64).powi(2)).collect();
     let total: f64 = fade.iter().sum();
     let steps: Vec<(f64, f64)> = fade.iter().enumerate().map(|(t, f)| ((t + 1) as f64, f / total)).collect();
-    let (w, h) = (source.width() + 2 * l, source.height() + 2 * l);
+    // P-22: a sample whose four pixels are all dark adds exactly nothing, so it is skipped, and a
+    // pixel with no lit pixel within reach skips its whole sum. `lit` counts the lit pixels above
+    // and left of each place; `near[(y0 + 1)(sw + 1) + x0 + 1]` marks the places (x0, y0), from
+    // -1, whose pixels x0..=x0 + 1, y0..=y0 + 1 hold any light.
+    let (sw, sh) = (source.width(), source.height());
+    let mut lit = vec![0u32; (sw + 1) * (sh + 1)];
+    lit[sw + 1..].par_chunks_mut(sw + 1).enumerate().for_each(|(y, line)| {
+        for x in 0..sw {
+            line[x + 1] = line[x] + light.pixel(x, y).iter().any(|&v| v != 0.0) as u32;
+        }
+    });
+    for y in 1..=sh {
+        let (above, line) = lit[(y - 1) * (sw + 1)..(y + 1) * (sw + 1)].split_at_mut(sw + 1);
+        for (v, a) in line.iter_mut().zip(above.iter()) {
+            *v += a;
+        }
+    }
+    // The lit pixels in columns x0..x1 and rows y0..y1, each clipped to the layer.
+    let count = |x0: isize, x1: isize, y0: isize, y1: isize| {
+        let [x0, x1] = [x0, x1].map(|v| v.clamp(0, sw as isize) as usize);
+        let [y0, y1] = [y0, y1].map(|v| v.clamp(0, sh as isize) as usize);
+        let at = |x: usize, y: usize| lit[y * (sw + 1) + x];
+        at(x1, y1) + at(x0, y0) - at(x0, y1) - at(x1, y0)
+    };
+    let near: Vec<bool> = (0..(sw + 1) * (sh + 1))
+        .into_par_iter()
+        .map(|i| {
+            let (x0, y0) = ((i % (sw + 1)) as isize - 1, (i / (sw + 1)) as isize - 1);
+            count(x0, x0 + 2, y0, y0 + 2) > 0
+        })
+        .collect();
+    let reach = l as isize + 1;
+    let (w, h) = (sw + 2 * l, sh + 2 * l);
     let c = color.map(crate::grade::to_linear);
     let mut out = WorkingBuffer::transparent(w, h);
     let drawing = &*source;
@@ -1464,9 +1502,19 @@ pub(crate) fn cross_glare(
             let (x, y) = ((i % w) as isize - l as isize, (i / w) as isize - l as isize);
             let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
             let mut g = [0.0f64; 4];
-            for &(vx, vy) in &arms {
+            let any = count(x - reach, x + reach + 1, y - reach, y + reach + 1) > 0;
+            for &(vx, vy) in arms.iter().filter(|_| any) {
                 for &(t, k) in &steps {
-                    let s = sample_bilinear(&light, cx - t * vx, cy - t * vy);
+                    let (sx, sy) = (cx - t * vx, cy - t * vy);
+                    // sample_bilinear's own corner.
+                    let (x0, y0) = ((sx - 0.5).floor(), (sy - 0.5).floor());
+                    if x0 < -1.0 || y0 < -1.0 || x0 >= sw as f64 || y0 >= sh as f64 {
+                        continue;
+                    }
+                    if !near[(y0 as usize + 1) * (sw + 1) + x0 as usize + 1] {
+                        continue;
+                    }
+                    let s = sample_bilinear(&light, sx, sy);
                     for ch in 0..4 {
                         g[ch] += k * s[ch] as f64;
                     }
