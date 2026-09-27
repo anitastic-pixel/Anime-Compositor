@@ -1226,3 +1226,123 @@ pub(crate) fn iris_wipe(
             }
         });
 }
+
+
+/// D-159: the covering shrunk (`choke` > 0) or spread (`choke` < 0) over the whole steps within
+/// `|choke|` of each pixel, Outline's disc: shrinking, each covered pixel takes the least
+/// covering within reach, outside the layer counting as empty, in its own straight colour;
+/// spreading, the layer grows by the reach rounded down and each pixel takes the greatest
+/// covering within reach, in its own straight colour where it had covering and the
+/// covering-weighted average of the pixels within reach where it had none. Returns the growth.
+/// The settings are already valid.
+pub(crate) fn simple_choker(source: &mut WorkingBuffer, choke: f64) -> usize {
+    if choke == 0.0 {
+        return 0;
+    }
+    let spread = choke < 0.0;
+    let g = if spread { (-choke).floor() as usize } else { 0 };
+    let (w, h) = (source.width(), source.height());
+    let (bw, bh) = (w + 2 * g, h + 2 * g);
+    let pick: fn(f32, f32) -> f32 = if spread { f32::max } else { f32::min };
+    let runs = disc_runs(choke.abs());
+    let alpha = |x: isize, y: usize| at(source, x, y as isize)[3];
+    // `row[sy][bx]`, the least or greatest covering in row sy within k of column bx - g, widened
+    // one step of k at a time, as Outline's band is; each disc row of half-width k takes from it.
+    let mut row = vec![0.0f32; h * bw];
+    row.par_chunks_mut(bw).enumerate().for_each(|(sy, line)| {
+        for (bx, v) in line.iter_mut().enumerate() {
+            *v = alpha(bx as isize - g as isize, sy);
+        }
+    });
+    let mut band = vec![if spread { 0.0 } else { f32::INFINITY }; bw * bh];
+    let top = runs.iter().map(|&(_, hw)| hw).max().unwrap_or(0);
+    for k in 0..=top {
+        if k > 0 {
+            row.par_chunks_mut(bw).enumerate().for_each(|(sy, line)| {
+                for (bx, v) in line.iter_mut().enumerate() {
+                    let x = bx as isize - g as isize;
+                    *v = pick(pick(*v, alpha(x - k, sy)), alpha(x + k, sy));
+                }
+            });
+        }
+        let rows = &row;
+        band.par_chunks_mut(bw).enumerate().for_each(|(by, line)| {
+            for &(dy, _) in runs.iter().filter(|&&(_, hw)| hw == k) {
+                let sy = by as isize - g as isize + dy;
+                if sy < 0 || sy >= h as isize {
+                    // A row outside the layer is empty.
+                    for v in line.iter_mut() {
+                        *v = pick(*v, 0.0);
+                    }
+                    continue;
+                }
+                let from = &rows[sy as usize * bw..][..bw];
+                for (v, &u) in line.iter_mut().zip(from) {
+                    *v = pick(*v, u);
+                }
+            }
+        });
+    }
+    if !spread {
+        source.data_mut().par_chunks_exact_mut(4).zip(&band).for_each(|(px, &a)| {
+            if px[3] == 0.0 {
+                return;
+            }
+            let k = a as f64 / px[3] as f64;
+            for v in &mut px[..3] {
+                *v = (*v as f64 * k) as f32;
+            }
+            px[3] = a;
+        });
+        return 0;
+    }
+    // Each row's running sums of the four channels, so a disc row's sum is one difference.
+    let data = source.data();
+    let mut sums = vec![0.0f64; h * (w + 1) * 4];
+    sums.par_chunks_mut((w + 1) * 4).enumerate().for_each(|(sy, line)| {
+        for sx in 0..w {
+            for j in 0..4 {
+                line[(sx + 1) * 4 + j] = line[sx * 4 + j] + data[(sy * w + sx) * 4 + j] as f64;
+            }
+        }
+    });
+    let mut out = WorkingBuffer::transparent(bw, bh);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(&band)
+        .enumerate()
+        .for_each(|(i, (px, &a))| {
+            let (x, y) = ((i % bw) as isize - g as isize, (i / bw) as isize - g as isize);
+            let p = at(drawing, x, y);
+            if p[3] > 0.0 {
+                let k = a as f64 / p[3] as f64;
+                for j in 0..3 {
+                    px[j] = (p[j] as f64 * k) as f32;
+                }
+                px[3] = a;
+                return;
+            }
+            if a == 0.0 {
+                return;
+            }
+            let mut sum = [0.0f64; 4];
+            for &(dy, hw) in &runs {
+                let sy = y + dy;
+                let (x0, x1) = ((x - hw).max(0), (x + hw + 1).min(w as isize));
+                if sy < 0 || sy >= h as isize || x0 >= x1 {
+                    continue;
+                }
+                let line = &sums[sy as usize * (w + 1) * 4..];
+                for j in 0..4 {
+                    sum[j] += line[x1 as usize * 4 + j] - line[x0 as usize * 4 + j];
+                }
+            }
+            for j in 0..3 {
+                px[j] = (sum[j] / sum[3] * a as f64) as f32;
+            }
+            px[3] = a;
+        });
+    *source = out;
+    g
+}

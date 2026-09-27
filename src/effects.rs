@@ -660,6 +660,9 @@ pub enum Effect {
         feather: f64,
         invert: String,
     },
+    /// D-159: `choke`, -100 to 100 pixels, positive to shrink the covering and negative to
+    /// spread it.
+    SimpleChoker { choke: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -724,6 +727,7 @@ pub const LINEAR_WIPE: &str = "core.linear_wipe";
 pub const RADIAL_WIPE: &str = "core.radial_wipe";
 pub const VENETIAN_BLINDS: &str = "core.venetian_blinds";
 pub const IRIS_WIPE: &str = "core.iris_wipe";
+pub const SIMPLE_CHOKER: &str = "core.simple_choker";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1178,6 +1182,7 @@ impl Effect {
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("feather", vec![feather], 0.0, 10000.0),
             ],
+            Effect::SimpleChoker { choke } => vec![("choke", vec![choke], -100.0, 100.0)],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1269,6 +1274,7 @@ impl Effect {
             Effect::Bulge { radius, .. } => *radius = scale(*radius),
             Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
             Effect::IrisWipe { feather, .. } => *feather = scale(*feather),
+            Effect::SimpleChoker { choke } => *choke = scale(*choke),
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1362,6 +1368,7 @@ impl Effect {
             Effect::RadialWipe { .. } => "Radial Wipe",
             Effect::VenetianBlinds { .. } => "Venetian Blinds",
             Effect::IrisWipe { .. } => "Iris Wipe",
+            Effect::SimpleChoker { .. } => "Simple Choker",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1426,6 +1433,7 @@ impl Effect {
             Effect::RadialWipe { .. } => RADIAL_WIPE,
             Effect::VenetianBlinds { .. } => VENETIAN_BLINDS,
             Effect::IrisWipe { .. } => IRIS_WIPE,
+            Effect::SimpleChoker { .. } => SIMPLE_CHOKER,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1485,6 +1493,8 @@ impl Effect {
             }
             // D-149: the height rounded up, unless a push past the edge reads the edge.
             Effect::WaveWarp { height, edges, .. } if edges != "repeat" => height.ceil() as usize,
+            // D-159: a spread's reach, rounded down; a shrink grows nothing.
+            Effect::SimpleChoker { choke } if *choke < 0.0 => (-choke).floor() as usize,
             // D-127: the amount rounded up, unless a push past the edge reads the edge.
             Effect::TurbulentDisplace { amount, edges, .. } if edges != "repeat" => {
                 amount.ceil() as usize
@@ -2672,6 +2682,14 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectIrisWipe, || {
                 crate::layer_fx::iris_wipe(source, *completion, *center, *feather, invert == "on", (ox, oy))
             }),
+            // D-159: a spread grows the layer by its reach, rounded down.
+            Effect::SimpleChoker { choke } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectSimpleChoker, || {
+                    crate::layer_fx::simple_choker(source, *choke)
+                });
+                ox += r;
+                oy += r;
+            }
         }
     }
     (ox, oy)

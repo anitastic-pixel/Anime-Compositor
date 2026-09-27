@@ -203,5 +203,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - completion, angle, width, feather - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.iris_wipe` is an effect this build has | added | added | pass |
 | and the settings it sends for it - completion, center, feather, invert - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.simple_choker` is an effect this build has | added | added | pass |
+| and the settings it sends for it - choke - are the ones the command reads | accepted | accepted | pass |
 
-**183 of 183 checks pass.**
+**185 of 185 checks pass.**

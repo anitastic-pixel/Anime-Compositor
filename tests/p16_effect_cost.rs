@@ -563,6 +563,10 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 invert: "off".to_string(),
             },
         ),
+        (
+            "Simple Choker, spread 3",
+            Effect::SimpleChoker { choke: -3.0 },
+        ),
     ]
 }
 

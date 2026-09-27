@@ -180,6 +180,8 @@ pub enum Stage {
     EffectVenetianBlinds,
     /// D-158's iris wipe, per pixel.
     EffectIrisWipe,
+    /// D-159's simple choker, a least or greatest covering over a disc.
+    EffectSimpleChoker,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -197,7 +199,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 74] = [
+    pub const ALL: [Stage; 75] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -265,6 +267,7 @@ impl Stage {
         Stage::EffectRadialWipe,
         Stage::EffectVenetianBlinds,
         Stage::EffectIrisWipe,
+        Stage::EffectSimpleChoker,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -344,6 +347,7 @@ impl Stage {
             Stage::EffectRadialWipe => "effect: radial wipe",
             Stage::EffectVenetianBlinds => "effect: venetian blinds",
             Stage::EffectIrisWipe => "effect: iris wipe",
+            Stage::EffectSimpleChoker => "effect: simple choker",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

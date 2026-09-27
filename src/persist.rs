@@ -1520,6 +1520,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::SimpleChoker { choke } => {
+            params.insert("choke".into(), num(*choke));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1962,6 +1965,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "completion",
         "feather",
         "start_angle",
+        "choke",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2803,6 +2807,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::RADIAL_WIPE,
                 crate::effects::VENETIAN_BLINDS,
                 crate::effects::IRIS_WIPE,
+                crate::effects::SIMPLE_CHOKER,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3185,6 +3190,9 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     center: effect_array(params, "center", "two numbers, x then y", &at)?,
                     feather: effect_number(params, "feather", &at)?,
                     invert: effect_word(params, "invert", &at)?,
+                }),
+                crate::effects::SIMPLE_CHOKER => Some(crate::effects::Effect::SimpleChoker {
+                    choke: effect_number(params, "choke", &at)?,
                 }),
                 _ => None,
             };

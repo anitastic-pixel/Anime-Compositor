@@ -624,7 +624,7 @@ B-100 / Venetian Blinds, D-157, the twenty-fourth of the third batch of thirty: 
 
 B-101 / Iris Wipe, D-158, the twenty-fifth of the third batch of thirty: a circle closing on a point, the cartoon ending. **B-101a is written on 2026-09-26**: `verification/B-101a proposal/`, D-158 in document 14, the rule in document 21, FX-IRIS-001 to 027 in document 25 from `tools/iris_wipe_reference.py`, which writes `Fixtures/iris_wipe/`. **B-101b is built on 2026-09-26**: `src/layer_fx.rs`, the Iris Wipe card, `tests/b101_iris_wipe.rs` writing `verification/B-101_iris_wipe_table.md`, 104 of 104, worst 2e-7; the owner's playtest is `verification/B-101_iris_wipe_playtest.md`.
 
-B-102 / Simple Choker, D-159, the twenty-sixth of the third batch of thirty: the covering's edge shrunk or spread by a few pixels. **B-102a is written on 2026-09-26**: `verification/B-102a proposal/`, D-159 in document 14, the rule in document 21, FX-CHOKE-001 to 017 in document 25 from `tools/simple_choker_reference.py`, which writes `Fixtures/simple_choker/`. **B-102b, the build, is next.**
+B-102 / Simple Choker, D-159, the twenty-sixth of the third batch of thirty: the covering's edge shrunk or spread by a few pixels. **B-102a is written on 2026-09-26**: `verification/B-102a proposal/`, D-159 in document 14, the rule in document 21, FX-CHOKE-001 to 017 in document 25 from `tools/simple_choker_reference.py`, which writes `Fixtures/simple_choker/`. **B-102b is built on 2026-09-26**: `src/layer_fx.rs`, the Simple Choker card, `tests/b102_simple_choker.rs` writing `verification/B-102_simple_choker_table.md`, 70 of 70, worst 2e-7; the owner's playtest is `verification/B-102_simple_choker_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
