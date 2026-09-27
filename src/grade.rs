@@ -522,3 +522,12 @@ pub(crate) fn invert_alpha(source: &mut WorkingBuffer, amount: f64) {
         px[3] = n as f32;
     });
 }
+
+/// D-135: contrast about the middle grey, then brightness added, in encoded values.
+pub(crate) fn brightness_contrast(source: &mut WorkingBuffer, brightness: f64, contrast: f64) {
+    if brightness == 0.0 && contrast == 0.0 {
+        return;
+    }
+    let k = if contrast <= 0.0 { 1.0 + contrast / 100.0 } else { 1.0 / (1.0 - 0.99 * contrast / 100.0) };
+    grade_pixels(source, false, |_, e| e.map(|v| (v - 0.5) * k + 0.5 + brightness / 255.0))
+}

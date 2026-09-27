@@ -132,6 +132,8 @@ pub enum Stage {
     EffectLightWrap,
     /// D-134's invert, per pixel.
     EffectInvert,
+    /// D-135's brightness and contrast, per pixel.
+    EffectBrightnessContrast,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -149,7 +151,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 50] = [
+    pub const ALL: [Stage; 51] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -193,6 +195,7 @@ impl Stage {
         Stage::EffectOffset,
         Stage::EffectLightWrap,
         Stage::EffectInvert,
+        Stage::EffectBrightnessContrast,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -248,6 +251,7 @@ impl Stage {
             Stage::EffectOffset => "effect: offset",
             Stage::EffectLightWrap => "effect: light wrap",
             Stage::EffectInvert => "effect: invert",
+            Stage::EffectBrightnessContrast => "effect: brightness & contrast",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

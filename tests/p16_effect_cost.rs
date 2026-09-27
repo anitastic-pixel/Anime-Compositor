@@ -371,6 +371,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 amount: 100.0,
             },
         ),
+        (
+            "Brightness & Contrast, both moved",
+            Effect::BrightnessContrast {
+                brightness: 30.0,
+                contrast: 40.0,
+            },
+        ),
     ]
 }
 

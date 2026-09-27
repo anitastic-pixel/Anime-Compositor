@@ -479,6 +479,12 @@ pub enum Effect {
         channel: String,
         amount: f64,
     },
+    /// D-135: `brightness`, -150 to 150 levels of 255 added to every channel; `contrast`, -100
+    /// to 100, the tones drawn together (below 0) or pushed apart (above 0) around half.
+    BrightnessContrast {
+        brightness: f64,
+        contrast: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -519,6 +525,7 @@ pub const COLOR_BALANCE: &str = "core.color_balance";
 pub const OFFSET: &str = "core.offset";
 pub const LIGHT_WRAP: &str = "core.light_wrap";
 pub const INVERT: &str = "core.invert";
+pub const BRIGHTNESS_CONTRAST: &str = "core.brightness_contrast";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -807,6 +814,10 @@ impl Effect {
                 ("intensity", vec![intensity], 0.0, 400.0),
             ],
             Effect::Invert { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
+            Effect::BrightnessContrast { brightness, contrast } => vec![
+                ("brightness", vec![brightness], -150.0, 150.0),
+                ("contrast", vec![contrast], -100.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -937,6 +948,7 @@ impl Effect {
             Effect::Offset { .. } => "Offset",
             Effect::LightWrap { .. } => "Light Wrap",
             Effect::Invert { .. } => "Invert",
+            Effect::BrightnessContrast { .. } => "Brightness & Contrast",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -977,6 +989,7 @@ impl Effect {
             Effect::Offset { .. } => OFFSET,
             Effect::LightWrap { .. } => LIGHT_WRAP,
             Effect::Invert { .. } => INVERT,
+            Effect::BrightnessContrast { .. } => BRIGHTNESS_CONTRAST,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1972,6 +1985,11 @@ pub(crate) fn apply_stack_at(
                     _ => crate::grade::invert(source, 3, *amount),
                 }
             }),
+            Effect::BrightnessContrast { brightness, contrast } => {
+                crate::perf::time(crate::perf::Stage::EffectBrightnessContrast, || {
+                    crate::grade::brightness_contrast(source, *brightness, *contrast)
+                })
+            }
         }
     }
     (ox, oy)

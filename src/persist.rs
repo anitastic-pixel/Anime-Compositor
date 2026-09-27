@@ -1306,6 +1306,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("channel".into(), J::from(channel.as_str()));
             params.insert("amount".into(), num(*amount));
         }
+        Effect::BrightnessContrast { brightness, contrast } => {
+            params.insert("brightness".into(), num(*brightness));
+            params.insert("contrast".into(), num(*contrast));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2541,6 +2545,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::OFFSET,
                 crate::effects::LIGHT_WRAP,
                 crate::effects::INVERT,
+                crate::effects::BRIGHTNESS_CONTRAST,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2795,6 +2800,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::INVERT => Some(crate::effects::Effect::Invert {
                     channel: effect_word(params, "channel", &at)?,
                     amount: effect_number(params, "amount", &at)?,
+                }),
+                crate::effects::BRIGHTNESS_CONTRAST => Some(crate::effects::Effect::BrightnessContrast {
+                    brightness: effect_number(params, "brightness", &at)?,
+                    contrast: effect_number(params, "contrast", &at)?,
                 }),
                 _ => None,
             };
