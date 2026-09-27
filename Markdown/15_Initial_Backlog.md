@@ -562,6 +562,8 @@ B-72 / Gradient Map, D-129, the seventh of the second batch of ten: each pixel's
 
 B-73 / Color Balance, D-130, the eighth of the second batch of ten: red, green and blue pushed separately in the shadows, midtones and highlights. **B-73a is written on 2026-09-26**: `verification/B-73a proposal/`, D-130 in document 14, the rule in document 21, FX-BALANCE-001 to 019 in document 25 from `tools/color_balance_reference.py`, which writes `Fixtures/color_balance/`. **B-73b, the build, is next.**
 
+B-74 / Offset, D-131, the ninth of the second batch of ten: the picture slid across and wrapped round at the edges. **B-74a is written on 2026-09-26**: `verification/B-74a proposal/`, D-131 in document 14, the rule in document 21, FX-OFFSET-001 to 023 in document 25 from `tools/offset_reference.py`, which writes `Fixtures/offset/`. **B-74b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
