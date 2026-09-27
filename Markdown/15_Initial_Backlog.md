@@ -612,7 +612,7 @@ B-94 / Twirl, D-151, the eighteenth of the third batch of thirty: the picture tw
 
 B-95 / Bulge, D-152, the nineteenth of the third batch of thirty: the picture swelled or pinched round a point. **B-95a is written on 2026-09-26**: `verification/B-95a proposal/`, D-152 in document 14, the rule in document 21, FX-BULGE-001 to 023 in document 25 from `tools/bulge_reference.py`, which writes `Fixtures/bulge/`. **B-95b is built on 2026-09-26**: `src/layer_fx.rs`, the Bulge card, `tests/b95_bulge.rs` writing `verification/B-95_bulge_table.md`, 88 of 88, worst 3.1e-7; the owner's playtest is `verification/B-95_bulge_playtest.md`.
 
-B-96 / Mirror, D-153, the twentieth of the third batch of thirty: one side of the picture reflected onto the other across a line. **B-96a is written on 2026-09-26**: `verification/B-96a proposal/`, D-153 in document 14, the rule in document 21, FX-MIRROR-001 to 024 in document 25 from `tools/mirror_reference.py`, which writes `Fixtures/mirror/`. **B-96b, the build, is next.**
+B-96 / Mirror, D-153, the twentieth of the third batch of thirty: one side of the picture reflected onto the other across a line. **B-96a is written on 2026-09-26**: `verification/B-96a proposal/`, D-153 in document 14, the rule in document 21, FX-MIRROR-001 to 024 in document 25 from `tools/mirror_reference.py`, which writes `Fixtures/mirror/`. **B-96b is built on 2026-09-26**: `src/layer_fx.rs`, the Mirror card, `tests/b96_mirror.rs` writing `verification/B-96_mirror_table.md`, 89 of 89, worst 2.5e-7; the owner's playtest is `verification/B-96_mirror_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

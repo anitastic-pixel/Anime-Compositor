@@ -168,6 +168,8 @@ pub enum Stage {
     EffectTwirl,
     /// D-152's bulge, per pixel.
     EffectBulge,
+    /// D-153's mirror, per pixel.
+    EffectMirror,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -185,7 +187,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 68] = [
+    pub const ALL: [Stage; 69] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -247,6 +249,7 @@ impl Stage {
         Stage::EffectRipple,
         Stage::EffectTwirl,
         Stage::EffectBulge,
+        Stage::EffectMirror,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -320,6 +323,7 @@ impl Stage {
             Stage::EffectRipple => "effect: ripple",
             Stage::EffectTwirl => "effect: twirl",
             Stage::EffectBulge => "effect: bulge",
+            Stage::EffectMirror => "effect: mirror",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

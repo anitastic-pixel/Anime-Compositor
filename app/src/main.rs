@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3054,6 +3054,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             radius: 50.0,
             height: 1.0,
         }),
+        // D-153: the line straight down the middle, the right half kept.
+        MIRROR => Some(Effect::Mirror {
+            center: [50.0, 50.0],
+            angle: 0.0,
+        }),
         _ => None,
     }
 }
@@ -3500,6 +3505,10 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             center: pair("center")?,
             radius: number("radius")?,
             height: number("height")?,
+        }),
+        MIRROR => Ok(Effect::Mirror {
+            center: pair("center")?,
+            angle: number("angle")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6396,7 +6405,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.threshold, core.channel_mixer, core.vibrance, \
                              core.leave_color, core.solarize, core.halftone, core.mosaic, \
                              core.emboss, core.find_edges, core.sharpen, core.diffusion, \
-                             core.wave_warp, core.ripple, core.twirl or core.bulge."
+                             core.wave_warp, core.ripple, core.twirl, core.bulge or \
+                             core.mirror."
                                 .to_string(),
                         );
                     };
@@ -6417,7 +6427,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.threshold, core.channel_mixer, core.vibrance, \
                              core.leave_color, core.solarize, core.halftone, core.mosaic, \
                              core.emboss, core.find_edges, core.sharpen, core.diffusion, \
-                             core.wave_warp, core.ripple, core.twirl and core.bulge."
+                             core.wave_warp, core.ripple, core.twirl, core.bulge and \
+                             core.mirror."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10395,7 +10406,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the fifty-two are named",
+            "an effect type this build does not have is refused, and the fifty-three are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -10408,7 +10419,7 @@ mod editing {
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
              core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
              core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion, \
-             core.wave_warp, core.ripple, core.twirl and core.bulge.",
+             core.wave_warp, core.ripple, core.twirl, core.bulge and core.mirror.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10424,7 +10435,7 @@ mod editing {
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
              core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
              core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion, \
-             core.wave_warp, core.ripple, core.twirl or core.bulge.",
+             core.wave_warp, core.ripple, core.twirl, core.bulge or core.mirror.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22879,6 +22890,8 @@ mod contract {
         ("core.twirl", &[("angle", "-270"), ("radius", "120"), ("center", "40,60")]),
         // D-152: the centre and the two numbers.
         ("core.bulge", &[("center", "40,60"), ("radius", "120"), ("height", "-2")]),
+        // D-153: the centre and the angle.
+        ("core.mirror", &[("center", "40,60"), ("angle", "90")]),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

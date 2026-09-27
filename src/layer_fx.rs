@@ -967,3 +967,33 @@ pub(crate) fn bulge(source: &mut WorkingBuffer, radius: f64, height: f64, center
             px.copy_from_slice(&sample_bilinear(&drawing, center.0 + m * vx, center.1 + m * vy));
         });
 }
+
+
+/// D-153: a straight line through `center`, a point in the buffer, turned by `angle` degrees
+/// clockwise from straight up and down. Pixels on its kept side stay exactly; the rest take the
+/// bilinear sample at their reflection across the line. The settings are already valid.
+pub(crate) fn mirror(source: &mut WorkingBuffer, angle: f64, center: (f64, f64)) {
+    // The normal, u(angle + 90) with u(t) = (sin t, -cos t), exact at whole quarter turns.
+    let theta = angle + 90.0;
+    let (nx, ny) = if theta.rem_euclid(90.0) == 0.0 {
+        [(0.0, -1.0), (1.0, 0.0), (0.0, 1.0), (-1.0, 0.0)]
+            [((theta / 90.0).floor() as i64).rem_euclid(4) as usize]
+    } else {
+        let (sin, cos) = theta.to_radians().sin_cos();
+        (sin, -cos)
+    };
+    let w = source.width();
+    let drawing = source.clone();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let d = (x - center.0) * nx + (y - center.1) * ny;
+            if d >= 0.0 {
+                return;
+            }
+            px.copy_from_slice(&sample_bilinear(&drawing, x - 2.0 * d * nx, y - 2.0 * d * ny));
+        });
+}

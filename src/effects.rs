@@ -615,6 +615,9 @@ pub enum Effect {
         radius: f64,
         height: f64,
     },
+    /// D-153: `center`, per cent of the drawing's width and height, -1000 to 1000 each, a point
+    /// on the line; `angle`, -3600 to 3600 degrees, the line's turn from straight up and down.
+    Mirror { center: [f64; 2], angle: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -673,6 +676,7 @@ pub const WAVE_WARP: &str = "core.wave_warp";
 pub const RIPPLE: &str = "core.ripple";
 pub const TWIRL: &str = "core.twirl";
 pub const BULGE: &str = "core.bulge";
+pub const MIRROR: &str = "core.mirror";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1073,6 +1077,10 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 10000.0),
                 ("height", vec![height], -4.0, 4.0),
             ],
+            Effect::Mirror { center, angle } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1244,6 +1252,7 @@ impl Effect {
             Effect::Ripple { .. } => "Ripple",
             Effect::Twirl { .. } => "Twirl",
             Effect::Bulge { .. } => "Bulge",
+            Effect::Mirror { .. } => "Mirror",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1302,6 +1311,7 @@ impl Effect {
             Effect::Ripple { .. } => RIPPLE,
             Effect::Twirl { .. } => TWIRL,
             Effect::Bulge { .. } => BULGE,
+            Effect::Mirror { .. } => MIRROR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2472,6 +2482,13 @@ pub(crate) fn apply_stack_at(
                 let c = radial_center(*center, source, (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectBulge, || {
                     crate::layer_fx::bulge(source, *radius, *height, c)
+                })
+            }
+            // D-153: the centre is a share of the drawing's own size, as Radial Blur's is.
+            Effect::Mirror { center, angle } => {
+                let c = radial_center(*center, source, (ox, oy));
+                crate::perf::time(crate::perf::Stage::EffectMirror, || {
+                    crate::layer_fx::mirror(source, *angle, c)
                 })
             }
         }

@@ -1454,6 +1454,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("radius".into(), num(*radius));
             params.insert("height".into(), num(*height));
         }
+        Effect::Mirror { center, angle } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert("angle".into(), num(*angle));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2726,6 +2733,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::RIPPLE,
                 crate::effects::TWIRL,
                 crate::effects::BULGE,
+                crate::effects::MIRROR,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3075,6 +3083,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     center: effect_array(params, "center", "two numbers, x then y", &at)?,
                     radius: effect_number(params, "radius", &at)?,
                     height: effect_number(params, "height", &at)?,
+                }),
+                crate::effects::MIRROR => Some(crate::effects::Effect::Mirror {
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                    angle: effect_number(params, "angle", &at)?,
                 }),
                 _ => None,
             };

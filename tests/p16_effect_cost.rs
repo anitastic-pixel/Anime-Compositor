@@ -512,6 +512,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 height: 1.0,
             },
         ),
+        (
+            "Mirror, as it starts",
+            Effect::Mirror {
+                center: [50.0, 50.0],
+                angle: 0.0,
+            },
+        ),
     ]
 }
 
