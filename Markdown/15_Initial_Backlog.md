@@ -586,7 +586,7 @@ B-81 / Threshold, D-138, the fifth of the third batch of thirty: every pixel mad
 
 B-82 / Channel Mixer, D-139, the sixth of the third batch of thirty: each colour channel remade from a mix of all three. **B-82a is written on 2026-09-26**: `verification/B-82a proposal/`, D-139 in document 14, the rule in document 21, FX-MIXER-001 to 022 in document 25 from `tools/channel_mixer_reference.py`, which writes `Fixtures/channel_mixer/`. **B-82b is built on 2026-09-26**: `src/grade.rs`, the Channel Mixer card, `tests/b82_channel_mixer.rs` writing `verification/B-82_channel_mixer_table.md`, 85 of 85, worst 1.9e-7; the owner's playtest is `verification/B-82_channel_mixer_playtest.md`.
 
-B-83 / Vibrance, D-140, the seventh of the third batch of thirty: the dull colours made richer while the vivid ones are left nearly alone. **B-83a is written on 2026-09-26**: `verification/B-83a proposal/`, D-140 in document 14, the rule in document 21, FX-VIBRANCE-001 to 018 in document 25 from `tools/vibrance_reference.py`, which writes `Fixtures/vibrance/`. **B-83b, the build, is next.**
+B-83 / Vibrance, D-140, the seventh of the third batch of thirty: the dull colours made richer while the vivid ones are left nearly alone. **B-83a is written on 2026-09-26**: `verification/B-83a proposal/`, D-140 in document 14, the rule in document 21, FX-VIBRANCE-001 to 018 in document 25 from `tools/vibrance_reference.py`, which writes `Fixtures/vibrance/`. **B-83b is built on 2026-09-26**: `src/grade.rs`, the Vibrance card, `tests/b83_vibrance.rs` writing `verification/B-83_vibrance_table.md`, 72 of 72, worst 2.2e-7; the owner's playtest is `verification/B-83_vibrance_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

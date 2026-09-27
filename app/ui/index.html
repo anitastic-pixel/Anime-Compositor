@@ -1019,6 +1019,7 @@
         <option value="core.posterize">Posterize</option>
         <option value="core.threshold">Threshold</option>
         <option value="core.channel_mixer">Channel Mixer</option>
+        <option value="core.vibrance">Vibrance</option>
       </select>
     </div>
   </section>
@@ -6447,6 +6448,7 @@ const EFFECT_NAMES = {
   'core.posterize': 'Posterize',
   'core.threshold': 'Threshold',
   'core.channel_mixer': 'Channel Mixer',
+  'core.vibrance': 'Vibrance',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6596,6 +6598,8 @@ const EFFECT_PARAMS = {
   'core.channel_mixer': [['red', 'Red', 4, 1, 'from red, green, blue and a constant, -200 to 200'],
     ['green', 'Green', 4, 1, 'from red, green, blue and a constant, -200 to 200'],
     ['blue', 'Blue', 4, 1, 'from red, green, blue and a constant, -200 to 200']],
+  // D-140.
+  'core.vibrance': [['vibrance', 'Vibrance', 1, 1, '-100 to 100, the dull colours moved most'], ['saturation', 'Saturation', 1, 1, '-100 all grey to 100 twice as far from grey']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

@@ -1335,6 +1335,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             params.insert("monochrome".into(), J::from(monochrome.as_str()));
         }
+        Effect::Vibrance { vibrance, saturation } => {
+            params.insert("vibrance".into(), num(*vibrance));
+            params.insert("saturation".into(), num(*saturation));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1765,6 +1769,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "red",
         "green",
         "blue",
+        "vibrance",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2587,6 +2592,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::POSTERIZE,
                 crate::effects::THRESHOLD,
                 crate::effects::CHANNEL_MIXER,
+                crate::effects::VIBRANCE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2865,6 +2871,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     green: effect_list(params, "green", &at)?,
                     blue: effect_list(params, "blue", &at)?,
                     monochrome: effect_word(params, "monochrome", &at)?,
+                }),
+                crate::effects::VIBRANCE => Some(crate::effects::Effect::Vibrance {
+                    vibrance: effect_number(params, "vibrance", &at)?,
+                    saturation: effect_number(params, "saturation", &at)?,
                 }),
                 _ => None,
             };

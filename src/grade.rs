@@ -580,3 +580,17 @@ pub(crate) fn channel_mixer(source: &mut WorkingBuffer, rows: [[f64; 4]; 3], mon
         })
     })
 }
+
+/// D-140: colours pushed from or toward their grey, the dull ones more by `vibrance`, all alike
+/// by `saturation`.
+pub(crate) fn vibrance(source: &mut WorkingBuffer, vibrance: f64, saturation: f64) {
+    if vibrance == 0.0 && saturation == 0.0 {
+        return;
+    }
+    grade_pixels(source, false, |_, e| {
+        let l = luma(e);
+        let s = e[0].max(e[1]).max(e[2]) - e[0].min(e[1]).min(e[2]);
+        let k = 1.0 + saturation / 100.0 + vibrance / 100.0 * (1.0 - s);
+        e.map(|v| l + (v - l) * k)
+    })
+}

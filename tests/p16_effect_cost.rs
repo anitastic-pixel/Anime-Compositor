@@ -406,6 +406,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 monochrome: "off".to_string(),
             },
         ),
+        (
+            "Vibrance, an everyday grade",
+            Effect::Vibrance {
+                vibrance: 40.0,
+                saturation: 20.0,
+            },
+        ),
     ]
 }
 

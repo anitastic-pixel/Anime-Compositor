@@ -509,6 +509,12 @@ pub enum Effect {
         blue: Vec<f64>,
         monochrome: String,
     },
+    /// D-140: `vibrance`, -100 to 100, the dull colours moved from their grey most and the vivid
+    /// ones least; `saturation`, -100 to 100, every colour moved alike.
+    Vibrance {
+        vibrance: f64,
+        saturation: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -554,6 +560,7 @@ pub const BLACK_WHITE: &str = "core.black_white";
 pub const POSTERIZE: &str = "core.posterize";
 pub const THRESHOLD: &str = "core.threshold";
 pub const CHANNEL_MIXER: &str = "core.channel_mixer";
+pub const VIBRANCE: &str = "core.vibrance";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -861,6 +868,10 @@ impl Effect {
                 ("green", green.iter_mut().collect(), -200.0, 200.0),
                 ("blue", blue.iter_mut().collect(), -200.0, 200.0),
             ],
+            Effect::Vibrance { vibrance, saturation } => vec![
+                ("vibrance", vec![vibrance], -100.0, 100.0),
+                ("saturation", vec![saturation], -100.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -996,6 +1007,7 @@ impl Effect {
             Effect::Posterize { .. } => "Posterize",
             Effect::Threshold { .. } => "Threshold",
             Effect::ChannelMixer { .. } => "Channel Mixer",
+            Effect::Vibrance { .. } => "Vibrance",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1041,6 +1053,7 @@ impl Effect {
             Effect::Posterize { .. } => POSTERIZE,
             Effect::Threshold { .. } => THRESHOLD,
             Effect::ChannelMixer { .. } => CHANNEL_MIXER,
+            Effect::Vibrance { .. } => VIBRANCE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2080,6 +2093,11 @@ pub(crate) fn apply_stack_at(
                 let row = |r: &[f64]| [r[0], r[1], r[2], r[3]];
                 crate::grade::channel_mixer(source, [row(red), row(green), row(blue)], monochrome == "on")
             }),
+            Effect::Vibrance { vibrance, saturation } => {
+                crate::perf::time(crate::perf::Stage::EffectVibrance, || {
+                    crate::grade::vibrance(source, *vibrance, *saturation)
+                })
+            }
         }
     }
     (ox, oy)
