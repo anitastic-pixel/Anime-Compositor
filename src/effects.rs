@@ -360,6 +360,16 @@ pub enum Effect {
     /// D-120: `amount`, 0 to 100 pixels, how far red and blue each move at the drawing's
     /// corner; and `center`, per cent of the drawing's width and height, -1000 to 1000.
     ChromaticAberration { amount: f64, center: [f64; 2] },
+    /// D-123: `color`, `#rrggbb`; `width`, 0 to 1000 pixels in from the edge; `opacity`, 0 to
+    /// 100; `invert`, "off" or "on"; and `blend`, "normal", "multiply", "screen" or "add". The
+    /// words and the colour are kept as written, so a wrong one is reported.
+    DistanceGradation {
+        color: String,
+        width: f64,
+        opacity: f64,
+        invert: String,
+        blend: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -389,6 +399,7 @@ pub const RIM_LIGHT: &str = "core.rim_light";
 pub const OUTLINE: &str = "core.outline";
 pub const NOISE: &str = "core.noise";
 pub const CHROMATIC_ABERRATION: &str = "core.chromatic_aberration";
+pub const DISTANCE_GRADATION: &str = "core.distance_gradation";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -579,6 +590,10 @@ impl Effect {
                 ("amount", vec![amount], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
+            Effect::DistanceGradation { width, opacity, .. } => vec![
+                ("width", vec![width], 0.0, 1000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -637,6 +652,7 @@ impl Effect {
                 *length = scale(*length);
             }
             Effect::ChromaticAberration { amount, .. } => *amount = scale(*amount),
+            Effect::DistanceGradation { width, .. } => *width = scale(*width),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -686,6 +702,7 @@ impl Effect {
             Effect::Outline { .. } => "Outline",
             Effect::Noise { .. } => "Noise",
             Effect::ChromaticAberration { .. } => "Chromatic Aberration",
+            Effect::DistanceGradation { .. } => "Distance Gradation",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -715,6 +732,7 @@ impl Effect {
             Effect::Outline { .. } => OUTLINE,
             Effect::Noise { .. } => NOISE,
             Effect::ChromaticAberration { .. } => CHROMATIC_ABERRATION,
+            Effect::DistanceGradation { .. } => DISTANCE_GRADATION,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -983,6 +1001,22 @@ impl Effect {
             Effect::Noise { animate, .. } if animate != "on" && animate != "off" => Some(format!(
                 "Noise's animate is \"on\" or \"off\", and this is \"{animate}\"."
             )),
+            Effect::DistanceGradation { invert, .. } if invert != "off" && invert != "on" => {
+                Some(format!(
+                    "Distance Gradation's invert is \"off\" or \"on\", and this is \"{invert}\"."
+                ))
+            }
+            Effect::DistanceGradation { blend, .. }
+                if !["normal", "multiply", "screen", "add"].contains(&blend.as_str()) =>
+            {
+                Some(format!(
+                    "Distance Gradation's blend is \"normal\", \"multiply\", \"screen\" or \
+                     \"add\", and this is \"{blend}\"."
+                ))
+            }
+            Effect::DistanceGradation { color, .. } => {
+                hex_fault("Distance Gradation", "colour", color)
+            }
             _ => None,
         };
         own.or_else(|| {
@@ -1476,6 +1510,22 @@ pub(crate) fn apply_stack_at(
                     crate::layer_fx::chromatic_aberration(source, *amount, *center, (ox, oy))
                 })
             }
+            Effect::DistanceGradation {
+                color,
+                width,
+                opacity,
+                invert,
+                blend,
+            } => crate::perf::time(crate::perf::Stage::EffectDistanceGradation, || {
+                crate::layer_fx::distance_gradation(
+                    source,
+                    encoded(color),
+                    *width,
+                    *opacity,
+                    invert == "on",
+                    blend,
+                )
+            }),
         }
     }
     (ox, oy)

@@ -133,5 +133,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - amount, mode, seed, animate - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.chromatic_aberration` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, center - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.distance_gradation` is an effect this build has | added | added | pass |
+| and the settings it sends for it - width, opacity, color, invert, blend - are the ones the command reads | accepted | accepted | pass |
 
-**113 of 113 checks pass.**
+**115 of 115 checks pass.**

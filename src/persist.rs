@@ -1170,6 +1170,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 J::Array(center.iter().map(|c| num(*c)).collect()),
             );
         }
+        Effect::DistanceGradation {
+            color,
+            width,
+            opacity,
+            invert,
+            blend,
+        } => {
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("width".into(), num(*width));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("invert".into(), J::from(invert.as_str()));
+            params.insert("blend".into(), J::from(blend.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2370,6 +2383,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::OUTLINE,
                 crate::effects::NOISE,
                 crate::effects::CHROMATIC_ABERRATION,
+                crate::effects::DISTANCE_GRADATION,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2534,6 +2548,16 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     Some(crate::effects::Effect::ChromaticAberration {
                         amount: effect_number(params, "amount", &at)?,
                         center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                    })
+                }
+                // D-123: the colour is read in small letters, as a new colour is.
+                crate::effects::DISTANCE_GRADATION => {
+                    Some(crate::effects::Effect::DistanceGradation {
+                        color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                        width: effect_number(params, "width", &at)?,
+                        opacity: effect_number(params, "opacity", &at)?,
+                        invert: effect_word(params, "invert", &at)?,
+                        blend: effect_word(params, "blend", &at)?,
                     })
                 }
                 _ => None,

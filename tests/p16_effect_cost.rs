@@ -272,6 +272,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 center: [50.0, 50.0],
             },
         ),
+        (
+            "Distance Gradation, width 10",
+            Effect::DistanceGradation {
+                color: "#6450a0".to_string(),
+                width: 10.0,
+                opacity: 50.0,
+                invert: "off".to_string(),
+                blend: "multiply".to_string(),
+            },
+        ),
     ]
 }
 

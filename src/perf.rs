@@ -110,6 +110,8 @@ pub enum Stage {
     EffectNoise,
     /// D-120's chromatic aberration, whole-layer, per ADR-017.
     EffectChromaticAberration,
+    /// D-123's distance gradation, whole-layer, per ADR-017.
+    EffectDistanceGradation,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -127,7 +129,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 39] = [
+    pub const ALL: [Stage; 40] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -160,6 +162,7 @@ impl Stage {
         Stage::EffectOutline,
         Stage::EffectNoise,
         Stage::EffectChromaticAberration,
+        Stage::EffectDistanceGradation,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -204,6 +207,7 @@ impl Stage {
             Stage::EffectOutline => "effect: outline",
             Stage::EffectNoise => "effect: noise",
             Stage::EffectChromaticAberration => "effect: chromatic aberration",
+            Stage::EffectDistanceGradation => "effect: distance gradation",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

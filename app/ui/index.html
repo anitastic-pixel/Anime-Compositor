@@ -1003,6 +1003,7 @@
         <option value="core.outline">Outline</option>
         <option value="core.noise">Noise</option>
         <option value="core.chromatic_aberration">Chromatic Aberration</option>
+        <option value="core.distance_gradation">Distance Gradation</option>
       </select>
     </div>
   </section>
@@ -6415,6 +6416,7 @@ const EFFECT_NAMES = {
   'core.outline': 'Outline',
   'core.noise': 'Noise',
   'core.chromatic_aberration': 'Chromatic Aberration',
+  'core.distance_gradation': 'Distance Gradation',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6504,6 +6506,9 @@ const EFFECT_PARAMS = {
   // D-120.
   'core.chromatic_aberration': [['amount', 'Amount', 1, 0.5, 'pixels at the corner, 0 to 100'],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000']],
+  // D-123.
+  'core.distance_gradation': [['width', 'Width', 1, 0.5, 'pixels in from the edge, 0 to 1000'],
+    ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6575,6 +6580,12 @@ const EFFECT_WORDS = {
   'core.noise': {
     choices: [['mode', 'Mode', [['mono', 'Mono'], ['color', 'Colour']]],
       ['animate', 'Animate', [['on', 'On'], ['off', 'Off']]]],
+  },
+  // D-123.
+  'core.distance_gradation': {
+    choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
+      ['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
+    colours: [['color', 'Colour']],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.

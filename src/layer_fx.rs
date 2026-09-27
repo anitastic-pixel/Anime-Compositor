@@ -1,5 +1,6 @@
 //! D-115's drop shadow, D-116's lens blur, D-117's rim light, D-118's outline and D-120's
-//! chromatic aberration: document 21's rules, on a layer's own pixels.
+//! chromatic aberration, and D-123's distance gradation, D-124's light rays, D-127's turbulent
+//! displace and D-131's offset: document 21's rules, on a layer's own pixels.
 //!
 //! This program's own methods, modelled on After Effects' Drop Shadow, Camera Lens Blur,
 //! Stroke and Optics Compensation and on rim lighting as compositors build it from a shifted
@@ -424,5 +425,206 @@ pub(crate) fn chromatic_aberration(
             px[0] = red[0];
             px[2] = blue[2];
             px[3] = px[3].max(red[3]).max(blue[3]);
+        });
+}
+
+/// D-123: each place's squared distance along a line to the nearest place where `f` is 0, the
+/// lower envelope of the parabolas rooted there (Felzenszwalb and Huttenlocher's pass). Every
+/// other place holds a number far past any distance.
+fn squared_distances(f: &[f64]) -> Vec<f64> {
+    let n = f.len();
+    let (mut v, mut z) = (vec![0usize; n], vec![0.0; n + 1]);
+    let mut k = 0;
+    z[0] = f64::NEG_INFINITY;
+    z[1] = f64::INFINITY;
+    let root = |q: usize| f[q] + (q * q) as f64;
+    for q in 1..n {
+        loop {
+            let s = (root(q) - root(v[k])) / (2 * (q - v[k])) as f64;
+            if s <= z[k] {
+                k -= 1;
+                continue;
+            }
+            k += 1;
+            v[k] = q;
+            z[k] = s;
+            z[k + 1] = f64::INFINITY;
+            break;
+        }
+    }
+    k = 0;
+    (0..n)
+        .map(|q| {
+            while z[k + 1] < q as f64 {
+                k += 1;
+            }
+            let d = q as f64 - v[k] as f64;
+            d * d + f[v[k]]
+        })
+        .collect()
+}
+
+/// D-123: `color` (encoded 0 to 1) shading in from the edge of the covering, all of `opacity`
+/// per cent at the edge and none `width` pixels in, or the other way round with `invert`, mixed
+/// by its blend. The edge is every pixel less than half covered and every place past the
+/// buffer; distances are between pixel centres. The settings are already valid; width 0 changes
+/// nothing.
+pub(crate) fn distance_gradation(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    width: f64,
+    opacity: f64,
+    invert: bool,
+    blend: &str,
+) {
+    if width == 0.0 || opacity == 0.0 {
+        return;
+    }
+    // The buffer inside a ring of edge pixels, one wide: no place past the buffer is nearer a
+    // pixel than the ring is.
+    let (w, h) = (source.width(), source.height());
+    let (pw, ph) = (w + 2, h + 2);
+    let far = 1e20;
+    let drawing = &*source;
+    let columns: Vec<Vec<f64>> = (0..pw)
+        .into_par_iter()
+        .map(|x| {
+            let f: Vec<f64> = (0..ph)
+                .map(|y| {
+                    let inside = x >= 1 && y >= 1 && x <= w && y <= h;
+                    if inside && drawing.pixel(x - 1, y - 1)[3] >= 0.5 { far } else { 0.0 }
+                })
+                .collect();
+            squared_distances(&f)
+        })
+        .collect();
+    let (g, mix) = (color.map(crate::grade::to_linear), crate::grade::mixer(blend));
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            let d = squared_distances(&(0..pw).map(|x| columns[x][y + 1]).collect::<Vec<_>>());
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3] as f64;
+                if a <= 0.0 {
+                    continue;
+                }
+                let t = (1.0 - (d[x + 1].sqrt() - 0.5) / width).clamp(0.0, 1.0);
+                let o = if invert { 1.0 - t } else { t } * opacity / 100.0;
+                for c in 0..3 {
+                    let b = px[c] as f64 / a;
+                    px[c] = ((b + o * (mix(b, g[c]) - b)) * a) as f32;
+                }
+            }
+        });
+}
+
+/// D-124: the pixels D-89's bright test lights, zoomed out from `center` (in the buffer's
+/// pixels) by Radial Blur's zoom at `length`, in `color` (encoded 0 to 1) at `intensity`,
+/// added over the drawing. The rays stop at the buffer's edge. The settings are already valid;
+/// intensity 0 changes nothing.
+pub(crate) fn light_rays(
+    source: &mut WorkingBuffer,
+    center: (f64, f64),
+    length: f64,
+    threshold: f64,
+    intensity: f64,
+    color: [f64; 3],
+) {
+    if intensity == 0.0 {
+        return;
+    }
+    let mut rays = source.clone();
+    rays.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        if !crate::bloom::bright(px, threshold) {
+            px.fill(0.0);
+        }
+    });
+    crate::blurs::radial_blur(&mut rays, false, length, center, false);
+    let c = color.map(crate::grade::to_linear);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(rays.data().par_chunks_exact(4))
+        .for_each(|(px, r)| {
+            for k in 0..3 {
+                px[k] = (px[k] as f64 + intensity * c[k] * r[k] as f64) as f32;
+            }
+            px[3] = (px[3] as f64 + intensity * r[3] as f64).min(1.0) as f32;
+        });
+}
+
+/// D-127: each pixel read from a place pushed up to `amount` pixels by two channels of D-128's
+/// fractal field, `size` pixels a cell, `octaves` deep at depth `z`, fixed to the drawing's own
+/// space (its corner at `origin` in `source`). With transparent edges the layer first grows by
+/// the amount rounded up, returned; with `repeat` a place past the edge reads the edge. The
+/// settings are already valid; amount 0 changes nothing.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn turbulent_displace(
+    source: &mut WorkingBuffer,
+    amount: f64,
+    size: f64,
+    octaves: usize,
+    seed: f64,
+    z: f64,
+    repeat: bool,
+    origin: (usize, usize),
+) -> usize {
+    if amount == 0.0 {
+        return 0;
+    }
+    let g = if repeat { 0 } else { amount.ceil() as usize };
+    let (w, h) = (source.width() + 2 * g, source.height() + 2 * g);
+    let (ox, oy) = ((origin.0 + g) as f64, (origin.1 + g) as f64);
+    let base = crate::grade::mix(seed.floor() as u64);
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let p = ((x - ox) / size, (y - oy) / size, z);
+            let mut sx = x + amount * crate::grade::fractal(base, 0, p, octaves);
+            let mut sy = y + amount * crate::grade::fractal(base, 1, p, octaves);
+            if repeat {
+                sx = sx.clamp(0.5, w as f64 - 0.5);
+                sy = sy.clamp(0.5, h as f64 - 0.5);
+            }
+            px.copy_from_slice(&sample_bilinear(drawing, sx - g as f64, sy - g as f64));
+        });
+    *source = out;
+    g
+}
+
+/// D-131: the whole buffer slid by `shift` pixels, what leaves one edge coming back in at the
+/// other, read between pixels as bilinear sampling reads them. A whole-pixel shift moves the
+/// pixels exactly. The settings are already valid.
+pub(crate) fn offset(source: &mut WorkingBuffer, shift: [f64; 2]) {
+    let (w, h) = (source.width(), source.height());
+    if shift == [0.0, 0.0] || w == 0 || h == 0 {
+        return;
+    }
+    let (qx, qy) = (-shift[0], -shift[1]);
+    let (i0, j0) = (qx.floor(), qy.floor());
+    let (fx, fy) = (qx - i0, qy - j0);
+    let (i0, j0) = (i0 as i64, j0 as i64);
+    let drawing = source.clone();
+    let p = |x: i64, y: i64| {
+        drawing.pixel(x.rem_euclid(w as i64) as usize, y.rem_euclid(h as i64) as usize)
+    };
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as i64 + i0, (i / w) as i64 + j0);
+            let [a, b, c, d] = [p(x, y), p(x + 1, y), p(x, y + 1), p(x + 1, y + 1)];
+            for k in 0..4 {
+                let top = (1.0 - fx) * a[k] as f64 + fx * b[k] as f64;
+                let bottom = (1.0 - fx) * c[k] as f64 + fx * d[k] as f64;
+                px[k] = ((1.0 - fy) * top + fy * bottom) as f32;
+            }
         });
 }
