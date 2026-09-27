@@ -370,6 +370,16 @@ pub enum Effect {
         invert: String,
         blend: String,
     },
+    /// D-124: `center`, per cent of the drawing's width and height, -1000 to 1000; `length`,
+    /// 0 to 100 per cent of the way to the centre; `threshold`, 0 to 100, D-89's bright test;
+    /// `intensity`, 0 to 10; and `color`, `#rrggbb`, kept as written so a wrong one is reported.
+    LightRays {
+        center: [f64; 2],
+        length: f64,
+        threshold: f64,
+        intensity: f64,
+        color: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -400,6 +410,7 @@ pub const OUTLINE: &str = "core.outline";
 pub const NOISE: &str = "core.noise";
 pub const CHROMATIC_ABERRATION: &str = "core.chromatic_aberration";
 pub const DISTANCE_GRADATION: &str = "core.distance_gradation";
+pub const LIGHT_RAYS: &str = "core.light_rays";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -594,6 +605,18 @@ impl Effect {
                 ("width", vec![width], 0.0, 1000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::LightRays {
+                center,
+                length,
+                threshold,
+                intensity,
+                ..
+            } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("length", vec![length], 0.0, 100.0),
+                ("threshold", vec![threshold], 0.0, 100.0),
+                ("intensity", vec![intensity], 0.0, 10.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -703,6 +726,7 @@ impl Effect {
             Effect::Noise { .. } => "Noise",
             Effect::ChromaticAberration { .. } => "Chromatic Aberration",
             Effect::DistanceGradation { .. } => "Distance Gradation",
+            Effect::LightRays { .. } => "Light Rays",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -733,6 +757,7 @@ impl Effect {
             Effect::Noise { .. } => NOISE,
             Effect::ChromaticAberration { .. } => CHROMATIC_ABERRATION,
             Effect::DistanceGradation { .. } => DISTANCE_GRADATION,
+            Effect::LightRays { .. } => LIGHT_RAYS,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1017,6 +1042,7 @@ impl Effect {
             Effect::DistanceGradation { color, .. } => {
                 hex_fault("Distance Gradation", "colour", color)
             }
+            Effect::LightRays { color, .. } => hex_fault("Light Rays", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -1526,6 +1552,26 @@ pub(crate) fn apply_stack_at(
                     blend,
                 )
             }),
+            // D-124: the centre is a share of the drawing's own size, as Radial Blur's is.
+            Effect::LightRays {
+                center,
+                length,
+                threshold,
+                intensity,
+                color,
+            } => {
+                let c = radial_center(*center, source, (ox, oy));
+                crate::perf::time(crate::perf::Stage::EffectLightRays, || {
+                    crate::layer_fx::light_rays(
+                        source,
+                        c,
+                        *length,
+                        *threshold,
+                        *intensity,
+                        encoded(color),
+                    )
+                })
+            }
         }
     }
     (ox, oy)

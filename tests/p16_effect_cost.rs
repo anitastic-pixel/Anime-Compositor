@@ -282,6 +282,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 blend: "multiply".to_string(),
             },
         ),
+        (
+            "Light Rays, length 50",
+            Effect::LightRays {
+                center: [50.0, 50.0],
+                length: 50.0,
+                threshold: 70.0,
+                intensity: 1.0,
+                color: "#ffffff".to_string(),
+            },
+        ),
     ]
 }
 

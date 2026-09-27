@@ -1183,6 +1183,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("blend".into(), J::from(blend.as_str()));
         }
+        Effect::LightRays {
+            center,
+            length,
+            threshold,
+            intensity,
+            color,
+        } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert("length".into(), num(*length));
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("color".into(), J::from(color.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2384,6 +2400,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::NOISE,
                 crate::effects::CHROMATIC_ABERRATION,
                 crate::effects::DISTANCE_GRADATION,
+                crate::effects::LIGHT_RAYS,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2560,6 +2577,14 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                         blend: effect_word(params, "blend", &at)?,
                     })
                 }
+                // D-124: the colour is read in small letters, as a new colour is.
+                crate::effects::LIGHT_RAYS => Some(crate::effects::Effect::LightRays {
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                    length: effect_number(params, "length", &at)?,
+                    threshold: effect_number(params, "threshold", &at)?,
+                    intensity: effect_number(params, "intensity", &at)?,
+                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                }),
                 _ => None,
             };
             // P-17: keys on a setting this effect does not have are not its keys. The record

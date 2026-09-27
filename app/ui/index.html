@@ -1004,6 +1004,7 @@
         <option value="core.noise">Noise</option>
         <option value="core.chromatic_aberration">Chromatic Aberration</option>
         <option value="core.distance_gradation">Distance Gradation</option>
+        <option value="core.light_rays">Light Rays</option>
       </select>
     </div>
   </section>
@@ -6417,6 +6418,7 @@ const EFFECT_NAMES = {
   'core.noise': 'Noise',
   'core.chromatic_aberration': 'Chromatic Aberration',
   'core.distance_gradation': 'Distance Gradation',
+  'core.light_rays': 'Light Rays',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6509,6 +6511,11 @@ const EFFECT_PARAMS = {
   // D-123.
   'core.distance_gradation': [['width', 'Width', 1, 0.5, 'pixels in from the edge, 0 to 1000'],
     ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
+  // D-124: the centre as a share of the drawing, as Radial Blur's is.
+  'core.light_rays': [['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['length', 'Length', 1, 0.5, '% of the way to the centre, 0 to 100'],
+    ['threshold', 'Threshold', 1, 0.5, '0 to 100'],
+    ['intensity', 'Intensity', 1, 0.02, '0 to 10']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6587,6 +6594,8 @@ const EFFECT_WORDS = {
       ['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
     colours: [['color', 'Colour']],
   },
+  // D-124.
+  'core.light_rays': { colours: [['color', 'Colour']] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();
