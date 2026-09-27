@@ -626,6 +626,8 @@ B-101 / Iris Wipe, D-158, the twenty-fifth of the third batch of thirty: a circl
 
 B-102 / Simple Choker, D-159, the twenty-sixth of the third batch of thirty: the covering's edge shrunk or spread by a few pixels. **B-102a is written on 2026-09-26**: `verification/B-102a proposal/`, D-159 in document 14, the rule in document 21, FX-CHOKE-001 to 017 in document 25 from `tools/simple_choker_reference.py`, which writes `Fixtures/simple_choker/`. **B-102b is built on 2026-09-26**: `src/layer_fx.rs`, the Simple Choker card, `tests/b102_simple_choker.rs` writing `verification/B-102_simple_choker_table.md`, 70 of 70, worst 2e-7; the owner's playtest is `verification/B-102_simple_choker_playtest.md`.
 
+B-103 / Speed Lines, D-160, the twenty-seventh of the third batch of thirty: manga focus lines rushing in toward a point. **B-103a is written on 2026-09-26**: `verification/B-103a proposal/`, D-160 in document 14, the rule in document 21, FX-SPEED-001 to 029 in document 25 from `tools/speed_lines_reference.py`, which writes `Fixtures/speed_lines/`. **B-103b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
