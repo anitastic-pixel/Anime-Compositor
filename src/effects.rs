@@ -607,6 +607,14 @@ pub enum Effect {
         radius: f64,
         center: [f64; 2],
     },
+    /// D-152: `center`, per cent of the drawing's width and height, -1000 to 1000 each;
+    /// `radius`, 0 to 10000 pixels, how far out it reaches; `height`, -4 to 4, a swell above 0
+    /// and a pinch below.
+    Bulge {
+        center: [f64; 2],
+        radius: f64,
+        height: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -664,6 +672,7 @@ pub const DIFFUSION: &str = "core.diffusion";
 pub const WAVE_WARP: &str = "core.wave_warp";
 pub const RIPPLE: &str = "core.ripple";
 pub const TWIRL: &str = "core.twirl";
+pub const BULGE: &str = "core.bulge";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1055,6 +1064,15 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 10000.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
+            Effect::Bulge {
+                center,
+                radius,
+                height,
+            } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("radius", vec![radius], 0.0, 10000.0),
+                ("height", vec![height], -4.0, 4.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1143,6 +1161,7 @@ impl Effect {
                 *fade = scale(*fade);
             }
             Effect::Twirl { radius, .. } => *radius = scale(*radius),
+            Effect::Bulge { radius, .. } => *radius = scale(*radius),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -1224,6 +1243,7 @@ impl Effect {
             Effect::WaveWarp { .. } => "Wave Warp",
             Effect::Ripple { .. } => "Ripple",
             Effect::Twirl { .. } => "Twirl",
+            Effect::Bulge { .. } => "Bulge",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1281,6 +1301,7 @@ impl Effect {
             Effect::WaveWarp { .. } => WAVE_WARP,
             Effect::Ripple { .. } => RIPPLE,
             Effect::Twirl { .. } => TWIRL,
+            Effect::Bulge { .. } => BULGE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2440,6 +2461,17 @@ pub(crate) fn apply_stack_at(
                 let c = radial_center(*center, source, (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectTwirl, || {
                     crate::layer_fx::twirl(source, *angle, *radius, c)
+                })
+            }
+            // D-152: the centre is a share of the drawing's own size, as Radial Blur's is.
+            Effect::Bulge {
+                center,
+                radius,
+                height,
+            } => {
+                let c = radial_center(*center, source, (ox, oy));
+                crate::perf::time(crate::perf::Stage::EffectBulge, || {
+                    crate::layer_fx::bulge(source, *radius, *height, c)
                 })
             }
         }

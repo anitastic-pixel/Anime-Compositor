@@ -1442,6 +1442,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 J::Array(center.iter().map(|c| num(*c)).collect()),
             );
         }
+        Effect::Bulge {
+            center,
+            radius,
+            height,
+        } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert("radius".into(), num(*radius));
+            params.insert("height".into(), num(*height));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2713,6 +2725,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::WAVE_WARP,
                 crate::effects::RIPPLE,
                 crate::effects::TWIRL,
+                crate::effects::BULGE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3057,6 +3070,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     angle: effect_number(params, "angle", &at)?,
                     radius: effect_number(params, "radius", &at)?,
                     center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                }),
+                crate::effects::BULGE => Some(crate::effects::Effect::Bulge {
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                    radius: effect_number(params, "radius", &at)?,
+                    height: effect_number(params, "height", &at)?,
                 }),
                 _ => None,
             };

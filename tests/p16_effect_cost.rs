@@ -504,6 +504,14 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 center: [50.0, 50.0],
             },
         ),
+        (
+            "Bulge, as it starts",
+            Effect::Bulge {
+                center: [50.0, 50.0],
+                radius: 50.0,
+                height: 1.0,
+            },
+        ),
     ]
 }
 

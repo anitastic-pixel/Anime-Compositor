@@ -940,3 +940,30 @@ pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center:
             px.copy_from_slice(&sample_bilinear(&drawing, center.0 + sx, center.1 + sy));
         });
 }
+
+
+/// D-152: each pixel within `radius` of `center`, a point in the buffer, read from a place
+/// drawn toward the centre when `height` is above 0, a swell, or pushed away from it when
+/// below, a pinch, most at the middle. The settings are already valid.
+pub(crate) fn bulge(source: &mut WorkingBuffer, radius: f64, height: f64, center: (f64, f64)) {
+    if height == 0.0 || radius <= 0.0 {
+        return;
+    }
+    let w = source.width();
+    let drawing = source.clone();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (vx, vy) = (x - center.0, y - center.1);
+            let d = vx.hypot(vy);
+            if d >= radius {
+                return;
+            }
+            let t = 1.0 - d / radius;
+            let m = (1.0 - height * t * t / 2.0).max(0.0);
+            px.copy_from_slice(&sample_bilinear(&drawing, center.0 + m * vx, center.1 + m * vy));
+        });
+}

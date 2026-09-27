@@ -610,7 +610,7 @@ B-93 / Ripple, D-150, the seventeenth of the third batch of thirty: rings spread
 
 B-94 / Twirl, D-151, the eighteenth of the third batch of thirty: the picture twisted round a point, most at the middle. **B-94a is written on 2026-09-26**: `verification/B-94a proposal/`, D-151 in document 14, the rule in document 21, FX-TWIRL-001 to 021 in document 25 from `tools/twirl_reference.py`, which writes `Fixtures/twirl/`. **B-94b is built on 2026-09-26**: `src/layer_fx.rs`, the Twirl card, `tests/b94_twirl.rs` writing `verification/B-94_twirl_table.md`, 85 of 85, worst 2.7e-7; the owner's playtest is `verification/B-94_twirl_playtest.md`.
 
-B-95 / Bulge, D-152, the nineteenth of the third batch of thirty: the picture swelled or pinched round a point. **B-95a is written on 2026-09-26**: `verification/B-95a proposal/`, D-152 in document 14, the rule in document 21, FX-BULGE-001 to 023 in document 25 from `tools/bulge_reference.py`, which writes `Fixtures/bulge/`. **B-95b, the build, is next.**
+B-95 / Bulge, D-152, the nineteenth of the third batch of thirty: the picture swelled or pinched round a point. **B-95a is written on 2026-09-26**: `verification/B-95a proposal/`, D-152 in document 14, the rule in document 21, FX-BULGE-001 to 023 in document 25 from `tools/bulge_reference.py`, which writes `Fixtures/bulge/`. **B-95b is built on 2026-09-26**: `src/layer_fx.rs`, the Bulge card, `tests/b95_bulge.rs` writing `verification/B-95_bulge_table.md`, 88 of 88, worst 3.1e-7; the owner's playtest is `verification/B-95_bulge_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
