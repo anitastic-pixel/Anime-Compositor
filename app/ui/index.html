@@ -6654,12 +6654,12 @@ const EFFECT_PARAMS = {
   'core.solarize': [['threshold', 'Threshold', 1, 1, 'a channel of 255 at or above it is turned over, 0 to 255']],
   // D-143.
   'core.halftone': [['size', 'Size', 1, 1, 'pixels between dots, 2 to 200'],
-    ['angle', 'Angle', 1, 1, 'degrees the rows of dots are turned'],
+    ['angle', 'Angle', 1, 1, 'degrees the rows of dots are turned', 'dial'],
     ['amount', 'Amount', 1, 1, '0 to 100, how strongly the dots are laid over']],
   // D-144.
   'core.mosaic': [['size', 'Size', 1, 1, 'pixels across each block, 1 to 1000']],
   // D-145.
-  'core.emboss': [['direction', 'Direction', 1, 1, 'degrees clockwise from up, toward the lit side'],
+  'core.emboss': [['direction', 'Direction', 1, 1, 'degrees clockwise from up, toward the lit side', 'dial'],
     ['relief', 'Relief', 1, 0.5, 'pixels, 0 to 100, how wide the ridges are'],
     ['contrast', 'Contrast', 1, 1, '0 to 1000, how strongly the ridges show']],
   // D-146.
@@ -6673,7 +6673,7 @@ const EFFECT_PARAMS = {
   // D-149.
   'core.wave_warp': [['height', 'Height', 1, 0.5, 'pixels, 0 to 1000, how far the wave pushes'],
     ['width', 'Width', 1, 1, 'pixels, 1 to 10000, how long one wave is'],
-    ['direction', 'Direction', 1, 1, 'degrees clockwise from up, the way the wave runs'],
+    ['direction', 'Direction', 1, 1, 'degrees clockwise from up, the way the wave runs', 'dial'],
     ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360'],
     ['phase', 'Phase', 1, 1, 'degrees']],
   // D-150.
@@ -6684,7 +6684,7 @@ const EFFECT_PARAMS = {
     ['phase', 'Phase', 1, 1, 'degrees'],
     ['fade', 'Fade', 1, 1, 'pixels out where the rings die away, 0 for never']],
   // D-151.
-  'core.twirl': [['angle', 'Angle', 1, 1, 'degrees at the middle, clockwise when above 0'],
+  'core.twirl': [['angle', 'Angle', 1, 1, 'degrees at the middle, clockwise when above 0', 'dial'],
     ['radius', 'Radius', 1, 1, 'pixels, 0 to 10000, how far out it twists'],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000']],
   // D-152.
@@ -6693,22 +6693,22 @@ const EFFECT_PARAMS = {
     ['height', 'Height', 1, 0.1, '-4 to 4, a swell above 0 and a pinch below']],
   // D-153.
   'core.mirror': [['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
-    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 0 keeps the right half']],
+    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 0 keeps the right half', 'dial']],
   // D-154.
   'core.motion_tile': [['output_width', 'Output width', 1, 1, '% of the drawing, 100 to 1000'],
     ['output_height', 'Output height', 1, 1, '% of the drawing, 100 to 1000']],
   // D-155.
   'core.linear_wipe': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
-    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 90 wipes from the left'],
+    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 90 wipes from the left', 'dial'],
     ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the edge is']],
   // D-156.
   'core.radial_wipe': [['completion', 'Completion', 1, 1, '% of a turn wiped away, 0 to 100'],
-    ['start_angle', 'Start angle', 1, 1, 'degrees, -3600 to 3600; 0 is straight up'],
+    ['start_angle', 'Start angle', 1, 1, 'degrees, -3600 to 3600; 0 is straight up', 'dial'],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
     ['feather', 'Feather', 1, 1, 'degrees, 0 to 360, how soft the sweeping edge is']],
   // D-157.
   'core.venetian_blinds': [['completion', 'Completion', 1, 1, '% of each slat cleared, 0 to 100'],
-    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 0 lies level'],
+    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 0 lies level', 'dial'],
     ['width', 'Width', 1, 1, 'pixels, 1 to 10000, each slat'],
     ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the moving edge is']],
   // D-158.
@@ -6731,7 +6731,7 @@ const EFFECT_PARAMS = {
   'core.cross_glare': [['threshold', 'Threshold', 1, 1, '0 to 100, how bright a pixel must be to glint'],
     ['length', 'Length', 1, 1, 'pixels, 0 to 1000, how far each arm reaches'],
     ['points', 'Points', 1, 1, '1 to 8 arms'],
-    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600, the way the first arm points, 0 up'],
+    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600, the way the first arm points, 0 up', 'dial'],
     ['intensity', 'Intensity', 1, 0.1, '0 to 10, how strongly the arms are added']],
   // D-162.
   'core.camera_shake': [['amount', 'Amount', 1, 1, 'pixels, 0 to 1000, the most a jolt moves the drawing each way'],
@@ -6743,7 +6743,7 @@ const EFFECT_PARAMS = {
     ['spacing', 'Spacing', 1, 1, 'pixels, 2 to 1000, how far apart the drops fall'],
     ['length', 'Length', 1, 1, 'pixels, 0 to 1000, how long each streak is'],
     ['width', 'Width', 1, 0.5, 'pixels, 0 to 20, how thick each streak is'],
-    ['direction', 'Direction', 1, 1, 'degrees, -3600 to 3600, the way the rain falls, 180 straight down'],
+    ['direction', 'Direction', 1, 1, 'degrees, -3600 to 3600, the way the rain falls, 180 straight down', 'dial'],
     ['speed', 'Speed', 1, 1, 'pixels a frame, 0 to 1000, how fast it falls'],
     ['seed', 'Seed', 1, 1, '0 to 100000, which drops'],
     ['opacity', 'Opacity', 1, 1, '0 to 100, how strongly the streaks show']],
@@ -7459,6 +7459,66 @@ function fxGradientPaint(k) {
   };
 }
 
+// W-28: what Mirror (D-153), Radial Wipe (D-156) or Iris Wipe (D-158) keeps, tinted over the box,
+// so the centre and the angle are seen together. The edge is drawn where it is half faded;
+// Iris Wipe's feather is left out of the picture, the box not knowing the drawing's pixels.
+function fxKeptPaint(k, type) {
+  return (g, at, pad, iw, ih) => {
+    const [cx, cy] = at('center');
+    const num = (n) => (k.fields[n] ? Number(k.fields[n][0].value) || 0 : 0);
+    const rad = (d) => ((d - 90) * Math.PI) / 180;
+    const far = Math.max(...[[pad, pad], [pad + iw, pad], [pad, pad + ih], [pad + iw, pad + ih]]
+      .map(([x, y]) => Math.hypot(x - cx, y - cy))) + 1;
+    const done = Math.min(100, Math.max(0, num('completion'))) / 100;
+    g.save();
+    g.beginPath();
+    g.rect(pad, pad, iw, ih);
+    g.clip();
+    g.fillStyle = 'rgba(106,160,255,0.35)';
+    g.strokeStyle = '#6aa0ff';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    if (type === 'core.mirror') {
+      // The half the normal points into is kept, the right at 0, turned clockwise.
+      const a = (num('angle') * Math.PI) / 180;
+      const [nx, ny, lx, ly] = [Math.cos(a) * far, Math.sin(a) * far, -Math.sin(a) * far, Math.cos(a) * far];
+      g.moveTo(cx + lx, cy + ly);
+      g.lineTo(cx + lx + nx, cy + ly + ny);
+      g.lineTo(cx - lx + nx, cy - ly + ny);
+      g.lineTo(cx - lx, cy - ly);
+      g.fill();
+      g.beginPath();
+      g.moveTo(cx + lx, cy + ly);
+      g.lineTo(cx - lx, cy - ly);
+      g.stroke();
+    } else if (type === 'core.radial_wipe') {
+      const f = Math.max(0, num('feather'));
+      const sweep = Math.min(360, Math.max(0, done * (360 + f) - f / 2));
+      const s = num('start_angle');
+      const [from, to] = k.words.wipe === 'counterclockwise' ? [s - sweep, s]
+        : k.words.wipe === 'both' ? [s - sweep / 2, s + sweep / 2] : [s, s + sweep];
+      g.moveTo(cx, cy);
+      g.arc(cx, cy, far, rad(to), rad(from + 360));
+      g.closePath();
+      g.fill();
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.lineTo(cx + far * Math.cos(rad(s)), cy + far * Math.sin(rad(s)));
+      g.stroke();
+    } else {
+      const r = (k.words.invert === 'on' ? done : 1 - done) * far;
+      if (k.words.invert === 'on') g.rect(pad, pad, iw, ih);
+      g.moveTo(cx + r, cy);
+      g.arc(cx, cy, r, 0, 2 * Math.PI);
+      g.fill('evenodd');
+      g.beginPath();
+      g.arc(cx, cy, r, 0, 2 * Math.PI);
+      g.stroke();
+    }
+    g.restore();
+  };
+}
+
 // One effect in the stack: whether it is bypassed, what it is, where in the order it sits, a
 // way to remove it, and its settings. Every parameter of the effect travels on every change,
 // because a request that named one would leave the core to guess the others and guessing would
@@ -7650,7 +7710,8 @@ function effectRow(layer, fx, at, of) {
   const picture = fx.type_id === 'core.levels' ? fxLevels(k, label)
     : fx.type_id === 'core.hue_saturation' ? fxHues(k, label)
       : fx.type_id === 'core.lens_blur' ? fxIris(k, label)
-      : pairs.length ? fxPointBox(k, pairs, label, fx.type_id === 'core.gradient' ? fxGradientPaint(k) : null)
+      : pairs.length ? fxPointBox(k, pairs, label, fx.type_id === 'core.gradient' ? fxGradientPaint(k)
+        : ['core.mirror', 'core.radial_wipe', 'core.iris_wipe'].includes(fx.type_id) ? fxKeptPaint(k, fx.type_id) : null)
         : null;
   if (picture) {
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
