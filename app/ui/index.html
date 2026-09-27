@@ -1033,6 +1033,7 @@
         <option value="core.twirl">Twirl</option>
         <option value="core.bulge">Bulge</option>
         <option value="core.mirror">Mirror</option>
+        <option value="core.motion_tile">Motion Tile</option>
       </select>
     </div>
   </section>
@@ -6475,6 +6476,7 @@ const EFFECT_NAMES = {
   'core.twirl': 'Twirl',
   'core.bulge': 'Bulge',
   'core.mirror': 'Mirror',
+  'core.motion_tile': 'Motion Tile',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6674,6 +6676,9 @@ const EFFECT_PARAMS = {
   // D-153.
   'core.mirror': [['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
     ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 0 keeps the right half']],
+  // D-154.
+  'core.motion_tile': [['output_width', 'Output width', 1, 1, '% of the drawing, 100 to 1000'],
+    ['output_height', 'Output height', 1, 1, '% of the drawing, 100 to 1000']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6785,6 +6790,8 @@ const EFFECT_WORDS = {
   'core.diffusion': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['lighten', 'Lighten'], ['normal', 'Normal']]]] },
   // D-149.
   'core.wave_warp': { choices: [['shape', 'Shape', [['sine', 'Sine'], ['triangle', 'Triangle']]], EDGES] },
+  // D-154.
+  'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

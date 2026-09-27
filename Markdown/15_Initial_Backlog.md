@@ -614,7 +614,7 @@ B-95 / Bulge, D-152, the nineteenth of the third batch of thirty: the picture sw
 
 B-96 / Mirror, D-153, the twentieth of the third batch of thirty: one side of the picture reflected onto the other across a line. **B-96a is written on 2026-09-26**: `verification/B-96a proposal/`, D-153 in document 14, the rule in document 21, FX-MIRROR-001 to 024 in document 25 from `tools/mirror_reference.py`, which writes `Fixtures/mirror/`. **B-96b is built on 2026-09-26**: `src/layer_fx.rs`, the Mirror card, `tests/b96_mirror.rs` writing `verification/B-96_mirror_table.md`, 89 of 89, worst 2.5e-7; the owner's playtest is `verification/B-96_mirror_playtest.md`.
 
-B-97 / Motion Tile, D-154, the twenty-first of the third batch of thirty: the picture repeated round itself, plain or mirrored. **B-97a is written on 2026-09-26**: `verification/B-97a proposal/`, D-154 in document 14, the rule in document 21, FX-TILE-001 to 023 in document 25 from `tools/motion_tile_reference.py`, which writes `Fixtures/motion_tile/`. **B-97b, the build, is next.**
+B-97 / Motion Tile, D-154, the twenty-first of the third batch of thirty: the picture repeated round itself, plain or mirrored. **B-97a is written on 2026-09-26**: `verification/B-97a proposal/`, D-154 in document 14, the rule in document 21, FX-TILE-001 to 023 in document 25 from `tools/motion_tile_reference.py`, which writes `Fixtures/motion_tile/`. **B-97b is built on 2026-09-26**: `src/layer_fx.rs`, the Motion Tile card, `tests/b97_motion_tile.rs` writing `verification/B-97_motion_tile_table.md`, 91 of 91, worst 1.9e-7; the owner's playtest is `verification/B-97_motion_tile_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

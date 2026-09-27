@@ -997,3 +997,34 @@ pub(crate) fn mirror(source: &mut WorkingBuffer, angle: f64, center: (f64, f64))
             px.copy_from_slice(&sample_bilinear(&drawing, x - 2.0 * d * nx, y - 2.0 * d * ny));
         });
 }
+
+
+/// D-154: the buffer repeated round itself, tile against tile, to `size` per cent of its width
+/// and height, every other tile turned over when `mirror`. Returns how far it grew on the left
+/// and on the top, the same as on the right and the bottom. The settings are already valid.
+pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: bool) -> (usize, usize) {
+    let (w, h) = (source.width(), source.height());
+    let grow = |n: usize, percent: f64| (n as f64 * (percent / 100.0 - 1.0) / 2.0).ceil() as usize;
+    let (gx, gy) = (grow(w, size.0), grow(h, size.1));
+    if (gx == 0 && gy == 0) || w == 0 || h == 0 {
+        return (0, 0);
+    }
+    // The drawing's pixel for position `i` of the row or column, `g` in from the new edge.
+    let tile = |i: usize, g: usize, n: usize| {
+        let i = i as isize - g as isize;
+        let (k, j) = (i.div_euclid(n as isize), i.rem_euclid(n as isize) as usize);
+        if mirror && k % 2 != 0 { n - 1 - j } else { j }
+    };
+    let ow = w + 2 * gx;
+    let mut out = WorkingBuffer::transparent(ow, h + 2 * gy);
+    let drawing = source.data();
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let s = (tile(i / ow, gy, h) * w + tile(i % ow, gx, w)) * 4;
+            px.copy_from_slice(&drawing[s..s + 4]);
+        });
+    *source = out;
+    (gx, gy)
+}

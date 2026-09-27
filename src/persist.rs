@@ -1461,6 +1461,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             );
             params.insert("angle".into(), num(*angle));
         }
+        Effect::MotionTile {
+            output_width,
+            output_height,
+            mirror,
+        } => {
+            params.insert("output_width".into(), num(*output_width));
+            params.insert("output_height".into(), num(*output_height));
+            params.insert("mirror".into(), J::from(mirror.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1898,6 +1907,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "amplitude",
         "wavelength",
         "fade",
+        "output_width",
+        "output_height",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2734,6 +2745,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::TWIRL,
                 crate::effects::BULGE,
                 crate::effects::MIRROR,
+                crate::effects::MOTION_TILE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3087,6 +3099,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::MIRROR => Some(crate::effects::Effect::Mirror {
                     center: effect_array(params, "center", "two numbers, x then y", &at)?,
                     angle: effect_number(params, "angle", &at)?,
+                }),
+                crate::effects::MOTION_TILE => Some(crate::effects::Effect::MotionTile {
+                    output_width: effect_number(params, "output_width", &at)?,
+                    output_height: effect_number(params, "output_height", &at)?,
+                    mirror: effect_word(params, "mirror", &at)?,
                 }),
                 _ => None,
             };

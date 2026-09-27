@@ -519,6 +519,14 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 angle: 0.0,
             },
         ),
+        (
+            "Motion Tile, as it starts",
+            Effect::MotionTile {
+                output_width: 100.0,
+                output_height: 100.0,
+                mirror: "off".to_string(),
+            },
+        ),
     ]
 }
 

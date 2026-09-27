@@ -618,6 +618,13 @@ pub enum Effect {
     /// D-153: `center`, per cent of the drawing's width and height, -1000 to 1000 each, a point
     /// on the line; `angle`, -3600 to 3600 degrees, the line's turn from straight up and down.
     Mirror { center: [f64; 2], angle: f64 },
+    /// D-154: `output_width` and `output_height`, 100 to 1000 per cent of the drawing's width
+    /// and height; `mirror`, "off" or "on", every other tile turned over.
+    MotionTile {
+        output_width: f64,
+        output_height: f64,
+        mirror: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -677,6 +684,7 @@ pub const RIPPLE: &str = "core.ripple";
 pub const TWIRL: &str = "core.twirl";
 pub const BULGE: &str = "core.bulge";
 pub const MIRROR: &str = "core.mirror";
+pub const MOTION_TILE: &str = "core.motion_tile";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1081,6 +1089,14 @@ impl Effect {
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("angle", vec![angle], -3600.0, 3600.0),
             ],
+            Effect::MotionTile {
+                output_width,
+                output_height,
+                ..
+            } => vec![
+                ("output_width", vec![output_width], 100.0, 1000.0),
+                ("output_height", vec![output_height], 100.0, 1000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1253,6 +1269,7 @@ impl Effect {
             Effect::Twirl { .. } => "Twirl",
             Effect::Bulge { .. } => "Bulge",
             Effect::Mirror { .. } => "Mirror",
+            Effect::MotionTile { .. } => "Motion Tile",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1312,6 +1329,7 @@ impl Effect {
             Effect::Twirl { .. } => TWIRL,
             Effect::Bulge { .. } => BULGE,
             Effect::Mirror { .. } => MIRROR,
+            Effect::MotionTile { .. } => MOTION_TILE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1687,6 +1705,9 @@ impl Effect {
             Effect::WaveWarp { shape, edges: e, .. } => (!["sine", "triangle"].contains(&shape.as_str()))
                 .then(|| format!("{name}'s shape is \"sine\" or \"triangle\", and this is \"{shape}\"."))
                 .or_else(|| edges(e)),
+            Effect::MotionTile { mirror, .. } if !["off", "on"].contains(&mirror.as_str()) => Some(format!(
+                "Motion Tile's mirror is \"off\" or \"on\", and this is \"{mirror}\"."
+            )),
             _ => None,
         };
         own.or_else(|| {
@@ -2490,6 +2511,19 @@ pub(crate) fn apply_stack_at(
                 crate::perf::time(crate::perf::Stage::EffectMirror, || {
                     crate::layer_fx::mirror(source, *angle, c)
                 })
+            }
+            // D-154: the growth depends on the size the drawing reaches it at, and need not be
+            // the same across as down.
+            Effect::MotionTile {
+                output_width,
+                output_height,
+                mirror,
+            } => {
+                let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectMotionTile, || {
+                    crate::layer_fx::motion_tile(source, (*output_width, *output_height), mirror == "on")
+                });
+                ox += gx;
+                oy += gy;
             }
         }
     }
