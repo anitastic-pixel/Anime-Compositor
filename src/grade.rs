@@ -566,3 +566,17 @@ fn luma(e: [f64; 3]) -> f64 {
 pub(crate) fn threshold(source: &mut WorkingBuffer, level: f64) {
     grade_pixels(source, false, |_, e| [if 255.0 * luma(e) + 1e-4 >= level { 1.0 } else { 0.0 }; 3])
 }
+
+/// D-139: each channel remade from its row: from red, from green, from blue and a constant, in
+/// per cent; with `mono` every channel uses the red row.
+pub(crate) fn channel_mixer(source: &mut WorkingBuffer, rows: [[f64; 4]; 3], mono: bool) {
+    if !mono && rows == [[100.0, 0.0, 0.0, 0.0], [0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0]] {
+        return;
+    }
+    grade_pixels(source, false, |_, e| {
+        std::array::from_fn(|c| {
+            let r = rows[if mono { 0 } else { c }];
+            (r[0] * e[0] + r[1] * e[1] + r[2] * e[2] + r[3]) / 100.0
+        })
+    })
+}

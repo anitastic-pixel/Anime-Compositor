@@ -499,6 +499,16 @@ pub enum Effect {
     /// D-138: `level`, 0 to 255: a pixel whose lightness is at or above it turns white, the rest
     /// black.
     Threshold { level: f64 },
+    /// D-139: `red`, `green` and `blue`, each the row that remakes that channel: how much of the
+    /// red, green and blue it takes and a constant, -200 to 200 per cent. Kept as written, so a
+    /// row of the wrong count is reported rather than refusing the file. `monochrome`, "off" or
+    /// "on": on, every channel takes the red row.
+    ChannelMixer {
+        red: Vec<f64>,
+        green: Vec<f64>,
+        blue: Vec<f64>,
+        monochrome: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -543,6 +553,7 @@ pub const BRIGHTNESS_CONTRAST: &str = "core.brightness_contrast";
 pub const BLACK_WHITE: &str = "core.black_white";
 pub const POSTERIZE: &str = "core.posterize";
 pub const THRESHOLD: &str = "core.threshold";
+pub const CHANNEL_MIXER: &str = "core.channel_mixer";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -845,6 +856,11 @@ impl Effect {
             ],
             Effect::Posterize { levels } => vec![("levels", vec![levels], 2.0, 256.0)],
             Effect::Threshold { level } => vec![("level", vec![level], 0.0, 255.0)],
+            Effect::ChannelMixer { red, green, blue, .. } => vec![
+                ("red", red.iter_mut().collect(), -200.0, 200.0),
+                ("green", green.iter_mut().collect(), -200.0, 200.0),
+                ("blue", blue.iter_mut().collect(), -200.0, 200.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -979,6 +995,7 @@ impl Effect {
             Effect::BlackWhite { .. } => "Black & White",
             Effect::Posterize { .. } => "Posterize",
             Effect::Threshold { .. } => "Threshold",
+            Effect::ChannelMixer { .. } => "Channel Mixer",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1023,6 +1040,7 @@ impl Effect {
             Effect::BlackWhite { .. } => BLACK_WHITE,
             Effect::Posterize { .. } => POSTERIZE,
             Effect::Threshold { .. } => THRESHOLD,
+            Effect::ChannelMixer { .. } => CHANNEL_MIXER,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1361,6 +1379,25 @@ impl Effect {
                     "Invert's channel is \"rgb\", \"red\", \"green\", \"blue\" or \"alpha\", and this is \"{channel}\"."
                 ))
             }
+            Effect::ChannelMixer {
+                red,
+                green,
+                blue,
+                monochrome,
+            } => [("red", red), ("green", green), ("blue", blue)]
+                .into_iter()
+                .find(|(_, row)| row.len() != 4)
+                .map(|(what, row)| {
+                    format!(
+                        "{name}'s {what} row is four numbers, from red, green, blue and a constant, and this has {}.",
+                        row.len()
+                    )
+                })
+                .or_else(|| {
+                    (!["off", "on"].contains(&monochrome.as_str())).then(|| {
+                        format!("Channel Mixer's monochrome is \"off\" or \"on\", and this is \"{monochrome}\".")
+                    })
+                }),
             _ => None,
         };
         own.or_else(|| {
@@ -2033,6 +2070,15 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::Threshold { level } => crate::perf::time(crate::perf::Stage::EffectThreshold, || {
                 crate::grade::threshold(source, *level)
+            }),
+            Effect::ChannelMixer {
+                red,
+                green,
+                blue,
+                monochrome,
+            } => crate::perf::time(crate::perf::Stage::EffectChannelMixer, || {
+                let row = |r: &[f64]| [r[0], r[1], r[2], r[3]];
+                crate::grade::channel_mixer(source, [row(red), row(green), row(blue)], monochrome == "on")
             }),
         }
     }

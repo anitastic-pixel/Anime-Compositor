@@ -397,6 +397,15 @@ fn cases() -> Vec<(&'static str, Effect)> {
             "Threshold, at the middle",
             Effect::Threshold { level: 128.0 },
         ),
+        (
+            "Channel Mixer, red and blue swapped",
+            Effect::ChannelMixer {
+                red: vec![0.0, 0.0, 100.0, 0.0],
+                green: vec![0.0, 100.0, 0.0, 0.0],
+                blue: vec![100.0, 0.0, 0.0, 0.0],
+                monochrome: "off".to_string(),
+            },
+        ),
     ]
 }
 

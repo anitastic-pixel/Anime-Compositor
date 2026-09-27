@@ -1018,6 +1018,7 @@
         <option value="core.black_white">Black & White</option>
         <option value="core.posterize">Posterize</option>
         <option value="core.threshold">Threshold</option>
+        <option value="core.channel_mixer">Channel Mixer</option>
       </select>
     </div>
   </section>
@@ -6445,6 +6446,7 @@ const EFFECT_NAMES = {
   'core.black_white': 'Black & White',
   'core.posterize': 'Posterize',
   'core.threshold': 'Threshold',
+  'core.channel_mixer': 'Channel Mixer',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6590,6 +6592,10 @@ const EFFECT_PARAMS = {
   'core.posterize': [['levels', 'Levels', 1, 1, 'steps per channel, 2 to 256']],
   // D-138.
   'core.threshold': [['level', 'Level', 1, 1, 'lightness of 255 that turns white, 0 to 255']],
+  // D-139.
+  'core.channel_mixer': [['red', 'Red', 4, 1, 'from red, green, blue and a constant, -200 to 200'],
+    ['green', 'Green', 4, 1, 'from red, green, blue and a constant, -200 to 200'],
+    ['blue', 'Blue', 4, 1, 'from red, green, blue and a constant, -200 to 200']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6687,6 +6693,8 @@ const EFFECT_WORDS = {
   'core.light_wrap': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['add', 'Add']]]] },
   // D-134.
   'core.invert': { choices: [['channel', 'Channel', [['rgb', 'RGB'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]]] },
+  // D-139.
+  'core.channel_mixer': { choices: [['monochrome', 'Monochrome', [['off', 'Off'], ['on', 'On']]]] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

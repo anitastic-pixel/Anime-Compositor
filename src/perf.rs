@@ -140,6 +140,8 @@ pub enum Stage {
     EffectPosterize,
     /// D-138's threshold, per pixel.
     EffectThreshold,
+    /// D-139's channel mixer, per pixel.
+    EffectChannelMixer,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -157,7 +159,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 54] = [
+    pub const ALL: [Stage; 55] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -205,6 +207,7 @@ impl Stage {
         Stage::EffectBlackWhite,
         Stage::EffectPosterize,
         Stage::EffectThreshold,
+        Stage::EffectChannelMixer,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -264,6 +267,7 @@ impl Stage {
             Stage::EffectBlackWhite => "effect: black & white",
             Stage::EffectPosterize => "effect: posterize",
             Stage::EffectThreshold => "effect: threshold",
+            Stage::EffectChannelMixer => "effect: channel mixer",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

@@ -1324,6 +1324,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::Threshold { level } => {
             params.insert("level".into(), num(*level));
         }
+        Effect::ChannelMixer {
+            red,
+            green,
+            blue,
+            monochrome,
+        } => {
+            for (name, row) in [("red", red), ("green", green), ("blue", blue)] {
+                params.insert(name.into(), J::Array(row.iter().map(|v| num(*v)).collect()));
+            }
+            params.insert("monochrome".into(), J::from(monochrome.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1751,6 +1762,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "magentas",
         "levels",
         "level",
+        "red",
+        "green",
+        "blue",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -1767,6 +1781,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         let (count, what) = match name {
             "color" => (3, "a linear RGB triple"),
             "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
+            "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
             "center" | "start" | "end" | "shift" => (2, "two numbers, x then y"),
             _ => (1, ""),
         };
@@ -2571,6 +2586,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::BLACK_WHITE,
                 crate::effects::POSTERIZE,
                 crate::effects::THRESHOLD,
+                crate::effects::CHANNEL_MIXER,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2843,6 +2859,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 }),
                 crate::effects::THRESHOLD => Some(crate::effects::Effect::Threshold {
                     level: effect_number(params, "level", &at)?,
+                }),
+                crate::effects::CHANNEL_MIXER => Some(crate::effects::Effect::ChannelMixer {
+                    red: effect_list(params, "red", &at)?,
+                    green: effect_list(params, "green", &at)?,
+                    blue: effect_list(params, "blue", &at)?,
+                    monochrome: effect_word(params, "monochrome", &at)?,
                 }),
                 _ => None,
             };
