@@ -1040,6 +1040,7 @@
         <option value="core.iris_wipe">Iris Wipe</option>
         <option value="core.simple_choker">Simple Choker</option>
         <option value="core.speed_lines">Speed Lines</option>
+        <option value="core.cross_glare">Cross Glare</option>
       </select>
     </div>
   </section>
@@ -6489,6 +6490,7 @@ const EFFECT_NAMES = {
   'core.iris_wipe': 'Iris Wipe',
   'core.simple_choker': 'Simple Choker',
   'core.speed_lines': 'Speed Lines',
+  'core.cross_glare': 'Cross Glare',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6721,6 +6723,12 @@ const EFFECT_PARAMS = {
     ['seed', 'Seed', 1, 1, '0 to 100000, which set of lines'],
     ['hold', 'Hold', 1, 1, 'frames, 1 to 100, how long a set of lines lasts'],
     ['opacity', 'Opacity', 1, 1, '0 to 100']],
+  // D-161.
+  'core.cross_glare': [['threshold', 'Threshold', 1, 1, '0 to 100, how bright a pixel must be to glint'],
+    ['length', 'Length', 1, 1, 'pixels, 0 to 1000, how far each arm reaches'],
+    ['points', 'Points', 1, 1, '1 to 8 arms'],
+    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600, the way the first arm points, 0 up'],
+    ['intensity', 'Intensity', 1, 0.1, '0 to 10, how strongly the arms are added']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6840,6 +6848,8 @@ const EFFECT_WORDS = {
   'core.iris_wipe': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]] },
   // D-160.
   'core.speed_lines': { colours: [['color', 'Colour']] },
+  // D-161.
+  'core.cross_glare': { colours: [['color', 'Colour']] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

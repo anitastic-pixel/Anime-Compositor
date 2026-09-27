@@ -1550,6 +1550,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("hold".into(), num(*hold));
             params.insert("opacity".into(), num(*opacity));
         }
+        Effect::CrossGlare {
+            threshold,
+            length,
+            points,
+            angle,
+            intensity,
+            color,
+        } => {
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("length".into(), num(*length));
+            params.insert("points".into(), num(*points));
+            params.insert("angle".into(), num(*angle));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("color".into(), J::from(color.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1998,6 +2013,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "inner",
         "inner_jitter",
         "angle_jitter",
+        "points",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2841,6 +2857,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::IRIS_WIPE,
                 crate::effects::SIMPLE_CHOKER,
                 crate::effects::SPEED_LINES,
+                crate::effects::CROSS_GLARE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3239,6 +3256,14 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     hold: effect_number(params, "hold", &at)?,
                     opacity: effect_number(params, "opacity", &at)?,
                     frame: 0,
+                }),
+                crate::effects::CROSS_GLARE => Some(crate::effects::Effect::CrossGlare {
+                    threshold: effect_number(params, "threshold", &at)?,
+                    length: effect_number(params, "length", &at)?,
+                    points: effect_number(params, "points", &at)?,
+                    angle: effect_number(params, "angle", &at)?,
+                    intensity: effect_number(params, "intensity", &at)?,
+                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
                 }),
                 _ => None,
             };

@@ -583,6 +583,17 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 0,
             },
         ),
+        (
+            "Cross Glare, as it starts",
+            Effect::CrossGlare {
+                threshold: 80.0,
+                length: 40.0,
+                points: 4.0,
+                angle: 45.0,
+                intensity: 1.0,
+                color: "#ffffff".to_string(),
+            },
+        ),
     ]
 }
 

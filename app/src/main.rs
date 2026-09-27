@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3109,6 +3109,15 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             opacity: 100.0,
             frame: 0,
         }),
+        // D-161: a white four-pointed star on the brightest points, turned 45 degrees.
+        CROSS_GLARE => Some(Effect::CrossGlare {
+            threshold: 80.0,
+            length: 40.0,
+            points: 4.0,
+            angle: 45.0,
+            intensity: 1.0,
+            color: "#ffffff".to_string(),
+        }),
         _ => None,
     }
 }
@@ -3604,6 +3613,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             hold: number("hold")?,
             opacity: number("opacity")?,
             frame: 0,
+        }),
+        CROSS_GLARE => Ok(Effect::CrossGlare {
+            threshold: number("threshold")?,
+            length: number("length")?,
+            points: number("points")?,
+            angle: number("angle")?,
+            intensity: number("intensity")?,
+            color: word("color")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6502,8 +6519,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.emboss, core.find_edges, core.sharpen, core.diffusion, \
                              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
                              core.motion_tile, core.linear_wipe, core.radial_wipe, \
-                             core.venetian_blinds, core.iris_wipe, core.simple_choker or \
-                             core.speed_lines."
+                             core.venetian_blinds, core.iris_wipe, core.simple_choker, \
+                             core.speed_lines or core.cross_glare."
                                 .to_string(),
                         );
                     };
@@ -6526,8 +6543,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.emboss, core.find_edges, core.sharpen, core.diffusion, \
                              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
                              core.motion_tile, core.linear_wipe, core.radial_wipe, \
-                             core.venetian_blinds, core.iris_wipe, core.simple_choker and \
-                             core.speed_lines."
+                             core.venetian_blinds, core.iris_wipe, core.simple_choker, \
+                             core.speed_lines and core.cross_glare."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10505,7 +10522,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the sixty are named",
+            "an effect type this build does not have is refused, and the sixty-one are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -10520,7 +10537,7 @@ mod editing {
              core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion, \
              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
              core.motion_tile, core.linear_wipe, core.radial_wipe, core.venetian_blinds, \
-             core.iris_wipe, core.simple_choker and core.speed_lines.",
+             core.iris_wipe, core.simple_choker, core.speed_lines and core.cross_glare.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10538,7 +10555,7 @@ mod editing {
              core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion, \
              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
              core.motion_tile, core.linear_wipe, core.radial_wipe, core.venetian_blinds, \
-             core.iris_wipe, core.simple_choker or core.speed_lines.",
+             core.iris_wipe, core.simple_choker, core.speed_lines or core.cross_glare.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -23021,6 +23038,18 @@ mod contract {
                 ("seed", "7"),
                 ("hold", "3"),
                 ("opacity", "80"),
+            ],
+        ),
+        // D-161: the numbers and the colour.
+        (
+            "core.cross_glare",
+            &[
+                ("threshold", "70"),
+                ("length", "25"),
+                ("points", "6"),
+                ("angle", "10"),
+                ("intensity", "2"),
+                ("color", "%23ffd080"),
             ],
         ),
     ];

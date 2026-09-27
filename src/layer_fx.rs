@@ -1420,3 +1420,64 @@ pub(crate) fn speed_lines(
             }
         });
 }
+
+
+/// D-161: the pixels D-89's bright test lights, streaked `floor(length)` pixels out along
+/// `floor(points)` arms spread evenly round from `angle`, each step's light fading as
+/// (1 - t / (L + 1))^2 over their sum, tinted by `color` (encoded 0 to 1) at `intensity` and
+/// added over the drawing as Light Rays' is. The layer grows by the length on every side,
+/// returned; length 0 or intensity 0 changes nothing. The settings are already valid.
+pub(crate) fn cross_glare(
+    source: &mut WorkingBuffer,
+    threshold: f64,
+    length: f64,
+    points: f64,
+    angle: f64,
+    intensity: f64,
+    color: [f64; 3],
+) -> usize {
+    let l = length.floor() as usize;
+    if l == 0 || intensity == 0.0 {
+        return 0;
+    }
+    let mut light = source.clone();
+    light.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        if !crate::bloom::bright(px, threshold) {
+            px.fill(0.0);
+        }
+    });
+    let n = points.floor();
+    let arms: Vec<(f64, f64)> = (0..n as usize)
+        .map(|j| crate::blurs::along(angle + 360.0 * j as f64 / n))
+        .collect();
+    let fade: Vec<f64> = (1..=l).map(|t| (1.0 - t as f64 / (l + 1) as f64).powi(2)).collect();
+    let total: f64 = fade.iter().sum();
+    let steps: Vec<(f64, f64)> = fade.iter().enumerate().map(|(t, f)| ((t + 1) as f64, f / total)).collect();
+    let (w, h) = (source.width() + 2 * l, source.height() + 2 * l);
+    let c = color.map(crate::grade::to_linear);
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as isize - l as isize, (i / w) as isize - l as isize);
+            let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
+            let mut g = [0.0f64; 4];
+            for &(vx, vy) in &arms {
+                for &(t, k) in &steps {
+                    let s = sample_bilinear(&light, cx - t * vx, cy - t * vy);
+                    for ch in 0..4 {
+                        g[ch] += k * s[ch] as f64;
+                    }
+                }
+            }
+            let o = at(drawing, x, y);
+            for ch in 0..3 {
+                px[ch] = (o[ch] as f64 + intensity * c[ch] * g[ch]) as f32;
+            }
+            px[3] = (o[3] as f64 + intensity * g[3]).min(1.0) as f32;
+        });
+    *source = out;
+    l
+}

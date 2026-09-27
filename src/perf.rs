@@ -184,6 +184,8 @@ pub enum Stage {
     EffectSimpleChoker,
     /// D-160's speed lines, the nearby lines per pixel.
     EffectSpeedLines,
+    /// D-161's cross glare, every arm's steps per pixel.
+    EffectCrossGlare,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -201,7 +203,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 76] = [
+    pub const ALL: [Stage; 77] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -271,6 +273,7 @@ impl Stage {
         Stage::EffectIrisWipe,
         Stage::EffectSimpleChoker,
         Stage::EffectSpeedLines,
+        Stage::EffectCrossGlare,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -352,6 +355,7 @@ impl Stage {
             Stage::EffectIrisWipe => "effect: iris wipe",
             Stage::EffectSimpleChoker => "effect: simple choker",
             Stage::EffectSpeedLines => "effect: speed lines",
+            Stage::EffectCrossGlare => "effect: cross glare",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

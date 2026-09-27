@@ -686,6 +686,18 @@ pub enum Effect {
         opacity: f64,
         frame: i32,
     },
+    /// D-161: `threshold`, 0 to 100, D-89's bright test; `length`, 0 to 1000 pixels, its whole
+    /// part counted; `points`, 1 to 8 arms, its whole part counted; `angle`, -3600 to 3600
+    /// degrees, the first arm's way; `intensity`, 0 to 10; and `color`, `#rrggbb`, kept as
+    /// written so a wrong one is reported.
+    CrossGlare {
+        threshold: f64,
+        length: f64,
+        points: f64,
+        angle: f64,
+        intensity: f64,
+        color: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -752,6 +764,7 @@ pub const VENETIAN_BLINDS: &str = "core.venetian_blinds";
 pub const IRIS_WIPE: &str = "core.iris_wipe";
 pub const SIMPLE_CHOKER: &str = "core.simple_choker";
 pub const SPEED_LINES: &str = "core.speed_lines";
+pub const CROSS_GLARE: &str = "core.cross_glare";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1229,6 +1242,20 @@ impl Effect {
                 ("hold", vec![hold], 1.0, 100.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::CrossGlare {
+                threshold,
+                length,
+                points,
+                angle,
+                intensity,
+                ..
+            } => vec![
+                ("threshold", vec![threshold], 0.0, 100.0),
+                ("length", vec![length], 0.0, 1000.0),
+                ("points", vec![points], 1.0, 8.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+                ("intensity", vec![intensity], 0.0, 10.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1322,6 +1349,7 @@ impl Effect {
             Effect::IrisWipe { feather, .. } => *feather = scale(*feather),
             Effect::SimpleChoker { choke } => *choke = scale(*choke),
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
+            Effect::CrossGlare { length, .. } => *length = scale(*length),
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1417,6 +1445,7 @@ impl Effect {
             Effect::IrisWipe { .. } => "Iris Wipe",
             Effect::SimpleChoker { .. } => "Simple Choker",
             Effect::SpeedLines { .. } => "Speed Lines",
+            Effect::CrossGlare { .. } => "Cross Glare",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1483,6 +1512,7 @@ impl Effect {
             Effect::IrisWipe { .. } => IRIS_WIPE,
             Effect::SimpleChoker { .. } => SIMPLE_CHOKER,
             Effect::SpeedLines { .. } => SPEED_LINES,
+            Effect::CrossGlare { .. } => CROSS_GLARE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1544,6 +1574,10 @@ impl Effect {
             Effect::WaveWarp { height, edges, .. } if edges != "repeat" => height.ceil() as usize,
             // D-159: a spread's reach, rounded down; a shrink grows nothing.
             Effect::SimpleChoker { choke } if *choke < 0.0 => (-choke).floor() as usize,
+            // D-161: the length taken down to a whole number, unless nothing is added.
+            Effect::CrossGlare {
+                length, intensity, ..
+            } if *intensity > 0.0 => length.floor() as usize,
             // D-127: the amount rounded up, unless a push past the edge reads the edge.
             Effect::TurbulentDisplace { amount, edges, .. } if edges != "repeat" => {
                 amount.ceil() as usize
@@ -1874,6 +1908,7 @@ impl Effect {
                 "Iris Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
             Effect::SpeedLines { color, .. } => hex_fault("Speed Lines", "colour", color),
+            Effect::CrossGlare { color, .. } => hex_fault("Cross Glare", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -2759,6 +2794,21 @@ pub(crate) fn apply_stack_at(
                 crate::perf::time(crate::perf::Stage::EffectSpeedLines, || {
                     crate::layer_fx::speed_lines(source, c, encoded(color).map(crate::grade::to_linear), numbers, *frame)
                 })
+            }
+            // D-161: the arms grow the layer by the length, taken down to a whole number.
+            Effect::CrossGlare {
+                threshold,
+                length,
+                points,
+                angle,
+                intensity,
+                color,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectCrossGlare, || {
+                    crate::layer_fx::cross_glare(source, *threshold, *length, *points, *angle, *intensity, encoded(color))
+                });
+                ox += r;
+                oy += r;
             }
         }
     }

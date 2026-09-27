@@ -207,5 +207,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - choke - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.speed_lines` is an effect this build has | added | added | pass |
 | and the settings it sends for it - center, color, count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cross_glare` is an effect this build has | added | added | pass |
+| and the settings it sends for it - threshold, length, points, angle, intensity, color - are the ones the command reads | accepted | accepted | pass |
 
-**187 of 187 checks pass.**
+**189 of 189 checks pass.**
