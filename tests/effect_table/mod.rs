@@ -88,10 +88,19 @@ impl Table {
     /// Every case of `expected`: each frame against the reference's numbers, and what opening
     /// the file and planning frame 4 warn of.
     pub fn fixtures(&mut self, expected: &str) {
+        self.fixtures_numbered(expected, 1..=999);
+    }
+
+    /// The cases of `expected` whose number is in `numbers`, as [`fixtures`](Self::fixtures).
+    pub fn fixtures_numbered(&mut self, expected: &str, numbers: std::ops::RangeInclusive<u32>) {
         let expected: J =
             serde_json::from_str(&fs::read_to_string(self.root.join(expected)).unwrap()).unwrap();
         let tolerance = expected["tolerance"].as_f64().unwrap();
         for (name, case) in expected["cases"].as_object().unwrap() {
+            let number = name.rsplit('-').next().and_then(|n| n.parse().ok());
+            if !number.is_some_and(|n| numbers.contains(&n)) {
+                continue;
+            }
             let says = case["says"].as_str().unwrap();
             let loaded = self.load(case["project"].as_str().unwrap());
             for (frame, pixels) in case["frames"].as_object().unwrap() {

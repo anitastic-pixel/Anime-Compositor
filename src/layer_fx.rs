@@ -86,17 +86,109 @@ pub(crate) fn drop_shadow(
     g
 }
 
-/// D-116: each pixel the plain mean of every pixel whose centre is within `radius` of its own,
-/// a flat disc. Transparent edges read nothing outside the layer, which grows by
-/// `ceil(radius)` on every side, returned; `repeat` holds each column and row inside it, and it
-/// does not grow. Each row of the disc is one run, summed from the row's running totals. The
-/// settings are already valid.
-pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool) -> usize {
-    let g = if repeat { 0 } else { radius.ceil() as usize };
-    let runs = disc_runs(radius);
-    let n = runs.iter().map(|&(_, hw)| 2 * hw + 1).sum::<isize>() as f64;
+/// D-121: the iris's blades by its word, 0 for the circle; `None` for a word that is not one.
+pub(crate) fn blades(iris: &str) -> Option<usize> {
+    let names = [
+        "circle", "", "", "triangle", "square", "pentagon", "hexagon", "heptagon", "octagon",
+        "nonagon", "decagon",
+    ];
+    names.iter().position(|n| !n.is_empty() && *n == iris)
+}
+
+/// D-121: the furthest the iris reaches across or down, `radius` stretched by the aspect.
+pub(crate) fn lens_reach(radius: f64, aspect: f64) -> f64 {
+    let k = aspect.sqrt();
+    radius * k.max(1.0 / k)
+}
+
+/// D-121: how far the step (dx, dy) is out on the iris: turned back by `rotation` (degrees
+/// clockwise from up), squeezed back by the aspect, then the plain distance for a circle, or
+/// for `n` blades the furthest it goes toward a side over the middle's distance to one, the
+/// shape standing on a side with its corners at the radius, mixed toward the circle by
+/// `roundness`. `tools/lens_blur_reference.py`'s `measure`, operation for operation.
+fn iris_measure(dx: f64, dy: f64, n: usize, roundness: f64, rotation: f64, aspect: f64) -> f64 {
+    let t = rotation.to_radians();
+    let (s, c) = (t.sin(), t.cos());
+    let (x, y) = (dx * c + dy * s, -dx * s + dy * c);
+    let k = aspect.sqrt();
+    let (u, v) = (x / k, y * k);
+    let round = (u * u + v * v).sqrt();
+    if n == 0 {
+        return round;
+    }
+    let poly = (0..n)
+        .map(|j| {
+            let a = 2.0 * std::f64::consts::PI * j as f64 / n as f64;
+            -u * a.sin() + v * a.cos()
+        })
+        .fold(f64::NEG_INFINITY, f64::max)
+        / (std::f64::consts::PI / n as f64).cos();
+    let w = roundness / 100.0;
+    (1.0 - w) * poly + w * round
+}
+
+/// D-121: each row of the iris's whole steps, its offset and its first and last step across. A
+/// step exactly on the edge counts, with a billionth of a pixel of slack. The iris is convex,
+/// so each row is one run.
+fn iris_runs(radius: f64, n: usize, roundness: f64, rotation: f64, aspect: f64) -> Vec<[isize; 3]> {
+    const SLACK: f64 = 1e-9;
+    if radius < 1.0 {
+        return vec![[0, 0, 0]];
+    }
+    let r = lens_reach(radius + SLACK, aspect).floor() as isize;
+    (-r..=r)
+        .filter_map(|dy| {
+            let mut on = (-r..=r).filter(|&dx| {
+                iris_measure(dx as f64, dy as f64, n, roundness, rotation, aspect) <= radius + SLACK
+            });
+            let lo = on.next()?;
+            Some([dy, lo, on.last().unwrap_or(lo)])
+        })
+        .collect()
+}
+
+/// D-116 and D-121's settings besides the radius and the edges.
+pub(crate) struct Iris {
+    pub blades: usize,
+    pub roundness: f64,
+    pub rotation: f64,
+    pub aspect: f64,
+    pub gain: f64,
+    pub threshold: f64,
+}
+
+/// D-116 and D-121: each pixel spreads evenly over the iris, so each pixel is the plain mean of
+/// the pixels the iris turned half round covers about it. Before it, a pixel whose brightest
+/// straight channel is at or above the threshold has its colour multiplied by 1 + gain, and
+/// after it a colour lit past its covering is held at it. Transparent edges read nothing
+/// outside the layer, which grows by the iris's reach rounded up on every side, returned;
+/// `repeat` holds each column and row inside it, and it does not grow. Each row of the iris is
+/// one run, summed from the row's running totals. The settings are already valid.
+pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, iris: &Iris) -> usize {
+    let g = if repeat {
+        0
+    } else {
+        lens_reach(radius, iris.aspect).ceil() as usize
+    };
+    let runs = iris_runs(radius, iris.blades, iris.roundness, iris.rotation, iris.aspect);
+    let n = runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum::<isize>() as f64;
     let (w, h) = (source.width() as isize, source.height() as isize);
-    let src = source.data();
+    let lit: Vec<f32>;
+    let src = if iris.gain > 0.0 {
+        let (m, at) = ((1.0 + iris.gain) as f32, (iris.threshold / 100.0) as f32);
+        lit = source
+            .data()
+            .chunks_exact(4)
+            .flat_map(|p| {
+                let bright = p[3] > 0.0 && p[0].max(p[1]).max(p[2]) / p[3] >= at;
+                let k = if bright { m } else { 1.0 };
+                [p[0] * k, p[1] * k, p[2] * k, p[3]]
+            })
+            .collect();
+        &lit[..]
+    } else {
+        source.data()
+    };
     // Each row's running totals, `sums[y][x]` the sum of its first x pixels.
     let sums: Vec<Vec<[f64; 4]>> = src
         .par_chunks(w as usize * 4)
@@ -120,15 +212,15 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool) -
             for (ox, px) in line.chunks_exact_mut(4).enumerate() {
                 let x = ox as isize - g as isize;
                 let mut acc = [0.0f64; 4];
-                for &(dy, hw) in &runs {
-                    let mut sy = y + dy;
+                for &[dy, lo, hi] in &runs {
+                    let mut sy = y - dy;
                     if repeat {
                         sy = sy.clamp(0, h - 1);
                     } else if sy < 0 || sy >= h {
                         continue;
                     }
                     let (s, row) = (&sums[sy as usize], sy as usize * w as usize * 4);
-                    let (a, b) = (x - hw, x + hw);
+                    let (a, b) = (x - hi, x - lo);
                     let (lo, hi) = (a.max(0), b.min(w - 1));
                     for i in 0..4 {
                         if lo <= hi {
@@ -140,6 +232,11 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool) -
                             acc[i] += left * src[row + i] as f64
                                 + right * src[row + (w as usize - 1) * 4 + i] as f64;
                         }
+                    }
+                }
+                if iris.gain > 0.0 {
+                    for i in 0..3 {
+                        acc[i] = acc[i].min(acc[3]);
                     }
                 }
                 for i in 0..4 {

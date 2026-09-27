@@ -1098,9 +1098,32 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("distance".into(), num(*distance));
             params.insert("softness".into(), num(*softness));
         }
-        Effect::LensBlur { radius, edges } => {
+        Effect::LensBlur {
+            radius,
+            edges,
+            iris,
+            roundness,
+            rotation,
+            aspect,
+            highlight_gain,
+            highlight_threshold,
+        } => {
             params.insert("radius".into(), num(*radius));
             params.insert("edges".into(), J::from(edges.as_str()));
+            // D-121: a setting at its start, without keys, is written only if the file had it,
+            // so a file from before it saves the same.
+            for (key, value, start) in [
+                ("iris", J::from(iris.as_str()), iris == "circle"),
+                ("roundness", num(*roundness), *roundness == 0.0),
+                ("rotation", num(*rotation), *rotation == 0.0),
+                ("aspect", num(*aspect), *aspect == 1.0),
+                ("highlight_gain", num(*highlight_gain), *highlight_gain == 0.0),
+                ("highlight_threshold", num(*highlight_threshold), *highlight_threshold == 100.0),
+            ] {
+                if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), value);
+                }
+            }
         }
         Effect::RimLight {
             color,
@@ -1406,6 +1429,15 @@ fn effect_number(params: Option<&J>, key: &str, at: &str) -> Result<f64, Diagnos
     as_f64(field(params, &at, key)?, &format!("{at}/{key}"))
 }
 
+/// D-121: a setting added after its effect; a file without it is from before it, and means
+/// `start`.
+fn effect_number_or(params: Option<&J>, key: &str, at: &str, start: f64) -> Result<f64, Diagnostic> {
+    match params.and_then(|p| p.get(key)) {
+        Some(_) => effect_number(params, key, at),
+        None => Ok(start),
+    }
+}
+
 /// A setting of `N` numbers: the tint colour, three linear RGB numbers in document 21's order,
 /// or D-95's centre, x then y. `what` names it for the fault.
 fn effect_array<const N: usize>(
@@ -1529,6 +1561,11 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "distance",
         "opacity",
         "seed",
+        "roundness",
+        "rotation",
+        "aspect",
+        "highlight_gain",
+        "highlight_threshold",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2462,6 +2499,15 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LENS_BLUR => Some(crate::effects::Effect::LensBlur {
                     radius: effect_number(params, "radius", &at)?,
                     edges: effect_word(params, "edges", &at)?,
+                    iris: match params.and_then(|p| p.get("iris")) {
+                        Some(_) => effect_word(params, "iris", &at)?,
+                        None => "circle".into(),
+                    },
+                    roundness: effect_number_or(params, "roundness", &at, 0.0)?,
+                    rotation: effect_number_or(params, "rotation", &at, 0.0)?,
+                    aspect: effect_number_or(params, "aspect", &at, 1.0)?,
+                    highlight_gain: effect_number_or(params, "highlight_gain", &at, 0.0)?,
+                    highlight_threshold: effect_number_or(params, "highlight_threshold", &at, 100.0)?,
                 }),
                 crate::effects::RIM_LIGHT => Some(crate::effects::Effect::RimLight {
                     color: effect_word(params, "color", &at)?.to_ascii_lowercase(),

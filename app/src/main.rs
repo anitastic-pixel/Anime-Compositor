@@ -2824,10 +2824,16 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             distance: 5.0,
             softness: 0.0,
         }),
-        // D-116: a radius of 10, fading at the edges.
+        // D-116: a radius of 10, fading at the edges; D-121: a round iris, no highlights.
         LENS_BLUR => Some(Effect::LensBlur {
             radius: 10.0,
             edges: "transparent".to_string(),
+            iris: "circle".to_string(),
+            roundness: 0.0,
+            rotation: 0.0,
+            aspect: 1.0,
+            highlight_gain: 0.0,
+            highlight_threshold: 100.0,
         }),
         // D-117: white light from the upper right, three pixels deep.
         RIM_LIGHT => Some(Effect::RimLight {
@@ -3080,6 +3086,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         LENS_BLUR => Ok(Effect::LensBlur {
             radius: number("radius")?,
             edges: edges(),
+            iris: word("iris")?,
+            roundness: number("roundness")?,
+            rotation: number("rotation")?,
+            aspect: number("aspect")?,
+            highlight_gain: number("highlight_gain")?,
+            highlight_threshold: number("highlight_threshold")?,
         }),
         RIM_LIGHT => Ok(Effect::RimLight {
             color: word("color")?,
@@ -22216,8 +22228,20 @@ mod contract {
                 ("softness", "4"),
             ],
         ),
-        // D-116: the radius and the edges.
-        ("core.lens_blur", &[("radius", "6"), ("edges", "repeat")]),
+        // D-116: the radius and the edges; D-121: the iris, its four numbers and the highlights.
+        (
+            "core.lens_blur",
+            &[
+                ("radius", "6"),
+                ("edges", "repeat"),
+                ("iris", "hexagon"),
+                ("roundness", "20"),
+                ("rotation", "15"),
+                ("aspect", "1.5"),
+                ("highlight_gain", "3"),
+                ("highlight_threshold", "90"),
+            ],
+        ),
         // D-117: the colour, the four numbers and the blend.
         (
             "core.rim_light",

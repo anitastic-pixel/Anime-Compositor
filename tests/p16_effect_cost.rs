@@ -200,6 +200,12 @@ fn cases() -> Vec<(&'static str, Effect)> {
             Effect::LensBlur {
                 radius: 10.0,
                 edges: "transparent".into(),
+                iris: "circle".into(),
+                roundness: 0.0,
+                rotation: 0.0,
+                aspect: 1.0,
+                highlight_gain: 0.0,
+                highlight_threshold: 100.0,
             },
         ),
         (

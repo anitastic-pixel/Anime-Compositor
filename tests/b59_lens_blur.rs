@@ -16,6 +16,12 @@ fn lens(radius: f64, edges: &str) -> Effect {
     Effect::LensBlur {
         radius,
         edges: edges.into(),
+        iris: "circle".into(),
+        roundness: 0.0,
+        rotation: 0.0,
+        aspect: 1.0,
+        highlight_gain: 0.0,
+        highlight_threshold: 100.0,
     }
 }
 
@@ -31,7 +37,7 @@ fn b59_lens_blur() {
     );
 
     t.heading("FX-LENS-001 to 018 (document 25)");
-    t.fixtures("expected_lens_blur.json");
+    t.fixtures_numbered("expected_lens_blur.json", 1..=18);
 
     t.heading("How far it reaches");
     for (what, e, want) in [

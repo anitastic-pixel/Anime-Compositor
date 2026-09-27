@@ -312,8 +312,19 @@ pub enum Effect {
         softness: f64,
     },
     /// D-116: `radius`, 0 to 200 pixels, and `edges`, "transparent" or "repeat", kept as
-    /// written so a wrong one is reported.
-    LensBlur { radius: f64, edges: String },
+    /// written so a wrong one is reported. D-121: `iris`, "circle" or "triangle" to "decagon",
+    /// kept as written; `roundness`, 0 to 100; `rotation`, -3600 to 3600 degrees clockwise from
+    /// up; `aspect`, 0.1 to 10; `highlight_gain`, 0 to 100; and `highlight_threshold`, 0 to 100.
+    LensBlur {
+        radius: f64,
+        edges: String,
+        iris: String,
+        roundness: f64,
+        rotation: f64,
+        aspect: f64,
+        highlight_gain: f64,
+        highlight_threshold: f64,
+    },
     /// D-117: `color`, `#rrggbb`; `direction`, -3600 to 3600 degrees clockwise from up, where
     /// the light is; `width`, 0 to 100 pixels; `softness`, 0 to 100 pixels; `intensity`, 0 to
     /// 100; and `blend`, "normal", "add", "screen" or "multiply". The words and colour are kept
@@ -522,7 +533,22 @@ impl Effect {
                 ("distance", vec![distance], 0.0, 1000.0),
                 ("softness", vec![softness], 0.0, 500.0),
             ],
-            Effect::LensBlur { radius, .. } => vec![("radius", vec![radius], 0.0, 200.0)],
+            Effect::LensBlur {
+                radius,
+                roundness,
+                rotation,
+                aspect,
+                highlight_gain,
+                highlight_threshold,
+                ..
+            } => vec![
+                ("radius", vec![radius], 0.0, 200.0),
+                ("roundness", vec![roundness], 0.0, 100.0),
+                ("rotation", vec![rotation], -3600.0, 3600.0),
+                ("aspect", vec![aspect], 0.1, 10.0),
+                ("highlight_gain", vec![highlight_gain], 0.0, 100.0),
+                ("highlight_threshold", vec![highlight_threshold], 0.0, 100.0),
+            ],
             Effect::RimLight {
                 direction,
                 width,
@@ -732,12 +758,18 @@ impl Effect {
                     width.ceil() as usize + kernel_radius(*softness / 3.0)
                 }
             }
-            // D-116: nothing past the edge pixels when they repeat, the radius rounded up if not.
-            Effect::LensBlur { radius, edges } => {
+            // D-116: nothing past the edge pixels when they repeat, the radius rounded up if not;
+            // D-121: stretched by the aspect.
+            Effect::LensBlur {
+                radius,
+                edges,
+                aspect,
+                ..
+            } => {
                 if edges == "repeat" {
                     0
                 } else {
-                    radius.ceil() as usize
+                    crate::layer_fx::lens_reach(*radius, *aspect).ceil() as usize
                 }
             }
             // D-115: the shadow's move, rounded up, and its blur's reach.
@@ -926,6 +958,13 @@ impl Effect {
             Effect::LensBlur { edges, .. } if !["transparent", "repeat"].contains(&edges.as_str()) => {
                 Some(format!(
                     "Lens Blur's edges are \"transparent\" or \"repeat\", and this is \"{edges}\"."
+                ))
+            }
+            Effect::LensBlur { iris, .. } if crate::layer_fx::blades(iris).is_none() => {
+                Some(format!(
+                    "Lens Blur's iris is \"circle\", \"triangle\", \"square\", \"pentagon\", \
+                     \"hexagon\", \"heptagon\", \"octagon\", \"nonagon\" or \"decagon\", and \
+                     this is \"{iris}\"."
                 ))
             }
             Effect::RimLight { blend, .. }
@@ -1363,9 +1402,26 @@ pub fn apply_stack(
                 ox += r;
                 oy += r;
             }
-            Effect::LensBlur { radius, edges } => {
+            Effect::LensBlur {
+                radius,
+                edges,
+                iris,
+                roundness,
+                rotation,
+                aspect,
+                highlight_gain,
+                highlight_threshold,
+            } => {
+                let iris = crate::layer_fx::Iris {
+                    blades: crate::layer_fx::blades(iris).unwrap_or(0),
+                    roundness: *roundness,
+                    rotation: *rotation,
+                    aspect: *aspect,
+                    gain: *highlight_gain,
+                    threshold: *highlight_threshold,
+                };
                 let r = crate::perf::time(crate::perf::Stage::EffectLensBlur, || {
-                    crate::layer_fx::lens_blur(source, *radius, edges == "repeat")
+                    crate::layer_fx::lens_blur(source, *radius, edges == "repeat", &iris)
                 });
                 ox += r;
                 oy += r;
