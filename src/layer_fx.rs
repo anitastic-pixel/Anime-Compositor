@@ -979,15 +979,7 @@ pub(crate) fn bulge(source: &mut WorkingBuffer, radius: f64, height: f64, center
 /// clockwise from straight up and down. Pixels on its kept side stay exactly; the rest take the
 /// bilinear sample at their reflection across the line. The settings are already valid.
 pub(crate) fn mirror(source: &mut WorkingBuffer, angle: f64, center: (f64, f64)) {
-    // The normal, u(angle + 90) with u(t) = (sin t, -cos t), exact at whole quarter turns.
-    let theta = angle + 90.0;
-    let (nx, ny) = if theta.rem_euclid(90.0) == 0.0 {
-        [(0.0, -1.0), (1.0, 0.0), (0.0, 1.0), (-1.0, 0.0)]
-            [((theta / 90.0).floor() as i64).rem_euclid(4) as usize]
-    } else {
-        let (sin, cos) = theta.to_radians().sin_cos();
-        (sin, -cos)
-    };
+    let (nx, ny) = mirror_normal(angle);
     let w = source.width();
     let drawing = source.clone();
     source
@@ -1002,6 +994,19 @@ pub(crate) fn mirror(source: &mut WorkingBuffer, angle: f64, center: (f64, f64))
             }
             px.copy_from_slice(&sample_bilinear(&drawing, x - 2.0 * d * nx, y - 2.0 * d * ny));
         });
+}
+
+
+/// D-153's normal, u(angle + 90) with u(t) = (sin t, -cos t), exact at whole quarter turns.
+/// B-107's card takes the same.
+pub(crate) fn mirror_normal(angle: f64) -> (f64, f64) {
+    let theta = angle + 90.0;
+    if theta.rem_euclid(90.0) == 0.0 {
+        [(0.0, -1.0), (1.0, 0.0), (0.0, 1.0), (-1.0, 0.0)][((theta / 90.0).floor() as i64).rem_euclid(4) as usize]
+    } else {
+        let (sin, cos) = theta.to_radians().sin_cos();
+        (sin, -cos)
+    }
 }
 
 
@@ -1054,12 +1059,7 @@ pub(crate) fn linear_wipe(
         return;
     }
     let w = source.width();
-    let (w0, h0) = ((w - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
-    let (ux, uy) = crate::blurs::along(angle);
-    let corners = [0.0, ux * w0, uy * h0, ux * w0 + uy * h0];
-    let low = corners.iter().copied().fold(f64::INFINITY, f64::min);
-    let high = corners.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let edge = low - feather / 2.0 + completion / 100.0 * (high - low + feather);
+    let ((ux, uy), edge) = linear_edge(completion, angle, feather, source, origin);
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     source
         .data_mut()
@@ -1080,6 +1080,18 @@ pub(crate) fn linear_wipe(
                 *v *= k as f32;
             }
         });
+}
+
+
+/// D-155's direction across and where its edge is, for the drawing whose corner is at `origin` in
+/// `source`. B-107's card takes the same.
+pub(crate) fn linear_edge(completion: f64, angle: f64, feather: f64, source: &WorkingBuffer, origin: (usize, usize)) -> ((f64, f64), f64) {
+    let (w0, h0) = ((source.width() - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
+    let (ux, uy) = crate::blurs::along(angle);
+    let corners = [0.0, ux * w0, uy * h0, ux * w0 + uy * h0];
+    let low = corners.iter().copied().fold(f64::INFINITY, f64::min);
+    let high = corners.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    ((ux, uy), low - feather / 2.0 + completion / 100.0 * (high - low + feather))
 }
 
 
@@ -1204,14 +1216,7 @@ pub(crate) fn iris_wipe(
         return;
     }
     let w = source.width();
-    let (w0, h0) = ((w - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
-    let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
-    let far = [(0.0, 0.0), (0.0, h0), (w0, 0.0), (w0, h0)]
-        .iter()
-        .map(|&(a, b)| (cx - a).hypot(cy - b))
-        .fold(0.0, f64::max);
-    let cc = completion / 100.0;
-    let r = if invert { cc } else { 1.0 - cc } * (far + feather) - feather / 2.0;
+    let ((cx, cy), r) = iris_circle(completion, center, feather, invert, source, origin);
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     source
         .data_mut()
@@ -1231,6 +1236,20 @@ pub(crate) fn iris_wipe(
                 *v *= k as f32;
             }
         });
+}
+
+
+/// D-158's centre, in the drawing's own pixels, and radius, for the drawing whose corner is at
+/// `origin` in `source`. B-107's card takes the same.
+pub(crate) fn iris_circle(completion: f64, center: [f64; 2], feather: f64, invert: bool, source: &WorkingBuffer, origin: (usize, usize)) -> ((f64, f64), f64) {
+    let (w0, h0) = ((source.width() - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
+    let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
+    let far = [(0.0, 0.0), (0.0, h0), (w0, 0.0), (w0, h0)]
+        .iter()
+        .map(|&(a, b)| (cx - a).hypot(cy - b))
+        .fold(0.0, f64::max);
+    let cc = completion / 100.0;
+    ((cx, cy), if invert { cc } else { 1.0 - cc } * (far + feather) - feather / 2.0)
 }
 
 
@@ -1366,21 +1385,7 @@ pub(crate) fn speed_lines(
     [count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity]: [f64; 8],
     frame: i32,
 ) {
-    let count = count.floor() as i64;
-    let m = (frame as i64).div_euclid(hold.floor() as i64);
-    let base = crate::grade::mix(seed.floor() as u64);
-    // Each line's (angle, half-width, inner edge), in angle order.
-    let mut lines: Vec<(f64, f64, f64)> = (0..count)
-        .map(|k| {
-            let u = |ch| crate::grade::unit(base, k, 0, m, ch);
-            (
-                (360.0 / count as f64 * (k as f64 + 0.5 * angle_jitter / 100.0 * u(0))).rem_euclid(360.0),
-                thickness / 2.0 * (1.0 + 0.5 * u(1)),
-                inner * (1.0 + inner_jitter / 100.0 * u(2)),
-            )
-        })
-        .collect();
-    lines.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let lines = speed_line_list([count, thickness, inner, inner_jitter, angle_jitter, seed, hold], frame);
     let widest = lines.iter().map(|l| l.1).fold(0.0, f64::max);
     let (n, k, w) = (lines.len(), opacity / 100.0, source.width());
     let lines = &lines;
@@ -1425,6 +1430,30 @@ pub(crate) fn speed_lines(
                 px[c] = (v + op * (color[c] * a - v)) as f32;
             }
         });
+}
+
+
+/// D-160's lines at `frame`, each (angle, half-width, inner edge), in angle order, from the first
+/// seven of [`speed_lines`]' numbers. B-107's card takes the same.
+pub(crate) fn speed_line_list(
+    [count, thickness, inner, inner_jitter, angle_jitter, seed, hold]: [f64; 7],
+    frame: i32,
+) -> Vec<(f64, f64, f64)> {
+    let count = count.floor() as i64;
+    let m = (frame as i64).div_euclid(hold.floor() as i64);
+    let base = crate::grade::mix(seed.floor() as u64);
+    let mut lines: Vec<(f64, f64, f64)> = (0..count)
+        .map(|k| {
+            let u = |ch| crate::grade::unit(base, k, 0, m, ch);
+            (
+                (360.0 / count as f64 * (k as f64 + 0.5 * angle_jitter / 100.0 * u(0))).rem_euclid(360.0),
+                thickness / 2.0 * (1.0 + 0.5 * u(1)),
+                inner * (1.0 + inner_jitter / 100.0 * u(2)),
+            )
+        })
+        .collect();
+    lines.sort_by(|a, b| a.0.total_cmp(&b.0));
+    lines
 }
 
 
@@ -1545,19 +1574,8 @@ pub(crate) fn camera_shake(
         return 0;
     }
     let (w, h) = (source.width(), source.height());
-    let (cx, cy) = (
-        origin.0 as f64 + (w - 2 * origin.0) as f64 / 2.0,
-        origin.1 as f64 + (h - 2 * origin.1) as f64 / 2.0,
-    );
-    let rho = [(0.0, 0.0), (w as f64, 0.0), (0.0, h as f64), (w as f64, h as f64)]
-        .iter()
-        .map(|&(x, y): &(f64, f64)| (x - cx).hypot(y - cy))
-        .fold(0.0, f64::max);
-    let g = (amount * std::f64::consts::SQRT_2 + 2.0 * rho * (rotation.to_radians() / 2.0).sin()).ceil() as usize;
-    let m = (frame as i64).div_euclid(hold.floor() as i64);
-    let u = |ch| crate::grade::unit(crate::grade::mix(seed.floor() as u64), m, 0, 0, ch);
-    let (dx, dy) = (amount * u(0), amount * u(1));
-    let (sb, cb) = (rotation * u(2)).to_radians().sin_cos();
+    let ((cx, cy), g) = shake_reach(amount, rotation, (w, h), origin);
+    let (dx, dy, sb, cb) = shake_jolt([amount, rotation, hold, seed], frame);
     let ow = w + 2 * g;
     let mut out = WorkingBuffer::transparent(ow, h + 2 * g);
     let drawing = &*source;
@@ -1571,6 +1589,31 @@ pub(crate) fn camera_shake(
         });
     *source = out;
     g
+}
+
+
+/// D-162's jolt at `frame`: the move across and down, and the turn's sine and cosine. B-107's
+/// card takes the same.
+pub(crate) fn shake_jolt([amount, rotation, hold, seed]: [f64; 4], frame: i32) -> (f64, f64, f64, f64) {
+    let m = (frame as i64).div_euclid(hold.floor() as i64);
+    let u = |ch| crate::grade::unit(crate::grade::mix(seed.floor() as u64), m, 0, 0, ch);
+    let (sb, cb) = (rotation * u(2)).to_radians().sin_cos();
+    (amount * u(0), amount * u(1), sb, cb)
+}
+
+
+/// D-162's centre, the drawing's own, and the growth, for a buffer `w` by `h` whose drawing's
+/// corner is at `origin`. Compose and B-107's card take the same.
+pub(crate) fn shake_reach(amount: f64, rotation: f64, (w, h): (usize, usize), origin: (usize, usize)) -> ((f64, f64), usize) {
+    let (cx, cy) = (
+        origin.0 as f64 + (w - 2 * origin.0) as f64 / 2.0,
+        origin.1 as f64 + (h - 2 * origin.1) as f64 / 2.0,
+    );
+    let rho = [(0.0, 0.0), (w as f64, 0.0), (0.0, h as f64), (w as f64, h as f64)]
+        .iter()
+        .map(|&(x, y): &(f64, f64)| (x - cx).hypot(y - cy))
+        .fold(0.0, f64::max);
+    ((cx, cy), (amount * std::f64::consts::SQRT_2 + 2.0 * rho * (rotation.to_radians() / 2.0).sin()).ceil() as usize)
 }
 
 

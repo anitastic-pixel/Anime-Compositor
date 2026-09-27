@@ -1034,7 +1034,12 @@ fn rim(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // layer_fx::outline's band, the drawing `n` wider on every side: `row` is each row's greatest
-// covering within the current half-width, `band` the greatest over the disc so far.
+// covering within the current half-width, `band` the greatest over the disc so far. B-107: with
+// `flag`, Simple Choker's shrink, the least.
+fn pick(a: f32, b: f32) -> f32 {
+    return select(max(a, b), min(a, b), F.flag == 1u);
+}
+
 @compute @workgroup_size(16, 16)
 fn rows(@builtin(global_invocation_id) id: vec3<u32>) {
     let h = textureDimensions(input).y;
@@ -1049,11 +1054,12 @@ fn rows(@builtin(global_invocation_id) id: vec3<u32>) {
     if s == 0 {
         row[i] = at(input, vec2(x, y)).w;
     } else {
-        row[i] = max(max(row[i], at(input, vec2(x - s, y)).w), at(input, vec2(x + s, y)).w);
+        row[i] = pick(pick(row[i], at(input, vec2(x - s, y)).w), at(input, vec2(x + s, y)).w);
     }
 }
 
-// Each disc row whose half-width is the current one, its offsets in `k`, maxed into the band.
+// Each disc row whose half-width is the current one, its offsets in `k`, maxed into the band; a
+// row outside the layer is empty. B-107: `mode` 1 is the first, the band starting from infinity.
 @compute @workgroup_size(16, 16)
 fn bands(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -1064,12 +1070,16 @@ fn bands(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let i = id.y * bw + id.x;
     var v = band[i];
+    if F.mode == 1u {
+        v = bitcast<f32>(0x7f800000u);
+    }
     for (var j = 0u; j < F.count; j++) {
         let sy = i32(id.y) - i32(F.n) + i32(k[j]);
         if sy < 0 || sy >= i32(size.y) {
+            v = pick(v, 0.0);
             continue;
         }
-        v = max(v, row[u32(sy) * bw + id.x]);
+        v = pick(v, row[u32(sy) * bw + id.x]);
     }
     band[i] = v;
 }
@@ -1370,6 +1380,818 @@ fn lightwrap(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     textureStore(output, id.xy, out);
 }
+
+// B-107: sine and cosine in double precision. Whole quarter turns come off in three parts
+// (fdlibm's), exact for fewer than 2^20 of them, and the rest, within an eighth of a turn, is
+// summed as its series.
+// ponytail: past 2^20 quarter turns (a wave phase of about 1.6 million radians) the reduction
+// loses digits; a longer reduction if phases that large are ever used.
+fn quarters(x: f64) -> f64 {
+    return floor(x * 0.6366197723675814lf + 0.5lf);
+}
+
+fn reduced(x: f64, n: f64) -> f64 {
+    return ((x - n * 1.57079632673412561417lf) - n * 6.07710050630396597660e-11lf) - n * 2.02226624879595063154e-21lf;
+}
+
+fn sin_series(r: f64) -> f64 {
+    let s = r * r;
+    return r * (1.0lf + s * (-0.16666666666666666lf + s * (0.008333333333333333lf + s * (-0.0001984126984126984lf
+        + s * (2.7557319223985893e-06lf + s * (-2.505210838544172e-08lf + s * (1.6059043836821613e-10lf
+        + s * (-7.647163731819816e-13lf + s * 2.8114572543455206e-15lf))))))));
+}
+
+fn cos_series(r: f64) -> f64 {
+    let s = r * r;
+    return 1.0lf + s * (-0.5lf + s * (0.041666666666666664lf + s * (-0.001388888888888889lf + s * (2.48015873015873e-05lf
+        + s * (-2.755731922398589e-07lf + s * (2.08767569878681e-09lf + s * (-1.1470745597729725e-11lf
+        + s * (4.779477332387385e-14lf - s * 1.5619206968586225e-16lf))))))));
+}
+
+fn turns(n: f64) -> i32 {
+    return ((i32(n) % 4) + 4) % 4;
+}
+
+fn sin64(x: f64) -> f64 {
+    let n = quarters(x);
+    let r = reduced(x, n);
+    switch turns(n) {
+        case 0: { return sin_series(r); }
+        case 1: { return cos_series(r); }
+        case 2: { return -sin_series(r); }
+        default: { return -cos_series(r); }
+    }
+}
+
+fn cos64(x: f64) -> f64 {
+    let n = quarters(x);
+    let r = reduced(x, n);
+    switch turns(n) {
+        case 0: { return cos_series(r); }
+        case 1: { return -sin_series(r); }
+        case 2: { return -cos_series(r); }
+        default: { return sin_series(r); }
+    }
+}
+
+// asin(sin(x)), the triangle wave, folded from the angle.
+fn folded(x: f64) -> f64 {
+    let n = quarters(x);
+    let r = reduced(x, n);
+    switch turns(n) {
+        case 0: { return r; }
+        case 1: { return 1.5707963267948966lf - abs(r); }
+        case 2: { return -r; }
+        default: { return abs(r) - 1.5707963267948966lf; }
+    }
+}
+
+// atan2 in double precision: the straight and diagonal directions exact, the rest a single
+// precision guess taken to double by Newton's steps on x sin t = y cos t. Both zero is 0.
+fn atan2_64(y: f64, x: f64) -> f64 {
+    if y == 0.0lf {
+        return select(0.0lf, 3.141592653589793lf, x < 0.0lf);
+    }
+    if x == 0.0lf {
+        return select(-1.5707963267948966lf, 1.5707963267948966lf, y > 0.0lf);
+    }
+    if abs(x) == abs(y) {
+        let t = select(2.356194490192345lf, 0.7853981633974483lf, x > 0.0lf);
+        return select(-t, t, y > 0.0lf);
+    }
+    var t = f64(atan2(f32(y), f32(x)));
+    for (var i = 0; i < 2; i++) {
+        let s = sin64(t);
+        let c = cos64(t);
+        t = t - (s * x - c * y) / (c * x + s * y);
+    }
+    return t;
+}
+
+// f64::rem_euclid for m > 0: the remainder worked exactly, as `%` is, then made positive.
+fn euclid(a: f64, m: f64) -> f64 {
+    var r = a - m * trunc(a / m);
+    if a >= 0.0lf && r < 0.0lf {
+        r += m;
+    } else if a < 0.0lf && r > 0.0lf {
+        r -= m;
+    }
+    return select(r, r + m, r < 0.0lf);
+}
+
+fn luma(e: vec3<f64>) -> f64 {
+    return 0.2126lf * e.x + 0.7152lf * e.y + 0.0722lf * e.z;
+}
+
+// grade::hsv_hue, -1 for a grey.
+fn hsv_hue(e: vec3<f64>) -> f64 {
+    let mx = max(max(e.x, e.y), e.z);
+    let mn = min(min(e.x, e.y), e.z);
+    if mx == mn {
+        return -1.0lf;
+    }
+    let d = mx - mn;
+    if e.x == mx {
+        return euclid(60.0lf * ((e.y - e.z) / d), 360.0lf);
+    }
+    if e.y == mx {
+        return 60.0lf * ((e.z - e.x) / d + 2.0lf);
+    }
+    return 60.0lf * ((e.x - e.y) / d + 4.0lf);
+}
+
+// B-107, the third batch's colour effects, a pixel a thread: grade::invert (mode 0, `count` the
+// channel, 3 all), invert_alpha (1), brightness_contrast (2), black_white (3), posterize (4),
+// threshold (5), channel_mixer (6), vibrance (7), leave_color (8), solarize (9) and halftone
+// (10).
+@compute @workgroup_size(16, 16)
+fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    if F.mode == 1u {
+        // k: the amount as a share.
+        var b = vec3(0.0lf);
+        if a > 0.0lf {
+            b = vec3<f64>(p.xyz) / a;
+        }
+        let n = a + k[0] * (1.0lf - 2.0lf * a);
+        textureStore(output, id.xy, vec4(vec3<f32>(b * n), f32(n)));
+        return;
+    }
+    if a <= 0.0lf {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    let px = vec3<f64>(p.xyz);
+    var e: vec3<f64>;
+    for (var c = 0u; c < 3u; c++) {
+        e[c] = to_srgb(clamp(px[c] / a, 0.0lf, 1.0lf));
+    }
+    var out = p;
+    if F.mode == 0u {
+        // k: the amount as a share.
+        for (var c = 0u; c < 3u; c++) {
+            if F.count == 3u || F.count == c {
+                out[c] = f32(to_linear(clamp(e[c] + k[0] * (1.0lf - 2.0lf * e[c]), 0.0lf, 1.0lf)) * a);
+            }
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 8u {
+        // k: the chosen hue (-1 for a grey), the tolerance, softness and amount as shares.
+        let h = hsv_hue(e);
+        var dist = 1.0lf;
+        if h >= 0.0lf && k[0] >= 0.0lf {
+            let d = abs(h - k[0]);
+            dist = min(d, 360.0lf - d) / 180.0lf;
+        }
+        var keep = 0.0lf;
+        if dist <= k[1] {
+            keep = 1.0lf;
+        } else if !(k[2] == 0.0lf || dist >= k[1] + k[2]) {
+            keep = 1.0lf - (dist - k[1]) / k[2];
+        }
+        if keep == 1.0lf {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        let d = k[3] * (1.0lf - keep);
+        let y = luma(e);
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32(to_linear(clamp(e[c] + d * (y - e[c]), 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 9u {
+        // k: the threshold.
+        for (var c = 0u; c < 3u; c++) {
+            if 255.0lf * e[c] + 1e-4lf >= k[0] {
+                out[c] = f32(to_linear(1.0lf - e[c]) * a);
+            }
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 10u {
+        // k: the screen's sine and cosine, the size, the amount as a share, the ink and the paper
+        // in linear light.
+        let x = f64(i32(id.x) - F.ox) + 0.5lf;
+        let y = f64(i32(id.y) - F.oy) + 0.5lf;
+        let u = (x * k[1] + y * k[0]) / k[2];
+        let v = (-x * k[0] + y * k[1]) / k[2];
+        let du = u - floor(u) - 0.5lf;
+        let dv = v - floor(v) - 0.5lf;
+        let rho = sqrt(du * du + dv * dv);
+        let b = px / a;
+        var shown: vec3<f64>;
+        for (var c = 0u; c < 3u; c++) {
+            shown[c] = to_srgb(clamp(b[c], 0.0lf, 1.0lf));
+        }
+        let dark = 1.0lf - clamp(luma(shown), 0.0lf, 1.0lf);
+        var r = sqrt(dark / 3.141592653589793lf);
+        if dark > 0.7853981633974483lf {
+            r = 0.5lf + 0.21lf * (dark - 0.7853981633974483lf) / (1.0lf - 0.7853981633974483lf);
+        }
+        let g = select(7u, 4u, rho < r);
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32((b[c] + k[3] * (k[g + c] - b[c])) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    var o = e;
+    switch F.mode {
+        case 2u: {
+            // k: the contrast's slope, the brightness over 255.
+            for (var c = 0u; c < 3u; c++) {
+                o[c] = (e[c] - 0.5lf) * k[0] + 0.5lf + k[1];
+            }
+        }
+        case 3u: {
+            // k: reds, yellows, greens, cyans, blues, magentas. The channels largest first, a tie
+            // kept in the order red, green, blue, as the CPU's stable sort leaves it.
+            var order = array<u32, 3>(0u, 1u, 2u);
+            if e[order[1]] > e[order[0]] {
+                order = array<u32, 3>(order[1], order[0], order[2]);
+            }
+            if e[order[2]] > e[order[1]] {
+                order = array<u32, 3>(order[0], order[2], order[1]);
+                if e[order[1]] > e[order[0]] {
+                    order = array<u32, 3>(order[1], order[0], order[2]);
+                }
+            }
+            let hi = order[0];
+            let mid = order[1];
+            let lo = order[2];
+            var secondary = k[5];
+            if hi + mid == 1u {
+                secondary = k[1];
+            } else if hi + mid == 3u {
+                secondary = k[3];
+            }
+            o = vec3(e[lo] + (e[mid] - e[lo]) * secondary / 100.0lf + (e[hi] - e[mid]) * k[2u * hi] / 100.0lf);
+        }
+        case 4u: {
+            // k: the levels, whole.
+            for (var c = 0u; c < 3u; c++) {
+                o[c] = min(floor(e[c] * k[0] + 1e-4lf), k[0] - 1.0lf) / (k[0] - 1.0lf);
+            }
+        }
+        case 5u: {
+            // k: the level.
+            o = vec3(select(0.0lf, 1.0lf, 255.0lf * luma(e) + 1e-4lf >= k[0]));
+        }
+        case 6u: {
+            // k: the three rows, each from red, green, blue and a constant.
+            for (var c = 0u; c < 3u; c++) {
+                let r = 4u * c;
+                o[c] = (k[r] * e.x + k[r + 1u] * e.y + k[r + 2u] * e.z + k[r + 3u]) / 100.0lf;
+            }
+        }
+        default: {
+            // k: vibrance, saturation.
+            let l = luma(e);
+            let s = max(max(e.x, e.y), e.z) - min(min(e.x, e.y), e.z);
+            let m = 1.0lf + k[1] / 100.0lf + k[0] / 100.0lf * (1.0lf - s);
+            for (var c = 0u; c < 3u; c++) {
+                o[c] = l + (e[c] - l) * m;
+            }
+        }
+    }
+    for (var c = 0u; c < 3u; c++) {
+        out[c] = f32(to_linear(clamp(o[c], 0.0lf, 1.0lf)) * a);
+    }
+    textureStore(output, id.xy, out);
+}
+
+// `a` times `b` rounded, as the CPU rounds it, before any add it goes into. This card fuses a
+// multiply into the add after it, rounding once where the CPU rounds twice, and on a hard edge
+// that one rounding puts a pixel on the other side; neither a multiply by a 1 read from the
+// settings nor a choice stopped it. An fma with `zero`, a 0 read from the settings, is the product
+// rounded and is no multiply, so nothing fuses it.
+fn product(a: f64, b: f64, zero: f64) -> f64 {
+    return fma(a, b, zero);
+}
+
+// B-107, the pixels read from elsewhere: layer_fx::wave_warp (mode 0, the output grown by `g`,
+// `flag` Repeat Edge Pixels), ripple (1), twirl (2), bulge (3), mirror (4) and camera_shake (5,
+// grown by `g`).
+@compute @workgroup_size(16, 16)
+fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let x = f64(id.x) + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    var sx = x;
+    var sy = y;
+    switch F.mode {
+        case 0u: {
+            // k: the drawing's corner in the output, the wave's direction and its normal, the
+            // width, the phase in radians, the height, triangle.
+            let s = k[2] * (x - k[0]) + k[3] * (y - k[1]);
+            let a = 6.283185307179586lf * s / k[6] + k[7];
+            var v = sin64(a);
+            if k[9] == 1.0lf {
+                v = folded(a) * 2.0lf / 3.141592653589793lf;
+            }
+            sx = x - k[8] * v * k[4];
+            sy = y - k[8] * v * k[5];
+            if F.flag == 1u {
+                sx = clamp(sx, 0.5lf, f64(size.x) - 0.5lf);
+                sy = clamp(sy, 0.5lf, f64(size.y) - 0.5lf);
+            }
+            sx -= f64(F.g);
+            sy -= f64(F.g);
+        }
+        case 1u: {
+            // k: the centre, the amplitude, the wavelength, the phase in radians, the fade.
+            let vx = x - k[0];
+            let vy = y - k[1];
+            let d = sqrt(vx * vx + vy * vy);
+            if d == 0.0lf {
+                textureStore(output, id.xy, textureLoad(input, id.xy, 0));
+                return;
+            }
+            var f = 1.0lf;
+            if k[5] != 0.0lf {
+                f = max(1.0lf - d / k[5], 0.0lf);
+            }
+            let m = sin64(6.283185307179586lf * d / k[3] - k[4]) * f;
+            if m == 0.0lf {
+                textureStore(output, id.xy, textureLoad(input, id.xy, 0));
+                return;
+            }
+            let s = k[2] * m / d;
+            sx = x + s * vx;
+            sy = y + s * vy;
+        }
+        case 2u, 3u: {
+            // k: the centre, the turn in radians or the height, the radius.
+            let vx = x - k[0];
+            let vy = y - k[1];
+            let d = sqrt(vx * vx + vy * vy);
+            if d >= k[3] {
+                textureStore(output, id.xy, textureLoad(input, id.xy, 0));
+                return;
+            }
+            let t = 1.0lf - d / k[3];
+            if F.mode == 2u {
+                let turn = k[2] * t * t;
+                let s = sin64(turn);
+                let c = cos64(turn);
+                sx = k[0] + (vx * c + vy * s);
+                sy = k[1] + (vy * c - vx * s);
+            } else {
+                let m = max(1.0lf - k[2] * t * t / 2.0lf, 0.0lf);
+                sx = k[0] + m * vx;
+                sy = k[1] + m * vy;
+            }
+        }
+        case 4u: {
+            // k: the centre, the kept side's normal, 0. Each product rounded on its own, as the
+            // CPU rounds it, so a pixel on the line or reflected onto a pixel's edge falls the
+            // CPU's way.
+            let d = product(x - k[0], k[2], k[4]) + product(y - k[1], k[3], k[4]);
+            if d >= 0.0lf {
+                textureStore(output, id.xy, textureLoad(input, id.xy, 0));
+                return;
+            }
+            sx = x - product(2.0lf * d, k[2], k[4]);
+            sy = y - product(2.0lf * d, k[3], k[4]);
+        }
+        default: {
+            // k: the centre, the jolt across and down, the turn's sine and cosine.
+            let vx = x - f64(F.g) - k[0] - k[2];
+            let vy = y - f64(F.g) - k[1] - k[3];
+            sx = k[0] + vx * k[5] + vy * k[4];
+            sy = k[1] - vx * k[4] + vy * k[5];
+        }
+    }
+    textureStore(output, id.xy, bilinear(input, sx, sy));
+}
+
+// B-107, the four wipes: layer_fx::linear_wipe (mode 0), radial_wipe (1, `count` the way round),
+// venetian_blinds (2) and iris_wipe (3). `flag` is complete, every pixel gone.
+@compute @workgroup_size(16, 16)
+fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    if F.flag == 1u {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    // What is kept runs from 0 to 1 over the feather, `s` the place and `edge` where it is half
+    // kept; feather 0 is a hard step.
+    var s: f64;
+    var edge: f64;
+    var feather: f64;
+    switch F.mode {
+        case 0u: {
+            // k: the direction across, the edge, the feather, 0, each product rounded on its own
+            // as the CPU rounds it.
+            s = product(k[0], x, k[4]) + product(k[1], y, k[4]);
+            edge = k[2];
+            feather = k[3];
+        }
+        case 1u: {
+            // k: the centre, the start angle, the edge and the feather, in degrees.
+            let vx = x - k[0];
+            let vy = y - k[1];
+            var screen = 0.0lf;
+            if !(vx == 0.0lf && vy == 0.0lf) {
+                screen = euclid(atan2_64(vx, -vy) * 57.29577951308232lf, 360.0lf);
+                screen = select(screen, 0.0lf, screen >= 360.0lf);
+            }
+            var a = euclid(screen - k[2], 360.0lf);
+            a = select(a, 0.0lf, a >= 360.0lf);
+            s = a;
+            if F.count == 1u {
+                s = select(0.0lf, 360.0lf - a, a > 0.0lf);
+            } else if F.count == 2u {
+                s = 2.0lf * min(a, 360.0lf - a);
+            }
+            edge = k[3];
+            feather = k[4];
+        }
+        case 2u: {
+            // k: the direction across, the slats' width, the edge, the feather, 0, each product
+            // rounded on its own as the CPU rounds it.
+            let along = product(k[0], x, k[5]) + product(k[1], y, k[5]);
+            s = along - product(k[2], floor(along / k[2]), k[5]);
+            edge = k[3];
+            feather = k[4];
+        }
+        default: {
+            // k: the centre, the radius, the feather, invert.
+            let dx = x - k[0];
+            let dy = y - k[1];
+            let d = sqrt(dx * dx + dy * dy);
+            s = select(k[2] - d, d - k[2], k[4] == 1.0lf);
+            edge = 0.0lf;
+            feather = k[3];
+        }
+    }
+    var kept = select(0.0lf, 1.0lf, s >= edge);
+    if feather > 0.0lf {
+        kept = clamp((s - edge) / feather + 0.5lf, 0.0lf, 1.0lf);
+    }
+    textureStore(output, id.xy, textureLoad(input, id.xy, 0) * f32(kept));
+}
+
+// B-107, layer_fx::mosaic's blocks, one a thread, each block's mean into `row`, summed in the
+// CPU's order. k: the columns of blocks, the rows, then where each column starts, the end last,
+// then where each row starts, the end last.
+// ponytail: one thread sums a whole block, slow for blocks of many thousands of pixels; a
+// reduction in steps if Mosaic's big sizes are ever slow on the card.
+@compute @workgroup_size(16, 16)
+fn blocks(@builtin(global_invocation_id) id: vec3<u32>) {
+    let nc = u32(k[0]);
+    let nr = u32(k[1]);
+    if id.x >= nc || id.y >= nr {
+        return;
+    }
+    let x0 = u32(k[2u + id.x]);
+    let x1 = u32(k[3u + id.x]);
+    let y0 = u32(k[3u + nc + id.y]);
+    let y1 = u32(k[4u + nc + id.y]);
+    // Four scalars, not a vec4<f64>, which this driver reads back as zero here.
+    var r = 0.0lf;
+    var g = 0.0lf;
+    var b = 0.0lf;
+    var a = 0.0lf;
+    for (var y = y0; y < y1; y++) {
+        for (var x = x0; x < x1; x++) {
+            let p = textureLoad(input, vec2(x, y), 0);
+            r += f64(p.x);
+            g += f64(p.y);
+            b += f64(p.z);
+            a += f64(p.w);
+        }
+    }
+    let n = f64((y1 - y0) * (x1 - x0));
+    let i = 4u * (id.y * nc + id.x);
+    row[i] = f32(r / n);
+    row[i + 1u] = f32(g / n);
+    row[i + 2u] = f32(b / n);
+    row[i + 3u] = f32(a / n);
+}
+
+// Each pixel its block's mean. k as for `blocks`, then each column's block, then each row's.
+@compute @workgroup_size(16, 16)
+fn tiles(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let nc = u32(k[0]);
+    let nr = u32(k[1]);
+    let start = 4u + nc + nr;
+    let i = 4u * (u32(k[start + size.x + id.y]) * nc + u32(k[start + id.x]));
+    textureStore(output, id.xy, vec4(row[i], row[i + 1u], row[i + 2u], row[i + 3u]));
+}
+
+// layer_fx::picture_luma.
+fn picture_luma(p: vec4<f32>) -> f64 {
+    return to_srgb(clamp(0.2126lf * f64(p.x) + 0.7152lf * f64(p.y) + 0.0722lf * f64(p.z), 0.0lf, 1.0lf));
+}
+
+// B-107, layer_fx::emboss (mode 0; k: the relief across and down, the contrast as a share,
+// colour) and find_edges (mode 1; k: the amount as a share, invert).
+@compute @workgroup_size(16, 16)
+fn relief(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    var out = p;
+    if F.mode == 0u {
+        let x = f64(id.x) + 0.5lf;
+        let y = f64(id.y) + 0.5lf;
+        let fw = f64(size.x);
+        let fh = f64(size.y);
+        let ahead = picture_luma(bilinear(input, min(max(x + k[0], 0.5lf), fw - 0.5lf), min(max(y + k[1], 0.5lf), fh - 0.5lf)));
+        let behind = picture_luma(bilinear(input, min(max(x - k[0], 0.5lf), fw - 0.5lf), min(max(y - k[1], 0.5lf), fh - 0.5lf)));
+        let v = 0.5lf + (ahead - behind) * k[2];
+        for (var c = 0u; c < 3u; c++) {
+            var e = v;
+            if k[3] == 1.0lf {
+                e = to_srgb(clamp(f64(p[c]) / a, 0.0lf, 1.0lf)) + v - 0.5lf;
+            }
+            out[c] = f32(to_linear(clamp(e, 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    let most = vec2<i32>(size) - vec2(1);
+    let q = vec2<i32>(id.xy);
+    // l[j * 3 + i] is the pixel i - 1 across and j - 1 down, held inside the layer.
+    var l: array<f64, 9>;
+    for (var j = 0; j < 3; j++) {
+        for (var i = 0; i < 3; i++) {
+            l[j * 3 + i] = picture_luma(textureLoad(input, clamp(q + vec2(i - 1, j - 1), vec2(0), most), 0));
+        }
+    }
+    let gx = l[2] + 2.0lf * l[5] + l[8] - l[0] - 2.0lf * l[3] - l[6];
+    let gy = l[6] + 2.0lf * l[7] + l[8] - l[0] - 2.0lf * l[1] - l[2];
+    let m = min(sqrt(gx * gx + gy * gy) / 2.0lf, 1.0lf);
+    let v = select(1.0lf - m, m, k[1] == 1.0lf);
+    for (var c = 0u; c < 3u; c++) {
+        let e = to_srgb(clamp(f64(p[c]) / a, 0.0lf, 1.0lf));
+        out[c] = f32(to_linear(clamp(e + k[0] * (v - e), 0.0lf, 1.0lf)) * a);
+    }
+    textureStore(output, id.xy, out);
+}
+
+// B-107, layer_fx::sharpen (mode 0) and diffusion (mode 1, `blend` 0 normal, 1 screen, 2
+// lighten): `other` is the picture blurred, grown by `r`. k: the amount as a share.
+@compute @workgroup_size(16, 16)
+fn sharp(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    let g = textureLoad(other, vec2<i32>(id.xy) + vec2(F.r), 0);
+    let ga = f64(g.w);
+    var out = p;
+    for (var c = 0u; c < 3u; c++) {
+        if F.mode == 0u {
+            let e = to_srgb(clamp(f64(p[c]) / a, 0.0lf, 1.0lf));
+            var eb = e;
+            if ga > 0.0lf {
+                eb = to_srgb(clamp(f64(g[c]) / ga, 0.0lf, 1.0lf));
+            }
+            out[c] = f32(to_linear(clamp(e + k[0] * (e - eb), 0.0lf, 1.0lf)) * a);
+        } else {
+            let b = f64(p[c]) / a;
+            var s = b;
+            if ga > 0.0lf {
+                s = f64(g[c]) / ga;
+            }
+            var f = s;
+            if F.blend == 1u {
+                f = 1.0lf - (1.0lf - b) * (1.0lf - s);
+            } else if F.blend == 2u {
+                f = max(b, s);
+            }
+            out[c] = f32((b + k[0] * (f - b)) * a);
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
+// B-107, layer_fx::simple_choker's last step: `band` is the least (`flag`, shrinking) or the
+// greatest covering within reach, the output the drawing grown by `g`; a spread's empty pixels
+// take the average within reach from each row's running totals in `sums`. k: each disc row's
+// offset and half-width; `count` the rows.
+@compute @workgroup_size(16, 16)
+fn choke(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let w = i32(textureDimensions(input).x);
+    let h = i32(textureDimensions(input).y);
+    let x = i32(id.x) - F.g;
+    let y = i32(id.y) - F.g;
+    let a = band[id.y * size.x + id.x];
+    let p = at(input, vec2(x, y));
+    if p.w > 0.0 {
+        let m = f64(a) / f64(p.w);
+        textureStore(output, id.xy, vec4(vec3<f32>(vec3<f64>(p.xyz) * m), a));
+        return;
+    }
+    if F.flag == 1u {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    if a == 0.0 {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    var sum = vec4<f64>(0.0lf);
+    for (var j = 0u; j < F.count; j++) {
+        let sy = y + i32(k[2u * j]);
+        let hw = i32(k[2u * j + 1u]);
+        let x0 = max(x - hw, 0);
+        let x1 = min(x + hw + 1, w);
+        if sy < 0 || sy >= h || x0 >= x1 {
+            continue;
+        }
+        let base = u32(sy * (w + 1));
+        sum += sums[base + u32(x1)] - sums[base + u32(x0)];
+    }
+    textureStore(output, id.xy, vec4(vec3<f32>(sum.xyz / sum.w * f64(a)), a));
+}
+
+// B-107, layer_fx::speed_lines. k: the centre, the opacity as a share, the colour in linear
+// light, the widest half-width, the count, then each line's angle, half-width and inner edge, in
+// angle order.
+@compute @workgroup_size(16, 16)
+fn lines(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    if p.w == 0.0 {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    let vx = f64(id.x) + 0.5lf - k[0];
+    let vy = f64(id.y) + 0.5lf - k[1];
+    let d = sqrt(vx * vx + vy * vy);
+    let alpha = euclid(atan2_64(vx, -vy) * 57.29577951308232lf, 360.0lf);
+    let n = u32(k[7]);
+    // A line more than `reach` degrees round gives nothing here; at the centre every line is in
+    // reach.
+    var reach = 1e300lf;
+    if d > 0.0lf {
+        reach = k[6] + 90.0lf / (3.141592653589793lf * d) + 1e-9lf;
+    }
+    // The first line at or past the pixel's angle.
+    var lo = 0u;
+    var hi = n;
+    while lo < hi {
+        let mid = (lo + hi) / 2u;
+        if k[8u + 3u * mid] < alpha {
+            lo = mid + 1u;
+        } else {
+            hi = mid;
+        }
+    }
+    var q = 0.0lf;
+    // Forward from `lo`, then back from the line before it, each way stopping out of reach.
+    for (var way = 0u; way < 2u; way++) {
+        for (var j = 0u; j < n; j++) {
+            var l = (lo + j) % n;
+            var gap = euclid(k[8u + 3u * l] - alpha, 360.0lf);
+            if way == 1u {
+                l = (lo + 2u * n - j - 1u) % n;
+                gap = euclid(alpha - k[8u + 3u * l], 360.0lf);
+            }
+            if gap > reach {
+                break;
+            }
+            let turn = euclid(alpha - k[8u + 3u * l], 360.0lf);
+            let one = clamp((k[9u + 3u * l] - min(turn, 360.0lf - turn)) * 3.141592653589793lf / 180.0lf * d + 0.5lf, 0.0lf, 1.0lf)
+                * clamp(d - k[10u + 3u * l] + 0.5lf, 0.0lf, 1.0lf);
+            q = max(q, one);
+        }
+    }
+    let op = q * k[2];
+    let a = f64(p.w);
+    var out = p;
+    for (var c = 0u; c < 3u; c++) {
+        let v = f64(p[c]);
+        out[c] = f32(v + op * (k[3u + c] * a - v));
+    }
+    textureStore(output, id.xy, out);
+}
+
+// B-107, layer_fx::cross_glare's last step: `other` is the bright pixels, the output the drawing
+// grown by `g`, the length. k: the intensity, the colour in linear light, the arms' count, each
+// arm's direction, then each step's distance and weight.
+// ponytail: every sample is taken, where the CPU skips the dark ones; a lit-pixel count like the
+// CPU's if long glares on big layers are ever slow on the card.
+@compute @workgroup_size(16, 16)
+fn glare(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let x = i32(id.x) - F.g;
+    let y = i32(id.y) - F.g;
+    let cx = f64(x) + 0.5lf;
+    let cy = f64(y) + 0.5lf;
+    let arms = u32(k[4]);
+    let steps = 5u + 2u * arms;
+    var g = vec4<f64>(0.0lf);
+    for (var j = 0u; j < arms; j++) {
+        let vx = k[5u + 2u * j];
+        let vy = k[6u + 2u * j];
+        for (var t = 0u; t < u32(F.g); t++) {
+            let d = k[steps + 2u * t];
+            g += k[steps + 2u * t + 1u] * vec4<f64>(bilinear(other, cx - d * vx, cy - d * vy));
+        }
+    }
+    let o = at(input, vec2(x, y));
+    var out: vec4<f32>;
+    for (var c = 0u; c < 3u; c++) {
+        out[c] = f32(f64(o[c]) + k[0] * k[1u + c] * g[c]);
+    }
+    out.w = f32(min(f64(o.w) + k[0] * g.w, 1.0lf));
+    textureStore(output, id.xy, out);
+}
+
+// B-107, layer_fx::rain: the seed in `base`, the drawing's corner at `ox`, `oy`. k: the fall's
+// direction and its normal, the streak's reach across, half its length, the fall so far, the
+// spacing, the density as a share, half the width, the opacity, the colour in linear light.
+@compute @workgroup_size(16, 16)
+fn rain(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    if a == 0.0lf {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    let fa = k[2] * x + k[3] * y;
+    let fb = k[0] * x + k[1] * y - k[6];
+    let r = k[4];
+    let half = k[5];
+    let sp = k[7];
+    var q = 0.0lf;
+    for (var ci = i32(floor((fa - r) / sp)); ci <= i32(floor((fa + r) / sp)); ci++) {
+        for (var cj = i32(floor((fb - half - r) / sp)); cj <= i32(floor((fb + half + r) / sp)); cj++) {
+            if (hashed(ci, cj, 0, 0u) + 1.0lf) / 2.0lf >= k[8] {
+                continue;
+            }
+            let cx = sp * (f64(ci) + (hashed(ci, cj, 0, 1u) + 1.0lf) / 2.0lf);
+            let cy = sp * (f64(cj) + (hashed(ci, cj, 0, 2u) + 1.0lf) / 2.0lf);
+            let beta = 0.5lf + 0.25lf * (hashed(ci, cj, 0, 3u) + 1.0lf);
+            let dx = fa - cx;
+            let dy = max(abs(fb - cy) - half, 0.0lf);
+            let delta = sqrt(dx * dx + dy * dy);
+            q = max(q, clamp(k[9] - delta + 0.5lf, 0.0lf, 1.0lf) * beta);
+        }
+    }
+    let op = q * k[10] / 100.0lf;
+    var out = p;
+    for (var c = 0u; c < 3u; c++) {
+        let b = f64(p[c]) / a;
+        out[c] = f32((b + op * (k[11u + c] - b)) * a);
+    }
+    textureStore(output, id.xy, out);
+}
 "#;
 
 /// B-65: [`FX_SHADER`]'s numbers, laid out as its `Fx`; each pass reads what it needs.
@@ -1408,6 +2230,18 @@ struct FxPasses {
     cols: Pass,
     edt: Pass,
     wrap: Pass,
+    /// B-107.
+    tone: Pass,
+    warp: Pass,
+    wipe: Pass,
+    blocks: Pass,
+    tiles: Pass,
+    relief: Pass,
+    sharp: Pass,
+    choke: Pass,
+    lines: Pass,
+    glare: Pass,
+    rain: Pass,
 }
 
 /// B-76: Distance Gradation's work for a drawing `w` by `h`: the columns' distances over the
@@ -1775,6 +2609,17 @@ impl Gpu {
                 cols: pass("cols", &[0, 1, 8]),
                 edt: pass("edt", &[0, 1, 2, 3, 8]),
                 wrap: pass("lightwrap", &[0, 1, 2, 3, 4]),
+                tone: pass("tone", &[0, 1, 2, 3]),
+                warp: pass("warp", &[0, 1, 2, 3]),
+                wipe: pass("wipe", &[0, 1, 2, 3]),
+                blocks: pass("blocks", &[0, 1, 3, 5]),
+                tiles: pass("tiles", &[0, 1, 2, 3, 5]),
+                relief: pass("relief", &[0, 1, 2, 3]),
+                sharp: pass("sharp", &[0, 1, 2, 3, 4]),
+                choke: pass("choke", &[0, 1, 2, 3, 6, 7]),
+                lines: pass("lines", &[0, 1, 2, 3]),
+                glare: pass("glare", &[0, 1, 2, 3, 4]),
+                rain: pass("rain", &[0, 1, 2, 3]),
             }
         });
         let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
@@ -2476,7 +3321,239 @@ impl Gpu {
                 self.fx_step(steps, &passes.edt, p, Some(still), Some(&out), Some(&k), None, work, ((h as u32).div_ceil(64), 1));
                 (out, (w, h))
             }
-            _ => unreachable!("compose leaves only the two batches of ten as Fx"),
+            // B-107: the third batch, Motion Tile aside.
+            E::Invert { channel, amount } => {
+                let (mode, count) = match channel.as_str() {
+                    "alpha" => (1, 0),
+                    "red" => (0, 0),
+                    "green" => (0, 1),
+                    "blue" => (0, 2),
+                    _ => (0, 3),
+                };
+                same(steps, &passes.tone, FxParams { mode, count, ..Default::default() }, &[amount / 100.0], None)
+            }
+            E::BrightnessContrast { brightness, contrast } => {
+                let k = if *contrast <= 0.0 { 1.0 + contrast / 100.0 } else { 1.0 / (1.0 - 0.99 * contrast / 100.0) };
+                same(steps, &passes.tone, FxParams { mode: 2, ..Default::default() }, &[k, brightness / 255.0], None)
+            }
+            E::BlackWhite { reds, yellows, greens, cyans, blues, magentas } => {
+                let k = [*reds, *yellows, *greens, *cyans, *blues, *magentas];
+                same(steps, &passes.tone, FxParams { mode: 3, ..Default::default() }, &k, None)
+            }
+            E::Posterize { levels } => same(steps, &passes.tone, FxParams { mode: 4, ..Default::default() }, &[levels.floor()], None),
+            E::Threshold { level } => same(steps, &passes.tone, FxParams { mode: 5, ..Default::default() }, &[*level], None),
+            E::ChannelMixer { red, green, blue, monochrome } => {
+                let rows = if monochrome == "on" { [red, red, red] } else { [red, green, blue] };
+                let k: Vec<f64> = rows.iter().flat_map(|r| r[..4].to_vec()).collect();
+                same(steps, &passes.tone, FxParams { mode: 6, ..Default::default() }, &k, None)
+            }
+            E::Vibrance { vibrance, saturation } => {
+                same(steps, &passes.tone, FxParams { mode: 7, ..Default::default() }, &[*vibrance, *saturation], None)
+            }
+            E::LeaveColor { color, tolerance, softness, amount } => {
+                let hc = crate::grade::hsv_hue(crate::effects::encoded(color)).unwrap_or(-1.0);
+                let k = [hc, tolerance / 100.0, softness / 100.0, amount / 100.0];
+                same(steps, &passes.tone, FxParams { mode: 8, ..Default::default() }, &k, None)
+            }
+            E::Solarize { threshold } => same(steps, &passes.tone, FxParams { mode: 9, ..Default::default() }, &[*threshold], None),
+            E::Halftone { size, angle, ink, paper, amount } => {
+                let (sin, cos) = angle.to_radians().sin_cos();
+                let mut k = vec![sin, cos, *size, amount / 100.0];
+                k.extend(linear(ink));
+                k.extend(linear(paper));
+                let p = FxParams { mode: 10, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.tone, p, &k, None)
+            }
+            E::Mosaic { size } => {
+                // Where each run of columns, or of rows, in one block starts, the end last, and
+                // each column's or row's run, as layer_fx::mosaic cuts them.
+                let runs = |n: usize, o: usize| {
+                    let block = |p: usize| ((p as f64 - o as f64) / size).floor();
+                    let (mut starts, mut of) = (vec![0.0], Vec::with_capacity(n));
+                    for p in 0..n {
+                        if p > 0 && block(p) != block(starts[starts.len() - 1] as usize) {
+                            starts.push(p as f64);
+                        }
+                        of.push((starts.len() - 1) as f64);
+                    }
+                    starts.push(n as f64);
+                    (starts, of)
+                };
+                let ((cs, col_of), (rs, row_of)) = (runs(w, ox), runs(h, oy));
+                let (nc, nr) = (cs.len() - 1, rs.len() - 1);
+                let mut k = vec![nc as f64, nr as f64];
+                k.extend(cs.into_iter().chain(rs).chain(col_of).chain(row_of));
+                let means = buffer(16 * nc * nr);
+                self.fx_step(steps, &passes.blocks, FxParams::default(), Some(still), None, Some(&k), None, [Some(&means), None, None, None], tiles(nc, nr));
+                let out = self.scratch("B-107 mosaic", w, h);
+                self.fx_step(steps, &passes.tiles, FxParams::default(), Some(still), Some(&out), Some(&k), None, [Some(&means), None, None, None], tiles(w, h));
+                (out, (w, h))
+            }
+            E::Emboss { direction, relief, contrast, mode } => {
+                let (ux, uy) = crate::blurs::along(*direction);
+                let k = [relief * ux, relief * uy, contrast / 100.0, (mode == "color") as u8 as f64];
+                same(steps, &passes.relief, FxParams::default(), &k, None)
+            }
+            E::FindEdges { invert, amount } => {
+                let k = [amount / 100.0, (invert == "on") as u8 as f64];
+                same(steps, &passes.relief, FxParams { mode: 1, ..Default::default() }, &k, None)
+            }
+            E::Sharpen { amount, radius } => {
+                let (blurred, r) = covering(steps, still, (w, h), *radius);
+                same(steps, &passes.sharp, FxParams { r: r as i32, ..Default::default() }, &[amount / 100.0], Some(&blurred))
+            }
+            E::Diffusion { radius, amount, blend: b } => {
+                let (blurred, r) = covering(steps, still, (w, h), radius / 3.0);
+                let blend = match b.as_str() {
+                    "screen" => 1,
+                    "lighten" => 2,
+                    _ => 0,
+                };
+                same(steps, &passes.sharp, FxParams { mode: 1, blend, r: r as i32, ..Default::default() }, &[amount / 100.0], Some(&blurred))
+            }
+            E::WaveWarp { shape, height, width, direction, speed, phase, edges, frame } => {
+                let repeat = edges == "repeat";
+                let g = if repeat { 0 } else { height.ceil() as usize };
+                let (tx, ty) = crate::blurs::along(*direction);
+                let phi = (phase + speed * *frame as f64).to_radians();
+                let k = [(ox + g) as f64, (oy + g) as f64, tx, ty, -ty, tx, *width, phi, *height, (shape == "triangle") as u8 as f64];
+                let out = self.scratch("B-107 wave", w + 2 * g, h + 2 * g);
+                let p = FxParams { flag: repeat as u32, g: g as i32, ..Default::default() };
+                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&k), None, none, tiles(w + 2 * g, h + 2 * g));
+                (out, (w + 2 * g, h + 2 * g))
+            }
+            E::Ripple { center, amplitude, wavelength, speed, phase, fade, frame } => {
+                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                let k = [cx, cy, *amplitude, *wavelength, (phase + speed * *frame as f64).to_radians(), *fade];
+                same(steps, &passes.warp, FxParams { mode: 1, ..Default::default() }, &k, None)
+            }
+            E::Twirl { angle, radius, center } => {
+                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                same(steps, &passes.warp, FxParams { mode: 2, ..Default::default() }, &[cx, cy, angle.to_radians(), *radius], None)
+            }
+            E::Bulge { center, radius, height } => {
+                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                same(steps, &passes.warp, FxParams { mode: 3, ..Default::default() }, &[cx, cy, *height, *radius], None)
+            }
+            E::Mirror { center, angle } => {
+                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                let (nx, ny) = crate::layer_fx::mirror_normal(*angle);
+                same(steps, &passes.warp, FxParams { mode: 4, ..Default::default() }, &[cx, cy, nx, ny, 0.0], None)
+            }
+            E::CameraShake { amount, rotation, hold, seed, frame } => {
+                let ((cx, cy), g) = crate::layer_fx::shake_reach(*amount, *rotation, (w, h), f.origin);
+                let (dx, dy, sb, cb) = crate::layer_fx::shake_jolt([*amount, *rotation, *hold, *seed], *frame);
+                let out = self.scratch("B-107 shake", w + 2 * g, h + 2 * g);
+                let p = FxParams { mode: 5, g: g as i32, ..Default::default() };
+                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&[cx, cy, dx, dy, sb, cb]), None, none, tiles(w + 2 * g, h + 2 * g));
+                (out, (w + 2 * g, h + 2 * g))
+            }
+            E::LinearWipe { completion, angle, feather } => {
+                let ((ux, uy), edge) = crate::layer_fx::linear_edge(*completion, *angle, *feather, source, f.origin);
+                let p = FxParams { mode: 0, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.wipe, p, &[ux, uy, edge, *feather, 0.0], None)
+            }
+            E::RadialWipe { completion, start_angle, center, wipe, feather } => {
+                let way = match wipe.as_str() {
+                    "counterclockwise" => 1,
+                    "both" => 2,
+                    _ => 0,
+                };
+                let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let edge = completion / 100.0 * (360.0 + feather) - feather / 2.0;
+                let k = [center[0] / 100.0 * w0, center[1] / 100.0 * h0, *start_angle, edge, *feather];
+                let p = FxParams { mode: 1, count: way, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.wipe, p, &k, None)
+            }
+            E::VenetianBlinds { completion, angle, width, feather } => {
+                let (ux, uy) = crate::blurs::along(*angle);
+                let edge = completion / 100.0 * (width + feather) - feather / 2.0;
+                let p = FxParams { mode: 2, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.wipe, p, &[ux, uy, *width, edge, *feather, 0.0], None)
+            }
+            E::IrisWipe { completion, center, feather, invert } => {
+                let invert = invert == "on";
+                let ((cx, cy), r) = crate::layer_fx::iris_circle(*completion, *center, *feather, invert, source, f.origin);
+                let p = FxParams { mode: 3, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.wipe, p, &[cx, cy, r, *feather, invert as u8 as f64], None)
+            }
+            E::SimpleChoker { choke } => {
+                let spread = *choke < 0.0;
+                let g = if spread { (-choke).floor() as usize } else { 0 };
+                let (bw, bh) = (w + 2 * g, h + 2 * g);
+                let runs = crate::layer_fx::disc_runs(choke.abs());
+                let (row, band) = (buffer(h * bw * 4), buffer(bw * bh * 4));
+                let top = runs.iter().map(|&(_, hw)| hw).max().unwrap_or(0);
+                let mut first = true;
+                for k in 0..=top {
+                    // Each row's least or greatest covering within k, widened from within k - 1.
+                    let p = FxParams { n: g as u32, count: k as u32, flag: !spread as u32, ..Default::default() };
+                    self.fx_step(steps, &passes.rows, p, Some(still), None, None, None, [Some(&row), None, None, None], tiles(bw, h));
+                    let dys: Vec<f64> = runs.iter().filter(|&&(_, hw)| hw == k).map(|&(dy, _)| dy as f64).collect();
+                    if !dys.is_empty() {
+                        // A shrink's band starts from infinity, a spread's from the empty buffer.
+                        let mode = (!spread && first) as u32;
+                        first = false;
+                        let p = FxParams { mode, n: g as u32, count: dys.len() as u32, flag: !spread as u32, ..Default::default() };
+                        self.fx_step(steps, &passes.bands, p, Some(still), None, Some(&dys), None, [Some(&row), Some(&band), None, None], tiles(bw, bh));
+                    }
+                }
+                let sums = buffer(if spread { (w + 1) * h * 32 } else { 32 });
+                if spread {
+                    self.fx_step(steps, &passes.prefix, FxParams::default(), Some(still), None, Some(&[0.0; 3]), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
+                }
+                let k: Vec<f64> = runs.iter().flat_map(|&(dy, hw)| [dy as f64, hw as f64]).collect();
+                let out = self.scratch("B-107 choker", bw, bh);
+                let p = FxParams { flag: !spread as u32, g: g as i32, count: runs.len() as u32, ..Default::default() };
+                self.fx_step(steps, &passes.choke, p, Some(still), Some(&out), Some(&k), None, [None, Some(&band), Some(&sums), None], tiles(bw, bh));
+                (out, (bw, bh))
+            }
+            E::SpeedLines { center, color, count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity, frame } => {
+                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                let lines = crate::layer_fx::speed_line_list([*count, *thickness, *inner, *inner_jitter, *angle_jitter, *seed, *hold], *frame);
+                let widest = lines.iter().map(|l| l.1).fold(0.0, f64::max);
+                let mut k = vec![cx, cy, opacity / 100.0];
+                k.extend(linear(color));
+                k.extend([widest, lines.len() as f64]);
+                k.extend(lines.iter().flat_map(|&(t, h, r)| [t, h, r]));
+                same(steps, &passes.lines, FxParams::default(), &k, None)
+            }
+            E::CrossGlare { threshold, length, points, angle, intensity, color } => {
+                let bloom = self.bloom.as_ref().expect("a Cross Glare is refused without the passes");
+                let empty = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("B-107 none"),
+                    contents: bytemuck::cast_slice(&[0.0f32; 3]),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+                let lit = self.scratch("B-107 bright", w, h);
+                let p = Params { level: crate::bloom::bright_level(*threshold), ..Default::default() };
+                self.step(steps, &bloom.bright, p, still, Some(&lit), None, Some(&empty), tiles(w, h));
+                let l = length.floor() as usize;
+                let n = points.floor();
+                let mut k = vec![*intensity];
+                k.extend(linear(color));
+                k.push(n);
+                k.extend((0..n as usize).flat_map(|j| {
+                    let (vx, vy) = crate::blurs::along(angle + 360.0 * j as f64 / n);
+                    [vx, vy]
+                }));
+                let fade: Vec<f64> = (1..=l).map(|t| (1.0 - t as f64 / (l + 1) as f64).powi(2)).collect();
+                let total: f64 = fade.iter().sum();
+                k.extend(fade.iter().enumerate().flat_map(|(t, f)| [(t + 1) as f64, f / total]));
+                let out = self.scratch("B-107 glare", w + 2 * l, h + 2 * l);
+                let p = FxParams { g: l as i32, ..Default::default() };
+                self.fx_step(steps, &passes.glare, p, Some(still), Some(&out), Some(&k), Some(&lit), none, tiles(w + 2 * l, h + 2 * l));
+                (out, (w + 2 * l, h + 2 * l))
+            }
+            E::Rain { color, density, spacing, length, width, direction, speed, seed, opacity, frame } => {
+                let (tx, ty) = crate::blurs::along(*direction);
+                let base = crate::grade::mix(seed.floor() as u64);
+                let mut k = vec![tx, ty, -ty, tx, width / 2.0 + 0.5, length / 2.0, speed * *frame as f64, *spacing, density / 100.0, width / 2.0, *opacity];
+                k.extend(linear(color));
+                let p = FxParams { base: [base as u32, (base >> 32) as u32], ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.rain, p, &k, None)
+            }
+            _ => unreachable!("compose leaves only the first two batches of ten and twenty-nine of the third batch's thirty as Fx"),
         }
     }
 
@@ -2614,6 +3691,14 @@ impl Gpu {
                             ((w + 2 * n) * (h + 2 * n) * 4) as u64
                         }
                         crate::effects::Effect::DistanceGradation { .. } => dist_bytes(w, h) as u64,
+                        // B-107: a Simple Choker's band as Outline's, and a spread's running totals.
+                        crate::effects::Effect::SimpleChoker { choke } => {
+                            let g = if *choke < 0.0 { (-choke).floor() as usize } else { 0 };
+                            let sums = if *choke < 0.0 { (w + 1) * h * 32 } else { 0 };
+                            ((w + 2 * g) * (h + 2 * g) * 4).max(sums) as u64
+                        }
+                        // Each block's mean.
+                        crate::effects::Effect::Mosaic { size } => (16.0 * (w as f64 / size + 2.0) * (h as f64 / size + 2.0)) as u64,
                         _ => 0,
                     };
                     (format!("the effect {}", f.instance.effect.name()), f.grow, bytes)

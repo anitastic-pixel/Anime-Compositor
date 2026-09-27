@@ -1137,8 +1137,9 @@ fn resolve_rest(
         .collect();
 
     // B-46: a drawing whose last effect switched on is a Radial Blur, (B-47) a Bloom, (B-49) a
-    // Directional Blur, (B-50) a Gaussian Blur, (B-51) a Glow or (B-65, B-76) one of the two batches of ten this build can draw has only the effects before it run here, when the plan
-    // is for the card.
+    // Directional Blur, (B-50) a Gaussian Blur, (B-51) a Glow, (B-65, B-76) one of the two
+    // batches of ten or (B-107) twenty-nine of the third batch's thirty this build can draw has
+    // only the effects before it run here, when the plan is for the card.
     // Those are what the effect cache is asked for, a stack of their own, so it never hands one
     // path's result to the other.
     // B-76: a Light Wrap is not in the layer's own stack (D-132; it runs as the layer is laid), so
@@ -1174,11 +1175,46 @@ fn resolve_rest(
                     | crate::effects::Effect::GradientMap { .. }
                     | crate::effects::Effect::ColorBalance { .. }
                     | crate::effects::Effect::Offset { .. }
+                    | crate::effects::Effect::Invert { .. }
+                    | crate::effects::Effect::BrightnessContrast { .. }
+                    | crate::effects::Effect::BlackWhite { .. }
+                    | crate::effects::Effect::Posterize { .. }
+                    | crate::effects::Effect::Threshold { .. }
+                    | crate::effects::Effect::ChannelMixer { .. }
+                    | crate::effects::Effect::Vibrance { .. }
+                    | crate::effects::Effect::LeaveColor { .. }
+                    | crate::effects::Effect::Solarize { .. }
+                    | crate::effects::Effect::Halftone { .. }
+                    | crate::effects::Effect::Mosaic { .. }
+                    | crate::effects::Effect::Emboss { .. }
+                    | crate::effects::Effect::FindEdges { .. }
+                    | crate::effects::Effect::Sharpen { .. }
+                    | crate::effects::Effect::Diffusion { .. }
+                    | crate::effects::Effect::WaveWarp { .. }
+                    | crate::effects::Effect::Ripple { .. }
+                    | crate::effects::Effect::Twirl { .. }
+                    | crate::effects::Effect::Bulge { .. }
+                    | crate::effects::Effect::Mirror { .. }
+                    | crate::effects::Effect::LinearWipe { .. }
+                    | crate::effects::Effect::RadialWipe { .. }
+                    | crate::effects::Effect::VenetianBlinds { .. }
+                    | crate::effects::Effect::IrisWipe { .. }
+                    | crate::effects::Effect::SimpleChoker { .. }
+                    | crate::effects::Effect::SpeedLines { .. }
+                    | crate::effects::Effect::CrossGlare { .. }
+                    | crate::effects::Effect::CameraShake { .. }
+                    | crate::effects::Effect::Rain { .. }
             )
             // D-122: a Levels whose input white is its black is a threshold, which a rounding
             // either side of would turn from black to white, so it stays on the CPU.
             && !matches!(effects[i].effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
-            && effects[i].effect.is_valid()
+            // B-107: valid as it runs, at the draft's distances, since a draft can take a
+            // distance below its least (a Rain's spacing), which the CPU then reports and skips.
+            && {
+                let mut effect = effects[i].effect.clone();
+                effect.scale_distances(|d| d / pre);
+                effect.is_valid()
+            }
     });
     let before = left.unwrap_or(effects.len());
     let offset = match &cel {
@@ -1346,9 +1382,42 @@ fn resolve_rest(
                         [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))
                     }
                     E::Offset { shift } => *shift == [0.0, 0.0],
+                    // B-107: the third batch, each as its own function returns at once.
+                    E::Invert { amount, .. }
+                    | E::LeaveColor { amount, .. }
+                    | E::Halftone { amount, .. } => *amount == 0.0,
+                    E::BrightnessContrast { brightness, contrast } => [*brightness, *contrast] == [0.0; 2],
+                    E::ChannelMixer { red, green, blue, monochrome } => {
+                        monochrome != "on"
+                            && [&red[..4], &green[..4], &blue[..4]]
+                                == [[100.0, 0.0, 0.0, 0.0], [0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0]]
+                    }
+                    E::Vibrance { vibrance, saturation } => [*vibrance, *saturation] == [0.0; 2],
+                    E::Mosaic { size } => *size <= 1.0,
+                    E::FindEdges { amount, .. } => *amount <= 0.0,
+                    E::Sharpen { amount, radius } | E::Diffusion { amount, radius, .. } => *amount <= 0.0 || *radius <= 0.0,
+                    E::WaveWarp { height, .. } | E::Bulge { height, .. } if *height == 0.0 => true,
+                    E::Bulge { radius, .. } => *radius <= 0.0,
+                    E::Ripple { amplitude, .. } => *amplitude == 0.0,
+                    E::Twirl { angle, radius, .. } => *angle == 0.0 || *radius <= 0.0,
+                    E::LinearWipe { completion, .. }
+                    | E::RadialWipe { completion, .. }
+                    | E::VenetianBlinds { completion, .. }
+                    | E::IrisWipe { completion, .. } => *completion == 0.0,
+                    E::SimpleChoker { choke } => *choke == 0.0,
+                    E::CrossGlare { length, intensity, .. } => length.floor() == 0.0 || *intensity == 0.0,
+                    E::CameraShake { amount, rotation, .. } => [*amount, *rotation] == [0.0; 2],
+                    E::Rain { density, opacity, .. } => *density == 0.0 || *opacity == 0.0,
                     _ => false,
                 };
-                let grow = effect.bounds_expansion();
+                // B-107: a shake grows by how far it can carry a corner, which its settings and
+                // the drawing's size say, not its settings alone.
+                let grow = match &effect {
+                    E::CameraShake { amount, rotation, .. } => {
+                        crate::layer_fx::shake_reach(*amount, *rotation, (source.width(), source.height()), offset).1
+                    }
+                    _ => effect.bounds_expansion(),
+                };
                 let instance = crate::effects::EffectInstance { effect, ..effects[i].clone() };
                 let fx = render::Fx { instance, origin: offset, grow };
                 (!nothing).then(|| {
