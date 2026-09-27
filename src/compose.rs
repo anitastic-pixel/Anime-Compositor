@@ -1137,11 +1137,15 @@ fn resolve_rest(
         .collect();
 
     // B-46: a drawing whose last effect switched on is a Radial Blur, (B-47) a Bloom, (B-49) a
-    // Directional Blur, (B-50) a Gaussian Blur, (B-51) a Glow or (B-65) one of the batch of ten this build can draw has only the effects before it run here, when the plan
+    // Directional Blur, (B-50) a Gaussian Blur, (B-51) a Glow or (B-65, B-76) one of the two batches of ten this build can draw has only the effects before it run here, when the plan
     // is for the card.
     // Those are what the effect cache is asked for, a stack of their own, so it never hands one
     // path's result to the other.
-    let last = effects.iter().rposition(|i| i.enabled);
+    // B-76: a Light Wrap is not in the layer's own stack (D-132; it runs as the layer is laid), so
+    // the effect before it can be the last.
+    let last = effects
+        .iter()
+        .rposition(|i| i.enabled && !matches!(i.effect, crate::effects::Effect::LightWrap { .. }));
     let left = last.filter(|&i| {
         card && cel.is_some()
             && matches!(
@@ -1161,6 +1165,15 @@ fn resolve_rest(
                     | crate::effects::Effect::Outline { .. }
                     | crate::effects::Effect::Noise { .. }
                     | crate::effects::Effect::ChromaticAberration { .. }
+                    | crate::effects::Effect::DistanceGradation { .. }
+                    | crate::effects::Effect::LightRays { .. }
+                    | crate::effects::Effect::ExposureFlicker { .. }
+                    | crate::effects::Effect::Vignette { .. }
+                    | crate::effects::Effect::TurbulentDisplace { .. }
+                    | crate::effects::Effect::FractalNoise { .. }
+                    | crate::effects::Effect::GradientMap { .. }
+                    | crate::effects::Effect::ColorBalance { .. }
+                    | crate::effects::Effect::Offset { .. }
             )
             // D-122: a Levels whose input white is its black is a threshold, which a rounding
             // either side of would turn from black to white, so it stays on the CPU.
@@ -1322,6 +1335,17 @@ fn resolve_rest(
                     E::RimLight { intensity, .. } => *intensity == 0.0,
                     E::Outline { width, .. } => *width == 0.0,
                     E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } => *amount == 0.0,
+                    E::DistanceGradation { width, opacity, .. } => *width == 0.0 || *opacity == 0.0,
+                    E::LightRays { intensity, .. } => *intensity == 0.0,
+                    E::ExposureFlicker { amount, .. }
+                    | E::Vignette { amount, .. }
+                    | E::TurbulentDisplace { amount, .. }
+                    | E::GradientMap { amount, .. } => *amount == 0.0,
+                    E::FractalNoise { opacity, .. } => *opacity == 0.0,
+                    E::ColorBalance { shadows, midtones, highlights } => {
+                        [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))
+                    }
+                    E::Offset { shift } => *shift == [0.0, 0.0],
                     _ => false,
                 };
                 let grow = effect.bounds_expansion();

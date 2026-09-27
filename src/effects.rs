@@ -1834,10 +1834,9 @@ pub(crate) fn apply_stack_at(
                 seed,
                 frame,
             } => {
-                let m = (*frame as i64).div_euclid(hold.floor() as i64);
-                let u = crate::grade::unit(crate::grade::mix(seed.floor() as u64), m, 0, 0, 3);
+                let stops = flicker_stops(*amount, *hold, *seed, *frame);
                 crate::perf::time(crate::perf::Stage::EffectExposureFlicker, || {
-                    exposure(source, amount * u)
+                    exposure(source, stops)
                 })
             }
             // D-126: the ellipse in the drawing's own size, however far the layer has grown.
@@ -1849,18 +1848,14 @@ pub(crate) fn apply_stack_at(
                 softness,
                 center,
             } => {
-                let w0 = (source.width() - 2 * ox) as f64;
-                let h0 = (source.height() - 2 * oy) as f64;
-                let (m, r) = (roundness / 100.0, (w0 * h0).sqrt() / 2.0);
-                let outer = size / 100.0;
-                let v = crate::grade::Vignette {
-                    center: radial_center(*center, source, (ox, oy)),
-                    radii: ((1.0 - m) * w0 / 2.0 + m * r, (1.0 - m) * h0 / 2.0 + m * r),
-                    inner: outer * (1.0 - softness / 100.0),
-                    outer,
-                    color: encoded(color),
-                    amount: *amount,
-                };
+                let v = vignette_settings(
+                    *amount,
+                    color,
+                    [*size, *roundness, *softness],
+                    *center,
+                    source,
+                    (ox, oy),
+                );
                 crate::perf::time(crate::perf::Stage::EffectVignette, || {
                     crate::grade::vignette(source, &v)
                 })
@@ -1876,7 +1871,7 @@ pub(crate) fn apply_stack_at(
                 edges,
                 frame,
             } => {
-                let z = (evolution + speed * *frame as f64) / 360.0;
+                let z = depth(*evolution, *speed, *frame);
                 let r = crate::perf::time(crate::perf::Stage::EffectTurbulentDisplace, || {
                     crate::layer_fx::turbulent_displace(
                         source,
@@ -1911,7 +1906,7 @@ pub(crate) fn apply_stack_at(
                     size: *size,
                     octaves: complexity.floor() as usize,
                     seed: *seed,
-                    z: (evolution + speed * *frame as f64) / 360.0,
+                    z: depth(*evolution, *speed, *frame),
                     contrast: *contrast,
                     brightness: *brightness,
                     colors: [encoded(dark_color), encoded(light_color)],
@@ -1954,6 +1949,42 @@ pub(crate) fn apply_stack_at(
         }
     }
     (ox, oy)
+}
+
+/// D-125: the stops an Exposure Flicker gives at `frame`, Noise's hash of the seed and the
+/// frame over the hold. B-76's card takes the same.
+pub(crate) fn flicker_stops(amount: f64, hold: f64, seed: f64, frame: i32) -> f64 {
+    let m = (frame as i64).div_euclid(hold.floor() as i64);
+    amount * crate::grade::unit(crate::grade::mix(seed.floor() as u64), m, 0, 0, 3)
+}
+
+/// D-127 and D-128: one full turn of evolution moves the field one cell.
+pub(crate) fn depth(evolution: f64, speed: f64, frame: i32) -> f64 {
+    (evolution + speed * frame as f64) / 360.0
+}
+
+/// D-126: the ellipse in the drawing's own size, however far the layer has grown (its corner at
+/// `(ox, oy)` in `source`). `[size, roundness, softness]` as the effect holds them.
+pub(crate) fn vignette_settings(
+    amount: f64,
+    color: &str,
+    [size, roundness, softness]: [f64; 3],
+    center: [f64; 2],
+    source: &WorkingBuffer,
+    (ox, oy): (usize, usize),
+) -> crate::grade::Vignette {
+    let w0 = (source.width() - 2 * ox) as f64;
+    let h0 = (source.height() - 2 * oy) as f64;
+    let (m, r) = (roundness / 100.0, (w0 * h0).sqrt() / 2.0);
+    let outer = size / 100.0;
+    crate::grade::Vignette {
+        center: radial_center(center, source, (ox, oy)),
+        radii: ((1.0 - m) * w0 / 2.0 + m * r, (1.0 - m) * h0 / 2.0 + m * r),
+        inner: outer * (1.0 - softness / 100.0),
+        outer,
+        color: encoded(color),
+        amount,
+    }
 }
 
 /// Why an effect in the stack did not run.

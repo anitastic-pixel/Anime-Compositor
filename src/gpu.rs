@@ -245,6 +245,23 @@ fn radial(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     textureStore(moved, id.xy, total / f32(n));
 }
+
+@group(0) @binding(2) var<storage, read> lone: array<vec4<f32>>;
+@group(0) @binding(3) var drawn: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(4) var light: texture_storage_2d<rgba32float, write>;
+
+// B-76, D-132: a layer with a Light Wrap, laid alone in `lone`, as a texture, and its light: the
+// colours of the frame beneath with the layer's covering, which blur alike.
+@compute @workgroup_size(16, 16)
+fn unpack(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= S.width || id.y >= S.height {
+        return;
+    }
+    let at = id.y * S.width + id.x;
+    let l = lone[at];
+    textureStore(drawn, id.xy, l);
+    textureStore(light, id.xy, vec4(frame[at].xyz, l.w));
+}
 "#;
 
 /// B-47: `bloom::bloom` as passes, one after another: the light, the halo's four blurs, the
@@ -558,6 +575,7 @@ struct Fx {
 @group(0) @binding(5) var<storage, read_write> row: array<f32>;
 @group(0) @binding(6) var<storage, read_write> band: array<f32>;
 @group(0) @binding(7) var<storage, read_write> sums: array<vec4<f64>>;
+@group(0) @binding(8) var<storage, read_write> dist: array<f64>;
 
 // The pixel of `t` at `p`, transparent outside it (layer_fx::at).
 fn at(t: texture_2d<f32>, p: vec2<i32>) -> vec4<f32> {
@@ -755,8 +773,49 @@ fn wide(v: i32) -> vec2<u32> {
     return vec2(bitcast<u32>(v), select(0u, 0xffffffffu, v < 0));
 }
 
+// grade::unit for the seed in `base`.
+fn hashed(x: i32, y: i32, f: i32, ch: u32) -> f64 {
+    let h = shr64(splitmix(splitmix(splitmix(splitmix(F.base ^ wide(x)) ^ wide(y)) ^ wide(f)) ^ vec2(ch, 0u)), 11u);
+    let n = f64(h.y) * 4294967296.0lf + f64(h.x);
+    return n / 9007199254740992.0lf * 2.0lf - 1.0lf;
+}
+
+fn fade(t: f64) -> f64 {
+    return t * t * t * (t * (6.0lf * t - 15.0lf) + 10.0lf);
+}
+
+// grade::value, B-76.
+fn cell_noise(ch: u32, p: vec3<f64>) -> f64 {
+    let c = floor(p);
+    let s = vec3(fade(p.x - c.x), fade(p.y - c.y), fade(p.z - c.z));
+    let i = vec3<i32>(c);
+    var v = 0.0lf;
+    for (var corner = 0u; corner < 8u; corner++) {
+        let d = vec3(corner & 1u, (corner >> 1u) & 1u, corner >> 2u);
+        let w = select(vec3(1.0lf) - s, s, d == vec3(1u));
+        v += w.x * w.y * w.z * hashed(i.x + i32(d.x), i.y + i32(d.y), i.z + i32(d.z), ch);
+    }
+    return v;
+}
+
+// grade::fractal.
+fn fractal(ch: u32, p: vec3<f64>, octaves: u32) -> f64 {
+    var sum = 0.0lf;
+    var total = 0.0lf;
+    var amp = 1.0lf;
+    var fine = 1.0lf;
+    for (var o = 0u; o < octaves; o++) {
+        sum += amp * cell_noise(8u * o + ch, p * fine);
+        total += amp;
+        amp *= 0.5lf;
+        fine *= 2.0lf;
+    }
+    return sum / total;
+}
+
 // The batch's colour effects, a pixel a thread: grade::curves (mode 0), levels (1),
-// hue_saturation (2), gradient (3) and noise (4).
+// hue_saturation (2), gradient (3) and noise (4); B-76: exposure (5, Exposure Flicker),
+// color_balance (6), gradient_map (7), vignette (8) and fractal_noise (9).
 @compute @workgroup_size(16, 16)
 fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -764,12 +823,71 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let p = textureLoad(input, id.xy, 0);
+    if F.mode == 5u {
+        // k: the gain, in single precision as the CPU's.
+        textureStore(output, id.xy, vec4(p.xyz * f32(k[0]), p.w));
+        return;
+    }
     let a = f64(p.w);
     if a <= 0.0lf {
         textureStore(output, id.xy, p);
         return;
     }
     let px = vec3<f64>(p.xyz);
+    if F.mode == 7u {
+        // k: the midpoint and the amount as shares, the three colours encoded.
+        let b = px / a;
+        let t = to_srgb(clamp(0.2126lf * b.x + 0.7152lf * b.y + 0.0722lf * b.z, 0.0lf, 1.0lf));
+        var lo = 2u;
+        var s = t / k[0];
+        if t > k[0] {
+            lo = 5u;
+            s = (t - k[0]) / (1.0lf - k[0]);
+        }
+        var out = p;
+        for (var c = 0u; c < 3u; c++) {
+            let g = to_linear(k[lo + c] + s * (k[lo + 3u + c] - k[lo + c]));
+            out[c] = f32((b[c] + k[1] * (g - b[c])) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 8u {
+        // k: the centre, the half-axes, where the fall starts and ends, the amount, the root of
+        // 2, the colour in linear light.
+        let dx = (f64(id.x) + 0.5lf - k[0]) / k[2];
+        let dy = (f64(id.y) + 0.5lf - k[1]) / k[3];
+        let d = sqrt(dx * dx + dy * dy) / k[7];
+        var t = select(0.0lf, 1.0lf, d >= k[5]);
+        if k[4] != k[5] {
+            let u = clamp((d - k[4]) / (k[5] - k[4]), 0.0lf, 1.0lf);
+            t = u * u * (3.0lf - 2.0lf * u);
+        }
+        let o = t * k[6] / 100.0lf;
+        var out = p;
+        for (var c = 0u; c < 3u; c++) {
+            let b = px[c] / a;
+            out[c] = f32((b + o * (k[8u + c] - b)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 9u {
+        // k: the size, the depth, the contrast and brightness, the opacity as a share, the dark
+        // and light colours encoded. `count` is the octaves.
+        let x = (f64(i32(id.x) - F.ox) + 0.5lf) / k[0];
+        let y = (f64(i32(id.y) - F.oy) + 0.5lf) / k[0];
+        let n = fractal(0u, vec3(x, y, k[1]), F.count);
+        let v = clamp(0.5lf + 0.5lf * n * k[2] / 100.0lf + k[3] / 100.0lf, 0.0lf, 1.0lf);
+        var out = p;
+        for (var c = 0u; c < 3u; c++) {
+            let color = to_linear(k[5u + c] + v * (k[8u + c] - k[5u + c]));
+            let b = px[c] / a;
+            out[c] = f32((b + k[4] * (mixed(b, color) - b)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
     if F.mode == 3u {
         // k: start, end less start, its length squared and that's root, radial, the two
         // opacities, the two colours.
@@ -827,6 +945,16 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
                 l = v.z + (1.0lf - v.z) * k[2] / 100.0lf;
             }
             o = from_hsl(vec3(rem(v.x + k[0], 360.0lf), clamp(v.y * (1.0lf + k[1] / 100.0lf), 0.0lf, 1.0lf), l));
+        }
+        case 6u: {
+            // k: shadows, midtones, highlights.
+            let l = 0.2126lf * e.x + 0.7152lf * e.y + 0.0722lf * e.z;
+            let ws = clamp(1.0lf - 2.0lf * l, 0.0lf, 1.0lf);
+            let wh = clamp(2.0lf * l - 1.0lf, 0.0lf, 1.0lf);
+            let wm = 1.0lf - ws - wh;
+            for (var c = 0u; c < 3u; c++) {
+                o[c] = e[c] + (ws * k[c] + wm * k[3u + c] + wh * k[6u + c]) / 200.0lf;
+            }
         }
         default: {
             // k: amount over 200. `flag` is colour.
@@ -1041,6 +1169,207 @@ fn gather(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     textureStore(output, id.xy, vec4<f32>(acc / k[0]));
 }
+
+// B-76, layer_fx::turbulent_displace: `output` is the drawing grown by `g`. k: the amount, the
+// size, the depth, the drawing's corner in the output. `count` is the octaves, `flag` Repeat
+// Edge Pixels.
+@compute @workgroup_size(16, 16)
+fn turb(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let x = f64(id.x) + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    let p = vec3((x - k[3]) / k[1], (y - k[4]) / k[1], k[2]);
+    var sx = x + k[0] * fractal(0u, p, F.count);
+    var sy = y + k[0] * fractal(1u, p, F.count);
+    if F.flag == 1u {
+        sx = clamp(sx, 0.5lf, f64(size.x) - 0.5lf);
+        sy = clamp(sy, 0.5lf, f64(size.y) - 0.5lf);
+    }
+    textureStore(output, id.xy, bilinear(input, sx - f64(F.g), sy - f64(F.g)));
+}
+
+// In single precision: a vec4<f64> handed back from a function reads as zero on the card B-76
+// was measured on.
+fn around(p: vec2<i32>) -> vec4<f32> {
+    let size = vec2<i32>(textureDimensions(input));
+    return textureLoad(input, ((p % size) + size) % size, 0);
+}
+
+// B-76, layer_fx::offset: `ox` and `oy` are the whole part of the move back, already brought
+// inside the drawing, k its fractions.
+@compute @workgroup_size(16, 16)
+fn slide(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let q = vec2<i32>(id.xy) + vec2(F.ox, F.oy);
+    let a = vec4<f64>(around(q));
+    let b = vec4<f64>(around(q + vec2(1, 0)));
+    let c = vec4<f64>(around(q + vec2(0, 1)));
+    let d = vec4<f64>(around(q + vec2(1, 1)));
+    let top = (1.0lf - k[0]) * a + k[0] * b;
+    let bottom = (1.0lf - k[0]) * c + k[0] * d;
+    textureStore(output, id.xy, vec4<f32>((1.0lf - k[1]) * top + k[1] * bottom));
+}
+
+// B-76, layer_fx::light_rays' last step: `other` is the bright pixels zoomed out. k: the
+// intensity, the colour in linear light.
+@compute @workgroup_size(16, 16)
+fn rays(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let r = textureLoad(other, id.xy, 0);
+    var out: vec4<f32>;
+    for (var c = 0u; c < 3u; c++) {
+        out[c] = f32(f64(p[c]) + k[0] * k[1u + c] * f64(r[c]));
+    }
+    out.w = f32(min(f64(p.w) + k[0] * f64(r.w), 1.0lf));
+    textureStore(output, id.xy, out);
+}
+
+// D-123: the drawing inside a ring of edge one wide, `(x, y)` in the ring's pixels; covered is
+// inside and at least half covered.
+fn covered(x: i32, y: i32, size: vec2<i32>) -> bool {
+    return x >= 1 && y >= 1 && x <= size.x && y <= size.y && textureLoad(input, vec2(x - 1, y - 1), 0).w >= 0.5;
+}
+
+// B-76, layer_fx::distance_gradation's columns, one a thread: each place's squared distance to
+// the nearest place not covered, whole numbers, exact, into `dist`.
+@compute @workgroup_size(64)
+fn cols(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = vec2<i32>(textureDimensions(input));
+    let pw = size.x + 2;
+    let ph = size.y + 2;
+    let x = i32(id.x);
+    if x >= pw {
+        return;
+    }
+    // The ring's first and last rows are not covered, so both sweeps meet one.
+    var last = 0.0lf;
+    for (var y = 0; y < ph; y++) {
+        if !covered(x, y, size) {
+            last = f64(y);
+        }
+        dist[u32(y * pw + x)] = f64(y) - last;
+    }
+    var next = f64(ph - 1);
+    for (var y = ph - 1; y >= 0; y--) {
+        if !covered(x, y, size) {
+            next = f64(y);
+        }
+        let d = min(dist[u32(y * pw + x)], next - f64(y));
+        dist[u32(y * pw + x)] = d * d;
+    }
+}
+
+// Where the parabolas rooted at `a` and `b` (a > b) along a row cross, as a numerator and a
+// positive denominator, so comparing two is exact where the CPU's quotients are.
+fn crossing(fo: u32, a: u32, b: u32) -> vec2<f64> {
+    let fa = dist[fo + a] + f64(a) * f64(a);
+    let fb = dist[fo + b] + f64(b) * f64(b);
+    return vec2(fa - fb, 2.0lf * f64(a - b));
+}
+
+// layer_fx::distance_gradation's rows, one a thread: the lower envelope of the columns'
+// parabolas, its roots kept past the columns in `dist`, then each pixel shaded. k: the width,
+// the opacity, invert, the colour in linear light; `blend` the mix.
+@compute @workgroup_size(64)
+fn edt(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    let y = id.x;
+    if y >= size.y {
+        return;
+    }
+    let pw = size.x + 2u;
+    let fo = (y + 1u) * pw;
+    let vo = pw * (size.y + 2u) + y * pw;
+    var top = 0u;
+    dist[vo] = 0.0lf;
+    for (var q = 1u; q < pw; q++) {
+        loop {
+            let v = u32(dist[vo + top]);
+            if top > 0u {
+                let s = crossing(fo, q, v);
+                let z = crossing(fo, v, u32(dist[vo + top - 1u]));
+                if s.x * z.y <= z.x * s.y {
+                    top--;
+                    continue;
+                }
+            }
+            top++;
+            dist[vo + top] = f64(q);
+            break;
+        }
+    }
+    var j = 0u;
+    for (var x = 0u; x < size.x; x++) {
+        let q = x + 1u;
+        while j < top {
+            let z = crossing(fo, u32(dist[vo + j + 1u]), u32(dist[vo + j]));
+            if z.x >= f64(q) * z.y {
+                break;
+            }
+            j++;
+        }
+        let v = u32(dist[vo + j]);
+        let d = f64(q) - f64(v);
+        let sq = d * d + dist[fo + v];
+        let p = textureLoad(input, vec2(x, y), 0);
+        let a = f64(p.w);
+        if a <= 0.0lf {
+            textureStore(output, vec2(x, y), p);
+            continue;
+        }
+        let t = clamp(1.0lf - (sqrt(sq) - 0.5lf) / k[0], 0.0lf, 1.0lf);
+        let o = select(t, 1.0lf - t, k[2] == 1.0lf) * k[1] / 100.0lf;
+        var out = p;
+        for (var c = 0u; c < 3u; c++) {
+            let b = f64(p[c]) / a;
+            out[c] = f32((b + o * (mixed(b, k[3u + c]) - b)) * a);
+        }
+        textureStore(output, vec2(x, y), out);
+    }
+}
+
+// B-76, render::light_wrap: `input` is the layer placed on the frame, `other` its light grown
+// by `r`. k: the intensity as a share; `flag` is Add.
+@compute @workgroup_size(16, 16)
+fn lightwrap(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    let m = textureLoad(other, vec2<i32>(id.xy) + vec2(F.r), 0);
+    let reach = k[0] * (1.0lf - f64(m.w));
+    let lit = vec3(reach * f64(m.x), reach * f64(m.y), reach * f64(m.z));
+    if all(lit == vec3(0.0lf)) {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    var out = p;
+    for (var c = 0u; c < 3u; c++) {
+        let v = f64(p[c]) / a;
+        var n = 1.0lf - (1.0lf - v) * (1.0lf - clamp(lit[c], 0.0lf, 1.0lf));
+        if F.flag == 1u {
+            n = v + lit[c];
+        }
+        out[c] = f32(n * a);
+    }
+    textureStore(output, id.xy, out);
+}
 "#;
 
 /// B-65: [`FX_SHADER`]'s numbers, laid out as its `Fx`; each pass reads what it needs.
@@ -1072,6 +1401,33 @@ struct FxPasses {
     ring: Pass,
     prefix: Pass,
     gather: Pass,
+    /// B-76.
+    turb: Pass,
+    slide: Pass,
+    rays: Pass,
+    cols: Pass,
+    edt: Pass,
+    wrap: Pass,
+}
+
+/// B-76: Distance Gradation's work for a drawing `w` by `h`: the columns' distances over the
+/// drawing inside its ring of edge, then each row's roots.
+fn dist_bytes(w: usize, h: usize) -> usize {
+    ((w + 2) * (h + 2) + h * (w + 2)) * 8
+}
+
+/// B-76: the layer's Light Wraps that run, as `render::wrap_layer` runs them: width, intensity
+/// and Add.
+fn wraps(layer: &crate::render::LayerDraw) -> Vec<(f64, f64, bool)> {
+    layer
+        .wrap
+        .iter()
+        .filter(|i| i.enabled && i.effect.is_valid())
+        .filter_map(|i| match &i.effect {
+            crate::effects::Effect::LightWrap { width, intensity, blend } => Some((*width, *intensity, blend == "add")),
+            _ => None,
+        })
+        .collect()
 }
 
 /// B-45: the window's pixels the page leaves see-through, painted as the page would have.
@@ -1216,6 +1572,9 @@ pub struct Gpu {
     /// B-46.
     radial: wgpu::ComputePipeline,
     radial_layout: wgpu::BindGroupLayout,
+    /// B-76: a layer with a Light Wrap, laid alone, and its light.
+    unpack: wgpu::ComputePipeline,
+    unpack_layout: wgpu::BindGroupLayout,
     /// B-47: `None` on a card without double precision.
     bloom: Option<BloomPasses>,
     /// B-65: `None` on a card without double precision.
@@ -1330,6 +1689,16 @@ impl Gpu {
             label: Some("B-44 encode"),
             entries: &[entry(0, uniform()), entry(1, storage(true)), entry(2, storage(false))],
         });
+        let unpack_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("B-76 unpack"),
+            entries: &[
+                entry(0, uniform()),
+                entry(1, storage(true)),
+                entry(2, storage(true)),
+                entry(3, storage_texture()),
+                entry(4, storage_texture()),
+            ],
+        });
         let radial_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("B-46 radial"),
             entries: &[
@@ -1384,7 +1753,7 @@ impl Gpu {
                 source: wgpu::ShaderSource::Wgsl(FX_SHADER.into()),
             });
             let pass = |entry_point: &str, bindings: &[u32]| {
-                let types = [uniform(), texture(), storage_texture(), storage(true), texture(), storage(false), storage(false), storage(false)];
+                let types = [uniform(), texture(), storage_texture(), storage(true), texture(), storage(false), storage(false), storage(false), storage(false)];
                 let entries: Vec<_> = bindings.iter().map(|&b| entry(b, types[b as usize])).collect();
                 let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some(entry_point), entries: &entries });
                 (pipeline_in(&module, &layout, entry_point), layout)
@@ -1400,10 +1769,17 @@ impl Gpu {
                 ring: pass("ring", &[0, 1, 2, 3, 4]),
                 prefix: pass("prefix", &[0, 1, 3, 7]),
                 gather: pass("gather", &[0, 1, 2, 3, 7]),
+                turb: pass("turb", &[0, 1, 2, 3]),
+                slide: pass("slide", &[0, 1, 2, 3]),
+                rays: pass("rays", &[0, 1, 2, 3, 4]),
+                cols: pass("cols", &[0, 1, 8]),
+                edt: pass("edt", &[0, 1, 2, 3, 8]),
+                wrap: pass("lightwrap", &[0, 1, 2, 3, 4]),
             }
         });
         let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
         let radial = pipeline(&radial_layout, "radial");
+        let unpack = pipeline(&unpack_layout, "unpack");
         let no_matte = device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some("B-44 no matte"),
@@ -1440,6 +1816,8 @@ impl Gpu {
             encode_layout,
             radial,
             radial_layout,
+            unpack,
+            unpack_layout,
             bloom,
             fx,
             no_matte,
@@ -1829,8 +2207,8 @@ impl Gpu {
     }
 
     /// One pass of [`FX_SHADER`], added to `steps`: its numbers, and whichever of `input`,
-    /// `output`, the numbers `k`, the `other` texture and the `row`, `band` and `sums` buffers
-    /// it takes, over `groups`.
+    /// `output`, the numbers `k`, the `other` texture and the `row`, `band`, `sums` and (B-76)
+    /// `dist` buffers it takes, over `groups`.
     #[allow(clippy::too_many_arguments)]
     fn fx_step(
         &self,
@@ -1841,7 +2219,7 @@ impl Gpu {
         output: Option<&wgpu::TextureView>,
         k: Option<&[f64]>,
         other: Option<&wgpu::TextureView>,
-        work: [Option<&wgpu::Buffer>; 3],
+        work: [Option<&wgpu::Buffer>; 4],
         groups: (u32, u32),
     ) {
         let init = |label, contents: &[u8], usage| {
@@ -1870,7 +2248,7 @@ impl Gpu {
         let passes = self.fx.as_ref().expect("the batch of ten is refused without the passes");
         let (w, h) = (source.width(), source.height());
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
-        let none = [None; 3];
+        let none = [None; 4];
         let blend = |b: &str| match b {
             "multiply" => 1,
             "screen" => 2,
@@ -1974,15 +2352,15 @@ impl Gpu {
                 for k in 0..=top {
                     // Each row's greatest covering within k, widened from within k - 1.
                     let p = FxParams { n: n as u32, count: k as u32, ..Default::default() };
-                    self.fx_step(steps, &passes.rows, p, Some(still), None, None, None, [Some(&row), None, None], tiles(bw, h));
+                    self.fx_step(steps, &passes.rows, p, Some(still), None, None, None, [Some(&row), None, None, None], tiles(bw, h));
                     let dys: Vec<f64> = runs.iter().filter(|&&(_, hw)| hw == k).map(|&(dy, _)| dy as f64).collect();
                     if !dys.is_empty() {
                         let p = FxParams { n: n as u32, count: dys.len() as u32, ..Default::default() };
-                        self.fx_step(steps, &passes.bands, p, Some(still), None, Some(&dys), None, [Some(&row), Some(&band), None], tiles(bw, bh));
+                        self.fx_step(steps, &passes.bands, p, Some(still), None, Some(&dys), None, [Some(&row), Some(&band), None, None], tiles(bw, bh));
                     }
                 }
                 let lifted = self.scratch("B-65 band", bw, bh);
-                self.fx_step(steps, &passes.lift, FxParams::default(), None, Some(&lifted), None, None, [None, Some(&band), None], tiles(bw, bh));
+                self.fx_step(steps, &passes.lift, FxParams::default(), None, Some(&lifted), None, None, [None, Some(&band), None, None], tiles(bw, bh));
                 let (blurred, r) = covering(steps, &lifted, (bw, bh), softness / 3.0);
                 let g = n + r;
                 let mut k = vec![opacity / 100.0];
@@ -2004,12 +2382,101 @@ impl Gpu {
                 k.extend(runs.iter().flatten().map(|&v| v as f64));
                 let sums = buffer((w + 1) * h * 32);
                 let p = FxParams { mode: repeat as u32, flag: (*highlight_gain > 0.0) as u32, count: runs.len() as u32, g: g as i32, ..Default::default() };
-                self.fx_step(steps, &passes.prefix, p, Some(still), None, Some(&k), None, [None, None, Some(&sums)], ((h as u32).div_ceil(64), 1));
+                self.fx_step(steps, &passes.prefix, p, Some(still), None, Some(&k), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
                 let out = self.scratch("B-65 lens", w + 2 * g, h + 2 * g);
-                self.fx_step(steps, &passes.gather, p, Some(still), Some(&out), Some(&k), None, [None, None, Some(&sums)], tiles(w + 2 * g, h + 2 * g));
+                self.fx_step(steps, &passes.gather, p, Some(still), Some(&out), Some(&k), None, [None, None, Some(&sums), None], tiles(w + 2 * g, h + 2 * g));
                 (out, (w + 2 * g, h + 2 * g))
             }
-            _ => unreachable!("compose leaves only the batch of ten as Fx"),
+            // B-76: the second batch.
+            E::ExposureFlicker { amount, hold, seed, frame } => {
+                let gain = 2f64.powf(crate::effects::flicker_stops(*amount, *hold, *seed, *frame)) as f32;
+                same(steps, &passes.grade, FxParams { mode: 5, ..Default::default() }, &[gain as f64], None)
+            }
+            E::ColorBalance { shadows, midtones, highlights } => {
+                let k: Vec<f64> = [shadows, midtones, highlights].iter().flat_map(|t| t[..3].to_vec()).collect();
+                same(steps, &passes.grade, FxParams { mode: 6, ..Default::default() }, &k, None)
+            }
+            E::GradientMap { shadow_color, midtone_color, highlight_color, midpoint, amount } => {
+                let mut k = vec![midpoint / 100.0, amount / 100.0];
+                for c in [shadow_color, midtone_color, highlight_color] {
+                    k.extend(crate::effects::encoded(c));
+                }
+                same(steps, &passes.grade, FxParams { mode: 7, ..Default::default() }, &k, None)
+            }
+            E::Vignette { amount, color, size, roundness, softness, center } => {
+                let v = crate::effects::vignette_settings(*amount, color, [*size, *roundness, *softness], *center, source, f.origin);
+                let mut k = vec![v.center.0, v.center.1, v.radii.0, v.radii.1, v.inner, v.outer, v.amount, 2f64.sqrt()];
+                k.extend(v.color.map(crate::grade::to_linear));
+                same(steps, &passes.grade, FxParams { mode: 8, ..Default::default() }, &k, None)
+            }
+            E::FractalNoise { size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend: b, frame } => {
+                let base = crate::grade::mix(seed.floor() as u64);
+                let mut k = vec![*size, crate::effects::depth(*evolution, *speed, *frame), *contrast, *brightness, opacity / 100.0];
+                k.extend(crate::effects::encoded(dark_color));
+                k.extend(crate::effects::encoded(light_color));
+                let p = FxParams {
+                    mode: 9,
+                    blend: blend(b),
+                    count: complexity.floor() as u32,
+                    base: [base as u32, (base >> 32) as u32],
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                same(steps, &passes.grade, p, &k, None)
+            }
+            E::TurbulentDisplace { amount, size, complexity, evolution, speed, seed, edges, frame } => {
+                let repeat = edges == "repeat";
+                let g = if repeat { 0 } else { amount.ceil() as usize };
+                let base = crate::grade::mix(seed.floor() as u64);
+                let k = [*amount, *size, crate::effects::depth(*evolution, *speed, *frame), (ox + g) as f64, (oy + g) as f64];
+                let p = FxParams {
+                    count: complexity.floor() as u32,
+                    flag: repeat as u32,
+                    g: g as i32,
+                    base: [base as u32, (base >> 32) as u32],
+                    ..Default::default()
+                };
+                let out = self.scratch("B-76 turbulent", w + 2 * g, h + 2 * g);
+                self.fx_step(steps, &passes.turb, p, Some(still), Some(&out), Some(&k), None, none, tiles(w + 2 * g, h + 2 * g));
+                (out, (w + 2 * g, h + 2 * g))
+            }
+            E::Offset { shift } => {
+                let (qx, qy) = (-shift[0], -shift[1]);
+                let (i0, j0) = (qx.floor(), qy.floor());
+                // Whole turns of the drawing change nothing, and keep the sums small.
+                let inside = |v: f64, n: usize| (v as i64).rem_euclid(n as i64) as i32;
+                let p = FxParams { ox: inside(i0, w), oy: inside(j0, h), ..Default::default() };
+                same(steps, &passes.slide, p, &[qx - i0, qy - j0], None)
+            }
+            E::LightRays { center, length, threshold, intensity, color } => {
+                let bloom = self.bloom.as_ref().expect("Light Rays are refused without the passes");
+                let none = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("B-76 none"),
+                    contents: bytemuck::cast_slice(&[0.0f32; 3]),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+                let lit = self.scratch("B-76 bright", w, h);
+                let p = Params { level: crate::bloom::bright_level(*threshold), ..Default::default() };
+                self.step(steps, &bloom.bright, p, still, Some(&lit), None, Some(&none), tiles(w, h));
+                let center = crate::effects::radial_center(*center, source, f.origin);
+                let rays = self.blur(steps, &lit, (w, h), Radial { spin: false, amount: *length, center, repeat: false });
+                let mut k = vec![*intensity];
+                k.extend(linear(color));
+                same(steps, &passes.rays, FxParams::default(), &k, Some(&rays))
+            }
+            E::DistanceGradation { color, width, opacity, invert, blend: b } => {
+                let dist = buffer(dist_bytes(w, h));
+                let mut k = vec![*width, *opacity, (invert == "on") as u8 as f64];
+                k.extend(linear(color));
+                let p = FxParams { blend: blend(b), ..Default::default() };
+                let work = [None, None, None, Some(&dist)];
+                self.fx_step(steps, &passes.cols, p, Some(still), None, None, None, work, (((w + 2) as u32).div_ceil(64), 1));
+                let out = self.scratch("B-76 distance", w, h);
+                self.fx_step(steps, &passes.edt, p, Some(still), Some(&out), Some(&k), None, work, ((h as u32).div_ceil(64), 1));
+                (out, (w, h))
+            }
+            _ => unreachable!("compose leaves only the two batches of ten as Fx"),
         }
     }
 
@@ -2100,12 +2567,24 @@ impl Gpu {
                 "B-44 draws a frame with an adjustment layer (D-66) wholly on the CPU.".into(),
             ));
         }
-        if plan.layers.iter().any(|l| !l.wrap.is_empty()) {
-            return Some(on_cpu(
-                Severity::Info,
-                "The CPU drew this frame: it has a Light Wrap, which the GPU does not draw yet.".into(),
-                "B-75 draws a frame with a Light Wrap (D-132) wholly on the CPU.".into(),
-            ));
+        // B-76: a Light Wrap blurs the frame beneath, grown by the blur's radius.
+        let radii: Vec<usize> = plan.layers.iter().flat_map(wraps).map(|(width, _, _)| crate::effects::kernel_radius(width / 3.0)).collect();
+        if let Some(&r) = radii.iter().max() {
+            if self.bloom.is_none() || self.fx.is_none() {
+                return Some(on_cpu(
+                    Severity::Info,
+                    "The CPU drew this frame: it has a Light Wrap, and this graphics card cannot do the double-precision sums it needs.".into(),
+                    format!("{}: no SHADER_F64. B-76 draws a Light Wrap on the card only where it can add as the CPU does.", self.about),
+                ));
+            }
+            let (gw, gh) = (plan.width + 2 * r, plan.height + 2 * r);
+            if gw.max(gh) > self.limits.max_texture_dimension_2d as usize {
+                return Some(on_cpu(
+                    Severity::Info,
+                    format!("The CPU drew this frame: a Light Wrap blurs the frame to {gw} by {gh}, larger than the card allows."),
+                    format!("{}: largest texture side {}.", self.about, self.limits.max_texture_dimension_2d),
+                ));
+            }
         }
         // B-47: a Bloom needs double precision, and room for its grown drawing, its halo and
         // its lines, which are never more than the grown width and height together. B-49: so
@@ -2134,6 +2613,7 @@ impl Gpu {
                             let n = width.ceil() as usize;
                             ((w + 2 * n) * (h + 2 * n) * 4) as u64
                         }
+                        crate::effects::Effect::DistanceGradation { .. } => dist_bytes(w, h) as u64,
                         _ => 0,
                     };
                     (format!("the effect {}", f.instance.effect.name()), f.grow, bytes)
@@ -2201,6 +2681,27 @@ impl Gpu {
     }
 
     /// B-45: [`Gpu::draw`], with the picture left on the card for [`Gpu::show`].
+    /// One layer laid onto `onto`, a frame of `sum`'s size: `numbers` as the shader's `Layer`,
+    /// its drawing and its matte's. Added to `steps`.
+    fn lay(&self, steps: &mut Vec<Step>, numbers: [u32; 20], source: &wgpu::TextureView, matte: Option<&wgpu::TextureView>, onto: &wgpu::Buffer) {
+        let uniform = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("B-44 layer"),
+            contents: bytemuck::cast_slice(&numbers),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &self.layer_layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(source) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(matte.unwrap_or(&self.no_matte)) },
+                wgpu::BindGroupEntry { binding: 3, resource: onto.as_entire_binding() },
+            ],
+        });
+        steps.push((self.layer.clone(), group, (numbers[14].div_ceil(16), numbers[15].div_ceil(16))));
+    }
+
     pub fn draw_held(&mut self, plan: &FramePlan, cache: &CelCache) -> Result<(), Diagnostic> {
         if let Some(refused) = self.refuse(plan) {
             return Err(refused);
@@ -2213,9 +2714,11 @@ impl Gpu {
         self.device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         self.device.push_error_scope(wgpu::ErrorFilter::Validation);
 
-        // Each layer that can show anything: its drawing, its matte's, and its numbers, laid
-        // out as the shader's `Layer`. The same skips as `render_tile`.
-        let mut layers: Vec<(wgpu::TextureView, Option<wgpu::TextureView>, [u32; 20], (u32, u32))> = Vec::new();
+        // Each layer that can show anything, laid in order with what its effects dispatch. The
+        // same skips as `render_tile`.
+        self.target(width, height);
+        let target = self.target.as_ref().expect("made above");
+        let (sum, size) = (target.sum.clone(), target.size.clone());
         let mut uploads = self.device.create_command_encoder(&Default::default());
         let mut steps = Vec::new();
         perf::time(Stage::GpuUpload, || {
@@ -2260,74 +2763,88 @@ impl Gpu {
                     (m0.0, m0.1, i.a, i.b, i.c, i.d)
                 });
                 let f = |v: f64| (v as f32).to_bits();
-                let numbers = [
+                let blend = match layer.blend {
+                    BlendMode::Normal => 0,
+                    BlendMode::Multiply => 1,
+                    BlendMode::Screen => 2,
+                    BlendMode::Add => 3,
+                };
+                let mut numbers = [
                     f(s0.0), f(s0.1), f(inverse.a), f(inverse.b), f(inverse.c), f(inverse.d),
                     f(m.0), f(m.1), f(m.2), f(m.3), f(m.4), f(m.5),
                     x0, y0, x1 - x0, y1 - y0,
                     width as u32,
-                    match layer.blend {
-                        BlendMode::Normal => 0,
-                        BlendMode::Multiply => 1,
-                        BlendMode::Screen => 2,
-                        BlendMode::Add => 3,
-                    },
+                    blend,
                     matte.is_some() as u32,
                     layer.opacity.to_bits(),
                 ];
-                let wide = matches!(layer.on_card, Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
+                let wraps = wraps(layer);
+                let wide = !wraps.is_empty() || matches!(layer.on_card, Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
                 let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source), wide);
                 if let Some(effect) = &layer.on_card {
                     source = self.applied(&mut steps, &layer.source, &source, effect);
                 }
                 let matte = matte.map(|(m, _)| self.resident(&mut uploads, &m.source, cache.name_of(&m.source), false));
-                layers.push((source, matte, numbers, (x1 - x0, y1 - y0)));
+                if wraps.is_empty() {
+                    self.lay(&mut steps, numbers, &source, matte.as_ref(), &sum);
+                    continue;
+                }
+                // B-76, render::wrap_layer: the layer placed alone, its light the frame beneath
+                // with its covering, blurred once for each wrap, and the result laid as the layer.
+                let placed = self.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("B-76 placed"),
+                    size: (width * height * 16) as u64,
+                    usage: wgpu::BufferUsages::STORAGE,
+                    mapped_at_creation: false,
+                });
+                let (blend, opacity) = (numbers[17], numbers[19]);
+                numbers[17] = 0;
+                numbers[19] = 1f32.to_bits();
+                self.lay(&mut steps, numbers, &source, matte.as_ref(), &placed);
+                let mut drawn = self.scratch("B-76 drawn", width, height);
+                let light = self.scratch("B-76 light", width, height);
+                let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: None,
+                    layout: &self.unpack_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry { binding: 0, resource: size.as_entire_binding() },
+                        wgpu::BindGroupEntry { binding: 1, resource: sum.as_entire_binding() },
+                        wgpu::BindGroupEntry { binding: 2, resource: placed.as_entire_binding() },
+                        wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&drawn) },
+                        wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(&light) },
+                    ],
+                });
+                let tiles = ((width as u32).div_ceil(16), (height as u32).div_ceil(16));
+                steps.push((self.unpack.clone(), group, tiles));
+                for (w, intensity, add) in wraps {
+                    if intensity == 0.0 {
+                        continue;
+                    }
+                    let sigma = w / 3.0;
+                    let r = crate::effects::kernel_radius(sigma);
+                    let blurred = if r == 0 { light.clone() } else { self.gaussian(&mut steps, &light, (width, height), Gaussian { sigma, repeat: false }).0 };
+                    let out = self.scratch("B-76 wrapped", width, height);
+                    let p = FxParams { r: r as i32, flag: add as u32, ..Default::default() };
+                    let passes = self.fx.as_ref().expect("a Light Wrap is refused without the passes");
+                    self.fx_step(&mut steps, &passes.wrap, p, Some(&drawn), Some(&out), Some(&[intensity / 100.0]), Some(&blurred), [None; 4], tiles);
+                    drawn = out;
+                }
+                let f = |v: f32| v.to_bits();
+                let placed = [
+                    f(x0 as f32 + 0.5), f(y0 as f32 + 0.5), f(1.0), f(0.0), f(0.0), f(1.0),
+                    0, 0, 0, 0, 0, 0,
+                    x0, y0, x1 - x0, y1 - y0,
+                    width as u32,
+                    blend,
+                    0,
+                    opacity,
+                ];
+                self.lay(&mut steps, placed, &drawn, None, &sum);
             }
         });
 
         let drawn = perf::time(Stage::GpuDraw, || {
-            let stride = 80usize.next_multiple_of(self.limits.min_uniform_buffer_offset_alignment as usize);
-            let mut numbers = vec![0u32; layers.len().max(1) * stride / 4];
-            for (i, layer) in layers.iter().enumerate() {
-                numbers[i * stride / 4..i * stride / 4 + 20].copy_from_slice(&layer.2);
-            }
-            let uniforms = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("B-44 layers"),
-                contents: bytemuck::cast_slice(&numbers),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
-            self.target(width, height);
             let target = self.target.as_ref().expect("made above");
-            let groups: Vec<wgpu::BindGroup> = layers
-                .iter()
-                .enumerate()
-                .map(|(i, (source, matte, _, _))| {
-                    self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: None,
-                        layout: &self.layer_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                    buffer: &uniforms,
-                                    offset: (i * stride) as u64,
-                                    size: wgpu::BufferSize::new(80),
-                                }),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: wgpu::BindingResource::TextureView(source),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 2,
-                                resource: wgpu::BindingResource::TextureView(
-                                    matte.as_ref().unwrap_or(&self.no_matte),
-                                ),
-                            },
-                            wgpu::BindGroupEntry { binding: 3, resource: target.sum.as_entire_binding() },
-                        ],
-                    })
-                })
-                .collect();
             let encode_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: None,
                 layout: &self.encode_layout,
@@ -2340,21 +2857,14 @@ impl Gpu {
 
             let mut encoder = self.device.create_command_encoder(&Default::default());
             encoder.clear_buffer(&target.sum, 0, None);
-            if !steps.is_empty() {
-                // One after another: wgpu has each dispatch wait for what the one before wrote.
+            {
+                // One after another: wgpu has each dispatch wait for what the one before wrote,
+                // so a Light Wrap reads the layers laid before it.
                 let mut pass = encoder.begin_compute_pass(&Default::default());
                 for (pipeline, group, (x, y)) in &steps {
                     pass.set_pipeline(pipeline);
                     pass.set_bind_group(0, group, &[]);
                     pass.dispatch_workgroups(*x, *y, 1);
-                }
-            }
-            {
-                let mut pass = encoder.begin_compute_pass(&Default::default());
-                pass.set_pipeline(&self.layer);
-                for (group, (_, _, _, (w, h))) in groups.iter().zip(&layers) {
-                    pass.set_bind_group(0, group, &[]);
-                    pass.dispatch_workgroups(w.div_ceil(16), h.div_ceil(16), 1);
                 }
                 pass.set_pipeline(&self.encode);
                 pass.set_bind_group(0, &encode_group, &[]);
