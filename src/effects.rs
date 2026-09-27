@@ -149,6 +149,10 @@ impl EffectInstance {
             if let Effect::Noise { animate, frame: f, .. } = &mut effect {
                 *f = if animate == "on" { frame } else { 0 };
             }
+            // D-125: the flicker's frame.
+            if let Effect::ExposureFlicker { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         EffectInstance {
             instance_id: self.instance_id.clone(),
@@ -380,6 +384,15 @@ pub enum Effect {
         intensity: f64,
         color: String,
     },
+    /// D-125: `amount`, 0 to 4 stops either way; `hold`, 1 to 100 frames, its whole part
+    /// counted; and `seed`, 0 to 100000, its whole part counted. `frame` is not a setting and is
+    /// never saved: it is the composition frame the settings were resolved at, as Noise's is.
+    ExposureFlicker {
+        amount: f64,
+        hold: f64,
+        seed: f64,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -411,6 +424,7 @@ pub const NOISE: &str = "core.noise";
 pub const CHROMATIC_ABERRATION: &str = "core.chromatic_aberration";
 pub const DISTANCE_GRADATION: &str = "core.distance_gradation";
 pub const LIGHT_RAYS: &str = "core.light_rays";
+pub const EXPOSURE_FLICKER: &str = "core.exposure_flicker";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -617,6 +631,13 @@ impl Effect {
                 ("threshold", vec![threshold], 0.0, 100.0),
                 ("intensity", vec![intensity], 0.0, 10.0),
             ],
+            Effect::ExposureFlicker {
+                amount, hold, seed, ..
+            } => vec![
+                ("amount", vec![amount], 0.0, 4.0),
+                ("hold", vec![hold], 1.0, 100.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -727,6 +748,7 @@ impl Effect {
             Effect::ChromaticAberration { .. } => "Chromatic Aberration",
             Effect::DistanceGradation { .. } => "Distance Gradation",
             Effect::LightRays { .. } => "Light Rays",
+            Effect::ExposureFlicker { .. } => "Exposure Flicker",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -758,6 +780,7 @@ impl Effect {
             Effect::ChromaticAberration { .. } => CHROMATIC_ABERRATION,
             Effect::DistanceGradation { .. } => DISTANCE_GRADATION,
             Effect::LightRays { .. } => LIGHT_RAYS,
+            Effect::ExposureFlicker { .. } => EXPOSURE_FLICKER,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1570,6 +1593,19 @@ pub(crate) fn apply_stack_at(
                         *intensity,
                         encoded(color),
                     )
+                })
+            }
+            // D-125: Noise's hash of the seed and the frame over the hold gives the stops.
+            Effect::ExposureFlicker {
+                amount,
+                hold,
+                seed,
+                frame,
+            } => {
+                let m = (*frame as i64).div_euclid(hold.floor() as i64);
+                let u = crate::grade::unit(crate::grade::mix(seed.floor() as u64), m, 0, 0, 3);
+                crate::perf::time(crate::perf::Stage::EffectExposureFlicker, || {
+                    exposure(source, amount * u)
                 })
             }
         }

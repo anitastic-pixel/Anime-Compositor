@@ -1,5 +1,7 @@
 //! The batch of ten's colour effects, each a pixel at a time on a layer's own pixels: D-111's
-//! curves, D-112's levels, D-113's hue and saturation, D-114's gradient and D-119's noise.
+//! curves, D-112's levels, D-113's hue and saturation, D-114's gradient and D-119's noise; and
+//! the second batch's: D-126's vignette, D-128's fractal noise (whose field D-127's turbulent
+//! displace shares), D-129's gradient map and D-130's colour balance.
 //!
 //! This program's own methods; nothing is ported. Each effect's `tools/<name>_reference.py` is
 //! the same rule worked a second way, and its `tests/b5x_<name>.rs` holds this to its numbers.
@@ -308,4 +310,176 @@ pub(crate) fn noise(
             e[c] + k * (n / (1u64 << 53) as f64 * 2.0 - 1.0)
         })
     });
+}
+
+/// D-119's number in -1..1 for a seed already through [`mix`] and four whole numbers.
+pub(crate) fn unit(base: u64, x: i64, y: i64, f: i64, ch: u64) -> f64 {
+    let h = mix(mix(mix(mix(base ^ x as u64) ^ y as u64) ^ f as u64) ^ ch);
+    (h >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0
+}
+
+/// D-127 and D-128's smooth value noise in -1..1: [`unit`] at the eight corners of the cell
+/// round `(x, y, z)`, mixed by the smoothed place inside it.
+fn value(base: u64, ch: u64, x: f64, y: f64, z: f64) -> f64 {
+    let (i, j, k) = (x.floor(), y.floor(), z.floor());
+    let fade = |t: f64| t * t * t * (t * (6.0 * t - 15.0) + 10.0);
+    let s = [fade(x - i), fade(y - j), fade(z - k)];
+    let (i, j, k) = (i as i64, j as i64, k as i64);
+    let mut v = 0.0;
+    for corner in 0..8 {
+        let d = [corner & 1, (corner >> 1) & 1, corner >> 2];
+        let w: f64 = (0..3).map(|a| if d[a] == 1 { s[a] } else { 1.0 - s[a] }).product();
+        v += w * unit(base, i + d[0] as i64, j + d[1] as i64, k + d[2] as i64, ch);
+    }
+    v
+}
+
+/// D-127 and D-128's fractal noise: `octaves` of [`value`], each half the last's strength at
+/// twice its fineness, over the sum of the strengths. Channel `ch`'s octave `o` is channel
+/// `8 o + ch` of the value noise.
+pub(crate) fn fractal(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize) -> f64 {
+    let (mut sum, mut total, mut amp, mut fine) = (0.0, 0.0, 1.0, 1.0);
+    for o in 0..octaves {
+        sum += amp * value(base, 8 * o as u64 + ch, x * fine, y * fine, z * fine);
+        total += amp;
+        amp *= 0.5;
+        fine *= 2.0;
+    }
+    sum / total
+}
+
+/// D-128's settings, read once for a frame: the noise's size, octaves and depth (`z`, the
+/// evolution and the frame's turns), its contrast and brightness, the two colours encoded 0 to
+/// 1, and how it is mixed in.
+pub(crate) struct Fractal {
+    pub size: f64,
+    pub octaves: usize,
+    pub seed: f64,
+    pub z: f64,
+    pub contrast: f64,
+    pub brightness: f64,
+    pub colors: [[f64; 3]; 2],
+    pub opacity: f64,
+    pub blend: String,
+}
+
+/// D-128: a cloudy pattern of two colours over each pixel that shows, fixed to the drawing's own
+/// space (its corner at `(ox, oy)` in `source`), mixed in by its blend at its opacity. The
+/// settings are already valid.
+pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (usize, usize)) {
+    if f.opacity == 0.0 {
+        return;
+    }
+    let w = source.width();
+    let base = mix(f.seed.floor() as u64);
+    let (mixer, o) = (mixer(&f.blend), f.opacity / 100.0);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let x = ((i % w) as f64 - ox as f64 + 0.5) / f.size;
+            let y = ((i / w) as f64 - oy as f64 + 0.5) / f.size;
+            let n = fractal(base, 0, (x, y, f.z), f.octaves);
+            let v = (0.5 + 0.5 * n * f.contrast / 100.0 + f.brightness / 100.0).clamp(0.0, 1.0);
+            for c in 0..3 {
+                let [d, l] = [f.colors[0][c], f.colors[1][c]];
+                let color = to_linear(d + v * (l - d));
+                let b = px[c] as f64 / a;
+                px[c] = ((b + o * (mixer(b, color) - b)) * a) as f32;
+            }
+        });
+}
+
+/// D-129: each pixel that shows takes the ramp's colour at its lightness, shadow to midtone
+/// below `midpoint` per cent and midtone to highlight above it, mixed in at `amount` per cent.
+/// The colours are encoded 0 to 1; the settings are already valid.
+pub(crate) fn gradient_map(source: &mut WorkingBuffer, colors: [[f64; 3]; 3], midpoint: f64, amount: f64) {
+    if amount == 0.0 {
+        return;
+    }
+    let (m, o) = (midpoint / 100.0, amount / 100.0);
+    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let b = [0, 1, 2].map(|c| px[c] as f64 / a);
+        let t = to_srgb((0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2]).clamp(0.0, 1.0));
+        let (lo, hi, s) = if t <= m {
+            (colors[0], colors[1], t / m)
+        } else {
+            (colors[1], colors[2], (t - m) / (1.0 - m))
+        };
+        for c in 0..3 {
+            let g = to_linear(lo[c] + s * (hi[c] - lo[c]));
+            px[c] = ((b[c] + o * (g - b[c])) * a) as f32;
+        }
+    });
+}
+
+/// D-130: red, green and blue pushed by `shadows`, `midtones` and `highlights`, each -100..100,
+/// through the sRGB curve, weighted by how dark or light the pixel is. The settings are already
+/// valid; all nine 0 changes nothing.
+pub(crate) fn color_balance(source: &mut WorkingBuffer, shadows: [f64; 3], midtones: [f64; 3], highlights: [f64; 3]) {
+    if [shadows, midtones, highlights] == [[0.0; 3]; 3] {
+        return;
+    }
+    grade_pixels(source, false, |_, e| {
+        let l = 0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2];
+        let ws = (1.0 - 2.0 * l).clamp(0.0, 1.0);
+        let wh = (2.0 * l - 1.0).clamp(0.0, 1.0);
+        let wm = 1.0 - ws - wh;
+        std::array::from_fn(|c| e[c] + (ws * shadows[c] + wm * midtones[c] + wh * highlights[c]) / 200.0)
+    });
+}
+
+/// D-126's settings, read once for a frame: the centre in the buffer's pixels, the oval's two
+/// half-axes, where the fall begins and ends, the colour encoded 0 to 1 and the amount.
+pub(crate) struct Vignette {
+    pub center: (f64, f64),
+    pub radii: (f64, f64),
+    pub inner: f64,
+    pub outer: f64,
+    pub color: [f64; 3],
+    pub amount: f64,
+}
+
+/// D-126: each pixel that shows mixed toward the colour by how far out it lies on the oval, 0
+/// inside `inner` and all of `amount` per cent past `outer`, smoothly between.
+pub(crate) fn vignette(source: &mut WorkingBuffer, v: &Vignette) {
+    if v.amount == 0.0 {
+        return;
+    }
+    let w = source.width();
+    let (cx, cy) = v.center;
+    let (rx, ry) = v.radii;
+    let g = v.color.map(to_linear);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (dx, dy) = (((i % w) as f64 + 0.5 - cx) / rx, ((i / w) as f64 + 0.5 - cy) / ry);
+            let d = (dx * dx + dy * dy).sqrt() / 2f64.sqrt();
+            let t = if v.inner == v.outer {
+                if d >= v.outer { 1.0 } else { 0.0 }
+            } else {
+                let t = ((d - v.inner) / (v.outer - v.inner)).clamp(0.0, 1.0);
+                t * t * (3.0 - 2.0 * t)
+            };
+            let o = t * v.amount / 100.0;
+            for c in 0..3 {
+                let b = px[c] as f64 / a;
+                px[c] = ((b + o * (g[c] - b)) * a) as f32;
+            }
+        });
 }

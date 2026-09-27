@@ -1005,6 +1005,7 @@
         <option value="core.chromatic_aberration">Chromatic Aberration</option>
         <option value="core.distance_gradation">Distance Gradation</option>
         <option value="core.light_rays">Light Rays</option>
+        <option value="core.exposure_flicker">Exposure Flicker</option>
       </select>
     </div>
   </section>
@@ -6419,6 +6420,7 @@ const EFFECT_NAMES = {
   'core.chromatic_aberration': 'Chromatic Aberration',
   'core.distance_gradation': 'Distance Gradation',
   'core.light_rays': 'Light Rays',
+  'core.exposure_flicker': 'Exposure Flicker',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6516,6 +6518,10 @@ const EFFECT_PARAMS = {
     ['length', 'Length', 1, 0.5, '% of the way to the centre, 0 to 100'],
     ['threshold', 'Threshold', 1, 0.5, '0 to 100'],
     ['intensity', 'Intensity', 1, 0.02, '0 to 10']],
+  // D-125.
+  'core.exposure_flicker': [['amount', 'Amount', 1, 0.01, 'stops either way, 0 to 4'],
+    ['hold', 'Hold', 1, 1, 'frames, 1 to 100'],
+    ['seed', 'Seed', 1, 1, '0 to 100000']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

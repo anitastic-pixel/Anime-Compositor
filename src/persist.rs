@@ -1199,6 +1199,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("intensity".into(), num(*intensity));
             params.insert("color".into(), J::from(color.as_str()));
         }
+        Effect::ExposureFlicker {
+            amount, hold, seed, ..
+        } => {
+            params.insert("amount".into(), num(*amount));
+            params.insert("hold".into(), num(*hold));
+            params.insert("seed".into(), num(*seed));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1595,6 +1602,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "aspect",
         "highlight_gain",
         "highlight_threshold",
+        "hold",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2401,6 +2409,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::CHROMATIC_ABERRATION,
                 crate::effects::DISTANCE_GRADATION,
                 crate::effects::LIGHT_RAYS,
+                crate::effects::EXPOSURE_FLICKER,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2585,6 +2594,14 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     intensity: effect_number(params, "intensity", &at)?,
                     color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
                 }),
+                crate::effects::EXPOSURE_FLICKER => {
+                    Some(crate::effects::Effect::ExposureFlicker {
+                        amount: effect_number(params, "amount", &at)?,
+                        hold: effect_number(params, "hold", &at)?,
+                        seed: effect_number(params, "seed", &at)?,
+                        frame: 0,
+                    })
+                }
                 _ => None,
             };
             // P-17: keys on a setting this effect does not have are not its keys. The record

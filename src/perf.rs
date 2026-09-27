@@ -114,6 +114,8 @@ pub enum Stage {
     EffectDistanceGradation,
     /// D-124's light rays, whole-layer, per ADR-017.
     EffectLightRays,
+    /// D-125's exposure flicker, per pixel.
+    EffectExposureFlicker,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -131,7 +133,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 41] = [
+    pub const ALL: [Stage; 42] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -166,6 +168,7 @@ impl Stage {
         Stage::EffectChromaticAberration,
         Stage::EffectDistanceGradation,
         Stage::EffectLightRays,
+        Stage::EffectExposureFlicker,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -212,6 +215,7 @@ impl Stage {
             Stage::EffectChromaticAberration => "effect: chromatic aberration",
             Stage::EffectDistanceGradation => "effect: distance gradation",
             Stage::EffectLightRays => "effect: light rays",
+            Stage::EffectExposureFlicker => "effect: exposure flicker",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

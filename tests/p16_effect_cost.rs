@@ -292,6 +292,15 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 color: "#ffffff".to_string(),
             },
         ),
+        (
+            "Exposure Flicker, amount 1, frame 5",
+            Effect::ExposureFlicker {
+                amount: 1.0,
+                hold: 1.0,
+                seed: 0.0,
+                frame: 5,
+            },
+        ),
     ]
 }
 
