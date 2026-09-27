@@ -177,5 +177,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - size - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.emboss` is an effect this build has | added | added | pass |
 | and the settings it sends for it - direction, relief, contrast, mode - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.find_edges` is an effect this build has | added | added | pass |
+| and the settings it sends for it - invert, amount - are the ones the command reads | accepted | accepted | pass |
 
-**157 of 157 checks pass.**
+**159 of 159 checks pass.**

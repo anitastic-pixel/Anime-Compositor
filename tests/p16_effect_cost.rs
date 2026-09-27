@@ -449,6 +449,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 mode: "grey".to_string(),
             },
         ),
+        (
+            "Find Edges, as it starts",
+            Effect::FindEdges {
+                invert: "off".to_string(),
+                amount: 100.0,
+            },
+        ),
     ]
 }
 

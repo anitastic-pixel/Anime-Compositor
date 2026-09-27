@@ -598,7 +598,7 @@ B-87 / Mosaic, D-144, the eleventh of the third batch of thirty: the picture cut
 
 B-88 / Emboss, D-145, the twelfth of the third batch of thirty: the picture pressed into relief, lit from one side. **B-88a is written on 2026-09-26**: `verification/B-88a proposal/`, D-145 in document 14, the rule in document 21, FX-EMBOSS-001 to 026 in document 25 from `tools/emboss_reference.py`, which writes `Fixtures/emboss/`. **B-88b is built on 2026-09-26**: `src/layer_fx.rs`, the Emboss card, `tests/b88_emboss.rs` writing `verification/B-88_emboss_table.md`, 95 of 95, worst 2.2e-7; the owner's playtest is `verification/B-88_emboss_playtest.md`.
 
-B-89 / Find Edges, D-146, the thirteenth of the third batch of thirty: the picture's edges drawn as lines. **B-89a is written on 2026-09-26**: `verification/B-89a proposal/`, D-146 in document 14, the rule in document 21, FX-FINDEDGES-001 to 019 in document 25 from `tools/find_edges_reference.py`, which writes `Fixtures/find_edges/`. **B-89b, the build, is next.**
+B-89 / Find Edges, D-146, the thirteenth of the third batch of thirty: the picture's edges drawn as lines. **B-89a is written on 2026-09-26**: `verification/B-89a proposal/`, D-146 in document 14, the rule in document 21, FX-FINDEDGES-001 to 019 in document 25 from `tools/find_edges_reference.py`, which writes `Fixtures/find_edges/`. **B-89b is built on 2026-09-26**: `src/layer_fx.rs`, the Find Edges card, `tests/b89_find_edges.rs` writing `verification/B-89_find_edges_table.md`, 75 of 75, worst 1.9e-7; the owner's playtest is `verification/B-89_find_edges_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

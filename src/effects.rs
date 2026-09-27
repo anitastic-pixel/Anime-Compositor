@@ -548,6 +548,9 @@ pub enum Effect {
         contrast: f64,
         mode: String,
     },
+    /// D-146: `invert`, "off" for dark lines on white or "on" for light lines on black;
+    /// `amount`, 0 to 100, how far each pixel goes toward its line.
+    FindEdges { invert: String, amount: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -599,6 +602,7 @@ pub const SOLARIZE: &str = "core.solarize";
 pub const HALFTONE: &str = "core.halftone";
 pub const MOSAIC: &str = "core.mosaic";
 pub const EMBOSS: &str = "core.emboss";
+pub const FIND_EDGES: &str = "core.find_edges";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -942,6 +946,7 @@ impl Effect {
                 ("relief", vec![relief], 0.0, 100.0),
                 ("contrast", vec![contrast], 0.0, 1000.0),
             ],
+            Effect::FindEdges { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1088,6 +1093,7 @@ impl Effect {
             Effect::Halftone { .. } => "Halftone",
             Effect::Mosaic { .. } => "Mosaic",
             Effect::Emboss { .. } => "Emboss",
+            Effect::FindEdges { .. } => "Find Edges",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1139,6 +1145,7 @@ impl Effect {
             Effect::Halftone { .. } => HALFTONE,
             Effect::Mosaic { .. } => MOSAIC,
             Effect::Emboss { .. } => EMBOSS,
+            Effect::FindEdges { .. } => FIND_EDGES,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1502,6 +1509,9 @@ impl Effect {
             }
             Effect::Emboss { mode, .. } if !["grey", "color"].contains(&mode.as_str()) => Some(format!(
                 "Emboss's mode is \"grey\" or \"color\", and this is \"{mode}\"."
+            )),
+            Effect::FindEdges { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "Find Edges's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
             _ => None,
         };
@@ -2227,6 +2237,9 @@ pub(crate) fn apply_stack_at(
                 mode,
             } => crate::perf::time(crate::perf::Stage::EffectEmboss, || {
                 crate::layer_fx::emboss(source, *direction, *relief, *contrast, mode == "color")
+            }),
+            Effect::FindEdges { invert, amount } => crate::perf::time(crate::perf::Stage::EffectFindEdges, || {
+                crate::layer_fx::find_edges(source, invert == "on", *amount)
             }),
         }
     }

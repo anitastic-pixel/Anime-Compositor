@@ -719,3 +719,43 @@ pub(crate) fn emboss(source: &mut WorkingBuffer, direction: f64, relief: f64, co
             }
         });
 }
+
+
+/// D-146: each pixel that shows moved `amount` of the way toward the strength of the change in
+/// picture luma around it, dark lines on white, or light on black when `invert`. The settings
+/// are already valid.
+pub(crate) fn find_edges(source: &mut WorkingBuffer, invert: bool, amount: f64) {
+    if amount <= 0.0 {
+        return;
+    }
+    let (w, h) = (source.width() as i64, source.height() as i64);
+    let lumas: Vec<f64> = source.data().chunks_exact(4).map(|p| picture_luma([p[0], p[1], p[2], p[3]])).collect();
+    let at = |x: i64, y: i64| lumas[(y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize];
+    let t = amount / 100.0;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (x, y) = (i as i64 % w, i as i64 / w);
+            let gx = at(x + 1, y - 1) + 2.0 * at(x + 1, y) + at(x + 1, y + 1)
+                - at(x - 1, y - 1)
+                - 2.0 * at(x - 1, y)
+                - at(x - 1, y + 1);
+            let gy = at(x - 1, y + 1) + 2.0 * at(x, y + 1) + at(x + 1, y + 1)
+                - at(x - 1, y - 1)
+                - 2.0 * at(x, y - 1)
+                - at(x + 1, y - 1);
+            let m = ((gx * gx + gy * gy).sqrt() / 2.0).min(1.0);
+            let v = if invert { m } else { 1.0 - m };
+            for c in 0..3 {
+                let e = crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
+                let e = e + t * (v - e);
+                px[c] = (crate::grade::to_linear(e.clamp(0.0, 1.0)) * a) as f32;
+            }
+        });
+}

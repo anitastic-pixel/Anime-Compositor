@@ -1025,6 +1025,7 @@
         <option value="core.halftone">Halftone</option>
         <option value="core.mosaic">Mosaic</option>
         <option value="core.emboss">Emboss</option>
+        <option value="core.find_edges">Find Edges</option>
       </select>
     </div>
   </section>
@@ -6459,6 +6460,7 @@ const EFFECT_NAMES = {
   'core.halftone': 'Halftone',
   'core.mosaic': 'Mosaic',
   'core.emboss': 'Emboss',
+  'core.find_edges': 'Find Edges',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6626,6 +6628,8 @@ const EFFECT_PARAMS = {
   'core.emboss': [['direction', 'Direction', 1, 1, 'degrees clockwise from up, toward the lit side'],
     ['relief', 'Relief', 1, 0.5, 'pixels, 0 to 100, how wide the ridges are'],
     ['contrast', 'Contrast', 1, 1, '0 to 1000, how strongly the ridges show']],
+  // D-146.
+  'core.find_edges': [['amount', 'Amount', 1, 1, '0 to 100, how far each pixel goes toward its line']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6731,6 +6735,8 @@ const EFFECT_WORDS = {
   'core.halftone': { colours: [['ink', 'Ink'], ['paper', 'Paper']] },
   // D-145.
   'core.emboss': { choices: [['mode', 'Mode', [['grey', 'Grey'], ['color', 'Over the colours']]]] },
+  // D-146.
+  'core.find_edges': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

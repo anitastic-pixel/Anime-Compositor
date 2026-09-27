@@ -1380,6 +1380,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("contrast".into(), num(*contrast));
             params.insert("mode".into(), J::from(mode.as_str()));
         }
+        Effect::FindEdges { invert, amount } => {
+            params.insert("invert".into(), J::from(invert.as_str()));
+            params.insert("amount".into(), num(*amount));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2640,6 +2644,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::HALFTONE,
                 crate::effects::MOSAIC,
                 crate::effects::EMBOSS,
+                crate::effects::FIND_EDGES,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2947,6 +2952,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     relief: effect_number(params, "relief", &at)?,
                     contrast: effect_number(params, "contrast", &at)?,
                     mode: effect_word(params, "mode", &at)?,
+                }),
+                crate::effects::FIND_EDGES => Some(crate::effects::Effect::FindEdges {
+                    invert: effect_word(params, "invert", &at)?,
+                    amount: effect_number(params, "amount", &at)?,
                 }),
                 _ => None,
             };

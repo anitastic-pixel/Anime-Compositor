@@ -154,6 +154,8 @@ pub enum Stage {
     EffectMosaic,
     /// D-145's emboss, per pixel.
     EffectEmboss,
+    /// D-146's find edges, per pixel.
+    EffectFindEdges,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -171,7 +173,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 61] = [
+    pub const ALL: [Stage; 62] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -226,6 +228,7 @@ impl Stage {
         Stage::EffectHalftone,
         Stage::EffectMosaic,
         Stage::EffectEmboss,
+        Stage::EffectFindEdges,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -292,6 +295,7 @@ impl Stage {
             Stage::EffectHalftone => "effect: halftone",
             Stage::EffectMosaic => "effect: mosaic",
             Stage::EffectEmboss => "effect: emboss",
+            Stage::EffectFindEdges => "effect: find edges",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
