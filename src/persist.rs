@@ -1577,6 +1577,28 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("hold".into(), num(*hold));
             params.insert("seed".into(), num(*seed));
         }
+        Effect::Rain {
+            color,
+            density,
+            spacing,
+            length,
+            width,
+            direction,
+            speed,
+            seed,
+            opacity,
+            ..
+        } => {
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("density".into(), num(*density));
+            params.insert("spacing".into(), num(*spacing));
+            params.insert("length".into(), num(*length));
+            params.insert("width".into(), num(*width));
+            params.insert("direction".into(), num(*direction));
+            params.insert("speed".into(), num(*speed));
+            params.insert("seed".into(), num(*seed));
+            params.insert("opacity".into(), num(*opacity));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2026,6 +2048,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "inner_jitter",
         "angle_jitter",
         "points",
+        "density",
+        "spacing",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2871,6 +2895,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::SPEED_LINES,
                 crate::effects::CROSS_GLARE,
                 crate::effects::CAMERA_SHAKE,
+                crate::effects::RAIN,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3283,6 +3308,18 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     rotation: effect_number(params, "rotation", &at)?,
                     hold: effect_number(params, "hold", &at)?,
                     seed: effect_number(params, "seed", &at)?,
+                    frame: 0,
+                }),
+                crate::effects::RAIN => Some(crate::effects::Effect::Rain {
+                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                    density: effect_number(params, "density", &at)?,
+                    spacing: effect_number(params, "spacing", &at)?,
+                    length: effect_number(params, "length", &at)?,
+                    width: effect_number(params, "width", &at)?,
+                    direction: effect_number(params, "direction", &at)?,
+                    speed: effect_number(params, "speed", &at)?,
+                    seed: effect_number(params, "seed", &at)?,
+                    opacity: effect_number(params, "opacity", &at)?,
                     frame: 0,
                 }),
                 _ => None,

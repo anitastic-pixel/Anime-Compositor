@@ -1042,6 +1042,7 @@
         <option value="core.speed_lines">Speed Lines</option>
         <option value="core.cross_glare">Cross Glare</option>
         <option value="core.camera_shake">Camera Shake</option>
+        <option value="core.rain">Rain</option>
       </select>
     </div>
   </section>
@@ -6493,6 +6494,7 @@ const EFFECT_NAMES = {
   'core.speed_lines': 'Speed Lines',
   'core.cross_glare': 'Cross Glare',
   'core.camera_shake': 'Camera Shake',
+  'core.rain': 'Rain',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6736,6 +6738,15 @@ const EFFECT_PARAMS = {
     ['rotation', 'Rotation', 1, 0.5, 'degrees, 0 to 45, the most a jolt tips it either way'],
     ['hold', 'Hold', 1, 1, 'frames, 1 to 100, how long each jolt is kept'],
     ['seed', 'Seed', 1, 1, '0 to 100000, which shake']],
+  // D-163.
+  'core.rain': [['density', 'Density', 1, 1, '0 to 100, the per cent of the field holding a drop'],
+    ['spacing', 'Spacing', 1, 1, 'pixels, 2 to 1000, how far apart the drops fall'],
+    ['length', 'Length', 1, 1, 'pixels, 0 to 1000, how long each streak is'],
+    ['width', 'Width', 1, 0.5, 'pixels, 0 to 20, how thick each streak is'],
+    ['direction', 'Direction', 1, 1, 'degrees, -3600 to 3600, the way the rain falls, 180 straight down'],
+    ['speed', 'Speed', 1, 1, 'pixels a frame, 0 to 1000, how fast it falls'],
+    ['seed', 'Seed', 1, 1, '0 to 100000, which drops'],
+    ['opacity', 'Opacity', 1, 1, '0 to 100, how strongly the streaks show']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6857,6 +6868,8 @@ const EFFECT_WORDS = {
   'core.speed_lines': { colours: [['color', 'Colour']] },
   // D-161.
   'core.cross_glare': { colours: [['color', 'Colour']] },
+  // D-163.
+  'core.rain': { colours: [['color', 'Colour']] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

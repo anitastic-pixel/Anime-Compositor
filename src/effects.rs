@@ -175,6 +175,10 @@ impl EffectInstance {
             if let Effect::CameraShake { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-163: the rain's frame.
+            if let Effect::Rain { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         EffectInstance {
             instance_id: self.instance_id.clone(),
@@ -713,6 +717,23 @@ pub enum Effect {
         seed: f64,
         frame: i32,
     },
+    /// D-163: `color`, `#rrggbb`, kept as written so a wrong one is reported; `density`, 0 to
+    /// 100; `spacing`, 2 to 1000 pixels; `length`, 0 to 1000 pixels; `width`, 0 to 20 pixels;
+    /// `direction`, -3600 to 3600 degrees, the way the rain falls; `speed`, 0 to 1000 pixels a
+    /// frame; `seed`, 0 to 100000, its whole part counted; and `opacity`, 0 to 100. `frame` is
+    /// not a setting and is never saved: it is the composition frame, as Noise's is.
+    Rain {
+        color: String,
+        density: f64,
+        spacing: f64,
+        length: f64,
+        width: f64,
+        direction: f64,
+        speed: f64,
+        seed: f64,
+        opacity: f64,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -781,6 +802,7 @@ pub const SIMPLE_CHOKER: &str = "core.simple_choker";
 pub const SPEED_LINES: &str = "core.speed_lines";
 pub const CROSS_GLARE: &str = "core.cross_glare";
 pub const CAMERA_SHAKE: &str = "core.camera_shake";
+pub const RAIN: &str = "core.rain";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1284,6 +1306,26 @@ impl Effect {
                 ("hold", vec![hold], 1.0, 100.0),
                 ("seed", vec![seed], 0.0, 100000.0),
             ],
+            Effect::Rain {
+                density,
+                spacing,
+                length,
+                width,
+                direction,
+                speed,
+                seed,
+                opacity,
+                ..
+            } => vec![
+                ("density", vec![density], 0.0, 100.0),
+                ("spacing", vec![spacing], 2.0, 1000.0),
+                ("length", vec![length], 0.0, 1000.0),
+                ("width", vec![width], 0.0, 20.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("speed", vec![speed], 0.0, 1000.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1379,6 +1421,18 @@ impl Effect {
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             Effect::CrossGlare { length, .. } => *length = scale(*length),
             Effect::CameraShake { amount, .. } => *amount = scale(*amount),
+            Effect::Rain {
+                spacing,
+                length,
+                width,
+                speed,
+                ..
+            } => {
+                *spacing = scale(*spacing);
+                *length = scale(*length);
+                *width = scale(*width);
+                *speed = scale(*speed);
+            }
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1476,6 +1530,7 @@ impl Effect {
             Effect::SpeedLines { .. } => "Speed Lines",
             Effect::CrossGlare { .. } => "Cross Glare",
             Effect::CameraShake { .. } => "Camera Shake",
+            Effect::Rain { .. } => "Rain",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1544,6 +1599,7 @@ impl Effect {
             Effect::SpeedLines { .. } => SPEED_LINES,
             Effect::CrossGlare { .. } => CROSS_GLARE,
             Effect::CameraShake { .. } => CAMERA_SHAKE,
+            Effect::Rain { .. } => RAIN,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1940,6 +1996,7 @@ impl Effect {
             )),
             Effect::SpeedLines { color, .. } => hex_fault("Speed Lines", "colour", color),
             Effect::CrossGlare { color, .. } => hex_fault("Cross Glare", "colour", color),
+            Effect::Rain { color, .. } => hex_fault("Rain", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -2854,6 +2911,24 @@ pub(crate) fn apply_stack_at(
                 });
                 ox += r;
                 oy += r;
+            }
+            // D-163: the field is fixed to the drawing's own space; it grows nothing.
+            Effect::Rain {
+                color,
+                density,
+                spacing,
+                length,
+                width,
+                direction,
+                speed,
+                seed,
+                opacity,
+                frame,
+            } => {
+                let numbers = [*density, *spacing, *length, *width, *direction, *speed, *seed, *opacity];
+                crate::perf::time(crate::perf::Stage::EffectRain, || {
+                    crate::layer_fx::rain(source, encoded(color).map(crate::grade::to_linear), numbers, *frame, (ox, oy))
+                })
             }
         }
     }

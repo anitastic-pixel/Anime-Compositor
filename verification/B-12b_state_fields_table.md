@@ -211,5 +211,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - threshold, length, points, angle, intensity, color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.camera_shake` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, rotation, hold, seed - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.rain` is an effect this build has | added | added | pass |
+| and the settings it sends for it - color, density, spacing, length, width, direction, speed, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**191 of 191 checks pass.**
+**193 of 193 checks pass.**

@@ -604,6 +604,21 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 0,
             },
         ),
+        (
+            "Rain, as it starts",
+            Effect::Rain {
+                color: "#c8d8ff".to_string(),
+                density: 30.0,
+                spacing: 24.0,
+                length: 20.0,
+                width: 1.0,
+                direction: 170.0,
+                speed: 30.0,
+                seed: 0.0,
+                opacity: 60.0,
+                frame: 0,
+            },
+        ),
     ]
 }
 

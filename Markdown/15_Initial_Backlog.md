@@ -632,7 +632,7 @@ B-104 / Cross Glare, D-161, the twenty-eighth of the third batch of thirty: the 
 
 B-105 / Camera Shake, D-162, the twenty-ninth of the third batch of thirty: the drawing jolted about from frame to frame. **B-105a is written on 2026-09-26**: `verification/B-105a proposal/`, D-162 in document 14, the rule in document 21, FX-SHAKE-001 to 021 in document 25 from `tools/camera_shake_reference.py`, which writes `Fixtures/camera_shake/`. **B-105b is built on 2026-09-26**: `src/layer_fx.rs`, the Camera Shake card, `tests/b105_camera_shake.rs` writing `verification/B-105_camera_shake_table.md`, 104 of 104, worst 2.5e-7; the owner's playtest is `verification/B-105_camera_shake_playtest.md`.
 
-B-106 / Rain, D-163, the last of the third batch of thirty: streaks of rain falling across the picture. **B-106a is written on 2026-09-26**: `verification/B-106a proposal/`, D-163 in document 14, the rule in document 21, FX-RAIN-001 to 027 in document 25 from `tools/rain_reference.py`, which writes `Fixtures/rain/`. **B-106b, the build, is next.**
+B-106 / Rain, D-163, the last of the third batch of thirty: streaks of rain falling across the picture. **B-106a is written on 2026-09-26**: `verification/B-106a proposal/`, D-163 in document 14, the rule in document 21, FX-RAIN-001 to 027 in document 25 from `tools/rain_reference.py`, which writes `Fixtures/rain/`. **B-106b is built on 2026-09-26**: `src/layer_fx.rs`, the Rain card, `tests/b106_rain.rs` writing `verification/B-106_rain_table.md`, 108 of 108, worst 2e-7; the owner's playtest is `verification/B-106_rain_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

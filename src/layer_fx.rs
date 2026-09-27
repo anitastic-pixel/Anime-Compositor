@@ -1524,3 +1524,59 @@ pub(crate) fn camera_shake(
     *source = out;
     g
 }
+
+
+/// D-163: falling rain, a field of `spacing`-pixel cells turned along `direction` and slid
+/// `speed` pixels a frame, each cell holding a streak by Noise's hash of the seed; the strongest
+/// streak reaching a pixel mixes `color` (linear) in by the blend mix, normal, at the pixel's own
+/// covering. The numbers are `[density, spacing, length, width, direction, speed, seed,
+/// opacity]`, already held; the seed counts by its whole part. `origin` is the growth of an
+/// earlier effect, so the field stays in the drawing's own space. The settings are already
+/// valid.
+pub(crate) fn rain(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    [density, spacing, length, width, direction, speed, seed, opacity]: [f64; 8],
+    frame: i32,
+    origin: (usize, usize),
+) {
+    if density == 0.0 || opacity == 0.0 {
+        return;
+    }
+    let (tx, ty) = crate::blurs::along(direction);
+    let (nx, ny) = (-ty, tx);
+    let base = crate::grade::mix(seed.floor() as u64);
+    let (r, half, fall) = (width / 2.0 + 0.5, length / 2.0, speed * frame as f64);
+    let w = source.width();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a == 0.0 {
+                return;
+            }
+            let (x, y) = ((i % w) as f64 - origin.0 as f64 + 0.5, (i / w) as f64 - origin.1 as f64 + 0.5);
+            let (fa, fb) = (nx * x + ny * y, tx * x + ty * y - fall);
+            let mut q = 0.0f64;
+            for ci in ((fa - r) / spacing).floor() as i64..=((fa + r) / spacing).floor() as i64 {
+                for cj in ((fb - half - r) / spacing).floor() as i64..=((fb + half + r) / spacing).floor() as i64 {
+                    let u = |ch| crate::grade::unit(base, ci, cj, 0, ch);
+                    if (u(0) + 1.0) / 2.0 >= density / 100.0 {
+                        continue;
+                    }
+                    let cx = spacing * (ci as f64 + (u(1) + 1.0) / 2.0);
+                    let cy = spacing * (cj as f64 + (u(2) + 1.0) / 2.0);
+                    let beta = 0.5 + 0.25 * (u(3) + 1.0);
+                    let delta = (fa - cx).hypot(((fb - cy).abs() - half).max(0.0));
+                    q = q.max((width / 2.0 - delta + 0.5).clamp(0.0, 1.0) * beta);
+                }
+            }
+            let op = q * opacity / 100.0;
+            for ch in 0..3 {
+                let b = px[ch] as f64 / a;
+                px[ch] = ((b + op * (color[ch] - b)) * a) as f32;
+            }
+        });
+}
