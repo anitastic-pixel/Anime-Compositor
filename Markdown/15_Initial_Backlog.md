@@ -592,7 +592,7 @@ B-84 / Leave Color, D-141, the eighth of the third batch of thirty: everything t
 
 B-85 / Solarize, D-142, the ninth of the third batch of thirty: the channels above a level turned to their opposites, as a darkroom solarization. **B-85a is written on 2026-09-26**: `verification/B-85a proposal/`, D-142 in document 14, the rule in document 21, FX-SOLAR-001 to 016 in document 25 from `tools/solarize_reference.py`, which writes `Fixtures/solarize/`. **B-85b is built on 2026-09-26**: `src/grade.rs`, the Solarize card, `tests/b85_solarize.rs` writing `verification/B-85_solarize_table.md`, 67 of 67, worst 1.9e-7; the owner's playtest is `verification/B-85_solarize_playtest.md`.
 
-B-86 / Halftone, D-143, the tenth of the third batch of thirty: the picture as dots of ink on paper, a manga screentone. **B-86a is written on 2026-09-26**: `verification/B-86a proposal/`, D-143 in document 14, the rule in document 21, FX-HALFTONE-001 to 025 in document 25 from `tools/halftone_reference.py`, which writes `Fixtures/halftone/`. **B-86b, the build, is next.**
+B-86 / Halftone, D-143, the tenth of the third batch of thirty: the picture as dots of ink on paper, a manga screentone. **B-86a is written on 2026-09-26**: `verification/B-86a proposal/`, D-143 in document 14, the rule in document 21, FX-HALFTONE-001 to 025 in document 25 from `tools/halftone_reference.py`, which writes `Fixtures/halftone/`. **B-86b is built on 2026-09-26**: `src/grade.rs`, the Halftone card, `tests/b86_halftone.rs` writing `verification/B-86_halftone_table.md`, 97 of 97, worst 1.9e-7; the owner's playtest is `verification/B-86_halftone_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

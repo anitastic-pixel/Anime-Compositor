@@ -1022,6 +1022,7 @@
         <option value="core.vibrance">Vibrance</option>
         <option value="core.leave_color">Leave Color</option>
         <option value="core.solarize">Solarize</option>
+        <option value="core.halftone">Halftone</option>
       </select>
     </div>
   </section>
@@ -6453,6 +6454,7 @@ const EFFECT_NAMES = {
   'core.vibrance': 'Vibrance',
   'core.leave_color': 'Leave Color',
   'core.solarize': 'Solarize',
+  'core.halftone': 'Halftone',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6610,6 +6612,10 @@ const EFFECT_PARAMS = {
     ['amount', 'Amount', 1, 1, '0 to 100, how grey the rest turns']],
   // D-142.
   'core.solarize': [['threshold', 'Threshold', 1, 1, 'a channel of 255 at or above it is turned over, 0 to 255']],
+  // D-143.
+  'core.halftone': [['size', 'Size', 1, 1, 'pixels between dots, 2 to 200'],
+    ['angle', 'Angle', 1, 1, 'degrees the rows of dots are turned'],
+    ['amount', 'Amount', 1, 1, '0 to 100, how strongly the dots are laid over']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6711,6 +6717,8 @@ const EFFECT_WORDS = {
   'core.channel_mixer': { choices: [['monochrome', 'Monochrome', [['off', 'Off'], ['on', 'On']]]] },
   // D-141.
   'core.leave_color': { colours: [['color', 'Colour to keep']] },
+  // D-143.
+  'core.halftone': { colours: [['ink', 'Ink'], ['paper', 'Paper']] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

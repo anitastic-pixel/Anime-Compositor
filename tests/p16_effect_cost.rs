@@ -426,6 +426,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
             "Solarize, at the middle",
             Effect::Solarize { threshold: 128.0 },
         ),
+        (
+            "Halftone, as it starts",
+            Effect::Halftone {
+                size: 8.0,
+                angle: 45.0,
+                ink: "#000000".to_string(),
+                paper: "#ffffff".to_string(),
+                amount: 100.0,
+            },
+        ),
     ]
 }
 

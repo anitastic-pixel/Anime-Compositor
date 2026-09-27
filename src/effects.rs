@@ -527,6 +527,16 @@ pub enum Effect {
     /// D-142: `threshold`, 0 to 255: each colour channel at or above it is turned to its
     /// opposite, the rest kept.
     Solarize { threshold: f64 },
+    /// D-143: manga screentone. `size`, 2 to 200 pixels, one dot's square cell; `angle`, -3600 to
+    /// 3600 degrees, the screen's turn; `ink` and `paper`, `#rrggbb`; `amount`, 0 to 100, how
+    /// strongly they are laid over the picture.
+    Halftone {
+        size: f64,
+        angle: f64,
+        ink: String,
+        paper: String,
+        amount: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -575,6 +585,7 @@ pub const CHANNEL_MIXER: &str = "core.channel_mixer";
 pub const VIBRANCE: &str = "core.vibrance";
 pub const LEAVE_COLOR: &str = "core.leave_color";
 pub const SOLARIZE: &str = "core.solarize";
+pub const HALFTONE: &str = "core.halftone";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -897,6 +908,16 @@ impl Effect {
                 ("amount", vec![amount], 0.0, 100.0),
             ],
             Effect::Solarize { threshold } => vec![("threshold", vec![threshold], 0.0, 255.0)],
+            Effect::Halftone {
+                size,
+                angle,
+                amount,
+                ..
+            } => vec![
+                ("size", vec![size], 2.0, 200.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+                ("amount", vec![amount], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -963,6 +984,8 @@ impl Effect {
             }
             // D-128: held at one in a draft, as D-127's wave is.
             Effect::FractalNoise { size, .. } => *size = scale(*size).max(1.0),
+            // D-143: held at its smallest, two, rather than bypassed.
+            Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -1035,6 +1058,7 @@ impl Effect {
             Effect::Vibrance { .. } => "Vibrance",
             Effect::LeaveColor { .. } => "Leave Color",
             Effect::Solarize { .. } => "Solarize",
+            Effect::Halftone { .. } => "Halftone",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1083,6 +1107,7 @@ impl Effect {
             Effect::Vibrance { .. } => VIBRANCE,
             Effect::LeaveColor { .. } => LEAVE_COLOR,
             Effect::Solarize { .. } => SOLARIZE,
+            Effect::Halftone { .. } => HALFTONE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1441,6 +1466,9 @@ impl Effect {
                     })
                 }),
             Effect::LeaveColor { color, .. } => hex_fault("Leave Color", "colour", color),
+            Effect::Halftone { ink, paper, .. } => {
+                hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
+            }
             _ => None,
         };
         own.or_else(|| {
@@ -2138,6 +2166,22 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::Solarize { threshold } => crate::perf::time(crate::perf::Stage::EffectSolarize, || {
                 crate::grade::solarize(source, *threshold)
+            }),
+            Effect::Halftone {
+                size,
+                angle,
+                ink,
+                paper,
+                amount,
+            } => crate::perf::time(crate::perf::Stage::EffectHalftone, || {
+                let h = crate::grade::Halftone {
+                    size: *size,
+                    angle: *angle,
+                    ink: encoded(ink),
+                    paper: encoded(paper),
+                    amount: *amount,
+                };
+                crate::grade::halftone(source, &h, (ox, oy))
             }),
         }
     }

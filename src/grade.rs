@@ -668,3 +668,50 @@ pub(crate) fn solarize(source: &mut WorkingBuffer, threshold: f64) {
         }
     });
 }
+
+/// D-143's settings, read once for a frame.
+pub(crate) struct Halftone {
+    pub size: f64,
+    pub angle: f64,
+    pub ink: [f64; 3],
+    pub paper: [f64; 3],
+    pub amount: f64,
+}
+
+/// D-143: each pixel ink or paper by whether it lies inside its screen cell's dot, the dot as
+/// large as the pixel is dark; mixed in at `amount` per cent. `(ox, oy)` is the drawing's corner
+/// in the buffer.
+pub(crate) fn halftone(source: &mut WorkingBuffer, h: &Halftone, (ox, oy): (usize, usize)) {
+    if h.amount == 0.0 {
+        return;
+    }
+    let w = source.width();
+    let (sin, cos) = h.angle.to_radians().sin_cos();
+    let (ink, paper) = (h.ink.map(to_linear), h.paper.map(to_linear));
+    let o = h.amount / 100.0;
+    let quarter = std::f64::consts::FRAC_PI_4;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (x, y) = ((i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+            let (u, v) = ((x * cos + y * sin) / h.size, (-x * sin + y * cos) / h.size);
+            let rho = ((u - u.floor() - 0.5).powi(2) + (v - v.floor() - 0.5).powi(2)).sqrt();
+            let b = [0, 1, 2].map(|c| px[c] as f64 / a);
+            let k = 1.0 - luma(b.map(|c| to_srgb(c.clamp(0.0, 1.0)))).clamp(0.0, 1.0);
+            let r = if k <= quarter {
+                (k / std::f64::consts::PI).sqrt()
+            } else {
+                0.5 + 0.21 * (k - quarter) / (1.0 - quarter)
+            };
+            let g = if rho < r { ink } else { paper };
+            for c in 0..3 {
+                px[c] = ((b[c] + o * (g[c] - b[c])) * a) as f32;
+            }
+        });
+}

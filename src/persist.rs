@@ -1353,6 +1353,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::Solarize { threshold } => {
             params.insert("threshold".into(), num(*threshold));
         }
+        Effect::Halftone {
+            size,
+            angle,
+            ink,
+            paper,
+            amount,
+        } => {
+            params.insert("size".into(), num(*size));
+            params.insert("angle".into(), num(*angle));
+            params.insert("ink".into(), J::from(ink.as_str()));
+            params.insert("paper".into(), J::from(paper.as_str()));
+            params.insert("amount".into(), num(*amount));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2609,6 +2622,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::VIBRANCE,
                 crate::effects::LEAVE_COLOR,
                 crate::effects::SOLARIZE,
+                crate::effects::HALFTONE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2900,6 +2914,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 }),
                 crate::effects::SOLARIZE => Some(crate::effects::Effect::Solarize {
                     threshold: effect_number(params, "threshold", &at)?,
+                }),
+                crate::effects::HALFTONE => Some(crate::effects::Effect::Halftone {
+                    size: effect_number(params, "size", &at)?,
+                    angle: effect_number(params, "angle", &at)?,
+                    ink: effect_word(params, "ink", &at)?.to_ascii_lowercase(),
+                    paper: effect_word(params, "paper", &at)?.to_ascii_lowercase(),
+                    amount: effect_number(params, "amount", &at)?,
                 }),
                 _ => None,
             };
