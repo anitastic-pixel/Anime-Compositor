@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3032,6 +3032,16 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             edges: "transparent".to_string(),
             frame: 0,
         }),
+        // D-150: rings spreading from the middle.
+        RIPPLE => Some(Effect::Ripple {
+            center: [50.0, 50.0],
+            amplitude: 5.0,
+            wavelength: 30.0,
+            speed: 20.0,
+            phase: 0.0,
+            fade: 0.0,
+            frame: 0,
+        }),
         _ => None,
     }
 }
@@ -3458,6 +3468,15 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             speed: number("speed")?,
             phase: number("phase")?,
             edges: word("edges")?,
+            frame: 0,
+        }),
+        RIPPLE => Ok(Effect::Ripple {
+            center: pair("center")?,
+            amplitude: number("amplitude")?,
+            wavelength: number("wavelength")?,
+            speed: number("speed")?,
+            phase: number("phase")?,
+            fade: number("fade")?,
             frame: 0,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
@@ -6354,8 +6373,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.brightness_contrast, core.black_white, core.posterize, \
                              core.threshold, core.channel_mixer, core.vibrance, \
                              core.leave_color, core.solarize, core.halftone, core.mosaic, \
-                             core.emboss, core.find_edges, core.sharpen, core.diffusion or \
-                             core.wave_warp."
+                             core.emboss, core.find_edges, core.sharpen, core.diffusion, \
+                             core.wave_warp or core.ripple."
                                 .to_string(),
                         );
                     };
@@ -6375,8 +6394,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.brightness_contrast, core.black_white, core.posterize, \
                              core.threshold, core.channel_mixer, core.vibrance, \
                              core.leave_color, core.solarize, core.halftone, core.mosaic, \
-                             core.emboss, core.find_edges, core.sharpen, core.diffusion and \
-                             core.wave_warp."
+                             core.emboss, core.find_edges, core.sharpen, core.diffusion, \
+                             core.wave_warp and core.ripple."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10354,7 +10373,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the forty-nine are named",
+            "an effect type this build does not have is refused, and the fifty are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -10366,8 +10385,8 @@ mod editing {
              core.color_balance, core.offset, core.light_wrap, core.invert, \
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
              core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
-             core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion and \
-             core.wave_warp.",
+             core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion, \
+             core.wave_warp and core.ripple.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10382,8 +10401,8 @@ mod editing {
              core.gradient_map, core.color_balance, core.offset, core.light_wrap, core.invert, \
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
              core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
-             core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion or \
-             core.wave_warp.",
+             core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion, \
+             core.wave_warp or core.ripple.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22820,6 +22839,18 @@ mod contract {
                 ("speed", "12"),
                 ("phase", "90"),
                 ("edges", "repeat"),
+            ],
+        ),
+        // D-150: the centre and the five numbers.
+        (
+            "core.ripple",
+            &[
+                ("center", "30,70"),
+                ("amplitude", "8"),
+                ("wavelength", "45"),
+                ("speed", "-15"),
+                ("phase", "90"),
+                ("fade", "200"),
             ],
         ),
     ];

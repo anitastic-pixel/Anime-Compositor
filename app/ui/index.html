@@ -1029,6 +1029,7 @@
         <option value="core.sharpen">Sharpen</option>
         <option value="core.diffusion">Diffusion</option>
         <option value="core.wave_warp">Wave Warp</option>
+        <option value="core.ripple">Ripple</option>
       </select>
     </div>
   </section>
@@ -6467,6 +6468,7 @@ const EFFECT_NAMES = {
   'core.sharpen': 'Sharpen',
   'core.diffusion': 'Diffusion',
   'core.wave_warp': 'Wave Warp',
+  'core.ripple': 'Ripple',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6648,6 +6650,13 @@ const EFFECT_PARAMS = {
     ['direction', 'Direction', 1, 1, 'degrees clockwise from up, the way the wave runs'],
     ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360'],
     ['phase', 'Phase', 1, 1, 'degrees']],
+  // D-150.
+  'core.ripple': [['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['amplitude', 'Amplitude', 1, 0.5, 'pixels, 0 to 1000, how far the rings push'],
+    ['wavelength', 'Wavelength', 1, 1, 'pixels between rings, 1 to 10000'],
+    ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360, outward when above 0'],
+    ['phase', 'Phase', 1, 1, 'degrees'],
+    ['fade', 'Fade', 1, 1, 'pixels out where the rings die away, 0 for never']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

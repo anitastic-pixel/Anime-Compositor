@@ -1411,6 +1411,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("phase".into(), num(*phase));
             params.insert("edges".into(), J::from(edges.as_str()));
         }
+        Effect::Ripple {
+            center,
+            amplitude,
+            wavelength,
+            speed,
+            phase,
+            fade,
+            ..
+        } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert("amplitude".into(), num(*amplitude));
+            params.insert("wavelength".into(), num(*wavelength));
+            params.insert("speed".into(), num(*speed));
+            params.insert("phase".into(), num(*phase));
+            params.insert("fade".into(), num(*fade));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1845,6 +1864,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "relief",
         "height",
         "phase",
+        "amplitude",
+        "wavelength",
+        "fade",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2677,6 +2699,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::SHARPEN,
                 crate::effects::DIFFUSION,
                 crate::effects::WAVE_WARP,
+                crate::effects::RIPPLE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3006,6 +3029,15 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     speed: effect_number(params, "speed", &at)?,
                     phase: effect_number(params, "phase", &at)?,
                     edges: effect_word(params, "edges", &at)?,
+                    frame: 0,
+                }),
+                crate::effects::RIPPLE => Some(crate::effects::Effect::Ripple {
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                    amplitude: effect_number(params, "amplitude", &at)?,
+                    wavelength: effect_number(params, "wavelength", &at)?,
+                    speed: effect_number(params, "speed", &at)?,
+                    phase: effect_number(params, "phase", &at)?,
+                    fade: effect_number(params, "fade", &at)?,
                     frame: 0,
                 }),
                 _ => None,

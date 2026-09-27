@@ -185,5 +185,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - radius, amount, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.wave_warp` is an effect this build has | added | added | pass |
 | and the settings it sends for it - shape, height, width, direction, speed, phase, edges - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.ripple` is an effect this build has | added | added | pass |
+| and the settings it sends for it - center, amplitude, wavelength, speed, phase, fade - are the ones the command reads | accepted | accepted | pass |
 
-**165 of 165 checks pass.**
+**167 of 167 checks pass.**

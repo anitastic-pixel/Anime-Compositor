@@ -159,6 +159,10 @@ impl EffectInstance {
             if let Effect::FractalNoise { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-150: the rings' frame.
+            if let Effect::Ripple { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
             // D-149: the wave's frame.
             if let Effect::WaveWarp { frame: f, .. } = &mut effect {
                 *f = frame;
@@ -581,6 +585,20 @@ pub enum Effect {
         edges: String,
         frame: i32,
     },
+    /// D-150: `center`, per cent of the drawing's width and height, -1000 to 1000 each;
+    /// `amplitude`, 0 to 1000 pixels, how far the rings push; `wavelength`, 1 to 10000 pixels
+    /// between rings; `speed`, -360 to 360 degrees a frame; `phase`, -100000 to 100000 degrees;
+    /// and `fade`, 0 to 100000 pixels, where the rings die away, or 0 for never. `frame` is not a
+    /// setting and is never saved: it is the composition frame, as Noise's is.
+    Ripple {
+        center: [f64; 2],
+        amplitude: f64,
+        wavelength: f64,
+        speed: f64,
+        phase: f64,
+        fade: f64,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -636,6 +654,7 @@ pub const FIND_EDGES: &str = "core.find_edges";
 pub const SHARPEN: &str = "core.sharpen";
 pub const DIFFUSION: &str = "core.diffusion";
 pub const WAVE_WARP: &str = "core.wave_warp";
+pub const RIPPLE: &str = "core.ripple";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1002,6 +1021,22 @@ impl Effect {
                 ("speed", vec![speed], -360.0, 360.0),
                 ("phase", vec![phase], -100000.0, 100000.0),
             ],
+            Effect::Ripple {
+                center,
+                amplitude,
+                wavelength,
+                speed,
+                phase,
+                fade,
+                ..
+            } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("amplitude", vec![amplitude], 0.0, 1000.0),
+                ("wavelength", vec![wavelength], 1.0, 10000.0),
+                ("speed", vec![speed], -360.0, 360.0),
+                ("phase", vec![phase], -100000.0, 100000.0),
+                ("fade", vec![fade], 0.0, 100000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1078,6 +1113,16 @@ impl Effect {
             Effect::WaveWarp { height, width, .. } => {
                 *height = scale(*height);
                 *width = scale(*width).max(1.0);
+            }
+            Effect::Ripple {
+                amplitude,
+                wavelength,
+                fade,
+                ..
+            } => {
+                *amplitude = scale(*amplitude);
+                *wavelength = scale(*wavelength).max(1.0);
+                *fade = scale(*fade);
             }
             Effect::Outline {
                 width, softness, ..
@@ -1158,6 +1203,7 @@ impl Effect {
             Effect::Sharpen { .. } => "Sharpen",
             Effect::Diffusion { .. } => "Diffusion",
             Effect::WaveWarp { .. } => "Wave Warp",
+            Effect::Ripple { .. } => "Ripple",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1213,6 +1259,7 @@ impl Effect {
             Effect::Sharpen { .. } => SHARPEN,
             Effect::Diffusion { .. } => DIFFUSION,
             Effect::WaveWarp { .. } => WAVE_WARP,
+            Effect::Ripple { .. } => RIPPLE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2346,6 +2393,22 @@ pub(crate) fn apply_stack_at(
                 });
                 ox += r;
                 oy += r;
+            }
+            // D-150: the centre is a share of the drawing's own size, as Radial Blur's is, and
+            // the rings move `speed` degrees a frame.
+            Effect::Ripple {
+                center,
+                amplitude,
+                wavelength,
+                speed,
+                phase,
+                fade,
+                frame,
+            } => {
+                let c = radial_center(*center, source, (ox, oy));
+                crate::perf::time(crate::perf::Stage::EffectRipple, || {
+                    crate::layer_fx::ripple(source, c, *amplitude, *wavelength, phase + speed * *frame as f64, *fade)
+                })
             }
         }
     }

@@ -606,7 +606,7 @@ B-91 / Diffusion, D-148, the fifteenth of the third batch of thirty: a soft glow
 
 B-92 / Wave Warp, D-149, the sixteenth of the third batch of thirty: the picture bent by a moving wave. **B-92a is written on 2026-09-26**: `verification/B-92a proposal/`, D-149 in document 14, the rule in document 21, FX-WAVE-001 to 024 in document 25 from `tools/wave_warp_reference.py`, which writes `Fixtures/wave_warp/`. **B-92b is built on 2026-09-26**: `src/layer_fx.rs`, the Wave Warp card, `tests/b92_wave_warp.rs` writing `verification/B-92_wave_warp_table.md`, 103 of 103, worst 2.5e-7; the owner's playtest is `verification/B-92_wave_warp_playtest.md`.
 
-B-93 / Ripple, D-150, the seventeenth of the third batch of thirty: rings spreading from a point, as on water. **B-93a is written on 2026-09-26**: `verification/B-93a proposal/`, D-150 in document 14, the rule in document 21, FX-RIPPLE-001 to 026 in document 25 from `tools/ripple_reference.py`, which writes `Fixtures/ripple/`. **B-93b, the build, is next.**
+B-93 / Ripple, D-150, the seventeenth of the third batch of thirty: rings spreading from a point, as on water. **B-93a is written on 2026-09-26**: `verification/B-93a proposal/`, D-150 in document 14, the rule in document 21, FX-RIPPLE-001 to 026 in document 25 from `tools/ripple_reference.py`, which writes `Fixtures/ripple/`. **B-93b is built on 2026-09-26**: `src/layer_fx.rs`, the Ripple card, `tests/b93_ripple.rs` writing `verification/B-93_ripple_table.md`, 111 of 111, worst 2.5e-7; the owner's playtest is `verification/B-93_ripple_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

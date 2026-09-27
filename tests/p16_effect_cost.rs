@@ -484,6 +484,18 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 0,
             },
         ),
+        (
+            "Ripple, as it starts",
+            Effect::Ripple {
+                center: [50.0, 50.0],
+                amplitude: 5.0,
+                wavelength: 30.0,
+                speed: 20.0,
+                phase: 0.0,
+                fade: 0.0,
+                frame: 0,
+            },
+        ),
     ]
 }
 

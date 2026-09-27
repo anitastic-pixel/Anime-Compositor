@@ -878,3 +878,35 @@ pub(crate) fn wave_warp(
     *source = out;
     g
 }
+
+
+/// D-150: each pixel read from a place pushed toward or away from `center`, a point in the
+/// buffer, by `amplitude` pixels across rings `wavelength` apart at `phase` degrees, dying away
+/// to nothing `fade` pixels out unless fade is 0. The settings are already valid.
+pub(crate) fn ripple(source: &mut WorkingBuffer, center: (f64, f64), amplitude: f64, wavelength: f64, phase: f64, fade: f64) {
+    if amplitude == 0.0 {
+        return;
+    }
+    let w = source.width();
+    let phi = phase.to_radians();
+    let drawing = source.clone();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (vx, vy) = (x - center.0, y - center.1);
+            let d = vx.hypot(vy);
+            if d == 0.0 {
+                return;
+            }
+            let f = if fade == 0.0 { 1.0 } else { (1.0 - d / fade).max(0.0) };
+            let k = (std::f64::consts::TAU * d / wavelength - phi).sin() * f;
+            if k == 0.0 {
+                return;
+            }
+            let s = amplitude * k / d;
+            px.copy_from_slice(&sample_bilinear(&drawing, x + s * vx, y + s * vy));
+        });
+}
