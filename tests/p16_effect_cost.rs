@@ -325,6 +325,23 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 5,
             },
         ),
+        (
+            "Fractal Noise, size 100, complexity 4",
+            Effect::FractalNoise {
+                size: 100.0,
+                complexity: 4.0,
+                contrast: 100.0,
+                brightness: 0.0,
+                evolution: 0.0,
+                speed: 20.0,
+                seed: 0.0,
+                dark_color: "#000000".to_string(),
+                light_color: "#ffffff".to_string(),
+                opacity: 100.0,
+                blend: "normal".to_string(),
+                frame: 5,
+            },
+        ),
     ]
 }
 

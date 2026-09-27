@@ -1008,6 +1008,7 @@
         <option value="core.exposure_flicker">Exposure Flicker</option>
         <option value="core.vignette">Vignette</option>
         <option value="core.turbulent_displace">Turbulent Displace</option>
+        <option value="core.fractal_noise">Fractal Noise</option>
       </select>
     </div>
   </section>
@@ -6425,6 +6426,7 @@ const EFFECT_NAMES = {
   'core.exposure_flicker': 'Exposure Flicker',
   'core.vignette': 'Vignette',
   'core.turbulent_displace': 'Turbulent Displace',
+  'core.fractal_noise': 'Fractal Noise',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6539,6 +6541,15 @@ const EFFECT_PARAMS = {
     ['evolution', 'Evolution', 1, 1, 'degrees'],
     ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360'],
     ['seed', 'Seed', 1, 1, '0 to 100000']],
+  // D-128.
+  'core.fractal_noise': [['size', 'Size', 1, 0.5, 'pixels a cloud, 1 to 1000'],
+    ['complexity', 'Complexity', 1, 1, '1 to 8'],
+    ['contrast', 'Contrast', 1, 1, '0 to 1000'],
+    ['brightness', 'Brightness', 1, 0.5, '-100 to 100'],
+    ['evolution', 'Evolution', 1, 1, 'degrees'],
+    ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360'],
+    ['seed', 'Seed', 1, 1, '0 to 100000'],
+    ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6623,6 +6634,11 @@ const EFFECT_WORDS = {
   'core.vignette': { colours: [['color', 'Colour']] },
   // D-127.
   'core.turbulent_displace': { choices: [EDGES] },
+  // D-128.
+  'core.fractal_noise': {
+    choices: [['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
+    colours: [['dark_color', 'Dark Colour'], ['light_color', 'Light Colour']],
+  },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

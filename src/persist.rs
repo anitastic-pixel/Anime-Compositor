@@ -1242,6 +1242,32 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("seed".into(), num(*seed));
             params.insert("edges".into(), J::from(edges.as_str()));
         }
+        Effect::FractalNoise {
+            size,
+            complexity,
+            contrast,
+            brightness,
+            evolution,
+            speed,
+            seed,
+            dark_color,
+            light_color,
+            opacity,
+            blend,
+            ..
+        } => {
+            params.insert("size".into(), num(*size));
+            params.insert("complexity".into(), num(*complexity));
+            params.insert("contrast".into(), num(*contrast));
+            params.insert("brightness".into(), num(*brightness));
+            params.insert("evolution".into(), num(*evolution));
+            params.insert("speed".into(), num(*speed));
+            params.insert("seed".into(), num(*seed));
+            params.insert("dark_color".into(), J::from(dark_color.as_str()));
+            params.insert("light_color".into(), J::from(light_color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blend".into(), J::from(blend.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1643,6 +1669,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "complexity",
         "evolution",
         "speed",
+        "contrast",
+        "brightness",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2452,6 +2480,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::EXPOSURE_FLICKER,
                 crate::effects::VIGNETTE,
                 crate::effects::TURBULENT_DISPLACE,
+                crate::effects::FRACTAL_NOISE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2665,6 +2694,21 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                         frame: 0,
                     })
                 }
+                // D-128: the colours are read in small letters, as a new colour is.
+                crate::effects::FRACTAL_NOISE => Some(crate::effects::Effect::FractalNoise {
+                    size: effect_number(params, "size", &at)?,
+                    complexity: effect_number(params, "complexity", &at)?,
+                    contrast: effect_number(params, "contrast", &at)?,
+                    brightness: effect_number(params, "brightness", &at)?,
+                    evolution: effect_number(params, "evolution", &at)?,
+                    speed: effect_number(params, "speed", &at)?,
+                    seed: effect_number(params, "seed", &at)?,
+                    dark_color: effect_word(params, "dark_color", &at)?.to_ascii_lowercase(),
+                    light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+                    opacity: effect_number(params, "opacity", &at)?,
+                    blend: effect_word(params, "blend", &at)?,
+                    frame: 0,
+                }),
                 _ => None,
             };
             // P-17: keys on a setting this effect does not have are not its keys. The record

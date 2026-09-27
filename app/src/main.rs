@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -2907,6 +2907,21 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             edges: "transparent".to_string(),
             frame: 0,
         }),
+        // D-128: soft grey clouds, still.
+        FRACTAL_NOISE => Some(Effect::FractalNoise {
+            size: 100.0,
+            complexity: 4.0,
+            contrast: 100.0,
+            brightness: 0.0,
+            evolution: 0.0,
+            speed: 0.0,
+            seed: 0.0,
+            dark_color: "#000000".to_string(),
+            light_color: "#ffffff".to_string(),
+            opacity: 100.0,
+            blend: "normal".to_string(),
+            frame: 0,
+        }),
         _ => None,
     }
 }
@@ -3197,6 +3212,20 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             speed: number("speed")?,
             seed: number("seed")?,
             edges: word("edges")?,
+            frame: 0,
+        }),
+        FRACTAL_NOISE => Ok(Effect::FractalNoise {
+            size: number("size")?,
+            complexity: number("complexity")?,
+            contrast: number("contrast")?,
+            brightness: number("brightness")?,
+            evolution: number("evolution")?,
+            speed: number("speed")?,
+            seed: number("seed")?,
+            dark_color: word("dark_color")?,
+            light_color: word("light_color")?,
+            opacity: number("opacity")?,
+            blend: word("blend")?,
             frame: 0,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
@@ -6087,8 +6116,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.curves, core.levels, core.hue_saturation, core.gradient, \
                              core.drop_shadow, core.lens_blur, core.rim_light, core.outline, \
                              core.noise, core.chromatic_aberration, core.distance_gradation, \
-                             core.light_rays, core.exposure_flicker, core.vignette or \
-                             core.turbulent_displace."
+                             core.light_rays, core.exposure_flicker, core.vignette, \
+                             core.turbulent_displace or core.fractal_noise."
                                 .to_string(),
                         );
                     };
@@ -6102,8 +6131,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.levels, core.hue_saturation, core.gradient, core.drop_shadow, \
                              core.lens_blur, core.rim_light, core.outline, core.noise, \
                              core.chromatic_aberration, core.distance_gradation, \
-                             core.light_rays, core.exposure_flicker, core.vignette and \
-                             core.turbulent_displace."
+                             core.light_rays, core.exposure_flicker, core.vignette, \
+                             core.turbulent_displace and core.fractal_noise."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10081,15 +10110,15 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the twenty-eight are named",
+            "an effect type this build does not have is refused, and the twenty-nine are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
              core.radial_blur, core.bloom, core.color_key, core.curves, core.levels, \
              core.hue_saturation, core.gradient, core.drop_shadow, core.lens_blur, \
              core.rim_light, core.outline, core.noise, core.chromatic_aberration, \
-             core.distance_gradation, core.light_rays, core.exposure_flicker, core.vignette and \
-             core.turbulent_displace.",
+             core.distance_gradation, core.light_rays, core.exposure_flicker, core.vignette, \
+             core.turbulent_displace and core.fractal_noise.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10100,7 +10129,8 @@ mod editing {
              core.curves, core.levels, core.hue_saturation, core.gradient, core.drop_shadow, \
              core.lens_blur, core.rim_light, core.outline, core.noise, \
              core.chromatic_aberration, core.distance_gradation, core.light_rays, \
-             core.exposure_flicker, core.vignette or core.turbulent_displace.",
+             core.exposure_flicker, core.vignette, core.turbulent_displace or \
+             core.fractal_noise.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22417,6 +22447,23 @@ mod contract {
                 ("speed", "-30"),
                 ("seed", "12"),
                 ("edges", "repeat"),
+            ],
+        ),
+        // D-128: the eight numbers, the two colours and the blend.
+        (
+            "core.fractal_noise",
+            &[
+                ("size", "40"),
+                ("complexity", "6"),
+                ("contrast", "170"),
+                ("brightness", "-10"),
+                ("evolution", "45"),
+                ("speed", "12"),
+                ("seed", "3"),
+                ("dark_color", "%231e1a24"),
+                ("light_color", "%23fff0b0"),
+                ("opacity", "60"),
+                ("blend", "screen"),
             ],
         ),
     ];

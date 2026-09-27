@@ -143,5 +143,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - amount, color, size, roundness, softness, center - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.turbulent_displace` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, size, complexity, evolution, speed, seed, edges - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.fractal_noise` is an effect this build has | added | added | pass |
+| and the settings it sends for it - size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
 
-**123 of 123 checks pass.**
+**125 of 125 checks pass.**

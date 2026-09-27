@@ -149,11 +149,14 @@ impl EffectInstance {
             if let Effect::Noise { animate, frame: f, .. } = &mut effect {
                 *f = if animate == "on" { frame } else { 0 };
             }
-            // D-125 and D-127: the flicker's and the wobble's frame.
+            // D-125, D-127 and D-128: the flicker's, the wobble's and the clouds' frame.
             if let Effect::ExposureFlicker { frame: f, .. } = &mut effect {
                 *f = frame;
             }
             if let Effect::TurbulentDisplace { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
+            if let Effect::FractalNoise { frame: f, .. } = &mut effect {
                 *f = frame;
             }
         }
@@ -423,6 +426,27 @@ pub enum Effect {
         edges: String,
         frame: i32,
     },
+    /// D-128: `size`, 1 to 1000 pixels a cloud; `complexity`, 1 to 8, its whole part counted;
+    /// `contrast`, 0 to 1000; `brightness`, -100 to 100; `evolution`, -100000 to 100000
+    /// degrees; `speed`, -360 to 360 degrees a frame; `seed`, 0 to 100000, its whole part
+    /// counted; `dark_color` and `light_color`, `#rrggbb`; `opacity`, 0 to 100; and `blend`,
+    /// "normal", "multiply", "screen" or "add". The words and the colours are kept as written,
+    /// so a wrong one is reported. `frame` is not a setting and is never saved: it is the
+    /// composition frame, as Noise's is.
+    FractalNoise {
+        size: f64,
+        complexity: f64,
+        contrast: f64,
+        brightness: f64,
+        evolution: f64,
+        speed: f64,
+        seed: f64,
+        dark_color: String,
+        light_color: String,
+        opacity: f64,
+        blend: String,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -457,6 +481,7 @@ pub const LIGHT_RAYS: &str = "core.light_rays";
 pub const EXPOSURE_FLICKER: &str = "core.exposure_flicker";
 pub const VIGNETTE: &str = "core.vignette";
 pub const TURBULENT_DISPLACE: &str = "core.turbulent_displace";
+pub const FRACTAL_NOISE: &str = "core.fractal_noise";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -700,6 +725,26 @@ impl Effect {
                 ("speed", vec![speed], -360.0, 360.0),
                 ("seed", vec![seed], 0.0, 100000.0),
             ],
+            Effect::FractalNoise {
+                size,
+                complexity,
+                contrast,
+                brightness,
+                evolution,
+                speed,
+                seed,
+                opacity,
+                ..
+            } => vec![
+                ("size", vec![size], 1.0, 1000.0),
+                ("complexity", vec![complexity], 1.0, 8.0),
+                ("contrast", vec![contrast], 0.0, 1000.0),
+                ("brightness", vec![brightness], -100.0, 100.0),
+                ("evolution", vec![evolution], -100000.0, 100000.0),
+                ("speed", vec![speed], -360.0, 360.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -764,6 +809,8 @@ impl Effect {
                 // A wave under a pixel is held at one, as its range is, rather than bypassed.
                 *size = scale(*size).max(1.0);
             }
+            // D-128: held at one in a draft, as D-127's wave is.
+            Effect::FractalNoise { size, .. } => *size = scale(*size).max(1.0),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -818,6 +865,7 @@ impl Effect {
             Effect::ExposureFlicker { .. } => "Exposure Flicker",
             Effect::Vignette { .. } => "Vignette",
             Effect::TurbulentDisplace { .. } => "Turbulent Displace",
+            Effect::FractalNoise { .. } => "Fractal Noise",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -852,6 +900,7 @@ impl Effect {
             Effect::ExposureFlicker { .. } => EXPOSURE_FLICKER,
             Effect::Vignette { .. } => VIGNETTE,
             Effect::TurbulentDisplace { .. } => TURBULENT_DISPLACE,
+            Effect::FractalNoise { .. } => FRACTAL_NOISE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1143,6 +1192,20 @@ impl Effect {
             Effect::LightRays { color, .. } => hex_fault("Light Rays", "colour", color),
             Effect::Vignette { color, .. } => hex_fault("Vignette", "colour", color),
             Effect::TurbulentDisplace { edges: e, .. } => edges(e),
+            Effect::FractalNoise { blend, .. }
+                if !["normal", "multiply", "screen", "add"].contains(&blend.as_str()) =>
+            {
+                Some(format!(
+                    "Fractal Noise's blend is \"normal\", \"multiply\", \"screen\" or \"add\", \
+                     and this is \"{blend}\"."
+                ))
+            }
+            Effect::FractalNoise {
+                dark_color,
+                light_color,
+                ..
+            } => hex_fault("Fractal Noise", "dark colour", dark_color)
+                .or_else(|| hex_fault("Fractal Noise", "light colour", light_color)),
             _ => None,
         };
         own.or_else(|| {
@@ -1736,6 +1799,36 @@ pub(crate) fn apply_stack_at(
                 });
                 ox += r;
                 oy += r;
+            }
+            // D-128: one full turn of evolution moves the clouds one cloud.
+            Effect::FractalNoise {
+                size,
+                complexity,
+                contrast,
+                brightness,
+                evolution,
+                speed,
+                seed,
+                dark_color,
+                light_color,
+                opacity,
+                blend,
+                frame,
+            } => {
+                let f = crate::grade::Fractal {
+                    size: *size,
+                    octaves: complexity.floor() as usize,
+                    seed: *seed,
+                    z: (evolution + speed * *frame as f64) / 360.0,
+                    contrast: *contrast,
+                    brightness: *brightness,
+                    colors: [encoded(dark_color), encoded(light_color)],
+                    opacity: *opacity,
+                    blend: blend.clone(),
+                };
+                crate::perf::time(crate::perf::Stage::EffectFractalNoise, || {
+                    crate::grade::fractal_noise(source, &f, (ox, oy))
+                })
             }
         }
     }
