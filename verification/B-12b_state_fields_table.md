@@ -199,5 +199,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - completion, angle, feather - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.radial_wipe` is an effect this build has | added | added | pass |
 | and the settings it sends for it - completion, start_angle, center, wipe, feather - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.venetian_blinds` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, angle, width, feather - are the ones the command reads | accepted | accepted | pass |
 
-**179 of 179 checks pass.**
+**181 of 181 checks pass.**

@@ -1036,6 +1036,7 @@
         <option value="core.motion_tile">Motion Tile</option>
         <option value="core.linear_wipe">Linear Wipe</option>
         <option value="core.radial_wipe">Radial Wipe</option>
+        <option value="core.venetian_blinds">Venetian Blinds</option>
       </select>
     </div>
   </section>
@@ -6481,6 +6482,7 @@ const EFFECT_NAMES = {
   'core.motion_tile': 'Motion Tile',
   'core.linear_wipe': 'Linear Wipe',
   'core.radial_wipe': 'Radial Wipe',
+  'core.venetian_blinds': 'Venetian Blinds',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6692,6 +6694,11 @@ const EFFECT_PARAMS = {
     ['start_angle', 'Start angle', 1, 1, 'degrees, -3600 to 3600; 0 is straight up'],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
     ['feather', 'Feather', 1, 1, 'degrees, 0 to 360, how soft the sweeping edge is']],
+  // D-157.
+  'core.venetian_blinds': [['completion', 'Completion', 1, 1, '% of each slat cleared, 0 to 100'],
+    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 0 lies level'],
+    ['width', 'Width', 1, 1, 'pixels, 1 to 10000, each slat'],
+    ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the moving edge is']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

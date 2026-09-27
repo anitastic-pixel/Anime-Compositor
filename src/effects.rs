@@ -643,6 +643,14 @@ pub enum Effect {
         wipe: String,
         feather: f64,
     },
+    /// D-157: `completion`, 0 to 100 per cent of each slat cleared; `angle`, -3600 to 3600
+    /// degrees, 0 level; `width`, 1 to 10000 pixels, each slat; `feather`, 0 to 10000 pixels.
+    VenetianBlinds {
+        completion: f64,
+        angle: f64,
+        width: f64,
+        feather: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -705,6 +713,7 @@ pub const MIRROR: &str = "core.mirror";
 pub const MOTION_TILE: &str = "core.motion_tile";
 pub const LINEAR_WIPE: &str = "core.linear_wipe";
 pub const RADIAL_WIPE: &str = "core.radial_wipe";
+pub const VENETIAN_BLINDS: &str = "core.venetian_blinds";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1138,6 +1147,17 @@ impl Effect {
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("feather", vec![feather], 0.0, 360.0),
             ],
+            Effect::VenetianBlinds {
+                completion,
+                angle,
+                width,
+                feather,
+            } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+                ("width", vec![width], 1.0, 10000.0),
+                ("feather", vec![feather], 0.0, 10000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1228,6 +1248,11 @@ impl Effect {
             Effect::Twirl { radius, .. } => *radius = scale(*radius),
             Effect::Bulge { radius, .. } => *radius = scale(*radius),
             Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
+            // D-157: a slat is never less than a pixel, the least the command takes.
+            Effect::VenetianBlinds { width, feather, .. } => {
+                *width = scale(*width).max(1.0);
+                *feather = scale(*feather);
+            }
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -1314,6 +1339,7 @@ impl Effect {
             Effect::MotionTile { .. } => "Motion Tile",
             Effect::LinearWipe { .. } => "Linear Wipe",
             Effect::RadialWipe { .. } => "Radial Wipe",
+            Effect::VenetianBlinds { .. } => "Venetian Blinds",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1376,6 +1402,7 @@ impl Effect {
             Effect::MotionTile { .. } => MOTION_TILE,
             Effect::LinearWipe { .. } => LINEAR_WIPE,
             Effect::RadialWipe { .. } => RADIAL_WIPE,
+            Effect::VenetianBlinds { .. } => VENETIAN_BLINDS,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2600,6 +2627,15 @@ pub(crate) fn apply_stack_at(
                     _ => 0,
                 };
                 crate::layer_fx::radial_wipe(source, *completion, *start_angle, *center, way, *feather, (ox, oy))
+            }),
+            // D-157: the slats are the drawing's own, however an effect above grew it.
+            Effect::VenetianBlinds {
+                completion,
+                angle,
+                width,
+                feather,
+            } => crate::perf::time(crate::perf::Stage::EffectVenetianBlinds, || {
+                crate::layer_fx::venetian_blinds(source, *completion, *angle, *width, *feather, (ox, oy))
             }),
         }
     }

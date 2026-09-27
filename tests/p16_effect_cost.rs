@@ -545,6 +545,15 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 feather: 0.0,
             },
         ),
+        (
+            "Venetian Blinds, half way",
+            Effect::VenetianBlinds {
+                completion: 50.0,
+                angle: 0.0,
+                width: 20.0,
+                feather: 0.0,
+            },
+        ),
     ]
 }
 

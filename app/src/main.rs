@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3079,6 +3079,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             wipe: "clockwise".to_string(),
             feather: 0.0,
         }),
+        // D-157: nothing cleared yet, level slats twenty pixels tall, hard.
+        VENETIAN_BLINDS => Some(Effect::VenetianBlinds {
+            completion: 0.0,
+            angle: 0.0,
+            width: 20.0,
+            feather: 0.0,
+        }),
         _ => None,
     }
 }
@@ -3545,6 +3552,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             start_angle: number("start_angle")?,
             center: pair("center")?,
             wipe: word("wipe")?,
+            feather: number("feather")?,
+        }),
+        VENETIAN_BLINDS => Ok(Effect::VenetianBlinds {
+            completion: number("completion")?,
+            angle: number("angle")?,
+            width: number("width")?,
             feather: number("feather")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
@@ -6443,7 +6456,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.leave_color, core.solarize, core.halftone, core.mosaic, \
                              core.emboss, core.find_edges, core.sharpen, core.diffusion, \
                              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
-                             core.motion_tile, core.linear_wipe or core.radial_wipe."
+                             core.motion_tile, core.linear_wipe, core.radial_wipe or \
+                             core.venetian_blinds."
                                 .to_string(),
                         );
                     };
@@ -6465,7 +6479,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.leave_color, core.solarize, core.halftone, core.mosaic, \
                              core.emboss, core.find_edges, core.sharpen, core.diffusion, \
                              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
-                             core.motion_tile, core.linear_wipe and core.radial_wipe."
+                             core.motion_tile, core.linear_wipe, core.radial_wipe and \
+                             core.venetian_blinds."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10443,7 +10458,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the fifty-six are named",
+            "an effect type this build does not have is refused, and the fifty-seven are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -10457,7 +10472,7 @@ mod editing {
              core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
              core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion, \
              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
-             core.motion_tile, core.linear_wipe and core.radial_wipe.",
+             core.motion_tile, core.linear_wipe, core.radial_wipe and core.venetian_blinds.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10474,7 +10489,7 @@ mod editing {
              core.channel_mixer, core.vibrance, core.leave_color, core.solarize, core.halftone, \
              core.mosaic, core.emboss, core.find_edges, core.sharpen, core.diffusion, \
              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
-             core.motion_tile, core.linear_wipe or core.radial_wipe.",
+             core.motion_tile, core.linear_wipe, core.radial_wipe or core.venetian_blinds.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22937,6 +22952,8 @@ mod contract {
         ("core.linear_wipe", &[("completion", "40"), ("angle", "135"), ("feather", "12")]),
         // D-156: the numbers, the centre and the choice.
         ("core.radial_wipe", &[("completion", "40"), ("start_angle", "90"), ("center", "40,60"), ("wipe", "both"), ("feather", "30")]),
+        // D-157: the four numbers.
+        ("core.venetian_blinds", &[("completion", "40"), ("angle", "90"), ("width", "12"), ("feather", "3")]),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

@@ -1495,6 +1495,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("wipe".into(), J::from(wipe.as_str()));
             params.insert("feather".into(), num(*feather));
         }
+        Effect::VenetianBlinds {
+            completion,
+            angle,
+            width,
+            feather,
+        } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("angle".into(), num(*angle));
+            params.insert("width".into(), num(*width));
+            params.insert("feather".into(), num(*feather));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2776,6 +2787,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::MOTION_TILE,
                 crate::effects::LINEAR_WIPE,
                 crate::effects::RADIAL_WIPE,
+                crate::effects::VENETIAN_BLINDS,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3145,6 +3157,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     start_angle: effect_number(params, "start_angle", &at)?,
                     center: effect_array(params, "center", "two numbers, x then y", &at)?,
                     wipe: effect_word(params, "wipe", &at)?,
+                    feather: effect_number(params, "feather", &at)?,
+                }),
+                crate::effects::VENETIAN_BLINDS => Some(crate::effects::Effect::VenetianBlinds {
+                    completion: effect_number(params, "completion", &at)?,
+                    angle: effect_number(params, "angle", &at)?,
+                    width: effect_number(params, "width", &at)?,
                     feather: effect_number(params, "feather", &at)?,
                 }),
                 _ => None,

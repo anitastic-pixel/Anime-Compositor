@@ -1131,3 +1131,48 @@ pub(crate) fn radial_wipe(
             }
         });
 }
+
+
+/// D-157: the drawing, whose corner is at `origin` in the buffer, cut into slats `width` pixels
+/// across, turned by `angle`, each cleared from one edge `completion` per cent of the way, the
+/// moving edge softened over `feather` pixels. The settings are already valid.
+pub(crate) fn venetian_blinds(
+    source: &mut WorkingBuffer,
+    completion: f64,
+    angle: f64,
+    width: f64,
+    feather: f64,
+    origin: (usize, usize),
+) {
+    if completion == 0.0 {
+        return;
+    }
+    if completion == 100.0 {
+        source.data_mut().fill(0.0);
+        return;
+    }
+    let w = source.width();
+    let (ux, uy) = crate::blurs::along(angle);
+    let edge = completion / 100.0 * (width + feather) - feather / 2.0;
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let x = (i % w) as f64 - ox + 0.5;
+            let y = (i / w) as f64 - oy + 0.5;
+            let s = ux * x + uy * y;
+            let t = s - width * (s / width).floor();
+            let k = if feather > 0.0 {
+                ((t - edge) / feather + 0.5).clamp(0.0, 1.0)
+            } else if t >= edge {
+                1.0
+            } else {
+                0.0
+            };
+            for v in px.iter_mut() {
+                *v *= k as f32;
+            }
+        });
+}
