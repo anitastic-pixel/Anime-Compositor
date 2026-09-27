@@ -586,6 +586,8 @@ B-81 / Threshold, D-138, the fifth of the third batch of thirty: every pixel mad
 
 B-82 / Channel Mixer, D-139, the sixth of the third batch of thirty: each colour channel remade from a mix of all three. **B-82a is written on 2026-09-26**: `verification/B-82a proposal/`, D-139 in document 14, the rule in document 21, FX-MIXER-001 to 022 in document 25 from `tools/channel_mixer_reference.py`, which writes `Fixtures/channel_mixer/`. **B-82b is built on 2026-09-26**: `src/grade.rs`, the Channel Mixer card, `tests/b82_channel_mixer.rs` writing `verification/B-82_channel_mixer_table.md`, 85 of 85, worst 1.9e-7; the owner's playtest is `verification/B-82_channel_mixer_playtest.md`.
 
+B-83 / Vibrance, D-140, the seventh of the third batch of thirty: the dull colours made richer while the vivid ones are left nearly alone. **B-83a is written on 2026-09-26**: `verification/B-83a proposal/`, D-140 in document 14, the rule in document 21, FX-VIBRANCE-001 to 018 in document 25 from `tools/vibrance_reference.py`, which writes `Fixtures/vibrance/`. **B-83b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
