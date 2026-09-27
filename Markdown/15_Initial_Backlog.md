@@ -592,6 +592,8 @@ B-84 / Leave Color, D-141, the eighth of the third batch of thirty: everything t
 
 B-85 / Solarize, D-142, the ninth of the third batch of thirty: the channels above a level turned to their opposites, as a darkroom solarization. **B-85a is written on 2026-09-26**: `verification/B-85a proposal/`, D-142 in document 14, the rule in document 21, FX-SOLAR-001 to 016 in document 25 from `tools/solarize_reference.py`, which writes `Fixtures/solarize/`. **B-85b is built on 2026-09-26**: `src/grade.rs`, the Solarize card, `tests/b85_solarize.rs` writing `verification/B-85_solarize_table.md`, 67 of 67, worst 1.9e-7; the owner's playtest is `verification/B-85_solarize_playtest.md`.
 
+B-86 / Halftone, D-143, the tenth of the third batch of thirty: the picture as dots of ink on paper, a manga screentone. **B-86a is written on 2026-09-26**: `verification/B-86a proposal/`, D-143 in document 14, the rule in document 21, FX-HALFTONE-001 to 025 in document 25 from `tools/halftone_reference.py`, which writes `Fixtures/halftone/`. **B-86b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
