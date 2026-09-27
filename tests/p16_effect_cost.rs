@@ -413,6 +413,15 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 saturation: 20.0,
             },
         ),
+        (
+            "Leave Color, the reds kept",
+            Effect::LeaveColor {
+                color: "#ff0000".to_string(),
+                tolerance: 15.0,
+                softness: 10.0,
+                amount: 100.0,
+            },
+        ),
     ]
 }
 

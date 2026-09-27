@@ -594,3 +594,60 @@ pub(crate) fn vibrance(source: &mut WorkingBuffer, vibrance: f64, saturation: f6
         e.map(|v| l + (v - l) * k)
     })
 }
+
+/// D-141's HSV hue of an encoded colour, in degrees, none for a grey.
+pub(crate) fn hsv_hue(e: [f64; 3]) -> Option<f64> {
+    let [r, g, b] = e;
+    let (mx, mn) = (r.max(g).max(b), r.min(g).min(b));
+    if mx == mn {
+        return None;
+    }
+    let d = mx - mn;
+    Some(if r == mx {
+        (60.0 * ((g - b) / d)).rem_euclid(360.0)
+    } else if g == mx {
+        60.0 * ((b - r) / d + 2.0)
+    } else {
+        60.0 * ((r - g) / d + 4.0)
+    })
+}
+
+/// D-141: every colour whose hue lies further than `tolerance` (with `softness` beyond it) from
+/// the chosen colour's is drained toward its grey by `amount` per cent. A pixel kept whole is
+/// left exactly as it is.
+pub(crate) fn leave_color(source: &mut WorkingBuffer, color: [f64; 3], tolerance: f64, softness: f64, amount: f64) {
+    if amount == 0.0 {
+        return;
+    }
+    let hc = hsv_hue(color);
+    let (t, s, o) = (tolerance / 100.0, softness / 100.0, amount / 100.0);
+    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let e = [0, 1, 2].map(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)));
+        let dist = match (hsv_hue(e), hc) {
+            (Some(h), Some(hc)) => {
+                let d = (h - hc).abs();
+                d.min(360.0 - d) / 180.0
+            }
+            _ => 1.0,
+        };
+        let k = if dist <= t {
+            1.0
+        } else if s == 0.0 || dist >= t + s {
+            0.0
+        } else {
+            1.0 - (dist - t) / s
+        };
+        if k == 1.0 {
+            return;
+        }
+        let d = o * (1.0 - k);
+        let y = luma(e);
+        for c in 0..3 {
+            px[c] = (to_linear((e[c] + d * (y - e[c])).clamp(0.0, 1.0)) * a) as f32;
+        }
+    });
+}

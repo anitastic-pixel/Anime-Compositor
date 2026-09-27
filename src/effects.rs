@@ -515,6 +515,15 @@ pub enum Effect {
         vibrance: f64,
         saturation: f64,
     },
+    /// D-141: `color`, `#rrggbb`, the hue kept; `tolerance`, 0 to 100, how far round the wheel a
+    /// hue is kept whole; `softness`, 0 to 100, the band past it where the keeping fades; and
+    /// `amount`, 0 to 100, how far every other colour is turned grey.
+    LeaveColor {
+        color: String,
+        tolerance: f64,
+        softness: f64,
+        amount: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -561,6 +570,7 @@ pub const POSTERIZE: &str = "core.posterize";
 pub const THRESHOLD: &str = "core.threshold";
 pub const CHANNEL_MIXER: &str = "core.channel_mixer";
 pub const VIBRANCE: &str = "core.vibrance";
+pub const LEAVE_COLOR: &str = "core.leave_color";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -872,6 +882,16 @@ impl Effect {
                 ("vibrance", vec![vibrance], -100.0, 100.0),
                 ("saturation", vec![saturation], -100.0, 100.0),
             ],
+            Effect::LeaveColor {
+                tolerance,
+                softness,
+                amount,
+                ..
+            } => vec![
+                ("tolerance", vec![tolerance], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
+                ("amount", vec![amount], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1008,6 +1028,7 @@ impl Effect {
             Effect::Threshold { .. } => "Threshold",
             Effect::ChannelMixer { .. } => "Channel Mixer",
             Effect::Vibrance { .. } => "Vibrance",
+            Effect::LeaveColor { .. } => "Leave Color",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1054,6 +1075,7 @@ impl Effect {
             Effect::Threshold { .. } => THRESHOLD,
             Effect::ChannelMixer { .. } => CHANNEL_MIXER,
             Effect::Vibrance { .. } => VIBRANCE,
+            Effect::LeaveColor { .. } => LEAVE_COLOR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1411,6 +1433,7 @@ impl Effect {
                         format!("Channel Mixer's monochrome is \"off\" or \"on\", and this is \"{monochrome}\".")
                     })
                 }),
+            Effect::LeaveColor { color, .. } => hex_fault("Leave Color", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -2098,6 +2121,14 @@ pub(crate) fn apply_stack_at(
                     crate::grade::vibrance(source, *vibrance, *saturation)
                 })
             }
+            Effect::LeaveColor {
+                color,
+                tolerance,
+                softness,
+                amount,
+            } => crate::perf::time(crate::perf::Stage::EffectLeaveColor, || {
+                crate::grade::leave_color(source, encoded(color), *tolerance, *softness, *amount)
+            }),
         }
     }
     (ox, oy)

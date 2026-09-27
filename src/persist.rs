@@ -1339,6 +1339,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("vibrance".into(), num(*vibrance));
             params.insert("saturation".into(), num(*saturation));
         }
+        Effect::LeaveColor {
+            color,
+            tolerance,
+            softness,
+            amount,
+        } => {
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("tolerance".into(), num(*tolerance));
+            params.insert("softness".into(), num(*softness));
+            params.insert("amount".into(), num(*amount));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2593,6 +2604,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::THRESHOLD,
                 crate::effects::CHANNEL_MIXER,
                 crate::effects::VIBRANCE,
+                crate::effects::LEAVE_COLOR,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2875,6 +2887,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::VIBRANCE => Some(crate::effects::Effect::Vibrance {
                     vibrance: effect_number(params, "vibrance", &at)?,
                     saturation: effect_number(params, "saturation", &at)?,
+                }),
+                crate::effects::LEAVE_COLOR => Some(crate::effects::Effect::LeaveColor {
+                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                    tolerance: effect_number(params, "tolerance", &at)?,
+                    softness: effect_number(params, "softness", &at)?,
+                    amount: effect_number(params, "amount", &at)?,
                 }),
                 _ => None,
             };

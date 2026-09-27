@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -2979,6 +2979,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             vibrance: 0.0,
             saturation: 0.0,
         }),
+        // D-141: the reds kept, everything else grey.
+        LEAVE_COLOR => Some(Effect::LeaveColor {
+            color: "#ff0000".to_string(),
+            tolerance: 15.0,
+            softness: 10.0,
+            amount: 100.0,
+        }),
         _ => None,
     }
 }
@@ -3358,6 +3365,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         VIBRANCE => Ok(Effect::Vibrance {
             vibrance: number("vibrance")?,
             saturation: number("saturation")?,
+        }),
+        LEAVE_COLOR => Ok(Effect::LeaveColor {
+            color: word("color")?,
+            tolerance: number("tolerance")?,
+            softness: number("softness")?,
+            amount: number("amount")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6251,7 +6264,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
                              core.color_balance, core.offset, core.light_wrap, core.invert, \
                              core.brightness_contrast, core.black_white, core.posterize, \
-                             core.threshold, core.channel_mixer or core.vibrance."
+                             core.threshold, core.channel_mixer, core.vibrance or \
+                             core.leave_color."
                                 .to_string(),
                         );
                     };
@@ -6269,7 +6283,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
                              core.color_balance, core.offset, core.light_wrap, core.invert, \
                              core.brightness_contrast, core.black_white, core.posterize, \
-                             core.threshold, core.channel_mixer and core.vibrance."
+                             core.threshold, core.channel_mixer, core.vibrance and \
+                             core.leave_color."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10247,7 +10262,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the forty are named",
+            "an effect type this build does not have is refused, and the forty-one are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -10258,7 +10273,7 @@ mod editing {
              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
              core.color_balance, core.offset, core.light_wrap, core.invert, \
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
-             core.channel_mixer and core.vibrance.",
+             core.channel_mixer, core.vibrance and core.leave_color.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10272,7 +10287,7 @@ mod editing {
              core.exposure_flicker, core.vignette, core.turbulent_displace, core.fractal_noise, \
              core.gradient_map, core.color_balance, core.offset, core.light_wrap, core.invert, \
              core.brightness_contrast, core.black_white, core.posterize, core.threshold, \
-             core.channel_mixer or core.vibrance.",
+             core.channel_mixer, core.vibrance or core.leave_color.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22657,6 +22672,16 @@ mod contract {
         ),
         // D-140: the vibrance and the saturation.
         ("core.vibrance", &[("vibrance", "40"), ("saturation", "20")]),
+        // D-141: the colour and the three numbers.
+        (
+            "core.leave_color",
+            &[
+                ("color", "%234060ff"),
+                ("tolerance", "20"),
+                ("softness", "30"),
+                ("amount", "80"),
+            ],
+        ),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

@@ -588,7 +588,7 @@ B-82 / Channel Mixer, D-139, the sixth of the third batch of thirty: each colour
 
 B-83 / Vibrance, D-140, the seventh of the third batch of thirty: the dull colours made richer while the vivid ones are left nearly alone. **B-83a is written on 2026-09-26**: `verification/B-83a proposal/`, D-140 in document 14, the rule in document 21, FX-VIBRANCE-001 to 018 in document 25 from `tools/vibrance_reference.py`, which writes `Fixtures/vibrance/`. **B-83b is built on 2026-09-26**: `src/grade.rs`, the Vibrance card, `tests/b83_vibrance.rs` writing `verification/B-83_vibrance_table.md`, 72 of 72, worst 2.2e-7; the owner's playtest is `verification/B-83_vibrance_playtest.md`.
 
-B-84 / Leave Color, D-141, the eighth of the third batch of thirty: everything turned grey except one chosen colour. **B-84a is written on 2026-09-26**: `verification/B-84a proposal/`, D-141 in document 14, the rule in document 21, FX-LEAVE-001 to 022 in document 25 from `tools/leave_color_reference.py`, which writes `Fixtures/leave_color/`. **B-84b, the build, is next.**
+B-84 / Leave Color, D-141, the eighth of the third batch of thirty: everything turned grey except one chosen colour. **B-84a is written on 2026-09-26**: `verification/B-84a proposal/`, D-141 in document 14, the rule in document 21, FX-LEAVE-001 to 022 in document 25 from `tools/leave_color_reference.py`, which writes `Fixtures/leave_color/`. **B-84b is built on 2026-09-26**: `src/grade.rs`, the Leave Color card, `tests/b84_leave_color.rs` writing `verification/B-84_leave_color_table.md`, 86 of 86, worst 1.9e-7; the owner's playtest is `verification/B-84_leave_color_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

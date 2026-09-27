@@ -1020,6 +1020,7 @@
         <option value="core.threshold">Threshold</option>
         <option value="core.channel_mixer">Channel Mixer</option>
         <option value="core.vibrance">Vibrance</option>
+        <option value="core.leave_color">Leave Color</option>
       </select>
     </div>
   </section>
@@ -6449,6 +6450,7 @@ const EFFECT_NAMES = {
   'core.threshold': 'Threshold',
   'core.channel_mixer': 'Channel Mixer',
   'core.vibrance': 'Vibrance',
+  'core.leave_color': 'Leave Color',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6600,6 +6602,10 @@ const EFFECT_PARAMS = {
     ['blue', 'Blue', 4, 1, 'from red, green, blue and a constant, -200 to 200']],
   // D-140.
   'core.vibrance': [['vibrance', 'Vibrance', 1, 1, '-100 to 100, the dull colours moved most'], ['saturation', 'Saturation', 1, 1, '-100 all grey to 100 twice as far from grey']],
+  // D-141.
+  'core.leave_color': [['tolerance', 'Tolerance', 1, 1, '0 to 100, how far round the colour wheel is kept whole'],
+    ['softness', 'Softness', 1, 1, '0 to 100, the fade past the tolerance'],
+    ['amount', 'Amount', 1, 1, '0 to 100, how grey the rest turns']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6699,6 +6705,8 @@ const EFFECT_WORDS = {
   'core.invert': { choices: [['channel', 'Channel', [['rgb', 'RGB'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]]] },
   // D-139.
   'core.channel_mixer': { choices: [['monochrome', 'Monochrome', [['off', 'Off'], ['on', 'On']]]] },
+  // D-141.
+  'core.leave_color': { colours: [['color', 'Colour to keep']] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();
