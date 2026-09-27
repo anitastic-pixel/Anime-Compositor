@@ -576,6 +576,8 @@ B-76 / The second batch of ten on the graphics card, D-133: Distance Gradation, 
 
 B-77 / Invert, D-134, the first of the third batch of thirty: the colours, or the covering, turned to their opposites. **B-77a is written on 2026-09-26**: `verification/B-77a proposal/`, D-134 in document 14, the rule in document 21, FX-INVERT-001 to 020 in document 25 from `tools/invert_reference.py`, which writes `Fixtures/invert/`. **B-77b is built on 2026-09-26**: `src/grade.rs`, the Invert card, `tests/b77_invert.rs` writing `verification/B-77_invert_table.md`, 78 of 78, worst 1.9e-7; the owner's playtest is `verification/B-77_invert_playtest.md`.
 
+B-78 / Brightness & Contrast, D-135, the second of the third batch of thirty: the picture made lighter or darker, and its contrast raised or lowered. **B-78a is written on 2026-09-26**: `verification/B-78a proposal/`, D-135 in document 14, the rule in document 21, FX-BRICON-001 to 022 in document 25 from `tools/brightness_contrast_reference.py`, which writes `Fixtures/brightness_contrast/`. **B-78b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
