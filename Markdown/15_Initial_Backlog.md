@@ -558,6 +558,8 @@ B-67 / Light Rays, D-124, the second of the second batch of ten: rays streaming 
 
 B-68 / Exposure Flicker, D-125, the third of the second batch of ten: the brightness jumping from frame to frame, as an old film's does. **B-68a is written on 2026-09-26**: `verification/B-68a proposal/`, D-125 in document 14, the rule in document 21, FX-FLICKER-001 to 022 in document 25 from `tools/exposure_flicker_reference.py`, which writes `Fixtures/exposure_flicker/`. **B-68b, the build, is next.**
 
+B-72 / Gradient Map, D-129, the seventh of the second batch of ten: each pixel's lightness mapped onto a shadow, midtone and highlight colour. **B-72a is written on 2026-09-26**: `verification/B-72a proposal/`, D-129 in document 14, the rule in document 21, FX-GRADMAP-001 to 023 in document 25 from `tools/gradient_map_reference.py`, which writes `Fixtures/gradient_map/`. **B-72b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
