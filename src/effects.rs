@@ -393,6 +393,18 @@ pub enum Effect {
         seed: f64,
         frame: i32,
     },
+    /// D-126: `amount`, 0 to 100; `color`, `#rrggbb`, kept as written so a wrong one is
+    /// reported; `size`, 1 to 200, 100 putting the outer edge at the drawing's corners;
+    /// `roundness`, 0 to 100; `softness`, 0 to 100; and `center`, per cent of the drawing's
+    /// width and height, -1000 to 1000.
+    Vignette {
+        amount: f64,
+        color: String,
+        size: f64,
+        roundness: f64,
+        softness: f64,
+        center: [f64; 2],
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -425,6 +437,7 @@ pub const CHROMATIC_ABERRATION: &str = "core.chromatic_aberration";
 pub const DISTANCE_GRADATION: &str = "core.distance_gradation";
 pub const LIGHT_RAYS: &str = "core.light_rays";
 pub const EXPOSURE_FLICKER: &str = "core.exposure_flicker";
+pub const VIGNETTE: &str = "core.vignette";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -638,6 +651,20 @@ impl Effect {
                 ("hold", vec![hold], 1.0, 100.0),
                 ("seed", vec![seed], 0.0, 100000.0),
             ],
+            Effect::Vignette {
+                amount,
+                size,
+                roundness,
+                softness,
+                center,
+                ..
+            } => vec![
+                ("amount", vec![amount], 0.0, 100.0),
+                ("size", vec![size], 1.0, 200.0),
+                ("roundness", vec![roundness], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -749,6 +776,7 @@ impl Effect {
             Effect::DistanceGradation { .. } => "Distance Gradation",
             Effect::LightRays { .. } => "Light Rays",
             Effect::ExposureFlicker { .. } => "Exposure Flicker",
+            Effect::Vignette { .. } => "Vignette",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -781,6 +809,7 @@ impl Effect {
             Effect::DistanceGradation { .. } => DISTANCE_GRADATION,
             Effect::LightRays { .. } => LIGHT_RAYS,
             Effect::ExposureFlicker { .. } => EXPOSURE_FLICKER,
+            Effect::Vignette { .. } => VIGNETTE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1066,6 +1095,7 @@ impl Effect {
                 hex_fault("Distance Gradation", "colour", color)
             }
             Effect::LightRays { color, .. } => hex_fault("Light Rays", "colour", color),
+            Effect::Vignette { color, .. } => hex_fault("Vignette", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -1606,6 +1636,31 @@ pub(crate) fn apply_stack_at(
                 let u = crate::grade::unit(crate::grade::mix(seed.floor() as u64), m, 0, 0, 3);
                 crate::perf::time(crate::perf::Stage::EffectExposureFlicker, || {
                     exposure(source, amount * u)
+                })
+            }
+            // D-126: the ellipse in the drawing's own size, however far the layer has grown.
+            Effect::Vignette {
+                amount,
+                color,
+                size,
+                roundness,
+                softness,
+                center,
+            } => {
+                let w0 = (source.width() - 2 * ox) as f64;
+                let h0 = (source.height() - 2 * oy) as f64;
+                let (m, r) = (roundness / 100.0, (w0 * h0).sqrt() / 2.0);
+                let outer = size / 100.0;
+                let v = crate::grade::Vignette {
+                    center: radial_center(*center, source, (ox, oy)),
+                    radii: ((1.0 - m) * w0 / 2.0 + m * r, (1.0 - m) * h0 / 2.0 + m * r),
+                    inner: outer * (1.0 - softness / 100.0),
+                    outer,
+                    color: encoded(color),
+                    amount: *amount,
+                };
+                crate::perf::time(crate::perf::Stage::EffectVignette, || {
+                    crate::grade::vignette(source, &v)
                 })
             }
         }

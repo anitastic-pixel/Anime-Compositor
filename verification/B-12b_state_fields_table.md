@@ -139,5 +139,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - center, length, threshold, intensity, color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.exposure_flicker` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, hold, seed - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.vignette` is an effect this build has | added | added | pass |
+| and the settings it sends for it - amount, color, size, roundness, softness, center - are the ones the command reads | accepted | accepted | pass |
 
-**119 of 119 checks pass.**
+**121 of 121 checks pass.**

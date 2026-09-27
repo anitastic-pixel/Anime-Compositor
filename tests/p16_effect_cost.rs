@@ -301,6 +301,17 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 5,
             },
         ),
+        (
+            "Vignette, amount 50, roundness 40",
+            Effect::Vignette {
+                amount: 50.0,
+                color: "#000000".to_string(),
+                size: 100.0,
+                roundness: 40.0,
+                softness: 50.0,
+                center: [50.0, 50.0],
+            },
+        ),
     ]
 }
 

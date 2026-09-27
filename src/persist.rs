@@ -1206,6 +1206,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("hold".into(), num(*hold));
             params.insert("seed".into(), num(*seed));
         }
+        Effect::Vignette {
+            amount,
+            color,
+            size,
+            roundness,
+            softness,
+            center,
+        } => {
+            params.insert("amount".into(), num(*amount));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("size".into(), num(*size));
+            params.insert("roundness".into(), num(*roundness));
+            params.insert("softness".into(), num(*softness));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1603,6 +1621,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "highlight_gain",
         "highlight_threshold",
         "hold",
+        "size",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2410,6 +2429,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::DISTANCE_GRADATION,
                 crate::effects::LIGHT_RAYS,
                 crate::effects::EXPOSURE_FLICKER,
+                crate::effects::VIGNETTE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2602,6 +2622,15 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                         frame: 0,
                     })
                 }
+                // D-126: the colour is read in small letters, as a new colour is.
+                crate::effects::VIGNETTE => Some(crate::effects::Effect::Vignette {
+                    amount: effect_number(params, "amount", &at)?,
+                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                    size: effect_number(params, "size", &at)?,
+                    roundness: effect_number(params, "roundness", &at)?,
+                    softness: effect_number(params, "softness", &at)?,
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                }),
                 _ => None,
             };
             // P-17: keys on a setting this effect does not have are not its keys. The record
