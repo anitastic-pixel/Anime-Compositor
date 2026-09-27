@@ -1506,6 +1506,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("width".into(), num(*width));
             params.insert("feather".into(), num(*feather));
         }
+        Effect::IrisWipe {
+            completion,
+            center,
+            feather,
+            invert,
+        } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert("feather".into(), num(*feather));
+            params.insert("invert".into(), J::from(invert.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2788,6 +2802,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LINEAR_WIPE,
                 crate::effects::RADIAL_WIPE,
                 crate::effects::VENETIAN_BLINDS,
+                crate::effects::IRIS_WIPE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3164,6 +3179,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     angle: effect_number(params, "angle", &at)?,
                     width: effect_number(params, "width", &at)?,
                     feather: effect_number(params, "feather", &at)?,
+                }),
+                crate::effects::IRIS_WIPE => Some(crate::effects::Effect::IrisWipe {
+                    completion: effect_number(params, "completion", &at)?,
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                    feather: effect_number(params, "feather", &at)?,
+                    invert: effect_word(params, "invert", &at)?,
                 }),
                 _ => None,
             };

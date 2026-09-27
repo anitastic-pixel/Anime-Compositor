@@ -622,7 +622,7 @@ B-99 / Radial Wipe, D-156, the twenty-third of the third batch of thirty: the pi
 
 B-100 / Venetian Blinds, D-157, the twenty-fourth of the third batch of thirty: the picture wiped away in stripes. **B-100a is written on 2026-09-26**: `verification/B-100a proposal/`, D-157 in document 14, the rule in document 21, FX-BLINDS-001 to 026 in document 25 from `tools/venetian_blinds_reference.py`, which writes `Fixtures/venetian_blinds/`. **B-100b is built on 2026-09-26**: `src/layer_fx.rs`, the Venetian Blinds card, `tests/b100_venetian_blinds.rs` writing `verification/B-100_venetian_blinds_table.md`, 102 of 102, worst 1.9e-7; the owner's playtest is `verification/B-100_venetian_blinds_playtest.md`.
 
-B-101 / Iris Wipe, D-158, the twenty-fifth of the third batch of thirty: a circle closing on a point, the cartoon ending. **B-101a is written on 2026-09-26**: `verification/B-101a proposal/`, D-158 in document 14, the rule in document 21, FX-IRIS-001 to 027 in document 25 from `tools/iris_wipe_reference.py`, which writes `Fixtures/iris_wipe/`. **B-101b, the build, is next.**
+B-101 / Iris Wipe, D-158, the twenty-fifth of the third batch of thirty: a circle closing on a point, the cartoon ending. **B-101a is written on 2026-09-26**: `verification/B-101a proposal/`, D-158 in document 14, the rule in document 21, FX-IRIS-001 to 027 in document 25 from `tools/iris_wipe_reference.py`, which writes `Fixtures/iris_wipe/`. **B-101b is built on 2026-09-26**: `src/layer_fx.rs`, the Iris Wipe card, `tests/b101_iris_wipe.rs` writing `verification/B-101_iris_wipe_table.md`, 104 of 104, worst 2e-7; the owner's playtest is `verification/B-101_iris_wipe_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

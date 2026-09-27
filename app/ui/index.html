@@ -1037,6 +1037,7 @@
         <option value="core.linear_wipe">Linear Wipe</option>
         <option value="core.radial_wipe">Radial Wipe</option>
         <option value="core.venetian_blinds">Venetian Blinds</option>
+        <option value="core.iris_wipe">Iris Wipe</option>
       </select>
     </div>
   </section>
@@ -6483,6 +6484,7 @@ const EFFECT_NAMES = {
   'core.linear_wipe': 'Linear Wipe',
   'core.radial_wipe': 'Radial Wipe',
   'core.venetian_blinds': 'Venetian Blinds',
+  'core.iris_wipe': 'Iris Wipe',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6699,6 +6701,10 @@ const EFFECT_PARAMS = {
     ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 0 lies level'],
     ['width', 'Width', 1, 1, 'pixels, 1 to 10000, each slat'],
     ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the moving edge is']],
+  // D-158.
+  'core.iris_wipe': [['completion', 'Completion', 1, 1, '% closed, 0 to 100'],
+    ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the circle is']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6814,6 +6820,8 @@ const EFFECT_WORDS = {
   'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },
   // D-156.
   'core.radial_wipe': { choices: [['wipe', 'Wipe', [['clockwise', 'Clockwise'], ['counterclockwise', 'Counterclockwise'], ['both', 'Both']]]] },
+  // D-158.
+  'core.iris_wipe': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

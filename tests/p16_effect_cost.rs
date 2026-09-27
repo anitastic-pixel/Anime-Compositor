@@ -554,6 +554,15 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 feather: 0.0,
             },
         ),
+        (
+            "Iris Wipe, half way",
+            Effect::IrisWipe {
+                completion: 50.0,
+                center: [50.0, 50.0],
+                feather: 0.0,
+                invert: "off".to_string(),
+            },
+        ),
     ]
 }
 

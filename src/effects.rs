@@ -651,6 +651,15 @@ pub enum Effect {
         width: f64,
         feather: f64,
     },
+    /// D-158: `completion`, 0 to 100 per cent closed; `center`, per cent of the drawing's width
+    /// and height, -1000 to 1000 each; `feather`, 0 to 10000 pixels; `invert`, "off" or "on", a
+    /// hole opening instead.
+    IrisWipe {
+        completion: f64,
+        center: [f64; 2],
+        feather: f64,
+        invert: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -714,6 +723,7 @@ pub const MOTION_TILE: &str = "core.motion_tile";
 pub const LINEAR_WIPE: &str = "core.linear_wipe";
 pub const RADIAL_WIPE: &str = "core.radial_wipe";
 pub const VENETIAN_BLINDS: &str = "core.venetian_blinds";
+pub const IRIS_WIPE: &str = "core.iris_wipe";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1158,6 +1168,16 @@ impl Effect {
                 ("width", vec![width], 1.0, 10000.0),
                 ("feather", vec![feather], 0.0, 10000.0),
             ],
+            Effect::IrisWipe {
+                completion,
+                center,
+                feather,
+                ..
+            } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("feather", vec![feather], 0.0, 10000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1248,6 +1268,7 @@ impl Effect {
             Effect::Twirl { radius, .. } => *radius = scale(*radius),
             Effect::Bulge { radius, .. } => *radius = scale(*radius),
             Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
+            Effect::IrisWipe { feather, .. } => *feather = scale(*feather),
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1340,6 +1361,7 @@ impl Effect {
             Effect::LinearWipe { .. } => "Linear Wipe",
             Effect::RadialWipe { .. } => "Radial Wipe",
             Effect::VenetianBlinds { .. } => "Venetian Blinds",
+            Effect::IrisWipe { .. } => "Iris Wipe",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1403,6 +1425,7 @@ impl Effect {
             Effect::LinearWipe { .. } => LINEAR_WIPE,
             Effect::RadialWipe { .. } => RADIAL_WIPE,
             Effect::VenetianBlinds { .. } => VENETIAN_BLINDS,
+            Effect::IrisWipe { .. } => IRIS_WIPE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1788,6 +1811,9 @@ impl Effect {
                     "Radial Wipe's wipe is \"clockwise\", \"counterclockwise\" or \"both\", and this is \"{wipe}\"."
                 ))
             }
+            Effect::IrisWipe { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "Iris Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
+            )),
             _ => None,
         };
         own.or_else(|| {
@@ -2636,6 +2662,15 @@ pub(crate) fn apply_stack_at(
                 feather,
             } => crate::perf::time(crate::perf::Stage::EffectVenetianBlinds, || {
                 crate::layer_fx::venetian_blinds(source, *completion, *angle, *width, *feather, (ox, oy))
+            }),
+            // D-158: the circle is the drawing's own, however an effect above grew it.
+            Effect::IrisWipe {
+                completion,
+                center,
+                feather,
+                invert,
+            } => crate::perf::time(crate::perf::Stage::EffectIrisWipe, || {
+                crate::layer_fx::iris_wipe(source, *completion, *center, *feather, invert == "on", (ox, oy))
             }),
         }
     }

@@ -1176,3 +1176,53 @@ pub(crate) fn venetian_blinds(
             }
         });
 }
+
+
+/// D-158: every pixel outside a circle closing on `center`, a point in the drawing's own pixels,
+/// whose corner is at `origin` in the buffer, gone, `completion` per cent of the way; with
+/// `invert`, every pixel inside a hole opening from it; the edge softened over `feather` pixels.
+/// The settings are already valid.
+pub(crate) fn iris_wipe(
+    source: &mut WorkingBuffer,
+    completion: f64,
+    center: [f64; 2],
+    feather: f64,
+    invert: bool,
+    origin: (usize, usize),
+) {
+    if completion == 0.0 {
+        return;
+    }
+    if completion == 100.0 {
+        source.data_mut().fill(0.0);
+        return;
+    }
+    let w = source.width();
+    let (w0, h0) = ((w - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
+    let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
+    let far = [(0.0, 0.0), (0.0, h0), (w0, 0.0), (w0, h0)]
+        .iter()
+        .map(|&(a, b)| (cx - a).hypot(cy - b))
+        .fold(0.0, f64::max);
+    let cc = completion / 100.0;
+    let r = if invert { cc } else { 1.0 - cc } * (far + feather) - feather / 2.0;
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let d = ((i % w) as f64 - ox + 0.5 - cx).hypot((i / w) as f64 - oy + 0.5 - cy);
+            let inside = if invert { d - r } else { r - d };
+            let k = if feather > 0.0 {
+                (inside / feather + 0.5).clamp(0.0, 1.0)
+            } else if inside >= 0.0 {
+                1.0
+            } else {
+                0.0
+            };
+            for v in px.iter_mut() {
+                *v *= k as f32;
+            }
+        });
+}
