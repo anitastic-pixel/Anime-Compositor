@@ -1010,6 +1010,7 @@
         <option value="core.turbulent_displace">Turbulent Displace</option>
         <option value="core.fractal_noise">Fractal Noise</option>
         <option value="core.gradient_map">Gradient Map</option>
+        <option value="core.color_balance">Color Balance</option>
       </select>
     </div>
   </section>
@@ -6429,6 +6430,7 @@ const EFFECT_NAMES = {
   'core.turbulent_displace': 'Turbulent Displace',
   'core.fractal_noise': 'Fractal Noise',
   'core.gradient_map': 'Gradient Map',
+  'core.color_balance': 'Color Balance',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6555,6 +6557,10 @@ const EFFECT_PARAMS = {
   // D-129.
   'core.gradient_map': [['midpoint', 'Midpoint', 1, 0.5, 'brightness of the midtone, 1 to 99'],
     ['amount', 'Amount', 1, 0.5, '0 to 100']],
+  // D-130.
+  'core.color_balance': [['shadows', 'Shadows', 3, 1, 'red, green, blue, -100 to 100'],
+    ['midtones', 'Midtones', 3, 1, 'red, green, blue, -100 to 100'],
+    ['highlights', 'Highlights', 3, 1, 'red, green, blue, -100 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7384,7 +7390,7 @@ function effectRow(layer, fx, at, of) {
     // What the setting is on the frame on screen, which is a keyed one's interpolated value.
     const values = transformValue(layer, fxName(fx, name)).map((v) => (v === undefined ? start || 0 : Number(v) || 0));
     fields[name] = [];
-    if (count === 3) {
+    if (name === 'color') {
       pick = document.createElement('input');
       pick.type = 'color';
       pick.value = hexOf(values);

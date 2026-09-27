@@ -124,6 +124,8 @@ pub enum Stage {
     EffectFractalNoise,
     /// D-129's gradient map, per pixel.
     EffectGradientMap,
+    /// D-130's colour balance, per pixel.
+    EffectColorBalance,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -141,7 +143,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 46] = [
+    pub const ALL: [Stage; 47] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -181,6 +183,7 @@ impl Stage {
         Stage::EffectTurbulentDisplace,
         Stage::EffectFractalNoise,
         Stage::EffectGradientMap,
+        Stage::EffectColorBalance,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -232,6 +235,7 @@ impl Stage {
             Stage::EffectTurbulentDisplace => "effect: turbulent displace",
             Stage::EffectFractalNoise => "effect: fractal noise",
             Stage::EffectGradientMap => "effect: gradient map",
+            Stage::EffectColorBalance => "effect: color balance",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

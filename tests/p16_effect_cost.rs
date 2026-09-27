@@ -352,6 +352,14 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 amount: 100.0,
             },
         ),
+        (
+            "Color Balance, cool shadows and warm lights",
+            Effect::ColorBalance {
+                shadows: vec![0.0, 0.0, 40.0],
+                midtones: vec![-10.0, 5.0, 0.0],
+                highlights: vec![30.0, 10.0, -20.0],
+            },
+        ),
     ]
 }
 

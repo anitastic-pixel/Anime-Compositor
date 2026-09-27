@@ -456,6 +456,13 @@ pub enum Effect {
         midpoint: f64,
         amount: f64,
     },
+    /// D-130: `shadows`, `midtones` and `highlights`, each red, green and blue, -100 to 100.
+    /// Kept as written, so a tone of the wrong count is reported rather than refusing the file.
+    ColorBalance {
+        shadows: Vec<f64>,
+        midtones: Vec<f64>,
+        highlights: Vec<f64>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -492,6 +499,7 @@ pub const VIGNETTE: &str = "core.vignette";
 pub const TURBULENT_DISPLACE: &str = "core.turbulent_displace";
 pub const FRACTAL_NOISE: &str = "core.fractal_noise";
 pub const GRADIENT_MAP: &str = "core.gradient_map";
+pub const COLOR_BALANCE: &str = "core.color_balance";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -761,6 +769,15 @@ impl Effect {
                 ("midpoint", vec![midpoint], 1.0, 99.0),
                 ("amount", vec![amount], 0.0, 100.0),
             ],
+            Effect::ColorBalance {
+                shadows,
+                midtones,
+                highlights,
+            } => vec![
+                ("shadows", shadows.iter_mut().collect(), -100.0, 100.0),
+                ("midtones", midtones.iter_mut().collect(), -100.0, 100.0),
+                ("highlights", highlights.iter_mut().collect(), -100.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -883,6 +900,7 @@ impl Effect {
             Effect::TurbulentDisplace { .. } => "Turbulent Displace",
             Effect::FractalNoise { .. } => "Fractal Noise",
             Effect::GradientMap { .. } => "Gradient Map",
+            Effect::ColorBalance { .. } => "Color Balance",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -919,6 +937,7 @@ impl Effect {
             Effect::TurbulentDisplace { .. } => TURBULENT_DISPLACE,
             Effect::FractalNoise { .. } => FRACTAL_NOISE,
             Effect::GradientMap { .. } => GRADIENT_MAP,
+            Effect::ColorBalance { .. } => COLOR_BALANCE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1232,6 +1251,19 @@ impl Effect {
             } => hex_fault("Gradient Map", "shadow colour", shadow_color)
                 .or_else(|| hex_fault("Gradient Map", "midtone colour", midtone_color))
                 .or_else(|| hex_fault("Gradient Map", "highlight colour", highlight_color)),
+            Effect::ColorBalance {
+                shadows,
+                midtones,
+                highlights,
+            } => [("shadows", shadows), ("midtones", midtones), ("highlights", highlights)]
+                .into_iter()
+                .find(|(_, tone)| tone.len() != 3)
+                .map(|(what, tone)| {
+                    format!(
+                        "{name}'s {what} are three numbers, red, green and blue, and this has {}.",
+                        tone.len()
+                    )
+                }),
             _ => None,
         };
         own.or_else(|| {
@@ -1869,6 +1901,14 @@ pub(crate) fn apply_stack_at(
                     *midpoint,
                     *amount,
                 )
+            }),
+            Effect::ColorBalance {
+                shadows,
+                midtones,
+                highlights,
+            } => crate::perf::time(crate::perf::Stage::EffectColorBalance, || {
+                let tone = |t: &[f64]| [t[0], t[1], t[2]];
+                crate::grade::color_balance(source, tone(shadows), tone(midtones), tone(highlights))
             }),
         }
     }

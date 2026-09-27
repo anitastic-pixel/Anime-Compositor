@@ -1281,6 +1281,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("midpoint".into(), num(*midpoint));
             params.insert("amount".into(), num(*amount));
         }
+        Effect::ColorBalance {
+            shadows,
+            midtones,
+            highlights,
+        } => {
+            for (name, tone) in [("shadows", shadows), ("midtones", midtones), ("highlights", highlights)] {
+                params.insert(name.into(), J::Array(tone.iter().map(|v| num(*v)).collect()));
+            }
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1629,6 +1638,17 @@ fn effect_points(params: Option<&J>, key: &str, at: &str) -> Result<Vec<Vec<f64>
         .collect()
 }
 
+/// D-130: numbers of any count, so a wrong count is kept and reported, not a refused file.
+fn effect_list(params: Option<&J>, key: &str, at: &str) -> Result<Vec<f64>, Diagnostic> {
+    let params = effect_params(params, at)?;
+    let at = format!("{at}/parameters/{key}");
+    as_array(field(params, &at, key)?, &at)?
+        .iter()
+        .enumerate()
+        .map(|(i, v)| as_f64(v, &format!("{at}/{i}")))
+        .collect()
+}
+
 /// D-68: a setting written as a property record, `{"base", "keyframes"}`, in place of a plain
 /// value. Handed back are the parameters with every such record replaced by its base, which is
 /// what the readers above take, and the keys of each setting that has any. A colour's record
@@ -1685,6 +1705,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "contrast",
         "brightness",
         "midpoint",
+        "shadows",
+        "midtones",
+        "highlights",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -1700,6 +1723,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         let keys = as_array(field(record, &at, "keyframes")?, &format!("{at}/keyframes"))?;
         let (count, what) = match name {
             "color" => (3, "a linear RGB triple"),
+            "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
             "center" | "start" | "end" => (2, "two numbers, x then y"),
             _ => (1, ""),
         };
@@ -2496,6 +2520,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::TURBULENT_DISPLACE,
                 crate::effects::FRACTAL_NOISE,
                 crate::effects::GRADIENT_MAP,
+                crate::effects::COLOR_BALANCE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2733,6 +2758,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                         .to_ascii_lowercase(),
                     midpoint: effect_number(params, "midpoint", &at)?,
                     amount: effect_number(params, "amount", &at)?,
+                }),
+                crate::effects::COLOR_BALANCE => Some(crate::effects::Effect::ColorBalance {
+                    shadows: effect_list(params, "shadows", &at)?,
+                    midtones: effect_list(params, "midtones", &at)?,
+                    highlights: effect_list(params, "highlights", &at)?,
                 }),
                 _ => None,
             };
