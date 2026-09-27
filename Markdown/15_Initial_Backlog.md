@@ -616,6 +616,8 @@ B-96 / Mirror, D-153, the twentieth of the third batch of thirty: one side of th
 
 B-97 / Motion Tile, D-154, the twenty-first of the third batch of thirty: the picture repeated round itself, plain or mirrored. **B-97a is written on 2026-09-26**: `verification/B-97a proposal/`, D-154 in document 14, the rule in document 21, FX-TILE-001 to 023 in document 25 from `tools/motion_tile_reference.py`, which writes `Fixtures/motion_tile/`. **B-97b is built on 2026-09-26**: `src/layer_fx.rs`, the Motion Tile card, `tests/b97_motion_tile.rs` writing `verification/B-97_motion_tile_table.md`, 91 of 91, worst 1.9e-7; the owner's playtest is `verification/B-97_motion_tile_playtest.md`.
 
+B-98 / Linear Wipe, D-155, the twenty-second of the third batch of thirty: the picture wiped away by a straight edge. **B-98a is written on 2026-09-26**: `verification/B-98a proposal/`, D-155 in document 14, the rule in document 21, FX-LWIPE-001 to 032 in document 25 from `tools/linear_wipe_reference.py`, which writes `Fixtures/linear_wipe/`. **B-98b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
