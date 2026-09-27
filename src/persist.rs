@@ -1366,6 +1366,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("paper".into(), J::from(paper.as_str()));
             params.insert("amount".into(), num(*amount));
         }
+        Effect::Mosaic { size } => {
+            params.insert("size".into(), num(*size));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2623,6 +2626,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LEAVE_COLOR,
                 crate::effects::SOLARIZE,
                 crate::effects::HALFTONE,
+                crate::effects::MOSAIC,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2921,6 +2925,9 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     ink: effect_word(params, "ink", &at)?.to_ascii_lowercase(),
                     paper: effect_word(params, "paper", &at)?.to_ascii_lowercase(),
                     amount: effect_number(params, "amount", &at)?,
+                }),
+                crate::effects::MOSAIC => Some(crate::effects::Effect::Mosaic {
+                    size: effect_number(params, "size", &at)?,
                 }),
                 _ => None,
             };

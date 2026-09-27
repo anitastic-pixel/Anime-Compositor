@@ -594,7 +594,7 @@ B-85 / Solarize, D-142, the ninth of the third batch of thirty: the channels abo
 
 B-86 / Halftone, D-143, the tenth of the third batch of thirty: the picture as dots of ink on paper, a manga screentone. **B-86a is written on 2026-09-26**: `verification/B-86a proposal/`, D-143 in document 14, the rule in document 21, FX-HALFTONE-001 to 025 in document 25 from `tools/halftone_reference.py`, which writes `Fixtures/halftone/`. **B-86b is built on 2026-09-26**: `src/grade.rs`, the Halftone card, `tests/b86_halftone.rs` writing `verification/B-86_halftone_table.md`, 97 of 97, worst 1.9e-7; the owner's playtest is `verification/B-86_halftone_playtest.md`.
 
-B-87 / Mosaic, D-144, the eleventh of the third batch of thirty: the picture cut into square blocks of flat colour. **B-87a is written on 2026-09-26**: `verification/B-87a proposal/`, D-144 in document 14, the rule in document 21, FX-MOSAIC-001 to 020 in document 25 from `tools/mosaic_reference.py`, which writes `Fixtures/mosaic/`. **B-87b, the build, is next.**
+B-87 / Mosaic, D-144, the eleventh of the third batch of thirty: the picture cut into square blocks of flat colour. **B-87a is written on 2026-09-26**: `verification/B-87a proposal/`, D-144 in document 14, the rule in document 21, FX-MOSAIC-001 to 020 in document 25 from `tools/mosaic_reference.py`, which writes `Fixtures/mosaic/`. **B-87b is built on 2026-09-26**: `src/layer_fx.rs`, the Mosaic card, `tests/b87_mosaic.rs` writing `verification/B-87_mosaic_table.md`, 76 of 76, worst 2e-7; the owner's playtest is `verification/B-87_mosaic_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

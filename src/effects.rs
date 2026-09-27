@@ -537,6 +537,8 @@ pub enum Effect {
         paper: String,
         amount: f64,
     },
+    /// D-144: `size`, 1 to 1000 pixels, each square block painted its mean colour.
+    Mosaic { size: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -586,6 +588,7 @@ pub const VIBRANCE: &str = "core.vibrance";
 pub const LEAVE_COLOR: &str = "core.leave_color";
 pub const SOLARIZE: &str = "core.solarize";
 pub const HALFTONE: &str = "core.halftone";
+pub const MOSAIC: &str = "core.mosaic";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -918,6 +921,7 @@ impl Effect {
                 ("angle", vec![angle], -3600.0, 3600.0),
                 ("amount", vec![amount], 0.0, 100.0),
             ],
+            Effect::Mosaic { size } => vec![("size", vec![size], 1.0, 1000.0)],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -986,6 +990,8 @@ impl Effect {
             Effect::FractalNoise { size, .. } => *size = scale(*size).max(1.0),
             // D-143: held at its smallest, two, rather than bypassed.
             Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),
+            // D-144: a block under a pixel is one pixel, which changes nothing.
+            Effect::Mosaic { size } => *size = scale(*size).max(1.0),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -1059,6 +1065,7 @@ impl Effect {
             Effect::LeaveColor { .. } => "Leave Color",
             Effect::Solarize { .. } => "Solarize",
             Effect::Halftone { .. } => "Halftone",
+            Effect::Mosaic { .. } => "Mosaic",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1108,6 +1115,7 @@ impl Effect {
             Effect::LeaveColor { .. } => LEAVE_COLOR,
             Effect::Solarize { .. } => SOLARIZE,
             Effect::Halftone { .. } => HALFTONE,
+            Effect::Mosaic { .. } => MOSAIC,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2182,6 +2190,9 @@ pub(crate) fn apply_stack_at(
                     amount: *amount,
                 };
                 crate::grade::halftone(source, &h, (ox, oy))
+            }),
+            Effect::Mosaic { size } => crate::perf::time(crate::perf::Stage::EffectMosaic, || {
+                crate::layer_fx::mosaic(source, *size, (ox, oy))
             }),
         }
     }

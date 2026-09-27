@@ -173,5 +173,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - threshold - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.halftone` is an effect this build has | added | added | pass |
 | and the settings it sends for it - size, angle, ink, paper, amount - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.mosaic` is an effect this build has | added | added | pass |
+| and the settings it sends for it - size - are the ones the command reads | accepted | accepted | pass |
 
-**153 of 153 checks pass.**
+**155 of 155 checks pass.**

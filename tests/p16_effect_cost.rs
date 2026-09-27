@@ -436,6 +436,10 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 amount: 100.0,
             },
         ),
+        (
+            "Mosaic, as it starts",
+            Effect::Mosaic { size: 10.0 },
+        ),
     ]
 }
 

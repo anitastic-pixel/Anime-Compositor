@@ -628,3 +628,51 @@ pub(crate) fn offset(source: &mut WorkingBuffer, shift: [f64; 2]) {
             }
         });
 }
+
+/// D-144: every block `size` pixels wide, laid from the drawing's corner `(ox, oy)` in `source`,
+/// painted the mean of the buffer's premultiplied pixels in it, empty ones counted as empty. A
+/// block past the right or bottom edge is cut short. Size 1 or less changes nothing.
+pub(crate) fn mosaic(source: &mut WorkingBuffer, size: f64, (ox, oy): (usize, usize)) {
+    if size <= 1.0 {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    // Each run of columns, or of rows, that falls in one block.
+    let runs = |n: usize, o: usize| {
+        let block = |p: usize| ((p as f64 - o as f64) / size).floor();
+        let mut runs = Vec::new();
+        let mut start = 0;
+        for p in 1..=n {
+            if p == n || block(p) != block(start) {
+                runs.push(start..p);
+                start = p;
+            }
+        }
+        runs
+    };
+    let (columns, rows) = (runs(w, ox), runs(h, oy));
+    let data = source.data_mut();
+    // ponytail: one pass on one thread, each pixel read and written once; split the rows of
+    // blocks across threads if a profile shows it.
+    for ys in &rows {
+        for xs in &columns {
+            let mut sum = [0.0f64; 4];
+            for y in ys.clone() {
+                for x in xs.clone() {
+                    let i = 4 * (y * w + x);
+                    for c in 0..4 {
+                        sum[c] += data[i + c] as f64;
+                    }
+                }
+            }
+            let n = (ys.len() * xs.len()) as f64;
+            let mean = sum.map(|v| (v / n) as f32);
+            for y in ys.clone() {
+                for x in xs.clone() {
+                    let i = 4 * (y * w + x);
+                    data[i..i + 4].copy_from_slice(&mean);
+                }
+            }
+        }
+    }
+}

@@ -1023,6 +1023,7 @@
         <option value="core.leave_color">Leave Color</option>
         <option value="core.solarize">Solarize</option>
         <option value="core.halftone">Halftone</option>
+        <option value="core.mosaic">Mosaic</option>
       </select>
     </div>
   </section>
@@ -6455,6 +6456,7 @@ const EFFECT_NAMES = {
   'core.leave_color': 'Leave Color',
   'core.solarize': 'Solarize',
   'core.halftone': 'Halftone',
+  'core.mosaic': 'Mosaic',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6616,6 +6618,8 @@ const EFFECT_PARAMS = {
   'core.halftone': [['size', 'Size', 1, 1, 'pixels between dots, 2 to 200'],
     ['angle', 'Angle', 1, 1, 'degrees the rows of dots are turned'],
     ['amount', 'Amount', 1, 1, '0 to 100, how strongly the dots are laid over']],
+  // D-144.
+  'core.mosaic': [['size', 'Size', 1, 1, 'pixels across each block, 1 to 1000']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
