@@ -618,7 +618,7 @@ B-97 / Motion Tile, D-154, the twenty-first of the third batch of thirty: the pi
 
 B-98 / Linear Wipe, D-155, the twenty-second of the third batch of thirty: the picture wiped away by a straight edge. **B-98a is written on 2026-09-26**: `verification/B-98a proposal/`, D-155 in document 14, the rule in document 21, FX-LWIPE-001 to 032 in document 25 from `tools/linear_wipe_reference.py`, which writes `Fixtures/linear_wipe/`. **B-98b is built on 2026-09-26**: `src/layer_fx.rs`, the Linear Wipe card, `tests/b98_linear_wipe.rs` writing `verification/B-98_linear_wipe_table.md`, 118 of 118, worst 1.9e-7; the owner's playtest is `verification/B-98_linear_wipe_playtest.md`.
 
-B-99 / Radial Wipe, D-156, the twenty-third of the third batch of thirty: the picture wiped away by a sweep round a point, as a clock hand. **B-99a is written on 2026-09-26**: `verification/B-99a proposal/`, D-156 in document 14, the rule in document 21, FX-RWIPE-001 to 029 in document 25 from `tools/radial_wipe_reference.py`, which writes `Fixtures/radial_wipe/`. **B-99b, the build, is next.**
+B-99 / Radial Wipe, D-156, the twenty-third of the third batch of thirty: the picture wiped away by a sweep round a point, as a clock hand. **B-99a is written on 2026-09-26**: `verification/B-99a proposal/`, D-156 in document 14, the rule in document 21, FX-RWIPE-001 to 029 in document 25 from `tools/radial_wipe_reference.py`, which writes `Fixtures/radial_wipe/`. **B-99b is built on 2026-09-26**: `src/layer_fx.rs`, the Radial Wipe card, `tests/b99_radial_wipe.rs` writing `verification/B-99_radial_wipe_table.md`, 117 of 117, worst 2.1e-7; the owner's playtest is `verification/B-99_radial_wipe_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

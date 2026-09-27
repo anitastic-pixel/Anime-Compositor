@@ -1035,6 +1035,7 @@
         <option value="core.mirror">Mirror</option>
         <option value="core.motion_tile">Motion Tile</option>
         <option value="core.linear_wipe">Linear Wipe</option>
+        <option value="core.radial_wipe">Radial Wipe</option>
       </select>
     </div>
   </section>
@@ -6479,6 +6480,7 @@ const EFFECT_NAMES = {
   'core.mirror': 'Mirror',
   'core.motion_tile': 'Motion Tile',
   'core.linear_wipe': 'Linear Wipe',
+  'core.radial_wipe': 'Radial Wipe',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6685,6 +6687,11 @@ const EFFECT_PARAMS = {
   'core.linear_wipe': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
     ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 90 wipes from the left'],
     ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the edge is']],
+  // D-156.
+  'core.radial_wipe': [['completion', 'Completion', 1, 1, '% of a turn wiped away, 0 to 100'],
+    ['start_angle', 'Start angle', 1, 1, 'degrees, -3600 to 3600; 0 is straight up'],
+    ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['feather', 'Feather', 1, 1, 'degrees, 0 to 360, how soft the sweeping edge is']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6798,6 +6805,8 @@ const EFFECT_WORDS = {
   'core.wave_warp': { choices: [['shape', 'Shape', [['sine', 'Sine'], ['triangle', 'Triangle']]], EDGES] },
   // D-154.
   'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },
+  // D-156.
+  'core.radial_wipe': { choices: [['wipe', 'Wipe', [['clockwise', 'Clockwise'], ['counterclockwise', 'Counterclockwise'], ['both', 'Both']]]] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

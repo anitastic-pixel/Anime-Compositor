@@ -535,6 +535,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 feather: 0.0,
             },
         ),
+        (
+            "Radial Wipe, half way",
+            Effect::RadialWipe {
+                completion: 50.0,
+                start_angle: 0.0,
+                center: [50.0, 50.0],
+                wipe: "clockwise".to_string(),
+                feather: 0.0,
+            },
+        ),
     ]
 }
 

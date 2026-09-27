@@ -1075,3 +1075,59 @@ pub(crate) fn linear_wipe(
             }
         });
 }
+
+
+/// D-156: every pixel the hand of a clock has swept past gone, `completion` per cent of a turn
+/// from `start_angle` round `center`, a point in the drawing's own pixels, whose corner is at
+/// `origin` in the buffer; `wipe` 0 clockwise, 1 counterclockwise, 2 both ways; the sweeping
+/// edge softened over `feather` degrees. The settings are already valid.
+pub(crate) fn radial_wipe(
+    source: &mut WorkingBuffer,
+    completion: f64,
+    start_angle: f64,
+    center: [f64; 2],
+    wipe: u8,
+    feather: f64,
+    origin: (usize, usize),
+) {
+    if completion == 0.0 {
+        return;
+    }
+    if completion == 100.0 {
+        source.data_mut().fill(0.0);
+        return;
+    }
+    let turn = |a: f64| {
+        let a = a.rem_euclid(360.0);
+        if a >= 360.0 { 0.0 } else { a }
+    };
+    let w = source.width();
+    let (w0, h0) = ((w - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
+    let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
+    let edge = completion / 100.0 * (360.0 + feather) - feather / 2.0;
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (vx, vy) = ((i % w) as f64 - ox + 0.5 - cx, (i / w) as f64 - oy + 0.5 - cy);
+            let screen = if vx == 0.0 && vy == 0.0 { 0.0 } else { turn(vx.atan2(-vy).to_degrees()) };
+            let a = turn(screen - start_angle);
+            let swept = match wipe {
+                1 => if a > 0.0 { 360.0 - a } else { 0.0 },
+                2 => 2.0 * a.min(360.0 - a),
+                _ => a,
+            };
+            let k = if feather > 0.0 {
+                ((swept - edge) / feather + 0.5).clamp(0.0, 1.0)
+            } else if swept >= edge {
+                1.0
+            } else {
+                0.0
+            };
+            for v in px.iter_mut() {
+                *v *= k as f32;
+            }
+        });
+}

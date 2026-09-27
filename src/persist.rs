@@ -1479,6 +1479,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("angle".into(), num(*angle));
             params.insert("feather".into(), num(*feather));
         }
+        Effect::RadialWipe {
+            completion,
+            start_angle,
+            center,
+            wipe,
+            feather,
+        } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("start_angle".into(), num(*start_angle));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert("wipe".into(), J::from(wipe.as_str()));
+            params.insert("feather".into(), num(*feather));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1920,6 +1936,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "output_height",
         "completion",
         "feather",
+        "start_angle",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2758,6 +2775,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::MIRROR,
                 crate::effects::MOTION_TILE,
                 crate::effects::LINEAR_WIPE,
+                crate::effects::RADIAL_WIPE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3120,6 +3138,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::LINEAR_WIPE => Some(crate::effects::Effect::LinearWipe {
                     completion: effect_number(params, "completion", &at)?,
                     angle: effect_number(params, "angle", &at)?,
+                    feather: effect_number(params, "feather", &at)?,
+                }),
+                crate::effects::RADIAL_WIPE => Some(crate::effects::Effect::RadialWipe {
+                    completion: effect_number(params, "completion", &at)?,
+                    start_angle: effect_number(params, "start_angle", &at)?,
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                    wipe: effect_word(params, "wipe", &at)?,
                     feather: effect_number(params, "feather", &at)?,
                 }),
                 _ => None,

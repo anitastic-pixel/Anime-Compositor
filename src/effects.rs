@@ -632,6 +632,17 @@ pub enum Effect {
         angle: f64,
         feather: f64,
     },
+    /// D-156: `completion`, 0 to 100 per cent of a turn swept away; `start_angle`, -3600 to 3600
+    /// degrees, 0 straight up; `center`, per cent of the drawing's width and height, -1000 to
+    /// 1000 each; `wipe`, "clockwise", "counterclockwise" or "both"; `feather`, 0 to 360
+    /// degrees.
+    RadialWipe {
+        completion: f64,
+        start_angle: f64,
+        center: [f64; 2],
+        wipe: String,
+        feather: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -693,6 +704,7 @@ pub const BULGE: &str = "core.bulge";
 pub const MIRROR: &str = "core.mirror";
 pub const MOTION_TILE: &str = "core.motion_tile";
 pub const LINEAR_WIPE: &str = "core.linear_wipe";
+pub const RADIAL_WIPE: &str = "core.radial_wipe";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1114,6 +1126,18 @@ impl Effect {
                 ("angle", vec![angle], -3600.0, 3600.0),
                 ("feather", vec![feather], 0.0, 10000.0),
             ],
+            Effect::RadialWipe {
+                completion,
+                start_angle,
+                center,
+                feather,
+                ..
+            } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("start_angle", vec![start_angle], -3600.0, 3600.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("feather", vec![feather], 0.0, 360.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1289,6 +1313,7 @@ impl Effect {
             Effect::Mirror { .. } => "Mirror",
             Effect::MotionTile { .. } => "Motion Tile",
             Effect::LinearWipe { .. } => "Linear Wipe",
+            Effect::RadialWipe { .. } => "Radial Wipe",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1350,6 +1375,7 @@ impl Effect {
             Effect::Mirror { .. } => MIRROR,
             Effect::MotionTile { .. } => MOTION_TILE,
             Effect::LinearWipe { .. } => LINEAR_WIPE,
+            Effect::RadialWipe { .. } => RADIAL_WIPE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1728,6 +1754,13 @@ impl Effect {
             Effect::MotionTile { mirror, .. } if !["off", "on"].contains(&mirror.as_str()) => Some(format!(
                 "Motion Tile's mirror is \"off\" or \"on\", and this is \"{mirror}\"."
             )),
+            Effect::RadialWipe { wipe, .. }
+                if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
+            {
+                Some(format!(
+                    "Radial Wipe's wipe is \"clockwise\", \"counterclockwise\" or \"both\", and this is \"{wipe}\"."
+                ))
+            }
             _ => None,
         };
         own.or_else(|| {
@@ -2552,6 +2585,21 @@ pub(crate) fn apply_stack_at(
                 feather,
             } => crate::perf::time(crate::perf::Stage::EffectLinearWipe, || {
                 crate::layer_fx::linear_wipe(source, *completion, *angle, *feather, (ox, oy))
+            }),
+            // D-156: the centre and the edge are the drawing's own, however an effect above grew it.
+            Effect::RadialWipe {
+                completion,
+                start_angle,
+                center,
+                wipe,
+                feather,
+            } => crate::perf::time(crate::perf::Stage::EffectRadialWipe, || {
+                let way = match wipe.as_str() {
+                    "counterclockwise" => 1,
+                    "both" => 2,
+                    _ => 0,
+                };
+                crate::layer_fx::radial_wipe(source, *completion, *start_angle, *center, way, *feather, (ox, oy))
             }),
         }
     }

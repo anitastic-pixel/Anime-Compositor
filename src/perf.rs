@@ -174,6 +174,8 @@ pub enum Stage {
     EffectMotionTile,
     /// D-155's linear wipe, per pixel.
     EffectLinearWipe,
+    /// D-156's radial wipe, per pixel.
+    EffectRadialWipe,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -191,7 +193,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 71] = [
+    pub const ALL: [Stage; 72] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -256,6 +258,7 @@ impl Stage {
         Stage::EffectMirror,
         Stage::EffectMotionTile,
         Stage::EffectLinearWipe,
+        Stage::EffectRadialWipe,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -332,6 +335,7 @@ impl Stage {
             Stage::EffectMirror => "effect: mirror",
             Stage::EffectMotionTile => "effect: motion tile",
             Stage::EffectLinearWipe => "effect: linear wipe",
+            Stage::EffectRadialWipe => "effect: radial wipe",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
