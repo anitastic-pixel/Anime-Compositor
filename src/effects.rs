@@ -473,6 +473,12 @@ pub enum Effect {
         intensity: f64,
         blend: String,
     },
+    /// D-134: `channel`, "rgb", "red", "green", "blue" or "alpha", kept as written so a wrong one
+    /// is reported; `amount`, 0 to 100 per cent of the way to the opposite.
+    Invert {
+        channel: String,
+        amount: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -512,6 +518,7 @@ pub const GRADIENT_MAP: &str = "core.gradient_map";
 pub const COLOR_BALANCE: &str = "core.color_balance";
 pub const OFFSET: &str = "core.offset";
 pub const LIGHT_WRAP: &str = "core.light_wrap";
+pub const INVERT: &str = "core.invert";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -799,6 +806,7 @@ impl Effect {
                 ("width", vec![width], 0.0, 500.0),
                 ("intensity", vec![intensity], 0.0, 400.0),
             ],
+            Effect::Invert { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -928,6 +936,7 @@ impl Effect {
             Effect::ColorBalance { .. } => "Color Balance",
             Effect::Offset { .. } => "Offset",
             Effect::LightWrap { .. } => "Light Wrap",
+            Effect::Invert { .. } => "Invert",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -967,6 +976,7 @@ impl Effect {
             Effect::ColorBalance { .. } => COLOR_BALANCE,
             Effect::Offset { .. } => OFFSET,
             Effect::LightWrap { .. } => LIGHT_WRAP,
+            Effect::Invert { .. } => INVERT,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1296,6 +1306,13 @@ impl Effect {
             Effect::LightWrap { blend, .. } if !["screen", "add"].contains(&blend.as_str()) => {
                 Some(format!(
                     "Light Wrap's blend is \"screen\" or \"add\", and this is \"{blend}\"."
+                ))
+            }
+            Effect::Invert { channel, .. }
+                if !["rgb", "red", "green", "blue", "alpha"].contains(&channel.as_str()) =>
+            {
+                Some(format!(
+                    "Invert's channel is \"rgb\", \"red\", \"green\", \"blue\" or \"alpha\", and this is \"{channel}\"."
                 ))
             }
             _ => None,
@@ -1946,6 +1963,15 @@ pub(crate) fn apply_stack_at(
             // it as the layer is drawn (`render::wrap_layer`). In the layer's own space, and on
             // an adjustment layer, which has no drawing of its own, it changes nothing.
             Effect::LightWrap { .. } => {}
+            Effect::Invert { channel, amount } => crate::perf::time(crate::perf::Stage::EffectInvert, || {
+                match channel.as_str() {
+                    "alpha" => crate::grade::invert_alpha(source, *amount),
+                    "red" => crate::grade::invert(source, 0, *amount),
+                    "green" => crate::grade::invert(source, 1, *amount),
+                    "blue" => crate::grade::invert(source, 2, *amount),
+                    _ => crate::grade::invert(source, 3, *amount),
+                }
+            }),
         }
     }
     (ox, oy)

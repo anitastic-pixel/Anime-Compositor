@@ -1013,6 +1013,7 @@
         <option value="core.color_balance">Color Balance</option>
         <option value="core.offset">Offset</option>
         <option value="core.light_wrap">Light Wrap</option>
+        <option value="core.invert">Invert</option>
       </select>
     </div>
   </section>
@@ -6435,6 +6436,7 @@ const EFFECT_NAMES = {
   'core.color_balance': 'Color Balance',
   'core.offset': 'Offset',
   'core.light_wrap': 'Light Wrap',
+  'core.invert': 'Invert',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6570,6 +6572,8 @@ const EFFECT_PARAMS = {
   // D-132.
   'core.light_wrap': [['width', 'Width', 1, 0.5, 'how far in the light reaches, 0 to 500'],
     ['intensity', 'Intensity', 1, 1, '% of the light, 0 to 400']],
+  // D-134.
+  'core.invert': [['amount', 'Amount', 1, 1, '% of the way to the opposite, 0 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6665,6 +6669,8 @@ const EFFECT_WORDS = {
   },
   // D-132.
   'core.light_wrap': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['add', 'Add']]]] },
+  // D-134.
+  'core.invert': { choices: [['channel', 'Channel', [['rgb', 'RGB'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]]] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

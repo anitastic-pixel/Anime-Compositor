@@ -483,3 +483,42 @@ pub(crate) fn vignette(source: &mut WorkingBuffer, v: &Vignette) {
             }
         });
 }
+
+/// D-134: `channel` (0 red, 1 green, 2 blue, 3 all three) turned toward its opposite by
+/// `amount` per cent in encoded values; the channels not chosen are kept bit for bit.
+pub(crate) fn invert(source: &mut WorkingBuffer, channel: usize, amount: f64) {
+    if amount == 0.0 {
+        return;
+    }
+    let t = amount / 100.0;
+    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        for c in 0..3 {
+            if channel == 3 || channel == c {
+                let e = to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
+                px[c] = (to_linear((e + t * (1.0 - 2.0 * e)).clamp(0.0, 1.0)) * a) as f32;
+            }
+        }
+    });
+}
+
+/// D-134's alpha: every pixel's covering turned toward its opposite, its straight colour kept
+/// (black where it had none).
+pub(crate) fn invert_alpha(source: &mut WorkingBuffer, amount: f64) {
+    if amount == 0.0 {
+        return;
+    }
+    let t = amount / 100.0;
+    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        let a = px[3] as f64;
+        let b = if a > 0.0 { [0, 1, 2].map(|c| px[c] as f64 / a) } else { [0.0; 3] };
+        let n = a + t * (1.0 - 2.0 * a);
+        for c in 0..3 {
+            px[c] = (b[c] * n) as f32;
+        }
+        px[3] = n as f32;
+    });
+}

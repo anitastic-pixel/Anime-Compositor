@@ -364,6 +364,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
             "Offset, a part-pixel slide",
             Effect::Offset { shift: [40.5, -12.25] },
         ),
+        (
+            "Invert, a negative",
+            Effect::Invert {
+                channel: "rgb".to_string(),
+                amount: 100.0,
+            },
+        ),
     ]
 }
 
