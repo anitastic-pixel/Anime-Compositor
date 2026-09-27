@@ -1346,3 +1346,77 @@ pub(crate) fn simple_choker(source: &mut WorkingBuffer, choke: f64) -> usize {
     *source = out;
     g
 }
+
+
+/// D-160: manga focus lines, wedges rushing in toward `center` (in `source`'s pixels), laid on
+/// every covered pixel in `color` (linear) by the blend mix, normal. The numbers are `[count,
+/// thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity]`, already held; count, seed
+/// and hold count by their whole parts. The lines are Noise's hash of the seed, each line's
+/// number and `frame` over the hold. The settings are already valid.
+pub(crate) fn speed_lines(
+    source: &mut WorkingBuffer,
+    center: (f64, f64),
+    color: [f64; 3],
+    [count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity]: [f64; 8],
+    frame: i32,
+) {
+    let count = count.floor() as i64;
+    let m = (frame as i64).div_euclid(hold.floor() as i64);
+    let base = crate::grade::mix(seed.floor() as u64);
+    // Each line's (angle, half-width, inner edge), in angle order.
+    let mut lines: Vec<(f64, f64, f64)> = (0..count)
+        .map(|k| {
+            let u = |ch| crate::grade::unit(base, k, 0, m, ch);
+            (
+                (360.0 / count as f64 * (k as f64 + 0.5 * angle_jitter / 100.0 * u(0))).rem_euclid(360.0),
+                thickness / 2.0 * (1.0 + 0.5 * u(1)),
+                inner * (1.0 + inner_jitter / 100.0 * u(2)),
+            )
+        })
+        .collect();
+    lines.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let widest = lines.iter().map(|l| l.1).fold(0.0, f64::max);
+    let (n, k, w) = (lines.len(), opacity / 100.0, source.width());
+    let lines = &lines;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            if px[3] == 0.0 {
+                return;
+            }
+            let (vx, vy) = ((i % w) as f64 + 0.5 - center.0, (i / w) as f64 + 0.5 - center.1);
+            let d = vx.hypot(vy);
+            let alpha = vx.atan2(-vy).to_degrees().rem_euclid(360.0);
+            let one = |&(theta, h, r): &(f64, f64, f64)| {
+                let turn = (alpha - theta).rem_euclid(360.0);
+                ((h - turn.min(360.0 - turn)) * std::f64::consts::PI / 180.0 * d + 0.5).clamp(0.0, 1.0)
+                    * (d - r + 0.5).clamp(0.0, 1.0)
+            };
+            // A line more than `reach` degrees round gives nothing here, so each way's walk from
+            // the pixel's own angle stops there.
+            let reach = widest + 90.0 / (std::f64::consts::PI * d) + 1e-9;
+            let start = lines.partition_point(|l| l.0 < alpha);
+            let mut q = 0.0f64;
+            for j in 0..n {
+                let l = &lines[(start + j) % n];
+                if (l.0 - alpha).rem_euclid(360.0) > reach {
+                    break;
+                }
+                q = q.max(one(l));
+            }
+            for j in 1..=n {
+                let l = &lines[(start + n - j) % n];
+                if (alpha - l.0).rem_euclid(360.0) > reach {
+                    break;
+                }
+                q = q.max(one(l));
+            }
+            let (op, a) = (q * k, px[3] as f64);
+            for c in 0..3 {
+                let v = px[c] as f64;
+                px[c] = (v + op * (color[c] * a - v)) as f32;
+            }
+        });
+}

@@ -167,6 +167,10 @@ impl EffectInstance {
             if let Effect::WaveWarp { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-160: the lines' frame.
+            if let Effect::SpeedLines { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         EffectInstance {
             instance_id: self.instance_id.clone(),
@@ -663,6 +667,25 @@ pub enum Effect {
     /// D-159: `choke`, -100 to 100 pixels, positive to shrink the covering and negative to
     /// spread it.
     SimpleChoker { choke: f64 },
+    /// D-160: `center`, per cent of the drawing's width and height, -1000 to 1000 each; `color`,
+    /// `#rrggbb`, kept as written so a wrong one is reported; `count`, 4 to 1000, its whole part
+    /// counted; `thickness`, 0 to 30 degrees; `inner`, 0 to 100000 pixels; `inner_jitter` and
+    /// `angle_jitter`, 0 to 100; `seed`, 0 to 100000, its whole part counted; `hold`, 1 to 100
+    /// frames, its whole part counted; and `opacity`, 0 to 100. `frame` is not a setting and is
+    /// never saved: it is the composition frame, as Noise's is.
+    SpeedLines {
+        center: [f64; 2],
+        color: String,
+        count: f64,
+        thickness: f64,
+        inner: f64,
+        inner_jitter: f64,
+        angle_jitter: f64,
+        seed: f64,
+        hold: f64,
+        opacity: f64,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -728,6 +751,7 @@ pub const RADIAL_WIPE: &str = "core.radial_wipe";
 pub const VENETIAN_BLINDS: &str = "core.venetian_blinds";
 pub const IRIS_WIPE: &str = "core.iris_wipe";
 pub const SIMPLE_CHOKER: &str = "core.simple_choker";
+pub const SPEED_LINES: &str = "core.speed_lines";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1183,6 +1207,28 @@ impl Effect {
                 ("feather", vec![feather], 0.0, 10000.0),
             ],
             Effect::SimpleChoker { choke } => vec![("choke", vec![choke], -100.0, 100.0)],
+            Effect::SpeedLines {
+                center,
+                count,
+                thickness,
+                inner,
+                inner_jitter,
+                angle_jitter,
+                seed,
+                hold,
+                opacity,
+                ..
+            } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("count", vec![count], 4.0, 1000.0),
+                ("thickness", vec![thickness], 0.0, 30.0),
+                ("inner", vec![inner], 0.0, 100000.0),
+                ("inner_jitter", vec![inner_jitter], 0.0, 100.0),
+                ("angle_jitter", vec![angle_jitter], 0.0, 100.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+                ("hold", vec![hold], 1.0, 100.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1275,6 +1321,7 @@ impl Effect {
             Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
             Effect::IrisWipe { feather, .. } => *feather = scale(*feather),
             Effect::SimpleChoker { choke } => *choke = scale(*choke),
+            Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1369,6 +1416,7 @@ impl Effect {
             Effect::VenetianBlinds { .. } => "Venetian Blinds",
             Effect::IrisWipe { .. } => "Iris Wipe",
             Effect::SimpleChoker { .. } => "Simple Choker",
+            Effect::SpeedLines { .. } => "Speed Lines",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1434,6 +1482,7 @@ impl Effect {
             Effect::VenetianBlinds { .. } => VENETIAN_BLINDS,
             Effect::IrisWipe { .. } => IRIS_WIPE,
             Effect::SimpleChoker { .. } => SIMPLE_CHOKER,
+            Effect::SpeedLines { .. } => SPEED_LINES,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1824,6 +1873,7 @@ impl Effect {
             Effect::IrisWipe { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "Iris Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
+            Effect::SpeedLines { color, .. } => hex_fault("Speed Lines", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -2689,6 +2739,26 @@ pub(crate) fn apply_stack_at(
                 });
                 ox += r;
                 oy += r;
+            }
+            // D-160: the centre is a share of the drawing's own size, as Radial Blur's is.
+            Effect::SpeedLines {
+                center,
+                color,
+                count,
+                thickness,
+                inner,
+                inner_jitter,
+                angle_jitter,
+                seed,
+                hold,
+                opacity,
+                frame,
+            } => {
+                let c = radial_center(*center, source, (ox, oy));
+                let numbers = [*count, *thickness, *inner, *inner_jitter, *angle_jitter, *seed, *hold, *opacity];
+                crate::perf::time(crate::perf::Stage::EffectSpeedLines, || {
+                    crate::layer_fx::speed_lines(source, c, encoded(color).map(crate::grade::to_linear), numbers, *frame)
+                })
             }
         }
     }

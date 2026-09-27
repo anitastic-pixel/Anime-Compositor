@@ -1039,6 +1039,7 @@
         <option value="core.venetian_blinds">Venetian Blinds</option>
         <option value="core.iris_wipe">Iris Wipe</option>
         <option value="core.simple_choker">Simple Choker</option>
+        <option value="core.speed_lines">Speed Lines</option>
       </select>
     </div>
   </section>
@@ -6487,6 +6488,7 @@ const EFFECT_NAMES = {
   'core.venetian_blinds': 'Venetian Blinds',
   'core.iris_wipe': 'Iris Wipe',
   'core.simple_choker': 'Simple Choker',
+  'core.speed_lines': 'Speed Lines',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6709,6 +6711,16 @@ const EFFECT_PARAMS = {
     ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the circle is']],
   // D-159.
   'core.simple_choker': [['choke', 'Choke', 1, 0.5, 'pixels, -100 to 100, positive shrinks the edge and negative spreads it']],
+  // D-160.
+  'core.speed_lines': [['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000, where the lines rush to'],
+    ['count', 'Count', 1, 1, '4 to 1000 lines'],
+    ['thickness', 'Thickness', 1, 0.5, 'degrees, 0 to 30, how wide a line is at its widest'],
+    ['inner', 'Inner', 1, 1, 'pixels, 0 to 100000, how far from the centre the lines stop'],
+    ['inner_jitter', 'Inner jitter', 1, 1, '0 to 100, how much each stopping point varies'],
+    ['angle_jitter', 'Angle jitter', 1, 1, '0 to 100, how far each line is nudged off its even place'],
+    ['seed', 'Seed', 1, 1, '0 to 100000, which set of lines'],
+    ['hold', 'Hold', 1, 1, 'frames, 1 to 100, how long a set of lines lasts'],
+    ['opacity', 'Opacity', 1, 1, '0 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -6826,6 +6838,8 @@ const EFFECT_WORDS = {
   'core.radial_wipe': { choices: [['wipe', 'Wipe', [['clockwise', 'Clockwise'], ['counterclockwise', 'Counterclockwise'], ['both', 'Both']]]] },
   // D-158.
   'core.iris_wipe': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]] },
+  // D-160.
+  'core.speed_lines': { colours: [['color', 'Colour']] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

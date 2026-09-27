@@ -567,6 +567,22 @@ fn cases() -> Vec<(&'static str, Effect)> {
             "Simple Choker, spread 3",
             Effect::SimpleChoker { choke: -3.0 },
         ),
+        (
+            "Speed Lines, as they start",
+            Effect::SpeedLines {
+                center: [50.0, 50.0],
+                color: "#000000".to_string(),
+                count: 120.0,
+                thickness: 1.5,
+                inner: 150.0,
+                inner_jitter: 40.0,
+                angle_jitter: 50.0,
+                seed: 0.0,
+                hold: 2.0,
+                opacity: 100.0,
+                frame: 0,
+            },
+        ),
     ]
 }
 

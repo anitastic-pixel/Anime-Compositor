@@ -1523,6 +1523,33 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::SimpleChoker { choke } => {
             params.insert("choke".into(), num(*choke));
         }
+        Effect::SpeedLines {
+            center,
+            color,
+            count,
+            thickness,
+            inner,
+            inner_jitter,
+            angle_jitter,
+            seed,
+            hold,
+            opacity,
+            ..
+        } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("count".into(), num(*count));
+            params.insert("thickness".into(), num(*thickness));
+            params.insert("inner".into(), num(*inner));
+            params.insert("inner_jitter".into(), num(*inner_jitter));
+            params.insert("angle_jitter".into(), num(*angle_jitter));
+            params.insert("seed".into(), num(*seed));
+            params.insert("hold".into(), num(*hold));
+            params.insert("opacity".into(), num(*opacity));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1966,6 +1993,11 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "feather",
         "start_angle",
         "choke",
+        "count",
+        "thickness",
+        "inner",
+        "inner_jitter",
+        "angle_jitter",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2808,6 +2840,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::VENETIAN_BLINDS,
                 crate::effects::IRIS_WIPE,
                 crate::effects::SIMPLE_CHOKER,
+                crate::effects::SPEED_LINES,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3193,6 +3226,19 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 }),
                 crate::effects::SIMPLE_CHOKER => Some(crate::effects::Effect::SimpleChoker {
                     choke: effect_number(params, "choke", &at)?,
+                }),
+                crate::effects::SPEED_LINES => Some(crate::effects::Effect::SpeedLines {
+                    center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                    color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                    count: effect_number(params, "count", &at)?,
+                    thickness: effect_number(params, "thickness", &at)?,
+                    inner: effect_number(params, "inner", &at)?,
+                    inner_jitter: effect_number(params, "inner_jitter", &at)?,
+                    angle_jitter: effect_number(params, "angle_jitter", &at)?,
+                    seed: effect_number(params, "seed", &at)?,
+                    hold: effect_number(params, "hold", &at)?,
+                    opacity: effect_number(params, "opacity", &at)?,
+                    frame: 0,
                 }),
                 _ => None,
             };
