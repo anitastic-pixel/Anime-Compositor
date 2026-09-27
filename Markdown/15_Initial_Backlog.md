@@ -568,6 +568,8 @@ B-69 / Vignette, D-126, the fourth of the second batch of ten: the corners darke
 
 B-70 / Turbulent Displace, D-127, the fifth of the second batch of ten: the drawing pushed about by a smooth moving noise, a heat haze or a wobble. **B-70a is written on 2026-09-26**: `verification/B-70a proposal/`, D-127 in document 14, the rule in document 21, FX-TURB-001 to 026 in document 25 from `tools/turbulent_displace_reference.py`, which writes `Fixtures/turbulent_displace/`. **B-70b, the build, is next.**
 
+B-71 / Fractal Noise, D-128, the sixth of the second batch of ten: a cloudy noise pattern of two colours, still or evolving, laid over the cel. **B-71a is written on 2026-09-26**: `verification/B-71a proposal/`, D-128 in document 14, the rule in document 21, FX-FRACTAL-001 to 028 in document 25 from `tools/fractal_noise_reference.py`, which writes `Fixtures/fractal_noise/`. **B-71b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
