@@ -1481,3 +1481,46 @@ pub(crate) fn cross_glare(
     *source = out;
     l
 }
+
+
+/// D-162: the drawing moved by `amount` times Noise's hash and turned by `rotation` degrees times
+/// it, about its centre, one jolt per `hold` frames of `frame`. The layer grows by `amount sqrt(2)`
+/// plus the turned corners' swing on every side, returned; amount 0 and rotation 0 change
+/// nothing. The settings are already valid.
+pub(crate) fn camera_shake(
+    source: &mut WorkingBuffer,
+    [amount, rotation, hold, seed]: [f64; 4],
+    frame: i32,
+    origin: (usize, usize),
+) -> usize {
+    if amount == 0.0 && rotation == 0.0 {
+        return 0;
+    }
+    let (w, h) = (source.width(), source.height());
+    let (cx, cy) = (
+        origin.0 as f64 + (w - 2 * origin.0) as f64 / 2.0,
+        origin.1 as f64 + (h - 2 * origin.1) as f64 / 2.0,
+    );
+    let rho = [(0.0, 0.0), (w as f64, 0.0), (0.0, h as f64), (w as f64, h as f64)]
+        .iter()
+        .map(|&(x, y): &(f64, f64)| (x - cx).hypot(y - cy))
+        .fold(0.0, f64::max);
+    let g = (amount * std::f64::consts::SQRT_2 + 2.0 * rho * (rotation.to_radians() / 2.0).sin()).ceil() as usize;
+    let m = (frame as i64).div_euclid(hold.floor() as i64);
+    let u = |ch| crate::grade::unit(crate::grade::mix(seed.floor() as u64), m, 0, 0, ch);
+    let (dx, dy) = (amount * u(0), amount * u(1));
+    let (sb, cb) = (rotation * u(2)).to_radians().sin_cos();
+    let ow = w + 2 * g;
+    let mut out = WorkingBuffer::transparent(ow, h + 2 * g);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let vx = (i % ow) as f64 + 0.5 - g as f64 - cx - dx;
+            let vy = (i / ow) as f64 + 0.5 - g as f64 - cy - dy;
+            px.copy_from_slice(&sample_bilinear(drawing, cx + vx * cb + vy * sb, cy - vx * sb + vy * cb));
+        });
+    *source = out;
+    g
+}

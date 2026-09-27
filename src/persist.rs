@@ -1565,6 +1565,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("intensity".into(), num(*intensity));
             params.insert("color".into(), J::from(color.as_str()));
         }
+        Effect::CameraShake {
+            amount,
+            rotation,
+            hold,
+            seed,
+            ..
+        } => {
+            params.insert("amount".into(), num(*amount));
+            params.insert("rotation".into(), num(*rotation));
+            params.insert("hold".into(), num(*hold));
+            params.insert("seed".into(), num(*seed));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2858,6 +2870,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::SIMPLE_CHOKER,
                 crate::effects::SPEED_LINES,
                 crate::effects::CROSS_GLARE,
+                crate::effects::CAMERA_SHAKE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -3264,6 +3277,13 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     angle: effect_number(params, "angle", &at)?,
                     intensity: effect_number(params, "intensity", &at)?,
                     color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                }),
+                crate::effects::CAMERA_SHAKE => Some(crate::effects::Effect::CameraShake {
+                    amount: effect_number(params, "amount", &at)?,
+                    rotation: effect_number(params, "rotation", &at)?,
+                    hold: effect_number(params, "hold", &at)?,
+                    seed: effect_number(params, "seed", &at)?,
+                    frame: 0,
                 }),
                 _ => None,
             };

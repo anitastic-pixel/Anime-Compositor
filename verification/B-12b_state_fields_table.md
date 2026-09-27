@@ -209,5 +209,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - center, color, count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.cross_glare` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, length, points, angle, intensity, color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.camera_shake` is an effect this build has | added | added | pass |
+| and the settings it sends for it - amount, rotation, hold, seed - are the ones the command reads | accepted | accepted | pass |
 
-**189 of 189 checks pass.**
+**191 of 191 checks pass.**

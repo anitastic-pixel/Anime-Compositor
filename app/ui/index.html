@@ -1041,6 +1041,7 @@
         <option value="core.simple_choker">Simple Choker</option>
         <option value="core.speed_lines">Speed Lines</option>
         <option value="core.cross_glare">Cross Glare</option>
+        <option value="core.camera_shake">Camera Shake</option>
       </select>
     </div>
   </section>
@@ -6491,6 +6492,7 @@ const EFFECT_NAMES = {
   'core.simple_choker': 'Simple Choker',
   'core.speed_lines': 'Speed Lines',
   'core.cross_glare': 'Cross Glare',
+  'core.camera_shake': 'Camera Shake',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6729,6 +6731,11 @@ const EFFECT_PARAMS = {
     ['points', 'Points', 1, 1, '1 to 8 arms'],
     ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600, the way the first arm points, 0 up'],
     ['intensity', 'Intensity', 1, 0.1, '0 to 10, how strongly the arms are added']],
+  // D-162.
+  'core.camera_shake': [['amount', 'Amount', 1, 1, 'pixels, 0 to 1000, the most a jolt moves the drawing each way'],
+    ['rotation', 'Rotation', 1, 0.5, 'degrees, 0 to 45, the most a jolt tips it either way'],
+    ['hold', 'Hold', 1, 1, 'frames, 1 to 100, how long each jolt is kept'],
+    ['seed', 'Seed', 1, 1, '0 to 100000, which shake']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

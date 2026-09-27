@@ -171,6 +171,10 @@ impl EffectInstance {
             if let Effect::SpeedLines { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-162: the jolt's frame.
+            if let Effect::CameraShake { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         EffectInstance {
             instance_id: self.instance_id.clone(),
@@ -698,6 +702,17 @@ pub enum Effect {
         intensity: f64,
         color: String,
     },
+    /// D-162: `amount`, 0 to 1000 pixels, the most a jolt moves the drawing each way; `rotation`,
+    /// 0 to 45 degrees, the most it tips it; `hold`, 1 to 100 frames, and `seed`, 0 to 100000,
+    /// their whole parts counted. `frame` is not a setting and is never saved: it is the
+    /// composition frame, as Noise's is.
+    CameraShake {
+        amount: f64,
+        rotation: f64,
+        hold: f64,
+        seed: f64,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -765,6 +780,7 @@ pub const IRIS_WIPE: &str = "core.iris_wipe";
 pub const SIMPLE_CHOKER: &str = "core.simple_choker";
 pub const SPEED_LINES: &str = "core.speed_lines";
 pub const CROSS_GLARE: &str = "core.cross_glare";
+pub const CAMERA_SHAKE: &str = "core.camera_shake";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1256,6 +1272,18 @@ impl Effect {
                 ("angle", vec![angle], -3600.0, 3600.0),
                 ("intensity", vec![intensity], 0.0, 10.0),
             ],
+            Effect::CameraShake {
+                amount,
+                rotation,
+                hold,
+                seed,
+                ..
+            } => vec![
+                ("amount", vec![amount], 0.0, 1000.0),
+                ("rotation", vec![rotation], 0.0, 45.0),
+                ("hold", vec![hold], 1.0, 100.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1350,6 +1378,7 @@ impl Effect {
             Effect::SimpleChoker { choke } => *choke = scale(*choke),
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             Effect::CrossGlare { length, .. } => *length = scale(*length),
+            Effect::CameraShake { amount, .. } => *amount = scale(*amount),
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1446,6 +1475,7 @@ impl Effect {
             Effect::SimpleChoker { .. } => "Simple Choker",
             Effect::SpeedLines { .. } => "Speed Lines",
             Effect::CrossGlare { .. } => "Cross Glare",
+            Effect::CameraShake { .. } => "Camera Shake",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1513,6 +1543,7 @@ impl Effect {
             Effect::SimpleChoker { .. } => SIMPLE_CHOKER,
             Effect::SpeedLines { .. } => SPEED_LINES,
             Effect::CrossGlare { .. } => CROSS_GLARE,
+            Effect::CameraShake { .. } => CAMERA_SHAKE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2806,6 +2837,20 @@ pub(crate) fn apply_stack_at(
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectCrossGlare, || {
                     crate::layer_fx::cross_glare(source, *threshold, *length, *points, *angle, *intensity, encoded(color))
+                });
+                ox += r;
+                oy += r;
+            }
+            // D-162: the jolt grows the layer by its reach, which depends on the drawing's size.
+            Effect::CameraShake {
+                amount,
+                rotation,
+                hold,
+                seed,
+                frame,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectCameraShake, || {
+                    crate::layer_fx::camera_shake(source, [*amount, *rotation, *hold, *seed], *frame, (ox, oy))
                 });
                 ox += r;
                 oy += r;

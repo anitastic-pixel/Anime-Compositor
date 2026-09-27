@@ -594,6 +594,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 color: "#ffffff".to_string(),
             },
         ),
+        (
+            "Camera Shake, as it starts",
+            Effect::CameraShake {
+                amount: 10.0,
+                rotation: 0.0,
+                hold: 1.0,
+                seed: 0.0,
+                frame: 0,
+            },
+        ),
     ]
 }
 
