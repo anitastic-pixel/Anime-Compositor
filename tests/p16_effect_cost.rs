@@ -393,6 +393,10 @@ fn cases() -> Vec<(&'static str, Effect)> {
             "Posterize, six levels",
             Effect::Posterize { levels: 6.0 },
         ),
+        (
+            "Threshold, at the middle",
+            Effect::Threshold { level: 128.0 },
+        ),
     ]
 }
 

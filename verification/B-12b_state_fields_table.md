@@ -161,5 +161,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - reds, yellows, greens, cyans, blues, magentas - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.posterize` is an effect this build has | added | added | pass |
 | and the settings it sends for it - levels - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.threshold` is an effect this build has | added | added | pass |
+| and the settings it sends for it - level - are the ones the command reads | accepted | accepted | pass |
 
-**141 of 141 checks pass.**
+**143 of 143 checks pass.**

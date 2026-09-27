@@ -1017,6 +1017,7 @@
         <option value="core.brightness_contrast">Brightness & Contrast</option>
         <option value="core.black_white">Black & White</option>
         <option value="core.posterize">Posterize</option>
+        <option value="core.threshold">Threshold</option>
       </select>
     </div>
   </section>
@@ -6443,6 +6444,7 @@ const EFFECT_NAMES = {
   'core.brightness_contrast': 'Brightness & Contrast',
   'core.black_white': 'Black & White',
   'core.posterize': 'Posterize',
+  'core.threshold': 'Threshold',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -6586,6 +6588,8 @@ const EFFECT_PARAMS = {
   'core.black_white': [['reds', 'Reds', 1, 1, '% lightness, -200 to 300'], ['yellows', 'Yellows', 1, 1, '% lightness, -200 to 300'], ['greens', 'Greens', 1, 1, '% lightness, -200 to 300'], ['cyans', 'Cyans', 1, 1, '% lightness, -200 to 300'], ['blues', 'Blues', 1, 1, '% lightness, -200 to 300'], ['magentas', 'Magentas', 1, 1, '% lightness, -200 to 300']],
   // D-137.
   'core.posterize': [['levels', 'Levels', 1, 1, 'steps per channel, 2 to 256']],
+  // D-138.
+  'core.threshold': [['level', 'Level', 1, 1, 'lightness of 255 that turns white, 0 to 255']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

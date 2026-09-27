@@ -582,7 +582,7 @@ B-79 / Black & White, D-136, the third of the third batch of thirty: the picture
 
 B-80 / Posterize, D-137, the fourth of the third batch of thirty: each colour channel cut to a few flat steps. **B-80a is written on 2026-09-26**: `verification/B-80a proposal/`, D-137 in document 14, the rule in document 21, FX-POSTER-001 to 018 in document 25 from `tools/posterize_reference.py`, which writes `Fixtures/posterize/`. **B-80b is built on 2026-09-26**: `src/grade.rs`, the Posterize card, `tests/b80_posterize.rs` writing `verification/B-80_posterize_table.md`, 78 of 78, worst 1.9e-7; the owner's playtest is `verification/B-80_posterize_playtest.md`.
 
-B-81 / Threshold, D-138, the fifth of the third batch of thirty: every pixel made black or white by its lightness. **B-81a is written on 2026-09-26**: `verification/B-81a proposal/`, D-138 in document 14, the rule in document 21, FX-THRESH-001 to 019 in document 25 from `tools/threshold_reference.py`, which writes `Fixtures/threshold/`. **B-81b, the build, is next.**
+B-81 / Threshold, D-138, the fifth of the third batch of thirty: every pixel made black or white by its lightness. **B-81a is written on 2026-09-26**: `verification/B-81a proposal/`, D-138 in document 14, the rule in document 21, FX-THRESH-001 to 019 in document 25 from `tools/threshold_reference.py`, which writes `Fixtures/threshold/`. **B-81b is built on 2026-09-26**: `src/grade.rs`, the Threshold card, `tests/b81_threshold.rs` writing `verification/B-81_threshold_table.md`, 75 of 75, worst 1.9e-7, with FX-THRESH-019 in dispute under D-164, proposed; the owner's playtest is `verification/B-81_threshold_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

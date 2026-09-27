@@ -179,6 +179,23 @@ impl Table {
         );
     }
 
+    /// A fixture case the build does not follow, pending `decision`: the file is refused on
+    /// opening, as every effect's number written as a word is, where the case expects it kept.
+    pub fn in_dispute(&mut self, file: &str, case: &str, decision: &str) {
+        let refused = persist::load(&self.root.join(file)).err();
+        self.row(
+            &format!(
+                "{case}, in dispute ({decision}): the build refuses {file} as a fault in its \
+                 shape, as it does a number written as a word in every effect; the case expects \
+                 it kept with a warning"
+            ),
+            &refused
+                .as_ref()
+                .map_or("opened".to_string(), |d| d.message.clone()),
+            refused.is_some(),
+        );
+    }
+
     /// Each command is refused with a sentence and leaves the effect as it was.
     pub fn refused(&mut self, document: &mut Document, commands: Vec<(&str, Command)>) {
         let held = settings(document);

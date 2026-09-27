@@ -556,3 +556,13 @@ pub(crate) fn posterize(source: &mut WorkingBuffer, levels: f64) {
     let n = levels.floor();
     grade_pixels(source, false, |_, e| e.map(|v| (v * n + 1e-4).floor().min(n - 1.0) / (n - 1.0)))
 }
+
+/// The encoded luma of an encoded colour (D-130's L, the third batch's `Y(e)`).
+fn luma(e: [f64; 3]) -> f64 {
+    0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2]
+}
+
+/// D-138: white where the encoded luma reaches `level` of 255, else black.
+pub(crate) fn threshold(source: &mut WorkingBuffer, level: f64) {
+    grade_pixels(source, false, |_, e| [if 255.0 * luma(e) + 1e-4 >= level { 1.0 } else { 0.0 }; 3])
+}

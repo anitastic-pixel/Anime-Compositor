@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -2965,6 +2965,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         }),
         // D-137: six steps per channel, a clear poster look.
         POSTERIZE => Some(Effect::Posterize { levels: 6.0 }),
+        // D-138: the middle, 128.
+        THRESHOLD => Some(Effect::Threshold { level: 128.0 }),
         _ => None,
     }
 }
@@ -3320,6 +3322,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         }),
         POSTERIZE => Ok(Effect::Posterize {
             levels: number("levels")?,
+        }),
+        THRESHOLD => Ok(Effect::Threshold {
+            level: number("level")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6212,7 +6217,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.light_rays, core.exposure_flicker, core.vignette, \
                              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
                              core.color_balance, core.offset, core.light_wrap, core.invert, \
-                             core.brightness_contrast, core.black_white or core.posterize."
+                             core.brightness_contrast, core.black_white, core.posterize or \
+                             core.threshold."
                                 .to_string(),
                         );
                     };
@@ -6229,7 +6235,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.light_rays, core.exposure_flicker, core.vignette, \
                              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
                              core.color_balance, core.offset, core.light_wrap, core.invert, \
-                             core.brightness_contrast, core.black_white and core.posterize."
+                             core.brightness_contrast, core.black_white, core.posterize and \
+                             core.threshold."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -10207,7 +10214,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the thirty-seven are named",
+            "an effect type this build does not have is refused, and the thirty-eight are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -10217,7 +10224,7 @@ mod editing {
              core.distance_gradation, core.light_rays, core.exposure_flicker, core.vignette, \
              core.turbulent_displace, core.fractal_noise, core.gradient_map, \
              core.color_balance, core.offset, core.light_wrap, core.invert, \
-             core.brightness_contrast, core.black_white and core.posterize.",
+             core.brightness_contrast, core.black_white, core.posterize and core.threshold.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -10230,7 +10237,7 @@ mod editing {
              core.chromatic_aberration, core.distance_gradation, core.light_rays, \
              core.exposure_flicker, core.vignette, core.turbulent_displace, core.fractal_noise, \
              core.gradient_map, core.color_balance, core.offset, core.light_wrap, core.invert, \
-             core.brightness_contrast, core.black_white or core.posterize.",
+             core.brightness_contrast, core.black_white, core.posterize or core.threshold.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22601,6 +22608,8 @@ mod contract {
         ("core.black_white", &[("reds", "120"), ("yellows", "110"), ("greens", "-10"), ("cyans", "-50"), ("blues", "-50"), ("magentas", "120")]),
         // D-137: the levels.
         ("core.posterize", &[("levels", "16")]),
+        // D-138: the level.
+        ("core.threshold", &[("level", "172")]),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

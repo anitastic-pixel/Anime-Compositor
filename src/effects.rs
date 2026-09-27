@@ -496,6 +496,9 @@ pub enum Effect {
     },
     /// D-137: `levels`, 2 to 256 steps per channel; only its whole part counts.
     Posterize { levels: f64 },
+    /// D-138: `level`, 0 to 255: a pixel whose lightness is at or above it turns white, the rest
+    /// black.
+    Threshold { level: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -539,6 +542,7 @@ pub const INVERT: &str = "core.invert";
 pub const BRIGHTNESS_CONTRAST: &str = "core.brightness_contrast";
 pub const BLACK_WHITE: &str = "core.black_white";
 pub const POSTERIZE: &str = "core.posterize";
+pub const THRESHOLD: &str = "core.threshold";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -840,6 +844,7 @@ impl Effect {
                 ("magentas", vec![magentas], -200.0, 300.0),
             ],
             Effect::Posterize { levels } => vec![("levels", vec![levels], 2.0, 256.0)],
+            Effect::Threshold { level } => vec![("level", vec![level], 0.0, 255.0)],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -973,6 +978,7 @@ impl Effect {
             Effect::BrightnessContrast { .. } => "Brightness & Contrast",
             Effect::BlackWhite { .. } => "Black & White",
             Effect::Posterize { .. } => "Posterize",
+            Effect::Threshold { .. } => "Threshold",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1016,6 +1022,7 @@ impl Effect {
             Effect::BrightnessContrast { .. } => BRIGHTNESS_CONTRAST,
             Effect::BlackWhite { .. } => BLACK_WHITE,
             Effect::Posterize { .. } => POSTERIZE,
+            Effect::Threshold { .. } => THRESHOLD,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2023,6 +2030,9 @@ pub(crate) fn apply_stack_at(
             }
             Effect::Posterize { levels } => crate::perf::time(crate::perf::Stage::EffectPosterize, || {
                 crate::grade::posterize(source, *levels)
+            }),
+            Effect::Threshold { level } => crate::perf::time(crate::perf::Stage::EffectThreshold, || {
+                crate::grade::threshold(source, *level)
             }),
         }
     }
