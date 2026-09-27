@@ -342,6 +342,16 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 5,
             },
         ),
+        (
+            "Gradient Map, sunset",
+            Effect::GradientMap {
+                shadow_color: "#2a1650".to_string(),
+                midtone_color: "#c85a50".to_string(),
+                highlight_color: "#ffe6b4".to_string(),
+                midpoint: 50.0,
+                amount: 100.0,
+            },
+        ),
     ]
 }
 

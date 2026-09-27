@@ -1268,6 +1268,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blend".into(), J::from(blend.as_str()));
         }
+        Effect::GradientMap {
+            shadow_color,
+            midtone_color,
+            highlight_color,
+            midpoint,
+            amount,
+        } => {
+            params.insert("shadow_color".into(), J::from(shadow_color.as_str()));
+            params.insert("midtone_color".into(), J::from(midtone_color.as_str()));
+            params.insert("highlight_color".into(), J::from(highlight_color.as_str()));
+            params.insert("midpoint".into(), num(*midpoint));
+            params.insert("amount".into(), num(*amount));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1671,6 +1684,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "speed",
         "contrast",
         "brightness",
+        "midpoint",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2481,6 +2495,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::VIGNETTE,
                 crate::effects::TURBULENT_DISPLACE,
                 crate::effects::FRACTAL_NOISE,
+                crate::effects::GRADIENT_MAP,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2708,6 +2723,16 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     opacity: effect_number(params, "opacity", &at)?,
                     blend: effect_word(params, "blend", &at)?,
                     frame: 0,
+                }),
+                // D-129: the colours are read in small letters, as a new colour is.
+                crate::effects::GRADIENT_MAP => Some(crate::effects::Effect::GradientMap {
+                    shadow_color: effect_word(params, "shadow_color", &at)?.to_ascii_lowercase(),
+                    midtone_color: effect_word(params, "midtone_color", &at)?
+                        .to_ascii_lowercase(),
+                    highlight_color: effect_word(params, "highlight_color", &at)?
+                        .to_ascii_lowercase(),
+                    midpoint: effect_number(params, "midpoint", &at)?,
+                    amount: effect_number(params, "amount", &at)?,
                 }),
                 _ => None,
             };

@@ -447,6 +447,15 @@ pub enum Effect {
         blend: String,
         frame: i32,
     },
+    /// D-129: `shadow_color`, `midtone_color` and `highlight_color`, `#rrggbb`, kept as written
+    /// so a wrong one is reported; `midpoint`, 1 to 99; and `amount`, 0 to 100.
+    GradientMap {
+        shadow_color: String,
+        midtone_color: String,
+        highlight_color: String,
+        midpoint: f64,
+        amount: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -482,6 +491,7 @@ pub const EXPOSURE_FLICKER: &str = "core.exposure_flicker";
 pub const VIGNETTE: &str = "core.vignette";
 pub const TURBULENT_DISPLACE: &str = "core.turbulent_displace";
 pub const FRACTAL_NOISE: &str = "core.fractal_noise";
+pub const GRADIENT_MAP: &str = "core.gradient_map";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -745,6 +755,12 @@ impl Effect {
                 ("seed", vec![seed], 0.0, 100000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::GradientMap {
+                midpoint, amount, ..
+            } => vec![
+                ("midpoint", vec![midpoint], 1.0, 99.0),
+                ("amount", vec![amount], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -866,6 +882,7 @@ impl Effect {
             Effect::Vignette { .. } => "Vignette",
             Effect::TurbulentDisplace { .. } => "Turbulent Displace",
             Effect::FractalNoise { .. } => "Fractal Noise",
+            Effect::GradientMap { .. } => "Gradient Map",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -901,6 +918,7 @@ impl Effect {
             Effect::Vignette { .. } => VIGNETTE,
             Effect::TurbulentDisplace { .. } => TURBULENT_DISPLACE,
             Effect::FractalNoise { .. } => FRACTAL_NOISE,
+            Effect::GradientMap { .. } => GRADIENT_MAP,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1206,6 +1224,14 @@ impl Effect {
                 ..
             } => hex_fault("Fractal Noise", "dark colour", dark_color)
                 .or_else(|| hex_fault("Fractal Noise", "light colour", light_color)),
+            Effect::GradientMap {
+                shadow_color,
+                midtone_color,
+                highlight_color,
+                ..
+            } => hex_fault("Gradient Map", "shadow colour", shadow_color)
+                .or_else(|| hex_fault("Gradient Map", "midtone colour", midtone_color))
+                .or_else(|| hex_fault("Gradient Map", "highlight colour", highlight_color)),
             _ => None,
         };
         own.or_else(|| {
@@ -1830,6 +1856,20 @@ pub(crate) fn apply_stack_at(
                     crate::grade::fractal_noise(source, &f, (ox, oy))
                 })
             }
+            Effect::GradientMap {
+                shadow_color,
+                midtone_color,
+                highlight_color,
+                midpoint,
+                amount,
+            } => crate::perf::time(crate::perf::Stage::EffectGradientMap, || {
+                crate::grade::gradient_map(
+                    source,
+                    [shadow_color, midtone_color, highlight_color].map(|c| encoded(c)),
+                    *midpoint,
+                    *amount,
+                )
+            }),
         }
     }
     (ox, oy)
