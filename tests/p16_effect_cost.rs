@@ -232,6 +232,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 0,
             },
         ),
+        (
+            "Chromatic Aberration, amount 3",
+            Effect::ChromaticAberration {
+                amount: 3.0,
+                center: [50.0, 50.0],
+            },
+        ),
     ]
 }
 

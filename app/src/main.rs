@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -2853,6 +2853,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             animate: "on".to_string(),
             frame: 0,
         }),
+        // D-120: a slight split about the middle.
+        CHROMATIC_ABERRATION => Some(Effect::ChromaticAberration {
+            amount: 3.0,
+            center: [50.0, 50.0],
+        }),
         _ => None,
     }
 }
@@ -3096,6 +3101,10 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             seed: number("seed")?,
             animate: word("animate")?,
             frame: 0,
+        }),
+        CHROMATIC_ABERRATION => Ok(Effect::ChromaticAberration {
+            amount: number("amount")?,
+            center: pair("center")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -5983,8 +5992,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.line_recolor, core.directional_blur, core.select_color, \
                              core.line_width, core.radial_blur, core.bloom, core.color_key, \
                              core.curves, core.levels, core.hue_saturation, core.gradient, \
-                             core.drop_shadow, core.lens_blur, core.rim_light, core.outline or \
-                             core.noise."
+                             core.drop_shadow, core.lens_blur, core.rim_light, core.outline, \
+                             core.noise or core.chromatic_aberration."
                                 .to_string(),
                         );
                     };
@@ -5996,7 +6005,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.directional_blur, core.select_color, core.line_width, \
                              core.radial_blur, core.bloom, core.color_key, core.curves, \
                              core.levels, core.hue_saturation, core.gradient, core.drop_shadow, \
-                             core.lens_blur, core.rim_light, core.outline and core.noise."
+                             core.lens_blur, core.rim_light, core.outline, core.noise and \
+                             core.chromatic_aberration."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -9974,13 +9984,13 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the twenty-two are named",
+            "an effect type this build does not have is refused, and the twenty-three are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
              core.radial_blur, core.bloom, core.color_key, core.curves, core.levels, \
              core.hue_saturation, core.gradient, core.drop_shadow, core.lens_blur, \
-             core.rim_light, core.outline and core.noise.",
+             core.rim_light, core.outline, core.noise and core.chromatic_aberration.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -9989,7 +9999,8 @@ mod editing {
              core.selective_color_blur, core.glow, core.line_recolor, core.directional_blur, \
              core.select_color, core.line_width, core.radial_blur, core.bloom, core.color_key, \
              core.curves, core.levels, core.hue_saturation, core.gradient, core.drop_shadow, \
-             core.lens_blur, core.rim_light, core.outline or core.noise.",
+             core.lens_blur, core.rim_light, core.outline, core.noise or \
+             core.chromatic_aberration.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22238,6 +22249,11 @@ mod contract {
                 ("seed", "42"),
                 ("animate", "off"),
             ],
+        ),
+        // D-120: the amount and the centre.
+        (
+            "core.chromatic_aberration",
+            &[("amount", "7"), ("center", "30,70")],
         ),
     ];
 

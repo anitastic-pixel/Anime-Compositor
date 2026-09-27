@@ -544,7 +544,7 @@ B-61 / Outline, D-118, the eighth of the batch of ten: a coloured line round the
 
 B-62 / Noise, D-119, the ninth of the batch of ten: film grain, the same on every run for a seed, moving or held. **B-62a is written on 2026-09-26**: `verification/B-62a proposal/`, D-119 in document 14, the rule in document 21, FX-NOISE-001 to 018 in document 25 from `tools/noise_reference.py`, which writes `Fixtures/noise/`. **B-62b is built on 2026-09-26**: `src/grade.rs`, the Noise card, `tests/b62_noise.rs` writing `verification/B-62_noise_table.md`, 83 of 83, worst 2.2e-7; the owner's playtest is `verification/B-62_noise_playtest.md`.
 
-B-63 / Chromatic Aberration, D-120, the last of the batch of ten: red and blue split apart about a centre, as a lens does. **B-63a is written on 2026-09-26**: `verification/B-63a proposal/`, D-120 in document 14, the rule in document 21, FX-CHROMA-001 to 016 in document 25 from `tools/chromatic_aberration_reference.py`, which writes `Fixtures/chromatic_aberration/`. **B-63b, the build, is next.**
+B-63 / Chromatic Aberration, D-120, the last of the batch of ten: red and blue split apart about a centre, as a lens does. **B-63a is written on 2026-09-26**: `verification/B-63a proposal/`, D-120 in document 14, the rule in document 21, FX-CHROMA-001 to 016 in document 25 from `tools/chromatic_aberration_reference.py`, which writes `Fixtures/chromatic_aberration/`. **B-63b is built on 2026-09-26**: `src/layer_fx.rs`, the Chromatic Aberration card, `tests/b63_chromatic_aberration.rs` writing `verification/B-63_chromatic_aberration_table.md`, 68 of 68, worst 2.5e-7; the owner's playtest is `verification/B-63_chromatic_aberration_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

@@ -346,6 +346,9 @@ pub enum Effect {
         animate: String,
         frame: i32,
     },
+    /// D-120: `amount`, 0 to 100 pixels, how far red and blue each move at the drawing's
+    /// corner; and `center`, per cent of the drawing's width and height, -1000 to 1000.
+    ChromaticAberration { amount: f64, center: [f64; 2] },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -374,6 +377,7 @@ pub const LENS_BLUR: &str = "core.lens_blur";
 pub const RIM_LIGHT: &str = "core.rim_light";
 pub const OUTLINE: &str = "core.outline";
 pub const NOISE: &str = "core.noise";
+pub const CHROMATIC_ABERRATION: &str = "core.chromatic_aberration";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -545,6 +549,10 @@ impl Effect {
                 ("amount", vec![amount], 0.0, 100.0),
                 ("seed", vec![seed], 0.0, 100000.0),
             ],
+            Effect::ChromaticAberration { amount, center } => vec![
+                ("amount", vec![amount], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -602,6 +610,7 @@ impl Effect {
                 *radius = scale(*radius);
                 *length = scale(*length);
             }
+            Effect::ChromaticAberration { amount, .. } => *amount = scale(*amount),
             Effect::Outline {
                 width, softness, ..
             } => {
@@ -650,6 +659,7 @@ impl Effect {
             Effect::RimLight { .. } => "Rim Light",
             Effect::Outline { .. } => "Outline",
             Effect::Noise { .. } => "Noise",
+            Effect::ChromaticAberration { .. } => "Chromatic Aberration",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -678,6 +688,7 @@ impl Effect {
             Effect::RimLight { .. } => RIM_LIGHT,
             Effect::Outline { .. } => OUTLINE,
             Effect::Noise { .. } => NOISE,
+            Effect::ChromaticAberration { .. } => CHROMATIC_ABERRATION,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1392,6 +1403,11 @@ pub fn apply_stack(
             } => crate::perf::time(crate::perf::Stage::EffectNoise, || {
                 crate::grade::noise(source, *amount, mode == "color", *seed, *frame, (ox, oy))
             }),
+            Effect::ChromaticAberration { amount, center } => {
+                crate::perf::time(crate::perf::Stage::EffectChromaticAberration, || {
+                    crate::layer_fx::chromatic_aberration(source, *amount, *center, (ox, oy))
+                })
+            }
         }
     }
     (ox, oy)

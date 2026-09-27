@@ -1,8 +1,9 @@
-//! D-115's drop shadow, D-116's lens blur, D-117's rim light and D-118's outline: document
-//! 21's rules, on a layer's own pixels.
+//! D-115's drop shadow, D-116's lens blur, D-117's rim light, D-118's outline and D-120's
+//! chromatic aberration: document 21's rules, on a layer's own pixels.
 //!
-//! This program's own methods, modelled on After Effects' Drop Shadow, Camera Lens Blur and
-//! Stroke and on rim lighting as compositors build it from a shifted matte; nothing is ported. Each
+//! This program's own methods, modelled on After Effects' Drop Shadow, Camera Lens Blur,
+//! Stroke and Optics Compensation and on rim lighting as compositors build it from a shifted
+//! matte; nothing is ported. Each
 //! `tools/<name>_reference.py` is the same rule worked a second way, and each
 //! `tests/b5x_<name>.rs` holds it to its numbers.
 
@@ -269,4 +270,38 @@ pub(crate) fn outline(
         });
     *source = ring;
     g
+}
+
+/// D-120: red drawn a little larger and blue a little smaller about `center`, per cent of the
+/// drawing's own size (its corner at `origin` in `source` after the effects above grew it), so
+/// that each moves `amount` pixels at the drawing's corner. Green is each pixel's own and the
+/// covering the largest of the three. The layer does not grow; amount 0 changes nothing. The
+/// settings are already valid.
+pub(crate) fn chromatic_aberration(
+    source: &mut WorkingBuffer,
+    amount: f64,
+    center: [f64; 2],
+    origin: (usize, usize),
+) {
+    if amount == 0.0 {
+        return;
+    }
+    let (cx, cy) = crate::effects::radial_center(center, source, origin);
+    let w0 = (source.width() - 2 * origin.0) as f64;
+    let h0 = (source.height() - 2 * origin.1) as f64;
+    let k = amount / ((w0 * w0 + h0 * h0).sqrt() / 2.0);
+    let drawing = source.clone();
+    let w = source.width();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (dx, dy) = ((i % w) as f64 + 0.5 - cx, (i / w) as f64 + 0.5 - cy);
+            let red = sample_bilinear(&drawing, cx + dx * (1.0 - k), cy + dy * (1.0 - k));
+            let blue = sample_bilinear(&drawing, cx + dx * (1.0 + k), cy + dy * (1.0 + k));
+            px[0] = red[0];
+            px[2] = blue[2];
+            px[3] = px[3].max(red[3]).max(blue[3]);
+        });
 }
