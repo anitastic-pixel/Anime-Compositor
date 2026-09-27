@@ -465,6 +465,14 @@ pub enum Effect {
     },
     /// D-131: `shift`, x then y in pixels, each -100000 to 100000, slid with wrap-around.
     Offset { shift: [f64; 2] },
+    /// D-132: `width`, 0 to 500, how far in from the layer's edge the light reaches; `intensity`,
+    /// 0 to 100 per cent up to 400; and `blend`, "screen" or "add", kept as written so a wrong
+    /// one is reported. It reads the frame beneath the layer, so the renderer runs it.
+    LightWrap {
+        width: f64,
+        intensity: f64,
+        blend: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -503,6 +511,7 @@ pub const FRACTAL_NOISE: &str = "core.fractal_noise";
 pub const GRADIENT_MAP: &str = "core.gradient_map";
 pub const COLOR_BALANCE: &str = "core.color_balance";
 pub const OFFSET: &str = "core.offset";
+pub const LIGHT_WRAP: &str = "core.light_wrap";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -784,6 +793,12 @@ impl Effect {
             Effect::Offset { shift } => {
                 vec![("shift", shift.iter_mut().collect(), -100000.0, 100000.0)]
             }
+            Effect::LightWrap {
+                width, intensity, ..
+            } => vec![
+                ("width", vec![width], 0.0, 500.0),
+                ("intensity", vec![intensity], 0.0, 400.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -869,6 +884,8 @@ impl Effect {
                 *distance = scale(*distance);
                 *softness = scale(*softness);
             }
+            // D-132: so is the wrap's width.
+            Effect::LightWrap { width, .. } => *width = scale(*width),
             // D-131: the shift is a distance, so a draft slides by its share.
             Effect::Offset { shift } => *shift = shift.map(&scale),
             _ => {}
@@ -910,6 +927,7 @@ impl Effect {
             Effect::GradientMap { .. } => "Gradient Map",
             Effect::ColorBalance { .. } => "Color Balance",
             Effect::Offset { .. } => "Offset",
+            Effect::LightWrap { .. } => "Light Wrap",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -948,6 +966,7 @@ impl Effect {
             Effect::GradientMap { .. } => GRADIENT_MAP,
             Effect::ColorBalance { .. } => COLOR_BALANCE,
             Effect::Offset { .. } => OFFSET,
+            Effect::LightWrap { .. } => LIGHT_WRAP,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1274,6 +1293,11 @@ impl Effect {
                         tone.len()
                     )
                 }),
+            Effect::LightWrap { blend, .. } if !["screen", "add"].contains(&blend.as_str()) => {
+                Some(format!(
+                    "Light Wrap's blend is \"screen\" or \"add\", and this is \"{blend}\"."
+                ))
+            }
             _ => None,
         };
         own.or_else(|| {
@@ -1923,6 +1947,10 @@ pub(crate) fn apply_stack_at(
             Effect::Offset { shift } => crate::perf::time(crate::perf::Stage::EffectOffset, || {
                 crate::layer_fx::offset(source, *shift)
             }),
+            // D-132: not here. The wrap reads the frame beneath the layer, so the renderer runs
+            // it as the layer is drawn (`render::wrap_layer`). In the layer's own space, and on
+            // an adjustment layer, which has no drawing of its own, it changes nothing.
+            Effect::LightWrap { .. } => {}
         }
     }
     (ox, oy)

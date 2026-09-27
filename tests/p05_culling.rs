@@ -140,6 +140,7 @@ fn a_layer_smaller_than_the_frame() -> (usize, usize, usize) {
             adjust: None,
             nested: None,
             on_card: None,
+            wrap: Vec::new(),
         }],
     };
     let tile = tile_size(PreviewQuality::Full);

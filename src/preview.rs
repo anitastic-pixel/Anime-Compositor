@@ -128,6 +128,10 @@ pub fn scale_plan(plan: FramePlan, quality: PreviewQuality) -> FramePlan {
                 for instance in layer.adjust.iter_mut().flatten() {
                     instance.effect.scale_distances(|d| d * s);
                 }
+                // D-132: as does a Light Wrap's width.
+                for instance in &mut layer.wrap {
+                    instance.effect.scale_distances(|d| d * s);
+                }
                 layer
             })
             .collect(),

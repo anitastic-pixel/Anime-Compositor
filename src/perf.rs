@@ -128,6 +128,8 @@ pub enum Stage {
     EffectColorBalance,
     /// D-131's offset, the buffer slid round.
     EffectOffset,
+    /// D-132's light wrap, as the layer is drawn onto the frame.
+    EffectLightWrap,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -145,7 +147,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 48] = [
+    pub const ALL: [Stage; 49] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -187,6 +189,7 @@ impl Stage {
         Stage::EffectGradientMap,
         Stage::EffectColorBalance,
         Stage::EffectOffset,
+        Stage::EffectLightWrap,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -240,6 +243,7 @@ impl Stage {
             Stage::EffectGradientMap => "effect: gradient map",
             Stage::EffectColorBalance => "effect: color balance",
             Stage::EffectOffset => "effect: offset",
+            Stage::EffectLightWrap => "effect: light wrap",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

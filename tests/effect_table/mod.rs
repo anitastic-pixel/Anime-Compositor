@@ -162,7 +162,10 @@ impl Table {
     pub fn shape_refused(&mut self, file: &str, what: &str, parameters: &str) {
         let mut json: J =
             serde_json::from_str(&fs::read_to_string(self.root.join(file)).unwrap()).unwrap();
-        json["compositions"][0]["layers"][0]["effects"][0]["parameters"] =
+        // The `art` layer, which is not the bottom one when a case has a layer beneath it.
+        let layers = json["compositions"][0]["layers"].as_array().unwrap();
+        let art = layers.iter().position(|l| l["id"] == "art").unwrap_or(0);
+        json["compositions"][0]["layers"][art]["effects"][0]["parameters"] =
             serde_json::from_str(parameters).unwrap();
         let path = std::env::temp_dir().join(format!("effect_table_shape_{}.json", self.checks));
         fs::write(&path, json.to_string()).unwrap();

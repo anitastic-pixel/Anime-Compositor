@@ -436,6 +436,7 @@ fn matte(report: &mut Report) {
             adjust: None,
             nested: None,
             on_card: None,
+            wrap: Vec::new(),
         }],
     };
     let out = render(&plan, 2);
@@ -465,6 +466,7 @@ fn matte(report: &mut Report) {
             adjust: None,
             nested: None,
             on_card: None,
+            wrap: Vec::new(),
         }],
     };
     let out_bright = render(&plan, 2);
@@ -503,6 +505,7 @@ fn matte(report: &mut Report) {
                 adjust: None,
                 nested: None,
                 on_card: None,
+                wrap: Vec::new(),
             }],
         };
         report.check(name, q(expected), q(pixel(&render(&plan, 2), 1, 1)));
@@ -537,6 +540,7 @@ fn matte(report: &mut Report) {
             adjust: None,
             nested: None,
             on_card: None,
+            wrap: Vec::new(),
         }],
     };
     let shifted = render(&plan, 2);

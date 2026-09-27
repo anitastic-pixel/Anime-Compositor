@@ -324,6 +324,16 @@ fn plan_inside(
                     .then(|| layer.effects.iter().map(|i| i.at(frame)).collect()),
                 nested: resolved.nested,
                 on_card: resolved.on_card,
+                wrap: if layer.is_adjustment() {
+                    Vec::new()
+                } else {
+                    layer
+                        .effects
+                        .iter()
+                        .filter(|i| matches!(i.effect, crate::effects::Effect::LightWrap { .. }))
+                        .map(|i| i.at(frame))
+                        .collect()
+                },
             },
         ));
     }
@@ -862,6 +872,7 @@ fn resolve_layer(
                         adjust: None,
                         nested: None,
                         on_card: None,
+                        wrap: Vec::new(),
                     }],
                 },
                 quality,

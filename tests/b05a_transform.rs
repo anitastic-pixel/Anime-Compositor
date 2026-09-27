@@ -102,6 +102,7 @@ fn one_layer(source: WorkingBuffer, transform: Affine) -> Vec<LayerDraw> {
         adjust: None,
         nested: None,
         on_card: None,
+        wrap: Vec::new(),
     }]
 }
 
@@ -479,6 +480,7 @@ fn b05a_transform_fixtures() {
                 adjust: None,
                 nested: None,
                 on_card: None,
+                wrap: Vec::new(),
             }],
         ),
         5,
@@ -506,6 +508,7 @@ fn b05a_transform_fixtures() {
                     adjust: None,
                     nested: None,
                     on_card: None,
+                    wrap: Vec::new(),
                 }],
             ),
             5,
@@ -643,6 +646,7 @@ fn reference_plan(width: usize, height: usize) -> FramePlan {
             adjust: None,
             nested: None,
             on_card: None,
+            wrap: Vec::new(),
         });
     }
     plan(width, height, layers)

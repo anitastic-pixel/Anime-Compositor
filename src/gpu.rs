@@ -2100,6 +2100,13 @@ impl Gpu {
                 "B-44 draws a frame with an adjustment layer (D-66) wholly on the CPU.".into(),
             ));
         }
+        if plan.layers.iter().any(|l| !l.wrap.is_empty()) {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: it has a Light Wrap, which the GPU does not draw yet.".into(),
+                "B-75 draws a frame with a Light Wrap (D-132) wholly on the CPU.".into(),
+            ));
+        }
         // B-47: a Bloom needs double precision, and room for its grown drawing, its halo and
         // its lines, which are never more than the grown width and height together. B-49: so
         // does a Directional Blur, which has no halo, (B-50) a Gaussian Blur, whose pass is

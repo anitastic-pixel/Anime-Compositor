@@ -1293,6 +1293,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::Offset { shift } => {
             params.insert("shift".into(), J::Array(shift.iter().map(|v| num(*v)).collect()));
         }
+        Effect::LightWrap {
+            width,
+            intensity,
+            blend,
+        } => {
+            params.insert("width".into(), num(*width));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("blend".into(), J::from(blend.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2526,6 +2535,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::GRADIENT_MAP,
                 crate::effects::COLOR_BALANCE,
                 crate::effects::OFFSET,
+                crate::effects::LIGHT_WRAP,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2771,6 +2781,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 }),
                 crate::effects::OFFSET => Some(crate::effects::Effect::Offset {
                     shift: effect_array(params, "shift", "two numbers, x then y", &at)?,
+                }),
+                crate::effects::LIGHT_WRAP => Some(crate::effects::Effect::LightWrap {
+                    width: effect_number(params, "width", &at)?,
+                    intensity: effect_number(params, "intensity", &at)?,
+                    blend: effect_word(params, "blend", &at)?,
                 }),
                 _ => None,
             };

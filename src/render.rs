@@ -213,6 +213,11 @@ pub struct LayerDraw {
     /// B-46, B-47: `Some` when the layer's stack ends in an effect left for the graphics card
     /// (`compose::plan_frame_for_card`): `source` is the drawing before it. The CPU runs it
     /// itself in [`render`], so a plan made for the card is the same frame on either.
+    /// D-132: the layer's Light Wraps at this frame, in stack order, disabled and bypassed ones
+    /// included. They read the frame beneath the layer, so they run as the layer is drawn onto
+    /// it ([`wrap_layer`]), after its other effects, mask, transform and matte and before its
+    /// opacity and blend. Empty for an adjustment layer, which has no drawing to wrap.
+    pub wrap: Vec<crate::effects::EffectInstance>,
     pub on_card: Option<OnCard>,
 }
 
@@ -497,12 +502,17 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
     }
     let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
     // D-66: the frame is drawn in segments, each ending at an adjustment layer, whose stack
-    // runs on the whole frame drawn so far before the next segment is drawn onto it.
+    // runs on the whole frame drawn so far before the next segment is drawn onto it. D-132: a
+    // layer with a Light Wrap that runs ends one too, as it reads the frame beneath it.
     let mut from = 0;
     for (index, layer) in plan.layers.iter().enumerate() {
         if let Some(stack) = &layer.adjust {
             render_layers(&plan.layers[from..index], &mut frame, tile_size, cull);
             adjust_frame(layer, stack, &mut frame);
+            from = index + 1;
+        } else if layer.wrap.iter().any(|i| i.enabled && i.effect.is_valid()) {
+            render_layers(&plan.layers[from..index], &mut frame, tile_size, cull);
+            wrap_layer(layer, &mut frame, tile_size, cull);
             from = index + 1;
         }
     }
@@ -564,6 +574,95 @@ fn adjust_frame(
                 for k in 0..4 {
                     let b = row[i + k];
                     row[i + k] = b + c * (e[k] - b);
+                }
+            }
+        });
+}
+
+/// D-132: a layer with a Light Wrap, drawn onto the frame drawn so far. The layer is placed
+/// first, through its transform and matte at full opacity, a picture the frame's size; each
+/// Light Wrap that runs lays the light of the frame beneath on its edges, in stack order; then
+/// the layer is drawn by its opacity and blend mode, as any layer is.
+///
+/// The bypasses were already reported when the plan was made, by the layer's own stack, where a
+/// Light Wrap does nothing.
+fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cull: bool) {
+    let mut placed = WorkingBuffer::transparent(frame.width(), frame.height());
+    let alone = LayerDraw {
+        opacity: 1.0,
+        blend: crate::model::BlendMode::Normal,
+        wrap: Vec::new(),
+        ..layer.clone()
+    };
+    render_layers(std::slice::from_ref(&alone), &mut placed, tile_size, cull);
+    for instance in layer.wrap.iter().filter(|i| i.enabled && i.effect.is_valid()) {
+        if let crate::effects::Effect::LightWrap {
+            width,
+            intensity,
+            blend,
+        } = &instance.effect
+        {
+            crate::perf::time(crate::perf::Stage::EffectLightWrap, || {
+                light_wrap(&mut placed, frame, *width, *intensity, blend == "add")
+            });
+        }
+    }
+    frame
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(placed.data().par_chunks_exact(4))
+        .for_each(|(dst, src)| {
+            let mut src = [src[0], src[1], src[2], src[3]];
+            if layer.opacity != 1.0 {
+                for c in &mut src {
+                    *c *= layer.opacity;
+                }
+            }
+            let under = [dst[0], dst[1], dst[2], dst[3]];
+            dst.copy_from_slice(&crate::composite::blend_pixel(layer.blend, src, under));
+        });
+}
+
+/// D-132's rule on the placed layer `l`, with `b` the frame beneath, both the frame's size.
+/// The light is `b` and the layer's covering each through document 21's Gaussian at a third of
+/// `width`, cut back to the frame: `w = intensity / 100 * (1 - covering) * light`. A pixel the
+/// layer does not cover, or that no light reaches, is left exactly as it is.
+// ponytail: the covering is blurred with its three empty colour channels, four times the work
+// it needs; a one-channel blur when a profile says the wrap is slow.
+fn light_wrap(l: &mut WorkingBuffer, b: &WorkingBuffer, width: f64, intensity: f64, add: bool) {
+    if intensity == 0.0 {
+        return;
+    }
+    let s = width / 3.0;
+    let mut light = b.clone();
+    let rl = crate::effects::blur(&mut light, s);
+    let mut cover = l.clone();
+    let rc = crate::effects::blur(&mut cover, s);
+    let k = intensity / 100.0;
+    let w = l.width();
+    l.data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3] as f64;
+                if a <= 0.0 {
+                    continue;
+                }
+                let reach = k * (1.0 - cover.pixel(x + rc, y + rc)[3] as f64);
+                let bb = light.pixel(x + rl, y + rl);
+                let lit: [f64; 3] = std::array::from_fn(|c| reach * bb[c] as f64);
+                if lit == [0.0; 3] {
+                    continue;
+                }
+                for c in 0..3 {
+                    let v = px[c] as f64 / a;
+                    let v = if add {
+                        v + lit[c]
+                    } else {
+                        1.0 - (1.0 - v) * (1.0 - lit[c].clamp(0.0, 1.0))
+                    };
+                    px[c] = (v * a) as f32;
                 }
             }
         });
