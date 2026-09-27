@@ -554,6 +554,8 @@ B-65 / The batch of ten on the graphics card, D-122, at the owner's "now proceed
 
 B-66 / Distance Gradation, D-123, the first of the second batch of ten: a colour shading in from the drawing's edge, darkest at the edge. **B-66a is written on 2026-09-26**: `verification/B-66a proposal/`, D-123 in document 14, the rule in document 21, FX-DISTGRAD-001 to 024 in document 25 from `tools/distance_gradation_reference.py`, which writes `Fixtures/distance_gradation/`. **B-66b, the build, is next.**
 
+B-67 / Light Rays, D-124, the second of the second batch of ten: rays streaming from the bright parts of the drawing away from a centre. **B-67a is written on 2026-09-26**: `verification/B-67a proposal/`, D-124 in document 14, the rule in document 21, FX-RAYS-001 to 024 in document 25 from `tools/light_rays_reference.py`, which writes `Fixtures/light_rays/`. **B-67b, the build, is next.**
+
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 
 This section is a plan, not a schedule. It was written on 2026-09-22 from `research/2026-09-22_github_reuse_survey.md`, which is research and authorises nothing. The owner asked whether anything already built could be branched from or taken in. The answer for whole applications is no, and it is recorded in document 30; the answer for parts is the four entries below, each of which stays PROPOSED until the owner accepts it by name in document 14.
