@@ -389,6 +389,10 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 magentas: 120.0,
             },
         ),
+        (
+            "Posterize, six levels",
+            Effect::Posterize { levels: 6.0 },
+        ),
     ]
 }
 

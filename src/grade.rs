@@ -550,3 +550,9 @@ pub(crate) fn black_white(source: &mut WorkingBuffer, w: [f64; 6]) {
         [g; 3]
     })
 }
+
+/// D-137: each channel cut to `levels` flat steps.
+pub(crate) fn posterize(source: &mut WorkingBuffer, levels: f64) {
+    let n = levels.floor();
+    grade_pixels(source, false, |_, e| e.map(|v| (v * n + 1e-4).floor().min(n - 1.0) / (n - 1.0)))
+}

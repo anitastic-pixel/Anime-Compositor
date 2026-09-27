@@ -136,6 +136,8 @@ pub enum Stage {
     EffectBrightnessContrast,
     /// D-136's black and white, per pixel.
     EffectBlackWhite,
+    /// D-137's posterize, per pixel.
+    EffectPosterize,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -153,7 +155,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 52] = [
+    pub const ALL: [Stage; 53] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -199,6 +201,7 @@ impl Stage {
         Stage::EffectInvert,
         Stage::EffectBrightnessContrast,
         Stage::EffectBlackWhite,
+        Stage::EffectPosterize,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -256,6 +259,7 @@ impl Stage {
             Stage::EffectInvert => "effect: invert",
             Stage::EffectBrightnessContrast => "effect: brightness & contrast",
             Stage::EffectBlackWhite => "effect: black & white",
+            Stage::EffectPosterize => "effect: posterize",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

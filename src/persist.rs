@@ -1318,6 +1318,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blues".into(), num(*blues));
             params.insert("magentas".into(), num(*magentas));
         }
+        Effect::Posterize { levels } => {
+            params.insert("levels".into(), num(*levels));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -1743,6 +1746,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "cyans",
         "blues",
         "magentas",
+        "levels",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2561,6 +2565,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                 crate::effects::INVERT,
                 crate::effects::BRIGHTNESS_CONTRAST,
                 crate::effects::BLACK_WHITE,
+                crate::effects::POSTERIZE,
             ]
             .contains(&type_id.as_str());
             let (plain, tracks) = if known {
@@ -2827,6 +2832,9 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     cyans: effect_number(params, "cyans", &at)?,
                     blues: effect_number(params, "blues", &at)?,
                     magentas: effect_number(params, "magentas", &at)?,
+                }),
+                crate::effects::POSTERIZE => Some(crate::effects::Effect::Posterize {
+                    levels: effect_number(params, "levels", &at)?,
                 }),
                 _ => None,
             };

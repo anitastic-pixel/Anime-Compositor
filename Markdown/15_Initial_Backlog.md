@@ -580,7 +580,7 @@ B-78 / Brightness & Contrast, D-135, the second of the third batch of thirty: th
 
 B-79 / Black & White, D-136, the third of the third batch of thirty: the picture turned grey, each of six colour ranges given its own lightness. **B-79a is written on 2026-09-26**: `verification/B-79a proposal/`, D-136 in document 14, the rule in document 21, FX-BW-001 to 022 in document 25 from `tools/black_white_reference.py`, which writes `Fixtures/black_white/`. **B-79b is built on 2026-09-26**: `src/grade.rs`, the Black & White card, `tests/b79_black_white.rs` writing `verification/B-79_black_white_table.md`, 84 of 84, worst 2.2e-7; the owner's playtest is `verification/B-79_black_white_playtest.md`.
 
-B-80 / Posterize, D-137, the fourth of the third batch of thirty: each colour channel cut to a few flat steps. **B-80a is written on 2026-09-26**: `verification/B-80a proposal/`, D-137 in document 14, the rule in document 21, FX-POSTER-001 to 018 in document 25 from `tools/posterize_reference.py`, which writes `Fixtures/posterize/`. **B-80b, the build, is next.**
+B-80 / Posterize, D-137, the fourth of the third batch of thirty: each colour channel cut to a few flat steps. **B-80a is written on 2026-09-26**: `verification/B-80a proposal/`, D-137 in document 14, the rule in document 21, FX-POSTER-001 to 018 in document 25 from `tools/posterize_reference.py`, which writes `Fixtures/posterize/`. **B-80b is built on 2026-09-26**: `src/grade.rs`, the Posterize card, `tests/b80_posterize.rs` writing `verification/B-80_posterize_table.md`, 78 of 78, worst 1.9e-7; the owner's playtest is `verification/B-80_posterize_playtest.md`.
 
 ## Reuse from open source, proposed on 2026-09-22 and not yet accepted
 

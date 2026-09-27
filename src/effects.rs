@@ -494,6 +494,8 @@ pub enum Effect {
         blues: f64,
         magentas: f64,
     },
+    /// D-137: `levels`, 2 to 256 steps per channel; only its whole part counts.
+    Posterize { levels: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -536,6 +538,7 @@ pub const LIGHT_WRAP: &str = "core.light_wrap";
 pub const INVERT: &str = "core.invert";
 pub const BRIGHTNESS_CONTRAST: &str = "core.brightness_contrast";
 pub const BLACK_WHITE: &str = "core.black_white";
+pub const POSTERIZE: &str = "core.posterize";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -836,6 +839,7 @@ impl Effect {
                 ("blues", vec![blues], -200.0, 300.0),
                 ("magentas", vec![magentas], -200.0, 300.0),
             ],
+            Effect::Posterize { levels } => vec![("levels", vec![levels], 2.0, 256.0)],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -968,6 +972,7 @@ impl Effect {
             Effect::Invert { .. } => "Invert",
             Effect::BrightnessContrast { .. } => "Brightness & Contrast",
             Effect::BlackWhite { .. } => "Black & White",
+            Effect::Posterize { .. } => "Posterize",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1010,6 +1015,7 @@ impl Effect {
             Effect::Invert { .. } => INVERT,
             Effect::BrightnessContrast { .. } => BRIGHTNESS_CONTRAST,
             Effect::BlackWhite { .. } => BLACK_WHITE,
+            Effect::Posterize { .. } => POSTERIZE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2015,6 +2021,9 @@ pub(crate) fn apply_stack_at(
                     crate::grade::black_white(source, [*reds, *yellows, *greens, *cyans, *blues, *magentas])
                 })
             }
+            Effect::Posterize { levels } => crate::perf::time(crate::perf::Stage::EffectPosterize, || {
+                crate::grade::posterize(source, *levels)
+            }),
         }
     }
     (ox, oy)
