@@ -5792,11 +5792,14 @@ const pathsNamed = (layer, kind) => (kind === 'shape' ? layer.shapes || [] : mas
 const pathAt = (layer, prop) => pathsNamed(layer, prop.split(':')[0])[prop.split(':')[1]];
 // B-108b: a shape's gradient point is named `shape:<n>:fill_start`, `fill_end`, `stroke_start` or
 // `stroke_end` wherever a property is named, as its path is. D-168 gives it keys and no expression.
-const isGrad = (prop) => /^shape:\d+:(fill|stroke)_(start|end)$/.test(prop);
+// B-109b: and a trim's numbers `trim_start`, `trim_end` and `trim_offset`, as D-169 gives them.
+const SHAPE_PROPS = ['fill_start', 'fill_end', 'stroke_start', 'stroke_end', 'trim_start', 'trim_end', 'trim_offset'];
+const isGrad = (prop) => /^shape:\d+:/.test(prop) && SHAPE_PROPS.includes(prop.split(':')[2]);
 function gradOf(layer, prop) {
   const [, at, which] = prop.split(':');
-  const [paint, end] = which.split('_');
-  const g = (((layer.shapes || [])[at] || {})[paint] || {}).gradient;
+  const [group, end] = which.split('_');
+  const shape = (layer.shapes || [])[at] || {};
+  const g = group === 'trim' ? shape.trim : (shape[group] || {}).gradient;
   return (g && g[end]) || {};
 }
 // A layer's properties: the six, each setting of its effects that has keys, and each path that has.
@@ -5808,13 +5811,13 @@ const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
     .filter((name) => keysOf(layer, fxName(fx, name)).length).map((name) => fxName(fx, name))))
     .concat(['mask', 'shape'].flatMap((kind) => pathsNamed(layer, kind).map((_, at) => kind + ':' + at))
       .filter((prop) => keysOf(layer, prop).length))
-    .concat((layer.shapes || []).flatMap((_, at) => ['fill_start', 'fill_end', 'stroke_start', 'stroke_end']
+    .concat((layer.shapes || []).flatMap((_, at) => SHAPE_PROPS
       .map((which) => 'shape:' + at + ':' + which)).filter((prop) => keysOf(layer, prop).length)));
 // What a property is called on screen: its own name, or the effect's and the setting's words.
 function propLabel(layer, prop) {
   if (isPath(prop)) return ((pathAt(layer, prop) || {}).name || prop) + ' path';
   if (isGrad(prop)) return ((layer.shapes || [])[prop.split(':')[1]] || {}).name + ' '
-    + prop.split(':')[2].replace('_', ' gradient ');
+    + prop.split(':')[2].replace(/^(fill|stroke)_/, '$1 gradient ').replace('trim_', 'trim ');
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
@@ -6328,6 +6331,11 @@ function drawInspector() {
         }));
         for (const end of ['start', 'end']) propRow(dl, layer, 'shape:' + at + ':' + what + '_' + end);
       }
+      // B-109b, D-169: Trim Paths, on or off, and its three numbers, keyed as a point is.
+      field(dl, 'Trim paths', '');
+      dl.lastChild.append(button(shape.trim ? 'On' : 'Off', !!shape.trim,
+        () => set('trim=' + (shape.trim ? 'off' : 'on'))));
+      if (shape.trim) for (const name of ['start', 'end', 'offset']) propRow(dl, layer, 'shape:' + at + ':trim_' + name);
     }
   }
   propRow(dl, layer, 'anchor');

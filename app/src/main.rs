@@ -798,19 +798,17 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                                 .collect::<Vec<_>>()),
                         );
                     }
-                    // B-108b: and every gradient point, under the name the page gives it, for the
-                    // reason the depth is here.
+                    // B-108b, B-109b: and every gradient point and trim number, under the name the
+                    // page gives it, for the reason the depth is here.
                     for (i, shape) in layer.shapes.iter().enumerate() {
-                        let paints = [
-                            ("fill", shape.fill.as_ref().and_then(|f| f.gradient.as_ref())),
-                            ("stroke", shape.stroke.as_ref().and_then(|s| s.gradient.as_ref())),
-                        ];
-                        for (paint, g) in paints {
-                            for (end, point) in g.iter().flat_map(|g| [("start", &g.start), ("end", &g.end)]) {
-                                if let Value::Vec2(x, y) = point.value_at(frame) {
-                                    at.insert(format!("shape:{i}:{paint}_{end}"), serde_json::json!([x, y]));
-                                }
-                            }
+                        let mut shape = shape.clone();
+                        for name in anime_compositor::shape::SHAPE_PROPERTIES {
+                            let now = match shape.property_mut(name).map(|p| p.value_at(frame)) {
+                                Some(Value::Vec2(x, y)) => serde_json::json!([x, y]),
+                                Some(Value::Scalar(n)) => serde_json::json!(n),
+                                None => continue,
+                            };
+                            at.insert(format!("shape:{i}:{name}"), now);
                         }
                     }
                     (layer.id.as_str().to_string(), serde_json::Value::Object(at))
@@ -5987,19 +5985,19 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         Err(said) => return Some(said),
                     }
                 }
-                // B-108b: and all five about a shape's gradient point.
+                // B-108b: and all five about a shape's gradient point or, since B-109b, trim.
                 "keyframe.add_remove"
                 | "keyframe.move"
                 | "keyframe.set_interp"
                 | "property.set_base"
                 | "property.drag_update"
-                    if parameter(query, "prop").as_deref().and_then(gradient_prop).is_some() =>
+                    if parameter(query, "prop").as_deref().and_then(shape_prop).is_some() =>
                 {
                     let which = parameter(query, "prop")
                         .as_deref()
-                        .and_then(gradient_prop)
+                        .and_then(shape_prop)
                         .expect("the guard above");
-                    match gradient_key_command(id, query, composition, layer, which) {
+                    match shape_key_command(id, query, composition, layer, which) {
                         Ok(command) => command,
                         Err(said) => return Some(said),
                     }
@@ -7584,50 +7582,42 @@ fn path_key_command(
     })
 }
 
-/// B-108b: `shape:<n>:fill_start` and its three siblings, `fill_end`, `stroke_start` and
-/// `stroke_end`, name a gradient's points wherever a request names a property, as `shape:<n>`
-/// names the path. `true, true` is the stroke's end.
-fn gradient_prop(prop: &str) -> Option<(usize, bool, bool)> {
-    let (at, which) = prop.strip_prefix("shape:")?.split_once(':')?;
-    let (paint, end) = which.split_once('_')?;
-    let stroke = match paint {
-        "fill" => false,
-        "stroke" => true,
-        _ => return None,
-    };
-    let end = match end {
-        "start" => false,
-        "end" => true,
-        _ => return None,
-    };
-    Some((at.parse().ok()?, stroke, end))
+/// B-108b: `shape:<n>:fill_start` and its siblings name a gradient's points wherever a request
+/// names a property, as `shape:<n>` names the path; B-109b adds `trim_start`, `trim_end` and
+/// `trim_offset`. The names are the core's `SHAPE_PROPERTIES`.
+fn shape_prop(prop: &str) -> Option<(usize, &'static str)> {
+    let (at, name) = prop.strip_prefix("shape:")?.split_once(':')?;
+    let name = anime_compositor::shape::SHAPE_PROPERTIES.into_iter().find(|n| *n == name)?;
+    Some((at.parse().ok()?, name))
 }
 
-/// B-108b: the five requests about a gradient's point, by the rules a layer's position keeps:
+/// B-108b: the five requests about a gradient's point, or since B-109b a trim's number, by the
+/// rules a layer's position keeps:
 /// a value on a point with no keys moves it, on a keyed one it is a key on that frame keeping
 /// the ease a key there had; the diamond adds a key holding where the point already is, or takes
 /// one off, the last one leaving the point where it was. The layer's shapes go back whole, as
 /// the one command the core has for them, and `Shape::problem` has the last word.
-fn gradient_key_command(
+fn shape_key_command(
     id: &str,
     query: Option<&str>,
     composition: Id,
     layer: &Layer,
-    (at, stroke, end): (usize, bool, bool),
+    (at, name): (usize, &str),
 ) -> Result<Command, String> {
     let mut shapes = layer.shapes.clone();
     let Some(shape) = shapes.get_mut(at) else {
         return Err(format!("{} has no shape {at}.", layer.name));
     };
-    let paint = if stroke { "stroke" } else { "fill" };
-    let gradient = match stroke {
-        false => shape.fill.as_mut().and_then(|f| f.gradient.as_mut()),
-        true => shape.stroke.as_mut().and_then(|s| s.gradient.as_mut()),
+    let called = shape.name.clone();
+    let (group, _) = name.split_once('_').expect("every name has one");
+    let trim = group == "trim";
+    let Some(point) = shape.property_mut(name) else {
+        return Err(match trim {
+            true => format!("\"{called}\" has no trim."),
+            false => format!("\"{called}\" has no {group} gradient."),
+        });
     };
-    let Some(gradient) = gradient else {
-        return Err(format!("\"{}\" has no {paint} gradient.", shape.name));
-    };
-    let point = if end { &mut gradient.end } else { &mut gradient.start };
+    let this = if trim { "This number" } else { "This point" };
     let frame = frame_parameter(query, if id == "keyframe.move" { "from" } else { "frame" })?;
     let key = |frame, value| Keyframe {
         frame,
@@ -7637,12 +7627,18 @@ fn gradient_key_command(
         kind: Default::default(),
         roving: false,
     };
-    let missing = || format!("This point has no key at frame {frame}.");
+    let missing = || format!("{this} has no key at frame {frame}.");
     match id {
         "property.set_base" | "property.drag_update" => {
             let value = parameter(query, "value")
-                .and_then(|text| property_value(Prop::Position, &text))
-                .ok_or_else(|| "Where should the point go? Say value=x,y.".to_string())?;
+                .and_then(|text| match trim {
+                    true => text.trim().parse().ok().map(Value::Scalar),
+                    false => property_value(Prop::Position, &text),
+                })
+                .ok_or_else(|| match trim {
+                    true => "What number? Say value=50.".to_string(),
+                    false => "Where should the point go? Say value=x,y.".to_string(),
+                })?;
             match point.keyframe_at(frame).cloned() {
                 _ if point.keyframes().is_empty() => point.set_base(value),
                 Some(was) => point.set_keyframe(Keyframe { value, ..was }),
@@ -7657,7 +7653,7 @@ fn gradient_key_command(
         "keyframe.move" => {
             let to = frame_parameter(query, "to")?;
             if to != frame && point.keyframe_at(to).is_some() {
-                return Err(format!("This point already has a key at frame {to}."));
+                return Err(format!("{this} already has a key at frame {to}."));
             }
             let was = point.remove_keyframe(frame).ok_or_else(missing)?;
             point.set_keyframe(Keyframe { frame: to, ..was });
@@ -7868,6 +7864,16 @@ fn shape_settings(
                 })
                 .collect::<Result<_, _>>()?;
         }
+    }
+    // B-109b, D-169: `trim` is on or off. Turned on, it is the whole path with no offset, so
+    // nothing changes on the picture until a number does.
+    match parameter(query, "trim").as_deref() {
+        None => {}
+        Some("on") => {
+            shape.trim.get_or_insert_with(anime_compositor::shape::Trim::whole);
+        }
+        Some("off") => shape.trim = None,
+        Some(text) => return Err(format!("\"{text}\" is not on or off.")),
     }
     if let Some(v) = number("fill_opacity", "an opacity")? {
         let Some(fill) = shape.fill.as_mut() else {
@@ -18119,6 +18125,145 @@ mod editing {
             &["## What this does not cover\n\nWhat the gradient looks like on the picture and \
                whether the panel feels right in the hand. That is \
                `verification/B-108_shape_gradient_playtest.md`, for a person."],
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// B-109b: D-169's trim paths from the window. The core's half is
+    /// `verification/B-109_shape_trim_table.md`; this is what the panel sends and what comes back.
+    #[test]
+    fn a_shape_is_trimmed_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        run(&viewer, "layer.add_shape");
+        let id = shown_layer(&viewer, "Shape Layer 1")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        run(
+            &viewer,
+            &format!("shape.add?layer={id}&points=100,100,0,0,0,0;300,100,0,0,0,0;300,300,0,0,0,0"),
+        );
+        // The trim as the page reads it off the document, in one line.
+        let trim = |viewer: &Mutex<Viewer>| {
+            let t = shown_layer(viewer, "Shape Layer 1")["shapes"][0]["trim"].clone();
+            if t.is_null() {
+                return "none".to_string();
+            }
+            ["start", "end", "offset"]
+                .map(|name| match t[name]["keyframes"].as_array() {
+                    Some(keys) if !keys.is_empty() => format!(
+                        "{name} keyed {}",
+                        keys.iter()
+                            .map(|k| format!("{}@{}", k["value"], k["frame"]))
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    ),
+                    _ => format!("{name} {}", t[name]["base"]),
+                })
+                .join(", ")
+        };
+        let at = |viewer: &Mutex<Viewer>, frame: i32, prop: &str| {
+            let body = boxes(viewer, frame, None).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the boxes answer is JSON");
+            answer["values"][&id][prop].to_string()
+        };
+        let set = |prop: &str, value: &str, frame: i32| {
+            run(
+                &viewer,
+                &format!("property.set_base?layer={id}&prop=shape:0:{prop}&value={value}&frame={frame}"),
+            )
+        };
+
+        report.check("A new shape has no trim", "none", trim(&viewer));
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&trim=on"));
+        report.check(
+            "Trim paths turned on is the whole path with no offset, so the picture is unchanged",
+            "start 0, end 100, offset 0",
+            trim(&viewer),
+        );
+        report.check(
+            "Undo says what it would take back",
+            "Set one shape",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+        set("trim_end", "50", 0);
+        set("trim_offset", "90", 0);
+        report.check(
+            "the end and the offset typed in their rows set them, with no key",
+            "start 0, end 50, offset 90",
+            trim(&viewer),
+        );
+        run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:trim_end&frame=0"));
+        set("trim_end", "100", 10);
+        report.check(
+            "the diamond keys the end where it is, and a value on frame 10 is a second key",
+            "start 0, end keyed 50@0 100@10, offset 90",
+            trim(&viewer),
+        );
+        report.check(
+            "halfway, frame 5, the page is given the number the renderer uses",
+            "75.0",
+            at(&viewer, 5, "shape:0:trim_end"),
+        );
+        report.check("and the unkeyed offset, on any frame", "90.0", at(&viewer, 5, "shape:0:trim_offset"));
+        report.check(
+            "a key moved onto another is refused, with the reason",
+            "This number already has a key at frame 0.",
+            run(&viewer, &format!("keyframe.move?layer={id}&prop=shape:0:trim_end&from=10&to=0")),
+        );
+        report.check(
+            "a start below 0 is refused, with the reason",
+            "Shape \"Shape 1\" cannot be drawn: it needs a trim start from 0 to 100, not -5. Set a value inside the range and send the shapes again.",
+            set("trim_start", "-5", 0),
+        );
+        report.check(
+            "a value that is not a number is refused, with the reason",
+            "What number? Say value=50.",
+            set("trim_start", "half", 0),
+        );
+        report.check(
+            "a trim that is neither on nor off is refused, with the reason",
+            "\"maybe\" is not on or off.",
+            run(&viewer, &format!("shape.set?layer={id}&shape=0&trim=maybe")),
+        );
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&trim=off"));
+        report.check("Off takes the trim away", "none", trim(&viewer));
+        report.check(
+            "a key on a trim the shape does not have is refused, with the reason",
+            "\"Shape 1\" has no trim.",
+            run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:trim_offset&frame=0")),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and Undo puts it back, keys and all",
+            "start 0, end keyed 50@0 100@10, offset 90",
+            trim(&viewer),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-109b_panel_table.md",
+            "B-109b: trim paths from the window",
+            &["D-169 decided what trimming a shape's path is and B-109b built it in the core, \
+               checked pixel by pixel in `verification/B-109_shape_trim_table.md`. This is the \
+               window's half: the shape's panel sends `shape.set` with `trim=on` or `trim=off`, \
+               and the trim's three numbers are named `shape:<n>:trim_start`, `trim_end` and \
+               `trim_offset` wherever a property is named, so the diamond, a typed value, a key \
+               moved and an ease reach them by the requests they already send."],
+            &["## What this does not cover\n\nWhat the trimmed line looks like on the picture and \
+               whether the panel feels right in the hand. That is \
+               `verification/B-109_shape_trim_playtest.md`, for a person."],
         );
         let failed: Vec<&String> = report
             .rows

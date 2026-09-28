@@ -791,6 +791,19 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                         }
                     },
                 );
+                match &s.trim {
+                    None => {
+                        map.remove("trim");
+                    }
+                    Some(t) => {
+                        let was = was.and_then(|w| w.get("trim"));
+                        let mut m = Map::new();
+                        for (key, p) in [("start", &t.start), ("end", &t.end), ("offset", &t.offset)] {
+                            m.insert(key.into(), property_json(was.and_then(|w| w.get(key)), p, 1.0));
+                        }
+                        map.insert("trim".into(), J::Object(m));
+                    }
+                }
                 J::Object(map)
             })
             .collect();
@@ -3683,6 +3696,22 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
             width_px,
             gradient,
         }),
+        trim: match v.get("trim").filter(|t| !t.is_null()) {
+            None => None,
+            Some(t) => {
+                // D-169: three one-number properties; their ranges are `Shape::problem`'s.
+                let at = format!("{at}/trim");
+                as_object(t, &at)?;
+                let number = |key: &str| {
+                    parse_property(field(t, &at, key)?, &format!("{at}/{key}"), "scalar", false, false, 1.0)
+                };
+                Some(crate::shape::Trim {
+                    start: number("start")?,
+                    end: number("end")?,
+                    offset: number("offset")?,
+                })
+            }
+        },
     };
     match shape.problem() {
         Some(p) => Err(invalid(at, &p)),

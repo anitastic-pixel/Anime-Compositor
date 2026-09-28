@@ -150,6 +150,108 @@ impl Gradient {
     }
 }
 
+/// Every name [`Shape::property_mut`] answers to.
+pub const SHAPE_PROPERTIES: [&str; 7] = [
+    "fill_start",
+    "fill_end",
+    "stroke_start",
+    "stroke_end",
+    "trim_start",
+    "trim_end",
+    "trim_offset",
+];
+
+/// D-169: the stretch of the path a stroke is drawn along, as After Effects' Trim Paths.
+///
+/// `start` and `end` are percent of the way along, 0 to 100; `offset` is degrees, 360 once along.
+/// Each is a one-number property keyed as any is. The fill is not trimmed.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Trim {
+    pub start: Property,
+    pub end: Property,
+    pub offset: Property,
+}
+
+impl Trim {
+    /// The whole path, no offset: what the window puts on a shape when trimming is turned on.
+    pub fn whole() -> Trim {
+        let n = |v| Property::constant(Value::Scalar(v));
+        Trim { start: n(0.0), end: n(100.0), offset: n(0.0) }
+    }
+
+    fn at(&self, frame: i32) -> Trim {
+        let now = |p: &Property| Property::constant(p.value_at(frame));
+        Trim { start: now(&self.start), end: now(&self.end), offset: now(&self.offset) }
+    }
+
+    /// What is outside D-169's ranges, as a sentence, for [`Shape::problem`].
+    fn problem(&self) -> Option<String> {
+        for (name, p, ranged) in [
+            ("start", &self.start, true),
+            ("end", &self.end, true),
+            ("offset", &self.offset, false),
+        ] {
+            let values: Vec<Option<f64>> = std::iter::once(p.base())
+                .chain(p.keyframes().iter().map(|k| k.value))
+                .map(|v| v.as_scalar())
+                .collect();
+            if p.split().is_some() || values.iter().any(Option::is_none) {
+                return Some(format!("a trim {name} of one number"));
+            }
+            if p.expression().is_some() {
+                return Some(format!("no expression on a trim {name}"));
+            }
+            if let Some(v) = values.into_iter().flatten().find(|v| ranged && !(0.0..=100.0).contains(v)) {
+                return Some(format!("a trim {name} from 0 to 100, not {v}"));
+            }
+        }
+        None
+    }
+
+    /// D-169's stretch of `path` as segments to stroke, or `None` where the stroke is whole.
+    ///
+    /// The trim must already be at the frame. `path_segments` in order are the pieces measured.
+    fn segments(&self, path: &[(f64, f64)], closed: bool) -> Option<Vec<Segment>> {
+        let n = |p: &Property| p.base().as_scalar().unwrap_or(0.0);
+        let (s, e) = (n(&self.start) / 100.0, n(&self.end) / 100.0);
+        let (s, e) = (s.min(e), s.max(e));
+        let pieces = path_segments(path, closed);
+        let runs: Vec<f64> = pieces.iter().map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1)).collect();
+        let mut along = vec![0.0];
+        for r in &runs {
+            along.push(along[along.len() - 1] + r);
+        }
+        let total = along[along.len() - 1];
+        if e - s >= 1.0 || total == 0.0 {
+            return None;
+        }
+        if e == s {
+            return Some(Vec::new());
+        }
+        let place = |d: f64| {
+            let i = (0..runs.len())
+                .find(|&i| runs[i] > 0.0 && along[i + 1] >= d)
+                .unwrap_or_else(|| runs.iter().rposition(|&r| r > 0.0).expect("the path has length"));
+            let f = (d - along[i]) / runs[i];
+            let (p, q) = pieces[i];
+            (p.0 + (q.0 - p.0) * f, p.1 + (q.1 - p.1) * f)
+        };
+        let mut a = s + n(&self.offset) / 360.0;
+        a -= a.floor();
+        let b = a + (e - s);
+        let spans = if b <= 1.0 { vec![(a, b)] } else { vec![(a, 1.0), (0.0, b - 1.0)] };
+        let mut out = Vec::new();
+        for (u0, u1) in spans {
+            let (d0, d1) = (u0 * total, u1 * total);
+            let mut line = vec![place(d0)];
+            line.extend((1..pieces.len()).filter(|&j| d0 < along[j] && along[j] < d1).map(|j| pieces[j].0));
+            line.push(place(d1));
+            out.extend(line.windows(2).map(|w| (w[0], w[1])));
+        }
+        Some(out)
+    }
+}
+
 /// D-78: a shape's fill — one colour over its whole even-odd interior.
 ///
 /// The colour is linear working-space RGB from 0 to 1, as a solid's is and as the tint effect's
@@ -192,6 +294,8 @@ pub struct Shape {
     pub keys: Vec<MaskKey>,
     pub fill: Option<Fill>,
     pub stroke: Option<Stroke>,
+    /// D-169: where along the path the stroke is drawn; `None` is all of it.
+    pub trim: Option<Trim>,
 }
 
 impl Default for Shape {
@@ -204,6 +308,7 @@ impl Default for Shape {
             keys: Vec::new(),
             fill: None,
             stroke: None,
+            trim: None,
         }
     }
 }
@@ -239,7 +344,35 @@ impl Shape {
         if let Some(g) = now.stroke.as_mut().and_then(|s| s.gradient.as_mut()) {
             *g = g.at(frame);
         }
+        now.trim = self.trim.as_ref().map(|t| t.at(frame));
         now
+    }
+
+    /// B-109b: a shape's keyed numbers by the names the window gives them (`SHAPE_PROPERTIES`),
+    /// where the shape has them: a gradient's two points and a trim's three numbers.
+    pub fn property_mut(&mut self, name: &str) -> Option<&mut Property> {
+        let (group, which) = name.split_once('_')?;
+        let (start, end, offset) = match group {
+            "fill" => {
+                let g = self.fill.as_mut()?.gradient.as_mut()?;
+                (&mut g.start, &mut g.end, None)
+            }
+            "stroke" => {
+                let g = self.stroke.as_mut()?.gradient.as_mut()?;
+                (&mut g.start, &mut g.end, None)
+            }
+            "trim" => {
+                let t = self.trim.as_mut()?;
+                (&mut t.start, &mut t.end, Some(&mut t.offset))
+            }
+            _ => return None,
+        };
+        match which {
+            "start" => Some(start),
+            "end" => Some(end),
+            "offset" => offset,
+            _ => None,
+        }
     }
 
     /// The path at a composition frame: document 20's rules, shared with a mask's path.
@@ -291,6 +424,9 @@ impl Shape {
             if let Some(p) = gradient.as_ref().and_then(|g| g.problem(what)) {
                 return Some(p);
             }
+        }
+        if let Some(p) = self.trim.as_ref().and_then(Trim::problem) {
+            return Some(p);
         }
         if let Some(s) = &self.stroke {
             if !(s.width_px > 0.0 && s.width_px <= MAX_STROKE_WIDTH) {
@@ -477,7 +613,11 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
             );
         }
         if let Some(stroke) = &shape.stroke {
-            let f = stroke_field(&outline, shape.closed, width, height, stroke.width_px / 2.0);
+            let segments = match shape.trim.as_ref().and_then(|t| t.segments(&outline, shape.closed)) {
+                Some(stretch) => stretch,
+                None => path_segments(&outline, shape.closed),
+            };
+            let f = stroke_field(&segments, width, height, stroke.width_px / 2.0);
             paint(
                 data,
                 &f,
@@ -501,21 +641,13 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
 /// nearest of them is the same nearest, so the answer is the one a sample at a time gave, not an
 /// approximation; `the_fast_fields_are_the_slow_ones` below holds it to that. Rows run across the
 /// thread pool, each writing only its own pixels.
-fn stroke_field(path: &[(f64, f64)], closed: bool, w: usize, h: usize, reach: f64) -> Vec<f32> {
+fn stroke_field(segments: &[Segment], w: usize, h: usize, reach: f64) -> Vec<f32> {
     use rayon::prelude::*;
     let n = SAMPLES_PER_SIDE;
     let mut field = vec![0.0f32; w * h];
-    let points = path.len();
-    if points == 0 {
+    if segments.is_empty() {
         return field;
     }
-    // One point is a segment from it to itself, which is what `distance_to_path` measures then.
-    let segments: Vec<((f64, f64), (f64, f64))> = match points {
-        1 => vec![(path[0], path[0])],
-        _ => (0..if closed { points } else { points - 1 })
-            .map(|i| (path[i], path[(i + 1) % points]))
-            .collect(),
-    };
     field.par_chunks_mut(w).enumerate().for_each_init(
         || (Vec::new(), vec![0u32; w]),
         |(band, hits), (yi, row)| {
@@ -523,7 +655,7 @@ fn stroke_field(path: &[(f64, f64)], closed: bool, w: usize, h: usize, reach: f6
             for j in 0..n {
                 let sy = yi as f64 + (j as f64 + 0.5) / n as f64;
                 band.clear();
-                for &(a, b) in &segments {
+                for &(a, b) in segments {
                     let (low, high) = if a.1 <= b.1 { (a.1, b.1) } else { (b.1, a.1) };
                     if low - reach <= sy && sy <= high + reach {
                         let (left, right) = if a.0 <= b.0 { (a.0, b.0) } else { (b.0, a.0) };
@@ -557,6 +689,20 @@ fn stroke_field(path: &[(f64, f64)], closed: bool, w: usize, h: usize, reach: f6
     field
 }
 
+type Segment = ((f64, f64), (f64, f64));
+
+/// The straight pieces of a flattened path in order, a closed one's closing side last. One point
+/// is a segment from it to itself, which is what `distance_to_path` measures then.
+fn path_segments(path: &[(f64, f64)], closed: bool) -> Vec<Segment> {
+    match path.len() {
+        0 => Vec::new(),
+        1 => vec![(path[0], path[0])],
+        points => (0..if closed { points } else { points - 1 })
+            .map(|i| (path[i], path[(i + 1) % points]))
+            .collect(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -585,7 +731,7 @@ mod tests {
             let slow = field(w, h, |x, y| crate::mask::point_inside(path, x, y));
             assert_eq!(fill, slow, "fill of {path:?}");
             for reach in [0.5, 2.0, 7.25] {
-                let fast = stroke_field(path, closed, w, h, reach);
+                let fast = stroke_field(&path_segments(path, closed), w, h, reach);
                 let slow = field(w, h, |x, y| {
                     crate::mask::distance_to_path(path, closed, x, y) <= reach
                 });
