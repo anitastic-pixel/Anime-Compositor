@@ -239,7 +239,71 @@
      frame is. */
   /* W-17: wider, so a layer's name and its numbers have room before its bar starts. On the panel
      rather than the sheet, so the scroll bar under it and the graph beside it read the same. */
+  /* W-31b: set in pixels by the page as the panel is resized, at most 45 per cent of its width,
+     because the arithmetic below that turns a point into a frame reads it as a number. */
   #timeline { --gutter: 340px; }
+  /* W-31b: the header's own pieces. The Timeline and Graph switch reads as one control with two
+     halves, not as a second row of tabs; the frame on screen is large, in blue. */
+  #timeline .tab { text-transform: none; letter-spacing: 0; font-size: 13px; flex-wrap: wrap; }
+  #timeline .tab .tools { align-items: center; gap: 8px; }
+  .seg { display: inline-flex; border: 1px solid #454545; border-radius: 4px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: #262626; padding: 2px 12px; }
+  .seg button[aria-pressed=true] { background: #3a3a3a; box-shadow: inset 0 -2px 0 #e8b06a; color: #fff; }
+  .now { display: inline-flex; align-items: baseline; gap: 6px; }
+  #nowframe {
+    font-size: 17px; font-variant-numeric: tabular-nums; color: #6ea8fe; background: #181818;
+    border: 1px solid #454545; border-radius: 3px; padding: 0 8px; min-width: 3ch; text-align: right;
+  }
+  .now small, .zoom { color: #909096; font-size: 12px; }
+  .zoom { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  #shyswitch[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
+  /* The headings over the switches, in the gutter beside the ruler. */
+  #colheads {
+    position: absolute; left: 8px; top: 6px; width: var(--gutter); height: 24px;
+    font-size: 11px; color: #909096;
+  }
+  #colheads span { display: grid; place-items: center; }
+  #colheads svg { width: 14px; height: 14px; }
+  #colheads .l { place-items: center start; }
+  /* W-31b: a layer's row, in columns under those headings: show, solo, lock, label, number,
+     arrow, name, shy, mode, parent. */
+  .rowhead.layerhead {
+    display: grid; align-items: center; gap: 0 2px; padding-right: 6px; min-width: 0;
+    grid-template-columns: 22px 22px 22px 10px 24px 18px minmax(0, 1fr) 22px 64px 84px;
+  }
+  .ic { display: grid; place-items: center; width: 22px; height: 22px; padding: 0 !important; color: #6a6a70; }
+  .ic svg { width: 14px; height: 14px; }
+  .ic.on { color: #d0d0d4; }
+  .ic.hot { color: #e8b06a; }
+  .layerhead .rownum { min-width: 0; font-variant-numeric: tabular-nums; }
+  .namecell { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+  ul.rows .namecell .name { flex: none; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .namecell .mark { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge {
+    flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    font-size: 11px; line-height: 16px; color: #c9d6ea; background: #2e3b52;
+    border-radius: 8px; padding: 0 6px; white-space: nowrap;
+  }
+  ul.rows button.relink { flex: none; font-size: 11px; padding: 0 6px; border-color: #d9534f; color: #ffd0cc; }
+  #layers .rowhead.layerhead select.blend {
+    margin: 0; min-width: 0; width: 100%; font-size: 11px; padding: 0; color: #909096;
+    background: transparent; border-color: transparent;
+  }
+  #layers .rowhead.layerhead select.blend.set { color: #e8b06a; }
+  .parentcell {
+    display: flex; align-items: center; min-width: 0; font-size: 11px; color: #909096;
+    white-space: nowrap; overflow: hidden;
+  }
+  .parentcell .whip { color: #909096; display: grid; place-items: center; }
+  .parentcell .whip svg { width: 14px; height: 14px; }
+  #timeline.narrow .layerhead { grid-template-columns: 22px 22px 22px 10px 24px 18px minmax(0, 1fr) 22px 60px 22px; }
+  #timeline.narrow .pname { display: none; }
+  /* An empty composition says so and offers the two ways to start. */
+  #nolayers { display: grid; place-items: center; gap: 10px; padding: 32px 16px; text-align: center; color: #909096; }
+  #nolayers[hidden], #colheads[hidden] { display: none; }
+  #nolayers .big { font-size: 15px; color: #d0d0d4; }
+  #nolayers button.main { background: #3a4a6a; border-color: #6ea8fe; }
+  #nolayers kbd { font: inherit; font-size: 11px; color: #909096; margin-left: 4px; }
   #sheet { position: relative; overflow: auto; padding: 6px 8px 8px; min-height: 0; }
   #ruler { cursor: ew-resize; }
   #ruler {
@@ -279,10 +343,11 @@
   .menu.palette [role="listbox"] { overflow: auto; }
   .menu.palette button.current { background: #3a4a6a; }
   #ruler .tick {
-    position: absolute; top: 8px; bottom: 0; border-left: 1px solid #3a3a3a;
+    position: absolute; top: 8px; bottom: 0; border-left: 1px solid #3a3a3a; white-space: nowrap;
     padding-left: 3px; font-size: 10px; line-height: 16px; color: #909096;
     font-variant-numeric: tabular-nums;
   }
+  #ruler .tick.second { top: 0; border-left-color: #505050; color: #d0d0d4; }
   #tracks { position: relative; }
   /* D-52's graph editor, which shares the panel with the sheet rather than taking room from it:
      the two answer the same question - what happens to this layer over time - and a window that
@@ -407,15 +472,23 @@
      the blocks are two frames wide and without the line a run of them reads as one long block,
      which is the opposite of what the row is for. */
   .track .span {
-    position: absolute; top: 9px; bottom: 2px; background: #4a6fa5;
+    position: absolute; top: 2px; bottom: 2px; background: #3d5a86;
     border-right: 1px solid #1a1a1d; box-sizing: border-box;
     font-size: 10px; line-height: 14px; text-align: center; overflow: hidden; color: #eaeaf0;
   }
   /* A drawing the sequence does not have is orange here and says so in words in the fields
      below, the same warning colour every other missing thing in this window uses. */
-  .track .span.gone { background: #7a5a2a; }
+  .track .span.odd { background: #4e6f9f; }
+  .track .span.held { background: #3f6a5a; }
+  .track .span.gone {
+    background: repeating-linear-gradient(45deg, #5a2a28 0 4px, #7a3230 4px 8px); color: #ffd0cc;
+    outline: 1px solid #d9534f; outline-offset: -1px;
+  }
+  /* W-31b: keys on the layer's own bar are small marks along its lower edge, clear of the
+     drawings' numbers. A property's row keeps them full size. */
+  #layers li:not(.prop) > .track > .key { top: auto; bottom: 0; width: 7px; height: 7px; margin-left: -3.5px; }
   .track .free {
-    position: absolute; top: 9px; bottom: 2px;
+    position: absolute; top: 2px; bottom: 2px;
     border: 1px dashed #46587a; border-radius: 2px;
   }
   /* B-17c: an adjustment layer (D-66) has no drawings, so its bar is hatched rather than hollow:
@@ -496,13 +569,14 @@
   #layers li.prop.expr .exprtrack { padding: 2px 8px 2px 0; min-width: 0; }
   #detail .key:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   #playhead {
-    position: absolute; top: 6px; bottom: 8px; width: 1px; background: #e8866a;
+    position: absolute; top: 6px; bottom: 8px; width: 1px; background: #e0604a; z-index: 2;
     pointer-events: none;
     left: calc(var(--gutter) + 8px + (100% - var(--gutter) - 16px) * var(--at, 0));
   }
   #playhead::before {
-    content: ''; position: absolute; top: 0; left: -3px;
-    border: 3px solid transparent; border-top: 5px solid #e8866a;
+    content: attr(data-frame); position: absolute; top: 0; transform: translateX(-50%);
+    background: #e0604a; color: #fff; font-size: 11px; line-height: 14px; padding: 0 4px;
+    border-radius: 2px; font-variant-numeric: tabular-nums; white-space: nowrap;
   }
   #bar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -1063,13 +1137,12 @@
 <div class="place" id="bottom"><nav class="stack" hidden></nav>
 <section class="panel" id="timeline">
   <div class="tab">
-    <button id="tabsheet" class="sheettab" aria-pressed="true">Timeline</button>
-    <button id="tabgraph" class="sheettab" aria-pressed="false">Graph</button>
-    <span class="hint" id="sheethint">front layer first</span>
+    <!-- W-31b: one header row. The view, the frame, then what makes layers, then the zoom. -->
+    <span class="seg"><button id="tabsheet" aria-pressed="true">Timeline</button><button id="tabgraph" aria-pressed="false">Graph</button></span>
+    <span class="now"><span id="nowframe">0</span><small id="nowtime"></small></span>
     <span class="tools">
-      <input id="timezoom" type="range" min="0" max="100" step="1" value="0"
-        aria-label="Timeline zoom. Also = and -, or Alt with the mouse wheel"
-        title="Zoom in on time: = and -, or Alt with the mouse wheel. Shift with the wheel slides along.">
+      <button id="newlayer" aria-haspopup="menu"
+        title="Drawings, an adjustment layer, a solid, a shape layer or a null">+ New layer &#9662;</button>
       <select id="graphprop" aria-label="Which property the graph draws" hidden></select>
       <button id="graphmode" class="sheettab" aria-pressed="false" hidden
         title="Draw how fast the property changes, as After Effects' speed graph does">Speed</button>
@@ -1078,29 +1151,38 @@
       <button id="graphfit" class="sheettab" hidden
         title="Fit the graph to the chosen keys, or to the whole curve when none is chosen. The mouse wheel zooms the values; drag with the middle button to slide them.">Fit</button>
       <button id="shyswitch" class="sheettab" aria-pressed="false"
-        title="Leave shy layers off the timeline. The picture still draws them.">Hide shy layers</button>
-      <button id="addlayer">Add layer</button>
-      <button id="addadjust"
-        title="A layer with no drawing whose effects apply to everything drawn beneath it">New adjustment layer</button>
-      <button id="addsolid"
-        title="A rectangle of one colour, the size of the composition and covering it. Its colour and size are in the layer's panel">New solid</button>
-      <button id="addshape"
-        title="A layer that draws shapes: paths with a fill, a stroke or both, drawn with the pen, the rectangle or the ellipse. Their colours are in the layer's panel">New shape layer</button>
-      <button id="addnull"
-        title="A null: never drawn, there to be a parent. Parent layers to it and move it to move them together">New null</button>
-      <button id="dellayer">Delete layer</button>
-      <button id="up">Forward</button>
-      <button id="down">Back</button>
+        title="Leave shy layers off the timeline. The picture still draws them.">Hide shy</button>
+      <span class="zoom">&minus;
+        <input id="timezoom" type="range" min="0" max="100" step="1" value="0"
+          aria-label="Timeline zoom. Also = and -, or Alt with the mouse wheel"
+          title="Zoom in on time: = and -, or Alt with the mouse wheel. Shift with the wheel slides along.">
+        +<span id="inview"></span></span>
+      <!-- W-31b: out of the header, and still what the New layer menu, the layer's right-click
+           menu, the shortcuts and the command finder press. -->
+      <button id="addlayer" hidden>Add layer</button>
+      <button id="addadjust" hidden>New adjustment layer</button>
+      <button id="addsolid" hidden>New solid</button>
+      <button id="addshape" hidden>New shape layer</button>
+      <button id="addnull" hidden>New null</button>
+      <button id="dellayer" hidden>Delete layer</button>
+      <button id="up" hidden>Forward</button>
+      <button id="down" hidden>Back</button>
     </span>
   </div>
   <div id="graph" hidden></div>
   <div id="sheet">
+    <div id="colheads" aria-hidden="true"></div>
     <div id="ruler"></div>
     <div id="tracks">
       <ul class="rows" id="layers"></ul>
     </div>
     <div id="playhead" hidden></div>
-    <span class="hint" id="nolayers" hidden>This composition has no layers.</span>
+    <div id="nolayers" hidden>
+      <div class="big" id="nolayerssay">This composition has no layers yet.</div>
+      <div><button id="emptyimport" class="main">Import drawings&hellip; <kbd>Ctrl+I</kbd></button>
+        <button id="emptynew">+ New layer &#9662;</button></div>
+      <div>or drop a folder of drawings anywhere on the window</div>
+    </div>
   </div>
   <input id="timescroll" type="range" min="0" max="1" step="any" value="0" hidden
     aria-label="Slide along the zoomed timeline. The arrow keys move it too."
@@ -1590,6 +1672,30 @@ function blank() {
   return b;
 }
 
+// W-31b: one set of icons for the switches, drawn in the text's colour, lit where the switch is on.
+const ICONS = {
+  eye: '<path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2.2" fill="currentColor"/>',
+  speaker: '<path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  solo: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2.5" fill="currentColor"/>',
+  lock: '<rect x="3" y="7" width="10" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 0 1 6 0" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  shy: '<path d="M3 9a5 4 0 0 0 10 0" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  whip: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v6M5 8h6" stroke="currentColor" stroke-width="1.2"/>',
+};
+const svgOf = (name) => '<svg viewBox="0 0 16 16" aria-hidden="true">' + ICONS[name] + '</svg>';
+function icon(b, name, on) {
+  b.innerHTML = svgOf(name);
+  b.classList.add('ic');
+  b.classList.toggle('on', on);
+  return b;
+}
+// W-31b: how a layer is timed, read off its exposures: every exposure but the last the same
+// length, one drawing for the whole layer, or neither.
+function timingOf(spans) {
+  if (spans.length === 1) return 'held';
+  const lengths = new Set(spans.slice(0, -1).map((sp) => sp.end_frame_exclusive - sp.start_frame));
+  return lengths.size === 1 ? 'on ' + [...lengths][0] + 's' : 'irregular';
+}
+
 function iconButton(text, title, onClick) {
   const b = document.createElement('button');
   b.textContent = text;
@@ -1746,7 +1852,10 @@ const percent = (x) => (x * 100) + '%';
 // nothing at 24. The graph draws the same ticks, so the two tabs read as one scale.
 function ticksOf(comp) {
   const v = viewOf(comp);
-  const steps = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
+  // W-31b: whole seconds, quarters and halves of them at the composition's rate.
+  const fps = Math.max(1, Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator));
+  const steps = [...new Set([1, 2, 3, 6, 12, fps / 2, fps, 2 * fps, 5 * fps, 10 * fps, 30 * fps, 60 * fps, 300 * fps])]
+    .filter((n) => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
   const step = steps.find((s) => v.len / s <= 10) || v.len;
   const ticks = [];
   const first = comp.start_frame + Math.ceil((v.from - comp.start_frame) / step) * step;
@@ -1847,12 +1956,18 @@ function drawRuler() {
   const ruler = $('ruler');
   // A marker's name box lives on the ruler, and redrawing it would take the box away mid-word.
   if (ruler.querySelector('input.naming')) return;
-  if (!comp) { ruler.replaceChildren(); $('timescroll').hidden = true; return; }
+  if (!comp) { ruler.replaceChildren(); $('timescroll').hidden = true; $('inview').textContent = ''; return; }
+  const fps = Math.max(1, Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator));
+  const view = viewOf(comp);
+  $('inview').textContent = ' frames ' + Math.ceil(view.from) + '–' + Math.floor(view.from + view.len - 1)
+    + ' of ' + Math.max(1, comp.duration_frames);
   ruler.replaceChildren(...ticksOf(comp).map((at) => {
     const tick = document.createElement('span');
     tick.className = 'tick';
     tick.style.left = percent(atFrame(comp, at));
-    tick.textContent = at;
+    const second = (at - comp.start_frame) % fps === 0;
+    tick.className = second ? 'tick second' : 'tick';
+    tick.textContent = second ? (at - comp.start_frame) / fps + 's · ' + at : at;
     return tick;
   }));
   const [first, past] = workOf(comp);
@@ -2314,19 +2429,21 @@ function track(comp, layer, drawings) {
   // does in the file. Until W-05 every layer began at frame 0 with no offset and the two
   // numberings were the same, which is why nothing had noticed.
   const inComp = (local) => local - (layer.source_offset_frames || 0) + layer.in_frame;
-  for (const span of spans) {
+  const lane = laneWidth();
+  for (const [n, span] of spans.entries()) {
     const missing = !drawings.has(span.drawing_number);
     // W-26 fix: a block is cut at the ends of the trimmed bar. Drawn whole, a trimmed layer still
     // looked its untrimmed length, and layers sequenced by their trimmed bars looked overlapped.
     const from = Math.max(inComp(span.start_frame), layer.in_frame);
     const to = Math.min(inComp(span.end_frame_exclusive), layer.out_frame);
     if (to <= from) continue;
-    const piece = bar(missing ? 'span gone' : 'span', from, to);
+    const piece = bar('span' + (missing ? ' gone' : spans.length === 1 ? ' held' : n % 2 ? ' odd' : ''), from, to);
     // The drawing's number, but only where there is room for it to be read. On a shot held on
     // twos every span is two frames wide, and a number in each of them is a wall of digits
     // rather than a label; the tooltip and the fields in the properties column still say it.
-    const wide = atFrame(comp, to) - atFrame(comp, from) > 0.03;
-    if (wide) piece.textContent = span.drawing_number;
+    // W-31b: measured in pixels, so a zoomed-in or a wide panel shows more of them.
+    const text = missing ? span.drawing_number + ' missing' : String(span.drawing_number);
+    if ((atFrame(comp, to) - atFrame(comp, from)) * lane >= text.length * 7 + 6) piece.textContent = text;
     piece.title = 'frames ' + span.start_frame + ' to ' + (span.end_frame_exclusive - 1)
       + ' show drawing ' + span.drawing_number
       + (missing ? ', which is not in the sequence' : '');
@@ -2337,6 +2454,12 @@ function track(comp, layer, drawings) {
 // The seam between two exposure blocks that meet, within four pixels of `x` on screen: the
 // index of the block on its right, or -1 where there is none. Blocks are drawn in the order of
 // the spans they stand for, so the two lists line up.
+// W-31b: how wide the bars are on screen, which is the panel less its gutter and padding.
+function laneWidth() {
+  const gutter = parseFloat(getComputedStyle($('sheet')).getPropertyValue('--gutter'));
+  return Math.max(0, $('sheet').clientWidth - gutter - 16);
+}
+
 function seamNear(box, spans, x) {
   const blocks = box.querySelectorAll('.span');
   return spans.findIndex((sp, i) => i > 0
@@ -2353,6 +2476,12 @@ function movePlayhead() {
   // playhead on a key passes through the key as it does in After Effects.
   $('playhead').hidden = !comp || !inView(comp, frame + 0.5);
   if (comp) $('playhead').style.setProperty('--at', atFrame(comp, frame + 0.5));
+  // W-31b: the frame on the playhead's flag and, large, in the header, with seconds beside it.
+  $('playhead').dataset.frame = frame;
+  $('nowframe').textContent = frame;
+  const fps = comp ? Math.max(1, Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator)) : 0;
+  const into = comp ? frame - comp.start_frame : 0;
+  $('nowtime').textContent = comp ? 'frame · ' + Math.floor(into / fps) + 's ' + (into % fps) + 'f at ' + fps + ' fps' : '';
   // The graph has a playhead of its own and nothing else on it depends on the frame, so it is
   // redrawn from the samples already in hand rather than asked for again.
   if (graphing && plotted) drawGraph();
@@ -2722,20 +2851,20 @@ function drawLayers() {
   if (scrubbed && $('layers').contains(scrubbed)) return;
   if (typingExpression()) return;
   const all = layers();
-  $('nolayers').hidden = all.length > 0;
   const comp = composition();
+  $('nolayers').hidden = all.length > 0;
+  $('nolayerssay').textContent = comp ? 'This composition has no layers yet.' : 'No composition is open.';
+  $('colheads').hidden = !comp;
   // Reversed: the last layer in composition order is drawn last and so is in front.
   const list = $('layers');
   $('shyswitch').setAttribute('aria-pressed', String(prefs.hideShy));
   list.replaceChildren(...cameraGroup(comp), ...all.slice().reverse().filter((layer) => !(prefs.hideShy && layer.shy)).flatMap((layer) => {
     // D-71: on an audio layer the same switch is a speaker.
     const sound = layer.kind === 'audio';
-    const eye = iconButton(sound ? (layer.enabled ? '🔊' : '🔇') : layer.enabled ? '●' : '○',
-      (layer.enabled ? (sound ? 'Mute ' : 'Hide ') : (sound ? 'Unmute ' : 'Show ')) + layer.name,
-      () => command('/layer.toggle_visibility?layer=' + encodeURIComponent(layer.id)));
-    const lock = iconButton(layer.locked ? '🔒' : '🔓',
-      layer.locked ? 'Unlock ' + layer.name : 'Lock ' + layer.name,
-      () => command('/layer.toggle_lock?layer=' + encodeURIComponent(layer.id)));
+    const eye = icon(iconButton('', (layer.enabled ? (sound ? 'Mute ' : 'Hide ') : (sound ? 'Unmute ' : 'Show ')) + layer.name,
+      () => command('/layer.toggle_visibility?layer=' + encodeURIComponent(layer.id))), sound ? 'speaker' : 'eye', layer.enabled);
+    const lock = icon(iconButton('', layer.locked ? 'Unlock ' + layer.name : 'Lock ' + layer.name,
+      () => command('/layer.toggle_lock?layer=' + encodeURIComponent(layer.id))), 'lock', layer.locked);
     // W-12: the arrow that opens the layer's properties under it, as After Effects does. All
     // five or none; the letters A, P, S, R, T and U open them one at a time.
     const open = shownOf(layer.id);
@@ -2747,21 +2876,32 @@ function drawLayers() {
     // W-24: After Effects' solo switch, which the preview obeys and the file never hears of, and
     // the layer's label colour.
     const soloed = (doc.solo || []).includes(layer.id);
-    const solo = iconButton(soloed ? '\u25c9' : '\u25cb', (soloed ? 'Unsolo ' : 'Solo ') + layer.name,
-      () => command('/layer.toggle_solo?layer=' + encodeURIComponent(layer.id)));
+    const solo = icon(iconButton('', (soloed ? 'Unsolo ' : 'Solo ') + layer.name,
+      () => command('/layer.toggle_solo?layer=' + encodeURIComponent(layer.id))), 'solo', soloed);
+    solo.classList.toggle('hot', soloed);
     solo.setAttribute('aria-pressed', String(soloed));
     const swatch = Object.assign(document.createElement('span'),
       { className: 'swatch', title: 'Label: ' + LABEL_NAMES[layer.label || 0] });
     swatch.style.background = LABELS[layer.label || 0] || 'transparent';
-    // W-26: After Effects' shy switch. A shy layer is left off this list while Hide shy layers is
-    // on; the picture still draws it.
-    const shy = iconButton(layer.shy ? '\u25e1' : '\u25e0', (layer.shy ? 'Not shy: ' : 'Shy: ') + layer.name,
-      () => command('/layer.toggle_shy?layer=' + encodeURIComponent(layer.id)));
+    // W-26: After Effects' shy switch. A shy layer is left off this list while Hide shy is on;
+    // the picture still draws it.
+    const shy = icon(iconButton('', (layer.shy ? 'Not shy: ' : 'Shy: ') + layer.name,
+      () => command('/layer.toggle_shy?layer=' + encodeURIComponent(layer.id))), 'shy', !!layer.shy);
     shy.setAttribute('aria-pressed', String(!!layer.shy));
-    const li = row(selectedLayer, layer.id, layer.name, [swatch, twirl, eye, solo, lock, shy, sound ? blank() : whip(layer, null)]);
+    const li = row(selectedLayer, layer.id, layer.name, []);
     // W-26 fix: every chosen row lights up, not only the last one clicked, so a Shift-click range
     // and Ctrl-clicks can be seen.
     li.setAttribute('aria-selected', String(selection.includes(layer.id)));
+    // W-31b: the name, how the layer is timed, what state it is in, and a way to fix drawings
+    // that have gone, in one cell.
+    const cell = document.createElement('span');
+    cell.className = 'namecell';
+    cell.append(li.querySelector('.name'));
+    const spans = layer.exposure_spans || [];
+    if (spans.length) {
+      cell.append(Object.assign(document.createElement('span'), { className: 'badge', textContent: timingOf(spans),
+        title: 'How this layer is timed, read off its exposures' }));
+    }
     // Colour is not the only carrier: a layer that is off, soloed, locked or shy says so in words.
     const adjust = layer.kind === 'adjustment';
     const precomp = layer.kind === 'composition';
@@ -2775,32 +2915,54 @@ function drawLayers() {
         !layer.enabled ? (sound ? 'muted' : 'hidden') : null, soloed ? 'soloed' : null,
         layer.locked ? 'locked' : null, layer.shy ? 'shy' : null]
         .filter(Boolean).join(', ');
-      li.append(mark);
-      if (!layer.enabled) li.querySelector('.name').className = 'name off';
+      cell.append(mark);
+      if (!layer.enabled) cell.querySelector('.name').className = 'name off';
     }
-    // The name and its switches on the left, the layer's time on the right. They are wrapped
-    // rather than built that way so that the drawings list, which shares `row`, stays a plain
-    // row: only a layer has a life in time to draw.
+    const have = drawingsOf(layer);
+    const gone = new Set(spans.filter((sp) => !have.has(sp.drawing_number)).map((sp) => sp.drawing_number));
+    if (gone.size && layer.asset_id) {
+      const relink = document.createElement('button');
+      relink.className = 'relink';
+      relink.textContent = 'Relink\u2026';
+      relink.title = gone.size + (gone.size === 1 ? ' drawing is' : ' drawings are')
+        + ' missing. Point the layer at the folder they are in now.';
+      relink.onclick = (e) => { e.stopPropagation(); command('/media.relink?asset=' + encodeURIComponent(layer.asset_id)); };
+      cell.append(relink);
+    }
+    // The name and its switches on the left, the layer's time on the right, in the columns the
+    // headings over them name.
     const head = document.createElement('div');
-    head.className = 'rowhead';
-    head.append(...li.childNodes);
+    head.className = 'rowhead layerhead';
     // W-23: the layer's number, the front one first, as After Effects numbers them.
-    head.prepend(Object.assign(document.createElement('span'),
-      { className: 'rownum', textContent: all.length - all.indexOf(layer) }));
-    // W-25 fix: the blend mode on the row, as After Effects' Mode column has it.
+    const num = Object.assign(document.createElement('span'),
+      { className: 'rownum', textContent: all.length - all.indexOf(layer) });
+    // W-25 fix: the blend mode on the row, as After Effects' Mode column has it. W-31b: quiet
+    // text, orange when it is not Normal.
     const blend = document.createElement('select');
     blend.className = 'blend';
     blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
     blend.append(...BLENDS.map((mode) => new Option(mode, mode)));
     blend.value = layer.blend_mode;
+    blend.classList.toggle('set', blend.selectedIndex > 0);
     blend.onclick = (e) => e.stopPropagation();
     blend.onchange = () => {
       const mode = blend.value;
       if (!selection.includes(layer.id)) select(layer.id, false);
       blendLayers(mode);
     };
+    // The parent, by name, beside the whip that sets it.
+    const parent = document.createElement('span');
+    parent.className = 'parentcell';
+    if (!sound) {
+      const up = layers().find((l) => l.id === layer.parent);
+      const name = document.createElement('span');
+      name.className = 'pname';
+      name.textContent = up ? up.name : 'None';
+      parent.title = 'Parent: ' + name.textContent;
+      parent.append(icon(whip(layer, null), 'whip', !!up), name);
+    }
     // B-17c: an adjustment layer has normal and no list to choose from (D-66).
-    if (!adjust && !sound && !nul) head.append(blend);
+    head.append(eye, solo, lock, swatch, num, twirl, cell, shy, !adjust && !sound && !nul ? blend : blank(), parent);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     grabRow(li, head, all, layer);
@@ -9075,7 +9237,6 @@ function showSheet(which) {
   graphing = which === 'graph';
   $('sheet').hidden = graphing;
   $('graph').hidden = !graphing;
-  $('sheethint').hidden = graphing;
   $('tabsheet').setAttribute('aria-pressed', String(!graphing));
   $('tabgraph').setAttribute('aria-pressed', String(graphing));
   askForCurve();
@@ -9347,6 +9508,37 @@ $('graphfit').onclick = fitGraph;
 // The plot is stretched to the panel's width, so a resize leaves the curve right and the round
 // handles as ovals. Drawing it again at the new width is the whole of the fix.
 addEventListener('resize', () => { if (graphing && plotted) drawGraph(); });
+
+// W-31b: the five ways to make a layer, in one menu under the button that opened it.
+function newLayerMenu(button) {
+  const r = button.getBoundingClientRect();
+  popMenu(r.left, r.bottom + 2, [
+    [selectedAsset ? 'Drawings' : 'Drawings (choose them in the Project panel first)', 'Ctrl+Alt+L',
+      () => $('addlayer').click(), !$('addlayer').disabled],
+    ['Adjustment layer', 'Ctrl+Alt+Y', () => $('addadjust').click(), !$('addadjust').disabled],
+    ['Solid', 'Ctrl+Y', () => $('addsolid').click(), !$('addsolid').disabled],
+    ['Shape layer', '', () => $('addshape').click(), !$('addshape').disabled],
+    ['Null', 'Ctrl+Alt+Shift+Y', () => $('addnull').click(), !$('addnull').disabled],
+  ]);
+}
+$('newlayer').onclick = () => newLayerMenu($('newlayer'));
+$('emptynew').onclick = () => newLayerMenu($('emptynew'));
+$('emptyimport').onclick = () => $('import').click();
+// W-31b: the layer columns take at most 45 per cent of the panel, so the bars keep the rest.
+new ResizeObserver(() => {
+  const gutter = Math.round(Math.min(480, 0.45 * $('timeline').clientWidth)) + 'px';
+  // A narrow panel keeps the parent's whip and drops its name, so the layer's own name still fits.
+  $('timeline').classList.toggle('narrow', parseFloat(gutter) < 400);
+  if ($('timeline').style.getPropertyValue('--gutter') === gutter) return;
+  $('timeline').style.setProperty('--gutter', gutter);
+  if (doc) redrawTime();
+}).observe($('timeline'));
+// The headings over the layer columns, drawn once.
+$('colheads').className = 'rowhead layerhead';
+$('colheads').innerHTML = '<span title="Show">' + svgOf('eye') + '</span><span title="Solo">' + svgOf('solo')
+  + '</span><span title="Lock">' + svgOf('lock') + '</span><span></span><span>#</span><span></span>'
+  + '<span class="l">Layer</span><span title="Shy">' + svgOf('shy') + '</span><span class="l">Mode</span>'
+  + '<span class="l pname">Parent</span>';
 
 function drawPanels() {
   // A layer that has gone — deleted, or undone into existence and back out — must not stay

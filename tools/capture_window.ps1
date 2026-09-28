@@ -36,7 +36,10 @@ param(
   [switch]$Shift,
   [int]$Settle = 1500,
   [string]$Open = '',
-  [double]$Scale = 0
+  [double]$Scale = 0,
+  # -PointY rests the pointer that far down the window, halfway across, before the keys are
+  # pressed, which is how the ` key is photographed filling the window with the panel under it.
+  [double]$PointY = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,6 +61,7 @@ public class Win {
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
   [DllImport("user32.dll")] public static extern short VkKeyScan(char c);
+  [DllImport("user32.dll")] public static extern uint MapVirtualKey(uint code, uint type);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
@@ -142,6 +146,11 @@ try {
   # keybd_event rather than WScript.Shell's SendKeys, which needs AppActivate to have succeeded
   # and fails silently when it has not - the pictures then show an untouched window and look
   # like a broken viewer rather than a broken shutter.
+  if ($PointY -gt 0) {
+    $x = [int]($spot.L + ($spot.R - $spot.L) / 2); $y = [int]($spot.T + ($spot.B - $spot.T) * $PointY)
+    [void][Win]::SetCursorPos($x, $y); Start-Sleep -Milliseconds 100
+    [void][Win]::SetCursorPos($x + 2, $y); Start-Sleep -Milliseconds 200
+  }
   if ($Keys -ne '') {
     Start-Sleep -Milliseconds 300
     # 0x11 is Control. Held around the whole run of keys rather than per key, because that is what
@@ -167,8 +176,11 @@ try {
         [byte]$named[$which]
       } elseif ($key -eq "`t") { [byte]0x09 } else { [byte]([Win]::VkKeyScan($key) -band 0xFF) }
       $flags = if ($extended -contains [int]$vk) { 1 } else { 0 }
-      [Win]::keybd_event($vk, 0, $flags, [UIntPtr]::Zero)
-      [Win]::keybd_event($vk, 0, $flags -bor 2, [UIntPtr]::Zero)
+      # The key's place on the keyboard as well as its meaning: a page that reads which key was
+      # pressed by where it is, as the ` shortcut does, sees nothing without it.
+      $scan = [byte][Win]::MapVirtualKey($vk, 0)
+      [Win]::keybd_event($vk, $scan, $flags, [UIntPtr]::Zero)
+      [Win]::keybd_event($vk, $scan, $flags -bor 2, [UIntPtr]::Zero)
       Start-Sleep -Milliseconds 80
     }
     if ($Shift) { [Win]::keybd_event(0x10, 0, 2, [UIntPtr]::Zero) }

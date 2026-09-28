@@ -24522,7 +24522,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 73] = [
+    const CONTROLS: [&str; 76] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -24544,6 +24544,8 @@ mod contract {
         "collect",
         "dellayer",
         "down",
+        "emptyimport",
+        "emptynew",
         "export",
         "exportformat",
         "filmquality",
@@ -24561,6 +24563,7 @@ mod contract {
         "importcut",
         "makecomp",
         "newcomp",
+        "newlayer",
         "notedetails",
         "open",
         "play",
