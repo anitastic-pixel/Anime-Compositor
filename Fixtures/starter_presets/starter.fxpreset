@@ -1,0 +1,311 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Soft bloom",
+      "effects": [
+        {
+          "instance_id": "starter-1-1",
+          "type_id": "core.bloom",
+          "enabled": true,
+          "parameters": {
+            "threshold": 65,
+            "radius": 30,
+            "intensity": 0.8,
+            "streaks": "none",
+            "length": 6,
+            "angle": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Night",
+      "effects": [
+        {
+          "instance_id": "starter-2-1",
+          "type_id": "core.color_balance",
+          "enabled": true,
+          "parameters": {
+            "shadows": [
+              -15,
+              0,
+              35
+            ],
+            "midtones": [
+              -30,
+              -10,
+              40
+            ],
+            "highlights": [
+              -15,
+              0,
+              20
+            ]
+          }
+        },
+        {
+          "instance_id": "starter-2-2",
+          "type_id": "core.vibrance",
+          "enabled": true,
+          "parameters": {
+            "vibrance": 0,
+            "saturation": -35
+          }
+        },
+        {
+          "instance_id": "starter-2-3",
+          "type_id": "core.brightness_contrast",
+          "enabled": true,
+          "parameters": {
+            "brightness": -60,
+            "contrast": 15
+          }
+        },
+        {
+          "instance_id": "starter-2-4",
+          "type_id": "core.vignette",
+          "enabled": true,
+          "parameters": {
+            "amount": 55,
+            "color": "#000000",
+            "size": 100,
+            "roundness": 0,
+            "softness": 60,
+            "center": [
+              50,
+              50
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sunset",
+      "effects": [
+        {
+          "instance_id": "starter-3-1",
+          "type_id": "core.color_balance",
+          "enabled": true,
+          "parameters": {
+            "shadows": [
+              10,
+              -5,
+              -10
+            ],
+            "midtones": [
+              25,
+              5,
+              -20
+            ],
+            "highlights": [
+              15,
+              5,
+              -15
+            ]
+          }
+        },
+        {
+          "instance_id": "starter-3-2",
+          "type_id": "core.gradient",
+          "enabled": true,
+          "parameters": {
+            "shape": "linear",
+            "start": [
+              50,
+              0
+            ],
+            "end": [
+              50,
+              100
+            ],
+            "start_color": "#ff9a3c",
+            "end_color": "#ffffff",
+            "start_opacity": 45,
+            "end_opacity": 0,
+            "blend": "screen"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cel shadow",
+      "effects": [
+        {
+          "instance_id": "starter-4-1",
+          "type_id": "core.drop_shadow",
+          "enabled": true,
+          "parameters": {
+            "color": "#1a1030",
+            "opacity": 70,
+            "direction": 135,
+            "distance": 20,
+            "softness": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rim light",
+      "effects": [
+        {
+          "instance_id": "starter-5-1",
+          "type_id": "core.rim_light",
+          "enabled": true,
+          "parameters": {
+            "color": "#ffe8c0",
+            "direction": 45,
+            "width": 6,
+            "softness": 2,
+            "intensity": 100,
+            "blend": "screen"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Old film",
+      "effects": [
+        {
+          "instance_id": "starter-6-1",
+          "type_id": "core.gradient_map",
+          "enabled": true,
+          "parameters": {
+            "shadow_color": "#2b1d0e",
+            "midtone_color": "#8a6a43",
+            "highlight_color": "#f3e3c3",
+            "midpoint": 50,
+            "amount": 100
+          }
+        },
+        {
+          "instance_id": "starter-6-2",
+          "type_id": "core.noise",
+          "enabled": true,
+          "parameters": {
+            "amount": 12,
+            "mode": "mono",
+            "seed": 0,
+            "animate": "on"
+          }
+        },
+        {
+          "instance_id": "starter-6-3",
+          "type_id": "core.vignette",
+          "enabled": true,
+          "parameters": {
+            "amount": 55,
+            "color": "#000000",
+            "size": 100,
+            "roundness": 0,
+            "softness": 70,
+            "center": [
+              50,
+              50
+            ]
+          }
+        },
+        {
+          "instance_id": "starter-6-4",
+          "type_id": "core.exposure_flicker",
+          "enabled": true,
+          "parameters": {
+            "amount": 0.15,
+            "hold": 2,
+            "seed": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Impact",
+      "effects": [
+        {
+          "instance_id": "starter-7-1",
+          "type_id": "core.cross_glare",
+          "enabled": true,
+          "parameters": {
+            "threshold": 95,
+            "length": 50,
+            "points": 4,
+            "angle": 45,
+            "intensity": 0.8,
+            "color": "#ffffff"
+          }
+        },
+        {
+          "instance_id": "starter-7-2",
+          "type_id": "core.chromatic_aberration",
+          "enabled": true,
+          "parameters": {
+            "amount": 4,
+            "center": [
+              50,
+              50
+            ]
+          }
+        },
+        {
+          "instance_id": "starter-7-3",
+          "type_id": "core.camera_shake",
+          "enabled": true,
+          "parameters": {
+            "amount": 14,
+            "rotation": 1.5,
+            "hold": 1,
+            "seed": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dream haze",
+      "effects": [
+        {
+          "instance_id": "starter-8-1",
+          "type_id": "core.diffusion",
+          "enabled": true,
+          "parameters": {
+            "radius": 30,
+            "amount": 60,
+            "blend": "screen"
+          }
+        },
+        {
+          "instance_id": "starter-8-2",
+          "type_id": "core.vibrance",
+          "enabled": true,
+          "parameters": {
+            "vibrance": 25,
+            "saturation": -5
+          }
+        }
+      ]
+    },
+    {
+      "name": "Speed lines",
+      "effects": [
+        {
+          "instance_id": "starter-9-1",
+          "type_id": "core.speed_lines",
+          "enabled": true,
+          "parameters": {
+            "center": [
+              50,
+              50
+            ],
+            "color": "#000000",
+            "count": 100,
+            "thickness": 1,
+            "inner": 550,
+            "inner_jitter": 40,
+            "angle_jitter": 50,
+            "seed": 0,
+            "hold": 2,
+            "opacity": 85
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -164113,6 +164113,24 @@ D-180, accepted on 2026-09-28. `tools/preset_file_reference.py` writes `Fixtures
 | FX-PRE-018 | `fx_pre_018.fxpreset` | An effect this build does not have, in the last of three presets, refuses the whole file: the first two are not taken either. | refused, `EFFECT_UNSUPPORTED`, naming core.lens_sparkle |
 | FX-PRE-019 | `fx_pre_019.fxpreset` | A setting this build does not have would be lost, so the file is refused. | refused, `EFFECT_UNSUPPORTED`, naming sparkle |
 
+## Starter preset fixtures
+
+D-181, accepted on 2026-09-28. `tools/starter_presets_reference.py` writes `Fixtures/starter_presets/`: `starter.fxpreset`, the starter presets themselves, and `expected_starter_presets.json`, what the build must show: the presets in order, each one's effect types, the sentence the Effects panel shows, and where the build's pictures put it (`layer`: on `layer-3` of the reference shot; `adjustment`: on an adjustment layer above all four). Each effect is taken from a committed fixture project with only its settings changed.
+
+`check` confirms the file keeps the preset file rule (the two keys, version 0, names present, unrepeated and trimmed), that there are six to ten, that every effect is switched on, every setting it names is inside its range and every word is one the effect has, and that no instance id repeats. The build's test must read the file with `persist::read_presets`, get these names and types, and draw each preset on frame 100 of the reference shot with no diagnostic and a picture different from the one without it.
+
+| # | preset | pictured on | effects |
+| --- | --- | --- | --- |
+| 1 | Soft bloom | adjustment | `core.bloom` |
+| 2 | Night | adjustment | `core.color_balance`, `core.vibrance`, `core.brightness_contrast`, `core.vignette` |
+| 3 | Sunset | adjustment | `core.color_balance`, `core.gradient` |
+| 4 | Cel shadow | layer | `core.drop_shadow` |
+| 5 | Rim light | layer | `core.rim_light` |
+| 6 | Old film | adjustment | `core.gradient_map`, `core.noise`, `core.vignette`, `core.exposure_flicker` |
+| 7 | Impact | adjustment | `core.cross_glare`, `core.chromatic_aberration`, `core.camera_shake` |
+| 8 | Dream haze | adjustment | `core.diffusion`, `core.vibrance` |
+| 9 | Speed lines | adjustment | `core.speed_lines` |
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
