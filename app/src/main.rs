@@ -5280,6 +5280,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .and_then(|to| to.parse::<usize>().ok())
                     .unwrap_or(comp.len()),
             }
+        } else if parameter(query, "target").as_deref() == Some("camera")
+            && id == "layer.set_parent"
+        {
+            // D-171: the layer the camera rides, keeping where it stands on the frame on screen,
+            // as a layer's parent does.
+            let frame = match frame_parameter(query, "frame") {
+                Ok(frame) => frame,
+                Err(said) => return Some(said),
+            };
+            Command::SetCameraParent {
+                composition,
+                parent: parameter(query, "parent")
+                    .filter(|p| !p.is_empty())
+                    .map(Id::new),
+                frame,
+                keep_place: true,
+            }
         } else if parameter(query, "target").as_deref() == Some("camera") {
             // B-13e: the camera, named as a target instead of a layer.
             //
@@ -5517,6 +5534,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             keep_place: true,
                         })
                         .collect();
+                    // D-171: and the camera, if it rides the layer.
+                    if comp.camera.as_ref().and_then(|c| c.parent.as_ref()) == Some(&layer_id) {
+                        unparent.push(Command::SetCameraParent {
+                            composition: composition.clone(),
+                            parent: None,
+                            frame,
+                            keep_place: true,
+                        });
+                    }
                     Command::RemoveLayer {
                         composition,
                         layer_id,
@@ -18499,6 +18525,103 @@ mod editing {
             &["## What this does not cover\n\nWhat the corners and the changing colours look \
                like on the picture and whether the panel feels right in the hand. That is \
                `verification/B-110_shape_style_playtest.md`, for a person."],
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// B-111b: D-171's camera parent from the window. The core's half is
+    /// `verification/B-111_camera_rig_table.md`.
+    #[test]
+    fn a_camera_rides_a_layer_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/camera_rig/fx_rig_003.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let page = std::fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"),
+        )
+        .expect("the page");
+        // The camera as the page is given it, in one line.
+        let camera = |viewer: &Mutex<Viewer>| {
+            let answer: serde_json::Value =
+                serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+            let c = &answer["project"]["compositions"][0]["camera"];
+            format!(
+                "parent {}, place {}, depth {}",
+                c["parent"], c["position"]["base"], c["depth"]["base"]
+            )
+        };
+
+        report.check(
+            "the camera's panel has a Parent list",
+            true,
+            page.contains("chooser.setAttribute('aria-label', 'Parent for the camera');"),
+        );
+        report.check(
+            "FX-RIG-003 opens with its camera on the null \"rig\", at 50, 50 in the null's own pixels",
+            "parent \"rig\", place [50,50], depth -8.333333333333334",
+            camera(&viewer),
+        );
+        run(&viewer, "layer.set_parent?target=camera&parent=&frame=2");
+        report.check(
+            "cleared on frame 2, where the null has carried it to 5, 1, it stays there",
+            "parent null, place [5,1], depth -8.333333333333334",
+            camera(&viewer),
+        );
+        run(&viewer, "layer.set_parent?target=camera&parent=rig&frame=0");
+        report.check(
+            "given the null again on frame 0, where the null stands 2 pixels further left, it is \
+             written 2 further right in the null's pixels, so it still stands at 5, 1",
+            "parent \"rig\", place [52,50], depth -8.333333333333334",
+            camera(&viewer),
+        );
+        report.check(
+            "a parent that is not in the composition is refused, with the reason",
+            "The layer chosen as the camera's parent, nope, is not in this composition.",
+            run(&viewer, "layer.set_parent?target=camera&parent=nope&frame=0"),
+        );
+        run(&viewer, "layer.delete?layer=rig&frame=0");
+        report.check(
+            "deleting the null lets the camera go where it stands, as it does a child layer",
+            "parent null, place [5,1], depth -8.333333333333334",
+            camera(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "one Undo brings the null back with the camera on it",
+            "parent \"rig\", place [52,50], depth -8.333333333333334",
+            camera(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        run(&viewer, "edit.undo");
+        report.check(
+            "and two more put it back as it opened",
+            "parent \"rig\", place [50,50], depth -8.333333333333334",
+            camera(&viewer),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-111b_panel_table.md",
+            "B-111b: a camera that rides a layer, from the window",
+            &["D-171 decided that the camera can ride a layer, as a layer rides its parent; \
+               B-111b built it in the core, checked frame by frame in \
+               `verification/B-111_camera_rig_table.md`. This is the window's half: the \
+               camera's panel has a Parent list, which sends the request a layer's own Parent \
+               list sends, `layer.set_parent`, with `target=camera`. It keeps the camera where \
+               it stands on the frame shown, and deleting the layer it rides lets it go where it \
+               stands. An audio layer is not offered; the core refuses one, which its table \
+               checks."],
+            &["## What this does not cover\n\nWhether the shot moves as a person expects when \
+               the layer under it moves, and whether the list feels right in the hand. That is \
+               `verification/B-111_camera_rig_playtest.md`, for a person."],
         );
         let failed: Vec<&String> = report
             .rows

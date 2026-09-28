@@ -1757,6 +1757,15 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
                 ),
             ));
         }
+        // D-171, written as a layer's parent is: null when cleared, so the old one is not
+        // merged back in.
+        match &camera.parent {
+            Some(parent) => props.push(("parent", J::from(parent.as_str()))),
+            None if held.is_some_and(|c| c.get("parent").is_some()) => {
+                props.push(("parent", J::Null))
+            }
+            None => {}
+        }
         owned.push(("camera", merge(held, props)));
     }
     if !composition.markers.is_empty() || base.is_some_and(|b| b.get("markers").is_some()) {
@@ -4113,6 +4122,11 @@ fn parse_composition(
                     parse_property(value, &here, prop.kind(), false, false, 1.0)?;
             }
         }
+        // D-171. Whether it names a layer is asked once the layers are known, below.
+        camera.parent = match cam.get("parent") {
+            None | Some(J::Null) => None,
+            Some(p) => Some(as_id(p, &format!("{at}/parent"))?),
+        };
         // D-58 refuses a zoom that is not more than nought, at every frame it is keyed
         // to: such a camera has nothing in front of it, so there is no picture to be had
         // and nothing sensible to draw instead of one.
@@ -4310,6 +4324,36 @@ fn parse_composition(
                 "The project was not opened and nothing on disk was changed. One of the matte \
                  references has to be cleared before it can open.",
             ));
+        }
+    }
+    // D-171: the camera's parent, with the layer's rules.
+    if let Some(parent) = composition.camera.as_ref().and_then(|c| c.parent.as_ref()) {
+        match composition.layer(parent) {
+            Some(l) if l.kind == crate::model::LayerKind::Audio => {
+                return Err(invalid(
+                    &format!("/compositions/{}/camera/parent", composition.id),
+                    &format!("a parent that is not the audio layer {parent} (D-71)"),
+                ));
+            }
+            Some(_) => {}
+            None => warnings.push(
+                Diagnostic::new(
+                    DiagnosticId::ParentReferenceMissing,
+                    Severity::Warning,
+                    "The camera is parented to a layer that is not in this composition."
+                        .to_string(),
+                    format!(
+                        "The camera of composition {} names parent {parent}, which no layer \
+                         matches. The reference is kept and the camera stands where it would \
+                         with no parent.",
+                        composition.id
+                    ),
+                )
+                .with_remediation(
+                    "Choose a parent in the camera's panel, or clear it, to say which it is \
+                     meant to be.",
+                ),
+            ),
         }
     }
     for layer in composition.layers_in_order() {

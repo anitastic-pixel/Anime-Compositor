@@ -588,6 +588,10 @@ pub struct Camera {
     /// A length in pixels. After Effects stores it this way too; the window shows it in
     /// millimetres, which is D-22's rule about where a unit is converted.
     pub zoom: Property,
+    /// D-171: a layer the camera rides. `position` is then a point in its space and `depth` is
+    /// measured from its plane; the view is never turned or scaled by it. A missing one is kept
+    /// and ignored, with `PARENT_REFERENCE_MISSING`.
+    pub parent: Option<Id>,
 }
 
 impl Camera {
@@ -603,6 +607,7 @@ impl Camera {
             position: Property::constant(Value::Vec2(width as f64 / 2.0, height as f64 / 2.0)),
             depth: Property::constant(Value::Scalar(-zoom)),
             zoom: Property::constant(Value::Scalar(zoom)),
+            parent: None,
         }
     }
 

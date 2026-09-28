@@ -6512,11 +6512,30 @@ function drawCamera() {
       dl.append(expr.box);
     }
   };
-  row('position', 'Place', 'Where the camera is, across and down the composition, in pixels.');
+  row('position', 'Place', 'Where the camera is, across and down the composition, in pixels; '
+    + "in its parent's own pixels when it rides a layer.");
   row('depth', 'Depth',
     'How far back the camera is, in pixels. A layer nearer than this is not drawn.');
   row('zoom', 'Lens',
     'The lens, in millimetres on a 36 mm back. A longer lens flattens the parallax.');
+  // D-171: the layer the camera rides, as a layer's parent row does, keeping where it stands on
+  // this frame. A parent the file names but the composition lacks is shown as missing.
+  const dt = document.createElement('dt');
+  dt.textContent = 'Parent';
+  dt.title = 'A layer the camera rides, as a camera parented to a null. Moving the layer moves the shot.';
+  const dd = document.createElement('dd');
+  const chooser = document.createElement('select');
+  chooser.setAttribute('aria-label', 'Parent for the camera');
+  const parent = (comp.camera && comp.camera.parent) || '';
+  chooser.append(new Option('none', ''), ...layers()
+    .filter((l) => l.kind !== 'audio')
+    .map((l) => new Option(l.name, l.id)));
+  if (parent && !layers().some((l) => l.id === parent)) chooser.append(new Option(parent + ' (missing)', parent));
+  chooser.value = parent;
+  chooser.onchange = () => command('/layer.set_parent?target=camera&parent='
+    + encodeURIComponent(chooser.value) + '&frame=' + frame);
+  dd.append(chooser);
+  dl.append(dt, dd);
   into.replaceChildren(dl);
 }
 

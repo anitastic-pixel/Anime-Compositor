@@ -545,10 +545,17 @@ pub fn camera_at(comp: &crate::model::Composition, frame: i32) -> Option<CameraA
     let at = |prop, property| {
         crate::expr::resolve(comp, property, || crate::expr::Target::Camera, prop, frame).0
     };
-    Some(CameraAt {
-        position: at(Prop::Position, &camera.position).as_vec2()?,
-        depth: at(Prop::Depth, &camera.depth).as_scalar()?,
-        zoom: at(Prop::Zoom, &camera.zoom).as_scalar()?,
+    let (x, y) = at(Prop::Position, &camera.position).as_vec2()?;
+    let depth = at(Prop::Depth, &camera.depth).as_scalar()?;
+    let zoom = at(Prop::Zoom, &camera.zoom).as_scalar()?;
+    // D-171: riding a layer moves where the camera stands and how far back, never the view.
+    Some(match camera.parent.as_ref().filter(|p| comp.layer(p).is_some()) {
+        Some(parent) => CameraAt {
+            position: world_transform(comp, parent, frame).apply(x, y),
+            depth: depth + world_depth(comp, parent, frame),
+            zoom,
+        },
+        None => CameraAt { position: (x, y), depth, zoom },
     })
 }
 

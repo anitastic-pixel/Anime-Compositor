@@ -41,7 +41,9 @@ import null_reference  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "Fixtures" / "camera_rig"
 PICTURE = ROOT / "verification" / "B-111a proposal" / "rig_cases.png"
-TOLERANCE = 1e-9
+TOLERANCE = 1e-9  # the points, worked in 64 bits end to end
+# The frames, as null_reference.py's: a picture is decoded and drawn in 32-bit numbers.
+PIXEL_TOLERANCE = 1e-6
 CENTRE = [W / 2, H / 2]
 ZOOM = W * 50 / 36  # D-58's default lens, and the camera the cases name for themselves
 NULL_ANCHOR = [50, 50]  # a null is 100 by 100 in its own space, its anchor at the middle
@@ -244,7 +246,7 @@ def main():
     shutil.copyfile(ROOT / "Fixtures" / "audio" / "media" / "pcm16_mono_48k.wav",
                     OUT / "media" / "pcm16_mono_48k.wav")
 
-    expected = {"tolerance": TOLERANCE, "width": W, "height": H,
+    expected = {"tolerance": TOLERANCE, "pixel_tolerance": PIXEL_TOLERANCE, "width": W, "height": H,
                 "cases": {}, "points": {}, "warned": {}, "refused": {}}
 
     def write(fx, case):

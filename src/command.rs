@@ -321,6 +321,15 @@ pub enum Command {
         prop: crate::model::CameraProp,
         value: Value,
     },
+    /// D-171: the camera rides `parent`, or nothing when that is `None`. `frame` and
+    /// `keep_place` are [`Command::SetParent`]'s: keeping place converts the camera's position
+    /// and depth, base and keys, so it stands where it stood at `frame`.
+    SetCameraParent {
+        composition: Id,
+        parent: Option<Id>,
+        frame: i32,
+        keep_place: bool,
+    },
     /// Document 24's `exposure.set_span`. B-12a.
     ///
     /// The whole ordered list is the unit of change, for the reason [`Command::SetMask`] gives.
@@ -472,6 +481,7 @@ impl Command {
             Command::SetDepth { .. } => "SET_DEPTH",
             Command::SetAudioGain { .. } => "SET_AUDIO_GAIN",
             Command::SetCameraProperty { .. } => "SET_CAMERA_PROPERTY",
+            Command::SetCameraParent { .. } => "SET_CAMERA_PARENT",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
             Command::SetSheetText { .. } => "SET_SHEET_TEXT",
             Command::SetKeyDrawings { .. } => "SET_KEY_DRAWINGS",
@@ -653,6 +663,10 @@ impl Command {
             Command::SetCameraProperty { prop, .. } => {
                 format!("Set the camera's {}", prop.as_str())
             }
+            Command::SetCameraParent { parent, .. } => match parent {
+                Some(id) => format!("Set the camera's parent to {id}"),
+                None => "Clear the camera's parent".to_string(),
+            },
             Command::SetExposureSpans { spans, .. } => match spans.len() {
                 0 => "Clear the exposures".to_string(),
                 1 => "Set one exposure".to_string(),
@@ -752,6 +766,7 @@ impl Command {
             | Command::SetDepth { composition, .. }
             | Command::SetAudioGain { composition, .. }
             | Command::SetCameraProperty { composition, .. }
+            | Command::SetCameraParent { composition, .. }
             | Command::SetExposureSpans { composition, .. }
             | Command::SetSheetText { composition, .. }
             | Command::SetKeyDrawings { composition, .. }
@@ -834,6 +849,7 @@ impl Command {
             }
             // The camera is the composition's, and the composition is already in the list.
             Command::SetCameraProperty { .. } => {}
+            Command::SetCameraParent { parent, .. } => ids.extend(parent.clone()),
         }
         ids
     }
@@ -906,6 +922,7 @@ impl Command {
                 | Command::AddLayer { .. }
                 // The camera belongs to the composition; a locked layer has no say in it.
                 | Command::SetCameraProperty { .. }
+                | Command::SetCameraParent { .. }
         )
     }
 
@@ -2520,6 +2537,61 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 .get_mut(*prop)
                 .set_base(value);
         }
+        Command::SetCameraParent {
+            parent,
+            frame,
+            keep_place: keeping,
+            ..
+        } => {
+            let comp = project.composition(&comp_id).expect("checked above");
+            if let Some(target) = parent {
+                match comp.layer(target) {
+                    None => {
+                        return Err(Diagnostic::new(
+                            DiagnosticId::ParentReferenceMissing,
+                            Severity::Error,
+                            format!(
+                                "The layer chosen as the camera's parent, {target}, is not in \
+                                 this composition."
+                            ),
+                            "D-171: the camera's parent is a layer in the same composition."
+                                .to_string(),
+                        ))
+                    }
+                    Some(l) if l.kind == crate::model::LayerKind::Audio => {
+                        return Err(reject(
+                            &format!(
+                                "\"{}\" is an audio layer, so the camera cannot ride it.",
+                                l.name
+                            ),
+                            "D-71: an audio layer has no place.",
+                        ))
+                    }
+                    Some(_) => {}
+                }
+            }
+            let conversion = match keeping {
+                true => Some(camera_keep_place(comp, parent.as_ref(), *frame)?),
+                false => None,
+            };
+            let comp = comp_mut(project, &comp_id)?;
+            let (width, height) = (comp.width, comp.height);
+            let camera = comp
+                .camera
+                .get_or_insert_with(|| crate::model::Camera::default_for(width, height));
+            camera.parent = parent.clone();
+            if let Some((map, depth)) = conversion {
+                map_position(&mut camera.position, map);
+                convert_keys(
+                    &mut camera.depth,
+                    |v| match v.as_scalar() {
+                        Some(d) => Value::Scalar(d + depth),
+                        None => v,
+                    },
+                    |h| h,
+                );
+            }
+        }
         Command::SetExposureSpans {
             layer_id, spans, ..
         } => {
@@ -3195,12 +3267,90 @@ fn keep_place(
 }
 
 /// Write the conversion over position, scale and rotation, base value and every keyframe alike.
-fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
-    use crate::model::{Keyframe, Property, Value};
+/// A property's base and every keyframe rewritten by `value`, and each key's spatial handles by
+/// `handle`.
+fn convert_keys(
+    prop: &mut crate::model::Property,
+    value: impl Fn(Value) -> Value,
+    handle: impl Fn([f64; 4]) -> [f64; 4],
+) {
+    prop.set_base(value(prop.base()));
+    for key in prop.keyframes().to_vec() {
+        prop.set_keyframe(crate::model::Keyframe {
+            value: value(key.value),
+            spatial: key.spatial.map(&handle),
+            ..key
+        });
+    }
+}
 
-    let origin = by.map.apply(0.0, 0.0);
+/// A place carried through `map`, base, keys and spatial handles alike.
+fn map_position(prop: &mut crate::model::Property, map: crate::render::Affine) {
+    let origin = map.apply(0.0, 0.0);
     // A spatial handle is an offset from its own key, so only the map's linear part moves it:
     // the map applied to the offset, less where the map sends the origin.
+    let handle = |h: [f64; 4]| {
+        let mut out = h;
+        for pair in 0..2 {
+            let (x, y) = map.apply(h[pair * 2], h[pair * 2 + 1]);
+            out[pair * 2] = x - origin.0;
+            out[pair * 2 + 1] = y - origin.1;
+        }
+        out
+    };
+    convert_keys(
+        prop,
+        |v| match v.as_vec2() {
+            Some((x, y)) => {
+                let (nx, ny) = map.apply(x, y);
+                Value::Vec2(nx, ny)
+            }
+            None => v,
+        },
+        handle,
+    );
+}
+
+/// D-171: what keeps the camera where it stands when it changes parent at `frame` -- the map
+/// for its position out of the old parent's space into the new one's, and what to add to its
+/// depth. The view is never turned or scaled by a parent, so nothing else changes.
+fn camera_keep_place(
+    comp: &crate::model::Composition,
+    parent: Option<&Id>,
+    frame: i32,
+) -> Result<(crate::render::Affine, f64), Diagnostic> {
+    // A parent the file names but the composition lacks is ignored when drawing, so it is
+    // ignored here too: the camera stands where it is drawn.
+    let held = comp
+        .camera
+        .as_ref()
+        .and_then(|c| c.parent.as_ref())
+        .filter(|p| comp.layer(p).is_some());
+    let chain = |id: Option<&Id>| match id {
+        Some(id) => (
+            crate::compose::world_at(comp, id, frame).matrix,
+            crate::compose::world_depth(comp, id, frame),
+        ),
+        None => (crate::compose::Chain::IDENTITY.matrix, 0.0),
+    };
+    let (old, old_depth) = chain(held);
+    let (new, new_depth) = chain(parent);
+    let Some(inverse) = new.invert() else {
+        return Err(Diagnostic::new(
+            DiagnosticId::CommandInvalidValue,
+            Severity::Error,
+            "That layer cannot carry the camera, because it is scaled to nothing.".to_string(),
+            format!("The parent chain has a zero scale component at frame {frame}."),
+        )
+        .with_remediation("Give the parent a scale that is not zero, then set the parent again."));
+    };
+    Ok((old.then(inverse), old_depth - new_depth))
+}
+
+fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
+    use crate::model::Property;
+
+    let origin = by.map.apply(0.0, 0.0);
     let handle = |h: [f64; 4]| {
         let mut out = h;
         for pair in 0..2 {
@@ -3210,33 +3360,8 @@ fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
         }
         out
     };
-    fn convert(
-        prop: &mut Property,
-        value: impl Fn(Value) -> Value,
-        handle: impl Fn([f64; 4]) -> [f64; 4],
-    ) {
-        prop.set_base(value(prop.base()));
-        for key in prop.keyframes().to_vec() {
-            prop.set_keyframe(Keyframe {
-                value: value(key.value),
-                spatial: key.spatial.map(&handle),
-                ..key
-            });
-        }
-    }
-
-    convert(
-        &mut layer.transform.position,
-        |v| match v.as_vec2() {
-            Some((x, y)) => {
-                let (nx, ny) = by.map.apply(x, y);
-                Value::Vec2(nx, ny)
-            }
-            None => v,
-        },
-        &handle,
-    );
-    convert(
+    map_position(&mut layer.transform.position, by.map);
+    convert_keys(
         &mut layer.transform.scale,
         |v| match v.as_vec2() {
             Some((x, y)) => Value::Vec2(x * by.scale.0, y * by.scale.1),
@@ -3244,7 +3369,7 @@ fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
         },
         &handle,
     );
-    convert(
+    convert_keys(
         &mut layer.transform.rotation,
         |v| match v.as_scalar() {
             Some(r) => Value::Scalar(r + by.rotation),
@@ -3258,7 +3383,7 @@ fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
         let depth = layer
             .depth
             .get_or_insert_with(|| Property::constant(Value::Scalar(0.0)));
-        convert(
+        convert_keys(
             depth,
             |v| match v.as_scalar() {
                 Some(d) => Value::Scalar(d + by.depth),
