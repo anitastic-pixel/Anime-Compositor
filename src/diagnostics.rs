@@ -210,6 +210,9 @@ pub enum DiagnosticId {
     /// the card failing. INFO when planned, WARNING when the card failed. Nothing is refused, so
     /// this is not document 28's GPU_BACKEND_FAILED, which is an ERROR.
     GpuPreviewOnCpu,
+    /// Document 28, added by D-180: a preset file that is not the preset file format, or is a
+    /// newer version of it. Nothing is imported and nothing is changed.
+    PresetFileInvalid,
 }
 
 impl DiagnosticId {
@@ -276,6 +279,7 @@ impl DiagnosticId {
             DiagnosticId::TimesheetDrawingUnused => "TIMESHEET_DRAWING_UNUSED",
             DiagnosticId::TimesheetNotUsed => "TIMESHEET_NOT_USED",
             DiagnosticId::GpuPreviewOnCpu => "GPU_PREVIEW_ON_CPU",
+            DiagnosticId::PresetFileInvalid => "PRESET_FILE_INVALID",
         }
     }
 
@@ -337,6 +341,7 @@ impl DiagnosticId {
                 | DiagnosticId::TimesheetDrawingMissing
                 | DiagnosticId::TimesheetDrawingUnused
                 | DiagnosticId::TimesheetNotUsed
+                | DiagnosticId::PresetFileInvalid
         )
     }
 }

@@ -8313,6 +8313,138 @@ fn ask_where_to_save_the_log(app: &AppHandle) {
         });
 }
 
+/// D-180: Export presets. `presets` is the window's list as the page keeps it; it is checked
+/// whole before anything is asked, and written to the file the person names.
+fn ask_where_to_export_presets(app: &AppHandle, name: &str, presets: &str) -> String {
+    let text = match persist::write_presets(presets) {
+        Ok(text) => text,
+        Err(refused) => return sentence(&refused),
+    };
+    let count = persist::read_presets(&text).map_or(0, |p| p.len());
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Export presets")
+        .set_file_name(format!("{name}.fxpreset"))
+        .add_filter("Effect presets", &["fxpreset"])
+        .save_file(move |chosen| {
+            let Some(path) = chosen.and_then(|c| c.into_path().ok()) else {
+                return;
+            };
+            let said = match std::fs::write(&path, text) {
+                Ok(()) if count == 1 => format!("Exported 1 preset to {}.", path.display()),
+                Ok(()) => format!("Exported {count} presets to {}.", path.display()),
+                Err(e) => format!("The presets could not be exported to {}: {e}.", path.display()),
+            };
+            tell_the_page_about_presets(&handle, None, said);
+        });
+    String::new()
+}
+
+/// D-180: Import presets. `have` is the names the window already has, which an imported preset
+/// never replaces.
+fn ask_which_presets_to_import(app: &AppHandle, have: Vec<String>) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Import presets")
+        .add_filter("Effect presets", &["fxpreset"])
+        .pick_file(move |chosen| {
+            let Some(path) = chosen.and_then(|c| c.into_path().ok()) else {
+                return;
+            };
+            let file = path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
+            let answer = match std::fs::read_to_string(&path) {
+                Ok(text) => imported_presets(&text, &file, &have),
+                Err(e) => Err(format!("{file} could not be read, so nothing was imported: {e}.")),
+            };
+            match answer {
+                Ok((list, said)) => tell_the_page_about_presets(&handle, Some(list), said),
+                Err(said) => tell_the_page_about_presets(&handle, None, said),
+            }
+        });
+}
+
+/// The presets are the window's, not the project's, so the page is handed them rather than
+/// reloaded; the sentence goes to the status line as well.
+fn tell_the_page_about_presets(app: &AppHandle, list: Option<serde_json::Value>, said: String) {
+    announce(&app.state::<Mutex<Viewer>>(), said.clone());
+    if let Some(page) = app.get_webview_window("main") {
+        let list = list.unwrap_or(serde_json::Value::Null);
+        let _ = page.eval(format!("receivePresets({list}, {})", serde_json::Value::String(said)));
+    }
+}
+
+/// D-180: a preset file's presets as the window keeps them, with the sentence saying what came
+/// in, or the sentence refusing it whole. A name in `have` comes in with " 2", or the next number
+/// free both in the window and in the file.
+fn imported_presets(text: &str, file: &str, have: &[String]) -> Result<(serde_json::Value, String), String> {
+    let read = persist::read_presets(text).map_err(|refused| sentence(&refused))?;
+    // Each effect goes on as the file wrote it; `effect.paste` reads it by the same rules again.
+    let root: serde_json::Value = serde_json::from_str(text).expect("read_presets read it as JSON");
+    let mut taken: Vec<String> = have.iter().cloned().chain(read.iter().map(|p| p.name.clone())).collect();
+    let mut renamed = Vec::new();
+    let mut list = Vec::new();
+    for (i, preset) in read.iter().enumerate() {
+        let mut name = preset.name.clone();
+        if have.contains(&name) {
+            let n = (2..).find(|n| !taken.contains(&format!("{name} {n}"))).expect("a free number");
+            let new = format!("{name} {n}");
+            renamed.push(format!("\"{name}\" as \"{new}\""));
+            taken.push(new.clone());
+            name = new;
+        }
+        list.push(serde_json::json!({ "name": name, "effects": root["presets"][i]["effects"] }));
+    }
+    let mut said = match list.len() {
+        1 => format!("Imported 1 preset from {file}."),
+        n => format!("Imported {n} presets from {file}."),
+    };
+    if !renamed.is_empty() {
+        said += &format!(" Names you already had came in with a number: {}.", renamed.join(", "));
+    }
+    Ok((serde_json::Value::Array(list), said))
+}
+
+#[cfg(test)]
+mod preset_files {
+    use super::*;
+
+    fn fixture(file: &str) -> String {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../Fixtures/preset_file").join(file);
+        std::fs::read_to_string(path).expect("read the fixture")
+    }
+
+    #[test]
+    fn a_name_the_window_has_comes_in_with_a_number() {
+        let have = ["Poster".to_string(), "Night 2".to_string()];
+        let text = fixture("fx_pre_002.fxpreset");
+        let (list, said) = imported_presets(&text, "fx_pre_002.fxpreset", &have).expect("imported");
+        let names: Vec<&str> = list.as_array().unwrap().iter().map(|p| p["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["Night", "Poster 2", "Lifted"]);
+        assert_eq!(
+            said,
+            "Imported 3 presets from fx_pre_002.fxpreset. Names you already had came in with a number: \"Poster\" as \"Poster 2\"."
+        );
+        let again = imported_presets(&text, "f", &["Night".into(), "Night 2".into()]).unwrap().0;
+        assert_eq!(again[0]["name"], "Night 3");
+        assert_eq!(again[0]["effects"], serde_json::from_str::<serde_json::Value>(&text).unwrap()["presets"][0]["effects"]);
+    }
+
+    #[test]
+    fn a_refused_file_brings_nothing() {
+        let said = imported_presets(&fixture("fx_pre_018.fxpreset"), "f", &[]).unwrap_err();
+        assert!(said.contains("core.lens_sparkle"), "{said}");
+    }
+
+    #[test]
+    fn export_writes_nothing_import_would_refuse() {
+        let text = fixture("fx_pre_015.fxpreset");
+        let list = serde_json::from_str::<serde_json::Value>(&text).unwrap()["presets"].to_string();
+        assert!(persist::write_presets(&list).is_err());
+    }
+}
+
 /// Reload the page, which is the whole of the update after a command that changed what is open.
 ///
 /// The page holds no state about the project — everything it says arrives with a frame — so
@@ -8527,6 +8659,16 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             ask_where_to_save(app);
             String::new()
         }
+        // D-180: the window's presets to a file and back. Neither touches the project.
+        "presets-export" => ask_where_to_export_presets(
+            app,
+            &parameter(query, "name").unwrap_or_else(|| "presets".to_string()),
+            &parameter(query, "presets").unwrap_or_default(),
+        ),
+        "presets-import" => {
+            ask_which_presets_to_import(app, parameters(query, "have"));
+            String::new()
+        }
         // The page only ever offers a path it was given in `x-recovery`, but this checks anyway:
         // a command scheme is reachable by anything running in the page.
         "recover" => match parameter(query, "path") {
@@ -8584,7 +8726,8 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
-                      /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, or one of \
+                      /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
+                      /presets-export, /presets-import, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -22143,6 +22286,9 @@ mod contract {
         // B-45: where the viewer's picture lies in the window, for the card to paint it there.
         "place",
         "play",
+        // D-180: Export presets and Import presets.
+        "presets-export",
+        "presets-import",
         "recent",
         "recover",
         "save",

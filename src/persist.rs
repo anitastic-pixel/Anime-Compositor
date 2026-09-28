@@ -4629,22 +4629,36 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
 pub fn read_effects(text: &str) -> Result<Vec<crate::effects::EffectInstance>, Diagnostic> {
     let v: J = serde_json::from_str(text)
         .map_err(|e| invalid("/", &format!("a list of effects written as JSON ({e})")))?;
+    effects_whole(
+        &v,
+        "",
+        "pasted",
+        "Nothing was pasted and nothing was changed. Paste it in the build that copied it.",
+    )
+}
+
+/// `read_effects`'s rules on a list found at `at`, refusals worded as what was `done` to it and
+/// what `remedy` says (D-180: a preset file's effects are read by them too).
+fn effects_whole(
+    v: &J,
+    at: &str,
+    done: &str,
+    remedy: &str,
+) -> Result<Vec<crate::effects::EffectInstance>, Diagnostic> {
     let mut ignored = Vec::new();
     let mut out = Vec::new();
-    for (i, one) in as_array(&v, "/")?.iter().enumerate() {
-        let at = format!("/{i}");
+    for (i, one) in as_array(v, if at.is_empty() { "/" } else { at })?.iter().enumerate() {
+        let at = format!("{at}/{i}");
         let instance = parse_effect(one, &at, "pasted", &Id::new("pasted"), &mut ignored)?;
         let type_id = instance.type_id().to_string();
         let refuse = |why: String| {
             Diagnostic::new(
                 DiagnosticId::EffectUnsupported,
                 Severity::Error,
-                format!("The effect {type_id} cannot be pasted: {why}"),
+                format!("The effect {type_id} cannot be {done}: {why}"),
                 format!("{type_id}: {why}"),
             )
-            .with_remediation(
-                "Nothing was pasted and nothing was changed. Paste it in the build that copied it.",
-            )
+            .with_remediation(remedy)
         };
         if let crate::effects::Effect::Unsupported { .. } = instance.effect {
             return Err(refuse("this build does not have it.".to_string()));
@@ -4675,6 +4689,129 @@ pub fn read_effects(text: &str) -> Result<Vec<crate::effects::EffectInstance>, D
             )));
         }
         out.push(instance);
+    }
+    Ok(out)
+}
+
+/// D-180: the one preset file version there has been.
+pub const PRESET_FILE_VERSION: i64 = 0;
+
+/// D-180: one preset read from a preset file.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Preset {
+    pub name: String,
+    pub effects: Vec<crate::effects::EffectInstance>,
+}
+
+/// D-180: a preset file, read whole or refused whole (document 19's "Effect preset files").
+///
+/// Its effects are read by `read_effects`'s rules, so an effect or a setting this build would not
+/// keep refuses the file, and so does anything else the format does not name.
+pub fn read_presets(text: &str) -> Result<Vec<Preset>, Diagnostic> {
+    presets_whole(text, "imported", "Nothing was imported, and the presets you have are unchanged.")
+}
+
+/// D-180: the text of a preset file holding `presets`, a JSON list of `{name, effects}` as the
+/// window keeps them. Nothing is written that would not read back whole.
+pub fn write_presets(presets: &str) -> Result<String, Diagnostic> {
+    let remedy = "Nothing was written.";
+    let list: J = serde_json::from_str(presets).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticId::PresetFileInvalid,
+            Severity::Error,
+            "These presets cannot be exported: the window sent them garbled.",
+            e.to_string(),
+        )
+        .with_remediation(remedy)
+    })?;
+    let file = serde_json::json!({ "preset_file_version": PRESET_FILE_VERSION, "presets": list });
+    let text = serde_json::to_string_pretty(&file).expect("a JSON value writes") + "\n";
+    presets_whole(&text, "exported", remedy)?;
+    Ok(text)
+}
+
+fn presets_whole(text: &str, done: &str, remedy: &str) -> Result<Vec<Preset>, Diagnostic> {
+    let refuse = |said: String, detail: String| {
+        Diagnostic::new(
+            DiagnosticId::PresetFileInvalid,
+            Severity::Error,
+            format!("This preset file cannot be {done}: {said}"),
+            detail,
+        )
+        .with_remediation(remedy)
+    };
+    let root: J = serde_json::from_str(text)
+        .map_err(|e| refuse("it is not JSON text, so it is not a preset file.".into(), e.to_string()))?;
+    let Some(top) = root.as_object() else {
+        return Err(refuse("it is not a preset file.".into(), "The file is not a JSON object.".into()));
+    };
+    if top.contains_key("schema_version") {
+        return Err(refuse(
+            "it is a project file, not a preset file. Open it with Open instead.".into(),
+            "The file has schema_version, which projects have.".into(),
+        ));
+    }
+    match top.get("preset_file_version").and_then(J::as_i64) {
+        Some(PRESET_FILE_VERSION) => {}
+        Some(v) if v > PRESET_FILE_VERSION => {
+            return Err(refuse(
+                "it was written by a newer version of this program, whose presets this one does not read."
+                    .into(),
+                format!("preset_file_version {v}; this build reads {PRESET_FILE_VERSION}."),
+            ))
+        }
+        _ => {
+            return Err(refuse(
+                "it does not say it is a preset file of a version this build reads.".into(),
+                format!("preset_file_version is missing or not {PRESET_FILE_VERSION}."),
+            ))
+        }
+    }
+    let lost = |keys: &serde_json::Map<String, J>, known: &[&str]| {
+        keys.keys().find(|k| !known.contains(&k.as_str())).cloned()
+    };
+    if let Some(extra) = lost(top, &["preset_file_version", "presets"]) {
+        return Err(refuse(
+            format!("it holds \"{extra}\", which a preset file does not have and this build would lose."),
+            format!("At /{extra}."),
+        ));
+    }
+    let list = match top.get("presets").and_then(J::as_array) {
+        Some(list) if !list.is_empty() => list,
+        _ => return Err(refuse("it holds no presets.".into(), "At /presets: expected a list of at least one.".into())),
+    };
+    let mut out: Vec<Preset> = Vec::new();
+    for (i, one) in list.iter().enumerate() {
+        let at = format!("/presets/{i}");
+        let which = i + 1;
+        let Some(preset) = one.as_object() else {
+            return Err(refuse(format!("preset {which} is not written as a preset."), format!("At {at}.")));
+        };
+        if let Some(extra) = lost(preset, &["name", "effects"]) {
+            return Err(refuse(
+                format!("preset {which} holds \"{extra}\", which a preset does not have and this build would lose."),
+                format!("At {at}/{extra}."),
+            ));
+        }
+        let name = match preset.get("name").and_then(J::as_str) {
+            Some(name) if !name.trim().is_empty() => name.to_string(),
+            _ => return Err(refuse(format!("preset {which} has no name."), format!("At {at}/name."))),
+        };
+        if out.iter().any(|p| p.name == name) {
+            return Err(refuse(format!("two presets are named \"{name}\"."), format!("At {at}/name.")));
+        }
+        let effects = match preset.get("effects") {
+            Some(list) if list.as_array().is_some_and(|l| !l.is_empty()) => list,
+            _ => return Err(refuse(format!("the preset \"{name}\" has no effects."), format!("At {at}/effects."))),
+        };
+        let effects = effects_whole(effects, &format!("{at}/effects"), done, remedy).map_err(|d| {
+            if d.id == DiagnosticId::ProjectSchemaInvalid {
+                refuse(format!("an effect in the preset \"{name}\" is not written as a project writes one."), d.detail)
+            } else {
+                d
+            }
+        })?;
+        out.push(Preset { name, effects });
     }
     Ok(out)
 }

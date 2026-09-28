@@ -110,6 +110,8 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `path.remove_point` can be asked for without a mouse | yes | yes | pass |
 | `place` can be asked for without a mouse | yes | yes | pass |
 | `play` can be asked for without a mouse | yes | yes | pass |
+| `presets-export` can be asked for without a mouse | yes | yes | pass |
+| `presets-import` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_cancel` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_end` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_update` can be asked for without a mouse | yes | yes | pass |
@@ -174,4 +176,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**144 of 144 checks pass.**
+**146 of 146 checks pass.**

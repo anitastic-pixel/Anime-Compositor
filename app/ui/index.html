@@ -3340,6 +3340,8 @@ function palette() {
     ['Find an effect or preset', 'Ctrl+Space', fxConsole],
     ['Paste effects', 'Ctrl+V', pasteCopiedEffects],
     ['Save the effects as a preset', '', () => savePreset()],
+    ['Export presets', '', () => exportPresets()],
+    ['Import presets', '', importPresets],
     ['Show changed properties', 'UU', () => showProps('changed')],
     ['Fill the window with the panel', '`', maximise],
     ['Error details', '', () => $('notedetails').click()],
@@ -10335,6 +10337,33 @@ function savePreset(layer = selected()) {
     });
 }
 $('savepreset').onclick = () => savePreset();
+// D-180: presets to a .fxpreset file and back. Rust asks where, checks the file whole, and hands
+// what it imported to receivePresets; a name already here comes in with a number.
+function exportPresets(list = effectPresets) {
+  if (!list.length) { $('status').textContent = 'There are no presets to export yet. Save a layer\u2019s effects as a preset first.'; return; }
+  command('/presets-export?name=' + encodeURIComponent(list.length === 1 ? list[0].name : 'presets')
+    + '&presets=' + encodeURIComponent(JSON.stringify(list.map((p) => ({ name: p.name, effects: p.effects })))));
+}
+function importPresets() {
+  command('/presets-import?' + effectPresets.map((p) => 'have=' + encodeURIComponent(p.name)).join('&'));
+}
+window.receivePresets = (list, said) => {
+  if (list) {
+    effectPresets = [...effectPresets, ...list];
+    fxStore('effectPresets', effectPresets);
+    closedFolders.delete('Presets');
+    drawEffectList();
+  }
+  $('status').textContent = said;
+};
+// The panel's empty space, for the mouse; the keyboard has the same two in every line's menu.
+$('fxlist').addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  popMenu(e.clientX, e.clientY, [
+    ['Export presets\u2026', '', () => exportPresets()],
+    ['Import presets\u2026', '', importPresets],
+  ]);
+});
 function addEffect(type, layerId) {
   if (!takesEffects(layers().find((l) => l.id === layerId))) return undefined;
   const sent = command('/effect.add?layer=' + encodeURIComponent(layerId) + '&type=' + type);
@@ -10361,6 +10390,9 @@ function effectItem(key) {
       ['Add to the selected layers', 'Enter', () => applyToLayers(key, selection.filter((id) => takesEffects(layerById(id))))],
       preset ? ['Remove the preset', 'Delete', () => forgetPreset(key.slice(7))]
         : [favouriteEffects.includes(key) ? 'Take out of Favourites' : 'Add to Favourites', '', () => toggleFavourite(key)],
+      ...(preset ? [['Export this preset\u2026', '', () => exportPresets([presetOf(key)])]] : []),
+      ['Export presets\u2026', '', () => exportPresets()],
+      ['Import presets\u2026', '', importPresets],
     ]);
   };
   b.onkeydown = (e) => {
