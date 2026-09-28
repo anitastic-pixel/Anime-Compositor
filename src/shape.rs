@@ -40,31 +40,140 @@
 //! and `Fixtures/shapes/` is what it produced. `tests/b25b_shapes.rs` walks every case.
 
 use crate::mask::{MaskKey, MaskPoint, SAMPLES_PER_SIDE};
+use crate::model::{Property, Value};
 use crate::WorkingBuffer;
 
 /// D-78's largest stroke, in pixels: a solid's largest side, for the same reason.
 pub const MAX_STROKE_WIDTH: f64 = 8192.0;
+
+/// D-168: a gradient holds 2 to this many stops.
+pub const MAX_STOPS: usize = 64;
+
+/// D-168: along the line from start to end, or out from the start by the start-to-end length.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum GradientKind {
+    Linear,
+    Radial,
+}
+
+impl GradientKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            GradientKind::Linear => "linear",
+            GradientKind::Radial => "radial",
+        }
+    }
+
+    pub fn named(name: &str) -> Option<GradientKind> {
+        match name {
+            "linear" => Some(GradientKind::Linear),
+            "radial" => Some(GradientKind::Radial),
+            _ => None,
+        }
+    }
+}
+
+/// D-168: one colour and opacity at an offset from 0 to 1 along the gradient.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Stop {
+    pub offset: f64,
+    /// Linear working-space RGB, 0 to 1.
+    pub color: [f64; 3],
+    pub opacity: f64,
+}
+
+/// D-168: a fill's or stroke's colour worked per pixel from `stops`, instead of its flat colour.
+///
+/// `start` and `end` are points in the layer's space, which is the composition's, keyed as any
+/// property is. The stops are kept as written; [`Ramp`] puts them in offset order when drawing.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Gradient {
+    pub kind: GradientKind,
+    pub start: Property,
+    pub end: Property,
+    pub stops: Vec<Stop>,
+}
+
+impl Gradient {
+    /// This gradient with its points resolved to a frame and no keys left in them.
+    fn at(&self, frame: i32) -> Gradient {
+        Gradient {
+            start: Property::constant(self.start.value_at(frame)),
+            end: Property::constant(self.end.value_at(frame)),
+            ..self.clone()
+        }
+    }
+
+    /// What is outside D-168's ranges, as a sentence, for [`Shape::problem`].
+    fn problem(&self, what: &str) -> Option<String> {
+        if !(2..=MAX_STOPS).contains(&self.stops.len()) {
+            return Some(format!(
+                "a {what} gradient of 2 to {MAX_STOPS} stops, not {}",
+                self.stops.len()
+            ));
+        }
+        for stop in &self.stops {
+            if !(0.0..=1.0).contains(&stop.offset) {
+                return Some(format!(
+                    "a {what} gradient stop offset from 0 to 1, not {}",
+                    stop.offset
+                ));
+            }
+            if let Some(c) = stop.color.iter().find(|c| !(0.0..=1.0).contains(*c)) {
+                return Some(format!(
+                    "a {what} gradient stop colour of three numbers from 0 to 1, not {c}"
+                ));
+            }
+            if !(0.0..=1.0).contains(&stop.opacity) {
+                return Some(format!(
+                    "a {what} gradient stop opacity from 0 to 1, not {}",
+                    stop.opacity
+                ));
+            }
+        }
+        for (end, point) in [("start", &self.start), ("end", &self.end)] {
+            let pair = |v: Value| v.as_vec2().is_some();
+            if point.split().is_some()
+                || !pair(point.base())
+                || point.keyframes().iter().any(|k| !pair(k.value))
+            {
+                return Some(format!("a {what} gradient {end} of two numbers"));
+            }
+            if point.expression().is_some() {
+                return Some(format!("no expression on a {what} gradient {end}"));
+            }
+            if point.keyframes().iter().any(|k| k.spatial.is_some()) {
+                return Some(format!("no motion path on a {what} gradient {end}"));
+            }
+        }
+        None
+    }
+}
 
 /// D-78: a shape's fill — one colour over its whole even-odd interior.
 ///
 /// The colour is linear working-space RGB from 0 to 1, as a solid's is and as the tint effect's
 /// is. Neither it nor the opacity is animated at first; D-78 leaves that with D-76's question
 /// about a solid's colour.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Fill {
     pub color: [f64; 3],
     /// 0 to 1.
     pub opacity: f64,
+    /// D-168: drawn instead of `color` when present; `color` is kept for when it is taken off.
+    pub gradient: Option<Gradient>,
 }
 
 /// D-78: a shape's stroke — one colour over every point within half its width of the path.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Stroke {
     pub color: [f64; 3],
     /// 0 to 1.
     pub opacity: f64,
     /// Above 0 and at most 8192, in pixels. The band is half of it either side of the path.
     pub width_px: f64,
+    /// D-168: as a fill's. It lies across the frame by position, not along the line.
+    pub gradient: Option<Gradient>,
 }
 
 /// D-78's shape: a path that may be open, with an optional fill and an optional stroke.
@@ -119,11 +228,18 @@ impl Shape {
     /// Resolved before the rasterizer and before document 27's cache key, exactly as
     /// [`crate::mask::Mask::at`] is and for the same reason.
     pub fn at(&self, frame: i32) -> Shape {
-        Shape {
+        let mut now = Shape {
             points: self.points_at(frame),
             keys: Vec::new(),
             ..self.clone()
+        };
+        if let Some(g) = now.fill.as_mut().and_then(|f| f.gradient.as_mut()) {
+            *g = g.at(frame);
         }
+        if let Some(g) = now.stroke.as_mut().and_then(|s| s.gradient.as_mut()) {
+            *g = g.at(frame);
+        }
+        now
     }
 
     /// The path at a composition frame: document 20's rules, shared with a mask's path.
@@ -153,9 +269,13 @@ impl Shape {
     /// The commands refuse on this with `COMMAND_INVALID_VALUE` and the loader with
     /// `PROJECT_SCHEMA_INVALID`; both say the same sentence, because it is the same rule.
     pub fn problem(&self) -> Option<String> {
-        for (what, color, opacity) in [
-            self.fill.map(|f| ("fill", f.color, f.opacity)),
-            self.stroke.map(|s| ("stroke", s.color, s.opacity)),
+        for (what, color, opacity, gradient) in [
+            self.fill
+                .as_ref()
+                .map(|f| ("fill", f.color, f.opacity, &f.gradient)),
+            self.stroke
+                .as_ref()
+                .map(|s| ("stroke", s.color, s.opacity, &s.gradient)),
         ]
         .into_iter()
         .flatten()
@@ -168,8 +288,11 @@ impl Shape {
             if !(0.0..=1.0).contains(&opacity) {
                 return Some(format!("a {what} opacity from 0 to 1, not {opacity}"));
             }
+            if let Some(p) = gradient.as_ref().and_then(|g| g.problem(what)) {
+                return Some(p);
+            }
         }
-        if let Some(s) = self.stroke {
+        if let Some(s) = &self.stroke {
             if !(s.width_px > 0.0 && s.width_px <= MAX_STROKE_WIDTH) {
                 return Some(format!(
                     "a stroke width above 0 and at most {MAX_STROKE_WIDTH}, not {}",
@@ -227,15 +350,93 @@ fn field(width: usize, height: usize, inside: impl Fn(f64, f64) -> bool) -> Vec<
     out
 }
 
+/// D-168's gradient at one frame, made ready to ask per pixel: the stops in offset order (a stable
+/// sort, so two at one offset keep their written order and make a hard step) and their colours
+/// already on the sRGB curve, which is where they are mixed.
+struct Ramp {
+    radial: bool,
+    start: (f64, f64),
+    along: (f64, f64),
+    run: f64,
+    stops: Vec<(f64, [f64; 3], f64)>,
+}
+
+impl Ramp {
+    fn new(g: &Gradient) -> Ramp {
+        let point = |p: &Property| p.base().as_vec2().unwrap_or((0.0, 0.0));
+        let (start, end) = (point(&g.start), point(&g.end));
+        let along = (end.0 - start.0, end.1 - start.1);
+        let mut stops = g.stops.clone();
+        stops.sort_by(|a, b| a.offset.total_cmp(&b.offset));
+        Ramp {
+            radial: g.kind == GradientKind::Radial,
+            start,
+            along,
+            run: along.0 * along.0 + along.1 * along.1,
+            stops: stops
+                .iter()
+                .map(|s| (s.offset, s.color.map(crate::grade::to_srgb), s.opacity))
+                .collect(),
+        }
+    }
+
+    /// The linear colour and the stop opacity at pixel `i` of a picture `width` across.
+    fn at(&self, i: usize, width: usize) -> ([f64; 3], f64) {
+        let px = (i % width) as f64 + 0.5 - self.start.0;
+        let py = (i / width) as f64 + 0.5 - self.start.1;
+        let t = if self.run == 0.0 {
+            1.0
+        } else if self.radial {
+            px.hypot(py) / self.run.sqrt()
+        } else {
+            (px * self.along.0 + py * self.along.1) / self.run
+        }
+        .clamp(0.0, 1.0);
+        let s = &self.stops;
+        let (first, last) = (s[0], s[s.len() - 1]);
+        let (a, b, f) = if t < first.0 {
+            (first, first, 0.0)
+        } else {
+            let i = s
+                .iter()
+                .rposition(|stop| stop.0 <= t)
+                .expect("t is past the first");
+            match s.get(i + 1) {
+                None => (last, last, 0.0),
+                Some(&b) => (s[i], b, (t - s[i].0) / (b.0 - s[i].0)),
+            }
+        };
+        let color = [0, 1, 2].map(|c| crate::grade::to_linear(a.1[c] + (b.1[c] - a.1[c]) * f));
+        (color, a.2 + (b.2 - a.2) * f)
+    }
+}
+
 /// One coverage field of one colour, laid over what the layer holds so far.
 ///
 /// Document 21's normal blend in premultiplied linear RGBA: the source is the colour times its
-/// own alpha, and `src + dst * (1 - src_a)` is the whole of it.
-fn paint(picture: &mut [f32], field: &[f32], color: [f64; 3], opacity: f64) {
+/// own alpha, and `src + dst * (1 - src_a)` is the whole of it. With a gradient (D-168) the colour
+/// and a stop opacity come from it, pixel by pixel.
+// ponytail: one thread and three sRGB curves a covered pixel; a 1080p gradient fill is some tens
+// of milliseconds. Run the rows across rayon, as the stroke field does, if that shows.
+fn paint(
+    picture: &mut [f32],
+    field: &[f32],
+    width: usize,
+    color: [f64; 3],
+    opacity: f64,
+    gradient: Option<&Gradient>,
+) {
+    let ramp = gradient.map(Ramp::new);
     for (i, coverage) in field.iter().enumerate() {
-        let a = *coverage * opacity as f32;
+        let mut a = *coverage * opacity as f32;
         if a == 0.0 {
             continue;
+        }
+        let mut color = color;
+        if let Some(ramp) = &ramp {
+            let (c, o) = ramp.at(i, width);
+            color = c;
+            a *= o as f32;
         }
         let px = &mut picture[i * 4..i * 4 + 4];
         for c in 0..3 {
@@ -262,15 +463,29 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
         let outline = shape.outline();
         // The fill first, then the stroke over this shape's own fill. D-78 fixes that order, and
         // it is why FX-SHP-008's shared columns carry the stroke and not a mixture.
-        if let Some(fill) = shape.fill {
+        if let Some(fill) = &shape.fill {
             // An open path is closed for the purpose of filling it, by a straight line from its
             // last point to its first: the even-odd ray already wraps, so nothing is added here.
             let f = crate::mask::scanline_field(&outline, width, height, 0);
-            paint(data, &f, fill.color, fill.opacity);
+            paint(
+                data,
+                &f,
+                width,
+                fill.color,
+                fill.opacity,
+                fill.gradient.as_ref(),
+            );
         }
-        if let Some(stroke) = shape.stroke {
+        if let Some(stroke) = &shape.stroke {
             let f = stroke_field(&outline, shape.closed, width, height, stroke.width_px / 2.0);
-            paint(data, &f, stroke.color, stroke.opacity);
+            paint(
+                data,
+                &f,
+                width,
+                stroke.color,
+                stroke.opacity,
+                stroke.gradient.as_ref(),
+            );
         }
     }
     picture

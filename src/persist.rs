@@ -374,6 +374,29 @@ fn value_json(value: Value, factor: f64) -> J {
     }
 }
 
+/// D-168's gradient record, its two points written as any property is and merged over the
+/// file's own, as a transform property is.
+fn gradient_json(was: Option<&J>, g: &crate::shape::Gradient) -> J {
+    let stops = g
+        .stops
+        .iter()
+        .map(|s| {
+            let mut m = Map::new();
+            m.insert("offset".into(), num(s.offset));
+            m.insert("color".into(), J::from(s.color.to_vec()));
+            m.insert("opacity".into(), num(s.opacity));
+            J::Object(m)
+        })
+        .collect();
+    let point = |key: &str, p: &Property| property_json(was.and_then(|w| w.get(key)), p, 1.0);
+    let mut m = Map::new();
+    m.insert("type".into(), J::from(g.kind.as_str()));
+    m.insert("start".into(), point("start", &g.start));
+    m.insert("end".into(), point("end", &g.end));
+    m.insert("stops".into(), J::Array(stops));
+    J::Object(m)
+}
+
 fn property_json(base: Option<&J>, property: &Property, factor: f64) -> J {
     // D-69: a separated position is written as its X and its Y and nothing else.
     // ponytail: unknown fields inside x and y are not carried; nothing writes any today.
@@ -733,27 +756,37 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                 map.insert("path".into(), path_json(was, &s.points, &s.keys));
                 // Absent and null both mean "no fill" on the way in, and null is written on the
                 // way out so that a file that had one and lost it says so rather than keeping it.
+                let was_paint = |key: &str| {
+                    was.and_then(|w| w.get(key))
+                        .and_then(|p| p.get("gradient"))
+                };
                 map.insert(
                     "fill".into(),
-                    match s.fill {
+                    match &s.fill {
                         None => J::Null,
                         Some(f) => {
                             let mut m = Map::new();
                             m.insert("color".into(), J::from(f.color.to_vec()));
                             m.insert("opacity".into(), J::from(f.opacity));
+                            if let Some(g) = &f.gradient {
+                                m.insert("gradient".into(), gradient_json(was_paint("fill"), g));
+                            }
                             J::Object(m)
                         }
                     },
                 );
                 map.insert(
                     "stroke".into(),
-                    match s.stroke {
+                    match &s.stroke {
                         None => J::Null,
                         Some(t) => {
                             let mut m = Map::new();
                             m.insert("color".into(), J::from(t.color.to_vec()));
                             m.insert("opacity".into(), J::from(t.opacity));
                             m.insert("width_px".into(), J::from(t.width_px));
+                            if let Some(g) = &t.gradient {
+                                m.insert("gradient".into(), gradient_json(was_paint("stroke"), g));
+                            }
                             J::Object(m)
                         }
                     },
@@ -3597,7 +3630,8 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
     let (points, keys) = parse_path(field(v, at, "path")?, &format!("{at}/path"))?;
     // A colour, an opacity and, for a stroke, a width. Read for both and ranged once afterwards
     // by `Shape::problem`, which is the same sentence the commands refuse with.
-    let paint = |key: &str| -> Result<Option<([f64; 3], f64, f64)>, Diagnostic> {
+    type Paint = ([f64; 3], f64, f64, Option<crate::shape::Gradient>);
+    let paint = |key: &str| -> Result<Option<Paint>, Diagnostic> {
         let Some(p) = v.get(key).filter(|p| !p.is_null()) else {
             return Ok(None);
         };
@@ -3617,7 +3651,11 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
             None => 0.0,
             Some(w) => as_f64(w, &format!("{at}/width_px"))?,
         };
-        Ok(Some((rgb, opacity, width_px)))
+        let gradient = match p.get("gradient") {
+            None => None,
+            Some(g) => Some(parse_gradient(g, &format!("{at}/gradient"))?),
+        };
+        Ok(Some((rgb, opacity, width_px, gradient)))
     };
     let shape = crate::shape::Shape {
         name: match v.get("name") {
@@ -3634,17 +3672,62 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
         },
         points,
         keys,
-        fill: paint("fill")?.map(|(color, opacity, _)| crate::shape::Fill { color, opacity }),
-        stroke: paint("stroke")?.map(|(color, opacity, width_px)| crate::shape::Stroke {
+        fill: paint("fill")?.map(|(color, opacity, _, gradient)| crate::shape::Fill {
+            color,
+            opacity,
+            gradient,
+        }),
+        stroke: paint("stroke")?.map(|(color, opacity, width_px, gradient)| crate::shape::Stroke {
             color,
             opacity,
             width_px,
+            gradient,
         }),
     };
     match shape.problem() {
         Some(p) => Err(invalid(at, &p)),
         None => Ok(shape),
     }
+}
+
+/// D-168's gradient record. Its shape is read here; its ranges, and that its points carry no
+/// expression and no motion path, are `Shape::problem`'s, which the commands share.
+fn parse_gradient(v: &J, at: &str) -> Result<crate::shape::Gradient, Diagnostic> {
+    as_object(v, at)?;
+    let kind = as_enum(field(v, at, "type")?, &format!("{at}/type"), &["linear", "radial"])?;
+    let point = |key: &str| {
+        let here = format!("{at}/{key}");
+        parse_property(field(v, at, key)?, &here, "vec2", false, false, 1.0)
+    };
+    let at_s = format!("{at}/stops");
+    let stops = as_array(field(v, at, "stops")?, &at_s)?
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            let at = format!("{at_s}/{i}");
+            as_object(s, &at)?;
+            let at_c = format!("{at}/color");
+            let color = as_array(field(s, &at, "color")?, &at_c)?;
+            if color.len() != 3 {
+                return Err(invalid(&at_c, "three numbers from 0 to 1 (D-168)"));
+            }
+            let mut rgb = [0.0; 3];
+            for (i, c) in color.iter().enumerate() {
+                rgb[i] = as_f64(c, &format!("{at_c}/{i}"))?;
+            }
+            Ok(crate::shape::Stop {
+                offset: as_f64(field(s, &at, "offset")?, &format!("{at}/offset"))?,
+                color: rgb,
+                opacity: as_f64(field(s, &at, "opacity")?, &format!("{at}/opacity"))?,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(crate::shape::Gradient {
+        kind: crate::shape::GradientKind::named(kind).expect("one of the two"),
+        start: point("start")?,
+        end: point("end")?,
+        stops,
+    })
 }
 
 /// D-77's mask record. `index` numbers the unnamed ones, as the window numbers them.

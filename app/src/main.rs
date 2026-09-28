@@ -60,8 +60,8 @@ use anime_compositor::gpu::{Gpu, Paint};
 use anime_compositor::audio;
 use anime_compositor::media;
 use anime_compositor::model::{
-    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Layer, LayerKind, Marker, Project,
-    Prop, Solid, Value,
+    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Keyframe, Layer, LayerKind, Marker, Project,
+    Prop, Property, Solid, Value,
 };
 use anime_compositor::package::{self, Answer};
 use anime_compositor::persist::{self, Preserved};
@@ -797,6 +797,21 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                                 .map(|s| six(s.points_at(frame)))
                                 .collect::<Vec<_>>()),
                         );
+                    }
+                    // B-108b: and every gradient point, under the name the page gives it, for the
+                    // reason the depth is here.
+                    for (i, shape) in layer.shapes.iter().enumerate() {
+                        let paints = [
+                            ("fill", shape.fill.as_ref().and_then(|f| f.gradient.as_ref())),
+                            ("stroke", shape.stroke.as_ref().and_then(|s| s.gradient.as_ref())),
+                        ];
+                        for (paint, g) in paints {
+                            for (end, point) in g.iter().flat_map(|g| [("start", &g.start), ("end", &g.end)]) {
+                                if let Value::Vec2(x, y) = point.value_at(frame) {
+                                    at.insert(format!("shape:{i}:{paint}_{end}"), serde_json::json!([x, y]));
+                                }
+                            }
+                        }
                     }
                     (layer.id.as_str().to_string(), serde_json::Value::Object(at))
                 })
@@ -5800,11 +5815,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                     fill: closed.then_some(anime_compositor::shape::Fill {
                                         color: [grey; 3],
                                         opacity: 1.0,
+                                        gradient: None,
                                     }),
                                     stroke: (!closed).then_some(anime_compositor::shape::Stroke {
                                         color: [1.0; 3],
                                         opacity: 1.0,
                                         width_px: 4.0,
+                                        gradient: None,
                                     }),
                                     ..Default::default()
                                 });
@@ -5966,6 +5983,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         .expect("the guard above");
                     match effect_key_command(id, query, composition, layer, instance_id, setting)
                     {
+                        Ok(command) => command,
+                        Err(said) => return Some(said),
+                    }
+                }
+                // B-108b: and all five about a shape's gradient point.
+                "keyframe.add_remove"
+                | "keyframe.move"
+                | "keyframe.set_interp"
+                | "property.set_base"
+                | "property.drag_update"
+                    if parameter(query, "prop").as_deref().and_then(gradient_prop).is_some() =>
+                {
+                    let which = parameter(query, "prop")
+                        .as_deref()
+                        .and_then(gradient_prop)
+                        .expect("the guard above");
+                    match gradient_key_command(id, query, composition, layer, which) {
                         Ok(command) => command,
                         Err(said) => return Some(said),
                     }
@@ -7550,6 +7584,92 @@ fn path_key_command(
     })
 }
 
+/// B-108b: `shape:<n>:fill_start` and its three siblings, `fill_end`, `stroke_start` and
+/// `stroke_end`, name a gradient's points wherever a request names a property, as `shape:<n>`
+/// names the path. `true, true` is the stroke's end.
+fn gradient_prop(prop: &str) -> Option<(usize, bool, bool)> {
+    let (at, which) = prop.strip_prefix("shape:")?.split_once(':')?;
+    let (paint, end) = which.split_once('_')?;
+    let stroke = match paint {
+        "fill" => false,
+        "stroke" => true,
+        _ => return None,
+    };
+    let end = match end {
+        "start" => false,
+        "end" => true,
+        _ => return None,
+    };
+    Some((at.parse().ok()?, stroke, end))
+}
+
+/// B-108b: the five requests about a gradient's point, by the rules a layer's position keeps:
+/// a value on a point with no keys moves it, on a keyed one it is a key on that frame keeping
+/// the ease a key there had; the diamond adds a key holding where the point already is, or takes
+/// one off, the last one leaving the point where it was. The layer's shapes go back whole, as
+/// the one command the core has for them, and `Shape::problem` has the last word.
+fn gradient_key_command(
+    id: &str,
+    query: Option<&str>,
+    composition: Id,
+    layer: &Layer,
+    (at, stroke, end): (usize, bool, bool),
+) -> Result<Command, String> {
+    let mut shapes = layer.shapes.clone();
+    let Some(shape) = shapes.get_mut(at) else {
+        return Err(format!("{} has no shape {at}.", layer.name));
+    };
+    let paint = if stroke { "stroke" } else { "fill" };
+    let gradient = match stroke {
+        false => shape.fill.as_mut().and_then(|f| f.gradient.as_mut()),
+        true => shape.stroke.as_mut().and_then(|s| s.gradient.as_mut()),
+    };
+    let Some(gradient) = gradient else {
+        return Err(format!("\"{}\" has no {paint} gradient.", shape.name));
+    };
+    let point = if end { &mut gradient.end } else { &mut gradient.start };
+    let frame = frame_parameter(query, if id == "keyframe.move" { "from" } else { "frame" })?;
+    let key = |frame, value| Keyframe {
+        frame,
+        value,
+        interp: Interp::Linear,
+        spatial: None,
+        kind: Default::default(),
+        roving: false,
+    };
+    let missing = || format!("This point has no key at frame {frame}.");
+    match id {
+        "property.set_base" | "property.drag_update" => {
+            let value = parameter(query, "value")
+                .and_then(|text| property_value(Prop::Position, &text))
+                .ok_or_else(|| "Where should the point go? Say value=x,y.".to_string())?;
+            match point.keyframe_at(frame).cloned() {
+                _ if point.keyframes().is_empty() => point.set_base(value),
+                Some(was) => point.set_keyframe(Keyframe { value, ..was }),
+                None => point.set_keyframe(key(frame, value)),
+            }
+        }
+        "keyframe.add_remove" => match point.remove_keyframe(frame) {
+            Some(gone) if point.keyframes().is_empty() => point.set_base(gone.value),
+            Some(_) => {}
+            None => point.set_keyframe(key(frame, point.value_at(frame))),
+        },
+        "keyframe.move" => {
+            let to = frame_parameter(query, "to")?;
+            if to != frame && point.keyframe_at(to).is_some() {
+                return Err(format!("This point already has a key at frame {to}."));
+            }
+            let was = point.remove_keyframe(frame).ok_or_else(missing)?;
+            point.set_keyframe(Keyframe { frame: to, ..was });
+        }
+        _ => {
+            let was = point.keyframe_at(frame).cloned().ok_or_else(missing)?;
+            point.set_keyframe(Keyframe { interp: interp_parameter(query)?, ..was });
+        }
+    }
+    Ok(Command::SetShapes { composition, layer_id: layer.id.clone(), shapes })
+}
+
 /// B-24h: D-79's two requests about a path's points, one added and one taken off.
 ///
 /// `at` names a point of the path. For `path.add_point` it is the point the new one comes after,
@@ -7642,7 +7762,7 @@ fn shape_settings(
     query: Option<&str>,
     shape: &mut anime_compositor::shape::Shape,
 ) -> Result<(), String> {
-    use anime_compositor::shape::{Fill, Stroke};
+    use anime_compositor::shape::{Fill, Gradient, GradientKind, Stop, Stroke};
     let color = |text: &str| -> Result<[f64; 3], String> {
         let numbers: Vec<f64> = text
             .split(',')
@@ -7666,8 +7786,9 @@ fn shape_settings(
         Some("none") => shape.fill = None,
         Some(text) => {
             let color = color(text)?;
-            let opacity = shape.fill.map_or(1.0, |f| f.opacity);
-            shape.fill = Some(Fill { color, opacity });
+            let (opacity, gradient) =
+                shape.fill.take().map_or((1.0, None), |f| (f.opacity, f.gradient));
+            shape.fill = Some(Fill { color, opacity, gradient });
         }
     }
     match parameter(query, "stroke").as_deref() {
@@ -7675,8 +7796,77 @@ fn shape_settings(
         Some("none") => shape.stroke = None,
         Some(text) => {
             let color = color(text)?;
-            let (opacity, width_px) = shape.stroke.map_or((1.0, 4.0), |s| (s.opacity, s.width_px));
-            shape.stroke = Some(Stroke { color, opacity, width_px });
+            let (opacity, width_px, gradient) = shape
+                .stroke
+                .take()
+                .map_or((1.0, 4.0, None), |s| (s.opacity, s.width_px, s.gradient));
+            shape.stroke = Some(Stroke { color, opacity, width_px, gradient });
+        }
+    }
+    // B-108b, D-168: `fill_gradient` and `stroke_gradient` are none, linear or radial. Turned on,
+    // a gradient runs across the shape from the middle of its left side to the middle of its
+    // right, from the paint's own colour to black; a change of type keeps the points and the
+    // stops. `fill_stops` and `stroke_stops` are `offset,r,g,b,opacity` per stop, separated by
+    // semicolons. D-168's ranges are the core's to refuse.
+    let (xs, ys): (Vec<f64>, Vec<f64>) = shape.points.iter().map(|p| p.point).unzip();
+    let low = |v: &[f64]| v.iter().copied().fold(f64::MAX, f64::min);
+    let high = |v: &[f64]| v.iter().copied().fold(f64::MIN, f64::max);
+    let middle = (low(&ys) + high(&ys)) / 2.0;
+    let (left, right) = (Value::Vec2(low(&xs), middle), Value::Vec2(high(&xs), middle));
+    let name = shape.name.clone();
+    for (paint, found) in [
+        ("fill", shape.fill.as_mut().map(|f| (f.color, &mut f.gradient))),
+        ("stroke", shape.stroke.as_mut().map(|s| (s.color, &mut s.gradient))),
+    ] {
+        let kind = parameter(query, &format!("{paint}_gradient"));
+        let stops = parameter(query, &format!("{paint}_stops"));
+        if kind.is_none() && stops.is_none() {
+            continue;
+        }
+        let Some((color, gradient)) = found else {
+            return Err(format!("\"{name}\" has no {paint} to give a gradient."));
+        };
+        match kind.as_deref() {
+            None => {}
+            Some("none") => *gradient = None,
+            Some(text) => {
+                let kind = GradientKind::named(text).ok_or_else(|| {
+                    format!("\"{text}\" is not a kind of gradient. It is none, linear or radial.")
+                })?;
+                match gradient {
+                    Some(g) => g.kind = kind,
+                    None => {
+                        *gradient = Some(Gradient {
+                            kind,
+                            start: Property::constant(left),
+                            end: Property::constant(right),
+                            stops: vec![
+                                Stop { offset: 0.0, color, opacity: 1.0 },
+                                Stop { offset: 1.0, color: [0.0; 3], opacity: 1.0 },
+                            ],
+                        })
+                    }
+                }
+            }
+        }
+        if let Some(text) = stops {
+            let Some(g) = gradient.as_mut() else {
+                return Err(format!("\"{name}\" has no {paint} gradient to set the stops of."));
+            };
+            g.stops = text
+                .split(';')
+                .filter(|piece| !piece.trim().is_empty())
+                .map(|piece| {
+                    let n: Vec<f64> =
+                        piece.split(',').filter_map(|n| n.trim().parse().ok()).collect();
+                    match n[..] {
+                        [offset, r, g, b, opacity] => Ok(Stop { offset, color: [r, g, b], opacity }),
+                        _ => Err(format!(
+                            "A stop is five numbers, offset,r,g,b,opacity. Not \"{piece}\"."
+                        )),
+                    }
+                })
+                .collect::<Result<_, _>>()?;
         }
     }
     if let Some(v) = number("fill_opacity", "an opacity")? {
@@ -17730,6 +17920,205 @@ mod editing {
             "B-25c: a shape layer in the window",
             SHAPE_PANEL_INTRO,
             SHAPE_PANEL_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// B-108b: D-168's gradients from the window. The core's half is
+    /// `verification/B-108_shape_gradient_table.md`; this is what the panel sends and what comes
+    /// back.
+    #[test]
+    fn a_shape_gradient_is_set_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        run(&viewer, "layer.add_shape");
+        let id = shown_layer(&viewer, "Shape Layer 1")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        run(
+            &viewer,
+            &format!(
+                "shape.add?layer={id}&closed=1&points=100,100,0,0,0,0;300,100,0,0,0,0;\
+                 300,300,0,0,0,0;100,300,0,0,0,0"
+            ),
+        );
+        // The fill's gradient as the page reads it off the document, in one line.
+        let fill = |viewer: &Mutex<Viewer>| {
+            let f = shown_layer(viewer, "Shape Layer 1")["shapes"][0]["fill"].clone();
+            let g = &f["gradient"];
+            if g.is_null() {
+                return format!("flat {}", f["color"]);
+            }
+            let point = |p: &serde_json::Value| match p["keyframes"].as_array() {
+                Some(keys) if !keys.is_empty() => format!(
+                    "keyed {}",
+                    keys.iter()
+                        .map(|k| format!("{}@{}", k["value"], k["frame"]))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                ),
+                _ => p["base"].to_string(),
+            };
+            format!(
+                "{} from {} to {}, stops {}",
+                g["type"].as_str().unwrap_or("?"),
+                point(&g["start"]),
+                point(&g["end"]),
+                g["stops"]
+                    .as_array()
+                    .map(|stops| stops
+                        .iter()
+                        .map(|s| format!("{} {} {}", s["offset"], s["color"], s["opacity"]))
+                        .collect::<Vec<_>>()
+                        .join("; "))
+                    .unwrap_or_default()
+            )
+        };
+        let at = |viewer: &Mutex<Viewer>, frame: i32, prop: &str| {
+            let body = boxes(viewer, frame, None).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the boxes answer is JSON");
+            answer["values"][&id][prop].to_string()
+        };
+
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill=1,0,0"));
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_gradient=linear"));
+        report.check(
+            "Linear turns a gradient on across the shape, middle of its left side to middle of \
+             its right, from the fill's colour to black",
+            "linear from [100,200] to [300,200], stops 0 [1,0,0] 1; 1 [0,0,0] 1",
+            fill(&viewer),
+        );
+        report.check(
+            "Undo says what it would take back",
+            "Set one shape",
+            held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        );
+        run(
+            &viewer,
+            &format!("shape.set?layer={id}&shape=0&fill_stops=0,1,0,0,1;0.5,0,1,0,0.5;1,0,0,1,1"),
+        );
+        report.check(
+            "the stop editor sends every stop at once: offset, colour and opacity each",
+            "linear from [100,200] to [300,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1",
+            fill(&viewer),
+        );
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_gradient=radial"));
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill=0,1,0"));
+        report.check(
+            "Radial keeps the points and the stops, and a new flat colour leaves the gradient alone",
+            "radial from [100,200] to [300,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1",
+            fill(&viewer),
+        );
+        run(
+            &viewer,
+            &format!("property.set_base?layer={id}&prop=shape:0:fill_end&value=400,200&frame=0"),
+        );
+        report.check("the end point typed in its row moves it, with no key", "radial from [100,200] to [400,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1", fill(&viewer));
+        run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:fill_start&frame=0"));
+        run(
+            &viewer,
+            &format!("property.set_base?layer={id}&prop=shape:0:fill_start&value=200,200&frame=10"),
+        );
+        report.check(
+            "the diamond keys the start where it is, and a value on frame 10 is a second key",
+            "radial from keyed [100,200]@0 [200,200]@10 to [400,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1",
+            fill(&viewer),
+        );
+        report.check(
+            "halfway, frame 5, the page is given the point the renderer uses",
+            "[150.0,200.0]",
+            at(&viewer, 5, "shape:0:fill_start"),
+        );
+        report.check("and the unkeyed end, on any frame", "[400.0,200.0]", at(&viewer, 5, "shape:0:fill_end"));
+        report.check(
+            "a key moved onto another is refused, with the reason",
+            "This point already has a key at frame 0.",
+            run(
+                &viewer,
+                &format!("keyframe.move?layer={id}&prop=shape:0:fill_start&from=10&to=0"),
+            ),
+        );
+        run(&viewer, &format!("keyframe.move?layer={id}&prop=shape:0:fill_start&from=10&to=12"));
+        run(
+            &viewer,
+            &format!("keyframe.set_interp?layer={id}&prop=shape:0:fill_start&frame=12&mode=hold"),
+        );
+        report.check(
+            "a key moved, and its ease set, as a position key's are",
+            "[{\"frame\":0,\"interp\":\"linear\",\"value\":[100,200]},{\"frame\":12,\"interp\":\"hold\",\"value\":[200,200]}]",
+            shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["fill"]["gradient"]["start"]
+                ["keyframes"]
+                .to_string(),
+        );
+        run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:fill_start&frame=12"));
+        run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:fill_start&frame=0"));
+        report.check(
+            "both keys taken off, the point stays where the last one held it",
+            "radial from [100,200] to [400,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1",
+            fill(&viewer),
+        );
+        report.check(
+            "one stop is refused, with the reason",
+            "Shape \"Shape 1\" cannot be drawn: it needs a fill gradient of 2 to 64 stops, not 1. Set a value inside the range and send the shapes again.",
+            run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_stops=0,1,0,0,1")),
+        );
+        report.check(
+            "a kind that is not a gradient is refused, with the reason",
+            "\"conic\" is not a kind of gradient. It is none, linear or radial.",
+            run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_gradient=conic")),
+        );
+        report.check(
+            "a stop that is not five numbers is refused, with the reason",
+            "A stop is five numbers, offset,r,g,b,opacity. Not \"0,1,0\".",
+            run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_stops=0,1,0;1,0,0,1,1")),
+        );
+        report.check(
+            "a gradient on a stroke the shape does not have is refused, with the reason",
+            "\"Shape 1\" has no stroke to give a gradient.",
+            run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke_gradient=linear")),
+        );
+        report.check(
+            "a key on a gradient point that is not there is refused, with the reason",
+            "\"Shape 1\" has no stroke gradient.",
+            run(
+                &viewer,
+                &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_start&frame=0"),
+            ),
+        );
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_gradient=none"));
+        report.check(
+            "Flat takes the gradient off and the fill is its own colour again",
+            "flat [0,1,0]",
+            fill(&viewer),
+        );
+        run(&viewer, "edit.undo");
+        report.check("and Undo puts it back", "radial from [100,200] to [400,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1", fill(&viewer));
+
+        write_artifact(
+            &report,
+            "verification/B-108b_panel_table.md",
+            "B-108b: gradients on shapes from the window",
+            &["D-168 decided what a gradient on a shape is and B-108b built it in the core, \
+               checked pixel by pixel in `verification/B-108_shape_gradient_table.md`. This is \
+               the window's half: the shape's panel sends `shape.set` with `fill_gradient`, \
+               `stroke_gradient`, `fill_stops` and `stroke_stops`, and a gradient's two points \
+               are named `shape:<n>:fill_start`, `fill_end`, `stroke_start` and `stroke_end` \
+               wherever a property is named, so the diamond, a typed value, a key moved and an \
+               ease reach them by the requests they already send."],
+            &["## What this does not cover\n\nWhat the gradient looks like on the picture and \
+               whether the panel feels right in the hand. That is \
+               `verification/B-108_shape_gradient_playtest.md`, for a person."],
         );
         let failed: Vec<&String> = report
             .rows

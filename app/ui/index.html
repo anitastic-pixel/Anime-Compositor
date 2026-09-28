@@ -5741,6 +5741,7 @@ const PROPS = ['anchor', 'position', 'scale', 'rotation', 'opacity', 'depth'];
 // transform does not. A layer that has never been given one sits on plane 0, which is the value
 // to show rather than a blank.
 const propOf = (layer, prop) => (isPath(prop) ? { keyframes: maskKeys(pathAt(layer, prop) || {}) }
+  : isGrad(prop) ? gradOf(layer, prop)
   : isFx(prop) ? fxOf(layer, prop) : prop === 'depth'
   ? (layer.depth || { base: 0 })
   : halfOf(layer, prop));
@@ -5789,6 +5790,15 @@ function fxOf(layer, prop) {
 const isPath = (prop) => /^(mask|shape):\d+$/.test(prop);
 const pathsNamed = (layer, kind) => (kind === 'shape' ? layer.shapes || [] : masksOf(layer));
 const pathAt = (layer, prop) => pathsNamed(layer, prop.split(':')[0])[prop.split(':')[1]];
+// B-108b: a shape's gradient point is named `shape:<n>:fill_start`, `fill_end`, `stroke_start` or
+// `stroke_end` wherever a property is named, as its path is. D-168 gives it keys and no expression.
+const isGrad = (prop) => /^shape:\d+:(fill|stroke)_(start|end)$/.test(prop);
+function gradOf(layer, prop) {
+  const [, at, which] = prop.split(':');
+  const [paint, end] = which.split('_');
+  const g = (((layer.shapes || [])[at] || {})[paint] || {}).gradient;
+  return (g && g[end]) || {};
+}
 // A layer's properties: the six, each setting of its effects that has keys, and each path that has.
 // D-71: an audio layer has no transform and no effects, so it has no properties to open or key.
 const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
@@ -5797,10 +5807,14 @@ const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
     .concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {})
     .filter((name) => keysOf(layer, fxName(fx, name)).length).map((name) => fxName(fx, name))))
     .concat(['mask', 'shape'].flatMap((kind) => pathsNamed(layer, kind).map((_, at) => kind + ':' + at))
-      .filter((prop) => keysOf(layer, prop).length)));
+      .filter((prop) => keysOf(layer, prop).length))
+    .concat((layer.shapes || []).flatMap((_, at) => ['fill_start', 'fill_end', 'stroke_start', 'stroke_end']
+      .map((which) => 'shape:' + at + ':' + which)).filter((prop) => keysOf(layer, prop).length)));
 // What a property is called on screen: its own name, or the effect's and the setting's words.
 function propLabel(layer, prop) {
   if (isPath(prop)) return ((pathAt(layer, prop) || {}).name || prop) + ' path';
+  if (isGrad(prop)) return ((layer.shapes || [])[prop.split(':')[1]] || {}).name + ' '
+    + prop.split(':')[2].replace('_', ' gradient ');
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
@@ -5880,7 +5894,7 @@ function keyButton(layer, prop) {
   button.title = (on ? 'Remove the ' : 'Add a ') + propLabel(layer, prop) + ' keyframe at frame ' + frame
     + (keys.length ? ' (' + keys.length + ' keyframe' + (keys.length === 1 ? '' : 's') + ')' : '');
   // B-19d: D-68 gives an effect's setting keys and no expression.
-  if (!isFx(prop)) button.title += exprOf(layer, prop)
+  if (!isFx(prop) && !isGrad(prop)) button.title += exprOf(layer, prop)
     ? '. Alt-click removes the expression' : '. Alt-click adds an expression';
   button.setAttribute('aria-label', button.title);
   button.setAttribute('aria-pressed', on);
@@ -5888,7 +5902,7 @@ function keyButton(layer, prop) {
     // B-14c: Alt with it adds an expression to the property, or takes it away, as Alt on
     // After Effects' stopwatch does. The owner asked for this on 2026-09-16. W-23 had Alt take
     // every key off; pressing the property's name and then Delete still does that.
-    if (e.altKey && !isFx(prop)) {
+    if (e.altKey && !isFx(prop) && !isGrad(prop)) {
       toggleExpression(layer, prop, button.closest('#layers') ? 'track' : 'panel');
       return;
     }
@@ -5896,7 +5910,7 @@ function keyButton(layer, prop) {
   };
   // After Effects' Alt+Shift+= on the diamond that has the keyboard does the same.
   button.onkeydown = (e) => {
-    if (e.altKey && e.shiftKey && (e.key === '=' || e.key === '+') && !isFx(prop)) {
+    if (e.altKey && e.shiftKey && (e.key === '=' || e.key === '+') && !isFx(prop) && !isGrad(prop)) {
       e.preventDefault();
       e.stopPropagation();
       toggleExpression(layer, prop, button.closest('#layers') ? 'track' : 'panel');
@@ -6094,7 +6108,7 @@ function propRow(into, layer, prop) {
     propLabel(layer, prop).replace(/^./, (c) => c.toUpperCase()), ...(prop === 'scale' ? [' ', linkButton()] : []),
     ...(prop.startsWith('position') ? [' ', splitButton(layer)] : []));
   dt.title = 'Right-click to put ' + prop + ' back to its default';
-  dt.oncontextmenu = (e) => { e.preventDefault(); resetProp(prop, layer); };
+  if (DEFAULTS[prop]) dt.oncontextmenu = (e) => { e.preventDefault(); resetProp(prop, layer); };
   const dd = document.createElement('dd');
   dd.className = 'numbers';
   dd.append(...propScrubs(layer, prop));
@@ -6280,6 +6294,39 @@ function drawInspector() {
             commit: (v) => set(key + '=' + encodeURIComponent(v)),
           }));
         }
+        // B-108b, D-168: flat, or a linear or radial gradient, its stops and its two points.
+        const kind = labelled(document.createElement('select'), named + ' gradient');
+        kind.append(...['flat', 'linear', 'radial'].map((k) => new Option(k, k)));
+        const g = paint.gradient;
+        kind.value = g ? g.type : 'flat';
+        kind.onchange = () => set(what + '_gradient=' + (kind.value === 'flat' ? 'none' : kind.value));
+        dl.lastChild.append(' ', kind);
+        if (!g) continue;
+        const stops = g.stops.map((s) => ({ ...s }));
+        const sendStops = () => set(what + '_stops=' + encodeURIComponent(stops
+          .map((s) => [s.offset, ...s.color, s.opacity].map(number).join(',')).join(';')));
+        stops.forEach((s, i) => {
+          const called = named + ' stop ' + (i + 1);
+          field(dl, called, '');
+          const c = labelled(document.createElement('input'), called + ' colour');
+          c.type = 'color';
+          c.value = hexOf(s.color);
+          c.onchange = () => { s.color = linearOf(c.value); sendStops(); };
+          dl.lastChild.append(c, ...[['offset', 'at ', s.offset], ['opacity', '', s.opacity]].flatMap(([word, before, value]) => [' ' + before, scrubValue({
+            value: value * 100,
+            suffix: '%',
+            title: 'Drag to change, or press to type. ' + called + ' ' + word + ', 0 to 100',
+            label: called + ' ' + word + ' of ' + shape.name + ' on ' + layer.name + ', 0 to 100',
+            commit: (v) => { s[word] = v / 100; sendStops(); },
+          })]), ' ', button('Remove', false, () => { stops.splice(i, 1); sendStops(); }));
+          dl.lastChild.lastChild.disabled = stops.length <= 2;
+        });
+        field(dl, '', '');
+        dl.lastChild.append(button('Add stop', false, () => {
+          stops.push({ offset: 0.5, color: [1, 1, 1], opacity: 1 });
+          sendStops();
+        }));
+        for (const end of ['start', 'end']) propRow(dl, layer, 'shape:' + at + ':' + what + '_' + end);
       }
     }
   }

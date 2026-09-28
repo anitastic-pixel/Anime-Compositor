@@ -323,7 +323,7 @@ impl Property {
                 .is_some_and(|(x, y)| x.is_animated() || y.is_animated())
     }
 
-    pub(crate) fn set_base(&mut self, value: Value) {
+    pub fn set_base(&mut self, value: Value) {
         self.base = value;
     }
 
@@ -332,7 +332,7 @@ impl Property {
     /// Document 19 calls two keyframes at one frame invalid, so this cannot create a pair;
     /// setting a keyframe where one exists replaces it, which is what an artist dragging a
     /// value on a keyframed frame means.
-    pub(crate) fn set_keyframe(&mut self, key: Keyframe) {
+    pub fn set_keyframe(&mut self, key: Keyframe) {
         match self.keyframes.binary_search_by_key(&key.frame, |k| k.frame) {
             Ok(i) => self.keyframes[i] = key,
             Err(i) => self.keyframes.insert(i, key),
@@ -351,7 +351,7 @@ impl Property {
         }
     }
 
-    pub(crate) fn remove_keyframe(&mut self, frame: i32) -> Option<Keyframe> {
+    pub fn remove_keyframe(&mut self, frame: i32) -> Option<Keyframe> {
         let i = self
             .keyframes
             .binary_search_by_key(&frame, |k| k.frame)

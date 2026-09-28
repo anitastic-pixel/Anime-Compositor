@@ -276,6 +276,7 @@ fn b25b_shapes() {
             Fill {
                 color: [1.0, 1.0, 1.0],
                 opacity: 1.0,
+                gradient: None,
             },
         )
     };
@@ -315,6 +316,7 @@ fn b25b_shapes() {
             color: [1.0, 1.0, 1.0],
             opacity: 1.0,
             width_px: 2.0,
+            gradient: None,
         }),
         ..Shape::default()
     };
@@ -337,6 +339,7 @@ fn b25b_shapes() {
         Fill {
             color: [1.0, 1.0, 1.0],
             opacity: 1.0,
+            gradient: None,
         },
     );
     let mask_says = anime_compositor::mask::is_simple(&[
@@ -388,6 +391,7 @@ fn b25b_shapes() {
                 Fill {
                     color: [1.5, 0.0, 0.0],
                     opacity: 1.0,
+                    gradient: None,
                 },
             ),
         ),
@@ -399,6 +403,7 @@ fn b25b_shapes() {
                 Fill {
                     color: [1.0, 0.0, 0.0],
                     opacity: -0.5,
+                    gradient: None,
                 },
             ),
         ),
@@ -409,6 +414,7 @@ fn b25b_shapes() {
                     color: [1.0, 0.0, 0.0],
                     opacity: 1.0,
                     width_px: 0.0,
+                    gradient: None,
                 }),
                 ..bowtie.clone()
             },
@@ -420,6 +426,7 @@ fn b25b_shapes() {
                     color: [1.0, 0.0, 0.0],
                     opacity: 1.0,
                     width_px: 8193.0,
+                    gradient: None,
                 }),
                 ..bowtie.clone()
             },
