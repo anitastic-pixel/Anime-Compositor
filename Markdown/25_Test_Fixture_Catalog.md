@@ -2031,6 +2031,173 @@ Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SHP-071's file with 
 - FX-SHP-094: An expression on the start.
 - FX-SHP-095: A trim with no end.
 
+## Shape style fixtures
+
+**D-170, proposed on 2026-09-27 by the agent as B-110a.** Every case is FX-SHP-001's setting, a composition 6 by 2 at 24 fps with one shape layer and nothing under it, from the projects in `Fixtures/shape_styles/`, with FX-SHP-001's colours and, unless it says otherwise, a stroke 1 pixel wide. FX-SHP-100 to 102, 109, 110, 115 and 117 stroke FX-SHP-008's open line from (1, 1) to (5, 1); FX-SHP-116 fills FX-SHP-001's box over the left three columns. FX-SHP-115 to 117 are five frames long. Each cell is R G B A of the finished frame, linear and premultiplied.
+
+**Every number below is produced by `tools/shape_style_reference.py`**, written from D-170's rule and reusing `tools/shape_reference.py` for D-78's coverage and `tools/shape_trim_reference.py` for D-169's stretch, and never from a source file. The same numbers are in `Fixtures/shape_styles/expected_shape_styles.json`; every still case is drawn in `verification/B-110a proposal/style_cases.png`, the moving ones frame by frame in `verification/B-110a proposal/style_moving_cases.png`, and the three joins and three caps large in `verification/B-110a proposal/joins_and_caps_enlarged.png`. Tolerance 1e-6.
+
+FX-SHP-100: A one-pixel line from (1, 1) to (5, 1) with butt caps: it stops square at its end points, so it covers x = 1 to 5 and half of each row.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 |
+
+FX-SHP-101: The same with square caps: carried on half the width past each end, x = 0.5 to 5.5, square.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.05 0.025 0.25 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.2 0.05 0.025 0.25 |
+| 0, 1 | 0.2 0.05 0.025 0.25 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.2 0.05 0.025 0.25 |
+
+FX-SHP-102: The same with round caps written in: exactly D-78's line with nothing written, FX-SHP-008.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 |
+| 0, 1 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 |
+
+FX-SHP-103: A chevron, (1, 0) to (4, 1) to (1, 2), one pixel wide, with a mitre join and the default mitre limit of 4 and butt caps: the corner is 3.16 half-widths long, inside the limit, so it comes to a sharp point at x = 5.58.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.05 0.0125 0.00625 0.0625 | 0.55 0.1375 0.06875 0.6875 | 0.8 0.2 0.1 1 | 0.55 0.1375 0.06875 0.6875 | 0.3 0.075 0.0375 0.375 | 0.05 0.0125 0.00625 0.0625 |
+| 0, 1 | 0.05 0.0125 0.00625 0.0625 | 0.55 0.1375 0.06875 0.6875 | 0.8 0.2 0.1 1 | 0.55 0.1375 0.06875 0.6875 | 0.3 0.075 0.0375 0.375 | 0.05 0.0125 0.00625 0.0625 |
+
+FX-SHP-104: The same with a mitre limit of 3: 3.16 is past it, so the corner is bevelled, exactly FX-SHP-105.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.05 0.0125 0.00625 0.0625 | 0.55 0.1375 0.06875 0.6875 | 0.8 0.2 0.1 1 | 0.55 0.1375 0.06875 0.6875 | 0.1 0.025 0.0125 0.125 | 0 0 0 0 |
+| 0, 1 | 0.05 0.0125 0.00625 0.0625 | 0.55 0.1375 0.06875 0.6875 | 0.8 0.2 0.1 1 | 0.55 0.1375 0.06875 0.6875 | 0.1 0.025 0.0125 0.125 | 0 0 0 0 |
+
+FX-SHP-105: The chevron with a bevel join: the corner cut off straight.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.05 0.0125 0.00625 0.0625 | 0.55 0.1375 0.06875 0.6875 | 0.8 0.2 0.1 1 | 0.55 0.1375 0.06875 0.6875 | 0.1 0.025 0.0125 0.125 | 0 0 0 0 |
+| 0, 1 | 0.05 0.0125 0.00625 0.0625 | 0.55 0.1375 0.06875 0.6875 | 0.8 0.2 0.1 1 | 0.55 0.1375 0.06875 0.6875 | 0.1 0.025 0.0125 0.125 | 0 0 0 0 |
+
+FX-SHP-106: The chevron with a round join: the corner rounded, reaching x = 4.5.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.05 0.0125 0.00625 0.0625 | 0.55 0.1375 0.06875 0.6875 | 0.8 0.2 0.1 1 | 0.55 0.1375 0.06875 0.6875 | 0.15 0.0375 0.01875 0.1875 | 0 0 0 0 |
+| 0, 1 | 0.05 0.0125 0.00625 0.0625 | 0.55 0.1375 0.06875 0.6875 | 0.8 0.2 0.1 1 | 0.55 0.1375 0.06875 0.6875 | 0.15 0.0375 0.01875 0.1875 | 0 0 0 0 |
+
+FX-SHP-107: A closed diamond, (1, 1), (3, 0.2), (5, 1), (3, 1.8), mitred: both its side points are sharp, the one at its first point, (1, 1), included, because a closed path is joined where it closes.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.3 0.075 0.0375 0.375 | 0.6 0.15 0.075 0.75 | 0.75 0.1875 0.09375 0.9375 | 0.75 0.1875 0.09375 0.9375 | 0.6 0.15 0.075 0.75 | 0.3 0.075 0.0375 0.375 |
+| 0, 1 | 0.3 0.075 0.0375 0.375 | 0.6 0.15 0.075 0.75 | 0.75 0.1875 0.09375 0.9375 | 0.75 0.1875 0.09375 0.9375 | 0.6 0.15 0.075 0.75 | 0.3 0.075 0.0375 0.375 |
+
+FX-SHP-108: The diamond bevelled.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.1 0.025 0.0125 0.125 | 0.6 0.15 0.075 0.75 | 0.75 0.1875 0.09375 0.9375 | 0.75 0.1875 0.09375 0.9375 | 0.6 0.15 0.075 0.75 | 0.1 0.025 0.0125 0.125 |
+| 0, 1 | 0.1 0.025 0.0125 0.125 | 0.6 0.15 0.075 0.75 | 0.75 0.1875 0.09375 0.9375 | 0.75 0.1875 0.09375 0.9375 | 0.6 0.15 0.075 0.75 | 0.1 0.025 0.0125 0.125 |
+
+FX-SHP-109: The line trimmed 25 to 75 with butt caps: the cut ends are butt too, x = 2 to 4 exactly.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-110: Trimmed the same with square caps: x = 1.5 to 4.5, square.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.2 0.05 0.025 0.25 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.2 0.05 0.025 0.25 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0.2 0.05 0.025 0.25 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.2 0.05 0.025 0.25 | 0 0 0 0 |
+
+FX-SHP-111: The mitred diamond trimmed 0 to 50 with an offset of 270 and butt caps: the stretch is its last side and its first, running through its first point, (1, 1), where it is one line with its mitre rather than two cut ends.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.3 0.075 0.0375 0.375 | 0.6 0.15 0.075 0.75 | 0.75 0.1875 0.09375 0.9375 | 0.05 0.0125 0.00625 0.0625 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.3 0.075 0.0375 0.375 | 0.6 0.15 0.075 0.75 | 0.75 0.1875 0.09375 0.9375 | 0.05 0.0125 0.00625 0.0625 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-112: A line from (1, 1) to (4, 1) and back to (2, 1), mitred with butt caps: a mitre on a line that turns straight back would be endless, so there is none, and nothing is drawn past x = 4.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-113: An open path of two points both at (2, 1), with square caps: a square one pixel across, lined up with the frame, x = 1.5 to 2.5.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.2 0.05 0.025 0.25 | 0.2 0.05 0.025 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0.2 0.05 0.025 0.25 | 0.2 0.05 0.025 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-114: The same with butt caps: nothing is drawn.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-115: The line with its width keyed from 1 at frame 0 to 2 at frame 4, linear: it thickens a quarter of a pixel each frame.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 |
+| 0, 1 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 |
+| 1, 0 | 0.2 0.05 0.025 0.25 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.2 0.05 0.025 0.25 |
+| 1, 1 | 0.2 0.05 0.025 0.25 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.2 0.05 0.025 0.25 |
+| 2, 0 | 0.4 0.1 0.05 0.5 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.4 0.1 0.05 0.5 |
+| 2, 1 | 0.4 0.1 0.05 0.5 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.6 0.15 0.075 0.75 | 0.4 0.1 0.05 0.5 |
+| 3, 0 | 0.4 0.1 0.05 0.5 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.4 0.1 0.05 0.5 |
+| 3, 1 | 0.4 0.1 0.05 0.5 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.4 0.1 0.05 0.5 |
+| 4, 0 | 0.65 0.1625 0.08125 0.8125 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.65 0.1625 0.08125 0.8125 |
+| 4, 1 | 0.65 0.1625 0.08125 0.8125 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.65 0.1625 0.08125 0.8125 |
+
+FX-SHP-116: A filled box over the left three columns, its colour keyed from the fill's blue at frame 0 to the stroke's red at frame 4 and its opacity from 1 to 0.5, both linear.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 1, 0 | 0.30625 0.371875 0.546875 0.875 | 0.30625 0.371875 0.546875 0.875 | 0.30625 0.371875 0.546875 0.875 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 1, 1 | 0.30625 0.371875 0.546875 0.875 | 0.30625 0.371875 0.546875 0.875 | 0.30625 0.371875 0.546875 0.875 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 2, 0 | 0.375 0.2625 0.3375 0.75 | 0.375 0.2625 0.3375 0.75 | 0.375 0.2625 0.3375 0.75 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 2, 1 | 0.375 0.2625 0.3375 0.75 | 0.375 0.2625 0.3375 0.75 | 0.375 0.2625 0.3375 0.75 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 3, 0 | 0.40625 0.171875 0.171875 0.625 | 0.40625 0.171875 0.171875 0.625 | 0.40625 0.171875 0.171875 0.625 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 3, 1 | 0.40625 0.171875 0.171875 0.625 | 0.40625 0.171875 0.171875 0.625 | 0.40625 0.171875 0.171875 0.625 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 4, 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 4, 1 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-117: The line's stroke colour held on red until frame 2, then blue, and its opacity keyed from 1 at frame 0 to 0 at frame 4, linear.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 |
+| 0, 1 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 |
+| 1, 0 | 0.1125 0.028125 0.0140625 0.140625 | 0.3 0.075 0.0375 0.375 | 0.3 0.075 0.0375 0.375 | 0.3 0.075 0.0375 0.375 | 0.3 0.075 0.0375 0.375 | 0.1125 0.028125 0.0140625 0.140625 |
+| 1, 1 | 0.1125 0.028125 0.0140625 0.140625 | 0.3 0.075 0.0375 0.375 | 0.3 0.075 0.0375 0.375 | 0.3 0.075 0.0375 0.375 | 0.3 0.075 0.0375 0.375 | 0.1125 0.028125 0.0140625 0.140625 |
+| 2, 0 | 0.01875 0.046875 0.075 0.09375 | 0.05 0.125 0.2 0.25 | 0.05 0.125 0.2 0.25 | 0.05 0.125 0.2 0.25 | 0.05 0.125 0.2 0.25 | 0.01875 0.046875 0.075 0.09375 |
+| 2, 1 | 0.01875 0.046875 0.075 0.09375 | 0.05 0.125 0.2 0.25 | 0.05 0.125 0.2 0.25 | 0.05 0.125 0.2 0.25 | 0.05 0.125 0.2 0.25 | 0.01875 0.046875 0.075 0.09375 |
+| 3, 0 | 0.009375 0.0234375 0.0375 0.046875 | 0.025 0.0625 0.1 0.125 | 0.025 0.0625 0.1 0.125 | 0.025 0.0625 0.1 0.125 | 0.025 0.0625 0.1 0.125 | 0.009375 0.0234375 0.0375 0.046875 |
+| 3, 1 | 0.009375 0.0234375 0.0375 0.046875 | 0.025 0.0625 0.1 0.125 | 0.025 0.0625 0.1 0.125 | 0.025 0.0625 0.1 0.125 | 0.025 0.0625 0.1 0.125 | 0.009375 0.0234375 0.0375 0.046875 |
+| 4, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 4, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is the named case's file with one change:
+
+- FX-SHP-120: A join that is not miter, round or bevel.
+- FX-SHP-121: A cap that is not butt, round or square.
+- FX-SHP-122: A mitre limit below 1.
+- FX-SHP-123: A mitre limit above 100.
+- FX-SHP-124: A key of the stroke width at 0.
+- FX-SHP-125: A key of the fill opacity above 1.
+- FX-SHP-126: A key of the fill colour of two numbers.
+- FX-SHP-127: An expression on the stroke width.
+
 ## Keyframed effect setting fixtures
 
 D-68, accepted on 2026-09-18. Every case is a project of one composition 6 by 2 at 24 fps, five frames long, in `Fixtures/fxkey/`. The drawings are the adjustment fixtures' `bg`, `half` and `dot`. An effect's setting is written in the file as a property record with keys, where the adjustment fixtures write a plain number.
