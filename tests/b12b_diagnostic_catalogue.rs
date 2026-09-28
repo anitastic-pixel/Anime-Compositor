@@ -336,6 +336,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "GPU_PREVIEW_ON_CPU",
         "B-44_gpu_preview_table.md",
     ),
+    (
+        DiagnosticId::PresetFileInvalid,
+        "PRESET_FILE_INVALID",
+        "B-116_preset_file_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
@@ -407,7 +412,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "55 identifiers",
+        "56 identifiers",
         format!("{} identifiers", listed.len()),
     );
 
