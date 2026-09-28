@@ -14,6 +14,8 @@ Stage G2: deliver R-12 flat planes, camera and parenting, then R-13 bounded expr
 
 Stage G3: production conveniences. Precompositions, adjustment layers, richer masks, EXR, packaging, anime-specific processing. Prioritized by observed shot work, never by catalog size. EXR and packaging are done (B-15, B-16). On 2026-09-17 the owner chose foundations first (D-64, D-65): adjustment layers, precompositions and the graph editor's gaps, in that order; anime-specific processing waits for work on the effects list. Reading a cut's XDTS timesheet into a composition (document 15's R-01) is proposed as D-84 on 2026-09-23, at the owner's word and ahead of the real sheets document 31's AR-08 asks for, as B-28.
 
+Later, each its own project (D-179, 2026-09-28): particles, the 3D simulations (Shatter, Card Dance, Caustics, Wave World), a professional key with spill suppression, stabilizing and retiming by motion, and liquify and mesh warp. Each is recorded as a PARKED entry, L-01 to L-05, in document 15, with what it is, why it is big, what it needs first and its trigger: the owner asks for it by name. Recording them lifts nothing in the exclusions below; a named request that reaches into one (3D, advanced tracking) narrows that exclusion by its own decision, as D-75 did.
+
 ## Why G1 was split
 
 Version 0.2 listed fifteen must-have features for G1. That list described a small After Effects, and it was not deliverable by one person without a coding background at an uncommitted weekly capacity.
