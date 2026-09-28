@@ -31,7 +31,7 @@ use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
 use anime_compositor::mask::MaskPoint;
 use anime_compositor::model::Id;
 use anime_compositor::persist;
-use anime_compositor::shape::{Fill, Shape, Stroke};
+use anime_compositor::shape::{Cap, Fill, Join, Shape, Stroke};
 use anime_compositor::WorkingBuffer;
 
 const COMP: &str = "comp-main";
@@ -317,6 +317,9 @@ fn b25b_shapes() {
             opacity: 1.0,
             width_px: 2.0,
             gradient: None,
+            join: Join::Round,
+            miter_limit: 4.0,
+            cap: Cap::Round,
         }),
         ..Shape::default()
     };
@@ -415,6 +418,9 @@ fn b25b_shapes() {
                     opacity: 1.0,
                     width_px: 0.0,
                     gradient: None,
+                    join: Join::Round,
+                    miter_limit: 4.0,
+                    cap: Cap::Round,
                 }),
                 ..bowtie.clone()
             },
@@ -427,6 +433,9 @@ fn b25b_shapes() {
                     opacity: 1.0,
                     width_px: 8193.0,
                     gradient: None,
+                    join: Join::Round,
+                    miter_limit: 4.0,
+                    cap: Cap::Round,
                 }),
                 ..bowtie.clone()
             },

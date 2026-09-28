@@ -801,12 +801,21 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                     // B-108b, B-109b: and every gradient point and trim number, under the name the
                     // page gives it, for the reason the depth is here.
                     for (i, shape) in layer.shapes.iter().enumerate() {
-                        let mut shape = shape.clone();
                         for name in anime_compositor::shape::SHAPE_PROPERTIES {
-                            let now = match shape.property_mut(name).map(|p| p.value_at(frame)) {
-                                Some(Value::Vec2(x, y)) => serde_json::json!([x, y]),
-                                Some(Value::Scalar(n)) => serde_json::json!(n),
-                                None => continue,
+                            let Some(channels) = shape.channels(name) else {
+                                continue;
+                            };
+                            let now: Vec<serde_json::Value> = channels
+                                .iter()
+                                .map(|p| match p.value_at(frame) {
+                                    Value::Vec2(x, y) => serde_json::json!([x, y]),
+                                    Value::Scalar(n) => serde_json::json!(n),
+                                })
+                                .collect();
+                            // D-170: a colour is its three numbers, anything else its one.
+                            let now = match now.len() {
+                                1 => now[0].clone(),
+                                _ => serde_json::Value::Array(now),
                             };
                             at.insert(format!("shape:{i}:{name}"), now);
                         }
@@ -5815,12 +5824,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                         opacity: 1.0,
                                         gradient: None,
                                     }),
-                                    stroke: (!closed).then_some(anime_compositor::shape::Stroke {
-                                        color: [1.0; 3],
-                                        opacity: 1.0,
-                                        width_px: 4.0,
-                                        gradient: None,
-                                    }),
+                                    stroke: (!closed)
+                                        .then(|| anime_compositor::shape::Stroke::new([1.0; 3], 4.0)),
                                     ..Default::default()
                                 });
                             } else if shapes[at].keys.is_empty() {
@@ -7591,12 +7596,13 @@ fn shape_prop(prop: &str) -> Option<(usize, &'static str)> {
     Some((at.parse().ok()?, name))
 }
 
-/// B-108b: the five requests about a gradient's point, or since B-109b a trim's number, by the
-/// rules a layer's position keeps:
+/// B-108b: the five requests about a gradient's point, or since B-109b a trim's number, or since
+/// B-110b a fill's or stroke's colour, opacity or width, by the rules a layer's position keeps:
 /// a value on a point with no keys moves it, on a keyed one it is a key on that frame keeping
 /// the ease a key there had; the diamond adds a key holding where the point already is, or takes
-/// one off, the last one leaving the point where it was. The layer's shapes go back whole, as
-/// the one command the core has for them, and `Shape::problem` has the last word.
+/// one off, the last one leaving the point where it was. A colour is three channels that are
+/// keyed together. The layer's shapes go back whole, as the one command the core has for them,
+/// and `Shape::problem` has the last word.
 fn shape_key_command(
     id: &str,
     query: Option<&str>,
@@ -7609,15 +7615,21 @@ fn shape_key_command(
         return Err(format!("{} has no shape {at}.", layer.name));
     };
     let called = shape.name.clone();
-    let (group, _) = name.split_once('_').expect("every name has one");
-    let trim = group == "trim";
-    let Some(point) = shape.property_mut(name) else {
-        return Err(match trim {
-            true => format!("\"{called}\" has no trim."),
-            false => format!("\"{called}\" has no {group} gradient."),
+    let (group, which) = name.split_once('_').expect("every name has one");
+    let point = group != "trim" && matches!(which, "start" | "end");
+    let colour = which == "color";
+    let Some(mut channels) = shape.channels(name) else {
+        return Err(match group {
+            "trim" => format!("\"{called}\" has no trim."),
+            _ if point => format!("\"{called}\" has no {group} gradient."),
+            _ => format!("\"{called}\" has no {group}."),
         });
     };
-    let this = if trim { "This number" } else { "This point" };
+    let this = match () {
+        _ if point => "This point",
+        _ if colour => "This colour",
+        _ => "This number",
+    };
     let frame = frame_parameter(query, if id == "keyframe.move" { "from" } else { "frame" })?;
     let key = |frame, value| Keyframe {
         frame,
@@ -7630,39 +7642,56 @@ fn shape_key_command(
     let missing = || format!("{this} has no key at frame {frame}.");
     match id {
         "property.set_base" | "property.drag_update" => {
-            let value = parameter(query, "value")
-                .and_then(|text| match trim {
-                    true => text.trim().parse().ok().map(Value::Scalar),
-                    false => property_value(Prop::Position, &text),
+            let values: Vec<Value> = parameter(query, "value")
+                .and_then(|text| match () {
+                    _ if point => property_value(Prop::Position, &text).map(|v| vec![v]),
+                    _ => text
+                        .split(',')
+                        .map(|n| n.trim().parse().ok().map(Value::Scalar))
+                        .collect::<Option<Vec<Value>>>(),
                 })
-                .ok_or_else(|| match trim {
-                    true => "What number? Say value=50.".to_string(),
-                    false => "Where should the point go? Say value=x,y.".to_string(),
+                .filter(|values| values.len() == channels.len())
+                .ok_or_else(|| match () {
+                    _ if point => "Where should the point go? Say value=x,y.".to_string(),
+                    _ if colour => "What colour? Say value=r,g,b, each from 0 to 1.".to_string(),
+                    _ => "What number? Say value=50.".to_string(),
                 })?;
-            match point.keyframe_at(frame).cloned() {
-                _ if point.keyframes().is_empty() => point.set_base(value),
-                Some(was) => point.set_keyframe(Keyframe { value, ..was }),
-                None => point.set_keyframe(key(frame, value)),
+            for (channel, value) in channels.iter_mut().zip(values) {
+                match channel.keyframe_at(frame).cloned() {
+                    _ if channel.keyframes().is_empty() => channel.set_base(value),
+                    Some(was) => channel.set_keyframe(Keyframe { value, ..was }),
+                    None => channel.set_keyframe(key(frame, value)),
+                }
             }
         }
-        "keyframe.add_remove" => match point.remove_keyframe(frame) {
-            Some(gone) if point.keyframes().is_empty() => point.set_base(gone.value),
-            Some(_) => {}
-            None => point.set_keyframe(key(frame, point.value_at(frame))),
-        },
+        "keyframe.add_remove" => {
+            for channel in channels.iter_mut() {
+                match channel.remove_keyframe(frame) {
+                    Some(gone) if channel.keyframes().is_empty() => channel.set_base(gone.value),
+                    Some(_) => {}
+                    None => channel.set_keyframe(key(frame, channel.value_at(frame))),
+                }
+            }
+        }
         "keyframe.move" => {
             let to = frame_parameter(query, "to")?;
-            if to != frame && point.keyframe_at(to).is_some() {
+            if to != frame && channels[0].keyframe_at(to).is_some() {
                 return Err(format!("{this} already has a key at frame {to}."));
             }
-            let was = point.remove_keyframe(frame).ok_or_else(missing)?;
-            point.set_keyframe(Keyframe { frame: to, ..was });
+            for channel in channels.iter_mut() {
+                let was = channel.remove_keyframe(frame).ok_or_else(missing)?;
+                channel.set_keyframe(Keyframe { frame: to, ..was });
+            }
         }
         _ => {
-            let was = point.keyframe_at(frame).cloned().ok_or_else(missing)?;
-            point.set_keyframe(Keyframe { interp: interp_parameter(query)?, ..was });
+            let interp = interp_parameter(query)?;
+            for channel in channels.iter_mut() {
+                let was = channel.keyframe_at(frame).cloned().ok_or_else(missing)?;
+                channel.set_keyframe(Keyframe { interp: interp.clone(), ..was });
+            }
         }
     }
+    shape.set_channels(name, channels);
     Ok(Command::SetShapes { composition, layer_id: layer.id.clone(), shapes })
 }
 
@@ -7758,7 +7787,7 @@ fn shape_settings(
     query: Option<&str>,
     shape: &mut anime_compositor::shape::Shape,
 ) -> Result<(), String> {
-    use anime_compositor::shape::{Fill, Gradient, GradientKind, Stop, Stroke};
+    use anime_compositor::shape::{Cap, Fill, Gradient, GradientKind, Join, Stop, Stroke};
     let color = |text: &str| -> Result<[f64; 3], String> {
         let numbers: Vec<f64> = text
             .split(',')
@@ -7779,7 +7808,10 @@ fn shape_settings(
     };
     match parameter(query, "fill").as_deref() {
         None => {}
-        Some("none") => shape.fill = None,
+        Some("none") => {
+            shape.fill = None;
+            shape.tracks.retain(|n, _| !n.starts_with("fill_"));
+        }
         Some(text) => {
             let color = color(text)?;
             let (opacity, gradient) =
@@ -7789,14 +7821,39 @@ fn shape_settings(
     }
     match parameter(query, "stroke").as_deref() {
         None => {}
-        Some("none") => shape.stroke = None,
+        Some("none") => {
+            shape.stroke = None;
+            shape.tracks.retain(|n, _| !n.starts_with("stroke_"));
+        }
         Some(text) => {
             let color = color(text)?;
-            let (opacity, width_px, gradient) = shape
-                .stroke
-                .take()
-                .map_or((1.0, 4.0, None), |s| (s.opacity, s.width_px, s.gradient));
-            shape.stroke = Some(Stroke { color, opacity, width_px, gradient });
+            match shape.stroke.as_mut() {
+                Some(stroke) => stroke.color = color,
+                None => shape.stroke = Some(Stroke::new(color, 4.0)),
+            }
+        }
+    }
+    // B-110b, D-170: how a stroke turns its corners and ends its open lines, and how far a
+    // mitre may reach. D-170's range for the limit is the core's to refuse.
+    let join = parameter(query, "join");
+    let cap = parameter(query, "cap");
+    let limit = number("miter_limit", "a mitre limit")?;
+    if join.is_some() || cap.is_some() || limit.is_some() {
+        let name = shape.name.clone();
+        let Some(stroke) = shape.stroke.as_mut() else {
+            return Err(format!("\"{name}\" has no stroke to set the corners of."));
+        };
+        if let Some(text) = join {
+            stroke.join = Join::named(&text).ok_or_else(|| {
+                format!("\"{text}\" is not a join. It is miter, round or bevel.")
+            })?;
+        }
+        if let Some(text) = cap {
+            stroke.cap = Cap::named(&text)
+                .ok_or_else(|| format!("\"{text}\" is not a cap. It is butt, round or square."))?;
+        }
+        if let Some(v) = limit {
+            stroke.miter_limit = v;
         }
     }
     // B-108b, D-168: `fill_gradient` and `stroke_gradient` are none, linear or radial. Turned on,
@@ -18264,6 +18321,184 @@ mod editing {
             &["## What this does not cover\n\nWhat the trimmed line looks like on the picture and \
                whether the panel feels right in the hand. That is \
                `verification/B-109_shape_trim_playtest.md`, for a person."],
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// B-110b: D-170's keyed colours, opacities and width, and its joins and caps, from the
+    /// window. The core's half is `verification/B-110_shape_style_table.md`.
+    #[test]
+    fn a_shape_style_is_keyed_from_the_window() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/cel_holds_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        run(&viewer, "layer.add_shape");
+        let id = shown_layer(&viewer, "Shape Layer 1")["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        run(
+            &viewer,
+            &format!("shape.add?layer={id}&points=100,100,0,0,0,0;300,100,0,0,0,0;300,300,0,0,0,0"),
+        );
+        // The stroke as the page reads it off the document, in one line.
+        let stroke = |viewer: &Mutex<Viewer>| {
+            let s = shown_layer(viewer, "Shape Layer 1")["shapes"][0]["stroke"].clone();
+            if s.is_null() {
+                return "none".to_string();
+            }
+            let mut words: Vec<String> = ["color", "opacity", "width_px"]
+                .map(|name| match s[name]["keyframes"].as_array() {
+                    Some(keys) => format!(
+                        "{name} keyed {}",
+                        keys.iter()
+                            .map(|k| format!("{}@{}", k["value"], k["frame"]))
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    ),
+                    None => format!("{name} {}", s[name]),
+                })
+                .to_vec();
+            for name in ["join", "cap", "miter_limit"] {
+                if !s[name].is_null() {
+                    words.push(format!("{name} {}", s[name]));
+                }
+            }
+            words.join(", ")
+        };
+        let at = |viewer: &Mutex<Viewer>, frame: i32, prop: &str| {
+            let body = boxes(viewer, frame, None).into_body();
+            let answer: serde_json::Value =
+                serde_json::from_slice(&body).expect("the boxes answer is JSON");
+            answer["values"][&id][prop].to_string()
+        };
+        let set = |prop: &str, value: &str, frame: i32| {
+            run(
+                &viewer,
+                &format!("property.set_base?layer={id}&prop=shape:0:{prop}&value={value}&frame={frame}"),
+            )
+        };
+        let shape_set = |what: &str| run(&viewer, &format!("shape.set?layer={id}&shape=0&{what}"));
+
+        shape_set("stroke=1,1,1");
+        report.check(
+            "A stroke added from the window is round at its corners and ends, so the file says nothing of them",
+            "color [1,1,1], opacity 1, width_px 4",
+            stroke(&viewer),
+        );
+        set("stroke_width", "10", 0);
+        run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_width&frame=0"));
+        set("stroke_width", "30", 10);
+        report.check(
+            "the width typed, keyed by the diamond, and a value on frame 10 is a second key",
+            "color [1,1,1], opacity 1, width_px keyed 10@0 30@10",
+            stroke(&viewer),
+        );
+        report.check(
+            "halfway, frame 5, the page is given the width the renderer uses",
+            "20.0",
+            at(&viewer, 5, "shape:0:stroke_width"),
+        );
+        run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_color&frame=0"));
+        set("stroke_color", "0,0,1", 10);
+        report.check(
+            "the colour is keyed as three numbers together, white at 0 and blue at 10",
+            "color keyed [1,1,1]@0 [0,0,1]@10, opacity 1, width_px keyed 10@0 30@10",
+            stroke(&viewer),
+        );
+        report.check(
+            "halfway the page is given the colour, straight between the two in linear light",
+            "[0.5,0.5,1.0]",
+            at(&viewer, 5, "shape:0:stroke_color"),
+        );
+        report.check(
+            "a colour with two numbers is refused, with the reason",
+            "What colour? Say value=r,g,b, each from 0 to 1.",
+            set("stroke_color", "1,0", 0),
+        );
+        report.check(
+            "a colour key above 1 is refused, with the reason",
+            "Shape \"Shape 1\" cannot be drawn: it needs a stroke colour of three numbers from 0 to 1, not 2. Set a value inside the range and send the shapes again.",
+            set("stroke_color", "2,0,0", 10),
+        );
+        report.check(
+            "an opacity above 100% is refused, with the reason",
+            "Shape \"Shape 1\" cannot be drawn: it needs a stroke opacity from 0 to 1, not 1.5. Set a value inside the range and send the shapes again.",
+            set("stroke_opacity", "1.5", 0),
+        );
+        report.check(
+            "a width key at 0 is refused, with the reason",
+            "Shape \"Shape 1\" cannot be drawn: it needs a stroke width above 0 and at most 8192, not 0. Set a value inside the range and send the shapes again.",
+            set("stroke_width", "0", 10),
+        );
+        shape_set("join=miter&cap=butt&miter_limit=2");
+        report.check(
+            "a mitred join, butt caps and a limit of 2 are written into the file",
+            "color keyed [1,1,1]@0 [0,0,1]@10, opacity 1, width_px keyed 10@0 30@10, join \"miter\", cap \"butt\", miter_limit 2",
+            stroke(&viewer),
+        );
+        report.check(
+            "a join that is not one of the three is refused, with the reason",
+            "\"sharp\" is not a join. It is miter, round or bevel.",
+            shape_set("join=sharp"),
+        );
+        report.check(
+            "a mitre limit below 1 is refused, with the reason",
+            "Shape \"Shape 1\" cannot be drawn: it needs a mitre limit from 1 to 100, not 0.5. Set a value inside the range and send the shapes again.",
+            shape_set("miter_limit=0.5"),
+        );
+        shape_set("join=round&cap=round&miter_limit=4");
+        report.check(
+            "put back to round, round and 4, the three words leave the file",
+            "color keyed [1,1,1]@0 [0,0,1]@10, opacity 1, width_px keyed 10@0 30@10",
+            stroke(&viewer),
+        );
+        shape_set("stroke=none");
+        report.check("No stroke takes it away, keys and all", "none", stroke(&viewer));
+        report.check(
+            "a key on a stroke the shape does not have is refused, with the reason",
+            "\"Shape 1\" has no stroke.",
+            run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_width&frame=0")),
+        );
+        report.check(
+            "nor does a stroke added again bring the old keys back",
+            "color [1,1,1], opacity 1, width_px 4",
+            {
+                shape_set("stroke=1,1,1");
+                stroke(&viewer)
+            },
+        );
+        run(&viewer, "edit.undo");
+        run(&viewer, "edit.undo");
+        report.check(
+            "and two Undos put the keyed stroke back",
+            "color keyed [1,1,1]@0 [0,0,1]@10, opacity 1, width_px keyed 10@0 30@10",
+            stroke(&viewer),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-110b_panel_table.md",
+            "B-110b: shape styles over time, and joins and caps, from the window",
+            &["D-170 decided that a shape's colours, opacities and stroke width take keys, and \
+               how a stroke turns its corners and ends its open lines; B-110b built it in the \
+               core, checked pixel by pixel in `verification/B-110_shape_style_table.md`. This \
+               is the window's half: the five are named `shape:<n>:fill_color`, `fill_opacity`, \
+               `stroke_color`, `stroke_opacity` and `stroke_width` wherever a property is named, \
+               so the diamond, a typed value, a key moved and an ease reach them by the requests \
+               they already send, and the shape's panel sends `shape.set` with `join`, `cap` and \
+               `miter_limit`."],
+            &["## What this does not cover\n\nWhat the corners and the changing colours look \
+               like on the picture and whether the panel feels right in the hand. That is \
+               `verification/B-110_shape_style_playtest.md`, for a person."],
         );
         let failed: Vec<&String> = report
             .rows

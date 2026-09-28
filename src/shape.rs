@@ -24,7 +24,9 @@
 //! - **A stroke**, which is every point within `width_px / 2` of the flattened path. D-78 chose
 //!   that definition over offset curves because it settles joins and caps without enumerating
 //!   them — they are round, and only round — and because the distance it needs is the distance
-//!   [`crate::mask::distance_to_path`] already computes for a mask's expansion.
+//!   [`crate::mask::distance_to_path`] already computes for a mask's expansion. D-170 adds mitre
+//!   and bevel joins and butt and square caps, drawn by [`stroke_parts`]; round and round is still
+//!   D-78's distance.
 //!
 //! # Where a shape and a mask part company
 //!
@@ -38,6 +40,8 @@
 //!
 //! The reference tool is `tools/shape_reference.py`, written from D-78 before this file existed,
 //! and `Fixtures/shapes/` is what it produced. `tests/b25b_shapes.rs` walks every case.
+
+use std::collections::BTreeMap;
 
 use crate::mask::{MaskKey, MaskPoint, SAMPLES_PER_SIDE};
 use crate::model::{Property, Value};
@@ -150,8 +154,8 @@ impl Gradient {
     }
 }
 
-/// Every name [`Shape::property_mut`] answers to.
-pub const SHAPE_PROPERTIES: [&str; 7] = [
+/// Every name [`Shape::channels`] answers to.
+pub const SHAPE_PROPERTIES: [&str; 12] = [
     "fill_start",
     "fill_end",
     "stroke_start",
@@ -159,7 +163,48 @@ pub const SHAPE_PROPERTIES: [&str; 7] = [
     "trim_start",
     "trim_end",
     "trim_offset",
+    "fill_color",
+    "fill_opacity",
+    "stroke_color",
+    "stroke_opacity",
+    "stroke_width",
 ];
+
+/// D-170: how a stroke turns a corner. Round is D-78's, and what a stroke has unless told.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Join {
+    Miter,
+    Round,
+    Bevel,
+}
+
+/// D-170: how an open line ends. Round is D-78's.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Cap {
+    Butt,
+    Round,
+    Square,
+}
+
+impl Join {
+    pub const NAMES: [&str; 3] = ["miter", "round", "bevel"];
+    pub fn as_str(self) -> &'static str {
+        Join::NAMES[self as usize]
+    }
+    pub fn named(name: &str) -> Option<Join> {
+        [Join::Miter, Join::Round, Join::Bevel].into_iter().find(|j| j.as_str() == name)
+    }
+}
+
+impl Cap {
+    pub const NAMES: [&str; 3] = ["butt", "round", "square"];
+    pub fn as_str(self) -> &'static str {
+        Cap::NAMES[self as usize]
+    }
+    pub fn named(name: &str) -> Option<Cap> {
+        [Cap::Butt, Cap::Round, Cap::Square].into_iter().find(|c| c.as_str() == name)
+    }
+}
 
 /// D-169: the stretch of the path a stroke is drawn along, as After Effects' Trim Paths.
 ///
@@ -208,10 +253,11 @@ impl Trim {
         None
     }
 
-    /// D-169's stretch of `path` as segments to stroke, or `None` where the stroke is whole.
+    /// D-169's stretch of `path` as open lines to stroke, or `None` where the stroke is whole.
     ///
     /// The trim must already be at the frame. `path_segments` in order are the pieces measured.
-    fn segments(&self, path: &[(f64, f64)], closed: bool) -> Option<Vec<Segment>> {
+    /// D-170: a closed path's stretch that runs through its first point is one line through it.
+    fn lines(&self, path: &[(f64, f64)], closed: bool) -> Option<Vec<Vec<(f64, f64)>>> {
         let n = |p: &Property| p.base().as_scalar().unwrap_or(0.0);
         let (s, e) = (n(&self.start) / 100.0, n(&self.end) / 100.0);
         let (s, e) = (s.min(e), s.max(e));
@@ -246,7 +292,11 @@ impl Trim {
             let mut line = vec![place(d0)];
             line.extend((1..pieces.len()).filter(|&j| d0 < along[j] && along[j] < d1).map(|j| pieces[j].0));
             line.push(place(d1));
-            out.extend(line.windows(2).map(|w| (w[0], w[1])));
+            out.push(line);
+        }
+        if closed && out.len() == 2 {
+            let wrapped = out.pop().expect("two");
+            out[0].extend_from_slice(&wrapped[1..]);
         }
         Some(out)
     }
@@ -255,8 +305,7 @@ impl Trim {
 /// D-78: a shape's fill — one colour over its whole even-odd interior.
 ///
 /// The colour is linear working-space RGB from 0 to 1, as a solid's is and as the tint effect's
-/// is. Neither it nor the opacity is animated at first; D-78 leaves that with D-76's question
-/// about a solid's colour.
+/// is. D-170 lets both be keyed; the keys are in [`Shape::tracks`] and these are the bases.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Fill {
     pub color: [f64; 3],
@@ -276,6 +325,27 @@ pub struct Stroke {
     pub width_px: f64,
     /// D-168: as a fill's. It lies across the frame by position, not along the line.
     pub gradient: Option<Gradient>,
+    /// D-170: round and round, with a limit of 4, unless the file or the panel says otherwise.
+    pub join: Join,
+    /// 1 to 100, in half-widths from the corner.
+    pub miter_limit: f64,
+    pub cap: Cap,
+}
+
+impl Stroke {
+    /// A new stroke from the window: opaque, no gradient, and D-78's round joins and caps, which
+    /// D-170 keeps as the window's choice (After Effects starts mitred with butt caps).
+    pub fn new(color: [f64; 3], width_px: f64) -> Stroke {
+        Stroke {
+            color,
+            opacity: 1.0,
+            width_px,
+            gradient: None,
+            join: Join::Round,
+            miter_limit: 4.0,
+            cap: Cap::Round,
+        }
+    }
 }
 
 /// D-78's shape: a path that may be open, with an optional fill and an optional stroke.
@@ -296,6 +366,11 @@ pub struct Shape {
     pub stroke: Option<Stroke>,
     /// D-169: where along the path the stroke is drawn; `None` is all of it.
     pub trim: Option<Trim>,
+    /// D-170: the keys of a style that has any, by its name in `SHAPE_PROPERTIES`
+    /// (`fill_color` and so on), one one-number property per channel, a colour's three sharing
+    /// their frames. The fill's and stroke's own numbers are the bases. A style without keys has
+    /// no entry, as an effect's setting has none (D-68).
+    pub tracks: BTreeMap<String, Vec<Property>>,
 }
 
 impl Default for Shape {
@@ -309,6 +384,7 @@ impl Default for Shape {
             fill: None,
             stroke: None,
             trim: None,
+            tracks: BTreeMap::new(),
         }
     }
 }
@@ -345,12 +421,62 @@ impl Shape {
             *g = g.at(frame);
         }
         now.trim = self.trim.as_ref().map(|t| t.at(frame));
+        now.tracks.clear();
+        for (name, track) in &self.tracks {
+            if let Some(values) = now.style_mut(name) {
+                for (v, channel) in values.iter_mut().zip(track) {
+                    *v = channel.value_at(frame).as_scalar().unwrap_or(*v);
+                }
+            }
+        }
         now
     }
 
-    /// B-109b: a shape's keyed numbers by the names the window gives them (`SHAPE_PROPERTIES`),
-    /// where the shape has them: a gradient's two points and a trim's three numbers.
-    pub fn property_mut(&mut self, name: &str) -> Option<&mut Property> {
+    /// D-170: the numbers a style's name stands for, where the shape has that paint.
+    fn style_mut(&mut self, name: &str) -> Option<&mut [f64]> {
+        Some(match name {
+            "fill_color" => &mut self.fill.as_mut()?.color[..],
+            "fill_opacity" => std::slice::from_mut(&mut self.fill.as_mut()?.opacity),
+            "stroke_color" => &mut self.stroke.as_mut()?.color[..],
+            "stroke_opacity" => std::slice::from_mut(&mut self.stroke.as_mut()?.opacity),
+            "stroke_width" => std::slice::from_mut(&mut self.stroke.as_mut()?.width_px),
+            _ => return None,
+        })
+    }
+
+    /// A keyed number of this shape by its name in `SHAPE_PROPERTIES`, as one property per
+    /// channel: three for a colour, one for anything else. `None` where the shape has no such
+    /// thing, as a gradient point on a fill without a gradient.
+    pub fn channels(&self, name: &str) -> Option<Vec<Property>> {
+        let mut shape = self.clone();
+        if let Some(values) = shape.style_mut(name) {
+            return Some(self.tracks.get(name).cloned().unwrap_or_else(|| {
+                values.iter().map(|v| Property::constant(Value::Scalar(*v))).collect()
+            }));
+        }
+        shape.property_mut(name).map(|p| vec![p.clone()])
+    }
+
+    /// Puts back what [`Shape::channels`] handed out. A style keeps its bases as its plain
+    /// numbers and its keys, if it has any left, as its track.
+    pub fn set_channels(&mut self, name: &str, channels: Vec<Property>) -> Option<()> {
+        if let Some(values) = self.style_mut(name) {
+            for (v, channel) in values.iter_mut().zip(&channels) {
+                *v = channel.base().as_scalar().unwrap_or(*v);
+            }
+            if channels.iter().any(|c| !c.keyframes().is_empty()) {
+                self.tracks.insert(name.to_string(), channels);
+            } else {
+                self.tracks.remove(name);
+            }
+            return Some(());
+        }
+        *self.property_mut(name)? = channels.into_iter().next()?;
+        Some(())
+    }
+
+    /// B-109b: a gradient's two points and a trim's three numbers by their window names.
+    fn property_mut(&mut self, name: &str) -> Option<&mut Property> {
         let (group, which) = name.split_once('_')?;
         let (start, end, offset) = match group {
             "fill" => {
@@ -402,25 +528,30 @@ impl Shape {
     /// The commands refuse on this with `COMMAND_INVALID_VALUE` and the loader with
     /// `PROJECT_SCHEMA_INVALID`; both say the same sentence, because it is the same rule.
     pub fn problem(&self) -> Option<String> {
-        for (what, color, opacity, gradient) in [
-            self.fill
-                .as_ref()
-                .map(|f| ("fill", f.color, f.opacity, &f.gradient)),
-            self.stroke
-                .as_ref()
-                .map(|s| ("stroke", s.color, s.opacity, &s.gradient)),
+        if let Some(p) = self.style_problem() {
+            return Some(p);
+        }
+        // D-170: every key of a keyed style is held to the plain value's range, by asking the
+        // shape as it stands on that key's frame.
+        for track in self.tracks.values() {
+            for channel in track {
+                if channel.expression().is_some() {
+                    return Some("no expression on a shape's colour, opacity or width".into());
+                }
+                for key in channel.keyframes() {
+                    if let Some(p) = self.at(key.frame).style_problem() {
+                        return Some(p);
+                    }
+                }
+            }
+        }
+        for (what, gradient) in [
+            self.fill.as_ref().map(|f| ("fill", &f.gradient)),
+            self.stroke.as_ref().map(|s| ("stroke", &s.gradient)),
         ]
         .into_iter()
         .flatten()
         {
-            if let Some(c) = color.iter().find(|c| !(0.0..=1.0).contains(*c)) {
-                return Some(format!(
-                    "a {what} colour of three numbers from 0 to 1, not {c}"
-                ));
-            }
-            if !(0.0..=1.0).contains(&opacity) {
-                return Some(format!("a {what} opacity from 0 to 1, not {opacity}"));
-            }
             if let Some(p) = gradient.as_ref().and_then(|g| g.problem(what)) {
                 return Some(p);
             }
@@ -429,11 +560,8 @@ impl Shape {
             return Some(p);
         }
         if let Some(s) = &self.stroke {
-            if !(s.width_px > 0.0 && s.width_px <= MAX_STROKE_WIDTH) {
-                return Some(format!(
-                    "a stroke width above 0 and at most {MAX_STROKE_WIDTH}, not {}",
-                    s.width_px
-                ));
+            if !(1.0..=100.0).contains(&s.miter_limit) {
+                return Some(format!("a mitre limit from 1 to 100, not {}", s.miter_limit));
             }
         }
         // D-77's rule, which D-78 adopts unchanged: a key holds the whole outline, so it holds as
@@ -450,6 +578,30 @@ impl Shape {
                     k.points.len()
                 )
             })
+    }
+
+    /// D-78's ranges on the plain colours, opacities and width.
+    fn style_problem(&self) -> Option<String> {
+        for (what, color, opacity) in [
+            self.fill.as_ref().map(|f| ("fill", f.color, f.opacity)),
+            self.stroke.as_ref().map(|s| ("stroke", s.color, s.opacity)),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if let Some(c) = color.iter().find(|c| !(0.0..=1.0).contains(*c)) {
+                return Some(format!(
+                    "a {what} colour of three numbers from 0 to 1, not {c}"
+                ));
+            }
+            if !(0.0..=1.0).contains(&opacity) {
+                return Some(format!("a {what} opacity from 0 to 1, not {opacity}"));
+            }
+        }
+        let width = self.stroke.as_ref()?.width_px;
+        (!(width > 0.0 && width <= MAX_STROKE_WIDTH)).then(|| {
+            format!("a stroke width above 0 and at most {MAX_STROKE_WIDTH}, not {width}")
+        })
     }
 }
 
@@ -613,11 +765,20 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
             );
         }
         if let Some(stroke) = &shape.stroke {
-            let segments = match shape.trim.as_ref().and_then(|t| t.segments(&outline, shape.closed)) {
-                Some(stretch) => stretch,
-                None => path_segments(&outline, shape.closed),
+            let lines: Vec<(Vec<(f64, f64)>, bool)> =
+                match shape.trim.as_ref().and_then(|t| t.lines(&outline, shape.closed)) {
+                    Some(stretch) => stretch.into_iter().map(|l| (l, false)).collect(),
+                    None => vec![(outline.clone(), shape.closed)],
+                };
+            let r = stroke.width_px / 2.0;
+            let f = if stroke.join == Join::Round && stroke.cap == Cap::Round {
+                // D-78's coverage, unchanged.
+                let segments: Vec<Segment> =
+                    lines.iter().flat_map(|(l, closed)| path_segments(l, *closed)).collect();
+                stroke_field(&segments, width, height, r)
+            } else {
+                styled_field(&stroke_parts(&lines, r, stroke), width, height)
             };
-            let f = stroke_field(&segments, width, height, stroke.width_px / 2.0);
             paint(
                 data,
                 &f,
@@ -701,6 +862,181 @@ fn path_segments(path: &[(f64, f64)], closed: bool) -> Vec<Segment> {
             .map(|i| (path[i], path[(i + 1) % points]))
             .collect(),
     }
+}
+
+/// One of the pieces D-170 makes a stroke of, with the box outside which it covers nothing.
+struct Part {
+    left: f64,
+    top: f64,
+    right: f64,
+    bottom: f64,
+    region: Region,
+}
+
+enum Region {
+    Disc { c: (f64, f64), r: f64 },
+    Square { c: (f64, f64), r: f64 },
+    /// A piece's band: from `a` along (dx, dy), `low <= p.d <= high` and `|p x d| <= reach`.
+    Body { a: (f64, f64), dx: f64, dy: f64, low: f64, high: f64, reach: f64 },
+    /// A convex polygon, either way round.
+    Corner(Vec<(f64, f64)>),
+}
+
+impl Part {
+    /// The box only passes over samples, never decides one, so it is padded past any rounding.
+    fn new(region: Region, points: &[(f64, f64)], pad: f64) -> Part {
+        let pad = pad + 1e-6;
+        let (left, top, right, bottom) = points.iter().fold(
+            (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY),
+            |(l, t, r, b), p| (l.min(p.0), t.min(p.1), r.max(p.0), b.max(p.1)),
+        );
+        Part { left: left - pad, top: top - pad, right: right + pad, bottom: bottom + pad, region }
+    }
+
+    fn round(c: (f64, f64), r: f64) -> Part {
+        Part::new(Region::Disc { c, r }, &[c], r)
+    }
+
+    fn corner(poly: Vec<(f64, f64)>) -> Part {
+        let points = poly.clone();
+        Part::new(Region::Corner(poly), &points, 0.0)
+    }
+
+    /// Document 21's D-170 tests, in the reference tool's arithmetic, operation for operation.
+    fn covers(&self, x: f64, y: f64) -> bool {
+        match &self.region {
+            Region::Disc { c, r } => (x - c.0) * (x - c.0) + (y - c.1) * (y - c.1) <= r * r,
+            Region::Square { c, r } => (x - c.0).abs() <= *r && (y - c.1).abs() <= *r,
+            Region::Body { a, dx, dy, low, high, reach } => {
+                let (px, py) = (x - a.0, y - a.1);
+                let dot = px * dx + py * dy;
+                let cross = px * dy - py * dx;
+                *low <= dot && dot <= *high && cross.abs() <= *reach
+            }
+            Region::Corner(poly) => {
+                let (mut above, mut below) = (true, true);
+                for (i, p) in poly.iter().enumerate() {
+                    let q = poly[(i + 1) % poly.len()];
+                    let side = (q.0 - p.0) * (y - p.1) - (q.1 - p.1) * (x - p.0);
+                    above &= side >= 0.0;
+                    below &= side <= 0.0;
+                }
+                above || below
+            }
+        }
+    }
+}
+
+/// D-170: a piece from `a` to `b`, carried on `before` and `after` pixels past its ends.
+fn body(a: (f64, f64), b: (f64, f64), r: f64, before: f64, after: f64) -> Part {
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    let run2 = dx * dx + dy * dy;
+    let run = run2.sqrt();
+    let region = Region::Body { a, dx, dy, low: -before * run, high: run2 + after * run, reach: r * run };
+    Part::new(region, &[a, b], r + before + after)
+}
+
+/// D-170: the join at `v` between a piece from `a` and one on to `c`.
+fn joint(a: (f64, f64), v: (f64, f64), c: (f64, f64), r: f64, stroke: &Stroke) -> Option<Part> {
+    if stroke.join == Join::Round {
+        return Some(Part::round(v, r));
+    }
+    let run1 = ((v.0 - a.0) * (v.0 - a.0) + (v.1 - a.1) * (v.1 - a.1)).sqrt();
+    let run2 = ((c.0 - v.0) * (c.0 - v.0) + (c.1 - v.1) * (c.1 - v.1)).sqrt();
+    let u1 = ((v.0 - a.0) / run1, (v.1 - a.1) / run1);
+    let u2 = ((c.0 - v.0) / run2, (c.1 - v.1) / run2);
+    let turn = u1.0 * u2.1 - u1.1 * u2.0;
+    if turn == 0.0 {
+        return None;
+    }
+    let s = if turn > 0.0 { -1.0 } else { 1.0 };
+    let (n1, n2) = ((-u1.1, u1.0), (-u2.1, u2.0));
+    let p1 = (v.0 + s * r * n1.0, v.1 + s * r * n1.1);
+    let p2 = (v.0 + s * r * n2.0, v.1 + s * r * n2.1);
+    let d = u1.0 * u2.0 + u1.1 * u2.1;
+    let limit = stroke.miter_limit;
+    if stroke.join == Join::Miter && 2.0 <= limit * limit * (1.0 + d) {
+        let k = s * r / (1.0 + d);
+        let m = (v.0 + k * (n1.0 + n2.0), v.1 + k * (n1.1 + n2.1));
+        return Some(Part::corner(vec![v, p1, m, p2]));
+    }
+    Some(Part::corner(vec![v, p1, p2]))
+}
+
+/// D-170: every piece of a stroke whose join or cap is not round, over all its lines.
+fn stroke_parts(lines: &[(Vec<(f64, f64)>, bool)], r: f64, stroke: &Stroke) -> Vec<Part> {
+    let mut parts = Vec::new();
+    for (line, closed) in lines {
+        let Some(&first) = line.first() else { continue };
+        let mut points = line.clone();
+        if *closed {
+            points.push(first);
+        }
+        let segs: Vec<Segment> =
+            points.windows(2).map(|w| (w[0], w[1])).filter(|(p, q)| p != q).collect();
+        if segs.is_empty() {
+            match stroke.cap {
+                Cap::Round => parts.push(Part::round(first, r)),
+                Cap::Square => parts.push(Part::new(Region::Square { c: first, r }, &[first], r)),
+                Cap::Butt => {}
+            }
+            continue;
+        }
+        let square = !closed && stroke.cap == Cap::Square;
+        let last = segs.len() - 1;
+        for (i, &(a, b)) in segs.iter().enumerate() {
+            let before = if square && i == 0 { r } else { 0.0 };
+            let after = if square && i == last { r } else { 0.0 };
+            parts.push(body(a, b, r, before, after));
+        }
+        if !closed && stroke.cap == Cap::Round {
+            parts.push(Part::round(segs[0].0, r));
+            parts.push(Part::round(segs[last].1, r));
+        }
+        let wrap = closed.then(|| (segs[last], segs[0]));
+        for ((a, v), (_, c)) in segs.windows(2).map(|w| (w[0], w[1])).chain(wrap) {
+            parts.extend(joint(a, v, c, r, stroke));
+        }
+    }
+    parts
+}
+
+/// Every pixel's coverage by `parts`: a sample counts if any part covers it. Rows run across the
+/// thread pool, each asking only the parts whose box reaches its sample row, as [`stroke_field`]
+/// asks only the segments in its band.
+fn styled_field(parts: &[Part], w: usize, h: usize) -> Vec<f32> {
+    use rayon::prelude::*;
+    let n = SAMPLES_PER_SIDE;
+    let mut field = vec![0.0f32; w * h];
+    if parts.is_empty() {
+        return field;
+    }
+    field.par_chunks_mut(w).enumerate().for_each_init(
+        || (Vec::new(), vec![0u32; w]),
+        |(band, hits): &mut (Vec<&Part>, Vec<u32>), (yi, row)| {
+            hits.iter_mut().for_each(|hit| *hit = 0);
+            for j in 0..n {
+                let sy = yi as f64 + (j as f64 + 0.5) / n as f64;
+                band.clear();
+                band.extend(parts.iter().filter(|p| p.top <= sy && sy <= p.bottom));
+                if band.is_empty() {
+                    continue;
+                }
+                for (xi, hit) in hits.iter_mut().enumerate() {
+                    for i in 0..n {
+                        let sx = xi as f64 + (i as f64 + 0.5) / n as f64;
+                        if band.iter().any(|p| p.left <= sx && sx <= p.right && p.covers(sx, sy)) {
+                            *hit += 1;
+                        }
+                    }
+                }
+            }
+            for (v, hit) in row.iter_mut().zip(hits.iter()) {
+                *v = *hit as f32 / (n * n) as f32;
+            }
+        },
+    );
+    field
 }
 
 #[cfg(test)]

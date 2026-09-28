@@ -5793,12 +5793,19 @@ const pathAt = (layer, prop) => pathsNamed(layer, prop.split(':')[0])[prop.split
 // B-108b: a shape's gradient point is named `shape:<n>:fill_start`, `fill_end`, `stroke_start` or
 // `stroke_end` wherever a property is named, as its path is. D-168 gives it keys and no expression.
 // B-109b: and a trim's numbers `trim_start`, `trim_end` and `trim_offset`, as D-169 gives them.
-const SHAPE_PROPS = ['fill_start', 'fill_end', 'stroke_start', 'stroke_end', 'trim_start', 'trim_end', 'trim_offset'];
+// B-110b: and a paint's `fill_color`, `fill_opacity`, `stroke_color`, `stroke_opacity` and
+// `stroke_width`, as D-170 gives them: the file writes one plain while it has no keys.
+const SHAPE_PROPS = ['fill_start', 'fill_end', 'stroke_start', 'stroke_end', 'trim_start', 'trim_end', 'trim_offset',
+  'fill_color', 'fill_opacity', 'stroke_color', 'stroke_opacity', 'stroke_width'];
 const isGrad = (prop) => /^shape:\d+:/.test(prop) && SHAPE_PROPS.includes(prop.split(':')[2]);
 function gradOf(layer, prop) {
   const [, at, which] = prop.split(':');
   const [group, end] = which.split('_');
   const shape = (layer.shapes || [])[at] || {};
+  if (group !== 'trim' && end !== 'start' && end !== 'end') {
+    const held = (shape[group] || {})[end === 'width' ? 'width_px' : end];
+    return held === undefined ? {} : held && held.keyframes ? held : { base: held };
+  }
   const g = group === 'trim' ? shape.trim : (shape[group] || {}).gradient;
   return (g && g[end]) || {};
 }
@@ -5817,7 +5824,7 @@ const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
 function propLabel(layer, prop) {
   if (isPath(prop)) return ((pathAt(layer, prop) || {}).name || prop) + ' path';
   if (isGrad(prop)) return ((layer.shapes || [])[prop.split(':')[1]] || {}).name + ' '
-    + prop.split(':')[2].replace(/^(fill|stroke)_/, '$1 gradient ').replace('trim_', 'trim ');
+    + prop.split(':')[2].replace(/^(fill|stroke)_(start|end)$/, '$1 gradient $2').replace('_', ' ');
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
@@ -6070,7 +6077,7 @@ function propScrubs(layer, prop) {
   // long. Both are turned over here and turned back on the way out, so what reaches the command
   // is the number the file wants. The lens's factor is the composition's own width, because a
   // 50 mm lens is 50 mm of a 36 mm back however wide the picture is.
-  const per = prop === 'opacity' ? 100
+  const per = prop === 'opacity' || /^shape:\d+:\w+_opacity$/.test(prop) ? 100
     : prop === 'zoom' ? 36 / composition().width
       : 1;
   const held = transformValue(layer, prop).map((v) => v * per);
@@ -6281,20 +6288,35 @@ function drawInspector() {
         field(dl, named, '');
         const pick = labelled(document.createElement('input'), named + ' colour');
         pick.type = 'color';
-        pick.value = hexOf(paint ? paint.color : [1, 1, 1]);
-        pick.onchange = () => set(what + '=' + linearOf(pick.value).join(','));
+        // B-110b, D-170: the colour, opacity and width are keyed as a point is, so the picker
+        // shows the colour on this frame and sets it the way the three numbers under it do.
+        const colour = 'shape:' + at + ':' + what + '_color';
+        pick.value = hexOf(paint ? transformValue(layer, colour) : [1, 1, 1]);
+        pick.onchange = () => (paint
+          ? command('/property.set_base?' + whose(layer) + '&prop=' + colour + '&value='
+            + linearOf(pick.value).join(',') + '&frame=' + frame)
+          : set(what + '=' + linearOf(pick.value).join(',')));
         dl.lastChild.append(pick, button(paint ? 'No ' + what : 'Add ' + what, !paint,
           () => set(what + '=' + (paint ? 'none' : linearOf(pick.value).join(',')))));
         if (!paint) continue;
-        const scrubs = [[what + '_opacity', 'opacity', paint.opacity * 100, '%', '0 to 100']];
-        if (what === 'stroke') scrubs.push(['stroke_width', 'width', paint.width_px, ' px', 'above 0, at most 8192']);
-        for (const [key, word, value, suffix, range] of scrubs) {
-          dl.lastChild.append(' ', scrubValue({
-            value,
-            suffix,
-            title: 'Drag to change, or press to type. ' + named + ' ' + word + ', ' + range,
-            label: named + ' ' + word + ' of ' + shape.name + ' on ' + layer.name + ', ' + range,
-            commit: (v) => set(key + '=' + encodeURIComponent(v)),
+        for (const name of what === 'stroke' ? ['color', 'opacity', 'width'] : ['color', 'opacity']) {
+          propRow(dl, layer, 'shape:' + at + ':' + what + '_' + name);
+        }
+        // How the stroke turns its corners and ends an open line, and how far a mitre reaches.
+        if (what === 'stroke') {
+          field(dl, 'Corners', '');
+          for (const [key, words] of [['join', ['miter', 'round', 'bevel']], ['cap', ['butt', 'round', 'square']]]) {
+            const choose = labelled(document.createElement('select'), 'Stroke ' + key);
+            choose.append(...words.map((w) => new Option(key + ' ' + w, w)));
+            choose.value = paint[key] || 'round';
+            choose.onchange = () => set(key + '=' + choose.value);
+            dl.lastChild.append(choose, ' ');
+          }
+          dl.lastChild.append('mitre limit ', scrubValue({
+            value: paint.miter_limit || 4,
+            title: 'Drag to change, or press to type. How far a mitred corner may reach, in stroke widths, 1 to 100',
+            label: 'Mitre limit of ' + shape.name + ' on ' + layer.name + ', 1 to 100',
+            commit: (v) => set('miter_limit=' + encodeURIComponent(v)),
           }));
         }
         // B-108b, D-168: flat, or a linear or radial gradient, its stops and its two points.

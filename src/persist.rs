@@ -760,14 +760,19 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                     was.and_then(|w| w.get(key))
                         .and_then(|p| p.get("gradient"))
                 };
+                // D-170: a keyed style is its record, a still one its plain value.
+                let style = |name: &str, plain: J| match s.tracks.get(name) {
+                    Some(track) => track_json(track, plain),
+                    None => plain,
+                };
                 map.insert(
                     "fill".into(),
                     match &s.fill {
                         None => J::Null,
                         Some(f) => {
                             let mut m = Map::new();
-                            m.insert("color".into(), J::from(f.color.to_vec()));
-                            m.insert("opacity".into(), J::from(f.opacity));
+                            m.insert("color".into(), style("fill_color", J::from(f.color.to_vec())));
+                            m.insert("opacity".into(), style("fill_opacity", J::from(f.opacity)));
                             if let Some(g) = &f.gradient {
                                 m.insert("gradient".into(), gradient_json(was_paint("fill"), g));
                             }
@@ -781,11 +786,21 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                         None => J::Null,
                         Some(t) => {
                             let mut m = Map::new();
-                            m.insert("color".into(), J::from(t.color.to_vec()));
-                            m.insert("opacity".into(), J::from(t.opacity));
-                            m.insert("width_px".into(), J::from(t.width_px));
+                            m.insert("color".into(), style("stroke_color", J::from(t.color.to_vec())));
+                            m.insert("opacity".into(), style("stroke_opacity", J::from(t.opacity)));
+                            m.insert("width_px".into(), style("stroke_width", J::from(t.width_px)));
                             if let Some(g) = &t.gradient {
                                 m.insert("gradient".into(), gradient_json(was_paint("stroke"), g));
+                            }
+                            // D-170: written only where they are not D-78's round and round.
+                            if t.join != crate::shape::Join::Round {
+                                m.insert("join".into(), J::from(t.join.as_str()));
+                            }
+                            if t.miter_limit != 4.0 {
+                                m.insert("miter_limit".into(), J::from(t.miter_limit));
+                            }
+                            if t.cap != crate::shape::Cap::Round {
+                                m.insert("cap".into(), J::from(t.cap.as_str()));
                             }
                             J::Object(m)
                         }
@@ -1653,24 +1668,30 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         let Some(plain) = params.get(name).cloned() else {
             continue;
         };
-        let mut channels: Vec<J> = track.iter().map(|p| property_json(None, p, 1.0)).collect();
-        let mut record = channels.remove(0);
-        if let Some(keys) = record["keyframes"].as_array_mut() {
-            for (i, key) in keys.iter_mut().enumerate() {
-                if !channels.is_empty() {
-                    let mut three = vec![key["value"].clone()];
-                    three.extend(channels.iter().map(|c| c["keyframes"][i]["value"].clone()));
-                    key["value"] = J::Array(three);
-                }
-            }
-        }
-        record["base"] = plain;
-        params.insert(name.clone(), record);
+        params.insert(name.clone(), track_json(track, plain));
     }
     if !matches!(instance.effect, Effect::Unsupported { .. }) || base.is_some() {
         owned.push(("parameters", J::Object(params)));
     }
     merge(base, owned)
+}
+
+/// D-68: a keyed setting of one or more channels as one property record, whose base is `plain`
+/// and whose keys hold one number, or a list of them where there are several channels.
+fn track_json(track: &[Property], plain: J) -> J {
+    let mut channels: Vec<J> = track.iter().map(|p| property_json(None, p, 1.0)).collect();
+    let mut record = channels.remove(0);
+    if let Some(keys) = record["keyframes"].as_array_mut() {
+        for (i, key) in keys.iter_mut().enumerate() {
+            if !channels.is_empty() {
+                let mut all = vec![key["value"].clone()];
+                all.extend(channels.iter().map(|c| c["keyframes"][i]["value"].clone()));
+                key["value"] = J::Array(all);
+            }
+        }
+    }
+    record["base"] = plain;
+    record
 }
 
 fn composition_json(base: Option<&J>, composition: &Composition) -> J {
@@ -2107,8 +2128,6 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
                 "no expression: an effect's setting takes keys only",
             ));
         }
-        let base = field(record, &at, "base")?;
-        let keys = as_array(field(record, &at, "keyframes")?, &format!("{at}/keyframes"))?;
         let (count, what) = match name {
             "color" => (3, "a linear RGB triple"),
             "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
@@ -2116,44 +2135,46 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
             "center" | "start" | "end" | "shift" => (2, "two numbers, x then y"),
             _ => (1, ""),
         };
-        let mut track = Vec::new();
-        for c in 0..count {
-            // One channel's record: the same keys, each holding that channel's number.
-            let pick = |v: &J, at: &str| -> Result<J, Diagnostic> {
-                if count == 1 {
-                    return Ok(v.clone());
-                }
-                match v.as_array() {
-                    Some(list) if list.len() == count => Ok(list[c].clone()),
-                    _ => Err(invalid(at, what)),
-                }
-            };
-            let mut channel_keys = Vec::new();
-            for (i, key) in keys.iter().enumerate() {
-                let at = format!("{at}/keyframes/{i}");
-                as_object(key, &at)?;
-                let mut channel_key = key.clone();
-                channel_key["value"] = pick(field(key, &at, "value")?, &at)?;
-                channel_keys.push(channel_key);
-            }
-            let mut channel = Map::new();
-            channel.insert("base".into(), pick(base, &format!("{at}/base"))?);
-            channel.insert("keyframes".into(), J::Array(channel_keys));
-            track.push(parse_property(
-                &J::Object(channel),
-                &at,
-                "scalar",
-                false,
-                false,
-                1.0,
-            )?);
-        }
-        plain.insert(name.into(), base.clone());
+        let (base, track) = channel_track(record, &at, count, what)?;
+        plain.insert(name.into(), base);
         if track[0].is_animated() {
             tracks.insert(name.into(), track);
         }
     }
     Ok((Some(J::Object(plain)), tracks))
+}
+
+/// D-68's record of `count` numbers read as that many one-number properties sharing their frames
+/// and eases, with its base as written. `what` says what a value of the wrong count should be.
+fn channel_track(record: &J, at: &str, count: usize, what: &str) -> Result<(J, Vec<Property>), Diagnostic> {
+    let base = field(record, at, "base")?;
+    let keys = as_array(field(record, at, "keyframes")?, &format!("{at}/keyframes"))?;
+    let mut track = Vec::new();
+    for c in 0..count {
+        // One channel's record: the same keys, each holding that channel's number.
+        let pick = |v: &J, at: &str| -> Result<J, Diagnostic> {
+            if count == 1 {
+                return Ok(v.clone());
+            }
+            match v.as_array() {
+                Some(list) if list.len() == count => Ok(list[c].clone()),
+                _ => Err(invalid(at, what)),
+            }
+        };
+        let mut channel_keys = Vec::new();
+        for (i, key) in keys.iter().enumerate() {
+            let at = format!("{at}/keyframes/{i}");
+            as_object(key, &at)?;
+            let mut channel_key = key.clone();
+            channel_key["value"] = pick(field(key, &at, "value")?, &at)?;
+            channel_keys.push(channel_key);
+        }
+        let mut channel = Map::new();
+        channel.insert("base".into(), pick(base, &format!("{at}/base"))?);
+        channel.insert("keyframes".into(), J::Array(channel_keys));
+        track.push(parse_property(&J::Object(channel), at, "scalar", false, false, 1.0)?);
+    }
+    Ok((base.clone(), track))
 }
 
 fn effect_params<'a>(params: Option<&'a J>, at: &str) -> Result<&'a J, Diagnostic> {
@@ -3641,6 +3662,53 @@ fn parse_path(
 fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Diagnostic> {
     as_object(v, at)?;
     let (points, keys) = parse_path(field(v, at, "path")?, &format!("{at}/path"))?;
+    // D-170: a colour, an opacity or a width written as a property record is keyed. Its keys are
+    // taken out here and its base left in its place, which is what is read below, as an effect's
+    // keyed settings are (D-68).
+    let mut tracks = std::collections::BTreeMap::new();
+    let mut plain = v.clone();
+    for paint in ["fill", "stroke"] {
+        let Some(J::Object(p)) = plain.get_mut(paint) else {
+            continue;
+        };
+        for (key, name) in [("color", "color"), ("opacity", "opacity"), ("width_px", "width")] {
+            let Some(record) = p.get(key).filter(|r| r.is_object()) else {
+                continue;
+            };
+            let at = format!("{at}/{paint}/{key}");
+            if record.get("expression").is_some() {
+                return Err(invalid(&at, "no expression: a shape's colour, opacity and width take keys only (D-170)"));
+            }
+            let count = if key == "color" { 3 } else { 1 };
+            let (base, track) = channel_track(record, &at, count, "three numbers from 0 to 1 (D-78)")?;
+            if track[0].is_animated() {
+                tracks.insert(format!("{paint}_{name}"), track);
+            }
+            p.insert(key.into(), base);
+        }
+    }
+    let v = &plain;
+    let (join, miter_limit, cap) = match v.get("stroke").filter(|s| s.is_object()) {
+        None => (crate::shape::Join::Round, 4.0, crate::shape::Cap::Round),
+        Some(s) => {
+            let at = format!("{at}/stroke");
+            let word = |key: &str, names: &[&str]| -> Result<Option<String>, Diagnostic> {
+                s.get(key)
+                    .map(|w| as_enum(w, &format!("{at}/{key}"), names).map(str::to_string))
+                    .transpose()
+            };
+            (
+                word("join", &crate::shape::Join::NAMES)?
+                    .map_or(crate::shape::Join::Round, |w| crate::shape::Join::named(&w).expect("named")),
+                match s.get("miter_limit") {
+                    None => 4.0,
+                    Some(m) => as_f64(m, &format!("{at}/miter_limit"))?,
+                },
+                word("cap", &crate::shape::Cap::NAMES)?
+                    .map_or(crate::shape::Cap::Round, |w| crate::shape::Cap::named(&w).expect("named")),
+            )
+        }
+    };
     // A colour, an opacity and, for a stroke, a width. Read for both and ranged once afterwards
     // by `Shape::problem`, which is the same sentence the commands refuse with.
     type Paint = ([f64; 3], f64, f64, Option<crate::shape::Gradient>);
@@ -3695,7 +3763,11 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
             opacity,
             width_px,
             gradient,
+            join,
+            miter_limit,
+            cap,
         }),
+        tracks,
         trim: match v.get("trim").filter(|t| !t.is_null()) {
             None => None,
             Some(t) => {
