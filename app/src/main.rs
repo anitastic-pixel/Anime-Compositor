@@ -8609,13 +8609,21 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
 /// rather than described as solved. Do not delete these arguments on the grounds that they did not
 /// work; they narrow what is left to explain.
 ///
+/// B-113 (D-173) added the last two. The page only ever asks for `*.localhost` addresses, which
+/// the web view answers inside the process, so every other name is made unresolvable and every
+/// other request is sent to a proxy on a closed local port. That removed the DNS-over-HTTPS
+/// connection; one to a Microsoft address remains, made outside Chromium's network code, where
+/// no switch reaches. `verification/B-113_offline_run.md` has the runs.
+///
 /// Anything already in the variable is kept and appended to, because `tools/capture_window.ps1`
 /// uses it to photograph the window at other display scales and overwriting it would silently
 /// undo that.
 fn quieten_the_web_view() {
     const OURS: &str = "--disable-background-networking --disable-component-update \
                         --disable-domain-reliability --no-pings --disable-sync \
-                        --disable-features=DnsOverHttps,msSmartScreenProtection,msWebOOUI,msPdfOOUI";
+                        --disable-features=DnsOverHttps,msSmartScreenProtection,msWebOOUI,msPdfOOUI \
+                        --proxy-server=127.0.0.1:9 \
+                        --host-resolver-rules=\"MAP * ~NOTFOUND , EXCLUDE *.localhost\"";
     const NAME: &str = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
     let value = match std::env::var(NAME) {
         Ok(existing) if !existing.trim().is_empty() => format!("{OURS} {existing}"),

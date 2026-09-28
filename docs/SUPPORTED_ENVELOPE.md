@@ -125,16 +125,18 @@ confirm that, and its own process held no connection at all.
 
 **The window is a different matter, and this has to be said plainly.** The window is drawn by
 Microsoft's WebView2, which is part of Windows and not part of this program. While the
-application sat idle for thirty seconds, that component held four encrypted connections of its
-own — one pair to this machine's internet provider's DNS service, one pair to an unnamed address.
-Six switches are set at startup to quieten it and they did not stop it. It is Microsoft's code,
-it runs inside this window, and nothing this project can write will prove what does or does not
-travel over those connections.
+application sat idle for thirty seconds, that component held two encrypted connections of its
+own, to a Microsoft address. Eight switches are set at startup to quieten it. They removed the
+other two connections it used to hold, but they cannot reach this pair, which is made outside the
+part of the web view the switches control. It is Microsoft's code, it runs inside this window,
+and nothing this project can write will prove what does or does not travel over those
+connections.
 
-The measurements are in `verification/B-11_offline_run.md` and what to do about it is an open
-decision, D-39, in `Markdown/14_Decisions_Risks.md`. If it matters to you, block
-`msedgewebview2.exe` outbound in the Windows firewall; the application itself does not need the
-network and will not notice.
+The measurements are in `verification/B-11_offline_run.md` and `verification/B-113_offline_run.md`.
+What to do about it is an open decision, D-39, in `Markdown/14_Decisions_Risks.md`. If it matters
+to you, block `msedgewebview2.exe` outbound in the Windows firewall. The application itself does
+not need the network and will not notice. Other programs that use WebView2 run the same file,
+though, and they will be blocked too.
 
 ## Licences
 
