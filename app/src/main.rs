@@ -8378,6 +8378,20 @@ fn tell_the_page_about_presets(app: &AppHandle, list: Option<serde_json::Value>,
 /// D-180: a preset file's presets as the window keeps them, with the sentence saying what came
 /// in, or the sentence refusing it whole. A name in `have` comes in with " 2", or the next number
 /// free both in the window and in the file.
+/// D-181: the starter presets as the page keeps presets, `{name, about, effects}`, the effects as
+/// the file wrote them, since `effect.paste` reads them by the same rules again.
+fn starter_presets() -> String {
+    let root: serde_json::Value = serde_json::from_str(persist::STARTER_PRESETS).expect("the starter presets are JSON");
+    let list: Vec<serde_json::Value> = root["presets"]
+        .as_array()
+        .expect("the starter presets are a list")
+        .iter()
+        .zip(persist::STARTER_ABOUT)
+        .map(|(p, about)| serde_json::json!({ "name": p["name"], "about": about, "effects": p["effects"] }))
+        .collect();
+    serde_json::Value::Array(list).to_string()
+}
+
 fn imported_presets(text: &str, file: &str, have: &[String]) -> Result<(serde_json::Value, String), String> {
     let read = persist::read_presets(text).map_err(|refused| sentence(&refused))?;
     // Each effect goes on as the file wrote it; `effect.paste` reads it by the same rules again.
@@ -8429,6 +8443,19 @@ mod preset_files {
         let again = imported_presets(&text, "f", &["Night".into(), "Night 2".into()]).unwrap().0;
         assert_eq!(again[0]["name"], "Night 3");
         assert_eq!(again[0]["effects"], serde_json::from_str::<serde_json::Value>(&text).unwrap()["presets"][0]["effects"]);
+    }
+
+    #[test]
+    fn the_starter_presets_go_to_the_page_whole() {
+        let sent: serde_json::Value = serde_json::from_str(&starter_presets()).unwrap();
+        let read = persist::read_presets(persist::STARTER_PRESETS).unwrap();
+        let sent = sent.as_array().unwrap();
+        assert_eq!(sent.len(), read.len());
+        for (s, r) in sent.iter().zip(&read) {
+            assert_eq!(s["name"], r.name.as_str());
+            assert!(!s["about"].as_str().unwrap().is_empty());
+            assert_eq!(s["effects"].as_array().unwrap().len(), r.effects.len());
+        }
     }
 
     #[test]
@@ -8570,6 +8597,13 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
     }
     // B-48, D-105: the memory setting, and what is in use. `ram` and `card` are gigabytes, or
     // `auto`; a number is kept between 1 GiB and the most D-105 allows.
+    // D-181: the starter presets, the same on every window, each with the sentence the panel shows.
+    if path == "presets-builtin" {
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/json; charset=utf-8")
+            .body(starter_presets().into_bytes())
+            .expect("build the starter presets response");
+    }
     if path == "memory" {
         return allow_the_page_to_read_this(Response::builder())
             .header("content-type", "application/json; charset=utf-8")
@@ -8727,7 +8761,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
                       /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
-                      /presets-export, /presets-import, or one of \
+                      /presets-builtin, /presets-export, /presets-import, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -22286,7 +22320,8 @@ mod contract {
         // B-45: where the viewer's picture lies in the window, for the card to paint it there.
         "place",
         "play",
-        // D-180: Export presets and Import presets.
+        // D-181: the starter presets. D-180: Export presets and Import presets.
+        "presets-builtin",
         "presets-export",
         "presets-import",
         "recent",

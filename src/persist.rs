@@ -4696,6 +4696,24 @@ fn effects_whole(
 /// D-180: the one preset file version there has been.
 pub const PRESET_FILE_VERSION: i64 = 0;
 
+/// D-181: the starter presets the program comes with, as the file
+/// `tools/starter_presets_reference.py` writes them. Changing one is a specification decision made
+/// there, not here.
+pub const STARTER_PRESETS: &str = include_str!("../Fixtures/starter_presets/starter.fxpreset");
+
+/// D-181: the sentence the Effects panel shows for each starter preset, in the file's order.
+pub const STARTER_ABOUT: [&str; 9] = [
+    "A gentle glow off the brightest parts of the picture. Best on an adjustment layer.",
+    "Day painted as night: cooler, darker, the corners fall away. Best on an adjustment layer.",
+    "Warm evening light falling from the top of the frame. Best on an adjustment layer.",
+    "A hard, flat shadow down and to the right, in a deep violet rather than black. For a character layer.",
+    "A warm light catching the upper right edge. For a character layer.",
+    "Sepia, grain, dark corners and a slight flicker. Best on an adjustment layer.",
+    "The frame of a hit: glints on the brights, colour fringes and a shake. Best on an adjustment layer, for a few frames.",
+    "A soft, bright haze with the colour lifted. Best on an adjustment layer.",
+    "Focus lines rushing in to the middle of the frame. Best on an adjustment layer.",
+];
+
 /// D-180: one preset read from a preset file.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Preset {
