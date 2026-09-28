@@ -1910,6 +1910,127 @@ Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SHP-040's file with 
 - FX-SHP-068: Motion-path handles on a key of the start point.
 - FX-SHP-069: A gradient with no stops key.
 
+## Shape trim fixtures
+
+**D-169, proposed on 2026-09-27 by the agent as B-109a.** Every case is FX-SHP-001's setting, a composition 6 by 2 at 24 fps with one shape layer and nothing under it, from the projects in `Fixtures/shape_trims/`, with FX-SHP-001's colours and a stroke 1 pixel wide. FX-SHP-070 to 077 and 083 stroke an open line from (0, 1) to (6, 1) along the frame's middle; FX-SHP-078 to 081 stroke FX-SHP-006's closed rectangle taller than the frame, whose path runs (0, -1), (3, -1), (3, 3), (0, 3), 14 long; FX-SHP-082 strokes FX-SHP-004's ellipse. Every cut falls on a half pixel, so no sample lies exactly half the width from a cut end. FX-SHP-083 is five frames long. Each cell is R G B A of the finished frame, linear and premultiplied.
+
+**Every number below is produced by `tools/shape_trim_reference.py`**, written from D-169's rule and reusing `tools/shape_reference.py` for D-78's coverage, and never from a source file. The same numbers are in `Fixtures/shape_trims/expected_shape_trims.json`, and every still case is drawn in `verification/B-109a proposal/trim_cases.png` and the moving one, frame by frame, in `verification/B-109a proposal/trim_moving_case.png`. Tolerance 1e-6.
+
+FX-SHP-070: A one-pixel stroke along the frame's middle, trimmed 0 to 100 with no offset: the whole line, exactly as with no trim.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 |
+| 0, 1 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 |
+
+FX-SHP-071: Trimmed 0 to 50: the left half, columns 0 to 2, ending in a round cap in column 3.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-072: Trimmed 25 to 75: the middle, from x = 1.5 to 4.5, a round cap at each end.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.35 0.0875 0.04375 0.4375 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0.35 0.0875 0.04375 0.4375 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 |
+
+FX-SHP-073: Start 75 and end 25, the other way round: the same stretch as 25 to 75.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0.35 0.0875 0.04375 0.4375 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0.35 0.0875 0.04375 0.4375 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 |
+
+FX-SHP-074: Start and end both 40: nothing is drawn.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-075: 0 to 50 with an offset of 180 degrees, half a turn: the right half.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.15 0.0375 0.01875 0.1875 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 |
+
+FX-SHP-076: 0 to 50 with an offset of 270 degrees: the stretch runs off the right end and carries on from the left, so both ends of the line are drawn and the middle is not.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 | 0 0 0 0 | 0.35 0.0875 0.04375 0.4375 | 0.4 0.1 0.05 0.5 |
+| 0, 1 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 | 0 0 0 0 | 0.35 0.0875 0.04375 0.4375 | 0.4 0.1 0.05 0.5 |
+
+FX-SHP-077: An offset of -90 degrees is the same as 270.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 | 0 0 0 0 | 0.35 0.0875 0.04375 0.4375 | 0.4 0.1 0.05 0.5 |
+| 0, 1 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 | 0 0 0 0 | 0.35 0.0875 0.04375 0.4375 | 0.4 0.1 0.05 0.5 |
+
+FX-SHP-078: The closed rectangle taller than the frame, trimmed 0 to 50: its path starts at the top left and runs clockwise, and its first half is its top and its right side, of which only the right-hand band is in the frame.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-079: The same with an offset of 180: the second half, and only the left-hand band shows.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-080: 0 to 100 with an offset of 90 on a closed path: still the whole outline, the frame of FX-SHP-006.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-081: A fill and a trimmed stroke: the fill is whole, and only the stroke is trimmed.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.5 0.35 0.45 1 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.5 0.35 0.45 1 | 0.4 0.1 0.05 0.5 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-082: The ellipse's outline trimmed 0 to 25: a quarter of its length along the curve from its top, the right-hand upper quarter, measured on the flattened outline.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0.15 0.0375 0.01875 0.1875 | 0.65 0.1625 0.08125 0.8125 | 0.3 0.075 0.0375 0.375 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.15 0.0375 0.01875 0.1875 | 0.15 0.0375 0.01875 0.1875 | 0 0 0 0 |
+
+FX-SHP-083: The line drawn on: the end keyed from 0 at frame 0 to 100 at frame 4, linear, so each frame draws a further quarter.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 1, 0 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 1, 1 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 2, 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 | 0 0 0 0 | 0 0 0 0 |
+| 2, 1 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.15 0.0375 0.01875 0.1875 | 0 0 0 0 | 0 0 0 0 |
+| 3, 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 |
+| 3, 1 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.35 0.0875 0.04375 0.4375 | 0 0 0 0 |
+| 4, 0 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 |
+| 4, 1 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 | 0.4 0.1 0.05 0.5 |
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SHP-071's file with one change:
+
+- FX-SHP-090: A start below 0.
+- FX-SHP-091: An end above 100.
+- FX-SHP-092: A key of the end above 100.
+- FX-SHP-093: An offset of two numbers rather than one.
+- FX-SHP-094: An expression on the start.
+- FX-SHP-095: A trim with no end.
+
 ## Keyframed effect setting fixtures
 
 D-68, accepted on 2026-09-18. Every case is a project of one composition 6 by 2 at 24 fps, five frames long, in `Fixtures/fxkey/`. The drawings are the adjustment fixtures' `bg`, `half` and `dot`. An effect's setting is written in the file as a property record with keys, where the adjustment fixtures write a plain number.
