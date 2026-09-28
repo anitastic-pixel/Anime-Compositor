@@ -12,7 +12,7 @@ Rules: ownership is explicit; references use IDs rather than object pointers in 
 
 Project owns: schema version, project ID, project settings, assets, compositions, color settings and application metadata. A project may contain multiple compositions even though G1 UI may focus on one at a time.
 
-Composition owns: ID, name, width, height, pixel aspect ratio, frame-rate numerator/denominator, start frame, duration frames, work area, an ordered layer ID list and, by D-58 which the owner accepted on 2026-09-15 and B-13c built, an optional `camera` of three animatable properties - position, depth and zoom. An absent camera means the default camera of document 21, not the absence of one. G1 accepts square pixels only; other ratios produce an unsupported-feature diagnostic.
+Composition owns: ID, name, width, height, pixel aspect ratio, frame-rate numerator/denominator, start frame, duration frames, work area, an ordered layer ID list and, by D-58 which the owner accepted on 2026-09-15 and B-13c built, an optional `camera` of three animatable properties - position, depth and zoom - and, by D-171 (proposed), an optional `parent`, a layer of the same composition that the camera rides. An absent camera means the default camera of document 21, not the absence of one. G1 accepts square pixels only; other ratios produce an unsupported-feature diagnostic.
 
 Asset records media identity and interpretation. G1 asset kinds are `still` and `image_sequence`. Sequence assets store a numeric pattern and a frame-number-to-file map so missing numbers remain missing rather than being silently compacted.
 
@@ -93,6 +93,7 @@ D-69, accepted on 2026-09-18: a layer's `position` may be written `{"x": propert
 - Parent graph is acyclic, and a parent is a layer in the same composition (D-57).
 - Composition graph is acyclic: no composition holds, at any depth, a layer of itself (D-67).
 - Camera `zoom` is greater than zero; layer `depth` and camera `depth` are finite (D-58).
+- A camera's `parent` is a layer's identifier and not an audio layer's; one not in the composition is kept, with `PARENT_REFERENCE_MISSING` (D-171, proposed).
 - Effect parameter types match the registered effect schema.
 - No serialized path is trusted without normalization and access checks.
 

@@ -379,6 +379,89 @@ or out of a tutorial written for one, parallaxes here by the amount it does ther
 view does not depend on the composition's width, which is the check that the default is a lens
 and not a number of pixels that happens to suit one size of picture.
 
+## Camera rig fixtures
+
+**D-171, proposed on 2026-09-27 by the agent as B-111a.** Every case is a composition 6 by 2 at 24 fps from the projects in `Fixtures/camera_rig/`, with one picture layer, `bg.png` (red over grey, the adjustment fixtures' picture), at depth 0 under the centre of the frame, and a null with anchor (50, 50) that the camera names as its parent. The camera is D-58's default lens for this width - zoom 6 x 50 / 36, standing that far in front of the depth-0 plane, at depth -8.33 - with position (50, 50) in the null's space unless the case says otherwise, so the camera stands over the null's anchor. The pixel cases are R G B A of the finished frame, linear and premultiplied; the point cases are where the drawing's corners land on the screen, with the camera's position and depth in the composition. Every number is produced by `tools/camera_rig_reference.py`, which reuses `tools/parent_reference.py` for the chain. Tolerance 1e-9.
+
+FX-RIG-001: The camera rides a null standing at the middle of the frame, right over the null's own anchor: the frame is exactly the frame with no camera at all.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+
+FX-RIG-002: The null two pixels right: the camera goes with it, so the drawing moves two pixels left, and columns 4 and 5 are empty.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 |
+
+FX-RIG-003: The null keyed from the middle at frame 0 to two pixels right at frame 2: the drawing slides left one pixel a frame.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 |
+| 1, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 |
+| 1, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 |
+| 2, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 |
+| 2, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 |
+
+FX-RIG-004: The null on a second null, each a pixel right: the camera rides the whole chain, and the drawing moves two pixels left, as in FX-RIG-002.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 | 0 0 0 0 |
+
+FX-RIG-005: The camera one pixel right of the null, in the null's space, with the null at the middle: the drawing moves one pixel left.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 |
+| 0, 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 |
+
+FX-RIG-010: The null turned a quarter, clockwise, with the camera a pixel right of it in its space: the camera's point swings down to (3, 2), and the picture moves up one pixel without turning, because the view never turns.
+
+The camera is at (3, 2), depth -8.33333333.
+
+| frame | drawing corner | on the screen |
+| --- | --- | --- |
+| 0 | (0, 0) | (0, -1) |
+| 0 | (6, 0) | (6, -1) |
+| 0 | (0, 2) | (0, 1) |
+| 0 | (6, 2) | (6, 1) |
+
+FX-RIG-011: The null one lens length back, at depth -8.33: the camera rides back with it to twice as far from the drawing, which is drawn at half size about the middle.
+
+The camera is at (3, 1), depth -16.6666667.
+
+| frame | drawing corner | on the screen |
+| --- | --- | --- |
+| 0 | (0, 0) | (1.5, 0.5) |
+| 0 | (6, 0) | (4.5, 0.5) |
+| 0 | (0, 2) | (1.5, 1.5) |
+| 0 | (6, 2) | (4.5, 1.5) |
+
+FX-RIG-012: The null at 200%, with the camera a pixel right of it in its space: the camera's point is two pixels right, and the picture is not made bigger, because a camera's zoom is its own.
+
+The camera is at (5, 1), depth -8.33333333.
+
+| frame | drawing corner | on the screen |
+| --- | --- | --- |
+| 0 | (0, 0) | (-2, 0) |
+| 0 | (6, 0) | (4, 0) |
+| 0 | (0, 2) | (-2, 2) |
+| 0 | (6, 2) | (4, 2) |
+
+- FX-RIG-020: The camera names a parent that is not in the composition: the file opens, `PARENT_REFERENCE_MISSING` says so, the reference is kept, and the camera is where it would be with no parent, which here is over the middle.
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-RIG-001's file with one change:
+
+- FX-RIG-030: The camera's parent is a number, not a layer's identifier.
+- FX-RIG-031: The camera's parent is an audio layer, which has no place (D-71).
+
 ## Expression fixtures
 
 Specified on 2026-09-16 by D-59, accepted by the owner the same day, and built by B-14b. Every case is `Fixtures/projects/expression_project.json` or that file with one property's expression replaced, as the case says: one composition, 1920 by 1080 at 24 frames a second, 49 frames long, nine layers named after what they do. Their IDs and names are `layer-spin` Spin, `layer-follow` Follow, `layer-shake` Shake, `layer-shake-twos` Shake on threes, `layer-lead` Lead, `layer-trail` Trail, `layer-loop` Loop, `layer-fade` Fade and `layer-off` Switched off. Every layer is at (960, 540) with rotation 0 and opacity 1 unless the case says otherwise.

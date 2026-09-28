@@ -72,6 +72,8 @@ animatable and all three read at the frame being drawn. A composition whose file
 camera has the default one: position at the centre of the frame, with depth and zoom both
 `width * 50 / 36`, a 50 mm lens on a 36 mm film back (D-58).
 
+A camera with a parent (D-171, proposed) reads its position as a point in the parent's layer space: `camera_position = M_world(parent) * position` and `camera_depth = depth + world_depth(parent)`, with the parent's chain at the frame being drawn. The zoom is the camera's own, and the formulas below are unchanged: a parent's rotation and scale move the camera and never turn or scale the view. A parent that is missing is ignored, with `PARENT_REFERENCE_MISSING`.
+
 For a point already carried into composition space by the transform above:
 
 `s = zoom / (world_depth(L) - camera_depth)`

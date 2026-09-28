@@ -27,7 +27,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | EFFECT_PARAMETER_INVALID | ERROR on a command, WARNING on a load and per frame | Effect parameter violates contract | reject the command; on load preserve the record exactly and unrepaired, bypass that one effect while the rest of the stack still runs, warn once per frame it happens, and report fidelity incomplete |
 | MATTE_REFERENCE_MISSING | WARNING | Matte ID unresolved | preserve reference; render defined fallback with warning |
 | MATTE_CYCLE | ERROR | Matte dependency cycle detected | reject command/load render graph |
-| PARENT_REFERENCE_MISSING | WARNING | Parent ID unresolved (D-57) | preserve reference; draw the layer as if it had no parent, with warning |
+| PARENT_REFERENCE_MISSING | WARNING | Parent ID unresolved (D-57), a layer's or the camera's (D-171) | preserve reference; draw the layer, or place the camera, as if it had no parent, with warning |
 | COMPOSITION_REFERENCE_MISSING | WARNING | A composition layer names a composition that is not in the project (D-67) | preserve reference; draw the layer as nothing, with warning, once |
 | PARENT_CYCLE | ERROR | Parent chain loops back on itself (D-57) | reject command/load render graph, as MATTE_CYCLE |
 | COMPOSITION_CYCLE | ERROR | A composition holds, at any depth, a layer of itself (D-67) | reject command/load render graph, as MATTE_CYCLE |
