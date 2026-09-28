@@ -642,7 +642,7 @@ B-107 / The third batch of thirty on the graphics card, D-165: every one of the 
 
 The owner passed G3 and set G4 on 2026-09-27 (D-167): the gaps the roadmap audit of that day found, then the redesign. Each gap is written fixtures first as its `a` part and proposed in document 14 before code depends on it, as every B-entry since B-17 has been. Release work (installer, signing, licence texts, a clean-machine test) is not here: the tool is for the owner's own use.
 
-B-108 / Gradient fills and strokes on shape layers: a linear or radial gradient of two or more colour stops in place of a flat colour, its start and end points keyed as any point is. The first of the things D-78 kept out of shape layers. NOT STARTED.
+B-108 / Gradient fills and strokes on shape layers: a linear or radial gradient of two or more colour stops in place of a flat colour, its start and end points keyed as any point is. The first of the things D-78 kept out of shape layers. B-108a PROPOSED on 2026-09-27: D-168 in document 14, the rule in document 21, FX-SHP-040 to 069 in document 25 from `tools/shape_gradient_reference.py`, pictures in `verification/B-108a proposal/`.
 
 B-109 / Trim paths: a shape's stroke drawn from a start to an end along its path, with an offset, each keyed, as After Effects' Trim Paths draws a line on. NOT STARTED.
 

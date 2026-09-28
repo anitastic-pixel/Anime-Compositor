@@ -1799,6 +1799,117 @@ Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SHP-001's file with 
 - FX-SHP-029: A stroke width past the 8192 pixel limit.
 - FX-SHP-030: A raster layer carrying a `shapes` key.
 
+## Shape gradient fixtures
+
+**D-168, proposed on 2026-09-27 by the agent as B-108a.** Every case is FX-SHP-001's setting, a composition 6 by 2 at 24 fps with one shape layer and nothing under it, from the projects in `Fixtures/shape_gradients/`. Every case but FX-SHP-050 fills the whole frame with one rectangle; FX-SHP-050 strokes FX-SHP-006's taller rectangle. FX-SHP-051 is five frames long and its start and end points are keyed. Red is 0.8 0.2 0.1, blue 0.2 0.5 0.8 and yellow 0.9 0.7 0.05, linear, in the working space. Each cell is R G B A of the finished frame, linear and premultiplied.
+
+**Every number below is produced by `tools/shape_gradient_reference.py`**, written from D-168's rule and reusing `tools/shape_reference.py` for D-78's coverage, and never from a source file. The same numbers are in `Fixtures/shape_gradients/expected_shape_gradients.json`, and every still case is drawn in `verification/B-108a proposal/gradient_cases.png` and the moving one, frame by frame, in `verification/B-108a proposal/gradient_moving_case.png`. Tolerance 1e-6.
+
+FX-SHP-040: A linear gradient, red at the left edge to blue at the right, filling the frame: every column a step further from red to blue, mixed as encoded colour.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.731584992 0.219102949 0.129818367 1 | 0.605321868 0.260396094 0.20352896 1 | 0.492778803 0.305904719 0.297191226 1 | 0.393493064 0.355743573 0.412107951 1 | 0.306976292 0.410023013 0.549471603 1 | 0.232710317 0.468849427 0.71038626 1 |
+| 0, 1 | 0.731584992 0.219102949 0.129818367 1 | 0.605321868 0.260396094 0.20352896 1 | 0.492778803 0.305904719 0.297191226 1 | 0.393493064 0.355743573 0.412107951 1 | 0.306976292 0.410023013 0.549471603 1 | 0.232710317 0.468849427 0.71038626 1 |
+
+FX-SHP-041: The same stops between x = 1 and x = 5: column 0 is red and column 5 blue exactly, because the ends pad outwards.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.8 0.2 0.1 1 | 0.698708516 0.229037488 0.146451768 1 | 0.519653209 0.294126008 0.271831856 1 | 0.370686475 0.368892907 0.444299963 1 | 0.250157901 0.453710866 0.667892167 1 | 0.2 0.5 0.8 1 |
+| 0, 1 | 0.8 0.2 0.1 1 | 0.698708516 0.229037488 0.146451768 1 | 0.519653209 0.294126008 0.271831856 1 | 0.370686475 0.368892907 0.444299963 1 | 0.250157901 0.453710866 0.667892167 1 | 0.2 0.5 0.8 1 |
+
+FX-SHP-042: A radial gradient from the frame's middle (3, 1) out to (6, 1): the two middle columns nearly red and the colour turning blue with the distance, the same on each side.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.261052794 0.444708446 0.642966706 1 | 0.425571159 0.338420692 0.370845153 1 | 0.615609125 0.256690062 0.196442649 1 | 0.615609125 0.256690062 0.196442649 1 | 0.425571159 0.338420692 0.370845153 1 | 0.261052794 0.444708446 0.642966706 1 |
+| 0, 1 | 0.261052794 0.444708446 0.642966706 1 | 0.425571159 0.338420692 0.370845153 1 | 0.615609125 0.256690062 0.196442649 1 | 0.615609125 0.256690062 0.196442649 1 | 0.425571159 0.338420692 0.370845153 1 | 0.261052794 0.444708446 0.642966706 1 |
+
+FX-SHP-043: Four stops, red and red to 0.5 then blue and blue: two stops at one offset are a hard step, so the left three columns are red and the right three blue.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 0, 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+
+FX-SHP-044: Three stops, red, yellow at 0.5, blue: the middle of the frame passes through yellow.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.816190707 0.259279347 0.0902581393 1 | 0.849141396 0.405665022 0.0724961677 1 | 0.882855294 0.591488507 0.0569603357 1 | 0.741378408 0.663929775 0.10503944 1 | 0.47642122 0.595103853 0.292431505 1 | 0.276935725 0.530630299 0.598041002 1 |
+| 0, 1 | 0.816190707 0.259279347 0.0902581393 1 | 0.849141396 0.405665022 0.0724961677 1 | 0.882855294 0.591488507 0.0569603357 1 | 0.741378408 0.663929775 0.10503944 1 | 0.47642122 0.595103853 0.292431505 1 | 0.276935725 0.530630299 0.598041002 1 |
+
+FX-SHP-045: A stop's opacity: blue fully there at the left, fading to nothing at the right.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.183333333 0.458333333 0.733333333 0.916666667 | 0.15 0.375 0.6 0.75 | 0.116666667 0.291666667 0.466666667 0.583333333 | 0.0833333333 0.208333333 0.333333333 0.416666667 | 0.05 0.125 0.2 0.25 | 0.0166666667 0.0416666667 0.0666666667 0.0833333333 |
+| 0, 1 | 0.183333333 0.458333333 0.733333333 0.916666667 | 0.15 0.375 0.6 0.75 | 0.116666667 0.291666667 0.466666667 0.583333333 | 0.0833333333 0.208333333 0.333333333 0.416666667 | 0.05 0.125 0.2 0.25 | 0.0166666667 0.0416666667 0.0666666667 0.0833333333 |
+
+FX-SHP-046: The fill's own opacity at 50% still halves the gradient: FX-SHP-040 at half strength.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.365792496 0.109551475 0.0649091836 0.5 | 0.302660934 0.130198047 0.10176448 0.5 | 0.246389401 0.152952359 0.148595613 0.5 | 0.196746532 0.177871786 0.206053975 0.5 | 0.153488146 0.205011507 0.274735801 0.5 | 0.116355159 0.234424714 0.35519313 0.5 |
+| 0, 1 | 0.365792496 0.109551475 0.0649091836 0.5 | 0.302660934 0.130198047 0.10176448 0.5 | 0.246389401 0.152952359 0.148595613 0.5 | 0.196746532 0.177871786 0.206053975 0.5 | 0.153488146 0.205011507 0.274735801 0.5 | 0.116355159 0.234424714 0.35519313 0.5 |
+
+FX-SHP-047: Start and end at the same point: the whole fill is the last stop's colour, the flat blue of a fill with no gradient.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 0, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+
+FX-SHP-048: FX-SHP-040's stops written blue first: stops are taken in the order of their offsets, so the frame is FX-SHP-040's.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.731584992 0.219102949 0.129818367 1 | 0.605321868 0.260396094 0.20352896 1 | 0.492778803 0.305904719 0.297191226 1 | 0.393493064 0.355743573 0.412107951 1 | 0.306976292 0.410023013 0.549471603 1 | 0.232710317 0.468849427 0.71038626 1 |
+| 0, 1 | 0.731584992 0.219102949 0.129818367 1 | 0.605321868 0.260396094 0.20352896 1 | 0.492778803 0.305904719 0.297191226 1 | 0.393493064 0.355743573 0.412107951 1 | 0.306976292 0.410023013 0.549471603 1 | 0.232710317 0.468849427 0.71038626 1 |
+
+FX-SHP-049: A diagonal: from the top-left corner (0, 0) to the bottom-right (6, 2), so the bottom row is further along than the top.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.718328563 0.223045936 0.136331488 1 | 0.605321868 0.260396094 0.20352896 1 | 0.503428706 0.301160854 0.286889094 1 | 0.412312667 0.345424027 0.387365621 1 | 0.331620786 0.393266517 0.50583836 1 | 0.260981166 0.44476657 0.643126794 1 |
+| 0, 1 | 0.679404682 0.235121891 0.15699724 1 | 0.570138938 0.273600745 0.22947102 1 | 0.471876304 0.31552248 0.318434629 1 | 0.384275084 0.360969905 0.424815353 1 | 0.306976292 0.410023013 0.549471603 1 | 0.239601096 0.462759216 0.693205095 1 |
+
+FX-SHP-050: A gradient stroke, one pixel wide, on a rectangle taller than the frame: the stroke's two upright bands take the gradient's colour where they stand, red on the left band and nearer blue on the right, with no fill between.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.365792496 0.109551475 0.0649091836 0.5 | 0 0 0 0 | 0.246389401 0.152952359 0.148595613 0.5 | 0.196746532 0.177871786 0.206053975 0.5 | 0 0 0 0 | 0 0 0 0 |
+| 0, 1 | 0.365792496 0.109551475 0.0649091836 0.5 | 0 0 0 0 | 0.246389401 0.152952359 0.148595613 0.5 | 0.196746532 0.177871786 0.206053975 0.5 | 0 0 0 0 | 0 0 0 0 |
+
+FX-SHP-051: The start keyed from the left edge to the right and the end from the right to the left, over four frames, linear: the gradient turns round, and at frame 2, where the two meet, the fill is flat blue.
+
+| frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0, 0 | 0.731584992 0.219102949 0.129818367 1 | 0.605321868 0.260396094 0.20352896 1 | 0.492778803 0.305904719 0.297191226 1 | 0.393493064 0.355743573 0.412107951 1 | 0.306976292 0.410023013 0.549471603 1 | 0.232710317 0.468849427 0.71038626 1 |
+| 0, 1 | 0.731584992 0.219102949 0.129818367 1 | 0.605321868 0.260396094 0.20352896 1 | 0.492778803 0.305904719 0.297191226 1 | 0.393493064 0.355743573 0.412107951 1 | 0.306976292 0.410023013 0.549471603 1 | 0.232710317 0.468849427 0.71038626 1 |
+| 1, 0 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.54736369 0.282616191 0.24778181 1 | 0.348670188 0.382321482 0.477913041 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 1, 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 | 0.54736369 0.282616191 0.24778181 1 | 0.348670188 0.382321482 0.477913041 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 2, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 2, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 |
+| 3, 0 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.348670188 0.382321482 0.477913041 1 | 0.54736369 0.282616191 0.24778181 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 |
+| 3, 1 | 0.2 0.5 0.8 1 | 0.2 0.5 0.8 1 | 0.348670188 0.382321482 0.477913041 1 | 0.54736369 0.282616191 0.24778181 1 | 0.8 0.2 0.1 1 | 0.8 0.2 0.1 1 |
+| 4, 0 | 0.232710317 0.468849427 0.71038626 1 | 0.306976292 0.410023013 0.549471603 1 | 0.393493064 0.355743573 0.412107951 1 | 0.492778803 0.305904719 0.297191226 1 | 0.605321868 0.260396094 0.20352896 1 | 0.731584992 0.219102949 0.129818367 1 |
+| 4, 1 | 0.232710317 0.468849427 0.71038626 1 | 0.306976292 0.410023013 0.549471603 1 | 0.393493064 0.355743573 0.412107951 1 | 0.492778803 0.305904719 0.297191226 1 | 0.605321868 0.260396094 0.20352896 1 | 0.731584992 0.219102949 0.129818367 1 |
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SHP-040's file with one change:
+
+- FX-SHP-060: A gradient of one stop.
+- FX-SHP-061: A gradient of 65 stops, past the limit of 64.
+- FX-SHP-062: A stop offset above 1.
+- FX-SHP-063: A stop colour above 1.
+- FX-SHP-064: A stop opacity below 0.
+- FX-SHP-065: A gradient type that is neither linear nor radial.
+- FX-SHP-066: A start point of one number rather than two.
+- FX-SHP-067: An expression on the end point.
+- FX-SHP-068: Motion-path handles on a key of the start point.
+- FX-SHP-069: A gradient with no stops key.
+
 ## Keyframed effect setting fixtures
 
 D-68, accepted on 2026-09-18. Every case is a project of one composition 6 by 2 at 24 fps, five frames long, in `Fixtures/fxkey/`. The drawings are the adjustment fixtures' `bg`, `half` and `dot`. An effect's setting is written in the file as a property record with keys, where the adjustment fixtures write a plain number.
