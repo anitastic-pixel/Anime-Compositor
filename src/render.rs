@@ -233,12 +233,13 @@ pub enum OnCard {
 }
 
 /// B-65: one of the batch of ten (D-122), its distances already divided for Draft, with the
-/// drawing's corner in the buffer after the effects before it grew it, and how far it grows it.
+/// drawing's corner in the buffer after the effects before it grew it, and how far it grows it
+/// across and down (B-115: a Motion Tile's two can differ).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Fx {
     pub instance: crate::effects::EffectInstance,
     pub origin: (usize, usize),
-    pub grow: usize,
+    pub grow: (usize, usize),
 }
 
 /// B-51: a Glow's settings (`glow::settings`), the radius already divided for Draft. Left for the
@@ -368,15 +369,16 @@ pub struct Tile {
 /// tiles of one frame, and on the fixtures the box excludes nothing, so every recomputation
 /// would have been spent on a skip that never fires.
 pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
-    let grow = match &layer.on_card {
-        Some(OnCard::Bloom(b)) => 2 * crate::bloom::reach(b.radius, b.lines, b.length),
-        Some(OnCard::Directional(d)) => 2 * d.grow(),
-        Some(OnCard::Gaussian(g)) => 2 * g.grow(),
-        Some(OnCard::Glow(g)) => 2 * crate::effects::kernel_radius(g.radius / 3.0),
-        Some(OnCard::Fx(f)) => 2 * f.grow,
-        _ => 0,
+    let even = |g: usize| (2 * g, 2 * g);
+    let (gx, gy) = match &layer.on_card {
+        Some(OnCard::Bloom(b)) => even(crate::bloom::reach(b.radius, b.lines, b.length)),
+        Some(OnCard::Directional(d)) => even(d.grow()),
+        Some(OnCard::Gaussian(g)) => even(g.grow()),
+        Some(OnCard::Glow(g)) => even(crate::effects::kernel_radius(g.radius / 3.0)),
+        Some(OnCard::Fx(f)) => (2 * f.grow.0, 2 * f.grow.1),
+        _ => (0, 0),
     };
-    let (w, h) = ((layer.source.width() + grow) as f64, (layer.source.height() + grow) as f64);
+    let (w, h) = ((layer.source.width() + gx) as f64, (layer.source.height() + gy) as f64);
     let corners = [
         layer.transform.apply(-1.0, -1.0),
         layer.transform.apply(w + 1.0, -1.0),

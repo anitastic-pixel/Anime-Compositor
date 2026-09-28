@@ -1680,8 +1680,22 @@ fn product(a: f64, b: f64, zero: f64) -> f64 {
 }
 
 // B-107, the pixels read from elsewhere: layer_fx::wave_warp (mode 0, the output grown by `g`,
-// `flag` Repeat Edge Pixels), ripple (1), twirl (2), bulge (3), mirror (4) and camera_shake (5,
-// grown by `g`).
+// `flag` Repeat Edge Pixels), ripple (1), twirl (2), bulge (3), mirror (4), camera_shake (5,
+// grown by `g`) and (B-115) motion_tile (6, grown by `ox` across and `oy` down, `flag` mirror).
+// B-115, layer_fx::motion_tile's `tile`: the drawing's column or row for place `i`, counted
+// from the drawing's own corner and at least `-g`; every other repeat turned over when `flag`.
+// This driver takes the remainder of a negative whole number as if it had no sign, so `i` is
+// first moved on by an even number of repeats, which keeps it positive and each repeat's parity.
+fn tiled(i: i32, g: i32, n: i32) -> u32 {
+    let t = u32(i + 2 * n * (g / n + 1));
+    let m = u32(n);
+    let j = t % m;
+    if F.flag == 1u && (t / m) % 2u != 0u {
+        return m - 1u - j;
+    }
+    return j;
+}
+
 @compute @workgroup_size(16, 16)
 fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -1766,6 +1780,13 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             sx = x - product(2.0lf * d, k[2], k[4]);
             sy = y - product(2.0lf * d, k[3], k[4]);
+        }
+        case 6u: {
+            // A copy of whole pixels, so no sum to round: the drawing's pixel for each place.
+            let n = vec2<i32>(textureDimensions(input));
+            let at = vec2(tiled(i32(id.x) - F.ox, F.ox, n.x), tiled(i32(id.y) - F.oy, F.oy, n.y));
+            textureStore(output, id.xy, textureLoad(input, at, 0));
+            return;
         }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
@@ -3448,6 +3469,14 @@ impl Gpu {
                 self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&[cx, cy, dx, dy, sb, cb]), None, none, tiles(w + 2 * g, h + 2 * g));
                 (out, (w + 2 * g, h + 2 * g))
             }
+            E::MotionTile { mirror, .. } => {
+                let (gx, gy) = f.grow;
+                let (tw, th) = (w + 2 * gx, h + 2 * gy);
+                let out = self.scratch("B-115 tile", tw, th);
+                let p = FxParams { mode: 6, flag: (mirror == "on") as u32, ox: gx as i32, oy: gy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&[0.0]), None, none, tiles(tw, th));
+                (out, (tw, th))
+            }
             E::LinearWipe { completion, angle, feather } => {
                 let ((ux, uy), edge) = crate::layer_fx::linear_edge(*completion, *angle, *feather, source, f.origin);
                 let p = FxParams { mode: 0, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
@@ -3675,13 +3704,13 @@ impl Gpu {
             let (name, grow, bytes) = match &l.on_card {
                 Some(OnCard::Bloom(b)) => {
                     let g = crate::bloom::reach(b.radius, b.lines, b.length);
-                    ("a Bloom".to_string(), g, halo(g))
+                    ("a Bloom".to_string(), (g, g), halo(g))
                 }
-                Some(OnCard::Directional(d)) => ("a Directional Blur".into(), d.grow(), 0),
-                Some(OnCard::Gaussian(g)) => ("a Gaussian Blur".into(), g.grow(), 0),
+                Some(OnCard::Directional(d)) => ("a Directional Blur".into(), (d.grow(), d.grow()), 0),
+                Some(OnCard::Gaussian(g)) => ("a Gaussian Blur".into(), (g.grow(), g.grow()), 0),
                 Some(OnCard::Glow(g)) => {
                     let g = crate::effects::kernel_radius(g.radius / 3.0);
-                    ("a Glow".into(), g, halo(g))
+                    ("a Glow".into(), (g, g), halo(g))
                 }
                 Some(OnCard::Fx(f)) => {
                     let bytes = match &f.instance.effect {
@@ -3705,6 +3734,7 @@ impl Gpu {
                 }
                 _ => continue,
             };
+            let (gx, gy) = grow;
             if self.bloom.is_none() || self.fx.is_none() {
                 return Some(on_cpu(
                     Severity::Info,
@@ -3712,7 +3742,7 @@ impl Gpu {
                     format!("{}: no SHADER_F64. B-47 and B-49 draw these on the card only where it can add as the CPU does.", self.about),
                 ));
             }
-            let (gw, gh) = (w + 2 * grow, h + 2 * grow);
+            let (gw, gh) = (w + 2 * gx, h + 2 * gy);
             if gw + gh + 1 > self.limits.max_texture_dimension_2d as usize
                 || bytes > self.limits.max_storage_buffer_binding_size as u64
                 || bytes > self.limits.max_buffer_size

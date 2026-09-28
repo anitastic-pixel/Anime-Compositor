@@ -1145,7 +1145,7 @@ fn resolve_rest(
 
     // B-46: a drawing whose last effect switched on is a Radial Blur, (B-47) a Bloom, (B-49) a
     // Directional Blur, (B-50) a Gaussian Blur, (B-51) a Glow, (B-65, B-76) one of the two
-    // batches of ten or (B-107) twenty-nine of the third batch's thirty this build can draw has
+    // batches of ten or (B-107, B-115) one of the third batch's thirty this build can draw has
     // only the effects before it run here, when the plan is for the card.
     // Those are what the effect cache is asked for, a stack of their own, so it never hands one
     // path's result to the other.
@@ -1202,6 +1202,7 @@ fn resolve_rest(
                     | crate::effects::Effect::Twirl { .. }
                     | crate::effects::Effect::Bulge { .. }
                     | crate::effects::Effect::Mirror { .. }
+                    | crate::effects::Effect::MotionTile { .. }
                     | crate::effects::Effect::LinearWipe { .. }
                     | crate::effects::Effect::RadialWipe { .. }
                     | crate::effects::Effect::VenetianBlinds { .. }
@@ -1415,20 +1416,30 @@ fn resolve_rest(
                     E::CrossGlare { length, intensity, .. } => length.floor() == 0.0 || *intensity == 0.0,
                     E::CameraShake { amount, rotation, .. } => [*amount, *rotation] == [0.0; 2],
                     E::Rain { density, opacity, .. } => *density == 0.0 || *opacity == 0.0,
+                    // B-115: a tile that grows nothing, as `layer_fx::motion_tile` returns at once.
+                    E::MotionTile { output_width, output_height, .. } => {
+                        crate::layer_fx::tile_growth((*output_width, *output_height), (source.width(), source.height())) == (0, 0)
+                    }
                     _ => false,
                 };
                 // B-107: a shake grows by how far it can carry a corner, which its settings and
-                // the drawing's size say, not its settings alone.
+                // the drawing's size say, not its settings alone. B-115: so does a Motion Tile,
+                // and not the same across as down.
+                let size = (source.width(), source.height());
                 let grow = match &effect {
                     E::CameraShake { amount, rotation, .. } => {
-                        crate::layer_fx::shake_reach(*amount, *rotation, (source.width(), source.height()), offset).1
+                        let g = crate::layer_fx::shake_reach(*amount, *rotation, size, offset).1;
+                        (g, g)
                     }
-                    _ => effect.bounds_expansion(),
+                    E::MotionTile { output_width, output_height, .. } => {
+                        crate::layer_fx::tile_growth((*output_width, *output_height), size)
+                    }
+                    _ => (effect.bounds_expansion(), effect.bounds_expansion()),
                 };
                 let instance = crate::effects::EffectInstance { effect, ..effects[i].clone() };
                 let fx = render::Fx { instance, origin: offset, grow };
                 (!nothing).then(|| {
-                    offset = (offset.0 + grow, offset.1 + grow);
+                    offset = (offset.0 + grow.0, offset.1 + grow.1);
                     render::OnCard::Fx(fx)
                 })
             }

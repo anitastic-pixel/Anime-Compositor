@@ -1010,14 +1010,23 @@ pub(crate) fn mirror_normal(angle: f64) -> (f64, f64) {
 }
 
 
+/// D-154: how far a Motion Tile of `size` per cent grows a `w` by `h` drawing across and down,
+/// on each side; nothing for an empty drawing. B-115: the card's plan asks it too.
+pub(crate) fn tile_growth(size: (f64, f64), (w, h): (usize, usize)) -> (usize, usize) {
+    if w == 0 || h == 0 {
+        return (0, 0);
+    }
+    let grow = |n: usize, percent: f64| (n as f64 * (percent / 100.0 - 1.0) / 2.0).ceil() as usize;
+    (grow(w, size.0), grow(h, size.1))
+}
+
 /// D-154: the buffer repeated round itself, tile against tile, to `size` per cent of its width
 /// and height, every other tile turned over when `mirror`. Returns how far it grew on the left
 /// and on the top, the same as on the right and the bottom. The settings are already valid.
 pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: bool) -> (usize, usize) {
     let (w, h) = (source.width(), source.height());
-    let grow = |n: usize, percent: f64| (n as f64 * (percent / 100.0 - 1.0) / 2.0).ceil() as usize;
-    let (gx, gy) = (grow(w, size.0), grow(h, size.1));
-    if (gx == 0 && gy == 0) || w == 0 || h == 0 {
+    let (gx, gy) = tile_growth(size, (w, h));
+    if (gx, gy) == (0, 0) {
         return (0, 0);
     }
     // The drawing's pixel for position `i` of the row or column, `g` in from the new edge.
