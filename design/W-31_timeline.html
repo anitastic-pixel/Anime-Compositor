@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W-31 timeline, proposed</title>
+<!-- W-31a: a drawing of the redesigned timeline, not the timeline. Nothing here talks to the
+     program; the layers are made up to show a shot on 1s, on 2s, irregular and held at once
+     (document 05's exposure-editing state). ?fig=normal, ?fig=menu or ?fig=empty shows one. -->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101010; --panel: #1e1e1e; --strip: #2b2b2b; --line: #3a3a3a; --text: #d0d0d4;
+    --dim: #909096; --accent: #e8b06a; --blue: #6ea8fe; --head: #e0604a; --gone: #d9534f;
+    --a: #3d5a86; --b: #4e6f9f; --held: #3f6a5a;
+    --gutter: min(36rem, 45%); --row: 1.9rem;
+  }
+  html { font-size: 13px; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 1rem/1.4 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
+  .cap { color: var(--dim); margin: 0 0 12px; max-width: 70rem; }
+  figure { margin: 0 0 28px; }
+  .panel { background: var(--panel); border: 1px solid var(--bg); max-width: 100%; overflow: hidden; position: relative; }
+  button { font: inherit; color: var(--text); background: #333; border: 1px solid #454545; border-radius: 3px; padding: 2px 8px; }
+  /* One header row: the view, the frame, then what acts on the layers, then the zoom. */
+  .headbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 8px; background: var(--strip); border-bottom: 1px solid var(--bg); }
+  .seg { display: inline-flex; border: 1px solid #454545; border-radius: 4px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: #262626; padding: 3px 12px; }
+  .seg button[aria-pressed=true] { background: #3a3a3a; box-shadow: inset 0 -2px 0 var(--accent); color: #fff; }
+  .now { display: inline-flex; align-items: baseline; gap: 6px; }
+  .now .field { font-size: 1.35rem; font-variant-numeric: tabular-nums; color: var(--blue); background: #181818; border: 1px solid #454545; border-radius: 3px; padding: 0 8px; min-width: 3ch; text-align: right; }
+  .now small { color: var(--dim); }
+  .grow { flex: 1; }
+  .zoom { display: inline-flex; align-items: center; gap: 4px; color: var(--dim); }
+  .zoom input { width: 7rem; }
+  .toggle[aria-pressed=true] { background: #3a4a6a; border-color: var(--blue); }
+  /* The column heads: what each switch is, in words, over the switches. */
+  .cols, .row { display: grid; grid-template-columns: var(--gutter) 1fr; }
+  .cols { border-bottom: 1px solid var(--line); background: #232323; }
+  .gut { display: grid; grid-template-columns: 1.6rem 1.6rem 1.6rem 0.8rem 1.8rem 1.2rem minmax(0, 1fr) 1.6rem 5.2rem 5.8rem; align-items: center; gap: 0 2px; padding: 0 6px; }
+  .cols .gut { font-size: 0.8rem; color: var(--dim); height: 2.2rem; }
+  .cols .gut span { text-align: center; }
+  .cols .gut .l { text-align: left; }
+  .ruler { position: relative; height: 2.2rem; cursor: ew-resize; }
+  .tick { position: absolute; bottom: 0; border-left: 1px solid var(--line); height: 5px; }
+  .tick.mid { height: 9px; }
+  .tick.big { height: 100%; border-color: #505050; }
+  .tick b { position: absolute; left: 3px; top: 3px; font-size: 0.8rem; font-weight: 400; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tick.big b { color: var(--text); }
+  .work { position: absolute; top: 0; height: 5px; background: #6f86b8; }
+  .marker { position: absolute; bottom: 0; width: 9px; height: 9px; margin-left: -4px; background: #e0a84a; clip-path: polygon(0 0, 100% 0, 100% 50%, 50% 100%, 0 50%); }
+  .flag { position: absolute; top: 0; transform: translateX(-50%); background: var(--head); color: #fff; font-size: 0.8rem; padding: 0 5px; border-radius: 2px; font-variant-numeric: tabular-nums; z-index: 3; }
+  .rows { position: relative; }
+  .row { border-bottom: 1px solid #262626; min-height: var(--row); }
+  .row.chosen .gut, .row.chosen .lane { background: #2c3445; }
+  .row .gut { height: var(--row); }
+  .ic { width: 1.6rem; height: 1.6rem; display: grid; place-items: center; color: var(--dim); }
+  .ic svg { width: 1rem; height: 1rem; }
+  .ic.on { color: var(--text); }
+  .swatch { width: 0.7rem; height: 0.7rem; border-radius: 2px; }
+  .num { color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; padding-right: 2px; }
+  .twirl { color: var(--dim); text-align: center; }
+  .name { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+  .name span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 3rem; flex: 0 1 auto; }
+  .name .badge, .name .relink { flex: none; }
+  .badge { font-size: 0.75rem; color: #c9d6ea; background: #2e3b52; border-radius: 8px; padding: 0 6px; white-space: nowrap; }
+  .badge.warn { background: #5a2a28; color: #ffd0cc; }
+  .relink { font-size: 0.8rem; padding: 0 6px; border-color: var(--gone); }
+  .mode, .parent { font-size: 0.85rem; color: var(--dim); display: flex; align-items: center; gap: 3px; white-space: nowrap; overflow: hidden; }
+  .mode.set { color: var(--accent); }
+  .lane { position: relative; height: var(--row); }
+  .bar { position: absolute; top: 4px; bottom: 4px; left: 0; right: 0; }
+  .blk { position: absolute; top: 0; bottom: 0; background: var(--a); border-left: 1px solid rgba(0,0,0,.45); font-size: 0.78rem; color: #eaf0fa; display: grid; place-items: center; overflow: hidden; font-variant-numeric: tabular-nums; }
+  .blk.odd { background: var(--b); }
+  .blk.held { background: var(--held); }
+  .blk.gone { background: repeating-linear-gradient(45deg, #5a2a28 0 4px, #7a3230 4px 8px); color: #ffd0cc; outline: 1px solid var(--gone); outline-offset: -1px; }
+  .keyline { position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed #3a3a3a; }
+  .key { position: absolute; top: 50%; width: 0.7rem; height: 0.7rem; background: #cfd6e0; transform: translate(-50%, -50%) rotate(45deg); }
+  .key.picked { background: var(--accent); }
+  .key.tiny { top: auto; bottom: -2px; width: 0.45rem; height: 0.45rem; transform: translateX(-50%) rotate(45deg); }
+  .prop .gut { color: var(--dim); }
+  .prop .val { color: var(--blue); font-variant-numeric: tabular-nums; }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--head); z-index: 2; pointer-events: none; }
+  .scroll { display: grid; grid-template-columns: var(--gutter) 1fr; padding: 4px 0; background: #232323; border-top: 1px solid var(--line); }
+  .scroll div { position: relative; height: 8px; background: #181818; border-radius: 4px; margin-right: 8px; }
+  .scroll i { position: absolute; top: 0; bottom: 0; background: #555; border-radius: 4px; }
+  .scroll span { color: var(--dim); font-size: 0.8rem; padding-left: 10px; }
+  .menu { position: absolute; z-index: 5; background: #262626; border: 1px solid #505050; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.5); padding: 4px 0; min-width: 22rem; }
+  .menu div { display: flex; justify-content: space-between; gap: 2rem; padding: 4px 12px; }
+  .menu div.hi { background: #3a4a6a; }
+  .menu div.off { color: #6c6c72; }
+  .menu kbd { font: inherit; color: var(--dim); }
+  .menu p { margin: 0; padding: 0 12px 4px; color: #6c6c72; font-size: 0.85rem; }
+  .empty { display: grid; place-items: center; gap: 10px; padding: 3.5rem 1rem; text-align: center; color: var(--dim); }
+  .empty .big { font-size: 1.15rem; color: var(--text); }
+  .empty .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .empty button.main { background: #3a4a6a; border-color: var(--blue); }
+  kbd.k { font: inherit; font-size: 0.8rem; color: var(--dim); margin-left: 6px; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+// The made-up shot: frames 0 to 72 of 240 in view, the playhead on 30.
+const VIEW = [0, 72], TOTAL = 240, AT = 30, FPS = 24;
+const x = (f) => ((f - VIEW[0]) / (VIEW[1] - VIEW[0])) * 100 + '%';
+const spans = (lengths, first = 1, gone = []) => {
+  let f = 0, d = first;
+  return lengths.map((n) => { const s = { from: f, to: f + n, d, gone: gone.includes(d) }; f += n; d += 1; return s; });
+};
+const reps = (n, k) => Array(Math.ceil(n / k)).fill(k);
+const LAYERS = [
+  { name: 'layer4', label: '#c46a6a', spans: spans(reps(TOTAL, 2)), keys: [0, 24, 48], open: true, sel: true },
+  { name: 'layer3', label: '#6a9ac4', spans: spans([3, 3, 4, 2, 3, 3, 5, 3, 3, 4, 3, 2, 3, 3, 4, 3, 3, 3, 3, 4, 3, 3, 3], 1, [7]), mode: 'Multiply', parent: 'layer4' },
+  { name: 'layer2', label: '#8ac46a', spans: spans(reps(TOTAL, 1)) },
+  { name: 'layer1', label: '#b0a060', spans: [{ from: 0, to: TOTAL, d: 0, held: true }] },
+];
+// What the badge beside a name says: the rhythm, read off the exposures.
+const rhythm = (l) => {
+  if (l.spans.length === 1) return 'held';
+  const n = new Set(l.spans.slice(0, -1).map((s) => s.to - s.from));
+  return n.size === 1 ? 'on ' + [...n][0] + 's' : 'irregular';
+};
+const svg = {
+  eye: '<svg viewBox="0 0 16 16"><path d="M1 8s2.6-5 7-5 7 5 7 5-2.6 5-7 5-7-5-7-5z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2.2" fill="currentColor"/></svg>',
+  solo: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  lock: '<svg viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 0 1 6 0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  shy: '<svg viewBox="0 0 16 16"><path d="M3 9a5 4 0 0 0 10 0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  whip: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v6M5 8h6" stroke="currentColor" stroke-width="1.2"/></svg>',
+};
+function ruler() {
+  let s = '<div class="ruler"><div class="work" style="left:0;width:' + x(60) + '"></div><div class="marker" style="left:' + x(36) + '"></div>';
+  for (let f = VIEW[0]; f <= VIEW[1]; f++) {
+    const big = f % FPS === 0, mid = f % 6 === 0;
+    s += '<div class="tick' + (big ? ' big' : mid ? ' mid' : '') + '" style="left:' + x(f) + '">'
+      + (big ? '<b>' + (f / FPS) + 's &middot; ' + f + '</b>' : mid ? '<b>' + f + '</b>' : '') + '</div>';
+  }
+  return s + '<div class="flag" style="left:' + x(AT + 0.5) + '">' + AT + '</div></div>';
+}
+function lane(l) {
+  let s = '<div class="lane"><div class="bar">';
+  const w = 100 / (VIEW[1] - VIEW[0]);
+  l.spans.forEach((sp, i) => {
+    if (sp.to <= VIEW[0] || sp.from >= VIEW[1]) return;
+    const from = Math.max(sp.from, VIEW[0]), to = Math.min(sp.to, VIEW[1]);
+    const cls = sp.held ? 'held' : sp.gone ? 'gone' : i % 2 ? 'odd' : '';
+    // A number only where there is room to read it; the shading alternates either way.
+    const text = sp.gone ? sp.d + ' missing' : (to - from) * w >= 2.5 ? sp.d : '';
+    s += '<div class="blk ' + cls + '" style="left:' + x(from) + ';width:' + (to - from) * w + '%" title="drawing ' + sp.d + ', frames ' + sp.from + ' to ' + (sp.to - 1) + '">' + text + '</div>';
+  });
+  s += '</div>';
+  // Keys on the closed bar: small marks along its lower edge, clear of the drawings' numbers.
+  for (const k of l.keys || []) s += '<div class="key tiny" style="left:' + x(k + 0.5) + '"></div>';
+  return s + '</div>';
+}
+function row(l, i) {
+  const gone = l.spans.filter((s) => s.gone).length;
+  let s = '<div class="row' + (l.sel ? ' chosen' : '') + '"><div class="gut">'
+    + '<span class="ic on" title="Show or hide">' + svg.eye + '</span>'
+    + '<span class="ic" title="Solo">' + svg.solo + '</span>'
+    + '<span class="ic" title="Lock">' + svg.lock + '</span>'
+    + '<span class="swatch" style="background:' + l.label + '"></span>'
+    + '<span class="num">' + (i + 1) + '</span>'
+    + '<span class="twirl">' + (l.open ? '&#9662;' : '&#9656;') + '</span>'
+    + '<span class="name"><span>' + l.name + '</span><span class="badge">' + rhythm(l) + '</span>'
+    + (gone ? '<button class="relink" title="' + gone + ' drawing missing: point the layer at its folder">Relink&hellip;</button>' : '') + '</span>'
+    + '<span class="ic" title="Shy">' + svg.shy + '</span>'
+    + '<span class="mode' + (l.mode ? ' set' : '') + '">' + (l.mode || 'Normal') + ' &#9662;</span>'
+    + '<span class="parent"><span class="ic">' + svg.whip + '</span>' + (l.parent || 'None') + '</span>'
+    + '</div>' + lane(l) + '</div>';
+  if (l.open) {
+    s += '<div class="row prop"><div class="gut"><span></span><span></span><span></span><span></span><span></span><span></span>'
+      + '<span class="name" style="padding-left:1rem">Position <span class="val">960, 540</span></span><span></span><span></span><span></span></div>'
+      + '<div class="lane"><div class="keyline"></div>' + l.keys.map((k) => '<div class="key' + (k === 24 ? ' picked' : '') + '" style="left:' + x(k + 0.5) + '"></div>').join('') + '</div></div>';
+  }
+  return s;
+}
+function header(menu, at = AT) {
+  return '<div class="headbar">'
+    + '<span class="seg"><button aria-pressed="true">Timeline</button><button aria-pressed="false">Graph</button></span>'
+    + '<span class="now"><span class="field">' + at + '</span><small>frame &middot; ' + Math.floor(at / FPS) + 's ' + (at % FPS) + 'f at ' + FPS + ' fps</small></span>'
+    + '<span class="grow"></span>'
+    + '<button' + (menu ? ' aria-expanded="true" style="border-color:var(--blue)"' : '') + '>+ New layer &#9662;</button>'
+    + '<button class="toggle" aria-pressed="false">Hide shy</button>'
+    + '<span class="zoom">&minus;<input type="range" value="40" aria-label="Zoom">+ <span>frames 0&ndash;72 of ' + TOTAL + '</span></span>'
+    + '</div>';
+}
+const COLS = '<div class="cols"><div class="gut"><span class="ic" title="Show">' + svg.eye + '</span><span class="ic" title="Solo">' + svg.solo + '</span><span class="ic" title="Lock">' + svg.lock + '</span><span></span><span>#</span><span></span><span class="l">Layer</span><span class="ic" title="Shy">' + svg.shy + '</span><span class="l">Mode</span><span class="l">Parent</span></div>';
+function camera() {
+  return '<div class="row"><div class="gut"><span></span><span></span><span></span><span></span><span></span><span class="twirl">&#9656;</span><span class="name"><span>Camera</span><span class="badge" style="background:#333;color:var(--dim)">on no layer</span></span><span></span><span></span><span></span></div><div class="lane"></div></div>';
+}
+function scroll() {
+  return '<div class="scroll"><span>view</span><div><i style="left:0;width:' + (72 / TOTAL * 100) + '%"></i></div></div>';
+}
+function normal(menu) {
+  let s = '<div class="panel">' + header(menu) + COLS + ruler() + '</div><div class="rows">' + camera() + LAYERS.map(row).join('')
+    + '<div class="row" style="border:0;min-height:0"><div></div><div class="lane" style="position:absolute;inset:0 0 0 var(--gutter);height:auto"><div class="playhead" style="left:' + x(AT + 0.5) + '"></div></div></div></div>' + scroll();
+  if (menu) s += '<div class="menu" style="right:17rem;top:2.4rem">'
+    + '<div class="off"><span>Drawings</span><kbd>Ctrl+Alt+L</kbd></div><p>Choose drawings in the Project panel first</p>'
+    + '<div class="hi"><span>Adjustment layer</span><kbd>Ctrl+Alt+Y</kbd></div>'
+    + '<div><span>Solid</span><kbd>Ctrl+Y</kbd></div>'
+    + '<div><span>Shape layer</span><kbd></kbd></div>'
+    + '<div><span>Null</span><kbd>Ctrl+Alt+Shift+Y</kbd></div></div>';
+  return s + '</div>';
+}
+function empty() {
+  return '<div class="panel">' + header(false, 0) + '<div class="empty"><div class="big">This composition has no layers yet.</div>'
+    + '<div class="acts"><button class="main">Import drawings&hellip;<kbd class="k">Ctrl+I</kbd></button><button>+ New layer &#9662;</button></div>'
+    + '<div>or drop a folder of drawings anywhere on the window</div></div></div>';
+}
+const FIGS = {
+  normal: ['The timeline, a shot open', 'Four layers at once: on 2s, irregular (with drawing 7 missing), on 1s, and one drawing held. layer4 is chosen and its Position is open, with the key at frame 24 chosen.', () => normal(false)],
+  menu: ['New layer, opened', 'The five buttons that made layers are one menu, with their shortcuts. Drawings is greyed until drawings are chosen in the Project panel, and it says so.', () => normal(true)],
+  empty: ['A composition with no layers', 'What a new composition shows, with the two ways to start.', empty],
+};
+const want = new URLSearchParams(location.search).get('fig');
+document.getElementById('out').innerHTML = Object.entries(FIGS).filter(([k]) => !want || k === want)
+  .map(([, [t, c, f]]) => '<figure><h1>' + t + '</h1><p class="cap">' + c + '</p>' + f() + '</figure>').join('');
+</script>
+</body>
+</html>
