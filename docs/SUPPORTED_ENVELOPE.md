@@ -91,28 +91,30 @@ when it arrived, including the parts this version cannot read.
 - **Autosave is not a save.** It waits two minutes after a change and then keeps up to five
   copies; anything newer than the last copy is not in it, and nothing it writes replaces your
   file. Save deliberately.
-- **No GPU rendering, no video files.** Frames are composited on the processor and written as
-  images.
-- **A ten-layer shot does not preview at full speed, and this build says so rather than
-  pretending otherwise.** The speed this project measures itself against is 24 frames a
-  second, which allows 41.7 ms a frame. The shot that target is written against - ten
-  drawings a frame, two track mattes and three effects at 1920 by 1080 - takes 264.17 ms a
-  frame in draft on the machine this was measured on, about six times the budget, and not one
-  of ten warm playthroughs came in under it. No cache changes that: with every drawing
-  already in memory what is left is compositing ten layers, and that is the cost. What you
-  see is a shot playing at the right *speed* with frames missing from it, never a shot
-  playing slowly, and the window counts the dropped frames on screen. A four-layer shot -
-  one background and three cels, which is what this tool is for - sits on the deadline and
-  falls either side of it between runs. The target was kept rather than lowered to what the
-  heavy shot reaches, so that this paragraph stays true instead of disappearing;
-  `verification/T-06_declared_fixture.md` and `verification/T-06_performance_envelope.md`
-  are the two measurements, and D-47 in `Markdown/14_Decisions_Risks.md` is the decision.
-- **The preview keeps up to 1 GiB of decoded drawings in memory.** It is a ceiling and not a
-  reservation: a light shot holds far less, and nothing is held while exporting. On the heaviest
-  shot this project measures — ten layers at 1920 by 1080 — one frame's drawings are 316 MiB, so
-  the ceiling holds a frame and a little either side of it. Scrubbing a shot larger than that
-  still re-reads drawings from disk, and `verification/T-06_declared_fixture.md` is what that
-  costs.
+- **Previews are drawn on the graphics card when there is one; exports are drawn on the
+  processor.** Video is exported as MP4 (H.264) over black, with no sound.
+- **Whether a shot previews at full speed depends on whether its drawings fit in memory.** The
+  speed this project measures itself against is 24 frames a second, which allows 41.7 ms a
+  frame. The viewer keeps decoded drawings and effect results in memory, up to a quarter of the
+  machine's memory unless **Preferences...** says otherwise, and never less than 1 GiB. Nine
+  sixteenths of that is for drawings. It is a ceiling, not a reservation: a light shot holds far
+  less, and nothing is held while exporting. Measured in draft on a machine with 64 GB and an
+  NVIDIA RTX 4070 Ti SUPER, where the default is 15.4 GiB:
+  - The four-layer reference shot needs 1.7 GiB of drawings. It plays at 0.5 ms a frame, and a
+    jump anywhere in it takes 1.3 ms.
+  - The shot the 24 fps target is written against (ten drawings a frame, two track mattes and
+    three effects, at 1920 by 1080) needs 5.1 GiB. It plays at about 5 ms a frame, and a jump
+    takes about 7 ms.
+  - At 1 GiB, which is all a machine with 4 GB or less gets, the four-layer shot still keeps up,
+    at 14 ms a frame. The ten-layer shot takes 36 ms a frame, and 48 to 63 of its 240 frames
+    miss the deadline each time round, because its drawings are read from disk again.
+
+  A shot whose drawings do not all fit sits between those two rows. On a 16 GB machine the
+  default holds 2.25 GiB of drawings; on a 32 GB machine, 4.5 GiB. Raise the setting if a shot
+  drops frames. What you see is always a shot playing at the right *speed*, with frames missing
+  if it cannot keep up, never a shot playing slowly, and the window counts the dropped frames on
+  screen. `verification/B-114_viewer_envelope.md` has the measurements, and D-174 in
+  `Markdown/14_Decisions_Risks.md` is the decision.
 - **No screen-reader support has been checked.** Display scaling, the keyboard and non-English
   text have been; `verification/B-11_display_and_keyboard.md` and
   `verification/B-12a_window_and_keyboard.md` show how far that goes.
