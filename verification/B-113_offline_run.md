@@ -81,4 +81,4 @@ A page cut off from the program shows none of these.
 
 ## Result
 
-Not yet played.
+Accepted by the owner on 2026-09-28 without a separate run (D-175).

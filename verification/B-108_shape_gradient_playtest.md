@@ -59,4 +59,4 @@ Open any project with a composition, or use **Save As...** first and work on the
 
 ## Result
 
-Not yet played.
+Accepted by the owner on 2026-09-28 without a separate run (D-175).

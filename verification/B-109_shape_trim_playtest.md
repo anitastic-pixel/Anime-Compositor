@@ -53,4 +53,4 @@ open line. Under the shape, press **Add stroke** and drag its width to about 20.
 
 ## Result
 
-Not yet played.
+Accepted by the owner on 2026-09-28 without a separate run (D-175).

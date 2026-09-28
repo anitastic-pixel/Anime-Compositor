@@ -77,4 +77,4 @@ to what was measured.
 
 ## Result
 
-Not yet played.
+Accepted by the owner on 2026-09-28 without a separate run (D-175).

@@ -68,4 +68,4 @@ Effects starts a new stroke mitred with butt caps. Say which you want; either is
 
 ## Result
 
-Not yet played.
+Accepted by the owner on 2026-09-28 without a separate run (D-175).

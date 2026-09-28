@@ -78,4 +78,4 @@ and in `Fixtures/camera_rig/expected_camera_rig.json` as `pixel_tolerance`.
 
 ## Result
 
-Not yet played.
+Accepted by the owner on 2026-09-28 without a separate run (D-175).

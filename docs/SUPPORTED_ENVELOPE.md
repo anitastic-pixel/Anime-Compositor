@@ -135,7 +135,7 @@ and nothing this project can write will prove what does or does not travel over 
 connections.
 
 The measurements are in `verification/B-11_offline_run.md` and `verification/B-113_offline_run.md`.
-What to do about it is an open decision, D-39, in `Markdown/14_Decisions_Risks.md`. If it matters
+The owner has accepted it (D-39 and D-175 in `Markdown/14_Decisions_Risks.md`). If it matters
 to you, block `msedgewebview2.exe` outbound in the Windows firewall. The application itself does
 not need the network and will not notice. Other programs that use WebView2 run the same file,
 though, and they will be blocked too.
