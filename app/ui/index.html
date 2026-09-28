@@ -259,7 +259,7 @@
   #shyswitch[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
   /* The headings over the switches, in the gutter beside the ruler. */
   #colheads {
-    position: absolute; left: 8px; top: 6px; width: var(--gutter); height: 24px;
+    position: absolute; left: 8px; top: 6px; width: var(--gutter); height: 36px;
     font-size: 11px; color: #909096;
   }
   #colheads span { display: grid; place-items: center; }
@@ -307,13 +307,13 @@
   #sheet { position: relative; overflow: auto; padding: 6px 8px 8px; min-height: 0; }
   #ruler { cursor: ew-resize; }
   #ruler {
-    position: relative; height: 24px; margin-left: var(--gutter);
+    position: relative; height: 36px; margin-left: var(--gutter);
     border-bottom: 1px solid #3a3a3a;
   }
   /* W-24: the work area, a band along the top of the ruler whose two ends are pulled, and the
      markers, a small pennant each on the frame they are on with their name beside it. */
   #ruler .work { position: absolute; top: 0; height: 6px; background: #6f86b8; z-index: 1; }
-  #ruler .work .end { position: absolute; top: 0; width: 8px; height: 24px; cursor: col-resize; }
+  #ruler .work .end { position: absolute; top: 0; width: 8px; height: 36px; cursor: col-resize; }
   #ruler .work .end::after {
     content: ''; position: absolute; left: 3px; top: 0; width: 2px; height: 10px; background: #b9c9ee;
   }
@@ -343,11 +343,11 @@
   .menu.palette [role="listbox"] { overflow: auto; }
   .menu.palette button.current { background: #3a4a6a; }
   #ruler .tick {
-    position: absolute; top: 8px; bottom: 0; border-left: 1px solid #3a3a3a; white-space: nowrap;
-    padding-left: 3px; font-size: 10px; line-height: 16px; color: #909096;
+    position: absolute; top: 10px; bottom: 0; border-left: 1px solid #3a3a3a; white-space: nowrap;
+    padding-left: 4px; font-size: 10px; line-height: 12px; color: #909096;
     font-variant-numeric: tabular-nums;
   }
-  #ruler .tick.second { top: 0; border-left-color: #505050; color: #d0d0d4; }
+  #ruler .tick.second { top: 0; padding-top: 10px; border-left-color: #505050; color: #d0d0d4; }
   #tracks { position: relative; }
   /* D-52's graph editor, which shares the panel with the sheet rather than taking room from it:
      the two answer the same question - what happens to this layer over time - and a window that
@@ -574,7 +574,7 @@
     left: calc(var(--gutter) + 8px + (100% - var(--gutter) - 16px) * var(--at, 0));
   }
   #playhead::before {
-    content: attr(data-frame); position: absolute; top: 0; transform: translateX(-50%);
+    content: attr(data-frame); position: absolute; top: 22px; transform: translateX(-50%);
     background: #e0604a; color: #fff; font-size: 11px; line-height: 14px; padding: 0 4px;
     border-radius: 2px; font-variant-numeric: tabular-nums; white-space: nowrap;
   }
@@ -1232,7 +1232,7 @@
   <ul id="notes"></ul>
   <button id="notedetails" type="button" aria-expanded="false" hidden>Error details</button>
   <ul id="notecodes" hidden></ul>
-  <span class="hint" id="keys">space, arrows, D, G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
+  <span class="hint" id="keys">space, arrows, D, Alt+G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -3325,7 +3325,7 @@ function palette() {
     ['Zoom the picture out', ',', { key: ',' }],
     ['Draft or full quality', 'D', { key: 'd' }],
     ['Preview on the CPU or the graphics card', '', () => $('gpu').focus()],
-    ['Transparency grid', 'G', { key: 'g' }],
+    ['Transparency grid', 'Alt+G', { key: 'g', altKey: true }],
     ['Alpha only', 'Alt+A', { key: 'a', altKey: true }],
     ['Composition settings', 'Ctrl+K', { key: 'k', code: 'KeyK', ctrlKey: true }],
     ['Copy layers', 'Ctrl+C', copyLayers],
