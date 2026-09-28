@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W-33 viewer, proposed</title>
+<!-- W-33a: a drawing of the redesigned Composition panel, not the panel. Nothing here talks to
+     the program, and the picture is a few coloured shapes standing in for a frame of the shot.
+     ?fig=normal, ?fig=playing, ?fig=alpha, ?fig=missing or ?fig=narrow shows one. -->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101010; --panel: #1e1e1e; --strip: #2b2b2b; --line: #3a3a3a; --text: #d0d0d4;
+    --dim: #909096; --accent: #e8b06a; --blue: #6ea8fe; --head: #e0604a; --gone: #d9534f;
+    --a: #3d5a86; --b: #4e6f9f; --held: #3f6a5a;
+  }
+  html { font-size: 13px; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 1rem/1.4 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
+  .cap { color: var(--dim); margin: 0 0 12px; max-width: 70rem; }
+  figure { margin: 0 0 28px; }
+  .panel { background: var(--panel); border: 1px solid var(--bg); max-width: 100%; overflow: hidden; position: relative; }
+  button { font: inherit; color: var(--text); background: #333; border: 1px solid #454545; border-radius: 3px; padding: 2px 8px; white-space: nowrap; }
+  select { font: inherit; color: var(--text); background: #333; border: 1px solid #454545; border-radius: 3px; padding: 1px 4px; }
+  .tabs { display: flex; background: #181818; border-bottom: 1px solid var(--bg); }
+  .tabs span { padding: 4px 12px; color: var(--dim); }
+  .tabs span.on { color: #fff; background: var(--panel); box-shadow: inset 0 2px 0 var(--accent); }
+  .headbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 8px; background: var(--strip); border-bottom: 1px solid var(--bg); }
+  .seg { display: inline-flex; border: 1px solid #454545; border-radius: 4px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: #262626; padding: 2px 10px; }
+  .seg button[aria-pressed=true] { background: #3a3a3a; box-shadow: inset 0 -2px 0 var(--accent); color: #fff; }
+  .toggle[aria-pressed=true] { background: #3a4a6a; border-color: var(--blue); color: #fff; }
+  .grow { flex: 1; }
+  .quiet { color: var(--dim); }
+  .comp { font-weight: 600; color: #fff; }
+  kbd.k { font: inherit; font-size: 0.8rem; color: var(--dim); margin-left: 5px; }
+  .relink { padding: 0 6px; border-color: var(--gone); }
+  /* The picture's surround, and the picture fitted into it. */
+  .stage { background: #141414; display: grid; place-items: center; padding: 18px; position: relative; }
+  .pic { position: relative; width: 100%; max-width: 44rem; aspect-ratio: 16 / 9; overflow: hidden; outline: 1px solid #000; }
+  .scene { position: absolute; inset: 0; background: linear-gradient(#8fb7e0, #cfe3f2 60%, #7aa35c 60%, #5f8a45); }
+  .scene .sun { position: absolute; right: 12%; top: 12%; width: 9%; aspect-ratio: 1; border-radius: 50%; background: #fff4c2; }
+  .scene .hill { position: absolute; left: -10%; right: 30%; bottom: 20%; height: 35%; border-radius: 50% 50% 0 0; background: #6e9a50; }
+  .scene .char { position: absolute; left: 44%; bottom: 14%; width: 13%; height: 52%; }
+  .scene .char i { position: absolute; left: 25%; top: 0; width: 50%; aspect-ratio: 1; border-radius: 50%; background: #f1d2b8; border: 2px solid #3a2a24; }
+  .scene .char b { position: absolute; left: 10%; right: 10%; top: 30%; bottom: 0; border-radius: 40% 40% 8% 8%; background: #c44d4d; border: 2px solid #3a2a24; }
+  .grid { background: repeating-conic-gradient(#3a3a3a 0 25%, #2a2a2a 0 50%) 0 0 / 16px 16px; }
+  .scene.alpha { background: #000; }
+  .scene.alpha .sun, .scene.alpha .hill { display: none; }
+  .scene.alpha .char i, .scene.alpha .char b { background: #fff; border-color: #fff; }
+  .scene.nosky { background: none; }
+  .sel { position: absolute; left: 42%; bottom: 12%; width: 17%; height: 57%; border: 1px dashed #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
+  .sel s { position: absolute; width: 6px; height: 6px; background: #fff; border: 1px solid #000; }
+  /* What is showing, always on the picture's edge: the one place the eye already is. */
+  .chips { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { background: rgba(16,16,16,.82); border-radius: 3px; padding: 1px 7px; font-size: 0.85rem; }
+  .chip.draft { color: var(--accent); box-shadow: inset 0 0 0 1px #7a5c34; }
+  .chip.full { color: #9fe0b0; box-shadow: inset 0 0 0 1px #3f6a4a; }
+  .chip.alpha { color: #fff; box-shadow: inset 0 0 0 1px #fff; }
+  .chip.play { color: #fff; background: rgba(224,96,74,.85); }
+  .warnbar { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 10px; background: rgba(40,18,18,.92); border: 1px solid var(--gone); border-radius: 4px; padding: 4px 10px; color: #ffd0cc; }
+  /* The controls, in four groups that wrap as groups, never mid-group. */
+  .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; padding: 6px 8px; background: var(--strip); border-top: 1px solid var(--bg); }
+  .grp { display: inline-flex; align-items: center; gap: 4px; }
+  .icon { width: 2rem; padding: 2px 0; text-align: center; }
+  .foot svg { width: 0.9rem; height: 0.9rem; vertical-align: -2px; }
+  .play { min-width: 5.2rem; }
+  .field { font-size: 1.2rem; font-variant-numeric: tabular-nums; color: var(--blue); background: #181818; border: 1px solid #454545; border-radius: 3px; padding: 0 8px; min-width: 3ch; text-align: right; line-height: 1.5; }
+  .zoom input { width: 6rem; }
+  .pct { font-variant-numeric: tabular-nums; color: var(--dim); min-width: 3.2rem; }
+  .note { padding: 5px 10px; background: #232323; border-top: 1px solid var(--line); color: var(--dim); }
+  .note b { color: var(--accent); font-weight: 400; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+const svg = {
+  prev: '<svg viewBox="0 0 16 16"><path d="M4 3v10M13 3 6 8l7 5z" fill="currentColor" stroke="currentColor" stroke-width="1.4"/></svg>',
+  next: '<svg viewBox="0 0 16 16"><path d="M12 3v10M3 3l7 5-7 5z" fill="currentColor" stroke="currentColor" stroke-width="1.4"/></svg>',
+  play: '<svg viewBox="0 0 16 16"><path d="M4 2.5l10 5.5-10 5.5z" fill="currentColor"/></svg>',
+  pause: '<svg viewBox="0 0 16 16"><path d="M4 3h3v10H4zM9 3h3v10H9z" fill="currentColor"/></svg>',
+};
+const FPS = 24;
+function picture(o) {
+  const sel = o.alpha || o.playing || o.missing ? '' : '<div class="sel"><s style="left:-4px;top:-4px"></s><s style="right:-4px;top:-4px"></s><s style="left:-4px;bottom:-4px"></s><s style="right:-4px;bottom:-4px"></s></div>';
+  const chips = o.playing ? '<span class="chip play">&#9679; Playing &middot; real time, ' + FPS + ' fps</span><span class="chip draft">Draft &middot; 480&times;270</span>'
+    : o.alpha ? '<span class="chip alpha">Alpha only: white is solid, black is see-through</span><span class="chip draft">Draft &middot; 480&times;270</span>'
+    : o.full ? '<span class="chip full">Full resolution &middot; 1920&times;1080 &middot; the export&rsquo;s pixels</span><span class="chip quiet">graphics card</span>'
+    : '<span class="chip draft">Draft &middot; 480&times;270 &middot; not the final pixels</span><span class="chip quiet">graphics card</span>';
+  const warn = o.missing ? '<div class="warnbar"><span>Drawing 7 of <b style="color:#fff;font-weight:400">layer3</b> is missing on this frame, so layer3 draws nothing here.</span><span class="grow"></span><button class="relink">Relink&hellip;</button></div>' : '';
+  return '<div class="stage"><div class="pic' + (o.grid ? ' grid' : '') + '"><div class="scene' + (o.alpha ? ' alpha' : '') + '"><div class="sun"></div><div class="hill"></div>'
+    + (o.missing ? '' : '<div class="char"><i></i><b></b></div>') + '</div>' + sel + '<div class="chips">' + chips + '</div>' + warn + '</div></div>';
+}
+function foot(o) {
+  const at = o.at ?? 30;
+  return '<div class="foot">'
+    + '<span class="grp"><button class="icon" title="Back a frame (Left arrow)">' + svg.prev + '</button>'
+    + '<button class="play' + (o.playing ? ' toggle" aria-pressed="true' : '') + '" title="Space">' + (o.playing ? svg.pause + ' Pause' : svg.play + ' Play') + '</button>'
+    + '<button class="icon" title="Forward a frame (Right arrow)">' + svg.next + '</button>'
+    + '<span class="field">' + at + '</span><span class="quiet">' + Math.floor(at / FPS) + 's ' + (at % FPS) + 'f</span></span>'
+    + '<span class="grp"><span class="seg" title="D switches"><button aria-pressed="' + !o.full + '">Draft</button><button aria-pressed="' + !!o.full + '">Full</button></span>'
+    + '<select title="What the preview is drawn on. Exports are always drawn on the CPU"><option>Draw on: Auto</option></select></span>'
+    + '<span class="grp"><button class="toggle" aria-pressed="' + !!o.alpha + '" title="Alt+A">Alpha</button><button class="toggle" aria-pressed="' + !!o.grid + '" title="Alt+G">Grid</button></span>'
+    + '<span class="grp zoom"><button title="Shift+/">Fit</button><button title="Fill the area, but never past one pixel per pixel">Fit &le;100%</button>'
+    + '<input type="range" value="40" aria-label="Zoom"><span class="pct" title="Ctrl+1 for 100%">' + (o.full ? '37%' : '37%') + '</span></span>'
+    + '</div>';
+}
+function panel(o) {
+  return '<div class="panel" style="width:' + (o.w || '52rem') + '"><div class="tabs"><span class="on">Composition</span></div>'
+    + '<div class="headbar"><span class="comp">reference shot</span><span class="quiet">1920&times;1080 &middot; ' + FPS + ' fps &middot; 240 frames (10s)</span><span class="grow"></span>'
+    + '<span class="quiet">' + (o.alpha || o.playing ? '' : 'chosen: layer4') + '</span></div>'
+    + picture(o) + foot(o) + (o.after ? '<div class="note">' + o.after + '</div>' : '') + '</div>';
+}
+const FIGS = {
+  normal: ['The viewer, a layer chosen', 'Draft, on the graphics card, the transparency grid on. What is showing is written on the picture itself, and the controls sit in four groups: moving through time, how it is drawn, what is shown, and zoom.', () => panel({})],
+  playing: ['Playing, then stopped', 'While it plays, a red tag says so and Play becomes Pause. When it stops, the line under the controls says how many frames were skipped to keep time, as document 05 asks.', () => panel({ playing: true, grid: true, at: 57, after: 'Stopped on frame 57. <b>3 of 96 frames were skipped</b> to keep real time; step through them with the arrows to see each one.' })],
+  alpha: ['Alpha only', 'The picture in black and white, and a tag that says what the black and white mean, so it is never mistaken for the shot.', () => panel({ alpha: true })],
+  missing: ['A frame with a missing drawing', 'On a frame where a drawing is missing, the picture says which one and offers Relink right there, rather than only in the list along the bottom of the window.', () => panel({ missing: true, grid: true, at: 19 })],
+  narrow: ['The viewer, narrow', 'At a third of the width (or 200 per cent scaling) the groups wrap whole, so Play never ends up on a different line from the frame number.', () => panel({ grid: true, full: true, w: '27rem' })],
+};
+const want = new URLSearchParams(location.search).get('fig');
+document.getElementById('out').innerHTML = Object.entries(FIGS).filter(([k]) => !want || k === want)
+  .map(([, [t, c, f]]) => '<figure><h1>' + t + '</h1><p class="cap">' + c + '</p>' + f() + '</figure>').join('');
+</script>
+</body>
+</html>

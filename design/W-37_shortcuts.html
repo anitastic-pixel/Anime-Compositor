@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W-37 shortcuts, proposed</title>
+<!-- W-37a: a drawing of the proposed shortcut list and its editor, not the program. Nothing here
+     talks to the program. The commands and keys are the command finder's today (document 24),
+     unchanged. ?fig=list, ?fig=words, ?fig=bykey, ?fig=edit or ?fig=changed shows one. -->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101010; --panel: #1e1e1e; --strip: #2b2b2b; --line: #3a3a3a; --text: #d0d0d4;
+    --dim: #909096; --accent: #e8b06a; --blue: #6ea8fe; --head: #e0604a; --gone: #d9534f;
+    --a: #3d5a86; --b: #4e6f9f; --held: #3f6a5a;
+  }
+  html { font-size: 13px; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 1rem/1.4 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
+  .cap { color: var(--dim); margin: 0 0 12px; max-width: 70rem; }
+  figure { margin: 0 0 28px; }
+  button { font: inherit; color: var(--text); background: #333; border: 1px solid #454545; border-radius: 3px; padding: 2px 8px; white-space: nowrap; }
+  button.main { background: #3a4a6a; border-color: var(--blue); }
+  button.flat { background: none; border-color: transparent; color: var(--dim); }
+  .seg { display: inline-flex; border: 1px solid #454545; border-radius: 3px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: #2a2a2a; }
+  .seg button[aria-pressed=true] { background: #3a4a6a; color: #fff; }
+  .grow { flex: 1; }
+  .quiet { color: var(--dim); }
+  .dlg { width: 46rem; max-width: 100%; background: var(--panel); border: 1px solid #444; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.6); overflow: hidden; }
+  .dh { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--strip); border-bottom: 1px solid var(--bg); }
+  .dh b { color: #fff; font-size: 1.05rem; }
+  .find { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #2a2a2a; }
+  .find input { flex: 1; font: inherit; color: var(--text); background: #2a2a2a; border: 1px solid #454545; border-radius: 3px; padding: 3px 8px; }
+  .find input.on { border-color: var(--blue); }
+  .find .listen { flex: 1; border: 1px dashed var(--blue); border-radius: 3px; padding: 3px 8px; color: var(--blue); background: #1f2633; }
+  .body { max-height: 30rem; overflow: hidden; }
+  .grp { padding: 6px 10px 2px; color: var(--accent); font-weight: 600; font-size: 0.9rem; background: #1b1b1b; border-bottom: 1px solid #262626; display: flex; gap: 8px; }
+  .grp span { color: var(--dim); font-weight: 400; }
+  .row { display: grid; grid-template-columns: 1fr 15rem 5.5rem; align-items: center; padding: 3px 10px; border-bottom: 1px solid #242424; min-height: 1.7rem; }
+  .row .keys { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .row .act { text-align: right; color: var(--dim); font-size: 0.9rem; }
+  .row.changed .nm::after { content: " \2022 changed"; color: var(--accent); font-size: 0.85rem; }
+  .row.hit { background: #262d3a; }
+  .row.editing { background: #26303f; box-shadow: inset 3px 0 0 var(--blue); }
+  kbd { font: 0.9rem "Segoe UI", sans-serif; color: #e8e8ec; background: #2e2e33; border: 1px solid #4a4a52; border-bottom-width: 2px; border-radius: 3px; padding: 0 5px; white-space: nowrap; }
+  kbd.new { border-color: var(--blue); color: #fff; background: #2c3a52; }
+  kbd.old { text-decoration: line-through; color: var(--dim); }
+  .or { color: var(--dim); font-size: 0.85rem; }
+  mark { background: none; color: var(--accent); font-weight: 600; }
+  .conflict { margin: 0 10px 6px 10px; padding: 7px 10px; border-left: 3px solid var(--accent); background: #2e2618; }
+  .conflict p { margin: 0 0 6px; }
+  .df { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--strip); border-top: 1px solid var(--bg); }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+// The command finder's list today, in its areas. `|` separates keys that are alternatives.
+const LIST = [
+  ['Project', [['New project', 'Ctrl+N'], ['Open project', 'Ctrl+O'], ['Save', 'Ctrl+S'], ['Save as', 'Ctrl+Shift+S'], ['New composition', 'Ctrl+Shift+N'], ['Import drawings', 'Ctrl+I'], ['Export', 'Ctrl+M'], ['Print the Sheet', 'Ctrl+P'], ['Composition settings', 'Ctrl+K']]],
+  ['Edit', [['Undo', 'Ctrl+Z'], ['Redo', 'Ctrl+Shift+Z']]],
+  ['New layers', [['Add layer', 'Ctrl+Alt+L'], ['New adjustment layer', 'Ctrl+Alt+Y'], ['New solid', 'Ctrl+Y'], ['New shape layer', ''], ['New null', 'Ctrl+Alt+Shift+Y'], ['Pre-compose', 'Ctrl+Shift+C']]],
+  ['Layers', [['Rename', 'F2'], ['Delete layer or keys', 'Delete'], ['Duplicate', 'Ctrl+D'], ['Split at the playhead', 'Ctrl+Shift+D'], ['Bring forward', 'Ctrl+]'], ['Send backward', 'Ctrl+['], ['Bring to front', 'Ctrl+Shift+]'], ['Send to back', 'Ctrl+Shift+['],
+    ['Start layers at the playhead', '['], ['End layers at the playhead', ']'], ['Trim start to the playhead', 'Alt+['], ['Trim end to the playhead', 'Alt+]'], ['Move a frame earlier', 'Alt+PageUp'], ['Move a frame later', 'Alt+PageDown'], ['Select all', 'Ctrl+A'], ['Select nothing', 'Escape'],
+    ['Copy layers', 'Ctrl+C'], ['Paste layers', 'Ctrl+V'], ['Lock', 'Ctrl+L'], ['Hide', 'Ctrl+Alt+V'], ['Centre', 'Ctrl+Home'], ['Centre the anchor', 'Ctrl+Alt+Home'], ['Fit the layer to the composition', 'Ctrl+Alt+F']]],
+  ['Time', [['Play or pause', 'Space'], ['First frame', 'Home'], ['Last frame', 'End'], ['Work area start', 'Shift+Home'], ['Work area end', 'Shift+End'], ['Set work area start', 'B'], ['Set work area end', 'N'], ['Add a marker', '*'],
+    ['Previous key', 'J'], ['Next key', 'K'], ['Layer in point', 'I'], ['Layer out point', 'O'], ['Step a frame back', 'Left|PageUp'], ['Step a frame on', 'Right|PageDown'], ['Step ten frames', 'Shift+Left|Shift+Right']]],
+  ['Keys', [['Copy keys', 'Ctrl+C'], ['Paste keys', 'Ctrl+V'], ['Easy ease', 'F9'], ['Hold keys', 'Ctrl+Alt+G'], ['Set a key', 'Alt+Shift+P'], ['Expression', 'Alt+Shift+=']]],
+  ['Properties', [['Anchor', 'A'], ['Position', 'P'], ['Scale', 'S'], ['Rotation', 'R'], ['Opacity', 'T'], ['Animated properties', 'U'], ['Changed properties', 'U U'], ['Effect controls', 'E']]],
+  ['Timeline', [['Timeline or graph', 'Shift+F3'], ['Zoom in', '='], ['Zoom out', '-']]],
+  ['Viewer', [['Fit', 'Shift+/'], ['100%', 'Ctrl+1'], ['Zoom in', '.'], ['Zoom out', ','], ['Draft or full', 'D'], ['Alpha only', 'Alt+A'], ['Transparency grid', 'Alt+G']]],
+  ['Tools', [['Pen', 'G'], ['Rectangle or ellipse', 'Q'], ['Selection', 'V']]],
+  ['Finding', [['Find an effect or preset', 'Ctrl+Space'], ['Command finder', 'Ctrl+Shift+P'], ['Fill the window with the panel', '`']]],
+  ['Sheet', [['Write a drawing', '0-9 then Enter'], ['Cross', 'X'], ['Erase', 'Delete'], ['Key', 'K']], 'while the Sheet has the focus'],
+];
+const COUNT = LIST.reduce((n, [, rows]) => n + rows.length, 0);
+const keys = (k, cls = '') => k ? k.split('|').map((x) => '<kbd class="' + cls + '">' + x + '</kbd>').join('<span class="or">or</span>') : '<span class="quiet">none</span>';
+function rows(filter, o = {}) {
+  let s = '';
+  for (const [area, list, note] of LIST) {
+    const hits = list.filter(filter);
+    if (!hits.length) continue;
+    s += '<div class="grp">' + area + (note ? '<span>' + note + '</span>' : '') + '</div>';
+    for (const [n, k] of hits) {
+      let name = n, cls = '', act = '';
+      if (o.words) name = n.replace(new RegExp('(' + o.words + ')', 'i'), '<mark>$1</mark>');
+      if (o.hit && k.split('|').includes(o.hit)) cls = ' hit';
+      if (o.changed && n in o.changed) {
+        cls = ' changed';
+        act = '<button class="flat">Reset</button>';
+        s += '<div class="row' + cls + '"><span class="nm">' + name + '</span><span class="keys">' + keys(o.changed[n]) + '<span class="or">was ' + (k || 'none') + '</span></span><span class="act">' + act + '</span></div>';
+        continue;
+      }
+      if (o.edit === n) {
+        s += '<div class="row editing"><span class="nm">' + name + '</span><span class="keys"><kbd class="old">' + k + '</kbd> <kbd class="new">Ctrl+D</kbd></span><span class="act">Esc cancels</span></div>'
+          + '<div class="conflict"><p><b>Ctrl+D already does Duplicate</b> (Layers). If Split at the playhead takes it, Duplicate will have no shortcut until you give it one.</p>'
+          + '<button class="main">Replace</button> <button>Cancel</button> <button class="flat">Reset to its default, Ctrl+Shift+D</button></div>';
+        continue;
+      }
+      s += '<div class="row' + cls + '"><span class="nm">' + name + '</span><span class="keys">' + keys(k) + '</span><span class="act">' + (o.hover === n ? '<button>Change&hellip;</button>' : '') + '</span></div>';
+    }
+  }
+  return s;
+}
+function dlg(o = {}, filter = () => true) {
+  const search = o.bykey ? '<div class="seg"><button>Words</button><button aria-pressed="true">A key</button></div><span class="listen">Pressed: <kbd>Ctrl+D</kbd> &nbsp;<span class="quiet">press another, or Esc</span></span>'
+    : '<div class="seg"><button aria-pressed="true">Words</button><button>A key</button></div><input type="search"' + (o.words ? ' class="on" value="' + o.words + '"' : ' placeholder="Search ' + COUNT + ' commands, e.g. &ldquo;work area&rdquo; or &ldquo;hold&rdquo;"') + '>';
+  return '<div class="dlg"><div class="dh"><b>Keyboard shortcuts</b><span class="quiet">from the strip at the bottom, or the command finder</span><span class="grow"></span><button class="flat">&#10005;</button></div>'
+    + '<div class="find">' + search + '</div><div class="body"' + (o.tall ? ' style="max-height:none"' : '') + '>' + rows(filter, o) + '</div>'
+    + '<div class="df"><span class="quiet">' + (o.changed ? '2 changed from the defaults. Kept on this computer, not in the project.' : 'All at their defaults. Changes are kept on this computer, not in the project.') + '</span><span class="grow"></span><button' + (o.changed ? '' : ' disabled style="opacity:.5"') + '>Reset all</button><button class="main">Close</button></div></div>';
+}
+const FIGS = {
+  list: ['The shortcut list', 'Every command with a shortcut, in the command finder&rsquo;s areas, with the keys drawn as keys. Pointing at a row shows Change&hellip;. It opens from the button that replaces today&rsquo;s long line of hints in the bottom strip.', () => dlg({ hover: 'Save as' })],
+  words: ['Searching by words', 'Typing narrows the list to matching commands, in every area.', () => dlg({ words: 'work area', tall: true }, ([n]) => /work area/i.test(n))],
+  bykey: ['Searching by a key', 'With &ldquo;A key&rdquo; chosen, pressing keys shows what they do now. Ctrl+D is Duplicate.', () => dlg({ bykey: true, hit: 'Ctrl+D', tall: true }, ([, k]) => k === 'Ctrl+D')],
+  edit: ['Changing a shortcut, with a clash', 'Split at the playhead was given Ctrl+D, which Duplicate already has. Nothing changes until Replace; Cancel keeps both as they were.', () => dlg({ edit: 'Split at the playhead', tall: true }, ([n]) => ['Duplicate', 'Split at the playhead', 'Rename', 'Delete layer or keys'].includes(n))],
+  changed: ['After a change', 'A changed shortcut says so, and what it was. Reset puts one back; Reset all puts every one back.', () => dlg({ changed: { 'Split at the playhead': 'Ctrl+D', Duplicate: '' }, tall: true }, ([n]) => ['Duplicate', 'Split at the playhead', 'Rename', 'Delete layer or keys'].includes(n))],
+};
+const want = new URLSearchParams(location.search).get('fig');
+document.getElementById('out').innerHTML = Object.entries(FIGS).filter(([k]) => !want || k === want)
+  .map(([, [t, c, f]]) => '<figure><h1>' + t + '</h1><p class="cap">' + c + '</p>' + f() + '</figure>').join('');
+</script>
+</body>
+</html>

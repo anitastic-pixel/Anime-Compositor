@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W-32 Sheet, proposed</title>
+<!-- W-32a: a drawing of the redesigned Sheet panel and exposure list (D-64's overhaul), not the
+     panel. Nothing here talks to the program; the four layers are W-31's made-up shot, seen as a
+     timesheet. ?fig=sheet, ?fig=list or ?fig=empty shows one. -->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101010; --panel: #1e1e1e; --strip: #2b2b2b; --line: #3a3a3a; --text: #d0d0d4;
+    --dim: #909096; --accent: #e8b06a; --blue: #6ea8fe; --head: #e0604a; --gone: #d9534f;
+    --a: #3d5a86; --b: #4e6f9f; --held: #3f6a5a;
+  }
+  html { font-size: 13px; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 1rem/1.4 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
+  .cap { color: var(--dim); margin: 0 0 12px; max-width: 70rem; }
+  figure { margin: 0 0 28px; }
+  .panel { background: var(--panel); border: 1px solid var(--bg); max-width: 100%; overflow: hidden; position: relative; }
+  button { font: inherit; color: var(--text); background: #333; border: 1px solid #454545; border-radius: 3px; padding: 2px 8px; }
+  /* The place's row of panel names (D-85), the one in front underlined. */
+  .tabs { display: flex; background: #181818; border-bottom: 1px solid var(--bg); }
+  .tabs span { padding: 4px 12px; color: var(--dim); }
+  .tabs span.on { color: #fff; background: var(--panel); box-shadow: inset 0 2px 0 var(--accent); }
+  .headbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 8px; background: var(--strip); border-bottom: 1px solid var(--bg); }
+  .seg { display: inline-flex; border: 1px solid #454545; border-radius: 4px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: #262626; padding: 3px 12px; }
+  .seg button[aria-pressed=true] { background: #3a3a3a; box-shadow: inset 0 -2px 0 var(--accent); color: #fff; }
+  .grow { flex: 1; }
+  .quiet { color: var(--dim); }
+  .badge { font-size: 0.75rem; color: #c9d6ea; background: #2e3b52; border-radius: 8px; padding: 0 6px; white-space: nowrap; font-weight: 400; }
+  .badge.warn { background: #5a2a28; color: #ffd0cc; }
+  .relink { font-size: 0.8rem; padding: 0 6px; border-color: var(--gone); }
+  kbd { font: inherit; font-size: 0.8rem; color: var(--text); background: #2a2a2a; border: 1px solid #454545; border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
+  kbd.k { background: none; border: 0; color: var(--dim); margin-left: 6px; padding: 0; }
+  .empty { display: grid; place-items: center; gap: 10px; padding: 3.5rem 1rem; text-align: center; color: var(--dim); }
+  .empty .big { font-size: 1.15rem; color: var(--text); }
+  .empty .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .empty button.main { background: #3a4a6a; border-color: var(--blue); }
+  .sw { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+  /* The grid: a paper timesheet, frames down the page. */
+  .xs { overflow: hidden; }
+  .xs table { border-collapse: collapse; font-variant-numeric: tabular-nums; width: 100%; table-layout: fixed; }
+  .xs th, .xs td { border: 1px solid #2f2f2f; height: 1.45rem; padding: 0 4px; text-align: center; }
+  .xs th { background: #262626; font-weight: 400; height: auto; padding: 4px; vertical-align: bottom; line-height: 1.3; }
+  .xs th.picked { background: #2c3445; box-shadow: inset 0 -2px 0 var(--blue); }
+  .xs th .badge { display: inline-block; margin-top: 2px; }
+  .xs col.f { width: 3.4rem; } .xs col.act { width: 9rem; }
+  .xs td.f { color: var(--dim); text-align: right; position: relative; }
+  .xs td.f i { font-style: normal; font-size: 0.75rem; color: var(--accent); position: absolute; left: 4px; }
+  .xs tr.half td { border-bottom: 1px solid #555; }
+  .xs tr.sec td { border-bottom: 2px solid #8a8f98; }
+  .xs td.n { color: #fff; }
+  .xs td.hold { background: linear-gradient(#8a8f98, #8a8f98) center / 2px 100% no-repeat; }
+  .xs td.cont span { background: #1e1e1e; color: var(--dim); padding: 0 2px; }
+  .xs td.x { color: var(--text); font-size: 1.1rem; line-height: 1; }
+  .xs td.out { background: repeating-linear-gradient(45deg, #191919 0 4px, #222 4px 8px); }
+  .xs td.gone { color: #ffd0cc; background-color: #3a2020; }
+  .xs td.gone.hold { background: linear-gradient(var(--gone), var(--gone)) center / 2px 100% no-repeat, #3a2020; }
+  .xs td.key { position: relative; }
+  .xs td.key::after { content: ""; position: absolute; left: 50%; top: 50%; width: 1.9rem; height: 1.2rem; transform: translate(-50%, -50%); border: 1px solid var(--accent); border-radius: 50%; }
+  .xs td.words { text-align: left; color: #e8d9a8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .xs tr.now td { background-color: #2b3f5c; }
+  .xs tr.now td.hold { background: linear-gradient(#b8c0cc, #b8c0cc) center / 2px 100% no-repeat, #2b3f5c; }
+  .xs tr.now td.f { color: #fff; background: var(--head); }
+  .xs td.chosen { outline: 2px solid #9cc2ff; outline-offset: -2px; background: #181818 !important; color: #fff; text-align: left; }
+  .caret { display: inline-block; width: 1px; height: 1em; background: #fff; vertical-align: -2px; margin-left: 1px; }
+  .tip { position: absolute; z-index: 4; background: #262626; border: 1px solid #505050; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.5); padding: 5px 10px; max-width: 20rem; }
+  .tip b { color: var(--blue); font-weight: 400; }
+  /* What the keys do, in one quiet line at the foot rather than a sentence in the title. */
+  .foot { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 6px 8px; background: #232323; border-top: 1px solid var(--line); color: var(--dim); font-size: 0.9rem; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .mini { display: inline-block; width: 1.3rem; height: 0.95rem; border: 1px solid #3a3a3a; vertical-align: middle; }
+  /* The exposure list: one row an exposure, as a table with headings. */
+  .el { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .el th { white-space: nowrap; text-align: left; font-weight: 400; color: var(--dim); font-size: 0.85rem; padding: 4px 8px; border-bottom: 1px solid var(--line); background: #232323; }
+  .el td { white-space: nowrap; padding: 3px 8px; border-bottom: 1px solid #262626; height: 1.6rem; }
+  .el td.r, .el th.r { text-align: right; }
+  .el .v { color: var(--blue); border-bottom: 1px dotted #4a6a9a; cursor: ew-resize; }
+  .el tr.now td { background: #2b3f5c; }
+  .el tr.gone td { background: #2e1d1d; }
+  .el .track { position: relative; height: 0.8rem; background: #181818; border-radius: 2px; }
+  .el .track i { position: absolute; top: 0; bottom: 0; background: var(--a); border-radius: 2px; }
+  .el tr.gone .track i { background: repeating-linear-gradient(45deg, #5a2a28 0 4px, #7a3230 4px 8px); }
+  .el .x { color: var(--dim); background: none; border: 0; }
+  .sum { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; padding: 8px; border-bottom: 1px solid var(--line); }
+  .sum .big { font-size: 1.1rem; color: #fff; }
+  .hist { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .hist span { background: #262626; border: 1px solid #3a3a3a; border-radius: 3px; padding: 0 6px; font-size: 0.85rem; }
+  .hist b { color: var(--blue); font-weight: 400; }
+  .add { margin: 8px; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+// W-31's made-up shot, frames 0 to 35 in view, the playhead on 30.
+const FPS = 24, AT = 30, FROM = 8, ROWS = 36; // scrolled to frames 8 to 35
+const spans = (lengths, first = 1, gone = []) => {
+  let f = 0, d = first;
+  return lengths.map((n) => { const s = { from: f, to: f + n, d, gone: gone.includes(d) }; f += n; d += 1; return s; });
+};
+const reps = (n, k) => Array(Math.ceil(n / k)).fill(k);
+const L3 = [3, 3, 4, 2, 3, 3, 5, 3, 3, 4, 3, 2, 3, 3, 4, 3, 3, 3, 3, 4, 3, 3, 3];
+// The Sheet's order: the bottom of the stack on the left, as a paper sheet has it.
+const LAYERS = [
+  { name: 'layer1', label: '#b0a060', tag: 'held', spans: [{ from: 0, to: 240, d: 1 }] },
+  { name: 'layer2', label: '#8ac46a', tag: 'on 1s', from: 4, spans: spans(reps(240, 1)) },
+  { name: 'layer3', label: '#6a9ac4', tag: 'irregular', spans: spans(L3, 1, [7]), keys: [1, 5] },
+  // on 2s with a blank run (a cross) from frame 14 to 17
+  { name: 'layer4', label: '#c46a6a', tag: 'on 2s', spans: [...spans(reps(14, 2)), { from: 14, to: 18, d: null }, ...spans(reps(222, 2), 8).map((s) => ({ ...s, from: s.from + 18, to: s.to + 18 }))], picked: true },
+];
+const ACTION = { 0: 'BG pans left', 12: 'SE: door', 24: 'cut to close-up' };
+const at = (l, f) => l.spans.find((s) => f >= s.from && f < s.to);
+function cell(l, f) {
+  if (f < (l.from || 0)) return '<td class="out" title="outside the layer"></td>';
+  const s = at(l, f), p = f > (l.from || 0) ? at(l, f - 1) : null;
+  const first = !p || p.d !== s.d;
+  // A hold that began above the rows in view says which drawing it is, in grey, on the top row.
+  if (!first && f === FROM && s.d !== null) return '<td class="hold cont" title="drawing ' + s.d + ', from frame ' + s.from + '"><span>(' + s.d + ')</span></td>';
+  if (s.d === null) return first ? '<td class="x">&times;</td>' : '<td></td>';
+  const cls = [first ? 'n' : 'hold', s.gone ? 'gone' : '', first && (l.keys || []).includes(s.d) ? 'key' : ''].join(' ');
+  return '<td class="' + cls + '"' + (s.gone ? ' title="drawing ' + s.d + ' is missing"' : '') + '>' + (first ? s.d : '') + '</td>';
+}
+function sheet() {
+  let s = '<div class="xs" style="position:relative"><table><colgroup><col class="f"><col class="act">' + LAYERS.map(() => '<col>').join('') + '</colgroup>'
+    + '<thead><tr><th style="text-align:right">frame</th><th style="text-align:left">Action</th>'
+    + LAYERS.map((l) => '<th' + (l.picked ? ' class="picked"' : '') + '><span class="sw" style="background:' + l.label + '"></span>' + l.name + '<br><span class="badge' + (l.name === 'layer3' ? ' warn' : '') + '">' + (l.name === 'layer3' ? '1 missing' : l.tag) + '</span></th>').join('')
+    + '</tr></thead><tbody>';
+  for (let f = FROM; f < ROWS; f++) {
+    const cls = [(f + 1) % FPS === 0 ? 'sec' : (f + 1) % (FPS / 2) === 0 ? 'half' : '', f === AT ? 'now' : ''].join(' ');
+    s += '<tr class="' + cls + '"><td class="f">' + (f % FPS === 0 ? '<i>' + f / FPS + 's</i>' : '') + f + '</td>'
+      + '<td class="words">' + (ACTION[f] || '') + '</td>'
+      + LAYERS.map((l) => (f === AT && l.picked ? '<td class="chosen">16<span class="caret"></span></td>' : cell(l, f))).join('') + '</tr>';
+  }
+  s += '</tbody></table>'
+    + '<div class="tip" style="left:3.8rem;top:' + (2.6 + (AT - FROM + 1.4) * 1.52) + 'rem">Enter writes <b>drawing 16</b> on frame 30, lasting until the next mark below it.</div></div>';
+  return s;
+}
+const legend = '<span class="legend"><span><span class="mini" style="background:#262626;text-align:center;line-height:.9rem;color:#fff;font-size:.7rem">3</span>drawing starts</span>'
+  + '<span><span class="mini" style="background:linear-gradient(#8a8f98,#8a8f98) center/2px 100% no-repeat"></span>held</span>'
+  + '<span><span class="mini" style="text-align:center;line-height:.9rem">&times;</span>blank</span>'
+  + '<span><span class="mini" style="background:repeating-linear-gradient(45deg,#191919 0 3px,#2a2a2a 3px 6px)"></span>outside the layer</span>'
+  + '<span><span class="mini" style="background:#3a2020"></span>missing</span>'
+  + '<span><span class="mini" style="border-radius:50%;border-color:var(--accent)"></span>key</span></span>';
+const FOOT = '<div class="foot">' + legend + '</div><div class="foot" style="border-top:0;padding-top:0"><span><kbd>0</kbd>&ndash;<kbd>9</kbd> then <kbd>Enter</kbd> writes a drawing</span><span><kbd>X</kbd> a cross</span><span><kbd>Delete</kbd> erases</span><span><kbd>K</kbd> circles a key</span><span><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> move</span><span><kbd>Esc</kbd> drops what is typed</span></div>';
+function head(view) {
+  return '<div class="tabs"><span class="on">Sheet</span><span>Project</span></div>'
+    + '<div class="headbar"><span class="seg"><button aria-pressed="' + (view === 'grid') + '">Sheet</button><button aria-pressed="' + (view === 'list') + '">Exposure list</button></span>'
+    + (view === 'grid' ? '' : '<span class="quiet">for <b style="color:var(--text);font-weight:400"><span class="sw" style="background:#6a9ac4"></span>layer3</b>, the layer chosen in the timeline</span>')
+    + '<span class="grow"></span><button>Print&hellip;<kbd class="k">Ctrl+P</kbd></button></div>';
+}
+function grid() { return '<div class="panel" style="width:48rem">' + head('grid') + sheet() + FOOT + '</div>'; }
+function list() {
+  const l = LAYERS[2];
+  const lens = {};
+  l.spans.forEach((s) => { const n = s.to - s.from; lens[n] = (lens[n] || 0) + 1; });
+  const last = l.spans[l.spans.length - 1].to;
+  let s = '<div class="panel" style="width:48rem">' + head('list')
+    + '<div class="sum" style="border:0"><span class="big">' + l.spans.length + ' exposures</span><span class="quiet">frames 0&ndash;' + (last - 1) + ' &middot; drawings 1&ndash;' + l.spans.length + '</span>'
+    + '<span class="badge">irregular</span><span class="badge warn">drawing 7 missing</span><span class="grow"></span></div><div class="sum" style="padding-top:0;border-top:0">'
+    + '<span class="quiet">Each drawing is held for</span><span class="hist">' + Object.keys(lens).sort((a, b) => a - b).map((n) => '<span><b>' + n + 'f</b> &times; ' + lens[n] + '</span>').join('') + '</span></div>'
+    + '<table class="el"><thead><tr><th class="r">#</th><th>Drawing</th><th class="r">First</th><th class="r">Last</th><th class="r">Frames</th><th style="width:30%">Where, in frames 0&ndash;' + (last - 1) + '</th><th></th></tr></thead><tbody>';
+  l.spans.slice(0, 14).forEach((sp, i) => {
+    const now = AT >= sp.from && AT < sp.to;
+    s += '<tr class="' + (sp.gone ? 'gone' : now ? 'now' : '') + '"><td class="r quiet">' + (i + 1) + '</td>'
+      + '<td><span class="v">' + sp.d + '</span>' + ((l.keys || []).includes(sp.d) ? ' <span class="badge" style="background:#4a3a20;color:#f5d9a8">key</span>' : '')
+      + (sp.gone ? ' <span class="badge warn">missing</span> <button class="relink">Relink&hellip;</button>' : '') + (now ? ' <span class="quiet">&larr; frame ' + AT + '</span>' : '') + '</td>'
+      + '<td class="r"><span class="v">' + sp.from + '</span></td><td class="r"><span class="v">' + (sp.to - 1) + '</span></td><td class="r"><span class="v">' + (sp.to - sp.from) + '</span></td>'
+      + '<td><div class="track"><i style="left:' + sp.from / last * 100 + '%;width:' + Math.max(0.6, (sp.to - sp.from) / last * 100) + '%"></i></div></td>'
+      + '<td><button class="x" title="Clear the exposure at frame ' + sp.from + '">&#x2715;</button></td></tr>';
+  });
+  s += '<tr><td colspan="7" class="quiet" style="text-align:center">&hellip; 9 more below</td></tr></tbody></table>'
+    + '<button class="add">+ Add an exposure <span class="quiet">(drawing 24, from frame ' + last + ')</span></button>'
+    + '<div class="foot"><span>Blue numbers: drag, or click and type</span><span><kbd>Tab</kbd> next field</span><span><kbd>Enter</kbd> keeps it</span><span><kbd>Esc</kbd> puts it back</span><span>Undo takes back one change at a time</span></div></div>';
+  return s;
+}
+function empty() {
+  return '<div class="panel" style="width:48rem">' + head('grid')
+    + '<div class="empty"><div class="big">No layer here shows drawings, so the Sheet has no columns yet.</div>'
+    + '<div>Each layer of drawings becomes one column, the bottom layer on the left.</div>'
+    + '<div class="acts"><button class="main">Import drawings&hellip;<kbd class="k">Ctrl+I</kbd></button><button>Import cut&hellip;</button></div></div></div>';
+}
+const FIGS = {
+  sheet: ['The Sheet, a shot open', 'W-31&rsquo;s four layers as a timesheet, frames down the page. The playhead is on frame 30; layer4&rsquo;s cell there is chosen and 16 is being typed, and the panel says what Enter will do. The rows are scrolled to frames 8 to 35, so a hold that began higher up says its drawing in grey on the top row. Drawing 7 of layer3 is missing, drawing 5 of layer3 is a key, and layer4 is blank from 14 to 17.', grid],
+  list: ['The exposure list, D-64&rsquo;s overhaul', 'The same exposures written out, one row each, for the layer chosen in the timeline. It moves here from the folded &ldquo;Exposures, as a list&rdquo; under Effect controls.', list],
+  empty: ['A composition with no drawing layers', 'What the Sheet shows before any drawings are in, with the two ways to bring some.', empty],
+};
+const want = new URLSearchParams(location.search).get('fig');
+document.getElementById('out').innerHTML = Object.entries(FIGS).filter(([k]) => !want || k === want)
+  .map(([, [t, c, f]]) => '<figure><h1>' + t + '</h1><p class="cap">' + c + '</p>' + f() + '</figure>').join('');
+</script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W-34 effect controls, proposed</title>
+<!-- W-34a: a drawing of the redesigned Effect controls panel, not the panel. Nothing here talks to
+     the program; the layer, its keys and its two effects are made up. ?fig=layer, ?fig=menu or
+     ?fig=states shows one. -->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101010; --panel: #1e1e1e; --strip: #2b2b2b; --line: #3a3a3a; --text: #d0d0d4;
+    --dim: #909096; --accent: #e8b06a; --blue: #6ea8fe; --head: #e0604a; --gone: #d9534f;
+    --a: #3d5a86; --b: #4e6f9f; --held: #3f6a5a;
+  }
+  html { font-size: 13px; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 1rem/1.4 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
+  .cap { color: var(--dim); margin: 0 0 12px; max-width: 70rem; }
+  figure { margin: 0 0 28px; }
+  .row2 { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .panel { background: var(--panel); border: 1px solid var(--bg); max-width: 100%; overflow: hidden; position: relative; width: 27rem; }
+  button { font: inherit; color: var(--text); background: #333; border: 1px solid #454545; border-radius: 3px; padding: 2px 8px; white-space: nowrap; }
+  select { font: inherit; color: var(--text); background: #2a2a2a; border: 1px solid #454545; border-radius: 3px; padding: 0 4px; }
+  .tabs { display: flex; background: #181818; border-bottom: 1px solid var(--bg); }
+  .tabs span { padding: 4px 12px; color: var(--dim); }
+  .tabs span.on { color: #fff; background: var(--panel); box-shadow: inset 0 2px 0 var(--accent); }
+  .headbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 8px; background: var(--strip); border-bottom: 1px solid var(--bg); }
+  .grow { flex: 1; }
+  .quiet { color: var(--dim); }
+  .who { font-weight: 600; color: #fff; }
+  .sw { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+  .badge { font-size: 0.75rem; color: #c9d6ea; background: #2e3b52; border-radius: 8px; padding: 0 6px; white-space: nowrap; }
+  kbd.k { font: inherit; font-size: 0.8rem; color: var(--dim); margin-left: 5px; }
+  /* A section: a heading that folds it, and its rows under it. */
+  .sec { border-bottom: 1px solid #262626; }
+  .sh { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: #232323; color: #fff; font-weight: 600; }
+  .sh .tw { color: var(--dim); width: 0.8rem; font-weight: 400; }
+  .sh .count { font-weight: 400; color: var(--dim); }
+  .sh.shut { color: var(--text); font-weight: 400; }
+  .sh button { font-weight: 400; font-size: 0.9rem; padding: 0 6px; }
+  /* A property: its key diamond, its name, then its value. The names line up in one column. */
+  .p { display: grid; grid-template-columns: 1.3rem 8.2rem 1fr; align-items: center; min-height: 1.75rem; padding: 0 8px; }
+  .p .n { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p .v { color: var(--blue); font-variant-numeric: tabular-nums; }
+  .p .v u { text-decoration: none; border-bottom: 1px dotted #4a6a9a; }
+  .p .v small { color: var(--dim); margin-left: 3px; }
+  .p.in { padding-left: 1.6rem; }
+  .dia { width: 0.62rem; height: 0.62rem; border: 1.4px solid #707078; transform: rotate(45deg); display: inline-block; }
+  .dia.on { background: var(--accent); border-color: var(--accent); }
+  .dia.has { border-color: var(--accent); }
+  .p.changed .n::after { content: " \2022"; color: var(--accent); }
+  .link { color: var(--blue); }
+  /* An effect: grip, on or off, its name, and a menu. */
+  .fx { margin: 6px 8px; border: 1px solid #333; border-radius: 4px; background: #212121; }
+  .fx.off { opacity: 0.55; }
+  .fxh { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-bottom: 1px solid #2d2d2d; }
+  .grip { color: #666; cursor: grab; letter-spacing: -2px; }
+  .fxh .nm { font-weight: 600; }
+  .fxh .dots { border: 0; background: none; color: var(--dim); padding: 0 4px; font-size: 1.1rem; line-height: 1; }
+  .fx .p { padding-left: 1.4rem; }
+  .fx .p { grid-template-columns: 1.3rem 6.8rem 1fr; }
+  input[type=checkbox] { accent-color: var(--blue); margin: 0; }
+  .acts { display: flex; gap: 6px; flex-wrap: wrap; padding: 6px 8px 10px; }
+  .acts .main { background: #3a4a6a; border-color: var(--blue); }
+  .menu { position: absolute; z-index: 5; background: #262626; border: 1px solid #505050; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.5); padding: 4px 0; min-width: 15rem; }
+  .menu div { display: flex; justify-content: space-between; gap: 2rem; padding: 4px 12px; }
+  .menu div.hi { background: #3a4a6a; }
+  .menu div.off { color: #6c6c72; }
+  .menu hr { border: 0; border-top: 1px solid #3a3a3a; margin: 4px 0; }
+  .menu kbd { font: inherit; color: var(--dim); }
+  .badge.warn { color: #ffd9a8; background: #5a3f1e; }
+  .fx.unknown { border-color: #6a4a24; }
+  .none { padding: 14px 10px; color: var(--dim); }
+  .none b { display: block; color: var(--text); font-weight: 400; font-size: 1.05rem; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+const dia = (k) => '<span class="dia' + (k === 2 ? ' on' : k ? ' has' : '') + '" title="' + (k === 2 ? 'A key on this frame: press to take it off' : k ? 'Keyed, no key on this frame: press to add one' : 'Not keyed: press to add a key') + '"></span>';
+const v = (xs, unit) => xs.map((x) => '<u>' + x + '</u>').join(', ') + (unit ? '<small>' + unit + '</small>' : '');
+const prop = (name, value, k, cls = '') => '<div class="p ' + cls + '">' + dia(k) + '<span class="n">' + name + '</span><span class="v">' + value + '</span></div>';
+const field = (name, value, cls = '') => '<div class="p ' + cls + '"><span></span><span class="n">' + name + '</span><span>' + value + '</span></div>';
+const sec = (name, body, open = true, extra = '') => '<div class="sec"><div class="sh' + (open ? '' : ' shut') + '"><span class="tw">' + (open ? '&#9662;' : '&#9656;') + '</span>' + name + extra + '</div>' + (open ? body : '') + '</div>';
+function head(name, kind, label) {
+  return '<div class="tabs"><span class="on">Effect controls</span></div><div class="headbar">'
+    + (name ? '<span class="who"><span class="sw" style="background:' + label + '"></span>' + name + '</span><span class="badge">' + kind + '</span>' : '<span class="quiet">No layer chosen</span>')
+    + '<span class="grow"></span></div>';
+}
+const TRANSFORM = prop('Anchor', v([960, 540]), 0) + prop('Position', v([1012, 540]), 2, 'changed') + prop('Scale', v([100, 100], '%'), 0)
+  + prop('Rotation', v(['12.0'], '&deg;'), 1, 'changed') + prop('Opacity', v([100], '%'), 0);
+const LAYER = field('Drawings', 'layer4 <span class="quiet">&middot; 120 of them</span>')
+  + field('Frames', '0 to 119 <span class="quiet">&middot; 120 frames</span>')
+  + field('Blend', '<select><option>Normal</option></select>') + field('Parent', '<select><option>None</option></select>')
+  + field('Matte', '<select><option>None</option></select>')
+  + field('Timing', '<span class="badge">on 2s</span> <span class="link">Exposure list in the Sheet &rarr;</span>');
+function fx(name, on, rows, open = true) {
+  return '<div class="fx' + (on ? '' : ' off') + '"><div class="fxh"><span class="grip" title="Drag to move it up or down the list">&#8942;&#8942;</span>'
+    + '<input type="checkbox"' + (on ? ' checked' : '') + ' title="On, or bypassed: left in the list and skipped">'
+    + '<span class="tw quiet">' + (open ? '&#9662;' : '&#9656;') + '</span><span class="nm">' + name + '</span>' + (on ? '' : '<span class="quiet">bypassed</span>')
+    + '<span class="grow"></span><button class="dots" title="Move, reset or delete">&#8943;</button></div>' + (open ? rows : '') + '</div>';
+}
+const EFFECTS = fx('Glow', true, prop('Threshold', v([60], '%'), 0) + prop('Radius', v([12], 'px'), 2, 'changed') + prop('Intensity', v(['1.0']), 0) + field('Colour', '<span class="sw" style="background:#fff4c2;width:1.6rem;height:0.9rem"></span><span class="quiet">from the picture</span>'))
+  + fx('Gaussian Blur', false, prop('Blurriness', v(['4.0'], 'px'), 0), false)
+  + '<div class="fx unknown"><div class="fxh"><span class="grip">&#8942;&#8942;</span><span class="badge warn">not in this build</span><span class="nm">Particle World</span><span class="grow"></span><button class="dots">&#8943;</button></div>'
+  + '<div class="none" style="padding:6px 10px">Kept as the file wrote it and not drawn. Its settings cannot be changed here.</div></div>'
+  + '<div class="acts"><button class="main">+ Add effect&hellip;<kbd class="k">Ctrl+Space</kbd></button><button>Save as preset&hellip;</button></div>';
+function layer(menu) {
+  let s = '<div class="panel">' + head('layer4', 'drawings &middot; 120', '#c46a6a')
+    + sec('Transform', TRANSFORM, true, '<span class="grow"></span><span class="count">2 keyed</span>')
+    + sec('Layer', LAYER, true, '<span class="grow"></span><span class="count">id L4</span>')
+    + sec('Masks', '', false, ' <span class="count">(1)</span>')
+    + sec('Effects', EFFECTS, true, ' <span class="count">(3)</span>')
+    + sec('Camera', '', false, ' <span class="count">&middot; the composition&rsquo;s, not the layer&rsquo;s</span>');
+  if (menu) s += '<div class="menu" style="right:14px;top:' + (menu) + 'rem">'
+    + '<div class="off"><span>Move earlier</span><kbd></kbd></div><div class="hi"><span>Move later</span><kbd></kbd></div><div><span>Bypass</span><kbd></kbd></div><hr>'
+    + '<div><span>Copy this effect</span><kbd>Ctrl+C</kbd></div><div><span>Copy all effects</span><kbd></kbd></div><div class="off"><span>Paste effects</span><kbd>Ctrl+V</kbd></div>'
+    + '<div><span>Save the effects as a preset&hellip;</span><kbd></kbd></div><hr>'
+    + '<div><span>Delete Glow</span><kbd></kbd></div></div>';
+  return s + '</div>';
+}
+function states() {
+  return '<div class="row2"><div class="panel">' + head() + '<div class="none"><b>No layer is chosen.</b>Click a layer in the timeline or in the picture, and its settings appear here.</div>'
+    + sec('Camera', prop('Place', v([960, 540]), 0) + prop('Depth', v([2666], 'px'), 0) + prop('Lens', v([50], 'mm'), 0) + field('Parent', '<select><option>None</option></select>'), true, ' <span class="count">&middot; the composition&rsquo;s, not the layer&rsquo;s</span>') + '</div>'
+    + '<div class="panel">' + head('Null 1', 'null', '#9a9a9a') + sec('Transform', TRANSFORM.replace(/ changed/g, '').replace(/class="dia on"|class="dia has"/g, 'class="dia"'))
+    + sec('Layer', field('Parent', '<select><option>None</option></select>'))
+    + sec('Effects', '<div class="none">A null is never drawn, so it takes no effects.</div>') + '</div></div>';
+}
+const FIGS = {
+  layer: ['Effect controls, a layer chosen', 'layer4, with its keyed Position and Rotation (an orange dot beside a property changed from its default), a Glow that is on and open, a Gaussian Blur that is bypassed and folded, and a Particle World this build does not have, kept but not drawn. Masks and Camera are folded shut.', () => layer(false)],
+  menu: ['An effect&rsquo;s menu', 'The &#8943; button on an effect opens everything its buttons and its right-click menu do today, in one list, with the shortcut where there is one. Right-clicking the bar still opens it; dragging the grip still moves the effect.', () => layer(34.2)],
+  states: ['Nothing chosen, and a null chosen', 'With no layer chosen the panel says what to do, and the camera, which belongs to the composition, is still here. A null keeps its Transform and says why it has no effects.', states],
+};
+const want = new URLSearchParams(location.search).get('fig');
+document.getElementById('out').innerHTML = Object.entries(FIGS).filter(([k]) => !want || k === want)
+  .map(([, [t, c, f]]) => '<figure><h1>' + t + '</h1><p class="cap">' + c + '</p>' + f() + '</figure>').join('');
+</script>
+</body>
+</html>

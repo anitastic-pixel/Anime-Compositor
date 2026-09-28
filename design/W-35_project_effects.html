@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W-35 Project and Effects, proposed</title>
+<!-- W-35a: a drawing of the redesigned Project and Effects panels, not the panels. Nothing here
+     talks to the program; the compositions, drawings and presets are made up. ?fig=project,
+     ?fig=relink, ?fig=newcomp, ?fig=effects, ?fig=search or ?fig=nolayer shows one. -->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101010; --panel: #1e1e1e; --strip: #2b2b2b; --line: #3a3a3a; --text: #d0d0d4;
+    --dim: #909096; --accent: #e8b06a; --blue: #6ea8fe; --head: #e0604a; --gone: #d9534f;
+    --a: #3d5a86; --b: #4e6f9f; --held: #3f6a5a;
+  }
+  html { font-size: 13px; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 1rem/1.4 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
+  .cap { color: var(--dim); margin: 0 0 12px; max-width: 70rem; }
+  figure { margin: 0 0 28px; }
+  .panel { background: var(--panel); border: 1px solid var(--bg); max-width: 100%; overflow: hidden; position: relative; width: 25rem; }
+  button { font: inherit; color: var(--text); background: #333; border: 1px solid #454545; border-radius: 3px; padding: 2px 8px; white-space: nowrap; }
+  button.main { background: #3a4a6a; border-color: var(--blue); }
+  input[type=text], input[type=number], input[type=search], select { font: inherit; color: var(--text); background: #2a2a2a; border: 1px solid #454545; border-radius: 3px; padding: 2px 6px; box-sizing: border-box; }
+  input[type=checkbox] { accent-color: var(--blue); margin: 0 4px 0 0; vertical-align: -2px; }
+  .tabs { display: flex; background: #181818; border-bottom: 1px solid var(--bg); }
+  .tabs span { padding: 4px 12px; color: var(--dim); }
+  .tabs span.on { color: #fff; background: var(--panel); box-shadow: inset 0 2px 0 var(--accent); }
+  .grow { flex: 1; }
+  .quiet { color: var(--dim); }
+  .badge { font-size: 0.75rem; color: #c9d6ea; background: #2e3b52; border-radius: 8px; padding: 0 6px; white-space: nowrap; }
+  .badge.gone { color: #ffd0cc; background: #5a2a28; }
+  kbd.k { font: inherit; font-size: 0.8rem; color: var(--dim); margin-left: 5px; }
+  .sh { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: #232323; color: #fff; font-weight: 600; border-bottom: 1px solid #262626; }
+  .sh .tw { color: var(--dim); width: 0.8rem; font-weight: 400; }
+  .sh .count { font-weight: 400; color: var(--dim); }
+  .sh.shut { color: var(--text); font-weight: 400; }
+  .r { display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 1.6rem; min-height: 1.6rem; border-bottom: 1px solid #242424; }
+  .r .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .r .meta { color: var(--dim); font-size: 0.9rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .r.open { box-shadow: inset 3px 0 0 var(--accent); background: #262626; }
+  .r.open .nm { color: #fff; font-weight: 600; }
+  .r.chosen { background: #2c3a52; }
+  .r.gone { background: #2e1f1f; }
+  .r.gone .nm { color: #ffb3ad; }
+  .r .ib { border: 0; background: none; color: var(--dim); padding: 0 3px; }
+  .r .pass { color: var(--dim); font-size: 0.85rem; white-space: nowrap; }
+  .ic { width: 1rem; text-align: center; color: var(--dim); }
+  .foot { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; background: var(--strip); border-top: 1px solid var(--bg); }
+  .note { margin: 6px 8px; padding: 6px 8px; border-left: 3px solid var(--blue); background: #1f2633; }
+  .note.warn { border-color: var(--gone); background: #2e1f1f; }
+  .note p { margin: 0 0 6px; }
+  .menu { position: absolute; z-index: 5; background: #262626; border: 1px solid #505050; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.5); padding: 4px 0; min-width: 13rem; }
+  .menu div { display: flex; justify-content: space-between; gap: 2rem; padding: 4px 12px; }
+  .menu div.hi { background: #3a4a6a; }
+  .menu kbd { font: inherit; color: var(--dim); }
+  .menu div span { white-space: nowrap; }
+  .menu small { display: block; color: var(--dim); font-size: 0.85rem; }
+  /* The new composition form: labels in one column, fields in the next. */
+  .form { display: grid; grid-template-columns: 8rem 1fr; gap: 6px 10px; align-items: center; padding: 10px; }
+  .form .full { grid-column: 1 / -1; }
+  .form .lab { color: var(--dim); text-align: right; }
+  .form .pair { display: flex; align-items: center; gap: 6px; }
+  .form input[type=number] { width: 5.5rem; }
+  .form input[type=text] { width: 100%; }
+  /* The Effects panel. */
+  .find { padding: 8px; display: grid; gap: 4px; border-bottom: 1px solid #262626; }
+  .find input { width: 100%; }
+  .find .to { color: var(--dim); }
+  .find .to b { color: #fff; font-weight: 600; }
+  .fi { display: flex; align-items: flex-start; gap: 8px; padding: 3px 8px 3px 1.6rem; border-bottom: 1px solid #242424; }
+  .fi .nm { flex: 1; }
+  .fi small { display: block; color: var(--dim); font-size: 0.85rem; }
+  .fi mark { background: none; color: var(--accent); font-weight: 600; }
+  .fi.first { background: #2c3a52; }
+  .star { color: #666; }
+  .star.on { color: var(--accent); }
+  .nolayer .fi, .nolayer .sh { opacity: 0.5; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+const COMPS = [['Cut 012', '1920×1080', '24 fps', '10s', true], ['Cut 012 BG pan', '3200×1080', '24 fps', '10s'], ['Rain overlay', '1920×1080', '24 fps', '2s']];
+const DRAWS = [
+  ['layer1 (BG)', 'still', '', ''],
+  ['layer2', 'sequence', '48 drawings', ''],
+  ['layer3', 'sequence', '96 drawings', '2 missing'],
+  ['layer4', 'sequence', '120 drawings', ''],
+  ['rain_loop', 'sequence', '24 drawings', '', false],
+  ['dialogue_012.wav', 'sound', '10.2s', ''],
+];
+const ICON = { still: '&#9635;', sequence: '&#9636;', sound: '&#9835;' };
+const sec = (name, count, body, open = true, right = '') => '<div class="sh' + (open ? '' : ' shut') + '"><span class="tw">' + (open ? '&#9662;' : '&#9656;') + '</span>' + name + ' <span class="count">(' + count + ')</span><span class="grow"></span>' + right + '</div>' + (open ? body : '');
+function comps() {
+  return COMPS.map(([n, size, fps, len, open]) => '<div class="r' + (open ? ' open' : '') + '"><span class="ic">&#9638;</span><span class="nm">' + n + '</span>'
+    + (open ? '<span class="badge">open</span>' : '') + '<span class="grow"></span><span class="meta">' + size + ' &middot; ' + fps + ' &middot; ' + len + '</span>'
+    + (open ? '<span style="width:3.8rem"></span>' : '<button class="ib" title="Add ' + n + ' to this composition as a layer">&#10551;</button>')
+    + (open ? '' : '<button class="ib" title="Duplicate">&#10697;</button><button class="ib" title="Delete">&#10005;</button>') + '</div>').join('');
+}
+function draws(chosen) {
+  return DRAWS.map(([n, kind, meta, gone, pass = true]) => '<div class="r' + (gone ? ' gone' : '') + (n === chosen ? ' chosen' : '') + '"><span class="ic">' + ICON[kind] + '</span><span class="nm">' + n + '</span>'
+    + (gone ? '<span class="badge gone">' + gone + '</span>' : '') + '<span class="grow"></span><span class="meta">' + meta + '</span>'
+    + (kind === 'sound' ? '<span class="pass" style="visibility:hidden"><input type="checkbox">passed on</span>'
+      : '<label class="pass" title="Unticked, Collect Files lists these drawings but does not copy them"><input type="checkbox"' + (pass ? ' checked' : '') + '>passed on</label>') + '</div>').join('');
+}
+function project(o = {}) {
+  let s = '<div class="panel" style="width:31rem"><div class="tabs"><span class="on">Project</span><span>Effects</span></div>'
+    + sec('Compositions', 3, comps())
+    + sec('Drawings and sound', 6, draws(o.chosen));
+  if (o.relink) s += '<div class="note"><p><b>Relink layer3?</b> 2 missing drawings, 0067.png and 0068.png, were found in <b>D:\\Cut012\\layer3_retake</b>, a folder beside the old one.</p><button class="main">Apply the relink</button> <button>Leave it as it is</button></div>';
+  else s += '<div class="note warn"><p>2 drawings of <b>layer3</b> are missing on this computer. The frames that use them draw nothing and an export stops there.</p><button class="main">Relink&hellip;</button></div>';
+  s += '<div class="foot"><button class="main">New composition&hellip;<kbd class="k">Ctrl+Shift+N</kbd></button><button>Import &#9662;</button><span class="grow"></span><button>Relink&hellip;</button></div>';
+  if (o.menu) s += '<div class="menu" style="left:10.5rem;bottom:2.6rem;min-width:18rem"><div class="hi"><span>Drawings&hellip;<small>a folder of numbered pictures, or one</small></span><kbd>Ctrl+I</kbd></div><div><span>Cut&hellip;<small>its .xdts timesheet and its folders</small></span><kbd></kbd></div></div>';
+  return s + '</div>';
+}
+function newcomp() {
+  return '<div class="panel" style="width:27rem"><div class="tabs"><span class="on">Project</span><span>Effects</span></div>'
+    + '<div class="sh">New composition</div>'
+    + '<div class="form"><p class="full quiet" style="margin:0 0 4px">The frame the drawings are laid into: its size, rate and length are what the finished shot will be.</p>'
+    + '<span class="lab">Name</span><input type="text" value="Cut 013">'
+    + '<span class="lab">Size</span><span class="pair"><input type="number" value="1920"> &times; <input type="number" value="1080"><span class="quiet">pixels</span></span>'
+    + '<span class="lab">Rate</span><span class="pair"><input type="number" value="24"><span class="quiet">frames a second</span></span>'
+    + '<span class="lab">Length</span><span class="pair"><input type="number" value="240"><span class="quiet">frames = <b style="color:var(--text)">10s 0f</b></span></span>'
+    + '<span class="lab">For the Sheet</span><span class="quiet">&#9656; Episode, scene, cut, animator</span>'
+    + '<span></span><span class="pair" style="margin-top:6px"><button class="main">Create it</button><button>Leave it</button><span class="quiet">Enter / Esc</span></span>'
+    + '<p class="full quiet" style="margin:4px 0 0;font-size:0.9rem">Starts from Preferences&rsquo; size, rate and length.</p></div></div>';
+}
+const FX = {
+  fav: [['Glow', 'Makes the bright parts shine softly into their surroundings.'], ['Line Smooth', '']],
+  recent: [['Gaussian Blur', ''], ['Light Wrap', ''], ['Glow', '']],
+  presets: [['Cel glow', 'Preset: Glow, Light Wrap']],
+};
+const GROUPS = [['Blur &amp; Sharpen', 7], ['Color Correction', 13], ['Light &amp; Glow', 7], ['Lines &amp; Mattes', 7], ['Distort', 8], ['Generate', 5], ['Stylize', 8], ['Other', 15]];
+const fi = (n, about, star, first) => '<div class="fi' + (first ? ' first' : '') + '"><span class="nm">' + n + (about ? '<small>' + about + '</small>' : '') + '</span>'
+  + (star === 'x' ? '<span class="star" title="Delete this preset">&#10005;</span>' : '<span class="star' + (star ? ' on' : '') + '" title="' + (star ? 'Take out of' : 'Add to') + ' Favourites">&#9733;</span>') + '</div>';
+function effects(o = {}) {
+  let s = '<div class="panel' + (o.nolayer ? ' nolayer' : '') + '"><div class="tabs"><span>Project</span><span class="on">Effects</span></div><div class="find">'
+    + '<input type="search" placeholder="Search effects and presets" value="' + (o.search || '') + '"' + (o.search ? ' style="border-color:var(--blue)"' : '') + '>'
+    + '<span class="to">' + (o.nolayer ? 'Select a layer to add effects to it.' : 'Adds to: <b>layer4</b> &middot; double-click, drag onto a layer, or Enter for the first') + '</span>'
+    + (o.search ? '' : '<span class="quiet" style="font-size:0.85rem">Ctrl+Space from anywhere opens this search</span>') + '</div>';
+  if (o.search) {
+    const hl = (n) => n.replace(/Glow/, '<mark>Glow</mark>');
+    s += sec('Light &amp; Glow', 7, fi(hl('Glow'), 'Makes the bright parts shine softly into their surroundings.', true, true)
+      + fi('Bloom', 'Lets strong highlights bleed light, with optional streaks.') + fi('Light Rays', 'Beams of light streaming from a point through the bright parts.')
+      + fi('Rim Light', 'Lights one edge of the drawing, as a light from behind would.') + fi('Light Wrap', 'Lets the background&rsquo;s light spill around the layer&rsquo;s edges, to sit it in the scene.', true)
+      + fi('Cross Glare', 'Star-shaped sparkles on the bright points.') + fi('Exposure Flicker', 'Makes the brightness jump from frame to frame, as old film does.'))
+      + sec('Blur &amp; Sharpen', 1, fi('Diffusion', 'A soft glow of the picture laid over itself, the dreamy anime look.'))
+      + sec('Presets', 1, fi('Cel <mark>glow</mark>', 'Preset: Glow, Light Wrap', 'x'));
+    return s + '</div>';
+  }
+  s += sec('Favourites', 2, FX.fav.map(([n]) => fi(n, '', true)).join(''))
+    + sec('Recently used', 3, FX.recent.map(([n]) => fi(n, '', n === 'Glow')).join(''))
+    + sec('Presets', 1, FX.presets.map(([n, a]) => fi(n, a, 'x')).join(''))
+    + GROUPS.map(([g, n]) => sec(g, n, '', false)).join('');
+  return s + '</div>';
+}
+const FIGS = {
+  project: ['The Project panel', 'Compositions with their size, rate and length, the open one marked. Drawings and sound with how many drawings each holds, a missing count in red on the row it belongs to, and a plain explanation above Relink&hellip;. Import drawings and Import cut sit under one Import button.', () => project({ menu: true })],
+  relink: ['The Project panel offering a relink', 'Relink&hellip; found the missing drawings; the offer says which, where, and asks before it changes anything.', () => project({ relink: true, chosen: 'layer3' })],
+  newcomp: ['A new composition', 'The same five things as today, in a tidy grid, with the length read back in seconds and frames. The Sheet&rsquo;s names fold away until wanted.', newcomp],
+  effects: ['The Effects panel', 'Favourites, recently used and presets first, then the effect families folded shut, each with how many it holds. The line under the search says which layer an effect goes on.', () => effects()],
+  search: ['The Effects panel, searching &ldquo;glow&rdquo;', 'Every family with a match opens, each effect says what it does, and the highlighted first one is what Enter adds.', () => effects({ search: 'glow' })],
+  nolayer: ['The Effects panel with no layer chosen', 'The list stays readable but dimmed, and the line under the search says what to do.', () => effects({ nolayer: true })],
+};
+const want = new URLSearchParams(location.search).get('fig');
+document.getElementById('out').innerHTML = Object.entries(FIGS).filter(([k]) => !want || k === want)
+  .map(([, [t, c, f]]) => '<figure><h1>' + t + '</h1><p class="cap">' + c + '</p>' + f() + '</figure>').join('');
+</script>
+</body>
+</html>

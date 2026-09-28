@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W-36 strips and states, proposed</title>
+<!-- W-36a: a drawing of the redesigned strips along the top and bottom of the window, and of
+     document 05's states, not the window. Nothing here talks to the program; the project, paths,
+     times and notes are made up. ?fig=normal, file, workspace, notes, empty, dirty, exporting,
+     failed or recovery shows one. -->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101010; --panel: #1e1e1e; --strip: #2b2b2b; --line: #3a3a3a; --text: #d0d0d4;
+    --dim: #909096; --accent: #e8b06a; --blue: #6ea8fe; --head: #e0604a; --gone: #d9534f;
+    --a: #3d5a86; --b: #4e6f9f; --held: #3f6a5a; --ok: #6cc28a;
+  }
+  html { font-size: 13px; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 1rem/1.4 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; }
+  .cap { color: var(--dim); margin: 0 0 12px; max-width: 70rem; }
+  figure { margin: 0 0 28px; }
+  button { font: inherit; color: var(--text); background: #333; border: 1px solid #454545; border-radius: 3px; padding: 2px 8px; white-space: nowrap; }
+  button.main { background: #3a4a6a; border-color: var(--blue); }
+  button.flat { background: none; border-color: transparent; }
+  button.bad { background: #4a2624; border-color: var(--gone); }
+  select { font: inherit; color: var(--text); background: #2a2a2a; border: 1px solid #454545; border-radius: 3px; padding: 1px 4px; }
+  input[type=checkbox] { accent-color: var(--blue); margin: 0 4px 0 0; vertical-align: -2px; }
+  kbd.k { font: inherit; font-size: 0.8rem; color: var(--dim); margin-left: 5px; }
+  .grow { flex: 1; }
+  .quiet { color: var(--dim); }
+  .win { width: 82rem; max-width: 100%; border: 1px solid #000; background: var(--bg); position: relative; }
+  /* The top strip: one row, in groups. */
+  .top { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--strip); border-bottom: 1px solid var(--bg); flex-wrap: wrap; }
+  .top .gap { width: 14px; }
+  .proj { font-weight: 600; color: #fff; margin-right: 4px; white-space: nowrap; }
+  .proj .dot { color: var(--accent); margin-left: 5px; }
+  .proj .sub { font-weight: 400; color: var(--dim); margin-left: 6px; }
+  .group { display: flex; align-items: center; gap: 4px; }
+  /* The middle of the window, drawn as its places only. */
+  .mid { display: grid; grid-template-columns: 15rem 1fr 17rem; grid-template-rows: 4.5rem 3.5rem; gap: 2px; padding: 2px; }
+  .mid div { background: var(--panel); color: #55555a; display: flex; align-items: center; justify-content: center; }
+  .mid .tl { grid-column: 1 / -1; }
+  /* The status strip: one line. */
+  .bar { display: flex; align-items: center; gap: 14px; padding: 3px 8px; background: var(--strip); border-top: 1px solid var(--bg); white-space: nowrap; min-height: 1.6rem; }
+  .bar .st { overflow: hidden; text-overflow: ellipsis; }
+  .bar .auto { color: var(--dim); }
+  .warnbtn { background: #3d2b16; border-color: #7a5424; color: #ffd9a8; }
+  .warnbtn.open { box-shadow: inset 0 -2px 0 var(--accent); }
+  .ok { color: var(--ok); }
+  .drawer { background: #1b1b1b; border-top: 1px solid #3a3a3a; padding: 6px 10px 8px; }
+  .drawer ul { margin: 4px 0 6px; padding-left: 1.2rem; }
+  .drawer li { margin: 2px 0; }
+  .drawer li b { color: #ffd9a8; font-weight: 600; }
+  .drawer code { font: 0.85rem Consolas, monospace; color: var(--dim); }
+  .menu { position: absolute; z-index: 5; background: #262626; border: 1px solid #505050; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.5); padding: 4px 0; min-width: 16rem; }
+  .menu div { display: flex; justify-content: space-between; gap: 2rem; padding: 4px 12px 4px 18px; white-space: nowrap; }
+  .menu div.hi { background: #3a4a6a; }
+  .menu div.off { color: #6c6c72; }
+  .menu div { position: relative; }
+  .menu div.on::before { content: "\2713"; position: absolute; left: 5px; color: var(--blue); }
+  .menu hr { border: 0; border-top: 1px solid #3a3a3a; margin: 4px 0; }
+  .menu kbd { font: inherit; color: var(--dim); }
+  .menu .lab { color: var(--dim); font-size: 0.85rem; padding: 4px 12px 2px; }
+  progress { width: 6rem; height: 0.7rem; accent-color: var(--blue); }
+  /* A card in the middle of the window, for the empty project and the recovery offer. */
+  .centre { display: flex; justify-content: center; padding: 26px 16px; background: var(--panel); margin: 2px; }
+  .card { width: 42rem; max-width: 100%; }
+  .card h2 { font-size: 1.2rem; font-weight: 600; margin: 0 0 4px; color: #fff; }
+  .card p { margin: 0 0 12px; }
+  .card .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .card .list { border: 1px solid #333; border-radius: 4px; margin: 4px 0 14px; }
+  .card .li { display: flex; align-items: center; gap: 10px; padding: 5px 10px; border-bottom: 1px solid #2a2a2a; }
+  .card .li:last-child { border-bottom: 0; }
+  .card .li .when { width: 6.5rem; color: #fff; }
+  .card .li .path { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .card .saved { background: #1f2a22; border: 1px solid #3a5a44; border-radius: 4px; padding: 8px 10px; display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .card .drop { border: 1px dashed #4a4a50; border-radius: 6px; padding: 10px; text-align: center; color: var(--dim); }
+  .fail { background: #2e1f1f; border-top: 1px solid var(--gone); padding: 8px 10px; }
+  .fail p { margin: 0 0 6px; }
+  .fail .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+const MID = '<div class="mid"><div>Project</div><div>Viewer</div><div>Effect controls</div><div class="tl">Timeline</div></div>';
+function topStrip(o = {}) {
+  const name = o.empty ? 'Untitled' : 'Cut012.tnae';
+  let s = '<div class="top"><span class="proj">' + name
+    + (o.dirty ? '<span class="dot" title="Unsaved changes">&#9679;</span>' : '')
+    + (o.recovered ? '<span class="sub">recovered copy, not saved yet</span>' : '') + '</span>'
+    + '<span class="group"><button' + (o.file ? ' class="main"' : '') + '>File &#9662;</button><button title="Ctrl+O">Open&hellip;</button><button title="Ctrl+S">Save</button></span>'
+    + '<span class="gap"></span><span class="group"><button' + (o.empty ? ' disabled style="opacity:.5"' : '') + ' title="Ctrl+Z">&#8630; Undo</button><button disabled style="opacity:.5">&#8631; Redo</button></span>'
+    + '<span class="gap"></span><span class="group"><button' + (o.ws ? ' class="main"' : '') + '><span class="quiet">Workspace:</span> Standard &#9662;</button></span>'
+    + '<span class="grow"></span>';
+  if (o.exporting) s += '<span class="group"><progress max="240" value="117"></progress><span>Frame <b>118</b> of 240 &middot; 117 written &middot; 1 min 20 s left</span><button class="bad">Cancel export</button></span>';
+  else s += '<span class="group"><select><option>PNG, 8-bit, lossless</option></select>'
+    + (o.missing ? '<label title="Otherwise the export stops at the first frame with a missing drawing"><input type="checkbox"' + (o.anyway ? ' checked' : '') + '>Write past missing drawings</label>' : '')
+    + '<button class="main">Export&hellip;<kbd class="k">Ctrl+M</kbd></button></span>';
+  return s + '</div>';
+}
+function bar(o = {}) {
+  const st = o.st || 'Saved Cut012.tnae';
+  let s = '<div class="bar"><span class="st">' + st + '</span>';
+  s += '<span class="auto">' + (o.auto || '') + '</span><span class="grow"></span>';
+  if (o.notes) s += '<button class="warnbtn' + (o.open ? ' open' : '') + '">&#9888; 3 notes: layer3 has 2 missing drawings, and more ' + (o.open ? '&#9662;' : '&#9652;') + '</button>';
+  s += '<button class="flat">Keyboard shortcuts</button></div>';
+  if (o.open) s += '<div class="drawer"><ul>'
+    + '<li><b>layer3</b>: drawings 0067.png and 0068.png are missing on this computer. Frames 67 and 68 draw nothing there. <button>Relink&hellip;</button></li>'
+    + '<li><b>Particle World</b> on layer4 is not in this build. It is kept as the file wrote it and not drawn.</li>'
+    + '<li>The project was written by a newer version. Anything this version does not know is kept unchanged.</li></ul>'
+    + '<button>Error details</button> <span class="quiet">the codes for a bug report</span></div>';
+  return s;
+}
+const win = (o, middle = MID) => '<div class="win">' + topStrip(o) + middle + (o.after || '') + bar(o) + (o.menu || '') + '</div>';
+const FILEMENU = '<div class="menu" style="left:6.3rem;top:2.2rem">'
+  + '<div><span>New project</span><kbd>Ctrl+N</kbd></div><div><span>Open&hellip;</span><kbd>Ctrl+O</kbd></div><div><span>Recent &#9656;</span><kbd></kbd></div><hr>'
+  + '<div><span>Save</span><kbd>Ctrl+S</kbd></div><div class="hi"><span>Save As&hellip;</span><kbd>Ctrl+Shift+S</kbd></div><div class="off"><span>Recover unsaved work&hellip;</span><kbd>none waiting</kbd></div><hr>'
+  + '<div><span>Import drawings&hellip;</span><kbd>Ctrl+I</kbd></div><div><span>Import cut&hellip;</span><kbd></kbd></div><div><span>Export&hellip;</span><kbd>Ctrl+M</kbd></div><div><span>Print the Sheet&hellip;</span><kbd>Ctrl+P</kbd></div><hr>'
+  + '<div><span>Collect Files&hellip;</span><kbd></kbd></div><div><span>Check Package</span><kbd></kbd></div><hr>'
+  + '<div><span>Preferences&hellip;</span><kbd></kbd></div><div><span>Session log&hellip;</span><kbd></kbd></div></div>';
+const WSMENU = '<div class="menu" style="left:22.6rem;top:2.2rem"><div class="lab">Where each panel is</div>'
+  + '<div class="on"><span>Standard</span><kbd></kbd></div><div><span>Timing</span><kbd>the Sheet on the left</kbd></div><div><span>My big viewer</span><kbd>saved</kbd></div><hr>'
+  + '<div class="hi"><span>Save workspace&hellip;</span><kbd></kbd></div><div><span>Reset workspace</span><kbd></kbd></div>'
+  + '<div class="lab" style="white-space:normal;max-width:15rem">Right-click a panel&rsquo;s name to move it, or drag it onto another place.</div></div>';
+function empty() {
+  return '<div class="centre"><div class="card"><h2>Start a shot</h2><p class="quiet">This project is empty. Make a composition, the frame the shot happens in, and bring in drawings to lay into it.</p>'
+    + '<div class="acts"><button class="main">New composition&hellip;<kbd class="k">Ctrl+Shift+N</kbd></button><button>Import drawings&hellip;<kbd class="k">Ctrl+I</kbd></button><button>Import cut&hellip;</button><button>Open a project&hellip;<kbd class="k">Ctrl+O</kbd></button></div>'
+    + '<div class="quiet">Recent</div><div class="list">'
+    + '<div class="li"><span class="when">Cut012.tnae</span><span class="path">D:\\Episode03\\Cut012\\Cut012.tnae</span></div>'
+    + '<div class="li"><span class="when">Cut011.tnae</span><span class="path">D:\\Episode03\\Cut011\\Cut011.tnae</span></div>'
+    + '<div class="li"><span class="when">rain test.tnae</span><span class="path">C:\\Users\\me\\Desktop\\rain test.tnae</span></div></div>'
+    + '<div class="drop">or drop a project file, or drawings, anywhere in this window</div></div></div>';
+}
+function recovery() {
+  return '<div class="centre"><div class="card"><h2>Work from before was not saved</h2>'
+    + '<p class="quiet">The program closed with changes to Cut012.tnae that never reached the file. It kept copies as you worked. Your saved file is untouched either way.</p>'
+    + '<div class="saved"><span class="ok">&#10003;</span><span><b>Your saved file</b> &middot; Cut012.tnae, saved today 14:02</span><span class="grow"></span><button class="main">Keep working on it</button></div>'
+    + '<div class="quiet">Autosaved copies, newest first</div><div class="list">'
+    + '<div class="li"><span class="when">Today 14:31</span><span class="path">29 min after the save &middot; Cut012.autosave-2.json</span><button>Open this copy</button></div>'
+    + '<div class="li"><span class="when">Today 14:29</span><span class="path">27 min after the save &middot; Cut012.autosave-1.json</span><button>Open this copy</button></div>'
+    + '<div class="li"><span class="when">Today 14:27</span><span class="path">25 min after the save &middot; Cut012.autosave-0.json</span><button>Open this copy</button></div></div>'
+    + '<p class="quiet" style="margin:0">A copy opens as unsaved work. Cut012.tnae only changes when you save it.</p></div></div>';
+}
+const FAILED = '<div class="fail"><p><b style="color:#ffb3ad">The export stopped at frame 67.</b> Drawing 0067.png of <b>layer3</b> is missing on this computer, so frame 67 could not be drawn.</p>'
+  + '<p>Frames 0 to 66, 67 of them, were written to <b>D:\\Episode03\\Cut012\\out\\</b> and are complete. Nothing after them was written.</p>'
+  + '<div class="acts"><button class="main">Relink&hellip;</button><span class="quiet">or tick &ldquo;Write past missing drawings&rdquo; above and export again</span><span class="grow"></span><button>Error details</button><button class="flat">&#10005; Close</button></div></div>';
+const FIGS = {
+  normal: ['The window&rsquo;s two strips', 'Top: the project&rsquo;s name, File with the two most used beside it, Undo and Redo, the workspace, and the export on the right. Bottom: one line saying what just happened, when a copy was last autosaved, the notes folded to one button, and the way to the shortcut list.', () => win({ notes: true, missing: true, auto: 'A copy autosaved 1 min ago' })],
+  file: ['The File menu', 'Everything that lived as buttons and lists along the top today, with its shortcut: Recent, Collect Files, Check Package, Preferences and the Session log move in here.', () => win({ file: true, notes: true, missing: true, menu: FILEMENU, auto: 'A copy autosaved 1 min ago' })],
+  workspace: ['The Workspace menu', 'Today&rsquo;s workspace list, Save workspace&hellip; and Reset workspace, in one place.', () => win({ ws: true, notes: true, missing: true, menu: WSMENU, auto: 'A copy autosaved 1 min ago' })],
+  notes: ['The notes, opened', 'The warnings that fill the bottom third of the window today become one line. Pressing it opens them above the strip; each says what it means for the picture, and a missing drawing has its Relink&hellip; right there.', () => win({ notes: true, open: true, missing: true, auto: 'A copy autosaved 1 min ago' })],
+  empty: ['An empty project', 'Nothing to show yet, so the middle of the window says how to start, with every way in: a composition, drawings, a cut, a project, a recent one, or a drop.', () => win({ empty: true, st: 'A new, empty project', auto: '' }, empty())],
+  dirty: ['Unsaved changes', 'A dot beside the name, and the strip at the bottom says the difference plainly: an autosaved copy is not your file. No box asks you to save.', () => win({ dirty: true, st: 'Moved layer4', auto: 'Unsaved changes &middot; a copy autosaved 1 min ago, beside the file &middot; your file last saved at 14:02' })],
+  exporting: ['An export running', 'Which frame, how many are written, roughly how long is left, and Cancel export, where Export&hellip; was. The rest of the window keeps working.', () => win({ exporting: true, st: 'Exporting 240 frames as PNG to D:\\Episode03\\Cut012\\out\\', auto: '' })],
+  failed: ['An export that failed', 'Why it stopped, in words, what did get written and where, and what to do next. The tick that lets it write past a missing drawing appears beside Export&hellip; whenever a drawing is missing.', () => win({ missing: true, notes: true, st: 'The export stopped', auto: '', after: FAILED })],
+  recovery: ['The recovery offer', 'On opening a project that has autosaved copies newer than its file. The saved file and the copies are kept visibly apart, and opening a copy changes nothing until you save.', () => win({ st: 'Opened Cut012.tnae', auto: '' }, recovery())],
+};
+const want = new URLSearchParams(location.search).get('fig');
+document.getElementById('out').innerHTML = Object.entries(FIGS).filter(([k]) => !want || k === want)
+  .map(([, [t, c, f]]) => '<figure><h1>' + t + '</h1><p class="cap">' + c + '</p>' + f() + '</figure>').join('');
+</script>
+</body>
+</html>
