@@ -1,0 +1,88 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Night",
+      "effects": [
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.invert",
+          "enabled": true,
+          "parameters": {
+            "channel": "rgb",
+            "amount": 100
+          }
+        },
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.vignette",
+          "enabled": true,
+          "parameters": {
+            "amount": 50,
+            "color": "#000000",
+            "size": 100,
+            "roundness": 0,
+            "softness": 50,
+            "center": [
+              50,
+              50
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Poster",
+      "effects": [
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.posterize",
+          "enabled": true,
+          "parameters": {
+            "levels": 6
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lifted",
+      "effects": [
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.drop_shadow",
+          "enabled": true,
+          "parameters": {
+            "color": "#000000",
+            "opacity": 50,
+            "direction": 135,
+            "distance": 5,
+            "softness": 0
+          }
+        },
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.glow",
+          "enabled": true,
+          "parameters": {
+            "based_on": "bright",
+            "threshold": 60,
+            "colors": [],
+            "tolerance": 0,
+            "radius": 4,
+            "intensity": 1,
+            "operation": "add",
+            "tint": ""
+          }
+        },
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.posterize",
+          "enabled": true,
+          "parameters": {
+            "levels": 6
+          }
+        }
+      ]
+    }
+  ]
+}

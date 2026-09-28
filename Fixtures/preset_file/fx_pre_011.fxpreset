@@ -1,0 +1,25 @@
+{
+  "preset_file_version": 1,
+  "presets": [
+    {
+      "name": "Soft glow",
+      "effects": [
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.glow",
+          "enabled": true,
+          "parameters": {
+            "based_on": "bright",
+            "threshold": 60,
+            "colors": [],
+            "tolerance": 0,
+            "radius": 4,
+            "intensity": 1,
+            "operation": "add",
+            "tint": ""
+          }
+        }
+      ]
+    }
+  ]
+}

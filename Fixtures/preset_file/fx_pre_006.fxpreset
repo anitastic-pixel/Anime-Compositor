@@ -1,0 +1,25 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Wrong radius",
+      "effects": [
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.glow",
+          "enabled": true,
+          "parameters": {
+            "based_on": "bright",
+            "threshold": 60,
+            "colors": [],
+            "tolerance": 0,
+            "radius": -3,
+            "intensity": 1,
+            "operation": "add",
+            "tint": ""
+          }
+        }
+      ]
+    }
+  ]
+}

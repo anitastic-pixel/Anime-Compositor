@@ -24,6 +24,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | MEDIA_AUDIO_UNREADABLE | WARNING | A sound file is not what its name claims: not RIFF WAVE, RF64, no format, no data, or no sample rate (D-71) | keep the layer and its reference; the layer is silent; say why |
 | MEDIA_EXR_ADJUSTED | WARNING | An EXR drawing was drawn, but not exactly as stored (D-62) | draw it; name the file and each reason: channels ignored, pixels outside the display window, samples not finite, alpha clamped, pixel aspect, primaries |
 | EFFECT_UNSUPPORTED | WARNING | Effect type not installed/implemented | preserve serialized record; bypass with visible warning |
+| PRESET_FILE_INVALID | ERROR | A preset file that is not the preset file format, or is a newer version of it (D-180) | import nothing and change nothing; name what was wrong. An effect or setting this build does not have is `EFFECT_UNSUPPORTED`, and refuses the file likewise |
 | EFFECT_PARAMETER_INVALID | ERROR on a command, WARNING on a load and per frame | Effect parameter violates contract | reject the command; on load preserve the record exactly and unrepaired, bypass that one effect while the rest of the stack still runs, warn once per frame it happens, and report fidelity incomplete |
 | MATTE_REFERENCE_MISSING | WARNING | Matte ID unresolved | preserve reference; render defined fallback with warning |
 | MATTE_CYCLE | ERROR | Matte dependency cycle detected | reject command/load render graph |

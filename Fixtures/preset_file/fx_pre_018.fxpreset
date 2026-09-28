@@ -1,0 +1,67 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Soft glow",
+      "effects": [
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.glow",
+          "enabled": true,
+          "parameters": {
+            "based_on": "bright",
+            "threshold": 60,
+            "colors": [],
+            "tolerance": 0,
+            "radius": 4,
+            "intensity": 1,
+            "operation": "add",
+            "tint": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Poster",
+      "effects": [
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.posterize",
+          "enabled": true,
+          "parameters": {
+            "levels": 6
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sparkle",
+      "effects": [
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.invert",
+          "enabled": true,
+          "parameters": {
+            "channel": "rgb",
+            "amount": 100
+          }
+        },
+        {
+          "instance_id": "fx-0-0",
+          "type_id": "core.lens_sparkle",
+          "enabled": true,
+          "parameters": {
+            "based_on": "bright",
+            "threshold": 60,
+            "colors": [],
+            "tolerance": 0,
+            "radius": 4,
+            "intensity": 1,
+            "operation": "add",
+            "tint": ""
+          }
+        }
+      ]
+    }
+  ]
+}

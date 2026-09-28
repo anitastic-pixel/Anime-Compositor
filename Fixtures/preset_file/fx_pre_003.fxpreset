@@ -1,0 +1,32 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Flash",
+      "effects": [
+        {
+          "instance_id": "fx-1-0",
+          "type_id": "core.exposure",
+          "enabled": true,
+          "parameters": {
+            "stops": {
+              "base": 0,
+              "keyframes": [
+                {
+                  "frame": 1,
+                  "value": 0,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 3,
+                  "value": 2,
+                  "interp": "linear"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

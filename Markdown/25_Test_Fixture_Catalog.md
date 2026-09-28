@@ -164085,6 +164085,34 @@ Frame 0: every pixel is the drawing's, unchanged.
 Frame 4: every pixel is the drawing's, unchanged.
 
 
+## Preset file fixtures
+
+D-180, accepted on 2026-09-28. `tools/preset_file_reference.py` writes `Fixtures/preset_file/`: nineteen preset files and `expected_preset_file.json`. Its effects are taken from committed fixture projects, so each is one the build already reads. A valid case gives the presets the build must read, by name and effect type, in order; the build's test also writes each back and reads it again, and must get the same presets. A refused case gives the diagnostic and a word its message must contain, and the build must import nothing from it.
+
+`check` confirms every valid file keeps the rule on its own terms (the two keys, version 0, names present and unrepeated, every preset with effects), that the two effect refusals differ from a valid file only by the unknown effect or setting, that the not-JSON file is not JSON and that the project file is a project.
+
+| case | file | says | the build reads |
+| --- | --- | --- | --- |
+| FX-PRE-001 | `fx_pre_001.fxpreset` | One preset holding one effect: the smallest file. | "Soft glow": core.glow |
+| FX-PRE-002 | `fx_pre_002.fxpreset` | Three presets, read in the file's order, each with its effects in their order. | "Night": core.invert, core.vignette; "Poster": core.posterize; "Lifted": core.drop_shadow, core.glow, core.posterize |
+| FX-PRE-003 | `fx_pre_003.fxpreset` | A keyed setting: the keys come with the preset, at the frames they were at. | "Flash": core.exposure |
+| FX-PRE-004 | `fx_pre_004.fxpreset` | An effect switched off stays off. | "Off for now": core.glow, core.invert |
+| FX-PRE-005 | `fx_pre_005.fxpreset` | A name in Japanese, with inner spaces, is kept exactly as written. | "撃ち合い  光 2": core.glow |
+| FX-PRE-006 | `fx_pre_006.fxpreset` | A setting outside its range is read and kept, as a project file's is (D-46); the effect is not drawn where the preset is applied, and the layer says why. | "Wrong radius": core.glow |
+| FX-PRE-007 | `fx_pre_007.fxpreset` | The same effect id in two presets does not matter: pasting gives each new ids. | "A": core.glow; "B": core.glow |
+| FX-PRE-008 | `fx_pre_008.fxpreset` | Names differing only by capitals are two presets. | "glow": core.glow; "Glow": core.glow |
+| FX-PRE-009 | `fx_pre_009.fxpreset` | Not JSON: a text file chosen by mistake. | refused, `PRESET_FILE_INVALID`, naming JSON |
+| FX-PRE-010 | `fx_pre_010.fxpreset` | A project file chosen by mistake is named as one. | refused, `PRESET_FILE_INVALID`, naming project |
+| FX-PRE-011 | `fx_pre_011.fxpreset` | A newer version is refused, never guessed at. | refused, `PRESET_FILE_INVALID`, naming newer |
+| FX-PRE-012 | `fx_pre_012.fxpreset` | Something the rule does not name, beside the presets, would be lost, so the file is refused. | refused, `PRESET_FILE_INVALID`, naming author |
+| FX-PRE-013 | `fx_pre_013.fxpreset` | Something the rule does not name, in a preset, likewise. | refused, `PRESET_FILE_INVALID`, naming thumbnail |
+| FX-PRE-014 | `fx_pre_014.fxpreset` | A name of spaces only. | refused, `PRESET_FILE_INVALID`, naming name |
+| FX-PRE-015 | `fx_pre_015.fxpreset` | Two presets with one name: which one was meant is not known. | refused, `PRESET_FILE_INVALID`, naming Soft glow |
+| FX-PRE-016 | `fx_pre_016.fxpreset` | A preset with no effects. | refused, `PRESET_FILE_INVALID`, naming Empty |
+| FX-PRE-017 | `fx_pre_017.fxpreset` | A file with no presets. | refused, `PRESET_FILE_INVALID`, naming presets |
+| FX-PRE-018 | `fx_pre_018.fxpreset` | An effect this build does not have, in the last of three presets, refuses the whole file: the first two are not taken either. | refused, `EFFECT_UNSUPPORTED`, naming core.lens_sparkle |
+| FX-PRE-019 | `fx_pre_019.fxpreset` | A setting this build does not have would be lost, so the file is refused. | refused, `EFFECT_UNSUPPORTED`, naming sparkle |
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

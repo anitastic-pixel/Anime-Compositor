@@ -1,0 +1,194 @@
+{
+  "cases": {
+    "FX-PRE-001": {
+      "file": "fx_pre_001.fxpreset",
+      "says": "One preset holding one effect: the smallest file.",
+      "presets": [
+        {
+          "name": "Soft glow",
+          "effects": [
+            "core.glow"
+          ]
+        }
+      ]
+    },
+    "FX-PRE-002": {
+      "file": "fx_pre_002.fxpreset",
+      "says": "Three presets, read in the file's order, each with its effects in their order.",
+      "presets": [
+        {
+          "name": "Night",
+          "effects": [
+            "core.invert",
+            "core.vignette"
+          ]
+        },
+        {
+          "name": "Poster",
+          "effects": [
+            "core.posterize"
+          ]
+        },
+        {
+          "name": "Lifted",
+          "effects": [
+            "core.drop_shadow",
+            "core.glow",
+            "core.posterize"
+          ]
+        }
+      ]
+    },
+    "FX-PRE-003": {
+      "file": "fx_pre_003.fxpreset",
+      "says": "A keyed setting: the keys come with the preset, at the frames they were at.",
+      "presets": [
+        {
+          "name": "Flash",
+          "effects": [
+            "core.exposure"
+          ]
+        }
+      ]
+    },
+    "FX-PRE-004": {
+      "file": "fx_pre_004.fxpreset",
+      "says": "An effect switched off stays off.",
+      "presets": [
+        {
+          "name": "Off for now",
+          "effects": [
+            "core.glow",
+            "core.invert"
+          ]
+        }
+      ]
+    },
+    "FX-PRE-005": {
+      "file": "fx_pre_005.fxpreset",
+      "says": "A name in Japanese, with inner spaces, is kept exactly as written.",
+      "presets": [
+        {
+          "name": "撃ち合い  光 2",
+          "effects": [
+            "core.glow"
+          ]
+        }
+      ]
+    },
+    "FX-PRE-006": {
+      "file": "fx_pre_006.fxpreset",
+      "says": "A setting outside its range is read and kept, as a project file's is (D-46); the effect is not drawn where the preset is applied, and the layer says why.",
+      "presets": [
+        {
+          "name": "Wrong radius",
+          "effects": [
+            "core.glow"
+          ]
+        }
+      ]
+    },
+    "FX-PRE-007": {
+      "file": "fx_pre_007.fxpreset",
+      "says": "The same effect id in two presets does not matter: pasting gives each new ids.",
+      "presets": [
+        {
+          "name": "A",
+          "effects": [
+            "core.glow"
+          ]
+        },
+        {
+          "name": "B",
+          "effects": [
+            "core.glow"
+          ]
+        }
+      ]
+    },
+    "FX-PRE-008": {
+      "file": "fx_pre_008.fxpreset",
+      "says": "Names differing only by capitals are two presets.",
+      "presets": [
+        {
+          "name": "glow",
+          "effects": [
+            "core.glow"
+          ]
+        },
+        {
+          "name": "Glow",
+          "effects": [
+            "core.glow"
+          ]
+        }
+      ]
+    },
+    "FX-PRE-009": {
+      "file": "fx_pre_009.fxpreset",
+      "says": "Not JSON: a text file chosen by mistake.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "JSON"
+    },
+    "FX-PRE-010": {
+      "file": "fx_pre_010.fxpreset",
+      "says": "A project file chosen by mistake is named as one.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "project"
+    },
+    "FX-PRE-011": {
+      "file": "fx_pre_011.fxpreset",
+      "says": "A newer version is refused, never guessed at.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "newer"
+    },
+    "FX-PRE-012": {
+      "file": "fx_pre_012.fxpreset",
+      "says": "Something the rule does not name, beside the presets, would be lost, so the file is refused.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "author"
+    },
+    "FX-PRE-013": {
+      "file": "fx_pre_013.fxpreset",
+      "says": "Something the rule does not name, in a preset, likewise.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "thumbnail"
+    },
+    "FX-PRE-014": {
+      "file": "fx_pre_014.fxpreset",
+      "says": "A name of spaces only.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "name"
+    },
+    "FX-PRE-015": {
+      "file": "fx_pre_015.fxpreset",
+      "says": "Two presets with one name: which one was meant is not known.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "Soft glow"
+    },
+    "FX-PRE-016": {
+      "file": "fx_pre_016.fxpreset",
+      "says": "A preset with no effects.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "Empty"
+    },
+    "FX-PRE-017": {
+      "file": "fx_pre_017.fxpreset",
+      "says": "A file with no presets.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "presets"
+    },
+    "FX-PRE-018": {
+      "file": "fx_pre_018.fxpreset",
+      "says": "An effect this build does not have, in the last of three presets, refuses the whole file: the first two are not taken either.",
+      "refused": "EFFECT_UNSUPPORTED",
+      "names": "core.lens_sparkle"
+    },
+    "FX-PRE-019": {
+      "file": "fx_pre_019.fxpreset",
+      "says": "A setting this build does not have would be lost, so the file is refused.",
+      "refused": "EFFECT_UNSUPPORTED",
+      "names": "sparkle"
+    }
+  }
+}

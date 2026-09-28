@@ -103,6 +103,10 @@ D-69, accepted on 2026-09-18: a layer's `position` may be written `{"x": propert
 
 Migrations operate on serialized records before model construction and must be testable in isolation. A migration never depends on UI state. A failed migration leaves the source file unchanged.
 
+## Effect preset files
+
+D-180. Effect presets are kept by the window, not the project (D-166); a preset file carries them between machines. It is JSON, an object with exactly `preset_file_version` (0, the only version there has been) and `presets`, a list of at least one preset. A preset is an object with exactly `name`, text not empty once its end spaces are taken off and not repeated in the file, and `effects`, a list of at least one effect, each written as a layer's `effects` are, keys and all. The effects are read by the rules pasted effects are read by: an effect type this build does not have, or a field or setting it would not write back, refuses the file. Anything else the rule does not name refuses it too. A file is read whole or refused whole; a refusal changes nothing. A version above 0 is refused, never guessed at. Settings outside their range are read and kept (D-46). Instance ids in a preset carry no meaning: applying a preset gives each effect a new one. Fixtures FX-PRE in document 25.
+
 ## Machine-readable companion
 
 `Schemas/project-v0.schema.json` is the executable validation companion. Example documents live under `Fixtures/projects/`. When this prose and the schema disagree, treat the mismatch as a specification defect and resolve it before implementation rather than choosing one silently.

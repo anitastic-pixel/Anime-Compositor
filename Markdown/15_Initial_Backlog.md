@@ -667,6 +667,8 @@ The owner accepted on 2026-09-28 items 1 to 9 of the agent's list of what is lef
 B-115 / Motion Tile on the graphics card, D-178: the last of the third batch's thirty done by the card when it is the last effect of a drawn layer. **BUILT on 2026-09-28**: `src/compose.rs`, `src/render.rs`, `src/gpu.rs` and `src/layer_fx.rs`, the card's plan carrying growth across and down separately; `tests/b115_gpu_motion_tile.rs` writes `verification/B-115_gpu_motion_tile_table.md`, 238 of 238 within 1 level of 255, with pictures of the worst frame in `verification/B-115 pictures/`. The owner's playtest is `verification/B-115_playtest.md`.
 
 
+B-116 / Effect presets in a file, D-180: *Export presets* and *Import presets* in the Effects panel, a `.fxpreset` file read whole or refused whole. **B-116a, the rule and its fixtures, is written on 2026-09-28**: document 19's "Effect preset files", `PRESET_FILE_INVALID` in document 28, and FX-PRE, nineteen cases, in document 25 from `tools/preset_file_reference.py`. The proposal is `verification/B-116a proposal/preset_file.md`. **B-116b, the build, is next.**
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.
