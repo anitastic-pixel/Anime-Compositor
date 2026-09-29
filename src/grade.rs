@@ -511,6 +511,82 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
         });
 }
 
+/// D-209: a pattern of cells over each pixel that shows, fixed to the drawing's own space (its
+/// corner at `(ox, oy)` in `source`). `numbers` are the contrast, disperse, size, evolution in
+/// degrees, seed and opacity; the two colours are encoded 0 to 1 and mixed in by `blend` as
+/// Fractal Noise's are. The settings are already valid.
+pub(crate) fn cell_pattern(
+    source: &mut WorkingBuffer,
+    pattern: &str,
+    invert: bool,
+    [contrast, disperse, size, evolution, seed, opacity]: [f64; 6],
+    colors: [[f64; 3]; 2],
+    blend: &str,
+    (ox, oy): (usize, usize),
+) {
+    let (w, h) = (source.width(), source.height());
+    if opacity == 0.0 || w == 0 || h == 0 {
+        return;
+    }
+    let (base, t) = (mix(seed.floor() as u64), evolution.to_radians());
+    let at = |x: usize, o: usize| (x as f64 - o as f64 + 0.5) / size;
+    // Each cell's point and grey, worked once for the cells the buffer sees and two round them.
+    let (m0, n0) = (at(0, ox).floor() as i64 - 2, at(0, oy).floor() as i64 - 2);
+    let cols = (at(w - 1, ox).floor() as i64 + 3 - m0) as usize;
+    let rows = (at(h - 1, oy).floor() as i64 + 3 - n0) as usize;
+    let points: Vec<(f64, f64, f64)> = (0..cols * rows)
+        .into_par_iter()
+        .map(|k| {
+            let (m, n) = (m0 + (k % cols) as i64, n0 + (k / cols) as i64);
+            let u = [0, 1, 2, 3].map(|c| unit(base, m, n, 0, c));
+            let r = disperse / 2.0 * (u[0] + 1.0) / 2.0;
+            let a = std::f64::consts::PI * u[1] + if u[2] >= 0.0 { t } else { -t };
+            (m as f64 + 0.5 + r * a.cos(), n as f64 + 0.5 + r * a.sin(), (u[3] + 1.0) / 2.0)
+        })
+        .collect();
+    let (mixer, o) = (mixer(blend), opacity / 100.0);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (x, y) = (at(i % w, ox), at(i / w, oy));
+            let (ci, cj) = ((x.floor() as i64 - 2 - m0) as usize, (y.floor() as i64 - 2 - n0) as usize);
+            // The nearest and second nearest, squared, the first found keeping a tie.
+            let (mut f1, mut f2, mut g) = (f64::INFINITY, f64::INFINITY, 0.0);
+            for n in cj..cj + 5 {
+                for &(qx, qy, grey) in &points[n * cols + ci..n * cols + ci + 5] {
+                    let d = (x - qx) * (x - qx) + (y - qy) * (y - qy);
+                    if d < f1 {
+                        (f1, f2, g) = (d, f1, grey);
+                    } else if d < f2 {
+                        f2 = d;
+                    }
+                }
+            }
+            let (f1, f2) = (f1.sqrt(), f2.sqrt());
+            let k = if f1 + f2 > 0.0 { 2.0 * f1 / (f1 + f2) } else { 0.0 };
+            let v = match pattern {
+                "bubbles" => (1.0 - k * k).sqrt(),
+                "crystals" => 1.0 - k,
+                "plates" => (4.0 * (1.0 - k)).min(1.0),
+                _ => g,
+            };
+            let v = if invert { 1.0 - v } else { v };
+            let v = (0.5 + (v - 0.5) * contrast / 100.0).clamp(0.0, 1.0);
+            for c in 0..3 {
+                let [d, l] = [colors[0][c], colors[1][c]];
+                let color = to_linear(d + v * (l - d));
+                let b = px[c] as f64 / a;
+                px[c] = ((b + o * (mixer(b, color) - b)) * a) as f32;
+            }
+        });
+}
+
 /// D-129: each pixel that shows takes the ramp's colour at its lightness, shadow to midtone
 /// below `midpoint` per cent and midtone to highlight above it, mixed in at `amount` per cent.
 /// The colours are encoded 0 to 1; the settings are already valid.

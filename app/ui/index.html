@@ -6816,6 +6816,7 @@ const EFFECT_NAMES = {
   'core.roughen_edges': 'Roughen Edges',
   'core.beam': 'Beam',
   'core.four_color_gradient': '4-Color Gradient',
+  'core.cell_pattern': 'Cell Pattern',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6837,7 +6838,8 @@ const EFFECT_GROUPS = [
     'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
     'core.corner_pin', 'core.polar_coordinates']],
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
-    'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient']],
+    'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient',
+    'core.cell_pattern']],
   ['Stylize', ['core.drop_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
@@ -6912,6 +6914,7 @@ const EFFECT_SEARCH = {
   'core.roughen_edges': 'roughen edges rough torn ragged eroded burnt burned paper cut out distress edge crumble',
   'core.beam': 'beam laser ray gun shot energy blast lightsaber saber line light bolt',
   'core.four_color_gradient': 'four 4 color colour gradient ramp corners mix sky wash tint rainbow',
+  'core.cell_pattern': 'cell pattern bubbles crystals plates voronoi stained glass scales cracked texture background magic',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -7018,6 +7021,7 @@ const EFFECT_ABOUT = {
   'core.roughen_edges': 'Eats into the layer\'s edges by a rough, changing amount, so a clean cut-out looks torn or burnt; can colour the new edge.',
   'core.beam': 'Draws a straight beam of light, like a laser or energy shot, along a stretch of a line that Time moves from one point to the other.',
   'core.four_color_gradient': 'Pins four colours to four points and runs them smoothly into each other across what the layer shows.',
+  'core.cell_pattern': 'Lays a pattern of cells, like bubbles, crystals or cracked plates, in two colours over what the layer shows.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7392,6 +7396,12 @@ const EFFECT_PARAMS = {
     ['point_4', 'Point 4', 2, 1, '% of the width and height, -1000 to 1000'],
     ['blend', 'Blend', 1, 1, '1 to 1000, how far each colour reaches into the others'],
     ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
+  'core.cell_pattern': [['contrast', 'Contrast', 1, 1, '0 to 1000, 100 as drawn'],
+    ['disperse', 'Disperse', 1, 0.01, '0 to 1.5, 0 a square grid'],
+    ['size', 'Size', 1, 0.5, 'pixels a cell, 1 to 1000'],
+    ['evolution', 'Evolution', 1, 1, 'degrees, one turn moves each cell round and back'],
+    ['seed', 'Random Seed', 1, 1, '0 to 100000, whole numbers'],
+    ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7543,6 +7553,13 @@ const EFFECT_WORDS = {
   'core.four_color_gradient': {
     choices: [['blending_mode', 'Blending Mode', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
     colours: [['color_1', 'Color 1'], ['color_2', 'Color 2'], ['color_3', 'Color 3'], ['color_4', 'Color 4']],
+  },
+  // D-209, After Effects' own words, and Fractal Noise's colours and blend.
+  'core.cell_pattern': {
+    choices: [['pattern', 'Cell Pattern', [['bubbles', 'Bubbles'], ['crystals', 'Crystals'], ['plates', 'Plates'], ['static_plates', 'Static Plates']]],
+      ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
+      ['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
+    colours: [['dark_color', 'Dark Colour'], ['light_color', 'Light Colour']],
   },
   // D-154.
   'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },

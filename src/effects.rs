@@ -1114,6 +1114,24 @@ pub enum Effect {
         opacity: f64,
         blending_mode: String,
     },
+    /// D-209: `pattern`, "bubbles", "crystals", "plates" or "static_plates", and `invert`, "on"
+    /// or "off", kept as written so a wrong one is reported; `contrast`, 0 to 1000; `disperse`, 0
+    /// to 1.5; `size`, pixels a cell, 1 to 1000; `evolution`, degrees, -100000 to 100000; `seed`,
+    /// 0 to 100000, its whole part counted; `dark_color` and `light_color`, `#rrggbb`; `opacity`,
+    /// 0 to 100; and `blend`, Fractal Noise's four words.
+    CellPattern {
+        pattern: String,
+        invert: String,
+        contrast: f64,
+        disperse: f64,
+        size: f64,
+        evolution: f64,
+        seed: f64,
+        dark_color: String,
+        light_color: String,
+        opacity: f64,
+        blend: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1206,6 +1224,7 @@ pub const KALEIDOSCOPE: &str = "core.kaleidoscope";
 pub const ROUGHEN_EDGES: &str = "core.roughen_edges";
 pub const BEAM: &str = "core.beam";
 pub const FOUR_COLOR_GRADIENT: &str = "core.four_color_gradient";
+pub const CELL_PATTERN: &str = "core.cell_pattern";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1926,6 +1945,22 @@ impl Effect {
                 ("blend", vec![blend], 1.0, 1000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::CellPattern {
+                contrast,
+                disperse,
+                size,
+                evolution,
+                seed,
+                opacity,
+                ..
+            } => vec![
+                ("contrast", vec![contrast], 0.0, 1000.0),
+                ("disperse", vec![disperse], 0.0, 1.5),
+                ("size", vec![size], 1.0, 1000.0),
+                ("evolution", vec![evolution], -100000.0, 100000.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -2077,6 +2112,7 @@ impl Effect {
             }
             // D-128: held at one in a draft, as D-127's wave is.
             Effect::FractalNoise { size, .. } => *size = scale(*size).max(1.0),
+            Effect::CellPattern { size, .. } => *size = scale(*size).max(1.0),
             // D-143: held at its smallest, two, rather than bypassed.
             Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),
             // D-144: a block under a pixel is one pixel, which changes nothing.
@@ -2272,6 +2308,7 @@ impl Effect {
             Effect::RoughenEdges { .. } => "Roughen Edges",
             Effect::Beam { .. } => "Beam",
             Effect::FourColorGradient { .. } => "4-Color Gradient",
+            Effect::CellPattern { .. } => "Cell Pattern",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2364,6 +2401,7 @@ impl Effect {
             Effect::RoughenEdges { .. } => ROUGHEN_EDGES,
             Effect::Beam { .. } => BEAM,
             Effect::FourColorGradient { .. } => FOUR_COLOR_GRADIENT,
+            Effect::CellPattern { .. } => CELL_PATTERN,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2837,6 +2875,31 @@ impl Effect {
             } => [("colour 1", color_1), ("colour 2", color_2), ("colour 3", color_3), ("colour 4", color_4)]
                 .into_iter()
                 .find_map(|(what, c)| hex_fault("4-Color Gradient", what, c)),
+            Effect::CellPattern { pattern, .. }
+                if !["bubbles", "crystals", "plates", "static_plates"].contains(&pattern.as_str()) =>
+            {
+                Some(format!(
+                    "Cell Pattern's pattern is \"bubbles\", \"crystals\", \"plates\" or \
+                     \"static_plates\", and this is \"{pattern}\"."
+                ))
+            }
+            Effect::CellPattern { invert, .. } if !["on", "off"].contains(&invert.as_str()) => Some(format!(
+                "Cell Pattern's invert is \"on\" or \"off\", and this is \"{invert}\"."
+            )),
+            Effect::CellPattern { blend, .. }
+                if !["normal", "multiply", "screen", "add"].contains(&blend.as_str()) =>
+            {
+                Some(format!(
+                    "Cell Pattern's blend is \"normal\", \"multiply\", \"screen\" or \"add\", \
+                     and this is \"{blend}\"."
+                ))
+            }
+            Effect::CellPattern {
+                dark_color,
+                light_color,
+                ..
+            } => hex_fault("Cell Pattern", "dark colour", dark_color)
+                .or_else(|| hex_fault("Cell Pattern", "light colour", light_color)),
             Effect::Halftone { ink, paper, .. } => {
                 hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
             }
@@ -3864,6 +3927,30 @@ pub(crate) fn apply_stack_at(
                 let points = [point_1, point_2, point_3, point_4].map(|p| radial_center(*p, source, (ox, oy)));
                 let colors = [color_1, color_2, color_3, color_4].map(|c| encoded(c));
                 crate::grade::four_color_gradient(source, points, colors, *blend, *opacity, blending_mode)
+            }),
+            // D-209: the cells are the drawing's own, however an effect above grew it.
+            Effect::CellPattern {
+                pattern,
+                invert,
+                contrast,
+                disperse,
+                size,
+                evolution,
+                seed,
+                dark_color,
+                light_color,
+                opacity,
+                blend,
+            } => crate::perf::time(crate::perf::Stage::EffectCellPattern, || {
+                crate::grade::cell_pattern(
+                    source,
+                    pattern,
+                    invert == "on",
+                    [*contrast, *disperse, *size, *evolution, *seed, *opacity],
+                    [encoded(dark_color), encoded(light_color)],
+                    blend,
+                    (ox, oy),
+                )
             }),
             // D-205: round the drawing's own centre, however an effect above grew it; the layer
             // never grows.

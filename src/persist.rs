@@ -2017,6 +2017,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
+        Effect::CellPattern {
+            pattern,
+            invert,
+            contrast,
+            disperse,
+            size,
+            evolution,
+            seed,
+            dark_color,
+            light_color,
+            opacity,
+            blend,
+        } => {
+            for (name, w) in [("pattern", pattern), ("invert", invert), ("dark_color", dark_color), ("light_color", light_color), ("blend", blend)] {
+                params.insert(name.into(), J::from(w.as_str()));
+            }
+            for (name, v) in [("contrast", contrast), ("disperse", disperse), ("size", size), ("evolution", evolution), ("seed", seed), ("opacity", opacity)] {
+                params.insert(name.into(), num(*v));
+            }
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2554,6 +2574,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "point_3",
         "point_4",
         "blend",
+        "disperse",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -3043,6 +3064,7 @@ fn parse_effect(
         crate::effects::ROUGHEN_EDGES,
         crate::effects::BEAM,
         crate::effects::FOUR_COLOR_GRADIENT,
+        crate::effects::CELL_PATTERN,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3681,6 +3703,19 @@ fn parse_effect(
             blend: effect_number(params, "blend", &at)?,
             opacity: effect_number(params, "opacity", &at)?,
             blending_mode: effect_word(params, "blending_mode", &at)?,
+        }),
+        crate::effects::CELL_PATTERN => Some(crate::effects::Effect::CellPattern {
+            pattern: effect_word(params, "pattern", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            contrast: effect_number(params, "contrast", &at)?,
+            disperse: effect_number(params, "disperse", &at)?,
+            size: effect_number(params, "size", &at)?,
+            evolution: effect_number(params, "evolution", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            dark_color: effect_word(params, "dark_color", &at)?.to_ascii_lowercase(),
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            blend: effect_word(params, "blend", &at)?,
         }),
         _ => None,
     };
