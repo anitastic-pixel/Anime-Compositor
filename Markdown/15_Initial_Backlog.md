@@ -677,6 +677,8 @@ B-119 / Line Blur, D-183: lines softened along their own length and never across
 
 B-120 / HSV Key, D-184: a colour taken out by windows of hue, saturation and value, ported from OpenToonz's HSV Key under its BSD licence with four changes. **B-120a, the rule and its fixtures, is written on 2026-09-28**: the rule in document 21, FX-HSV-001 to 016 in document 25 from `tools/hsv_key_reference.py`, which writes `Fixtures/hsv_key/`. The proposal is `verification/B-120a proposal/hsv_key.md`, with `hsv_key.png`. **BUILT on 2026-09-28**: the rule in `src/hsv_key.rs` and the effect `core.hsv_key` through the file, the commands, the frame and the card (Hue, Saturation, Value, their three ranges and Invert, under Lines & Mattes). It is drawn on the processor. `tests/b120_hsv_key.rs` writes `verification/B-120_hsv_key_table.md`, 67 of 67, and a figure in front of a green screen keyed three ways in `verification/B-120 pictures/`. The playtest sheet is `verification/B-120_playtest.md`, **awaiting the owner's playtest**.
 
+B-121 / Paraffin, D-185: a soft wash of colour over a figure from one side, fitted to the figure, fading on an airbrush curve, with overlay and soft light among its blends; our own effect. **B-121a, the rule and its fixtures, is written on 2026-09-28**: the rule in document 21, FX-PARA-001 to 023 in document 25 from `tools/paraffin_reference.py`, which writes `Fixtures/paraffin/`. The proposal is `verification/B-121a proposal/paraffin.md`, with `paraffin.png`. **B-121b, the build, is next.**
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.
