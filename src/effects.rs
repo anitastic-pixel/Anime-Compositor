@@ -821,6 +821,20 @@ pub enum Effect {
         edges: String,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-193: `layer` and `fit`, D-189's layer setting as Compound Blur has them;
+    /// `horizontal` and `vertical`, which of the map's channels moves the picture across and
+    /// down; `max_horizontal` and `max_vertical`, -1000 to 1000 pixels, how far; and `wrap`,
+    /// `off` or `on`. `map` is not a setting and is never saved: compose reads it for each frame.
+    DisplacementMap {
+        layer: serde_json::Value,
+        fit: String,
+        horizontal: String,
+        max_horizontal: f64,
+        vertical: String,
+        max_vertical: f64,
+        wrap: String,
+        map: Option<crate::layer_map::Map>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -897,6 +911,7 @@ pub const PARAFFIN: &str = "core.paraffin";
 pub const KIRA_KIRA: &str = "core.kira_kira";
 pub const LIGHTNING_BOLT: &str = "core.lightning_bolt";
 pub const COMPOUND_BLUR: &str = "core.compound_blur";
+pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1498,6 +1513,10 @@ impl Effect {
                 ("seed", vec![seed], 0.0, 100000.0),
             ],
             Effect::CompoundBlur { max_blur, .. } => vec![("max_blur", vec![max_blur], 0.0, 500.0)],
+            Effect::DisplacementMap { max_horizontal, max_vertical, .. } => vec![
+                ("max_horizontal", vec![max_horizontal], -1000.0, 1000.0),
+                ("max_vertical", vec![max_vertical], -1000.0, 1000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1615,6 +1634,10 @@ impl Effect {
                 *glow = scale(*glow);
             }
             Effect::CompoundBlur { max_blur, .. } => *max_blur = scale(*max_blur),
+            Effect::DisplacementMap { max_horizontal, max_vertical, .. } => {
+                *max_horizontal = scale(*max_horizontal);
+                *max_vertical = scale(*max_vertical);
+            }
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1720,6 +1743,7 @@ impl Effect {
             Effect::KiraKira { .. } => "Kira-kira",
             Effect::LightningBolt { .. } => "Lightning Bolt",
             Effect::CompoundBlur { .. } => "Compound Blur",
+            Effect::DisplacementMap { .. } => "Displacement Map",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1796,6 +1820,7 @@ impl Effect {
             Effect::KiraKira { .. } => KIRA_KIRA,
             Effect::LightningBolt { .. } => LIGHTNING_BOLT,
             Effect::CompoundBlur { .. } => COMPOUND_BLUR,
+            Effect::DisplacementMap { .. } => DISPLACEMENT_MAP,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1972,7 +1997,8 @@ impl Effect {
     /// written as a word.
     pub fn layer_setting(&self) -> Option<(&str, &str)> {
         match self {
-            Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             _ => None,
         }
     }
@@ -1980,7 +2006,7 @@ impl Effect {
     /// D-189: the layer setting as written, and the map compose reads into for a frame.
     pub fn layer_setting_mut(&mut self) -> Option<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
         match self {
-            Effect::CompoundBlur { layer, map, .. } => Some((layer, map)),
+            Effect::CompoundBlur { layer, map, .. } | Effect::DisplacementMap { layer, map, .. } => Some((layer, map)),
             _ => None,
         }
     }
@@ -2234,6 +2260,23 @@ impl Effect {
                 "Compound Blur's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
             Effect::CompoundBlur { edges: e, .. } => edges(e),
+            Effect::DisplacementMap { layer, .. } if !layer.is_string() => Some(format!(
+                "Displacement Map's layer is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::DisplacementMap { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "Displacement Map's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::DisplacementMap { horizontal: w, .. } | Effect::DisplacementMap { vertical: w, .. }
+                if !["red", "green", "blue", "alpha", "luminance", "hue", "lightness", "saturation", "full", "off"].contains(&w.as_str()) =>
+            {
+                Some(format!(
+                    "Displacement Map reads red, green, blue, alpha, luminance, hue, lightness, \
+                     saturation, full or off, and this is \"{w}\"."
+                ))
+            }
+            Effect::DisplacementMap { wrap, .. } if !["off", "on"].contains(&wrap.as_str()) => Some(format!(
+                "Displacement Map's wrap is \"off\" or \"on\", and this is \"{wrap}\"."
+            )),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
             {
@@ -3277,6 +3320,21 @@ pub(crate) fn apply_stack_at(
                 if let Some(map) = map {
                     crate::perf::time(crate::perf::Stage::EffectCompoundBlur, || {
                         crate::layer_fx::compound_blur(source, &map.0, (ox, oy), *max_blur, invert == "on", edges == "repeat")
+                    })
+                }
+            }
+            // D-193: the map compose read for this frame; with none, nothing moves.
+            Effect::DisplacementMap { horizontal, max_horizontal, vertical, max_vertical, wrap, map, .. } => {
+                if let Some(map) = map {
+                    crate::perf::time(crate::perf::Stage::EffectDisplacementMap, || {
+                        crate::layer_fx::displacement_map(
+                            source,
+                            &map.0,
+                            (ox, oy),
+                            [horizontal, vertical],
+                            [*max_horizontal, *max_vertical],
+                            wrap == "on",
+                        )
                     })
                 }
             }

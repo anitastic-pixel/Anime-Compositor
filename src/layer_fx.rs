@@ -1998,3 +1998,70 @@ pub(crate) fn compound_blur(
     }
     *source = out;
 }
+
+/// D-193: Displacement Map. Each pixel takes the picture's colour from a place moved across and
+/// down by the map under it, the map lying on the layer's own picture, which sits at `origin` in
+/// `source`. `words` name the map's channels for across and down, and `most` how far each moves
+/// where that channel is white; black moves as far the other way, and mid grey not at all.
+/// Outside the picture is clear, or with `wrap`, the picture's far side.
+pub(crate) fn displacement_map(
+    source: &mut WorkingBuffer,
+    map: &WorkingBuffer,
+    origin: (usize, usize),
+    words: [&str; 2],
+    most: [f64; 2],
+    wrap: bool,
+) {
+    let value = |word: &str, m: [f32; 4]| {
+        let a = m[3] as f64;
+        match word {
+            "full" => return 1.0,
+            "off" => return 0.5,
+            "alpha" => return a,
+            _ if a <= 0.0 => return 0.5,
+            _ => {}
+        }
+        let straight = [0, 1, 2].map(|c| (m[c] as f64 / a).clamp(0.0, 1.0));
+        let c = straight.map(crate::grade::to_srgb);
+        let k = match word {
+            "red" => c[0],
+            "green" => c[1],
+            "blue" => c[2],
+            "luminance" => crate::grade::to_srgb(0.2126 * straight[0] + 0.7152 * straight[1] + 0.0722 * straight[2]),
+            "hue" => crate::grade::to_hsl(c)[0] / 360.0,
+            "saturation" => crate::grade::to_hsl(c)[1],
+            _ => crate::grade::to_hsl(c)[2],
+        };
+        0.5 + a * (k - 0.5)
+    };
+    let from = source.clone();
+    let (w, h) = (from.width(), from.height());
+    let (mw, mh) = (map.width(), map.height());
+    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+        for (x, o) in row.chunks_mut(4).enumerate() {
+            let (mx, my) = (x.wrapping_sub(origin.0), y.wrapping_sub(origin.1));
+            let m = if mx < mw && my < mh { map.pixel(mx, my) } else { [0.0; 4] };
+            let sx = x as f64 + 0.5 + (2.0 * value(words[0], m) - 1.0) * most[0];
+            let sy = y as f64 + 0.5 + (2.0 * value(words[1], m) - 1.0) * most[1];
+            let p = if wrap { wrapped(&from, (w, h), sx, sy) } else { sample_bilinear(&from, sx, sy) };
+            o.copy_from_slice(&p);
+        }
+    });
+}
+
+/// Document 21's bilinear read, the four pixels' places taken round the picture's edges.
+fn wrapped(src: &WorkingBuffer, (w, h): (usize, usize), x: f64, y: f64) -> [f32; 4] {
+    let (fx, fy) = (x - 0.5, y - 0.5);
+    let (x0, y0) = (fx.floor(), fy.floor());
+    let (ux, uy) = (fx - x0, fy - y0);
+    let mut out = [0.0f32; 4];
+    for (dy, wy) in [(0.0, 1.0 - uy), (1.0, uy)] {
+        for (dx, wx) in [(0.0, 1.0 - ux), (1.0, ux)] {
+            let px = src.pixel((x0 + dx).rem_euclid(w as f64) as usize, (y0 + dy).rem_euclid(h as f64) as usize);
+            for i in 0..4 {
+                out[i] += px[i] * (wx * wy) as f32;
+            }
+        }
+    }
+    out
+}

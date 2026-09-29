@@ -6799,6 +6799,7 @@ const EFFECT_NAMES = {
   'core.kira_kira': 'Kira-kira',
   'core.lightning_bolt': 'Lightning Bolt',
   'core.compound_blur': 'Compound Blur',
+  'core.displacement_map': 'Displacement Map',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6816,8 +6817,8 @@ const EFFECT_GROUPS = [
     'core.paraffin']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
     'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key']],
-  ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple', 'core.twirl',
-    'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile']],
+  ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple',
+    'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile']],
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain']],
   ['Stylize', ['core.drop_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize']],
@@ -6876,6 +6877,7 @@ const EFFECT_SEARCH = {
   'core.kira_kira': 'sparkle twinkle glint star highlight shine gleam anime kira',
   'core.lightning_bolt': 'lightning advanced electric electricity spark thunder storm bolt zap',
   'core.compound_blur': 'compound variable map depth focus blur layer',
+  'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6966,6 +6968,7 @@ const EFFECT_ABOUT = {
   'core.kira_kira': 'Sets small twinkling stars on the near-white highlights, an eye\'s glint or a blade\'s edge, each on its own beat.',
   'core.lightning_bolt': 'Draws a jagged, forking bolt of light from one point to another, a new one every few frames.',
   'core.compound_blur': 'Blurs the layer more where another layer of the composition is brighter.',
+  'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7257,6 +7260,10 @@ const EFFECT_PARAMS = {
     ['seed', 'Seed', 1, 1, '0 to 100000, which bolts']],
   // D-191.
   'core.compound_blur': [['max_blur', 'Maximum Blur', 1, 0.5, '0 to 500 px, the blur where the map is white']],
+  // D-193.
+  'core.displacement_map': [
+    ['max_horizontal', 'Max Horizontal Displacement', 1, 0.5, 'px, -1000 to 1000, left where the channel is white'],
+    ['max_vertical', 'Max Vertical Displacement', 1, 0.5, 'px, -1000 to 1000, up where the channel is white']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7266,6 +7273,10 @@ const EFFECT_PARAMS = {
 // and `chosen`, when it has a list of chosen colours, saying when the list is shown.
 // D-109: the three blurs' edges.
 const EDGES = ['edges', 'Edges', [['transparent', 'Transparent'], ['repeat', 'Repeat Edge Pixels']]];
+// D-193: which of a map's channels moves a picture.
+const MAP_CHANNELS = [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha'],
+  ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'],
+  ['full', 'Full'], ['off', 'Off']];
 const EFFECT_WORDS = {
   'core.gaussian_blur': { choices: [EDGES] },
   'core.directional_blur': { choices: [EDGES] },
@@ -7407,6 +7418,14 @@ const EFFECT_WORDS = {
     layers: [['layer', 'Blur Layer', 'blur_layer']],
     choices: [['fit', 'If Sizes Differ', [['stretch', 'Stretch Map to Fit'], ['center', 'Centre'], ['tile', 'Tile']]],
       ['invert', 'Invert Blur', [['off', 'Off'], ['on', 'On']]], EDGES],
+  },
+  // D-193, After Effects' own words.
+  'core.displacement_map': {
+    layers: [['layer', 'Displacement Map Layer', 'map_layer']],
+    choices: [['horizontal', 'Use For Horizontal Displacement', MAP_CHANNELS],
+      ['vertical', 'Use For Vertical Displacement', MAP_CHANNELS],
+      ['fit', 'Displacement Map Behavior', [['stretch', 'Stretch Map to Fit'], ['center', 'Centre Map'], ['tile', 'Tile Map']]],
+      ['wrap', 'Wrap Pixels Around', [['off', 'Off'], ['on', 'On']]]],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.

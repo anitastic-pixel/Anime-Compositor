@@ -1776,6 +1776,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("edges".into(), J::from(edges.as_str()));
         }
+        Effect::DisplacementMap { layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap, .. } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("horizontal".into(), J::from(horizontal.as_str()));
+            params.insert("max_horizontal".into(), num(*max_horizontal));
+            params.insert("vertical".into(), J::from(vertical.as_str()));
+            params.insert("max_vertical".into(), num(*max_vertical));
+            params.insert("wrap".into(), J::from(wrap.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2268,6 +2277,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "branches",
         "glow",
         "max_blur",
+        "max_horizontal",
+        "max_vertical",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2724,6 +2735,7 @@ fn parse_effect(
         crate::effects::KIRA_KIRA,
         crate::effects::LIGHTNING_BOLT,
         crate::effects::COMPOUND_BLUR,
+        crate::effects::DISPLACEMENT_MAP,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3214,6 +3226,17 @@ fn parse_effect(
             max_blur: effect_number(params, "max_blur", &at)?,
             invert: effect_word(params, "invert", &at)?,
             edges: effect_word(params, "edges", &at)?,
+            map: None,
+        }),
+        // D-193: the layer is kept as written, as Compound Blur's is.
+        crate::effects::DISPLACEMENT_MAP => Some(crate::effects::Effect::DisplacementMap {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            horizontal: effect_word(params, "horizontal", &at)?,
+            max_horizontal: effect_number(params, "max_horizontal", &at)?,
+            vertical: effect_word(params, "vertical", &at)?,
+            max_vertical: effect_number(params, "max_vertical", &at)?,
+            wrap: effect_word(params, "wrap", &at)?,
             map: None,
         }),
         _ => None,

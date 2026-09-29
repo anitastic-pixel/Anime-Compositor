@@ -177,7 +177,7 @@ pub(crate) fn levels(source: &mut WorkingBuffer, [ib, iw, gamma, ob, ow]: [f64; 
 
 /// D-113: a straight colour, 0 to 1, as hue in degrees, saturation and lightness. Of equal
 /// largest channels, red counts before green and green before blue.
-fn to_hsl([r, g, b]: [f64; 3]) -> [f64; 3] {
+pub(crate) fn to_hsl([r, g, b]: [f64; 3]) -> [f64; 3] {
     let (mx, mn) = (r.max(g).max(b), r.min(g).min(b));
     let c = mx - mn;
     let l = (mx + mn) / 2.0;
