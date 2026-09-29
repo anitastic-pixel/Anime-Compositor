@@ -679,6 +679,8 @@ B-120 / HSV Key, D-184: a colour taken out by windows of hue, saturation and val
 
 B-121 / Paraffin, D-185: a soft wash of colour over a figure from one side, fitted to the figure, fading on an airbrush curve, with overlay and soft light among its blends; our own effect. **B-121a, the rule and its fixtures, is written on 2026-09-28**: the rule in document 21, FX-PARA-001 to 023 in document 25 from `tools/paraffin_reference.py`, which writes `Fixtures/paraffin/`. The proposal is `verification/B-121a proposal/paraffin.md`, with `paraffin.png`. **BUILT on 2026-09-28**: the rule in `src/grade.rs` and the effect `core.paraffin` through the file, the commands, the frame and the card (Direction on a dial, Spread, Opacity, Blend and Colour, under Light & Glow). It is drawn on the processor. `tests/b121_paraffin.rs` writes `verification/B-121_paraffin_table.md`, 89 of 89, and a figure on a clear cel washed four ways in `verification/B-121 pictures/`. The playtest sheet is `verification/B-121_playtest.md`, **awaiting the owner's playtest**.
 
+B-122 / Kira-kira, D-186: twinkling four- and eight-pointed stars set on a drawing's near-white highlights, one per cell at the middle of its highlights, each growing and fading on its own beat; our own effect. **B-122a, the rule and its fixtures, is written on 2026-09-28**: the rule in document 21, FX-KIRA-001 to 029 in document 25 from `tools/kira_kira_reference.py`, which writes `Fixtures/kira_kira/`. The proposal is `verification/B-122a proposal/kira_kira.md`, with `kira_kira.png`. **B-122b, the build, is next.**
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.
