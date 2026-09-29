@@ -34,6 +34,7 @@ pub mod selective_blur;
 pub mod exr_io;
 mod glow;
 mod layer_fx;
+mod layer_map;
 mod grade;
 pub mod lut;
 pub mod mask;

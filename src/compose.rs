@@ -243,7 +243,7 @@ fn plan_inside(
             continue;
         }
         let Some(resolved) = resolve_layer(
-            project, comp, layer, frame, root, quality, cache, log, above, card,
+            project, comp, layer, frame, root, quality, cache, log, above, card, false,
         ) else {
             continue;
         };
@@ -271,6 +271,7 @@ fn plan_inside(
                         cache,
                         log,
                         above,
+                        false,
                         false,
                     )
                     .map(|m| {
@@ -743,6 +744,8 @@ pub fn screen_transform_at(
     }
 }
 
+/// `map` (D-189): stop after step 3, the picture cut back to its step-1 rectangle, for an
+/// effect's layer setting; at a draft divisor any picture is then taken down, effects or not.
 #[allow(clippy::too_many_arguments)]
 fn resolve_layer(
     project: &Project,
@@ -755,6 +758,7 @@ fn resolve_layer(
     log: &mut FrameLog,
     above: &mut Vec<Id>,
     card: bool,
+    map: bool,
 ) -> Option<ResolvedLayer> {
     // D-71: an audio layer draws nothing, so no frame is any different for it (FX-AUD-020).
     // D-82: nor does a null, whatever its switch, opacity or timing say (FX-NULL-001, 002).
@@ -856,6 +860,7 @@ fn resolve_layer(
             None,
             quality.divisor() as f64,
             false,
+            map,
         )?;
         resolved.nested = Some((inner_id.clone(), local));
         return Some(resolved);
@@ -914,40 +919,43 @@ fn resolve_layer(
         (std::sync::Arc::new(shape), None)
     } else {
         let (source, cel) = decode_cel(project, layer, frame, root, cache, log)?;
-        // D-99: in a draft preview a drawing with effects is taken down to the draft size
-        // first, sampled exactly as the draft frame samples it, and its stack runs on that - a
-        // sixteenth of the pixels - as D-67 already does for a composition layer's picture.
-        // `Full` never enters here, so a full preview and an export are what they were.
-        if quality != PreviewQuality::Full && layer.effects.iter().any(|i| i.enabled) {
-            let d = quality.divisor();
-            let small = crate::preview::scale_plan(
-                FramePlan {
-                    width: source.width(),
-                    height: source.height(),
-                    layers: vec![LayerDraw {
-                        id: layer.id.clone(),
-                        source,
-                        transform: Affine::IDENTITY,
-                        opacity: 1.0,
-                        matte: None,
-                        blend: crate::model::BlendMode::Normal,
-                        adjust: None,
-                        nested: None,
-                        on_card: None,
-                        wrap: Vec::new(),
-                        motion_blur: false,
-                    }],
-                },
-                quality,
-            );
-            let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
-            return resolve_rest(
-                project, root, comp, layer, frame, cache, log, small, Some(cel), d as f64, card,
-            );
-        }
         (source, Some(cel))
     };
-    resolve_rest(project, root, comp, layer, frame, cache, log, source, cel, 1.0, card)
+    // D-99: in a draft preview a drawing with effects is taken down to the draft size first,
+    // sampled exactly as the draft frame samples it, and its stack runs on that - a sixteenth of
+    // the pixels - as D-67 already does for a composition layer's picture. D-189: a map at a
+    // draft divisor is taken down so, whatever its layer. `Full` never enters here, so a full
+    // preview and an export are what they were.
+    if quality != PreviewQuality::Full
+        && (map || (cel.is_some() && layer.effects.iter().any(|i| i.enabled)))
+    {
+        let d = quality.divisor();
+        let small = crate::preview::scale_plan(
+            FramePlan {
+                width: source.width(),
+                height: source.height(),
+                layers: vec![LayerDraw {
+                    id: layer.id.clone(),
+                    source,
+                    transform: Affine::IDENTITY,
+                    opacity: 1.0,
+                    matte: None,
+                    blend: crate::model::BlendMode::Normal,
+                    adjust: None,
+                    nested: None,
+                    on_card: None,
+                    wrap: Vec::new(),
+                    motion_blur: false,
+                }],
+            },
+            quality,
+        );
+        let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
+        return resolve_rest(
+            project, root, comp, layer, frame, cache, log, small, cel, d as f64, card, map,
+        );
+    }
+    resolve_rest(project, root, comp, layer, frame, cache, log, source, cel, 1.0, card, map)
 }
 
 /// Document 21 step 1 for a drawn layer: which file it shows at `frame`, decoded, or `None`
@@ -1032,6 +1040,9 @@ fn decode_cel(
 /// composition layer in a draft preview, whose picture was rendered at the draft divisor
 /// (D-67): the mask and a blur's sigma are divided by it and the transform multiplies it back.
 /// At 1 none of that is entered, so a full-size frame is computed exactly as it was before.
+///
+/// `map` (D-189) returns after step 3, the picture cut back to its step-1 rectangle and
+/// placed nowhere: what an effect's layer setting reads.
 #[allow(clippy::too_many_arguments)]
 fn resolve_rest(
     project: &Project,
@@ -1045,7 +1056,9 @@ fn resolve_rest(
     cel: Option<(PathBuf, crate::model::Interpretation)>,
     pre: f64,
     card: bool,
+    map: bool,
 ) -> Option<ResolvedLayer> {
+    let step1 = (source.width(), source.height());
     // D-188: the moments of a motion-blurred layer's shutter. Its effects all run here, once,
     // because the card does not draw motion blur yet.
     let times = if layer.motion_blur && !layer.is_adjustment() {
@@ -1391,6 +1404,21 @@ fn resolve_rest(
             }
         }
     };
+    if map {
+        let source = if offset == (0, 0) && (source.width(), source.height()) == step1 {
+            source
+        } else {
+            std::sync::Arc::new(crate::layer_map::cut(&source, offset, step1))
+        };
+        return Some(ResolvedLayer {
+            source,
+            transform: Affine::IDENTITY,
+            opacity: 1.0,
+            nested: None,
+            on_card: None,
+            moments: Vec::new(),
+        });
+    }
     let mut offset = offset;
     let on_card = left.and_then(|i| {
         let mut effect = effects[i].effect.clone();
@@ -1818,6 +1846,83 @@ fn settle(
         Affine::scaling(d as f64, d as f64)
     };
     resolved
+}
+
+/// D-189: the map an effect on layer `holder` reads from the layer its setting `named`, at
+/// composition frame `frame`: document 21's four steps for a layer setting, fitted by `fit`.
+///
+/// `None` is no map: an empty name, which says nothing; a name that is no layer of the holder's
+/// composition, which says `EFFECT_LAYER_MISSING`; or a fit word that is none of the three. A
+/// layer with nothing to show at `frame` - a null, a layer not in, a missing drawing or
+/// composition - gives a transparent map, and its own diagnostic says why.
+#[allow(clippy::too_many_arguments)]
+pub fn layer_map(
+    project: &Project,
+    composition_id: &Id,
+    holder: &Id,
+    named: &str,
+    fit: &str,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    log: &mut FrameLog,
+) -> Option<WorkingBuffer> {
+    let comp = project.composition(composition_id)?;
+    let holder = comp.layer(holder)?;
+    if named.is_empty() {
+        return None;
+    }
+    let Some(layer) = comp.layer(&Id::new(named)) else {
+        log.record(
+            frame,
+            holder.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::EffectLayerMissing,
+                Severity::Warning,
+                format!(
+                    "An effect on layer {} reads layer {named}, which is not in this composition.",
+                    holder.name
+                ),
+                format!("The setting is kept as written; frame {frame} is drawn without the effect."),
+            )
+            .with_remediation("Choose a layer of this composition, or undo the delete that took it."),
+        );
+        return None;
+    };
+    // Step 3: the map is made at the size the holder's own effects run at, the draft divisor
+    // where D-99, D-67 or D-66 runs them there and full size for a solid or a shape layer.
+    let small = holder.composition_id.is_some()
+        || holder.is_adjustment()
+        || (holder.kind == crate::model::LayerKind::Raster && holder.effects.iter().any(|i| i.enabled));
+    let quality = if small { quality } else { PreviewQuality::Full };
+    let cache = &mut CelCache::none();
+    let mut picture = |layer: &crate::model::Layer, log: &mut FrameLog| {
+        resolve_layer(project, comp, layer, frame, root, quality, cache, log, &mut Vec::new(), false, true)
+            .map(|resolved| resolved.source)
+    };
+    let bare = |layer: &crate::model::Layer, masks: bool| {
+        let mut layer = layer.clone();
+        layer.effects.clear();
+        if !masks {
+            layer.masks.clear();
+        }
+        layer
+    };
+    // ponytail: the holder's step-1 picture is made here only for its size. The effects that
+    // hold a layer setting (A2 to A4) know it already and will ask for the map with it.
+    let size = picture(&bare(holder, false), &mut FrameLog::new(usize::MAX))
+        .map_or((0, 0), |p| (p.width(), p.height()));
+    // Step 1: the holder itself gives its drawing and masks, and an adjustment layer its white
+    // through its masks; their effects are not run.
+    let stripped;
+    let layer = if layer.id == holder.id || layer.is_adjustment() {
+        stripped = bare(layer, true);
+        &stripped
+    } else {
+        layer
+    };
+    let picture = picture(layer, log).unwrap_or_else(|| std::sync::Arc::new(WorkingBuffer::transparent(0, 0)));
+    crate::layer_map::fit(&picture, fit, size)
 }
 
 /// [`plan_frame`], then document 20's step 8.

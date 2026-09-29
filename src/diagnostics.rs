@@ -213,6 +213,10 @@ pub enum DiagnosticId {
     /// Document 28, added by D-180: a preset file that is not the preset file format, or is a
     /// newer version of it. Nothing is imported and nothing is changed.
     PresetFileInvalid,
+    /// Document 28, added by D-189: an effect's layer setting naming a layer that is not in the
+    /// holder's composition, deleted or of another composition. WARNING: the setting is kept
+    /// as written and the effect is skipped, every frame.
+    EffectLayerMissing,
 }
 
 impl DiagnosticId {
@@ -280,6 +284,7 @@ impl DiagnosticId {
             DiagnosticId::TimesheetNotUsed => "TIMESHEET_NOT_USED",
             DiagnosticId::GpuPreviewOnCpu => "GPU_PREVIEW_ON_CPU",
             DiagnosticId::PresetFileInvalid => "PRESET_FILE_INVALID",
+            DiagnosticId::EffectLayerMissing => "EFFECT_LAYER_MISSING",
         }
     }
 
@@ -342,6 +347,7 @@ impl DiagnosticId {
                 | DiagnosticId::TimesheetDrawingUnused
                 | DiagnosticId::TimesheetNotUsed
                 | DiagnosticId::PresetFileInvalid
+                | DiagnosticId::EffectLayerMissing
         )
     }
 }
