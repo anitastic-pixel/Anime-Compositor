@@ -247,7 +247,7 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
             let (from, to) = (number("from", 0), number("to", 0));
             let to = to.clamp(from, from.saturating_add(10_000));
             let samples: Vec<serde_json::Value> = (from..=to)
-                .map(|f| serde_json::json!(fx.at(f).get(&setting)))
+                .map(|f| serde_json::json!(fx.at_time(f, layer.key_time(f as f64)).get(&setting)))
                 .collect();
             return Some(serde_json::json!({ "from": from, "to": to, "samples": samples }));
         }
@@ -274,8 +274,10 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
                     .sum::<f64>()
                     / p.len().max(1) as f64
             };
+            // B-150c: read at the frame's key time, as the picture is.
             let travelled = |f: i32| {
-                let i = keys.partition_point(|k| k.frame <= f);
+                let u = layer.key_time(f as f64);
+                let i = keys.partition_point(|k| k.frame as f64 <= u);
                 if i == 0 {
                     return 0.0;
                 }
@@ -283,7 +285,7 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
                     .windows(2)
                     .map(|w| apart(&w[0].points, &w[1].points))
                     .sum();
-                before + apart(&keys[i - 1].points, &anime_compositor::mask::points_at(base, keys, f))
+                before + apart(&keys[i - 1].points, &anime_compositor::mask::points_at_time(base, keys, u))
             };
             let (from, to) = (number("from", 0), number("to", 0));
             let to = to.clamp(from, from.saturating_add(10_000));
@@ -293,6 +295,8 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
         }
         // D-22: a scale is a percentage in the panels and a lens is millimetres, so the graph is
         // drawn in the numbers the inspector beside it shows.
+        // B-150c: a layer's keys are read at its key time, the camera's at the frame itself.
+        let mut when: Option<&Layer> = None;
         let (held, factor) = if parameter(query, "target").as_deref() == Some("camera") {
             // B-13e's camera, at the default the renderer uses when the file has none.
             use anime_compositor::model::{Camera, CameraProp};
@@ -306,6 +310,7 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
         } else {
             let prop = property(&name)?;
             let layer = comp.layer(&Id::new(&parameter(query, "layer")?))?;
+            when = Some(layer);
             // B-13d: looked up once rather than per frame, because the lookup that reaches a
             // depth as well as the five hands back something owned.
             (property_of(layer, prop), if prop == Prop::Scale { 100.0 } else { 1.0 })
@@ -315,7 +320,7 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
         // not a person with a problem, so it is cut short rather than refused.
         let to = to.clamp(from, from.saturating_add(10_000));
         let samples: Vec<serde_json::Value> = (from..=to)
-            .map(|f| match held.value_at(f) {
+            .map(|f| match held.value_at_time(when.map_or(f as f64, |l| l.key_time(f as f64))) {
                 Value::Scalar(v) => serde_json::json!([v * factor]),
                 Value::Vec2(x, y) => serde_json::json!([x * factor, y * factor]),
             })
@@ -4491,12 +4496,17 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 }
                 _ => false,
             };
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            let composition = held.composition.clone();
+            let comp = held.document.project().composition(&composition);
             let mut chosen: std::collections::BTreeMap<(String, String), Vec<i32>> =
                 Default::default();
             for named in parameters(query, "key") {
                 let mut parts = named.rsplitn(3, '|');
-                match (parts.next().map(str::parse::<i32>), parts.next(), parts.next()) {
-                    (Some(Ok(at)), Some(prop), Some(layer)) => chosen
+                let (at, prop, layer) = (parts.next(), parts.next(), parts.next());
+                let on = layer.and_then(|l| comp.and_then(|c| c.layer(&Id::new(l))));
+                match (at.and_then(|at| stored_frames(on, at, 0)), prop, layer) {
+                    (Some((at, _)), Some(prop), Some(layer)) => chosen
                         .entry((layer.to_string(), prop.to_string()))
                         .or_default()
                         .push(at),
@@ -4506,8 +4516,6 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             if chosen.is_empty() {
                 return Some("Which keys? Choose some on the timeline.".to_string());
             }
-            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
-            let composition = held.composition.clone();
             let mut commands = Vec::new();
             for ((layer, prop), frames) in chosen {
                 // ponytail: a layer's keys only. The camera's and an effect setting's keys keep
@@ -5326,13 +5334,29 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // so no key is put down on a frame a neighbour moving with it has not left yet; a key
         // landing on one that is not moving is refused by the core, and then none of them move.
         "keyframe.move" | "keyframe.add_remove" if !parameters(query, "key").is_empty() => {
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            let composition = held.composition.clone();
+            let by = if id == "keyframe.move" {
+                match frame_parameter(query, "by") {
+                    Ok(by) => by,
+                    Err(said) => return Some(said),
+                }
+            } else {
+                0
+            };
+            // B-150c: each key is named by the frame it is shown on, and on a stretched layer
+            // it is stored, and lands, where document 20 puts it: `(at, to)` below.
+            let comp = held.document.project().composition(&composition);
+            let stored = |layer: &str, at: &str| {
+                stored_frames(comp.and_then(|c| c.layer(&Id::new(layer))), at, by)
+            };
             let mut keys = Vec::new();
             // B-19d: the chosen keys that are an effect setting's, by layer, effect and setting,
             // each with the frame it is on and the value sent with it. `key_values` is the
             // values of the others, which `value=` no longer lines up with once these are out.
-            let mut fx: std::collections::BTreeMap<(String, String, String), Vec<(i32, Option<String>)>> =
+            let mut fx: std::collections::BTreeMap<(String, String, String), Vec<((i32, i32), Option<String>)>> =
                 Default::default();
-            let mut paths: std::collections::BTreeMap<(String, (bool, usize)), Vec<i32>> =
+            let mut paths: std::collections::BTreeMap<(String, (bool, usize)), Vec<(i32, i32)>> =
                 Default::default();
             let all_values = parameters(query, "value");
             let mut key_values = Vec::new();
@@ -5346,11 +5370,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 };
                 // B-24f: a path's keys, by layer and path. A value sent with one is the graph's
                 // travelled distance and not something a path can hold, so it is not read.
-                if let (Some(which), Ok(at)) = (path_prop(prop), at.parse::<i32>()) {
+                if let (Some(which), Some(at)) = (path_prop(prop), stored(layer, at)) {
                     paths.entry((layer.to_string(), which)).or_default().push(at);
                     continue;
                 }
-                if let (Some((instance, setting)), Ok(at)) = (effect_setting(prop), at.parse()) {
+                if let (Some((instance, setting)), Some(at)) = (effect_setting(prop), stored(layer, at)) {
                     fx.entry((layer.to_string(), instance.as_str().to_string(), setting))
                         .or_default()
                         .push((at, all_values.get(i).cloned()));
@@ -5366,7 +5390,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 } else {
                     property(prop)
                 };
-                let (Some(prop), Ok(at)) = (chosen, at.parse::<i32>()) else {
+                let (Some(prop), Some((at, to))) = (chosen, stored(layer, at)) else {
                     return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
                 };
                 let target = if layer == CAMERA_ROW {
@@ -5374,18 +5398,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 } else {
                     Target::Layer(Id::new(layer))
                 };
-                keys.push((target, prop, at));
+                keys.push((target, prop, at, to));
             }
-            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
-            let composition = held.composition.clone();
-            let by = if id == "keyframe.move" {
-                match frame_parameter(query, "by") {
-                    Ok(by) => by,
-                    Err(said) => return Some(said),
-                }
-            } else {
-                0
-            };
             // B-19d: each setting's keys, with the chosen ones moved, given their values or
             // taken out, as the one command the core has for them.
             let mut fx_commands = Vec::new();
@@ -5401,11 +5415,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 };
                 let original = existing.keys(&setting);
                 let mut list = original.clone();
-                for (at, text) in &chosen {
+                for ((at, to), text) in &chosen {
                     let Some(i) = original.iter().position(|k| k.frame == *at) else {
                         return Some(format!("{setting} has no key at frame {at}."));
                     };
-                    list[i].frame += by;
+                    list[i].frame = *to;
                     if let Some(text) = text {
                         match setting_value(&setting, list[i].value.len(), text) {
                             Ok(value) => list[i].value = value,
@@ -5414,8 +5428,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     }
                 }
                 if id == "keyframe.add_remove" {
-                    list.retain(|k| !chosen.iter().any(|(at, _)| *at == k.frame));
-                } else if by == 0 && chosen.iter().all(|(_, text)| text.is_none()) {
+                    list.retain(|k| !chosen.iter().any(|((at, _), _)| *at == k.frame));
+                } else if chosen.iter().all(|((at, to), text)| at == to && text.is_none()) {
                     continue;
                 }
                 list.sort_by_key(|k| k.frame);
@@ -5432,7 +5446,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // with the shape the first of them had, as the stopwatch's last key does.
             for ((named, which), chosen) in paths {
                 let removing = id == "keyframe.add_remove";
-                if !removing && by == 0 {
+                if !removing && chosen.iter().all(|(at, to)| at == to) {
                     continue;
                 }
                 let Some(layer) = held
@@ -5444,18 +5458,21 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     return Some(format!("There is no layer {named} here."));
                 };
                 let made = with_path(composition.clone(), layer, which, |base, keys| {
-                    if let Some(at) = chosen.iter().find(|at| keys.iter().all(|k| k.frame != **at)) {
+                    let named = |frame: i32| chosen.iter().find(|(at, _)| *at == frame);
+                    if let Some((at, _)) = chosen.iter().find(|(at, _)| keys.iter().all(|k| k.frame != *at)) {
                         return Err(format!("This path has no key at frame {at}."));
                     }
                     if removing {
-                        let first = keys.iter().find(|k| chosen.contains(&k.frame)).cloned();
-                        keys.retain(|k| !chosen.contains(&k.frame));
+                        let first = keys.iter().find(|k| named(k.frame).is_some()).cloned();
+                        keys.retain(|k| named(k.frame).is_none());
                         if let (true, Some(first)) = (keys.is_empty(), first) {
                             *base = first.points;
                         }
                     } else {
-                        for k in keys.iter_mut().filter(|k| chosen.contains(&k.frame)) {
-                            k.frame += by;
+                        for k in keys.iter_mut() {
+                            if let Some((_, to)) = named(k.frame) {
+                                k.frame = *to;
+                            }
                         }
                     }
                     Ok(())
@@ -5471,7 +5488,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             if id == "keyframe.add_remove" {
                 let commands = keys
                     .into_iter()
-                    .map(|(target, prop, frame)| Command::RemoveKeyframe {
+                    .map(|(target, prop, frame, _)| Command::RemoveKeyframe {
                         composition: composition.clone(),
                         target,
                         prop,
@@ -5498,7 +5515,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             }
             let mut sets = Vec::new();
             if let Some(comp) = held.document.project().composition(&composition) {
-                for ((target, prop, at), text) in keys.iter().zip(&values) {
+                for ((target, prop, at, to), text) in keys.iter().zip(&values) {
                     let property = match target {
                         Target::Camera => {
                             let which = match prop {
@@ -5528,7 +5545,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         composition: composition.clone(),
                         target: target.clone(),
                         prop: *prop,
-                        frame: at + by,
+                        frame: *to,
                         value,
                         interp: key.interp,
                         spatial: key.spatial,
@@ -5538,13 +5555,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             keys.sort_by_key(|key| if by > 0 { -key.2 } else { key.2 });
             let commands: Vec<Command> = keys
                 .into_iter()
-                .filter(|_| by != 0)
-                .map(|(target, prop, from_frame)| Command::MoveKeyframe {
+                .filter(|(_, _, at, to)| at != to)
+                .map(|(target, prop, from_frame, to_frame)| Command::MoveKeyframe {
                     composition: composition.clone(),
                     target,
                     prop,
                     from_frame,
-                    to_frame: from_frame + by,
+                    to_frame,
                 })
                 .chain(sets)
                 .chain(fx_commands)
@@ -6197,6 +6214,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             let Some(layer) = comp.layer(&layer_id) else {
                 return Some(format!("{layer_id} is not a layer in this composition."));
             };
+            // B-150c: a stretched layer's keys are named by the frame they play on.
+            let stored = stored_key_query(id, query, layer);
+            let query = stored.as_deref().or(query);
             let at = comp
                 .index_of(&layer_id)
                 .expect("a layer that is here has a place");
@@ -8777,6 +8797,50 @@ fn handles(text: &str) -> Result<Interp, String> {
         ));
     }
     Ok(Interp::Ease { x1, y1, x2, y2 })
+}
+
+/// B-150c: a key the page names by the frame it is shown on, and the frame `by` further on, as
+/// the frames they are stored at. D-216 stretches a layer's keys with it, so the timeline draws
+/// a key where it plays - at 50% that can be half way between two frames - and this is the one
+/// way back: document 20's key time, rounded half away from zero as a key set at the playhead
+/// is. The camera and a layer at 100% take whole frames, as they always have.
+fn stored_frames(layer: Option<&Layer>, shown: &str, by: i32) -> Option<(i32, i32)> {
+    match layer.filter(|l| l.time_stretch != 100.0) {
+        Some(l) => {
+            let at: f64 = shown.parse().ok()?;
+            Some((l.key_time(at).round() as i32, l.key_time(at + by as f64).round() as i32))
+        }
+        None => shown.parse::<i32>().ok().map(|at| (at, at + by)),
+    }
+}
+
+/// B-150c: a request about one layer's keys with each frame that names a key taken back to the
+/// frame it is stored at, by [`stored_frames`], or `None` when nothing needs to change.
+fn stored_key_query(id: &str, query: Option<&str>, layer: &Layer) -> Option<String> {
+    let names: &[&str] = match id {
+        "keyframe.move" => &["from", "to"],
+        "mask.set" | "shape.set" => &["key", "to"],
+        "keyframe.add_remove" | "keyframe.set_interp" | "keyframe.set_path"
+        | "property.set_base" | "property.drag_update" | "mask.add_remove_key"
+        | "mask.set_path" | "shape.add_remove_key" | "shape.set_path" => &["frame"],
+        _ => return None,
+    };
+    if layer.time_stretch == 100.0 {
+        return None;
+    }
+    let pairs: Vec<String> = query?
+        .split('&')
+        .map(|pair| match pair.split_once('=') {
+            Some((name, shown)) if names.contains(&name) => {
+                match stored_frames(Some(layer), shown, 0) {
+                    Some((at, _)) => format!("{name}={at}"),
+                    None => pair.to_string(),
+                }
+            }
+            _ => pair.to_string(),
+        })
+        .collect();
+    Some(pairs.join("&"))
 }
 
 /// A frame number the page named, or the sentence to answer with when it did not.
@@ -18837,7 +18901,7 @@ mod editing {
             "present",
             present(
                 page.contains("const keysOf = (layer, prop) => shownKeys(layer, propOf(layer, prop).keyframes || []);")
-                    && page.contains("at: layer.in_frame + (k.frame - layer.in_frame) * stretch / 100"),
+                    && page.contains("const playedAt = (layer, k) => layer.in_frame + (k - layer.in_frame) * stretchOf(layer) / 100;"),
             ),
         );
         report.check(

@@ -2,6 +2,8 @@
 
 D-216 and ADR-020, accepted on 2026-09-29 with the owner's answers: a stretched layer's keys stretch with it, as in After Effects; the Drawing Dissolve works whatever the composition's switch says; speeding up mixes only the two nearest frames; and the composition's switch is off until it is turned on. Every expected number is `Fixtures/frame_blending/expected_frame_blending.json`, written by `tools/frame_blending_reference.py` before this code existed and printed in document 25 as FX-FBLEND-001 to 067. Each frame is 8 by 1 pixels; the answer is the largest difference over all its samples, against the catalogue's pixel tolerance of 1e-6.
 
+This table is the core's half. The window's, B-150c's key diamonds shown and set where a stretched layer's keys play, is `verification/B-150c_key_diamonds_table.md`.
+
 ## FX-FBLEND-001 to 008: where in its source a layer is, and where its keys are read
 
 | Check | The build's answer | Matches |

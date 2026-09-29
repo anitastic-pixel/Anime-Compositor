@@ -1620,8 +1620,8 @@ function tick() {
 function seek(at) {
   playing = false;
   $('play').textContent = 'Play';
-  wanted = at;
-  show(FRAMES + '/frame/' + at + '?q=' + quality);
+  wanted = Math.round(at);
+  show(FRAMES + '/frame/' + wanted + '?q=' + quality);
 }
 
 function step(by) {
@@ -2199,7 +2199,7 @@ function moveKeys(ids, by, values) {
   for (const id of moving) {
     if (!pickedKeys.delete(id)) continue;
     const [layer, prop, at] = keyParts(id);
-    pickedKeys.add(keyId(layer, prop, at + by));
+    pickedKeys.add(keyId(layer, prop, landsAt(layer, at + by)));
   }
 }
 
@@ -2215,7 +2215,7 @@ function removeKeys() {
 // layers or on every layer when none is selected.
 function toKey(later) {
   const from = movable().length ? movable() : layers();
-  const frames = from.flatMap((layer) => propsOf(layer).flatMap((prop) => keysOf(layer, prop).map((k) => k.frame)));
+  const frames = from.flatMap((layer) => propsOf(layer).flatMap((prop) => keysOf(layer, prop).map((k) => Math.round(k.frame))));
   const next = later
     ? Math.min(...frames.filter((f) => f > frame))
     : Math.max(...frames.filter((f) => f < frame));
@@ -3555,7 +3555,8 @@ function grabKey(comp, layer, prop, key, mark) {
   const shift = (ids, by) => {
     const going = new Set(ids);
     for (const m of $('layers').querySelectorAll('.key[data-key]')) {
-      if (going.has(m.dataset.key)) m.style.left = where(keyParts(m.dataset.key)[2] + by);
+      const [owner, , at] = keyParts(m.dataset.key);
+      if (going.has(m.dataset.key)) m.style.left = where(landsAt(owner, at + by));
     }
   };
   // Enter or Space on a key chooses it, as a click does; a pointer's click was handled on release.
@@ -3601,7 +3602,7 @@ function grabKey(comp, layer, prop, key, mark) {
       // A press that did not move is a click: it chooses the key, for F9, and puts the playhead
       // on it, where the inspector's ease button acts.
       else if (to === key.frame) { pickKey(id, add); seek(key.frame); }
-      else moveKeys(group, to - key.frame);
+      else moveKeys(group, Math.round(to - key.frame));
     };
     mark.onpointermove = (m) => {
       let now = frameUnder(m.clientX);
@@ -3609,7 +3610,7 @@ function grabKey(comp, layer, prop, key, mark) {
       if (now !== null && m.shiftKey) now = snapped(m.clientX, now, [frame]);
       if (now === null || now === to) return;
       to = now;
-      shift(group, to - key.frame);
+      shift(group, Math.round(to - key.frame));
     };
     mark.onpointerup = () => stop(false);
     window.addEventListener('keydown', escape, true);
@@ -3650,7 +3651,7 @@ function maskRows(comp, layer, shapes = false) {
     li.append(head);
     const box = document.createElement('div');
     box.className = 'track';
-    const keys = maskKeys(mask);
+    const keys = shownKeys(layer, maskKeys(mask));
     for (const [i, key] of keys.entries()) {
       if (comp && !inView(comp, key.frame + 0.5)) continue;
       const mark = document.createElement('button');
@@ -3679,7 +3680,7 @@ function maskRows(comp, layer, shapes = false) {
 // shape's path is a mask's path; only the command's word and the picked path differ.
 const shapeRows = (comp, layer) => maskRows(comp, layer, true);
 function maskKeyButton(layer, mask, at, shapes = false) {
-  const keys = maskKeys(mask);
+  const keys = shownKeys(layer, maskKeys(mask));
   const on = keys.some((k) => k.frame === frame);
   const button = document.createElement('button');
   button.className = 'key' + (keys.length ? ' animated' : '');
@@ -6019,7 +6020,24 @@ function propLabel(layer, prop) {
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
   return (fx ? (EFFECT_NAMES[fx.type_id] || fx.type_id) + ' ' : '') + (known ? known[1] : name === 'mix' ? 'Mix' : name);
 }
-const keysOf = (layer, prop) => (propOf(layer, prop).keyframes || []);
+// B-150c: D-216 stretches a layer's keys with it, so the timeline shows each key on the frame it
+// plays on, `in + (key - in) x stretch / 100`, which at 50% can be half way between two frames,
+// and names it by that frame; the window takes it back to the frame it is stored at. At 100 the
+// list is the file's own, so an unstretched layer and the camera are as they were.
+const stretchOf = (layer) => layer.time_stretch || 100;
+const playedAt = (layer, k) => layer.in_frame + (k - layer.in_frame) * stretchOf(layer) / 100;
+function shownKeys(layer, keys) {
+  if (stretchOf(layer) === 100) return keys;
+  return keys.map((k) => ({ ...k, frame: playedAt(layer, k.frame) }));
+}
+// Where a key named by frame `n` is put: stored at its key time, rounded half away from zero as
+// the window rounds it, and shown where that plays. A dragged key lands there.
+function landsAt(layer, n) {
+  if (!layer || stretchOf(layer) === 100) return n;
+  const u = layer.in_frame + (n - layer.in_frame) * 100 / stretchOf(layer);
+  return playedAt(layer, Math.sign(u) * Math.round(Math.abs(u)));
+}
+const keysOf = (layer, prop) => shownKeys(layer, propOf(layer, prop).keyframes || []);
 // D-59's expression on a property, switched on or off, or null.
 const exprOf = (layer, prop) => propOf(layer, prop).expression || null;
 

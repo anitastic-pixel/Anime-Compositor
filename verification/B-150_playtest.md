@@ -15,7 +15,10 @@ composition's switch is off until you turn it on.
 
 The generated half is `verification/B-150_frame_blending_table.md`, 390 of 390 checks passing,
 which renders every FX-FBLEND case against the numbers written before the code and draws the
-pictures below. This sheet covers what the table cannot: how it looks and feels in the window.
+pictures below. B-150c, your "Fix key diamonds", has its own table,
+`verification/B-150c_key_diamonds_table.md`, 17 of 17, beside the run from before the fix,
+`verification/B-150c_key_diamonds_before.md`, where 13 of those failed. This sheet covers what
+the tables cannot: how it looks and feels in the window.
 
 ## The pictures
 
@@ -56,24 +59,34 @@ it should look like `on_twos.png`. Press **Full resolution**.
    frame at most.
 7. **Keys stretch.** Time stretch 100, dissolve 0. Key Position at frame 0 and frame 6 so the ball
    also slides. Set Time stretch 200: the slide now takes 12 frames, ending where the bar ends,
-   as in After Effects.
-8. **Trim.** On the layer stretched to 200, drag its start two frames later: it is taken, and
+   as in After Effects. The two Position diamonds on the timeline move with it, to frames 0 and
+   12: the second sits right where the ball stops.
+8. **Key diamonds, stretched.** Still at 200, put the playhead on frame 6 and press Position's
+   diamond: the new diamond appears right under the playhead. Drag the diamond at 12 to 18: it
+   follows the pointer two frames at a time (at 200 % a key can only sit on every other frame)
+   and stays where you let go; play, and the ball stops on frame 18. J and K jump the playhead
+   from diamond to diamond. Ctrl+Z puts it back on 12.
+9. **Key diamonds, sped up.** Time stretch 50: the diamonds close up to frames 0, 1½ and 3, the
+   middle one half way between two frames, which is where it plays. Click it: the playhead goes
+   to frame 2. Time stretch back to 100: they are at 0, 3 and 6, the frames they are kept at.
+10. **Trim.** On the layer stretched to 200, drag its start two frames later: it is taken, and
    the frames left look as they did. Drag it by one frame: it is refused with a sentence, because
    that would start the layer part way through a drawing.
-9. **Out of range.** Type 0 or 10001 in Time stretch, or 101 in Drawing dissolve: refused with a
+11. **Out of range.** Type 0 or 10001 in Time stretch, or 101 in Drawing dissolve: refused with a
    sentence saying what it runs to, and the number goes back.
-10. **Card.** With the graphics card on, a mixed or dissolved frame is drawn on the processor and
+12. **Card.** With the graphics card on, a mixed or dissolved frame is drawn on the processor and
     the viewer says so; a stretched frame with no mixing stays on the card.
-11. **Draft.** Press **Draft**: the picture is smaller and the same frames are mixed.
-12. **Undo and saved.** Ctrl+Z steps back each change. Save, close and open again: the stretch,
+13. **Draft.** Press **Draft**: the picture is smaller and the same frames are mixed.
+14. **Undo and saved.** Ctrl+Z steps back each change. Save, close and open again: the stretch,
     both switches and the dissolve are still there.
 
 ## Known limits, on purpose
 
-- On a stretched layer the timeline shows and sets keys in the layer's own unstretched frame
-  numbers: a key diamond sits where the key would be at 100 %, not where it plays, and a key added
-  at the playhead goes at that frame number. The picture plays them stretched, as D-216 says. On
-  a layer at 100 % the two are the same.
+- A stretched layer's keys are kept at whole frames of the layer's own time, so at 200 % a key
+  can only be on every other frame and a dragged one lands on the nearest; at 50 % some play half
+  way between two frames.
+- The drawing blocks on a stretched drawn layer's bar are still drawn at their unstretched frames;
+  the picture and the key diamonds are right.
 - Frame mix and the dissolve run on the processor; a graphics card version is its own later unit.
 - There is no Pixel Motion, After Effects' optical-flow blending: D-216 left it out.
 - No time remapping curve: the stretch is one steady speed.

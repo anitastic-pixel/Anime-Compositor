@@ -107,7 +107,8 @@ fn b150_frame_blending() {
          written by `tools/frame_blending_reference.py` before this code existed and printed in \
          document 25 as FX-FBLEND-001 to 067. Each frame is 8 by 1 pixels; the answer is the \
          largest difference over all its samples, against the catalogue's pixel tolerance of \
-         1e-6.\n",
+         1e-6.\n\nThis table is the core's half. The window's, B-150c's key diamonds shown and set \
+         where a stretched layer's keys play, is `verification/B-150c_key_diamonds_table.md`.\n",
     );
     let expected = json(&t, "expected_frame_blending.json");
     let tolerance = expected["tolerance"].as_f64().unwrap();
