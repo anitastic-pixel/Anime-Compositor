@@ -187,6 +187,10 @@ impl EffectInstance {
             if let Effect::LightningBolt { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-200: the waves' frame.
+            if let Effect::RadioWaves { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         EffectInstance {
             instance_id: self.instance_id.clone(),
@@ -900,6 +904,34 @@ pub enum Effect {
         light_color: String,
         light_reception: String,
     },
+    /// D-200: `producer_point`, x then y, -1000 to 1000 per cent of the drawing's width and
+    /// height, where the waves start; `sides`, 3 to 64, its whole part counted; `interval` and
+    /// `lifespan`, 1 to 1000 frames; `expansion` and `velocity`, 0 to 1000 pixels a frame;
+    /// `orientation` and `direction`, -3600 to 3600 degrees; `spin`, -360 to 360 degrees a
+    /// frame; `opacity`, 0 to 100; `fade_in_time` and `fade_out_time`, 0 to 1000 frames;
+    /// `start_width` and `end_width`, 0 to 1000 pixels; `profile`, "square", "triangle" or
+    /// "sine"; and `color`, `#rrggbb`. The words and colour are kept as written, so a wrong one
+    /// is reported. `frame` is not a setting and is never saved: it is the composition frame, as
+    /// Lightning Bolt's is.
+    RadioWaves {
+        producer_point: [f64; 2],
+        sides: f64,
+        interval: f64,
+        expansion: f64,
+        orientation: f64,
+        direction: f64,
+        velocity: f64,
+        spin: f64,
+        lifespan: f64,
+        opacity: f64,
+        fade_in_time: f64,
+        fade_out_time: f64,
+        start_width: f64,
+        end_width: f64,
+        profile: String,
+        color: String,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -983,6 +1015,7 @@ pub const POSTERIZE_TIME: &str = "core.posterize_time";
 pub const CHANGE_TO_COLOR: &str = "core.change_to_color";
 pub const CORNER_PIN: &str = "core.corner_pin";
 pub const LIGHT_SWEEP: &str = "core.light_sweep";
+pub const RADIO_WAVES: &str = "core.radio_waves";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1638,6 +1671,38 @@ impl Effect {
                 ("edge_intensity", vec![edge_intensity], 0.0, 100.0),
                 ("edge_thickness", vec![edge_thickness], 1.0, 50.0),
             ],
+            Effect::RadioWaves {
+                producer_point,
+                sides,
+                interval,
+                expansion,
+                orientation,
+                direction,
+                velocity,
+                spin,
+                lifespan,
+                opacity,
+                fade_in_time,
+                fade_out_time,
+                start_width,
+                end_width,
+                ..
+            } => vec![
+                ("producer_point", producer_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("sides", vec![sides], 3.0, 64.0),
+                ("interval", vec![interval], 1.0, 1000.0),
+                ("expansion", vec![expansion], 0.0, 1000.0),
+                ("orientation", vec![orientation], -3600.0, 3600.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("velocity", vec![velocity], 0.0, 1000.0),
+                ("spin", vec![spin], -360.0, 360.0),
+                ("lifespan", vec![lifespan], 1.0, 1000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("fade_in_time", vec![fade_in_time], 0.0, 1000.0),
+                ("fade_out_time", vec![fade_out_time], 0.0, 1000.0),
+                ("start_width", vec![start_width], 0.0, 1000.0),
+                ("end_width", vec![end_width], 0.0, 1000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1794,6 +1859,19 @@ impl Effect {
                 *width = scale(*width);
                 *edge_thickness = scale(*edge_thickness).max(1.0);
             }
+            // D-200: how fast the waves grow and drift, and how wide they are.
+            Effect::RadioWaves {
+                expansion,
+                velocity,
+                start_width,
+                end_width,
+                ..
+            } => {
+                *expansion = scale(*expansion);
+                *velocity = scale(*velocity);
+                *start_width = scale(*start_width);
+                *end_width = scale(*end_width);
+            }
             _ => {}
         }
     }
@@ -1878,6 +1956,7 @@ impl Effect {
             Effect::ChangeToColor { .. } => "Change to Color",
             Effect::CornerPin { .. } => "Corner Pin",
             Effect::LightSweep { .. } => "Light Sweep",
+            Effect::RadioWaves { .. } => "Radio Waves",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1961,6 +2040,7 @@ impl Effect {
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
             Effect::CornerPin { .. } => CORNER_PIN,
             Effect::LightSweep { .. } => LIGHT_SWEEP,
+            Effect::RadioWaves { .. } => RADIO_WAVES,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2377,6 +2457,11 @@ impl Effect {
                         })
                     })
             }
+            Effect::RadioWaves { profile, color, .. } => hex_fault("Radio Waves", "colour", color).or_else(|| {
+                (!["square", "triangle", "sine"].contains(&profile.as_str())).then(|| {
+                    format!("Radio Waves' profile is \"square\", \"triangle\" or \"sine\", and this is \"{profile}\".")
+                })
+            }),
             Effect::LightSweep { shape, light_color, light_reception, .. } => {
                 hex_fault("Light Sweep", "light colour", light_color)
                     .or_else(|| {
@@ -3338,6 +3423,47 @@ pub(crate) fn apply_stack_at(
                 ox += gx;
                 oy += gy;
             }
+            // D-200: the producer is in per cent of the drawing's own box, however an effect above
+            // grew it; the waves are painted inside the layer, which never grows.
+            Effect::RadioWaves {
+                producer_point,
+                sides,
+                interval,
+                expansion,
+                orientation,
+                direction,
+                velocity,
+                spin,
+                lifespan,
+                opacity,
+                fade_in_time,
+                fade_out_time,
+                start_width,
+                end_width,
+                profile,
+                color,
+                frame,
+            } => crate::perf::time(crate::perf::Stage::EffectRadioWaves, || {
+                let s = crate::layer_fx::RadioWaves {
+                    producer: radial_center(*producer_point, source, (ox, oy)),
+                    sides: *sides,
+                    interval: *interval,
+                    expansion: *expansion,
+                    orientation: *orientation,
+                    direction: *direction,
+                    velocity: *velocity,
+                    spin: *spin,
+                    lifespan: *lifespan,
+                    opacity: *opacity,
+                    fade_in: *fade_in_time,
+                    fade_out: *fade_out_time,
+                    widths: [*start_width, *end_width],
+                    profile,
+                    color: encoded(color).map(crate::grade::to_linear),
+                    frame: *frame,
+                };
+                crate::layer_fx::radio_waves(source, &s)
+            }),
             // D-199: the centre is in per cent of the drawing's own box, however an effect above
             // grew it.
             Effect::LightSweep {

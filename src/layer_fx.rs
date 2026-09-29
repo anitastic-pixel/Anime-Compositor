@@ -2352,3 +2352,94 @@ fn least_covering(source: &WorkingBuffer, k: usize) -> Vec<f32> {
     });
     out
 }
+
+/// D-200's settings, held for a frame: the producer already in the buffer's pixels and the
+/// colour linear.
+pub(crate) struct RadioWaves<'a> {
+    pub producer: (f64, f64),
+    pub sides: f64,
+    pub interval: f64,
+    pub expansion: f64,
+    pub orientation: f64,
+    pub direction: f64,
+    pub velocity: f64,
+    pub spin: f64,
+    pub lifespan: f64,
+    pub opacity: f64,
+    pub fade_in: f64,
+    pub fade_out: f64,
+    pub widths: [f64; 2],
+    pub profile: &'a str,
+    pub color: [f64; 3],
+    pub frame: i32,
+}
+
+/// D-200: the waves alive at the frame, each a regular polygon sent from the producer every
+/// `interval` frames, painted over the layer by `T O + (1 - T) (K, 1)`. The layer does not
+/// grow. The settings are already valid.
+pub(crate) fn radio_waves(source: &mut WorkingBuffer, s: &RadioWaves) {
+    let fade = |t: f64, time: f64| if time > 0.0 { (t / time).min(1.0) } else { 1.0 };
+    let (ux, uy) = crate::blurs::along(s.direction);
+    let f = s.frame as f64;
+    // (centre x, centre y, corner radius, first corner, half width, strength), oldest first.
+    let mut waves = Vec::new();
+    let mut k = ((f - s.lifespan) / s.interval).floor().max(0.0);
+    while k * s.interval <= f {
+        let t = f - k * s.interval;
+        k += 1.0;
+        if t >= s.lifespan {
+            continue;
+        }
+        let w = s.widths[0] + (s.widths[1] - s.widths[0]) * t / s.lifespan;
+        let g = s.opacity / 100.0 * fade(t, s.fade_in) * fade(s.lifespan - t, s.fade_out);
+        if w == 0.0 || g == 0.0 {
+            continue;
+        }
+        let d = s.velocity * t;
+        waves.push((
+            s.producer.0 + d * ux,
+            s.producer.1 + d * uy,
+            s.expansion * t,
+            s.orientation + s.spin * t,
+            w / 2.0,
+            g,
+        ));
+    }
+    if waves.is_empty() {
+        return;
+    }
+    let n = s.sides.floor();
+    let a = 360.0 / n;
+    let apothem = (std::f64::consts::PI / n).cos();
+    let w = source.width();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let mut t = 1.0;
+        for &(cx, cy, r, theta, h, g) in &waves {
+            let (qx, qy) = (x - cx, y - cy);
+            let q = qx.hypot(qy);
+            // A profile reaches h + 0.5 from the outline at most; the outline runs between the
+            // edges' middles, r cos(180 / n) out, and the corners, r out.
+            if q < r * apothem - h - 0.5 || q * apothem > r * apothem + h + 0.5 {
+                continue;
+            }
+            let phi = qx.atan2(-qy).to_degrees();
+            let delta = phi - theta - a * (((phi - theta) / a).floor() + 0.5);
+            let d = (q * delta.to_radians().cos() - r * apothem).abs();
+            let p = match s.profile {
+                "square" => ((d + 0.5).min(h) - (d - 0.5).max(-h)).clamp(0.0, 1.0),
+                "triangle" => (1.0 - d / h).max(0.0),
+                _ if d < h => (90.0 * d / h).to_radians().cos(),
+                _ => 0.0,
+            };
+            t *= 1.0 - g * p;
+        }
+        if t == 1.0 {
+            return;
+        }
+        for j in 0..3 {
+            px[j] = (t * px[j] as f64 + (1.0 - t) * s.color[j]) as f32;
+        }
+        px[3] = (t * px[3] as f64 + 1.0 - t) as f32;
+    });
+}

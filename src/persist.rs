@@ -1854,6 +1854,42 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("light_color".into(), J::from(light_color.as_str()));
             params.insert("light_reception".into(), J::from(light_reception.as_str()));
         }
+        Effect::RadioWaves {
+            producer_point,
+            sides,
+            interval,
+            expansion,
+            orientation,
+            direction,
+            velocity,
+            spin,
+            lifespan,
+            opacity,
+            fade_in_time,
+            fade_out_time,
+            start_width,
+            end_width,
+            profile,
+            color,
+            ..
+        } => {
+            params.insert("producer_point".into(), J::Array(producer_point.iter().map(|c| num(*c)).collect()));
+            params.insert("sides".into(), num(*sides));
+            params.insert("interval".into(), num(*interval));
+            params.insert("expansion".into(), num(*expansion));
+            params.insert("orientation".into(), num(*orientation));
+            params.insert("direction".into(), num(*direction));
+            params.insert("velocity".into(), num(*velocity));
+            params.insert("spin".into(), num(*spin));
+            params.insert("lifespan".into(), num(*lifespan));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("fade_in_time".into(), num(*fade_in_time));
+            params.insert("fade_out_time".into(), num(*fade_out_time));
+            params.insert("start_width".into(), num(*start_width));
+            params.insert("end_width".into(), num(*end_width));
+            params.insert("profile".into(), J::from(profile.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2362,6 +2398,18 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "sweep_intensity",
         "edge_intensity",
         "edge_thickness",
+        "producer_point",
+        "sides",
+        "interval",
+        "expansion",
+        "orientation",
+        "velocity",
+        "spin",
+        "lifespan",
+        "fade_in_time",
+        "fade_out_time",
+        "start_width",
+        "end_width",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2378,7 +2426,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
             "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
             "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
             "center" | "start" | "end" | "shift" | "upper_left" | "upper_right" | "lower_left"
-            | "lower_right" => (2, "two numbers, x then y"),
+            | "lower_right" | "producer_point" => (2, "two numbers, x then y"),
             _ => (1, ""),
         };
         let (base, track) = channel_track(record, &at, count, what)?;
@@ -2826,6 +2874,7 @@ fn parse_effect(
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
         crate::effects::LIGHT_SWEEP,
+        crate::effects::RADIO_WAVES,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3376,6 +3425,25 @@ fn parse_effect(
             edge_thickness: effect_number(params, "edge_thickness", &at)?,
             light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
             light_reception: effect_word(params, "light_reception", &at)?,
+        }),
+        crate::effects::RADIO_WAVES => Some(crate::effects::Effect::RadioWaves {
+            producer_point: effect_array(params, "producer_point", "two numbers, x then y", &at)?,
+            sides: effect_number(params, "sides", &at)?,
+            interval: effect_number(params, "interval", &at)?,
+            expansion: effect_number(params, "expansion", &at)?,
+            orientation: effect_number(params, "orientation", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            velocity: effect_number(params, "velocity", &at)?,
+            spin: effect_number(params, "spin", &at)?,
+            lifespan: effect_number(params, "lifespan", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            fade_in_time: effect_number(params, "fade_in_time", &at)?,
+            fade_out_time: effect_number(params, "fade_out_time", &at)?,
+            start_width: effect_number(params, "start_width", &at)?,
+            end_width: effect_number(params, "end_width", &at)?,
+            profile: effect_word(params, "profile", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            frame: 0,
         }),
         _ => None,
     };
