@@ -476,6 +476,12 @@
         "enabled": {
           "type": "boolean"
         },
+        "mix": {
+          "type": [
+            "number",
+            "object"
+          ]
+        },
         "parameters": {
           "type": "object"
         }

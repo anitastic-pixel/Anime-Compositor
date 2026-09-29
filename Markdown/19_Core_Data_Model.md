@@ -86,6 +86,8 @@ D-69, accepted on 2026-09-18: a layer's `position` may be written `{"x": propert
 
 D-189, accepted on 2026-09-28: an effect may have a layer setting. In its parameter map it is a word, the identifier of a layer in the same composition as the layer the effect is on, or `""` for none; it is never keyed and never a property record. Each effect that has one names a fit setting beside it, the word `center`, `stretch` or `tile`. A layer setting naming no layer of that composition, a deleted layer's or another composition's, is kept as written and reported with `EFFECT_LAYER_MISSING`, and the effect is skipped (document 28). Layer settings that lead round in a circle are rejected with `EFFECT_LAYER_CYCLE`; an effect naming its own layer is not one, an edge into an adjustment layer ends there, and every effect counts, switched on or off. D-191, accepted on 2026-09-28, for copies: duplicating a layer renames a layer setting that names the layer itself to the copy's identifier and keeps the others; duplicating a composition renames each layer setting naming one of its layers to that layer's copy; a pasted effect keeps its layer setting as written; a preset saved or exported writes every layer setting as `""`. Compound Blur (`core.compound_blur`) is the first effect with one, `layer`, beside the fit `fit`. Displacement Map (`core.displacement_map`, D-193) is the second, with the same two, and Gradient Wipe (`core.gradient_wipe`, D-194) the third.
 
+D-202, accepted on 2026-09-28: an effect record may carry `mix`, written after `enabled` and before `parameters`, how much of the effect's result is kept, 0 to 100 per cent: a plain number or a property record `{"base", "keyframes"}` as D-68 writes a parameter. It is written only when it is not 100 or has keys; a plain 100 that was read is not written again. It is not in the parameter map, and a preset's or a pasted effect's record carries it the same way. A value outside 0 to 100, as the plain number, the `base` or a key's `value`, is kept as written and the effect bypassed with `EFFECT_PARAMETER_INVALID`, as D-46 has it for a parameter; so is a `mix` other than a plain 100 on Posterize Time (`core.posterize_time`), which holds its layer in time and has no picture to mix. A `mix` that is neither a number nor such a record is `PROJECT_SCHEMA_INVALID`. An unknown effect's `mix` is kept as written.
+
 ## Validation invariants
 
 - Every referenced ID exists or is retained as an unresolved reference with diagnostics.
@@ -100,6 +102,7 @@ D-189, accepted on 2026-09-28: an effect may have a layer setting. In its parame
 - A camera's `parent` is a layer's identifier and not an audio layer's; one not in the composition is kept, with `PARENT_REFERENCE_MISSING` (D-171, proposed).
 - A composition's `motion_blur` holds its four fields in range, and a layer's is true or false on a layer that draws (D-188).
 - Effect parameter types match the registered effect schema.
+- An effect's `mix` is within 0 to 100, plain and at every key, and 100 on Posterize Time, or is kept with `EFFECT_PARAMETER_INVALID` (D-202).
 - An effect's layer setting names a layer of its own composition, or none, or is kept with `EFFECT_LAYER_MISSING`; layer settings do not lead round in a circle (D-189).
 - No serialized path is trusted without normalization and access checks.
 
@@ -107,7 +110,7 @@ D-189, accepted on 2026-09-28: an effect may have a layer setting. In its parame
 
 `schema_version` is a required integer. Version 0 is the first draft schema in this pack, not a public compatibility promise. A loader must distinguish: supported current version, supported older version requiring migration, and newer/unknown required semantics.
 
-Migrations operate on serialized records before model construction and must be testable in isolation. A migration never depends on UI state. A failed migration leaves the source file unchanged. A file written before D-188 has no `motion_blur` on its compositions or layers and reads as motion blur off; saved again, it still has none (FX-MB-014).
+Migrations operate on serialized records before model construction and must be testable in isolation. A migration never depends on UI state. A failed migration leaves the source file unchanged. A file written before D-188 has no `motion_blur` on its compositions or layers and reads as motion blur off; saved again, it still has none (FX-MB-014). A file written before D-202 has no `mix` on its effects and reads as every effect at 100; saved again, it still has none (FX-MIX-002).
 
 ## Effect preset files
 
