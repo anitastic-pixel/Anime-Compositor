@@ -752,6 +752,16 @@ pub enum Effect {
         value_range: f64,
         invert: String,
     },
+    /// D-185: `color`, `#rrggbb`; `direction`, 0 to 360 degrees clockwise from up, the way the
+    /// wash comes from; `spread`, 0 to 100 per cent of the figure; `opacity`, 0 to 100; and
+    /// `blend`, "normal", "multiply", "screen", "add", "overlay" or "soft_light".
+    Paraffin {
+        color: String,
+        direction: f64,
+        spread: f64,
+        opacity: f64,
+        blend: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -824,6 +834,7 @@ pub const RAIN: &str = "core.rain";
 pub const COLOR_LOOKUP: &str = "core.color_lookup";
 pub const LINE_BLUR: &str = "core.line_blur";
 pub const HSV_KEY: &str = "core.hsv_key";
+pub const PARAFFIN: &str = "core.paraffin";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1368,6 +1379,16 @@ impl Effect {
                 ("saturation_range", vec![saturation_range], 0.0, 100.0),
                 ("value_range", vec![value_range], 0.0, 100.0),
             ],
+            Effect::Paraffin {
+                direction,
+                spread,
+                opacity,
+                ..
+            } => vec![
+                ("direction", vec![direction], 0.0, 360.0),
+                ("spread", vec![spread], 0.0, 100.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1577,6 +1598,7 @@ impl Effect {
             Effect::ColorLookup { .. } => "Color Lookup",
             Effect::LineBlur { .. } => "Line Blur",
             Effect::HsvKey { .. } => "HSV Key",
+            Effect::Paraffin { .. } => "Paraffin",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1649,6 +1671,7 @@ impl Effect {
             Effect::ColorLookup { .. } => COLOR_LOOKUP,
             Effect::LineBlur { .. } => LINE_BLUR,
             Effect::HsvKey { .. } => HSV_KEY,
+            Effect::Paraffin { .. } => PARAFFIN,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2041,6 +2064,15 @@ impl Effect {
             Effect::HsvKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "HSV Key's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
+            Effect::Paraffin { blend, .. }
+                if !["normal", "multiply", "screen", "add", "overlay", "soft_light"].contains(&blend.as_str()) =>
+            {
+                Some(format!(
+                    "Paraffin's blend is \"normal\", \"multiply\", \"screen\", \"add\", \"overlay\" \
+                     or \"soft_light\", and this is \"{blend}\"."
+                ))
+            }
+            Effect::Paraffin { color, .. } => hex_fault("Paraffin", "colour", color),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
             {
@@ -3025,6 +3057,15 @@ pub(crate) fn apply_stack_at(
                     value_range: *value_range,
                 };
                 crate::hsv_key::hsv_key(source, &windows, invert == "on")
+            }),
+            Effect::Paraffin {
+                color,
+                direction,
+                spread,
+                opacity,
+                blend,
+            } => crate::perf::time(crate::perf::Stage::EffectParaffin, || {
+                crate::grade::paraffin(source, encoded(color), *direction, *spread, *opacity, blend)
             }),
         }
     }

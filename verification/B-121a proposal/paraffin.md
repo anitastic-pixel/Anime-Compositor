@@ -8,7 +8,7 @@ In anime finishing, *paraffin* (パラ, "para") is the soft airbrushed wash a co
 
 ## What you will see
 
-A new effect, **Paraffin**, in the Stylize group beside Distance Gradation and Rim Light. Its card has five rows:
+A new effect, **Paraffin**, in the Light & Glow group beside Rim Light. Its card has five rows:
 
 - **Colour**, #6450a0 when added, a dusk violet.
 - **Direction**, 0 to 360 degrees, the way the wash comes from, clockwise from up: 0 from above, 90 from the right, 180 from below, as added.

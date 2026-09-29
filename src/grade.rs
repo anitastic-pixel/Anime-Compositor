@@ -234,14 +234,62 @@ pub(crate) fn hue_saturation(source: &mut WorkingBuffer, hue: f64, saturation: f
 }
 
 /// D-114 and D-117: how a straight colour `b` takes a chosen colour `c` under `blend`, "normal",
-/// "multiply", "screen" or "add"; add is not held back.
+/// "multiply", "screen" or "add"; add is not held back. D-185 adds "overlay" and
+/// "soft_light", the W3C's, which only Paraffin takes.
 pub(crate) fn mixer(blend: &str) -> fn(f64, f64) -> f64 {
     match blend {
         "multiply" => |b, c| b * c,
         "screen" => |b, c| 1.0 - (1.0 - b) * (1.0 - c),
         "add" => |b, c| b + c,
+        "overlay" => |b, c| if b <= 0.5 { 2.0 * b * c } else { 1.0 - 2.0 * (1.0 - b) * (1.0 - c) },
+        "soft_light" => |b, c| {
+            if c <= 0.5 {
+                b - (1.0 - 2.0 * c) * b * (1.0 - b)
+            } else {
+                let d = if b <= 0.25 { ((16.0 * b - 12.0) * b + 4.0) * b } else { b.sqrt() };
+                b + (2.0 * c - 1.0) * (d - b)
+            }
+        },
         _ => |_, c| c,
     }
+}
+
+/// D-185: `color` encoded 0 to 1 washed over the figure, the pixels at least half covered, from
+/// `direction` degrees clockwise from up, strongest at the figure's near edge and fading on a
+/// smoothstep to nothing `spread` per cent of the way across, at up to `opacity`, 0 to 100, by
+/// `blend`, on encoded values. A pixel the wash does not reach is left exactly as it is. The
+/// settings are already valid.
+pub(crate) fn paraffin(source: &mut WorkingBuffer, color: [f64; 3], direction: f64, spread: f64, opacity: f64, blend: &str) {
+    if spread == 0.0 || opacity == 0.0 {
+        return;
+    }
+    let w = source.width().max(1);
+    let r = direction.to_radians();
+    let (ux, uy) = (r.sin(), -r.cos());
+    let toward = |i: usize| ((i % w) as f64 + 0.5) * ux + ((i / w) as f64 + 0.5) * uy;
+    let (mut near, mut far) = (f64::NEG_INFINITY, f64::INFINITY);
+    for (i, px) in source.data().chunks_exact(4).enumerate() {
+        if px[3] >= 0.5 {
+            let n = toward(i);
+            (near, far) = (near.max(n), far.min(n));
+        }
+    }
+    if near < far {
+        return;
+    }
+    let (reach, k, mix) = (spread / 100.0 * (near - far + 1.0), opacity / 100.0, mixer(blend));
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let a = px[3] as f64;
+        let s = ((near - toward(i)) / reach).clamp(0.0, 1.0);
+        let o = (1.0 - s * s * (3.0 - 2.0 * s)) * k;
+        if a <= 0.0 || o <= 0.0 {
+            return;
+        }
+        for c in 0..3 {
+            let b = to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
+            px[c] = (to_linear((b + o * (mix(b, color[c]) - b)).clamp(0.0, 1.0)) * a) as f32;
+        }
+    });
 }
 
 /// D-114's settings, read once for a frame: the two points in the buffer's pixels, the two

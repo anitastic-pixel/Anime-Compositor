@@ -6776,6 +6776,7 @@ const EFFECT_NAMES = {
   'core.color_lookup': 'Color Lookup',
   'core.line_blur': 'Line Blur',
   'core.hsv_key': 'HSV Key',
+  'core.paraffin': 'Paraffin',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6788,7 +6789,7 @@ const EFFECT_GROUPS = [
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.invert',
     'core.color_lookup']],
   ['Light & Glow', ['core.glow', 'core.bloom', 'core.light_rays', 'core.rim_light',
-    'core.light_wrap', 'core.cross_glare', 'core.exposure_flicker']],
+    'core.light_wrap', 'core.cross_glare', 'core.exposure_flicker', 'core.paraffin']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
     'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key']],
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple', 'core.twirl',
@@ -6847,6 +6848,7 @@ const EFFECT_SEARCH = {
   'core.color_lookup': 'lut cube grade look film',
   'core.line_blur': 'smooth jaggies aliasing stroke soften',
   'core.hsv_key': 'green screen chroma hue saturation value transparent',
+  'core.paraffin': 'para airbrush shade shadow tint wash anime overlay soft light',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6933,6 +6935,7 @@ const EFFECT_ABOUT = {
   'core.color_lookup': 'Recolours the layer through a .cube colour lookup file from a grading program.',
   'core.line_blur': 'Softens the drawn lines along their own length, so jagged steps smooth out and lines keep their width.',
   'core.hsv_key': 'Makes transparent every colour inside a range of hue, saturation and value, as a green screen is taken out.',
+  'core.paraffin': 'Washes a soft colour over the figure from one side, as anime\'s airbrushed shadow rises from the feet.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7197,6 +7200,10 @@ const EFFECT_PARAMS = {
     ['hue_range', 'Hue Range', 1, 1, 'degrees either side, 0 to 180'],
     ['saturation_range', 'Saturation Range', 1, 1, '% either side, 0 to 100'],
     ['value_range', 'Value Range', 1, 1, '% either side, 0 to 100']],
+  // D-185.
+  'core.paraffin': [['direction', 'Direction', 1, 1, 'degrees clockwise from up, the way the wash comes from, 0 to 360', 'dial'],
+    ['spread', 'Spread', 1, 1, '% of the figure the wash reaches across, 0 to 100'],
+    ['opacity', 'Opacity', 1, 1, '0 to 100']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7326,6 +7333,12 @@ const EFFECT_WORDS = {
   'core.line_blur': { choices: [['lines_only', 'Lines Only', [['off', 'Off'], ['on', 'On']]]] },
   // D-184.
   'core.hsv_key': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]] },
+  // D-185.
+  'core.paraffin': {
+    choices: [['blend', 'Blend', [['multiply', 'Multiply'], ['normal', 'Normal'], ['screen', 'Screen'], ['add', 'Add'],
+      ['overlay', 'Overlay'], ['soft_light', 'Soft Light']]]],
+    colours: [['color', 'Colour']],
+  },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();

@@ -1690,6 +1690,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("value_range".into(), num(*value_range));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::Paraffin {
+            color,
+            direction,
+            spread,
+            opacity,
+            blend,
+        } => {
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("direction".into(), num(*direction));
+            params.insert("spread".into(), num(*spread));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blend".into(), J::from(blend.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2160,6 +2173,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "hue_range",
         "saturation_range",
         "value_range",
+        "spread",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2612,6 +2626,7 @@ fn parse_effect(
         crate::effects::COLOR_LOOKUP,
         crate::effects::LINE_BLUR,
         crate::effects::HSV_KEY,
+        crate::effects::PARAFFIN,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3055,6 +3070,14 @@ fn parse_effect(
             saturation_range: effect_number(params, "saturation_range", &at)?,
             value_range: effect_number(params, "value_range", &at)?,
             invert: effect_word(params, "invert", &at)?,
+        }),
+        // D-185: the colour is read in small letters, as a new colour is.
+        crate::effects::PARAFFIN => Some(crate::effects::Effect::Paraffin {
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            direction: effect_number(params, "direction", &at)?,
+            spread: effect_number(params, "spread", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            blend: effect_word(params, "blend", &at)?,
         }),
         _ => None,
     };

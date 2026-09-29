@@ -196,6 +196,8 @@ pub enum Stage {
     EffectLineBlur,
     /// D-184's HSV key, one colour conversion per pixel.
     EffectHsvKey,
+    /// D-185's paraffin, one pass for the figure's extent and one to wash.
+    EffectParaffin,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -213,7 +215,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 82] = [
+    pub const ALL: [Stage; 83] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -289,6 +291,7 @@ impl Stage {
         Stage::EffectColorLookup,
         Stage::EffectLineBlur,
         Stage::EffectHsvKey,
+        Stage::EffectParaffin,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -376,6 +379,7 @@ impl Stage {
             Stage::EffectColorLookup => "effect: color lookup",
             Stage::EffectLineBlur => "effect: line blur",
             Stage::EffectHsvKey => "effect: hsv key",
+            Stage::EffectParaffin => "effect: paraffin",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
