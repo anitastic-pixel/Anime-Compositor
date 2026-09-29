@@ -233,5 +233,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - map_layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.gradient_wipe` is an effect this build has | added | added | pass |
 | and the settings it sends for it - map_layer, fit, completion, softness, invert - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.echo` is an effect this build has | added | added | pass |
+| and the settings it sends for it - echo_time, echoes, intensity, decay, operator - are the ones the command reads | accepted | accepted | pass |
 
-**213 of 213 checks pass.**
+**215 of 215 checks pass.**

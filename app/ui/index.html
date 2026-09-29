@@ -6801,6 +6801,7 @@ const EFFECT_NAMES = {
   'core.compound_blur': 'Compound Blur',
   'core.displacement_map': 'Displacement Map',
   'core.gradient_wipe': 'Gradient Wipe',
+  'core.echo': 'Echo',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6825,6 +6826,7 @@ const EFFECT_GROUPS = [
     'core.posterize', 'core.threshold', 'core.solarize']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
+  ['Time', ['core.echo']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
@@ -6880,6 +6882,7 @@ const EFFECT_SEARCH = {
   'core.compound_blur': 'compound variable map depth focus blur layer',
   'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction',
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
+  'core.echo': 'echo time trail trails ghost ghosting onion skin smear afterimage frames',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6972,6 +6975,7 @@ const EFFECT_ABOUT = {
   'core.compound_blur': 'Blurs the layer more where another layer of the composition is brighter.',
   'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition.',
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
+  'core.echo': 'Lays copies of the layer from earlier or later frames over it, each fainter than the last: a trail.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7270,6 +7274,11 @@ const EFFECT_PARAMS = {
   // D-194.
   'core.gradient_wipe': [['completion', 'Transition Completion', 1, 1, '% wiped away, 0 to 100'],
     ['softness', 'Transition Softness', 1, 1, '%, 0 to 100, how soft the edge is']],
+  // D-195, in After Effects' order.
+  'core.echo': [['echo_time', 'Echo Time', 1, 1, 'frames, -120 to 120, below 0 earlier frames, above 0 later'],
+    ['echoes', 'Number Of Echoes', 1, 1, '0 to 30'],
+    ['intensity', 'Starting Intensity', 1, 0.01, '0 to 1, how strong the present frame is'],
+    ['decay', 'Decay', 1, 0.01, '0 to 1, each echo this much of the one before']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7438,6 +7447,12 @@ const EFFECT_WORDS = {
     layers: [['layer', 'Gradient Layer', 'map_layer']],
     choices: [['fit', 'Gradient Placement', [['stretch', 'Stretch Gradient to Fit'], ['center', 'Center Gradient'], ['tile', 'Tile Gradient']]],
       ['invert', 'Invert Gradient', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-195, After Effects' own words.
+  'core.echo': {
+    choices: [['operator', 'Echo Operator', [['add', 'Add'], ['maximum', 'Maximum'], ['minimum', 'Minimum'],
+      ['screen', 'Screen'], ['composite_in_back', 'Composite In Back'],
+      ['composite_in_front', 'Composite In Front'], ['blend', 'Blend']]]],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.

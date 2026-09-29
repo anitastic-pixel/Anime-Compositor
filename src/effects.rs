@@ -846,6 +846,18 @@ pub enum Effect {
         invert: String,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-195: `echo_time`, -120 to 120 frames, and `echoes`, 0 to 30, each taken whole below;
+    /// `intensity` and `decay`, 0 to 1; and `operator`, one of [`crate::layer_fx::ECHO_OPERATORS`].
+    /// `picture` is not a setting and is never saved: compose draws the echoes into it for each
+    /// frame.
+    Echo {
+        echo_time: f64,
+        echoes: f64,
+        intensity: f64,
+        decay: f64,
+        operator: String,
+        picture: Option<crate::layer_map::Map>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -924,6 +936,7 @@ pub const LIGHTNING_BOLT: &str = "core.lightning_bolt";
 pub const COMPOUND_BLUR: &str = "core.compound_blur";
 pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
 pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
+pub const ECHO: &str = "core.echo";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1533,6 +1546,12 @@ impl Effect {
                 ("completion", vec![completion], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
+            Effect::Echo { echo_time, echoes, intensity, decay, .. } => vec![
+                ("echo_time", vec![echo_time], -120.0, 120.0),
+                ("echoes", vec![echoes], 0.0, 30.0),
+                ("intensity", vec![intensity], 0.0, 1.0),
+                ("decay", vec![decay], 0.0, 1.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1761,6 +1780,7 @@ impl Effect {
             Effect::CompoundBlur { .. } => "Compound Blur",
             Effect::DisplacementMap { .. } => "Displacement Map",
             Effect::GradientWipe { .. } => "Gradient Wipe",
+            Effect::Echo { .. } => "Echo",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1839,6 +1859,7 @@ impl Effect {
             Effect::CompoundBlur { .. } => COMPOUND_BLUR,
             Effect::DisplacementMap { .. } => DISPLACEMENT_MAP,
             Effect::GradientWipe { .. } => GRADIENT_WIPE,
+            Effect::Echo { .. } => ECHO,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2306,6 +2327,10 @@ impl Effect {
             )),
             Effect::GradientWipe { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "Gradient Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
+            )),
+            Effect::Echo { operator, .. } if !crate::layer_fx::ECHO_OPERATORS.contains(&operator.as_str()) => Some(format!(
+                "Echo's operator is \"add\", \"maximum\", \"minimum\", \"screen\", \"composite_in_back\", \
+                 \"composite_in_front\" or \"blend\", and this is \"{operator}\"."
             )),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
@@ -3373,6 +3398,15 @@ pub(crate) fn apply_stack_at(
                 if let Some(map) = map {
                     crate::perf::time(crate::perf::Stage::EffectGradientWipe, || {
                         crate::layer_fx::gradient_wipe(source, &map.0, (ox, oy), *completion, *softness, invert == "on")
+                    })
+                }
+            }
+            // D-195: the echoes compose drew for this frame replace the picture, laid on the
+            // drawing; on an adjustment layer there are none, and nothing changes.
+            Effect::Echo { picture, .. } => {
+                if let Some(picture) = picture {
+                    crate::perf::time(crate::perf::Stage::EffectEcho, || {
+                        crate::layer_fx::lay(source, &picture.0, (ox, oy))
                     })
                 }
             }

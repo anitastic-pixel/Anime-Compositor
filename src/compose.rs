@@ -1083,6 +1083,7 @@ fn resolve_rest(
     if !layer.is_adjustment() {
         let quality = if pre == 1.0 { PreviewQuality::Full } else { PreviewQuality::Draft };
         fill_maps(&mut effects, project, root, comp, layer, frame, quality, step1, cache, log);
+        fill_echoes(&mut effects, project, root, comp, layer, frame, quality, step1, cache, log);
     }
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
     // draft divisor, before the rasterizer and before document 27's cache key, exactly as an
@@ -1949,6 +1950,49 @@ fn fill_maps(
         if let Some((_, slot)) = instance.effect.layer_setting_mut() {
             *slot = map.map(|m| crate::layer_map::Map(std::sync::Arc::new(m)));
         }
+    }
+}
+
+/// D-195: each switched-on Echo's copies, the holder's drawing through its masks at the frames
+/// its settings name, put together at `size`. What drawing them logged belongs to this frame,
+/// once for each kind.
+#[allow(clippy::too_many_arguments)]
+fn fill_echoes(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.effect.is_valid()) {
+        let crate::effects::Effect::Echo { echo_time, echoes, intensity, decay, operator, picture } =
+            &mut instance.effect
+        else {
+            continue;
+        };
+        let drawing = bare(holder, true);
+        let mut inside = FrameLog::new(usize::MAX);
+        let mut fold = crate::layer_fx::EchoFold::new(operator, size);
+        for k in 0..=echoes.floor() as i32 {
+            let at = frame + k * echo_time.floor() as i32;
+            let p = resolve_layer(project, comp, &drawing, at, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+                .map(|r| crate::layer_map::cut(&r.source, (0, 0), size));
+            crate::perf::time(crate::perf::Stage::EffectEcho, || fold.add(p.as_ref(), *intensity * decay.powi(k)));
+        }
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        let done = crate::perf::time(crate::perf::Stage::EffectEcho, || fold.finish());
+        *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
     }
 }
 

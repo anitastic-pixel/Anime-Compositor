@@ -1792,6 +1792,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::Echo { echo_time, echoes, intensity, decay, operator, .. } => {
+            params.insert("echo_time".into(), num(*echo_time));
+            params.insert("echoes".into(), num(*echoes));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("decay".into(), num(*decay));
+            params.insert("operator".into(), J::from(operator.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2286,6 +2293,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "max_blur",
         "max_horizontal",
         "max_vertical",
+        "echo_time",
+        "echoes",
+        "decay",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2744,6 +2754,7 @@ fn parse_effect(
         crate::effects::COMPOUND_BLUR,
         crate::effects::DISPLACEMENT_MAP,
         crate::effects::GRADIENT_WIPE,
+        crate::effects::ECHO,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3255,6 +3266,14 @@ fn parse_effect(
             softness: effect_number(params, "softness", &at)?,
             invert: effect_word(params, "invert", &at)?,
             map: None,
+        }),
+        crate::effects::ECHO => Some(crate::effects::Effect::Echo {
+            echo_time: effect_number(params, "echo_time", &at)?,
+            echoes: effect_number(params, "echoes", &at)?,
+            intensity: effect_number(params, "intensity", &at)?,
+            decay: effect_number(params, "decay", &at)?,
+            operator: effect_word(params, "operator", &at)?,
+            picture: None,
         }),
         _ => None,
     };

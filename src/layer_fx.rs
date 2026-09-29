@@ -2104,3 +2104,81 @@ pub(crate) fn gradient_wipe(
         }
     });
 }
+
+/// D-195: Echo's operators, as the file writes them.
+pub(crate) const ECHO_OPERATORS: [&str; 7] =
+    ["add", "maximum", "minimum", "screen", "composite_in_back", "composite_in_front", "blend"];
+
+/// D-195: Echo's copies put together one at a time, so no more than one is held: each `P_k` in
+/// turn with its weight `I D^k`, then [`EchoFold::finish`].
+pub(crate) struct EchoFold {
+    operator: String,
+    out: WorkingBuffer,
+    count: usize,
+}
+
+impl EchoFold {
+    pub(crate) fn new(operator: &str, (w, h): (usize, usize)) -> Self {
+        let mut out = WorkingBuffer::transparent(w, h);
+        // Screen keeps what each copy leaves, which starts whole.
+        if operator == "screen" {
+            out.data_mut().fill(1.0);
+        }
+        EchoFold { operator: operator.to_string(), out, count: 0 }
+    }
+
+    /// `p` is `P_k`, `None` where the layer shows nothing; it is the size the fold was made at.
+    pub(crate) fn add(&mut self, p: Option<&WorkingBuffer>, weight: f64) {
+        let first = self.count == 0;
+        self.count += 1;
+        // Nothing added, laid over or under changes nothing; only Maximum and Minimum see it.
+        if p.is_none() && !matches!(self.operator.as_str(), "maximum" | "minimum") {
+            return;
+        }
+        let fold: fn(&mut [f32], [f32; 4], bool) = match self.operator.as_str() {
+            "maximum" => |r, q, first| (0..4).for_each(|c| r[c] = if first { q[c] } else { r[c].max(q[c]) }),
+            "minimum" => |r, q, first| (0..4).for_each(|c| r[c] = if first { q[c] } else { r[c].min(q[c]) }),
+            "screen" => |r, q, _| (0..4).for_each(|c| r[c] *= 1.0 - q[c].clamp(0.0, 1.0)),
+            // What is there so far over the new copy, or the new copy over it.
+            "composite_in_back" => |r, q, _| {
+                let a = r[3];
+                (0..4).for_each(|c| r[c] += (1.0 - a) * q[c])
+            },
+            "composite_in_front" => |r, q, _| (0..4).for_each(|c| r[c] = q[c] + (1.0 - q[3]) * r[c]),
+            _ => |r, q, _| (0..4).for_each(|c| r[c] += q[c]),
+        };
+        let w = weight as f32;
+        let src = p.map(|p| p.data());
+        self.out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, r)| {
+            let q = src.map_or([0.0; 4], |s| std::array::from_fn(|c| s[i * 4 + c] * w));
+            fold(r, q, first);
+        });
+    }
+
+    pub(crate) fn finish(mut self) -> WorkingBuffer {
+        let n = self.count.max(1) as f32;
+        let last: Option<fn(&mut f32, f32)> = match self.operator.as_str() {
+            "add" => Some(|v, _| *v = v.min(1.0)),
+            "screen" => Some(|v, _| *v = 1.0 - *v),
+            "blend" => Some(|v, n| *v /= n),
+            _ => None,
+        };
+        if let Some(last) = last {
+            self.out.data_mut().par_iter_mut().for_each(|v| last(v, n));
+        }
+        self.out
+    }
+}
+
+/// D-195: `picture` laid on `source` with its corner at `origin`, and nothing elsewhere.
+pub(crate) fn lay(source: &mut WorkingBuffer, picture: &WorkingBuffer, (ox, oy): (usize, usize)) {
+    let w = source.width();
+    let across = picture.width().min(w.saturating_sub(ox));
+    let rows = picture.height().min(source.height().saturating_sub(oy));
+    let data = source.data_mut();
+    data.fill(0.0);
+    for y in 0..rows {
+        let to = ((oy + y) * w + ox) * 4;
+        data[to..to + across * 4].copy_from_slice(&picture.data()[y * picture.width() * 4..][..across * 4]);
+    }
+}
