@@ -196570,6 +196570,314 @@ Frame 0: every pixel is the drawing's.
 
 Frame 4: every pixel is the drawing's.
 
+## Extract fixtures
+
+D-212, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/extract/`, holding one drawing the same size with one Extract (`core.extract`) on it, unmoved unless the case says. The drawing is `Fixtures/extract/media/tones.png`, Threshold's bands (see Threshold fixtures): black (column 1), blue (2), the line (3), red (4), dark grey (5), grey 127 (6), grey 128 (7), the shadow skin (8), green (9), light grey (10), the skin (11) and white (12), then the skin at half covering (13) and the line at half covering (14), each in rows 1 to 8; the rest empty. Values are linear premultiplied working values, and only the pixels that differ from the drawing, as the case moves it, are listed, a run of rows in one column holding the same pair once: every other pixel is the drawing's own, to 1e-12.
+
+**Every number below is produced by `tools/extract_reference.py`**, which works D-212's rule in double precision at every pixel from the drawing's 8-bit values. The same numbers are in `Fixtures/extract/expected_extract.json`. Tolerance 2e-5.
+
+**Checked by what they claim.** The tool checks that every case keeps empty pixels empty, scales all four channels of a pixel alike, and decides no pixel within 1e-5 of a hard point (all); the setting as it starts keeping everything (001); the black point taking out black, blue, the line, red and the soft line (002) and the white point the light grey, the skins and white (003); the band between them (004); a grey exactly on the point kept (005); the softnesses' straight-line fades, the soft skin fading as the skin (006, 007); invert (008, 009); each colour channel and alpha (010 to 013); crossed points keeping nothing (014); the keys and the overshoot held (015, 016); and the move (017).
+
+FX-EXTRACT-001: As it starts: luminance, black point 0, white point 255, no softness: every pixel is kept, black and white too, and the frame is the drawing.
+
+Frame 0: every pixel is the drawing's.
+
+FX-EXTRACT-002: Black point 60: black, blue, the line, red and the soft line, all darker, turn transparent; the dark grey at 64 is kept.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 1 | 1 to 8 | 0 0 0 1 | 0 0 0 0 |
+| 2 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 3 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 1 to 8 | 1 0 0 1 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-003: White point 190: the light grey, the skin, white and the soft skin, all brighter, turn transparent; green at 182.4 is kept.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 10 | 1 to 8 | 0.5271151 0.5271151 0.5271151 1 | 0 0 0 0 |
+| 11 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 1 to 8 | 1 1 1 1 | 0 0 0 0 |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-004: Black point 60 and white point 190: only the middle band is kept, from the dark grey to green.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 1 | 1 to 8 | 0 0 0 1 | 0 0 0 0 |
+| 2 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 3 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 1 to 8 | 1 0 0 1 | 0 0 0 0 |
+| 10 | 1 to 8 | 0.5271151 0.5271151 0.5271151 1 | 0 0 0 0 |
+| 11 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 1 to 8 | 1 1 1 1 | 0 0 0 0 |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-005: Black point 128: grey 128, exactly on the point, is kept; grey 127 goes.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 1 | 1 to 8 | 0 0 0 1 | 0 0 0 0 |
+| 2 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 3 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 1 to 8 | 1 0 0 1 | 0 0 0 0 |
+| 5 | 1 to 8 | 0.05126946 0.05126946 0.05126946 1 | 0 0 0 0 |
+| 6 | 1 to 8 | 0.2122308 0.2122308 0.2122308 1 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-006: Black point 20 with black softness 100: blue, below 20, goes; the pixels from 20 to 120 fade in, the line faintly, red and the dark grey more; grey 127 and above are kept whole.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 1 | 1 to 8 | 0 0 0 1 | 0 0 0 0 |
+| 2 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 3 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0.0009831271 0.0007822155 0.001335919 0.075724 |
+| 4 | 1 to 8 | 1 0 0 1 | 0.34213 0 0 0.34213 |
+| 5 | 1 to 8 | 0.05126946 0.05126946 0.05126946 1 | 0.02255856 0.02255856 0.02255856 0.44 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0.0004934913 0.0003926415 0.0006705791 0.03801048 |
+
+FX-EXTRACT-007: White softness 60: the pixels from 195 to 255 fade out, the skin at 219 part way, white wholly; the light grey at 192 is kept whole.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 11 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0.5518678 0.4026769 0.3083464 0.5988267 |
+| 12 | 1 to 8 | 1 1 1 1 | 9.473903e-16 9.473903e-16 9.473903e-16 9.473903e-16 |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.277016 0.202128 0.1547778 0.3005875 |
+
+FX-EXTRACT-008: Invert on, black point 60: the other side: black, blue, the line, red and the soft line are kept, and every brighter pixel goes.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 5 | 1 to 8 | 0.05126946 0.05126946 0.05126946 1 | 0 0 0 0 |
+| 6 | 1 to 8 | 0.2122308 0.2122308 0.2122308 1 | 0 0 0 0 |
+| 7 | 1 to 8 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 |
+| 8 | 1 to 8 | 0.7156935 0.3515326 0.2622507 1 | 0 0 0 0 |
+| 9 | 1 to 8 | 0 1 0 1 | 0 0 0 0 |
+| 10 | 1 to 8 | 0.5271151 0.5271151 0.5271151 1 | 0 0 0 0 |
+| 11 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 1 to 8 | 1 1 1 1 | 0 0 0 0 |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-009: FX-EXTRACT-006 inverted: each fading pixel keeps what 006 took, so the two add up to the drawing.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 3 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01199991 0.009547608 0.01630604 0.924276 |
+| 4 | 1 to 8 | 1 0 0 1 | 0.65787 0 0 0.65787 |
+| 5 | 1 to 8 | 0.05126946 0.05126946 0.05126946 1 | 0.0287109 0.0287109 0.0287109 0.56 |
+| 6 | 1 to 8 | 0.2122308 0.2122308 0.2122308 1 | 0 0 0 0 |
+| 7 | 1 to 8 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 |
+| 8 | 1 to 8 | 0.7156935 0.3515326 0.2622507 1 | 0 0 0 0 |
+| 9 | 1 to 8 | 0 1 0 1 | 0 0 0 0 |
+| 10 | 1 to 8 | 0.5271151 0.5271151 0.5271151 1 | 0 0 0 0 |
+| 11 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 1 to 8 | 1 1 1 1 | 0 0 0 0 |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0.006023482 0.004792525 0.00818499 0.4639503 |
+
+FX-EXTRACT-010: Channel red, black point 128: red, the skins and grey 128 are kept, blue, green, the line and grey 127 go, by their red alone.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 1 | 1 to 8 | 0 0 0 1 | 0 0 0 0 |
+| 2 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 3 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 5 | 1 to 8 | 0.05126946 0.05126946 0.05126946 1 | 0 0 0 0 |
+| 6 | 1 to 8 | 0.2122308 0.2122308 0.2122308 1 | 0 0 0 0 |
+| 9 | 1 to 8 | 0 1 0 1 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-011: Channel green, black point 128: green, the skins and grey 128 are kept, red and blue go.
+
+Frame 0: the same as FX-EXTRACT-005 frame 0.
+
+FX-EXTRACT-012: Channel blue, white point 100: blue, the skins, the greys from 127 and white go; black, red, green, the line and the dark grey are kept.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 2 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 6 | 1 to 8 | 0.2122308 0.2122308 0.2122308 1 | 0 0 0 0 |
+| 7 | 1 to 8 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 |
+| 8 | 1 to 8 | 0.7156935 0.3515326 0.2622507 1 | 0 0 0 0 |
+| 10 | 1 to 8 | 0.5271151 0.5271151 0.5271151 1 | 0 0 0 0 |
+| 11 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 1 to 8 | 1 1 1 1 | 0 0 0 0 |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-013: Channel alpha, black point 200: the two half-covered columns go, every fully covered pixel is kept whatever its colour.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-014: Black point 200 above white point 100: nothing is kept.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 1 | 1 to 8 | 0 0 0 1 | 0 0 0 0 |
+| 2 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 3 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 1 to 8 | 1 0 0 1 | 0 0 0 0 |
+| 5 | 1 to 8 | 0.05126946 0.05126946 0.05126946 1 | 0 0 0 0 |
+| 6 | 1 to 8 | 0.2122308 0.2122308 0.2122308 1 | 0 0 0 0 |
+| 7 | 1 to 8 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 |
+| 8 | 1 to 8 | 0.7156935 0.3515326 0.2622507 1 | 0 0 0 0 |
+| 9 | 1 to 8 | 0 1 0 1 | 0 0 0 0 |
+| 10 | 1 to 8 | 0.5271151 0.5271151 0.5271151 1 | 0 0 0 0 |
+| 11 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 1 to 8 | 1 1 1 1 | 0 0 0 0 |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-015: Black point keyed from 0 at frame 0 to 255 at frame 4, linear: frame 0 is FX-EXTRACT-001, frame 2 at 127.5 keeps grey 128 and loses grey 127, and at frame 4 only white is left.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 2: the same as FX-EXTRACT-005 frame 0.
+
+Frame 4, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 1 | 1 to 8 | 0 0 0 1 | 0 0 0 0 |
+| 2 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 3 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 1 to 8 | 1 0 0 1 | 0 0 0 0 |
+| 5 | 1 to 8 | 0.05126946 0.05126946 0.05126946 1 | 0 0 0 0 |
+| 6 | 1 to 8 | 0.2122308 0.2122308 0.2122308 1 | 0 0 0 0 |
+| 7 | 1 to 8 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 |
+| 8 | 1 to 8 | 0.7156935 0.3515326 0.2622507 1 | 0 0 0 0 |
+| 9 | 1 to 8 | 0 1 0 1 | 0 0 0 0 |
+| 10 | 1 to 8 | 0.5271151 0.5271151 0.5271151 1 | 0 0 0 0 |
+| 11 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+FX-EXTRACT-016: White point eased from 255 at frame 0 to 0 at frame 4 on a curve that overshoots: at frame 2 it has gone below 0 and is held there, so frames 2 and 4 keep only black.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 2, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 2 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 3 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 4 | 1 to 8 | 1 0 0 1 | 0 0 0 0 |
+| 5 | 1 to 8 | 0.05126946 0.05126946 0.05126946 1 | 0 0 0 0 |
+| 6 | 1 to 8 | 0.2122308 0.2122308 0.2122308 1 | 0 0 0 0 |
+| 7 | 1 to 8 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 0 |
+| 8 | 1 to 8 | 0.7156935 0.3515326 0.2622507 1 | 0 0 0 0 |
+| 9 | 1 to 8 | 0 1 0 1 | 0 0 0 0 |
+| 10 | 1 to 8 | 0.5271151 0.5271151 0.5271151 1 | 0 0 0 0 |
+| 11 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 12 | 1 to 8 | 1 1 1 1 | 0 0 0 0 |
+| 13 | 1 to 8 | 0.462598 0.3375401 0.2584685 0.5019608 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+Frame 4: the same as FX-EXTRACT-016 frame 2.
+
+FX-EXTRACT-017: FX-EXTRACT-004 moved three pixels right: the same, moved.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | extracted |
+| --- | --- | --- | --- |
+| 4 | 1 to 8 | 0 0 0 1 | 0 0 0 0 |
+| 5 | 1 to 8 | 0 0 1 1 | 0 0 0 0 |
+| 6 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 7 | 1 to 8 | 1 0 0 1 | 0 0 0 0 |
+| 13 | 1 to 8 | 0.5271151 0.5271151 0.5271151 1 | 0 0 0 0 |
+| 14 | 1 to 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 15 | 1 to 8 | 1 1 1 1 | 0 0 0 0 |
+
+FX-EXTRACT-018: Black point -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
+FX-EXTRACT-019: Black point 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
+FX-EXTRACT-020: White point 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
+FX-EXTRACT-021: Black softness 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
+FX-EXTRACT-022: White softness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
+FX-EXTRACT-023: Channel "luma", which is not one of the five. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
+FX-EXTRACT-024: Channel "Red", written with a capital. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
+FX-EXTRACT-025: Invert "yes", which is not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
+FX-EXTRACT-026: Black point keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
+FX-EXTRACT-027: Black point written "60", a word, not a number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's.
+
+Frame 4: every pixel is the drawing's.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
