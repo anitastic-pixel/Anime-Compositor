@@ -687,6 +687,8 @@ B-124 / Motion blur, D-188 and ADR-019: a layer whose switch is on, in a composi
 
 B-125 / A layer of this composition as an effect's setting, D-189: the setting Compound Blur, Displacement Map and Gradient Wipe share, built once before them. **B-125a, the rule and its fixtures, is written on 2026-09-28**: `verification/B-125a proposal/layer_map.md` and its picture, the rules in documents 19, 21 and 28, and FX-LMAP-001 to 042 in document 25, every number from `tools/effect_layer_reference.py` into `Fixtures/layer_map/`. **B-125b, the build on the processor, is built on 2026-09-28**: the map made through the program, and `verification/B-125b_layer_map_table.md`, where every case of FX-LMAP-001 to 042 passes, 37 of 37, with every map drawn in `verification/B-125 pictures/maps.png`. Nothing shows in the app until A2. The playtest sheet is `verification/B-125_layer_map_playtest.md`, pictures and a table only, **awaiting the owner's look**.
 
+B-126 / Lightning Bolt, D-190: a jagged, forking bolt of light between two points of a layer, a core in a coloured glow, redrawn every few frames; After Effects' Lightning in purpose, our own rule (A1). **B-126a, the rule and its fixtures, is written on 2026-09-28**: the rule in document 21, FX-BOLT-001 to 032 in document 25 from `tools/lightning_bolt_reference.py`, which writes `Fixtures/lightning_bolt/`. The proposal is `verification/B-126a proposal/lightning_bolt.md`, with `lightning_bolt.png`. **B-126b, the build, is next.**
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.
