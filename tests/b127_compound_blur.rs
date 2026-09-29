@@ -14,7 +14,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::Table;
+use effect_table::{town, Table, TOWN};
 use serde_json::Value as J;
 
 use anime_compositor::command::{Command, Document};
@@ -79,36 +79,6 @@ fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command,
             refused.as_ref().is_some_and(|d| id.is_none_or(|id| d.id.as_str() == id)) && untouched,
         );
     }
-}
-
-const TOWN: (usize, usize) = (480, 270);
-
-/// A street at a quarter of 1920 by 1080: a sky lightening downward, a row of houses with lit
-/// and dark windows, and a road with white markings.
-fn town() -> Vec<u8> {
-    let (w, h) = TOWN;
-    let walls = [[180, 90, 70], [90, 140, 170], [200, 180, 120], [120, 160, 100]];
-    let mut bytes = Vec::with_capacity(w * h * 4);
-    for y in 0..h {
-        for x in 0..w {
-            let t = y as f64 / h as f64;
-            let mut c = [(120.0 + 100.0 * t) as u8, (170.0 + 50.0 * t) as u8, (230.0 - 30.0 * t) as u8];
-            let (house, lx) = (x / 48, x % 48);
-            let top = 110 + (house * 37 % 5) * 16;
-            if (top..210).contains(&y) && lx < 45 {
-                c = walls[house % 4];
-                let ly = y - top;
-                if (6..40).contains(&lx) && (lx - 6) % 12 < 6 && ly >= 10 && (ly - 10) % 16 < 8 && y < 200 {
-                    c = if (x / 12 + y / 16) % 3 != 0 { [255, 240, 170] } else { [40, 50, 70] };
-                }
-            }
-            if y >= 210 {
-                c = if (230..234).contains(&y) && x % 40 < 22 { [250, 250, 250] } else { [60, 60, 66] };
-            }
-            bytes.extend([c[0], c[1], c[2], 255]);
-        }
-    }
-    bytes
 }
 
 /// The depth map: black along the house fronts, rows 170 to 210, which stay sharp, whitening

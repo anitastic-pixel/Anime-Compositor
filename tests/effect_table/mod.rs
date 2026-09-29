@@ -154,7 +154,10 @@ impl Table {
 
     /// The parameters `file` is saved with.
     pub fn saved_parameters(&self, file: &str) -> J {
-        saved(&self.load(file))["compositions"][0]["layers"][0]["effects"][0]["parameters"].clone()
+        let saved = saved(&self.load(file));
+        let layers = saved["compositions"][0]["layers"].as_array().unwrap();
+        let holder = layers.iter().position(|l| l["effects"].as_array().is_some_and(|e| !e.is_empty())).unwrap_or(0);
+        layers[holder]["effects"][0]["parameters"].clone()
     }
 
     /// `file` with its effect's parameters replaced by `parameters` is refused on opening as a
@@ -164,7 +167,11 @@ impl Table {
             serde_json::from_str(&fs::read_to_string(self.root.join(file)).unwrap()).unwrap();
         // The `art` layer, which is not the bottom one when a case has a layer beneath it.
         let layers = json["compositions"][0]["layers"].as_array().unwrap();
-        let art = layers.iter().position(|l| l["id"] == "art").unwrap_or(0);
+        let art = layers
+            .iter()
+            .position(|l| l["id"] == "art")
+            .or_else(|| layers.iter().position(|l| l["effects"].as_array().is_some_and(|e| !e.is_empty())))
+            .unwrap_or(0);
         json["compositions"][0]["layers"][art]["effects"][0]["parameters"] =
             serde_json::from_str(parameters).unwrap();
         let path = std::env::temp_dir().join(format!("effect_table_shape_{}.json", self.checks));
@@ -247,6 +254,36 @@ impl Table {
             );
         }
     }
+}
+
+pub const TOWN: (usize, usize) = (480, 270);
+
+/// A street at a quarter of 1920 by 1080: a sky lightening downward, a row of houses with lit
+/// and dark windows, and a road with white markings.
+pub fn town() -> Vec<u8> {
+    let (w, h) = TOWN;
+    let walls = [[180, 90, 70], [90, 140, 170], [200, 180, 120], [120, 160, 100]];
+    let mut bytes = Vec::with_capacity(w * h * 4);
+    for y in 0..h {
+        for x in 0..w {
+            let t = y as f64 / h as f64;
+            let mut c = [(120.0 + 100.0 * t) as u8, (170.0 + 50.0 * t) as u8, (230.0 - 30.0 * t) as u8];
+            let (house, lx) = (x / 48, x % 48);
+            let top = 110 + (house * 37 % 5) * 16;
+            if (top..210).contains(&y) && lx < 45 {
+                c = walls[house % 4];
+                let ly = y - top;
+                if (6..40).contains(&lx) && (lx - 6) % 12 < 6 && ly >= 10 && (ly - 10) % 16 < 8 && y < 200 {
+                    c = if (x / 12 + y / 16) % 3 != 0 { [255, 240, 170] } else { [40, 50, 70] };
+                }
+            }
+            if y >= 210 {
+                c = if (230..234).contains(&y) && x % 40 < 22 { [250, 250, 250] } else { [60, 60, 66] };
+            }
+            bytes.extend([c[0], c[1], c[2], 255]);
+        }
+    }
+    bytes
 }
 
 /// The largest difference between a frame and the reference's pixels.
