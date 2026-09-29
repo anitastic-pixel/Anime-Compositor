@@ -256,7 +256,7 @@
   }
   .now small, .zoom { color: #909096; font-size: 12px; }
   .zoom { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-  #shyswitch[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
+  #shyswitch[aria-pressed=true], #mbswitch[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
   /* The headings over the switches, in the gutter beside the ruler. */
   #colheads {
     position: absolute; left: 8px; top: 6px; width: var(--gutter); height: 36px;
@@ -266,10 +266,10 @@
   #colheads svg { width: 14px; height: 14px; }
   #colheads .l { place-items: center start; }
   /* W-31b: a layer's row, in columns under those headings: show, solo, lock, label, number,
-     arrow, name, shy, mode, parent. */
+     arrow, name, shy, motion blur, mode, parent. */
   .rowhead.layerhead {
     display: grid; align-items: center; gap: 0 2px; padding-right: 6px; min-width: 0;
-    grid-template-columns: 22px 22px 22px 10px 24px 18px minmax(0, 1fr) 22px 64px 84px;
+    grid-template-columns: 22px 22px 22px 10px 24px 18px minmax(0, 1fr) 22px 22px 64px 84px;
   }
   .ic { display: grid; place-items: center; width: 22px; height: 22px; padding: 0 !important; color: #6a6a70; }
   .ic svg { width: 14px; height: 14px; }
@@ -296,7 +296,7 @@
   }
   .parentcell .whip { color: #909096; display: grid; place-items: center; }
   .parentcell .whip svg { width: 14px; height: 14px; }
-  #timeline.narrow .layerhead { grid-template-columns: 22px 22px 22px 10px 24px 18px minmax(0, 1fr) 22px 60px 22px; }
+  #timeline.narrow .layerhead { grid-template-columns: 22px 22px 22px 10px 24px 18px minmax(0, 1fr) 22px 22px 60px 22px; }
   #timeline.narrow .pname { display: none; }
   /* An empty composition says so and offers the two ways to start. */
   #nolayers { display: grid; place-items: center; gap: 10px; padding: 32px 16px; text-align: center; color: #909096; }
@@ -1008,6 +1008,13 @@
           <input id="compcut" type="text">
           <label for="companimator">Animator</label>
           <input id="companimator" type="text">
+          <h3>Motion blur</h3>
+          <label for="compangle">Shutter angle in degrees, 0 to 720</label>
+          <input id="compangle" type="number" min="0" max="720" value="180">
+          <label for="compphase">Shutter phase in degrees, -360 to 360</label>
+          <input id="compphase" type="number" min="-360" max="360" value="-90">
+          <label for="compsamples">Samples per frame, 2 to 64</label>
+          <input id="compsamples" type="number" min="2" max="64" value="16">
         </div>
         <button id="makecomp">Create it</button>
         <button id="cancelcomp">Leave it</button>
@@ -1153,6 +1160,8 @@
         title="Fit the graph to the chosen keys, or to the whole curve when none is chosen. The mouse wheel zooms the values; drag with the middle button to slide them.">Fit</button>
       <button id="shyswitch" class="sheettab" aria-pressed="false"
         title="Leave shy layers off the timeline. The picture still draws them.">Hide shy</button>
+      <button id="mbswitch" class="sheettab" aria-pressed="false"
+        title="Motion blur for the composition: each layer whose own motion-blur switch is on is blurred as it moves. The shutter is in Composition settings, Ctrl+K.">Motion blur</button>
       <span class="zoom">&minus;
         <input id="timezoom" type="range" min="0" max="100" step="1" value="0"
           aria-label="Timeline zoom. Also = and -, or Alt with the mouse wheel"
@@ -1680,6 +1689,7 @@ const ICONS = {
   solo: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2.5" fill="currentColor"/>',
   lock: '<rect x="3" y="7" width="10" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 0 1 6 0" fill="none" stroke="currentColor" stroke-width="1.4"/>',
   shy: '<path d="M3 9a5 4 0 0 0 10 0" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  blur: '<circle cx="10.5" cy="8" r="3.5" fill="currentColor"/><path d="M1 5.5h5M2 8h4M1 10.5h5" stroke="currentColor" stroke-width="1.2"/>',
   whip: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v6M5 8h6" stroke="currentColor" stroke-width="1.2"/>',
 };
 const svgOf = (name) => '<svg viewBox="0 0 16 16" aria-hidden="true">' + ICONS[name] + '</svg>';
@@ -2860,6 +2870,7 @@ function drawLayers() {
   // Reversed: the last layer in composition order is drawn last and so is in front.
   const list = $('layers');
   $('shyswitch').setAttribute('aria-pressed', String(prefs.hideShy));
+  $('mbswitch').setAttribute('aria-pressed', String(!!(comp && comp.motion_blur && comp.motion_blur.enabled)));
   list.replaceChildren(...cameraGroup(comp), ...all.slice().reverse().filter((layer) => !(prefs.hideShy && layer.shy)).flatMap((layer) => {
     // D-71: on an audio layer the same switch is a speaker.
     const sound = layer.kind === 'audio';
@@ -2963,8 +2974,16 @@ function drawLayers() {
       parent.title = 'Parent: ' + name.textContent;
       parent.append(icon(whip(layer, null), 'whip', !!up), name);
     }
+    // D-188: After Effects' motion-blur switch, on a layer that draws. The composition's switch
+    // over the timeline turns them all on or off at once, as After Effects' does.
+    let blur = blank();
+    if (!adjust && !sound && !nul) {
+      blur = icon(iconButton('', (layer.motion_blur ? 'No motion blur: ' : 'Motion blur: ') + layer.name,
+        () => command('/layer.toggle_motion_blur?layer=' + encodeURIComponent(layer.id))), 'blur', !!layer.motion_blur);
+      blur.setAttribute('aria-pressed', String(!!layer.motion_blur));
+    }
     // B-17c: an adjustment layer has normal and no list to choose from (D-66).
-    head.append(eye, solo, lock, swatch, num, twirl, cell, shy, !adjust && !sound && !nul ? blend : blank(), parent);
+    head.append(eye, solo, lock, swatch, num, twirl, cell, shy, blur, !adjust && !sound && !nul ? blend : blank(), parent);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     grabRow(li, head, all, layer);
@@ -9619,7 +9638,8 @@ new ResizeObserver(() => {
 $('colheads').className = 'rowhead layerhead';
 $('colheads').innerHTML = '<span title="Show">' + svgOf('eye') + '</span><span title="Solo">' + svgOf('solo')
   + '</span><span title="Lock">' + svgOf('lock') + '</span><span></span><span>#</span><span></span>'
-  + '<span class="l">Layer</span><span title="Shy">' + svgOf('shy') + '</span><span class="l">Mode</span>'
+  + '<span class="l">Layer</span><span title="Shy">' + svgOf('shy') + '</span><span title="Motion blur">' + svgOf('blur')
+  + '</span><span class="l">Mode</span>'
   + '<span class="l pname">Parent</span>';
 
 function drawPanels() {
@@ -9933,6 +9953,8 @@ $('importcut').onclick = () => command('/timesheet.import');
 let settingComp = null;
 // D-84f: what the printed Sheet's title block says besides the name.
 const SHEET_DETAILS = [['episode', 'compepisode'], ['scene', 'compscene'], ['cut', 'compcut'], ['animator', 'companimator']];
+// D-188: the shutter's three, sent only when one of them was changed.
+const SHUTTER = ['compangle', 'compphase', 'compsamples'];
 function compSettings() {
   const comp = composition();
   if (!comp) return;
@@ -9943,8 +9965,12 @@ function compSettings() {
   $('compframes').value = comp.duration_frames;
   const details = comp.sheet_details || {};
   for (const [k, box] of SHEET_DETAILS) $(box).value = typeof details[k] === 'string' ? details[k] : '';
+  const shutter = comp.motion_blur || { shutter_angle: 180, shutter_phase: -90, samples: 16 };
+  $('compangle').value = shutter.shutter_angle;
+  $('compphase').value = shutter.shutter_phase;
+  $('compsamples').value = shutter.samples;
   $('compsheet').hidden = false;
-  settingComp = { fps: $('compfps').value };
+  settingComp = { fps: $('compfps').value, shutter: SHUTTER.map((box) => $(box).value).join() };
   $('makecomp').textContent = 'Apply';
   toFront('bin');
   $('newcomposition').hidden = false;
@@ -10241,6 +10267,10 @@ $('sessionlogon').onchange = (e) => sessionLog(e.target.checked ? 'on' : 'off');
 $('sessionlogclear').onclick = () => sessionLog('clear');
 $('sessionlogsave').onclick = () => sessionLog('save');
 $('shyswitch').onclick = () => { prefs.hideShy = !prefs.hideShy; savePrefs(); drawLayers(); };
+$('mbswitch').onclick = () => {
+  const comp = composition();
+  if (comp) command('/composition.set_motion_blur?enabled=' + !(comp.motion_blur && comp.motion_blur.enabled));
+};
 $('makecomp').onclick = () => {
   const q = 'name=' + encodeURIComponent($('compname').value)
     + '&width=' + encodeURIComponent($('compwidth').value)
@@ -10253,6 +10283,10 @@ $('makecomp').onclick = () => {
   $('newcomposition').hidden = true;
   const sheet = SHEET_DETAILS.map(([k, box]) => '&' + k + '=' + encodeURIComponent($(box).value)).join('');
   if (settings) command('/composition.set_settings?' + q + sheet + ($('compfps').value === settings.fps ? '' : fps));
+  if (settings && SHUTTER.map((box) => $(box).value).join() !== settings.shutter) {
+    command('/composition.set_motion_blur?angle=' + encodeURIComponent($('compangle').value)
+      + '&phase=' + encodeURIComponent($('compphase').value) + '&samples=' + encodeURIComponent($('compsamples').value));
+  }
   else command('/composition.create?' + q + fps);
 };
 // W-02's three steps, one request each: ask what to point at, read what would change, then agree

@@ -205,6 +205,11 @@ const KEY_ORDER: &[&str] = &[
     "parameters",
     "zoom",
     "expression",
+    // D-188: a composition's shutter, after its switch, which is `enabled` above.
+    "motion_blur",
+    "shutter_angle",
+    "shutter_phase",
+    "samples",
 ];
 
 /// An effect record is the one place a flat list is not enough: it spells `enabled` after
@@ -899,10 +904,17 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     if !layer.key_drawings.is_empty() {
         owned.push(("key_drawings", J::from(layer.key_drawings.clone())));
     }
+    // D-188: written only when on.
+    if layer.motion_blur {
+        owned.push(("motion_blur", J::from(true)));
+    }
     let mut merged = merge(base, owned);
-    if layer.key_drawings.is_empty() {
-        if let Some(map) = merged.as_object_mut() {
+    if let Some(map) = merged.as_object_mut() {
+        if layer.key_drawings.is_empty() {
             map.remove("key_drawings");
+        }
+        if !layer.motion_blur {
+            map.remove("motion_blur");
         }
     }
     merged
@@ -1892,6 +1904,20 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
         merged["sheet_details"] = object;
     } else if let Some(map) = merged.as_object_mut() {
         map.remove("sheet_details");
+    }
+    // D-188: written only when it differs from the shutter a composition starts with.
+    let shutter = composition.motion_blur;
+    if shutter == crate::model::MotionBlur::default() {
+        if let Some(map) = merged.as_object_mut() {
+            map.remove("motion_blur");
+        }
+    } else {
+        merged["motion_blur"] = serde_json::json!({
+            "enabled": shutter.enabled,
+            "shutter_angle": num(shutter.shutter_angle),
+            "shutter_phase": num(shutter.shutter_phase),
+            "samples": shutter.samples,
+        });
     }
     merged
 }
@@ -3210,6 +3236,18 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         _ => LayerKind::Raster,
     };
     let id = as_id(field(v, pointer, "id")?, &format!("{pointer}/id"))?;
+    // D-188: the motion-blur switch, on a layer that draws (FX-MB-039 to 041).
+    let motion_blur = match v.get("motion_blur") {
+        None => false,
+        Some(_) if matches!(kind, LayerKind::Null | LayerKind::Adjustment | LayerKind::Audio) => {
+            return Err(invalid(
+                &format!("{pointer}/motion_blur"),
+                "no motion_blur on a null, adjustment or audio layer, which has no picture of \
+                 its own to blur (D-188)",
+            ))
+        }
+        Some(b) => as_bool(b, &format!("{pointer}/motion_blur"))?,
+    };
     if kind == LayerKind::Audio {
         return parse_audio_layer(v, pointer, id);
     }
@@ -3666,6 +3704,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         shapes,
         timesheet,
         key_drawings,
+        motion_blur,
     })
 }
 
@@ -4071,6 +4110,37 @@ fn parse_label(v: &J, pointer: &str) -> Result<u8, Diagnostic> {
 
 /// D-71: an audio layer is heard and not seen. A file that gives it anything about a picture
 /// is not a file this build can read faithfully, so it is refused (FX-AUD-030 to 035).
+/// D-188: a composition's shutter, all four fields present and in range (FX-MB-030 to 038).
+fn parse_motion_blur(v: &J, pointer: &str) -> Result<crate::model::MotionBlur, Diagnostic> {
+    const FIELDS: [&str; 4] = ["enabled", "shutter_angle", "shutter_phase", "samples"];
+    if let Some(unknown) = as_object(v, pointer)?.keys().find(|k| !FIELDS.contains(&k.as_str())) {
+        return Err(invalid(
+            &format!("{pointer}/{unknown}"),
+            "only enabled, shutter_angle, shutter_phase and samples (D-188)",
+        ));
+    }
+    let number = |key: &str, low: f64, high: f64| {
+        let at = format!("{pointer}/{key}");
+        let n = as_f64(field(v, pointer, key)?, &at)?;
+        if (low..=high).contains(&n) {
+            Ok(n)
+        } else {
+            Err(invalid(&at, &format!("a number from {low} to {high} (D-188)")))
+        }
+    };
+    let at = format!("{pointer}/samples");
+    let samples = as_u32(field(v, pointer, "samples")?, &at)?;
+    if !(2..=64).contains(&samples) {
+        return Err(invalid(&at, "a whole number of samples from 2 to 64 (D-188)"));
+    }
+    Ok(crate::model::MotionBlur {
+        enabled: as_bool(field(v, pointer, "enabled")?, &format!("{pointer}/enabled"))?,
+        shutter_angle: number("shutter_angle", 0.0, 720.0)?,
+        shutter_phase: number("shutter_phase", -360.0, 360.0)?,
+        samples,
+    })
+}
+
 fn parse_audio_layer(v: &J, pointer: &str, id: Id) -> Result<Layer, Diagnostic> {
     for key in [
         "transform",
@@ -4265,6 +4335,9 @@ fn parse_composition(
             }
         }
         composition.camera = Some(camera);
+    }
+    if let Some(shutter) = v.get("motion_blur") {
+        composition.motion_blur = parse_motion_blur(shutter, &format!("{pointer}/motion_blur"))?;
     }
     if let Some(markers) = v.get("markers") {
         let at = format!("{pointer}/markers");

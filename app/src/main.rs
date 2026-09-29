@@ -3815,6 +3815,7 @@ const ANSWERS: &[&str] = &[
     "composition.delete",
     "composition.duplicate",
     "composition.open",
+    "composition.set_motion_blur",
     "composition.set_settings",
     "edit.redo",
     "edit.undo",
@@ -3859,6 +3860,7 @@ const ANSWERS: &[&str] = &[
     "layer.shift",
     "layer.split",
     "layer.toggle_lock",
+    "layer.toggle_motion_blur",
     "layer.toggle_shy",
     "layer.toggle_solo",
     "layer.toggle_visibility",
@@ -4173,6 +4175,56 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // W-25: After Effects' Composition Settings, Ctrl+K, for the composition on screen. A
         // field that is not sent keeps what the composition has, so a rate of 30000/1001 is not
         // rounded to 30 by a form that only asked for the name.
+        // D-188: the composition's shutter. A setting that is not sent keeps what it has, so the
+        // timeline's switch sends `enabled` alone and Composition Settings the other three.
+        "composition.set_motion_blur" => {
+            let (id, mut shutter) = {
+                let held = viewer.lock().expect("the viewer lock was poisoned");
+                match held.document.project().composition(&held.composition) {
+                    Some(comp) => (comp.id.clone(), comp.motion_blur),
+                    None => {
+                        return Some("There is no composition on screen to change.".to_string())
+                    }
+                }
+            };
+            match parameter(query, "enabled").as_deref() {
+                None => {}
+                Some("true") => shutter.enabled = true,
+                Some("false") => shutter.enabled = false,
+                Some(other) => return Some(format!("\"{other}\" is not on or off.")),
+            }
+            for (field, slot) in [
+                ("angle", &mut shutter.shutter_angle),
+                ("phase", &mut shutter.shutter_phase),
+            ] {
+                if let Some(text) = parameter(query, field) {
+                    match text.trim().parse::<f64>() {
+                        Ok(degrees) => *slot = degrees,
+                        Err(_) => {
+                            return Some(format!("\"{}\" is not a number of degrees.", text.trim()))
+                        }
+                    }
+                }
+            }
+            if let Some(text) = parameter(query, "samples") {
+                match text.trim().parse::<u32>() {
+                    Ok(samples) => shutter.samples = samples,
+                    Err(_) => {
+                        return Some(format!(
+                            "\"{}\" is not a whole number of samples.",
+                            text.trim()
+                        ))
+                    }
+                }
+            }
+            return Some(edit(
+                viewer,
+                Command::SetMotionBlur {
+                    composition: id,
+                    motion_blur: shutter,
+                },
+            ));
+        }
         "composition.set_settings" => {
             let comp = {
                 let held = viewer.lock().expect("the viewer lock was poisoned");
@@ -5979,6 +6031,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     composition,
                     layer_id,
                     value: !layer.shy,
+                },
+                // D-188: After Effects' motion-blur switch, read from the document the same way.
+                "layer.toggle_motion_blur" => Command::SetLayerMotionBlur {
+                    composition,
+                    layer_id,
+                    value: !layer.motion_blur,
                 },
                 // W-25: the blend mode, from the inspector's list or the layer's menu.
                 "layer.set_blend_mode" => Command::SetBlendMode {
@@ -22386,6 +22444,7 @@ mod contract {
         "composition.delete",
         "composition.duplicate",
         "composition.open",
+        "composition.set_motion_blur",
         "composition.set_settings",
         "edit.redo",
         "edit.undo",
@@ -22429,6 +22488,7 @@ mod contract {
         "layer.shift",
         "layer.split",
         "layer.toggle_lock",
+        "layer.toggle_motion_blur",
         "layer.toggle_shy",
         "layer.toggle_solo",
         "layer.toggle_visibility",
@@ -22807,6 +22867,8 @@ mod contract {
         ("composition.create", "a command the window answers"),
         ("composition.open", "a command the window answers"),
         ("composition.set_settings", "a command the window answers"),
+        // D-188: the composition's shutter, built by B-124b.
+        ("composition.set_motion_blur", "a command the window answers"),
         ("composition.duplicate", "a command the window answers"),
         ("composition.delete", "a command the window answers"),
         ("edit.undo", "a command the window answers"),
@@ -22849,6 +22911,8 @@ mod contract {
         ("layer.copy", "a command the window answers"),
         ("layer.paste", "a command the window answers"),
         ("layer.toggle_shy", "a command the window answers"),
+        // D-188, accepted on 2026-09-28 and built by B-124b.
+        ("layer.toggle_motion_blur", "a command the window answers"),
         // D-74, accepted on 2026-09-19 and built in the core by B-23b; B-23c put both in the
         // window.
         ("layer.add_solid", "a command the window answers"),
@@ -23732,6 +23796,9 @@ mod contract {
             "timeline.set_markers?marker=2|hit",
             "layer.set_label?layer=layer-3&label=2",
             "layer.toggle_shy?layer=layer-3",
+            // B-124b: and D-188's two switches, each written only when on.
+            "layer.toggle_motion_blur?layer=layer-3",
+            "composition.set_motion_blur?enabled=true",
             "layer.set_parent?layer=layer-3&parent=layer-2&frame=0",
             "layer.set_depth?layer=layer-3&depth=640",
             "camera.set_property?property=zoom&value=50",
@@ -24925,7 +24992,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 76] = [
+    const CONTROLS: [&str; 77] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -24965,6 +25032,7 @@ mod contract {
         "import",
         "importcut",
         "makecomp",
+        "mbswitch",
         "newcomp",
         "newlayer",
         "notedetails",

@@ -219,6 +219,10 @@ pub struct LayerDraw {
     /// opacity and blend. Empty for an adjustment layer, which has no drawing to wrap.
     pub wrap: Vec<crate::effects::EffectInstance>,
     pub on_card: Option<OnCard>,
+    /// D-188: `source`, or the matte's, is already the average of a motion-blurred layer's
+    /// moments. The renderer does not read it; the graphics card, which does not draw motion
+    /// blur yet, leaves such a frame to the CPU.
+    pub motion_blur: bool,
 }
 
 /// An effect left for the graphics card, in the pixels of the buffer it runs on.

@@ -383,30 +383,37 @@ impl Property {
     ///   the fraction its curve gives (D-52), and a position segment with handles puts that
     ///   fraction on its curve through space rather than on the straight line (D-53).
     pub fn value_at(&self, frame: i32) -> Value {
+        self.value_at_time(frame as f64)
+    }
+
+    /// D-188: the same rules at a time `t` that may fall between two frames, which is where
+    /// motion blur reads a layer. At a whole frame it gives exactly what [`Property::value_at`]
+    /// gives, because every frame and every difference of two is exact in f64.
+    pub fn value_at_time(&self, t: f64) -> Value {
         // D-69: a separated position is X at the frame and Y at the frame.
         if let Some((x, y)) = self.split() {
-            let n = |p: &Property| p.value_at(frame).as_scalar().unwrap_or(0.0);
+            let n = |p: &Property| p.value_at_time(t).as_scalar().unwrap_or(0.0);
             return Value::Vec2(n(x), n(y));
         }
         let keys = &self.keyframes;
         let Some(first) = keys.first() else {
             return self.base;
         };
-        if frame <= first.frame {
+        if t <= first.frame as f64 {
             return first.value;
         }
         let last = keys.last().expect("non-empty");
-        if frame >= last.frame {
+        if t >= last.frame as f64 {
             return last.value;
         }
-        // The segment containing `frame` starts at the last keyframe at or before it. The
-        // strict inequalities above mean both neighbours exist here.
-        let i = keys.partition_point(|k| k.frame <= frame) - 1;
+        // The segment containing `t` starts at the last keyframe at or before it. The strict
+        // inequalities above mean both neighbours exist here.
+        let i = keys.partition_point(|k| k.frame as f64 <= t) - 1;
         let (a, b) = (&keys[i], &keys[i + 1]);
-        if a.frame == frame || a.interp == Interp::Hold {
+        if a.frame as f64 == t || a.interp == Interp::Hold {
             return a.value;
         }
-        let u = (frame - a.frame) as f64 / (b.frame - a.frame) as f64;
+        let u = (t - a.frame as f64) / (b.frame - a.frame) as f64;
         // An ease changes *when* the value arrives and not which values it passes through, which
         // is why this is the linear line evaluated at a different fraction rather than a second
         // kind of interpolation. One curve drives both components of a pair: this is an ease in
@@ -831,6 +838,9 @@ pub struct Layer {
     /// written is circled on the Sheet and on paper. A number the drawings do not have is kept.
     /// Saved as `key_drawings` only when there are some.
     pub key_drawings: Vec<u32>,
+    /// D-188: the layer's motion-blur switch, on a layer that draws. Saved as `motion_blur`
+    /// only when on.
+    pub motion_blur: bool,
 }
 
 /// D-84: which column of which timesheet a layer's exposures were read from.
@@ -878,6 +888,7 @@ impl Layer {
             shapes: Vec::new(),
             timesheet: None,
             key_drawings: Vec::new(),
+            motion_blur: false,
         }
     }
 
@@ -1064,8 +1075,43 @@ pub struct Composition {
     /// D-84f: what the printed Sheet's title block says besides the name. Saved as
     /// `sheet_details` only when one of them is written.
     pub sheet_details: SheetDetails,
+    /// D-188's shutter. Saved as `motion_blur` only when it differs from the default.
+    pub motion_blur: MotionBlur,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
+}
+
+/// D-188: a composition's shutter. None of it is animated.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct MotionBlur {
+    pub enabled: bool,
+    /// Degrees, 0 to 720. 0 is motion blur off, whatever the switch says.
+    pub shutter_angle: f64,
+    /// Degrees, -360 to 360: where the shutter opens, against the frame.
+    pub shutter_phase: f64,
+    /// 2 to 64.
+    pub samples: u32,
+}
+
+impl Default for MotionBlur {
+    /// After Effects' own: half a frame of shutter, centred on the frame, in 16 samples.
+    fn default() -> Self {
+        MotionBlur { enabled: false, shutter_angle: 180.0, shutter_phase: -90.0, samples: 16 }
+    }
+}
+
+impl MotionBlur {
+    /// Document 20's moments of `frame`: `n + phase/360 + (angle/360)(k + 1/2)/N`, in the
+    /// order of `k`, or the frame alone when it is off.
+    pub fn times(&self, frame: i32) -> Vec<f64> {
+        if !self.enabled || self.shutter_angle == 0.0 {
+            return vec![frame as f64];
+        }
+        let n = self.samples as f64;
+        (0..self.samples)
+            .map(|k| frame as f64 + self.shutter_phase / 360.0 + (self.shutter_angle / 360.0) * (k as f64 + 0.5) / n)
+            .collect()
+    }
 }
 
 /// D-84f: the title block's episode, scene, cut and animator, each empty until written.
@@ -1126,6 +1172,7 @@ impl Composition {
             camera: None,
             sheet_text: Vec::new(),
             sheet_details: SheetDetails::default(),
+            motion_blur: MotionBlur::default(),
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }

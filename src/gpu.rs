@@ -4030,6 +4030,13 @@ impl Gpu {
                 "B-44 draws a frame with an adjustment layer (D-66) wholly on the CPU.".into(),
             ));
         }
+        if plan.layers.iter().any(|l| l.motion_blur) {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: it has motion blur, which the GPU does not draw yet.".into(),
+                "B-124b draws a motion-blurred frame (D-188) wholly on the CPU; a card version is a later unit.".into(),
+            ));
+        }
         // B-76: a Light Wrap blurs the frame beneath, grown by the blur's radius.
         let radii: Vec<usize> = plan.layers.iter().flat_map(wraps).map(|(width, _, _)| crate::effects::kernel_radius(width / 3.0)).collect();
         if let Some(&r) = radii.iter().max() {

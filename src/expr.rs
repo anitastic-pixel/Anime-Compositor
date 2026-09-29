@@ -118,12 +118,26 @@ pub fn resolve(
     prop: Prop,
     frame: i32,
 ) -> (Value, Option<ExprError>) {
+    resolve_at(comp, property, target, prop, frame, frame as f64)
+}
+
+/// D-188: [`resolve`] at a moment `t` inside frame `frame`'s shutter. Keys are read at `t`; a
+/// property with an expression holds its value at the frame, because an expression is only
+/// ever run at whole frames.
+pub fn resolve_at(
+    comp: &Composition,
+    property: &Property,
+    target: impl FnOnce() -> Target,
+    prop: Prop,
+    frame: i32,
+    t: f64,
+) -> (Value, Option<ExprError>) {
     // D-69: a separated position has no expression of its own, and X and Y may each have one.
     let halves = property
         .split()
         .is_some_and(|(x, y)| x.live_expression().is_some() || y.live_expression().is_some());
     if property.live_expression().is_none() && !halves {
-        return (property.value_at(frame), None);
+        return (property.value_at_time(t), None);
     }
     match evaluate(comp, &target(), prop, frame) {
         Ok(v) => (v, None),

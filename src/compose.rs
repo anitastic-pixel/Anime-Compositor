@@ -247,6 +247,8 @@ fn plan_inside(
         ) else {
             continue;
         };
+        let mut motion_blur = !resolved.moments.is_empty();
+        let resolved = settle(resolved, &layer.id, comp, quality, false);
 
         // Document 21 step 5. The matte layer is looked up whether or not it is enabled or
         // matte-only: neither of those stops it shaping this layer, they only decide whether it
@@ -272,6 +274,8 @@ fn plan_inside(
                         false,
                     )
                     .map(|m| {
+                        motion_blur |= !m.moments.is_empty();
+                        let m = settle(m, &matte_layer.id, comp, quality, true);
                         Box::new(render::MatteDraw {
                             source: m.source,
                             transform: m.transform,
@@ -328,6 +332,7 @@ fn plan_inside(
                 }),
                 nested: resolved.nested,
                 on_card: resolved.on_card,
+                motion_blur,
                 wrap: if layer.is_adjustment() {
                     Vec::new()
                 } else {
@@ -367,6 +372,10 @@ struct ResolvedLayer {
     nested: Option<(Id, i32)>,
     /// B-46, B-47: an effect left for the graphics card.
     on_card: Option<render::OnCard>,
+    /// D-188: step 4 at each moment of a motion-blurred layer's shutter, `None` for a moment it
+    /// is behind the camera. Empty when it is taken once, through `transform`. [`settle`]
+    /// averages them into `source`.
+    moments: Vec<Option<Affine>>,
 }
 
 /// Steps 1 through 6 of document 21 for one layer: find its drawing at this frame, decode it,
@@ -477,10 +486,14 @@ impl Chain {
 /// switch or its exposures say (document 20, D-57): what a child inherits is a transform, not a
 /// picture. A property holding the wrong kind of value is skipped rather than guessed at; the
 /// layer's own transform reports that case one step further down.
+///
+/// D-188: `t` is the moment inside frame `frame`'s shutter the keys are read at, which is
+/// `frame` itself everywhere but a motion-blurred layer's moments.
 fn chain_of(
     comp: &crate::model::Composition,
     layers: &[&crate::model::Layer],
     frame: i32,
+    t: f64,
 ) -> Chain {
     let mut chain = Chain::IDENTITY;
     for layer in layers {
@@ -492,7 +505,7 @@ fn chain_of(
                 .get(prop)
                 .expect("the four are transform properties");
             let owner = || crate::expr::Target::Layer(layer.id.clone());
-            crate::expr::resolve(comp, property, owner, prop, frame).0
+            crate::expr::resolve_at(comp, property, owner, prop, frame, t).0
         };
         let (Some(anchor), Some(position), Some(scale), Some(rotation)) = (
             at(Prop::Anchor).as_vec2(),
@@ -520,7 +533,7 @@ pub(crate) fn parent_chain_at(
     layer_id: &crate::model::Id,
     frame: i32,
 ) -> Chain {
-    chain_of(comp, &comp.parent_chain(layer_id), frame)
+    chain_of(comp, &comp.parent_chain(layer_id), frame, frame as f64)
 }
 
 /// D-58's camera at one frame: where it is, how far back it sits, and its zoom.
@@ -538,6 +551,12 @@ pub struct CameraAt {
 /// it can only come from a project built in memory. The caller reports it rather than guessing,
 /// exactly as a layer's transform does.
 pub fn camera_at(comp: &crate::model::Composition, frame: i32) -> Option<CameraAt> {
+    camera_at_time(comp, frame, frame as f64)
+}
+
+/// D-188: [`camera_at`] at a moment `t` inside frame `frame`'s shutter, the layer it rides read
+/// at the same moment.
+pub fn camera_at_time(comp: &crate::model::Composition, frame: i32, t: f64) -> Option<CameraAt> {
     let default;
     let camera = match &comp.camera {
         Some(camera) => camera,
@@ -547,7 +566,7 @@ pub fn camera_at(comp: &crate::model::Composition, frame: i32) -> Option<CameraA
         }
     };
     let at = |prop, property| {
-        crate::expr::resolve(comp, property, || crate::expr::Target::Camera, prop, frame).0
+        crate::expr::resolve_at(comp, property, || crate::expr::Target::Camera, prop, frame, t).0
     };
     let (x, y) = at(Prop::Position, &camera.position).as_vec2()?;
     let depth = at(Prop::Depth, &camera.depth).as_scalar()?;
@@ -555,8 +574,8 @@ pub fn camera_at(comp: &crate::model::Composition, frame: i32) -> Option<CameraA
     // D-171: riding a layer moves where the camera stands and how far back, never the view.
     Some(match camera.parent.as_ref().filter(|p| comp.layer(p).is_some()) {
         Some(parent) => CameraAt {
-            position: world_transform(comp, parent, frame).apply(x, y),
-            depth: depth + world_depth(comp, parent, frame),
+            position: world_at_time(comp, parent, frame, t).matrix.apply(x, y),
+            depth: depth + world_depth_at(comp, parent, frame, t),
             zoom,
         },
         None => CameraAt { position: (x, y), depth, zoom },
@@ -591,13 +610,23 @@ pub fn world_depth(
     layer_id: &crate::model::Id,
     frame: i32,
 ) -> f64 {
+    world_depth_at(comp, layer_id, frame, frame as f64)
+}
+
+/// D-188: [`world_depth`] at a moment `t` inside frame `frame`'s shutter.
+fn world_depth_at(
+    comp: &crate::model::Composition,
+    layer_id: &crate::model::Id,
+    frame: i32,
+    t: f64,
+) -> f64 {
     let own = |layer: &crate::model::Layer| {
         layer
             .depth
             .as_ref()
             .and_then(|d| {
                 let owner = || crate::expr::Target::Layer(layer.id.clone());
-                crate::expr::resolve(comp, d, owner, Prop::Depth, frame)
+                crate::expr::resolve_at(comp, d, owner, Prop::Depth, frame, t)
                     .0
                     .as_scalar()
             })
@@ -651,12 +680,21 @@ pub(crate) fn world_at(
     layer_id: &crate::model::Id,
     frame: i32,
 ) -> Chain {
+    world_at_time(comp, layer_id, frame, frame as f64)
+}
+
+fn world_at_time(
+    comp: &crate::model::Composition,
+    layer_id: &crate::model::Id,
+    frame: i32,
+    t: f64,
+) -> Chain {
     let Some(layer) = comp.layer(layer_id) else {
         return Chain::IDENTITY;
     };
     let mut chain = vec![layer];
     chain.extend(comp.parent_chain(layer_id));
-    chain_of(comp, &chain, frame)
+    chain_of(comp, &chain, frame, t)
 }
 
 /// D-57's `M_world(L)`: the map from a layer's own pixels into composition pixels at `frame`,
@@ -684,10 +722,21 @@ pub fn screen_transform(
     layer_id: &crate::model::Id,
     frame: i32,
 ) -> Option<Affine> {
-    let world = world_transform(comp, layer_id, frame);
-    let cam = camera_at(comp, frame)?;
+    screen_transform_at(comp, layer_id, frame, frame as f64)
+}
+
+/// D-188: [`screen_transform`] at a moment `t` inside frame `frame`'s shutter: the layer, its
+/// parents and the camera each read at `t` (FX-MB-050).
+pub fn screen_transform_at(
+    comp: &crate::model::Composition,
+    layer_id: &crate::model::Id,
+    frame: i32,
+    t: f64,
+) -> Option<Affine> {
+    let world = world_at_time(comp, layer_id, frame, t).matrix;
+    let cam = camera_at_time(comp, frame, t)?;
     let centre = (comp.width as f64 / 2.0, comp.height as f64 / 2.0);
-    match projection(cam, centre, world_depth(comp, layer_id, frame)) {
+    match projection(cam, centre, world_depth_at(comp, layer_id, frame, t)) {
         Projection::Identity => Some(world),
         Projection::Scaled(p) => Some(world.then(p)),
         Projection::Behind => None,
@@ -886,6 +935,7 @@ fn resolve_layer(
                         nested: None,
                         on_card: None,
                         wrap: Vec::new(),
+                        motion_blur: false,
                     }],
                 },
                 quality,
@@ -996,6 +1046,14 @@ fn resolve_rest(
     pre: f64,
     card: bool,
 ) -> Option<ResolvedLayer> {
+    // D-188: the moments of a motion-blurred layer's shutter. Its effects all run here, once,
+    // because the card does not draw motion blur yet.
+    let times = if layer.motion_blur && !layer.is_adjustment() {
+        comp.motion_blur.times(frame)
+    } else {
+        Vec::new()
+    };
+    let card = card && times.len() < 2;
     // D-68: every setting is its value at this composition frame, so the stack below, its
     // bounds and the effect cache's key all hold plain numbers.
     let mut effects: Vec<crate::effects::EffectInstance> =
@@ -1530,7 +1588,62 @@ fn resolve_rest(
     };
     let centre = (comp.width as f64 / 2.0, comp.height as f64 / 2.0);
     let camera = projection(cam, centre, world_depth(comp, &layer.id, frame));
-    if let Projection::Behind = camera {
+    let before = Affine::translation(-(offset.0 as f64), -(offset.1 as f64)).then(if pre == 1.0 {
+        Affine::IDENTITY
+    } else {
+        Affine::scaling(pre, pre)
+    });
+    // D-188: step 4 at each moment. When every moment is the same matrix it is taken once,
+    // through that matrix (FX-MB-010).
+    let moments: Vec<Option<Affine>> = if times.len() > 1 {
+        times.iter().map(|&t| moment(comp, layer, frame, t, before)).collect()
+    } else {
+        Vec::new()
+    };
+    let bits = |m: &Option<Affine>| m.map(|m| [m.a, m.b, m.c, m.d, m.tx, m.ty].map(f64::to_bits));
+    let once = moments
+        .first()
+        .filter(|first| moments.iter().all(|m| bits(m) == bits(first)))
+        .copied();
+    if moments.iter().any(Option::is_none) {
+        let behind = moments.iter().filter(|m| m.is_none()).count();
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::CameraPlaneBehind,
+                Severity::Warning,
+                format!(
+                    "Layer {} is level with the camera or behind it at {behind} of its {} \
+                     motion-blur moments.",
+                    layer.name,
+                    moments.len()
+                ),
+                format!(
+                    "Those moments add nothing to frame {frame}'s average, and the layer is left \
+                     out only if every moment is. The project is unchanged."
+                ),
+            )
+            .with_remediation(
+                "Move the layer in front of the camera, or move the camera back, to see it \
+                 again.",
+            ),
+        );
+        if once.is_some() {
+            return None;
+        }
+    }
+    if let Some(Some(still)) = once {
+        return Some(ResolvedLayer {
+            source,
+            on_card,
+            transform: still,
+            opacity: opacity as f32,
+            nested: None,
+            moments: Vec::new(),
+        });
+    }
+    if let (true, Projection::Behind) = (moments.is_empty(), &camera) {
         // Document 28: the record is untouched and nothing is clamped into a working value. A
         // plane one pixel in front of the camera is not this case and is drawn enormous.
         log.record(
@@ -1579,12 +1692,7 @@ fn resolve_rest(
         // far plane is minified by the same single resampling as everything else. An identity
         // projection is left out rather than applied, which is what keeps every fixture written
         // before D-58 landing exactly on its number instead of within a tolerance.
-        transform: Affine::translation(-(offset.0 as f64), -(offset.1 as f64))
-            .then(if pre == 1.0 {
-                Affine::IDENTITY
-            } else {
-                Affine::scaling(pre, pre)
-            })
+        transform: before
             .then(Affine::from_transform(anchor, position, scale, rotation))
             .then(parent_chain_at(comp, &layer.id, frame).matrix)
             .then(match camera {
@@ -1594,7 +1702,122 @@ fn resolve_rest(
         // Document 21 step 6. Opacity is normalized 0..1 in the model (document 19).
         opacity: opacity as f32,
         nested: None,
+        moments,
     })
+}
+
+/// D-188: document 21's step 4 at a moment `t` inside frame `frame`'s shutter, multiplied
+/// exactly as [`resolve_rest`] multiplies the frame's own, so a layer that holds still gives
+/// that matrix bit for bit. `before` is the bounds shift and draft scale. `None` is a moment
+/// the layer is level with the camera or behind it.
+fn moment(
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    frame: i32,
+    t: f64,
+    before: Affine,
+) -> Option<Affine> {
+    let at = |prop| {
+        let property = layer.transform.get(prop).expect("the four are transform properties");
+        let owner = || crate::expr::Target::Layer(layer.id.clone());
+        crate::expr::resolve_at(comp, property, owner, prop, frame, t).0
+    };
+    let own = Affine::from_transform(
+        at(Prop::Anchor).as_vec2()?,
+        at(Prop::Position).as_vec2()?,
+        at(Prop::Scale).as_vec2()?,
+        at(Prop::Rotation).as_scalar()?,
+    );
+    let centre = (comp.width as f64 / 2.0, comp.height as f64 / 2.0);
+    let camera = projection(
+        camera_at_time(comp, frame, t)?,
+        centre,
+        world_depth_at(comp, &layer.id, frame, t),
+    );
+    if let Projection::Behind = camera {
+        return None;
+    }
+    Some(
+        before
+            .then(own)
+            .then(chain_of(comp, &comp.parent_chain(&layer.id), frame, t).matrix)
+            .then(match camera {
+                Projection::Scaled(p) => p,
+                _ => Affine::IDENTITY,
+            }),
+    )
+}
+
+/// D-188: a motion-blurred layer's moments drawn one by one, summed in order and divided by
+/// their number once, in linear premultiplied light. The average becomes the layer's picture,
+/// drawn through the identity, so its matte, opacity and blend come after it, once. A moment
+/// behind the camera counts and adds nothing.
+///
+/// A drawn layer is averaged at the preview's size, so a draft pays for a draft's pixels; its
+/// transform is then the draft scale's inverse, which [`crate::preview::scale_plan`] undoes
+/// exactly. A matte is averaged at the composition's size, because a matte's transform is not
+/// scaled for a draft.
+fn settle(
+    mut resolved: ResolvedLayer,
+    id: &Id,
+    comp: &crate::model::Composition,
+    quality: PreviewQuality,
+    matte: bool,
+) -> ResolvedLayer {
+    if resolved.moments.is_empty() {
+        return resolved;
+    }
+    let d = if matte { 1 } else { quality.divisor() };
+    let (width, height) = if d == 1 {
+        (comp.width as usize, comp.height as usize)
+    } else {
+        quality.extent(comp.width as usize, comp.height as usize)
+    };
+    let tile = match quality {
+        PreviewQuality::Full => DEFAULT_TILE_SIZE,
+        PreviewQuality::Draft => DRAFT_TILE_SIZE,
+    };
+    let mut sum = WorkingBuffer::transparent(width, height);
+    for m in resolved.moments.iter().flatten() {
+        let one = render::render(
+            &FramePlan {
+                width,
+                height,
+                layers: vec![LayerDraw {
+                    id: id.clone(),
+                    source: resolved.source.clone(),
+                    transform: if d == 1 {
+                        *m
+                    } else {
+                        m.then(Affine::scaling(1.0 / d as f64, 1.0 / d as f64))
+                    },
+                    opacity: 1.0,
+                    matte: None,
+                    blend: crate::model::BlendMode::Normal,
+                    adjust: None,
+                    nested: None,
+                    on_card: None,
+                    wrap: Vec::new(),
+                    motion_blur: false,
+                }],
+            },
+            tile,
+        );
+        for (s, o) in sum.data_mut().iter_mut().zip(one.data()) {
+            *s += o;
+        }
+    }
+    let n = resolved.moments.len() as f32;
+    for s in sum.data_mut() {
+        *s /= n;
+    }
+    resolved.source = std::sync::Arc::new(sum);
+    resolved.transform = if d == 1 {
+        Affine::IDENTITY
+    } else {
+        Affine::scaling(d as f64, d as f64)
+    };
+    resolved
 }
 
 /// [`plan_frame`], then document 20's step 8.

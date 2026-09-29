@@ -136,6 +136,12 @@ pub enum Command {
         layer_id: Id,
         value: bool,
     },
+    /// D-188: After Effects' motion-blur switch, on a layer that draws.
+    SetLayerMotionBlur {
+        composition: Id,
+        layer_id: Id,
+        value: bool,
+    },
     /// Document 24's `timeline.set_work_start` and `set_work_end`, W-24. Both ends at once, so a
     /// drag that moves one end replaces its earlier reading whole.
     SetWorkArea {
@@ -330,6 +336,11 @@ pub enum Command {
         frame: i32,
         keep_place: bool,
     },
+    /// D-188: the composition's shutter, all four settings as one step to undo.
+    SetMotionBlur {
+        composition: Id,
+        motion_blur: crate::model::MotionBlur,
+    },
     /// Document 24's `exposure.set_span`. B-12a.
     ///
     /// The whole ordered list is the unit of change, for the reason [`Command::SetMask`] gives.
@@ -460,6 +471,7 @@ impl Command {
             Command::SetLayerLocked { .. } => "SET_LAYER_LOCKED",
             Command::SetLayerLabel { .. } => "SET_LAYER_LABEL",
             Command::SetLayerShy { .. } => "SET_LAYER_SHY",
+            Command::SetLayerMotionBlur { .. } => "SET_LAYER_MOTION_BLUR",
             Command::SetWorkArea { .. } => "SET_WORK_AREA",
             Command::SetMarkers { .. } => "SET_MARKERS",
             Command::SetBlendMode { .. } => "SET_BLEND_MODE",
@@ -481,6 +493,7 @@ impl Command {
             Command::SetDepth { .. } => "SET_DEPTH",
             Command::SetAudioGain { .. } => "SET_AUDIO_GAIN",
             Command::SetCameraProperty { .. } => "SET_CAMERA_PROPERTY",
+            Command::SetMotionBlur { .. } => "SET_MOTION_BLUR",
             Command::SetCameraParent { .. } => "SET_CAMERA_PARENT",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
             Command::SetSheetText { .. } => "SET_SHEET_TEXT",
@@ -583,6 +596,10 @@ impl Command {
                 true => "Make the layer shy".to_string(),
                 false => "Make the layer not shy".to_string(),
             },
+            Command::SetLayerMotionBlur { value, .. } => match value {
+                true => "Turn on the layer's motion blur".to_string(),
+                false => "Turn off the layer's motion blur".to_string(),
+            },
             Command::SetLayerLabel { label, .. } => match label {
                 0 => "Clear the layer's label".to_string(),
                 n => format!("Set the layer's label to colour {n}"),
@@ -663,6 +680,7 @@ impl Command {
             Command::SetCameraProperty { prop, .. } => {
                 format!("Set the camera's {}", prop.as_str())
             }
+            Command::SetMotionBlur { .. } => "Set the motion blur".to_string(),
             Command::SetCameraParent { parent, .. } => match parent {
                 Some(id) => format!("Set the camera's parent to {id}"),
                 None => "Clear the camera's parent".to_string(),
@@ -745,6 +763,8 @@ impl Command {
             | Command::SetLayerLocked { composition, .. }
             | Command::SetLayerLabel { composition, .. }
             | Command::SetLayerShy { composition, .. }
+            | Command::SetLayerMotionBlur { composition, .. }
+            | Command::SetMotionBlur { composition, .. }
             | Command::SetWorkArea { composition, .. }
             | Command::SetMarkers { composition, .. }
             | Command::SetBlendMode { composition, .. }
@@ -794,12 +814,14 @@ impl Command {
             Command::SetWorkArea { .. }
             | Command::SetMarkers { .. }
             | Command::SetSheetText { .. }
+            | Command::SetMotionBlur { .. }
             | Command::SetCompositionSettings { .. } => {}
             Command::RemoveLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
             | Command::SetSolid { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
+            | Command::SetLayerMotionBlur { layer_id, .. }
             | Command::RenameLayer { layer_id, .. }
             | Command::SetLayerEnabled { layer_id, .. }
             | Command::SetLayerLocked { layer_id, .. }
@@ -923,6 +945,7 @@ impl Command {
                 // The camera belongs to the composition; a locked layer has no say in it.
                 | Command::SetCameraProperty { .. }
                 | Command::SetCameraParent { .. }
+                | Command::SetMotionBlur { .. }
         )
     }
 
@@ -947,6 +970,7 @@ impl Command {
                 | Command::MoveKeyframe { .. }
                 | Command::SetKeyKind { .. }
                 | Command::SetKeyRoving { .. }
+                | Command::SetLayerMotionBlur { .. }
         )
     }
 
@@ -963,6 +987,7 @@ impl Command {
             | Command::SetBlendMode { layer_id, .. }
             | Command::SetSolid { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
+            | Command::SetLayerMotionBlur { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
             | Command::SetParent { layer_id, .. }
             | Command::SetDepth { layer_id, .. }
@@ -1988,6 +2013,24 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         } => {
             layer_mut(project, &comp_id, layer_id)?.shy = *value;
         }
+        Command::SetLayerMotionBlur {
+            layer_id, value, ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            if matches!(
+                layer.kind,
+                crate::model::LayerKind::Null | crate::model::LayerKind::Adjustment
+            ) {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" has no picture of its own to blur, so it has no motion-blur switch.",
+                        layer.name
+                    ),
+                    "D-188: a null or adjustment layer has no motion-blur switch.",
+                ));
+            }
+            layer.motion_blur = *value;
+        }
         Command::SetLayerLabel {
             layer_id, label, ..
         } => {
@@ -2542,6 +2585,23 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             layer_mut(project, &comp_id, layer_id)?.gain_db = *value;
+        }
+        Command::SetMotionBlur { motion_blur, .. } => {
+            let shutter = motion_blur;
+            if !(0.0..=720.0).contains(&shutter.shutter_angle)
+                || !(-360.0..=360.0).contains(&shutter.shutter_phase)
+                || !(2..=64).contains(&shutter.samples)
+            {
+                return Err(reject(
+                    &format!(
+                        "A shutter of {} degrees, phase {}, with {} samples cannot be set.",
+                        shutter.shutter_angle, shutter.shutter_phase, shutter.samples
+                    ),
+                    "D-188: the angle is 0 to 720 degrees, the phase -360 to 360, and the \
+                     samples 2 to 64.",
+                ));
+            }
+            comp_mut(project, &comp_id)?.motion_blur = *shutter;
         }
         Command::SetCameraProperty { prop, value, .. } => {
             let value = check_camera_value(*prop, *value)?;

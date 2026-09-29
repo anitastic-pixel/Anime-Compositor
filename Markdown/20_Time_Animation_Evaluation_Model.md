@@ -116,7 +116,7 @@ Mattes create dependencies but not a second time domain: matte layers evaluate a
 
 ### Motion blur
 
-Accepted by the owner with ADR-019 and D-188 on 2026-09-28, and not yet built; FX-MB-001 to 050 in document 25 are its cases. A layer is blurred when its composition's `motion_blur` is enabled with a shutter angle above 0 and the layer's own switch is on. For frame `n`, shutter angle `A` in degrees, phase `P` in degrees and `N` samples, it is drawn at the moments
+Accepted by the owner with ADR-019 and D-188 on 2026-09-28, and built on the processor by B-124b the same day; FX-MB-001 to 050 in document 25 are its cases. A layer is blurred when its composition's `motion_blur` is enabled with a shutter angle above 0 and the layer's own switch is on. For frame `n`, shutter angle `A` in degrees, phase `P` in degrees and `N` samples, it is drawn at the moments
 
 `t_k = n + P / 360 + (A / 360) * (k + 1/2) / N`, for `k = 0 .. N-1`,
 
