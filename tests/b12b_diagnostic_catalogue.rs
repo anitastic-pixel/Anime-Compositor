@@ -341,6 +341,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "PRESET_FILE_INVALID",
         "B-116_preset_file_table.md",
     ),
+    (
+        DiagnosticId::EffectLayerMissing,
+        "EFFECT_LAYER_MISSING",
+        "B-125b_layer_map_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
@@ -365,6 +370,10 @@ const NOT_BUILT: &[(&str, &str)] = &[
         "DEPENDENCY_LICENSE_UNRESOLVED",
         "A distribution-time check rather than a running one: tools/archive_licenses.py and \
          docs/DEPENDENCIES.md flag the unresolved entries and CI blocks on them.",
+    ),
+    (
+        "EFFECT_LAYER_CYCLE",
+        "Built with A2, Compound Blur, the first effect whose layer setting can lead round in \n         a circle (D-189).",
     ),
 ];
 
@@ -412,7 +421,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "56 identifiers",
+        "58 identifiers",
         format!("{} identifiers", listed.len()),
     );
 
