@@ -1799,6 +1799,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("decay".into(), num(*decay));
             params.insert("operator".into(), J::from(operator.as_str()));
         }
+        Effect::PosterizeTime { frame_rate } => {
+            params.insert("frame_rate".into(), num(*frame_rate));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2296,6 +2299,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "echo_time",
         "echoes",
         "decay",
+        "frame_rate",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2755,6 +2759,7 @@ fn parse_effect(
         crate::effects::DISPLACEMENT_MAP,
         crate::effects::GRADIENT_WIPE,
         crate::effects::ECHO,
+        crate::effects::POSTERIZE_TIME,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3274,6 +3279,9 @@ fn parse_effect(
             decay: effect_number(params, "decay", &at)?,
             operator: effect_word(params, "operator", &at)?,
             picture: None,
+        }),
+        crate::effects::POSTERIZE_TIME => Some(crate::effects::Effect::PosterizeTime {
+            frame_rate: effect_number(params, "frame_rate", &at)?,
         }),
         _ => None,
     };

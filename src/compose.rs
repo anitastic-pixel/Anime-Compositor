@@ -344,7 +344,7 @@ fn plan_inside(
                         .effects
                         .iter()
                         .filter(|i| matches!(i.effect, crate::effects::Effect::LightWrap { .. }))
-                        .map(|i| i.at(frame))
+                        .map(|i| i.at(posterized(comp, layer, frame)))
                         .collect()
                 },
             },
@@ -428,10 +428,10 @@ pub fn cels_at(
         if !layer.enabled || matte_only.contains(&&layer.id) {
             continue;
         }
-        wanted.extend(exposed_cel(project, layer, frame, root));
+        wanted.extend(exposed_cel(project, layer, posterized(comp, layer, frame), root));
         if let Some(matte) = &layer.matte {
             if let Some(matte_layer) = comp.layer(&matte.layer_id) {
-                wanted.extend(exposed_cel(project, matte_layer, frame, root));
+                wanted.extend(exposed_cel(project, matte_layer, posterized(comp, matte_layer, frame), root));
             }
         }
     }
@@ -763,6 +763,66 @@ fn resolve_layer(
     card: bool,
     map: bool,
 ) -> Option<ResolvedLayer> {
+    // D-196: a Posterize Time takes the layer's content from an earlier frame. Whether the layer
+    // is shown is still this frame's, and what resolving the held frame says belongs to this one,
+    // because an export decides what to block by the frame it is writing.
+    let at = posterized(comp, layer, frame);
+    if at == frame {
+        return resolve_held(project, comp, layer, frame, at, root, quality, cache, log, above, card, map);
+    }
+    layer.timing().local_frame(frame)?;
+    let mut inside = FrameLog::new(usize::MAX);
+    let resolved =
+        resolve_held(project, comp, layer, frame, at, root, quality, cache, &mut inside, above, card, map);
+    log.retime(inside, frame);
+    resolved
+}
+
+/// D-196: the frame whose content `layer` shows at composition frame `frame`: each switched-on,
+/// valid Posterize Time of its stack in turn steps it back to its rate, counted from the
+/// composition's first frame, and never before the layer's in point. An adjustment layer holds
+/// nothing.
+pub(crate) fn posterized(comp: &crate::model::Composition, layer: &crate::model::Layer, frame: i32) -> i32 {
+    if layer.is_adjustment() {
+        return frame;
+    }
+    let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+    let start = comp.start_frame as f64;
+    let mut h = frame;
+    for i in layer.effects.iter().filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::PosterizeTime { .. })) {
+        let now = i.at(h).effect;
+        if !now.is_valid() {
+            continue;
+        }
+        let crate::effects::Effect::PosterizeTime { frame_rate: r } = now else {
+            continue;
+        };
+        if r < fps {
+            let s = ((h as f64 - start) * r / fps + 1e-9).floor();
+            h = (start + (s * fps / r - 1e-9).ceil()) as i32;
+        }
+        h = h.max(layer.in_frame);
+    }
+    h
+}
+
+/// [`resolve_layer`] with the layer's content, steps 1 to 3, taken at frame `at` and the rest at
+/// `frame`.
+#[allow(clippy::too_many_arguments)]
+fn resolve_held(
+    project: &Project,
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    frame: i32,
+    at: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+    above: &mut Vec<Id>,
+    card: bool,
+    map: bool,
+) -> Option<ResolvedLayer> {
     // D-71: an audio layer draws nothing, so no frame is any different for it (FX-AUD-020).
     // D-82: nor does a null, whatever its switch, opacity or timing say (FX-NULL-001, 002).
     if matches!(
@@ -774,7 +834,7 @@ fn resolve_layer(
     // D-67: a composition layer's drawing is the inner composition, rendered at the layer's
     // local frame, at its own size, through its own camera. From the mask on it is a drawing.
     if let Some(inner_id) = &layer.composition_id {
-        let local = layer.timing().local_frame(frame)?;
+        let local = layer.timing().local_frame(at)?;
         let Some(inner) = project.composition(inner_id) else {
             log.record(
                 frame,
@@ -857,6 +917,7 @@ fn resolve_layer(
             comp,
             layer,
             frame,
+            at,
             cache,
             log,
             picture,
@@ -889,7 +950,7 @@ fn resolve_layer(
         // the layer. The paths are resolved to this frame first, exactly as a mask's are and for
         // the same reason: what the rasterizer sees holds plain numbers.
         layer.timing().local_frame(frame)?;
-        let now: Vec<crate::shape::Shape> = layer.shapes.iter().map(|s| s.at(frame)).collect();
+        let now: Vec<crate::shape::Shape> = layer.shapes.iter().map(|s| s.at(at)).collect();
         for s in &now {
             // Said per frame, as an undrawable mask is, because that is what marks an export's
             // fidelity incomplete. The warning raised when the file opened is not enough: a
@@ -921,7 +982,7 @@ fn resolve_layer(
         let shape = crate::shape::draw(&now, comp.width as usize, comp.height as usize);
         (std::sync::Arc::new(shape), None)
     } else {
-        let (source, cel) = decode_cel(project, layer, frame, root, cache, log)?;
+        let (source, cel) = decode_cel(project, layer, at, root, cache, log)?;
         (source, Some(cel))
     };
     // D-99: in a draft preview a drawing with effects is taken down to the draft size first,
@@ -955,10 +1016,10 @@ fn resolve_layer(
         );
         let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
         return resolve_rest(
-            project, root, comp, layer, frame, cache, log, small, cel, d as f64, card, map,
+            project, root, comp, layer, frame, at, cache, log, small, cel, d as f64, card, map,
         );
     }
-    resolve_rest(project, root, comp, layer, frame, cache, log, source, cel, 1.0, card, map)
+    resolve_rest(project, root, comp, layer, frame, at, cache, log, source, cel, 1.0, card, map)
 }
 
 /// Document 21 step 1 for a drawn layer: which file it shows at `frame`, decoded, or `None`
@@ -1046,6 +1107,9 @@ fn decode_cel(
 ///
 /// `map` (D-189) returns after step 3, the picture cut back to its step-1 rectangle and
 /// placed nowhere: what an effect's layer setting reads.
+///
+/// `at` (D-196) is the frame the masks and effects are taken at, `frame` unless the layer is
+/// held by a Posterize Time.
 #[allow(clippy::too_many_arguments)]
 fn resolve_rest(
     project: &Project,
@@ -1053,6 +1117,7 @@ fn resolve_rest(
     comp: &crate::model::Composition,
     layer: &crate::model::Layer,
     frame: i32,
+    at: i32,
     cache: &mut CelCache,
     log: &mut FrameLog,
     mut source: std::sync::Arc<WorkingBuffer>,
@@ -1073,7 +1138,7 @@ fn resolve_rest(
     // D-68: every setting is its value at this composition frame, so the stack below, its
     // bounds and the effect cache's key all hold plain numbers.
     let mut effects: Vec<crate::effects::EffectInstance> =
-        layer.effects.iter().map(|i| i.at(frame)).collect();
+        layer.effects.iter().map(|i| i.at(at)).collect();
     // D-182: each Color Lookup's file, read, and what kept one from being read said once a frame.
     for d in crate::lut::fill(&mut effects, project, root, &layer.name) {
         log.record(frame, layer.name.clone(), d);
@@ -1082,15 +1147,15 @@ fn resolve_rest(
     // layer's are made where its stack runs, on the frame.
     if !layer.is_adjustment() {
         let quality = if pre == 1.0 { PreviewQuality::Full } else { PreviewQuality::Draft };
-        fill_maps(&mut effects, project, root, comp, layer, frame, quality, step1, cache, log);
-        fill_echoes(&mut effects, project, root, comp, layer, frame, quality, step1, cache, log);
+        fill_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
     }
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
     // draft divisor, before the rasterizer and before document 27's cache key, exactly as an
     // effect's settings are on the line above. A path that stands still is not copied at all.
     let moving = layer.masks.iter().any(|m| !m.keys.is_empty());
     let moved: Vec<crate::mask::Mask> = if moving {
-        layer.masks.iter().map(|m| m.at(frame)).collect()
+        layer.masks.iter().map(|m| m.at(at)).collect()
     } else {
         Vec::new()
     };

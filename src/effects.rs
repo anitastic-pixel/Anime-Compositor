@@ -858,6 +858,9 @@ pub enum Effect {
         operator: String,
         picture: Option<crate::layer_map::Map>,
     },
+    /// D-196: `frame_rate`, 0.1 to 99 frames a second. Compose takes the layer's content at the
+    /// frame it holds (`crate::compose::posterized`); its own step in the stack changes nothing.
+    PosterizeTime { frame_rate: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -937,6 +940,7 @@ pub const COMPOUND_BLUR: &str = "core.compound_blur";
 pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
 pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
 pub const ECHO: &str = "core.echo";
+pub const POSTERIZE_TIME: &str = "core.posterize_time";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1552,6 +1556,7 @@ impl Effect {
                 ("intensity", vec![intensity], 0.0, 1.0),
                 ("decay", vec![decay], 0.0, 1.0),
             ],
+            Effect::PosterizeTime { frame_rate } => vec![("frame_rate", vec![frame_rate], 0.1, 99.0)],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1781,6 +1786,7 @@ impl Effect {
             Effect::DisplacementMap { .. } => "Displacement Map",
             Effect::GradientWipe { .. } => "Gradient Wipe",
             Effect::Echo { .. } => "Echo",
+            Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1860,6 +1866,7 @@ impl Effect {
             Effect::DisplacementMap { .. } => DISPLACEMENT_MAP,
             Effect::GradientWipe { .. } => GRADIENT_WIPE,
             Effect::Echo { .. } => ECHO,
+            Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3410,6 +3417,8 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-196: the holding was done where the layer's content was resolved.
+            Effect::PosterizeTime { .. } => {}
         }
     }
     (ox, oy)

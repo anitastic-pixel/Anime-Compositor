@@ -6802,6 +6802,7 @@ const EFFECT_NAMES = {
   'core.displacement_map': 'Displacement Map',
   'core.gradient_wipe': 'Gradient Wipe',
   'core.echo': 'Echo',
+  'core.posterize_time': 'Posterize Time',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6826,7 +6827,7 @@ const EFFECT_GROUPS = [
     'core.posterize', 'core.threshold', 'core.solarize']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
-  ['Time', ['core.echo']],
+  ['Time', ['core.echo', 'core.posterize_time']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
@@ -6883,6 +6884,7 @@ const EFFECT_SEARCH = {
   'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction',
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
   'core.echo': 'echo time trail trails ghost ghosting onion skin smear afterimage frames',
+  'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6976,6 +6978,7 @@ const EFFECT_ABOUT = {
   'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition.',
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
   'core.echo': 'Lays copies of the layer from earlier or later frames over it, each fainter than the last: a trail.',
+  'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7279,6 +7282,8 @@ const EFFECT_PARAMS = {
     ['echoes', 'Number Of Echoes', 1, 1, '0 to 30'],
     ['intensity', 'Starting Intensity', 1, 0.01, '0 to 1, how strong the present frame is'],
     ['decay', 'Decay', 1, 0.01, '0 to 1, each echo this much of the one before']],
+  // D-196.
+  'core.posterize_time': [['frame_rate', 'Frame Rate', 1, 1, 'frames a second, 0.1 to 99; 12 in a composition of 24 is on twos, 8 on threes']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single

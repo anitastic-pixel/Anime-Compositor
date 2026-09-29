@@ -502,6 +502,16 @@ impl FrameLog {
         }
     }
 
+    /// D-196: take in what resolving a layer at a held frame logged, as having happened at
+    /// `frame`, the frame that was asked for.
+    pub fn retime(&mut self, inner: FrameLog, frame: i32) {
+        for group in inner.groups {
+            for _ in &group.frames {
+                self.record(frame, group.subject.clone(), group.first.clone());
+            }
+        }
+    }
+
     /// Every identifier recorded against `frame`, **including suppressed occurrences**.
     ///
     /// The export writer asks this to decide whether a frame had a drawing to show. Reading the
