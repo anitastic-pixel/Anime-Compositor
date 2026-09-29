@@ -87,6 +87,77 @@ pub(crate) fn drop_shadow(
     g
 }
 
+/// D-211: the drawing whose corner is at `origin` cast from the light at `light`, per cent of the
+/// drawing's own size, onto a wall `distance` behind, so scaled up about the light by
+/// 1 + distance / 100, then blurred by `softness` / 3 and laid behind the drawing: in `color`,
+/// or with `glass` the drawing's own colours mixed with it by `influence`. With `shadow_only`
+/// the drawing is left out. The layer grows by the scaled drawing, never more than its own size
+/// on each side, and the blur's reach; the growth across and down is returned.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn radial_shadow(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    opacity: f64,
+    light: [f64; 2],
+    distance: f64,
+    softness: f64,
+    glass: bool,
+    influence: f64,
+    shadow_only: bool,
+    origin: (usize, usize),
+) -> (usize, usize) {
+    let (w, h) = (source.width(), source.height());
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
+    let (lx, ly) = (light[0] / 100.0 * dw + ox, light[1] / 100.0 * dh + oy);
+    let k = 1.0 + distance / 100.0;
+    let gx = ((distance / 100.0 * lx.max(w as f64 - lx)).ceil() as usize).min(w);
+    let gy = ((distance / 100.0 * ly.max(h as f64 - ly)).ceil() as usize).min(h);
+    let cw = w + 2 * gx;
+    let mut cast = WorkingBuffer::transparent(cw, h + 2 * gy);
+    let drawing = &*source;
+    cast.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let x = (i % cw) as f64 - gx as f64 + 0.5;
+            let y = (i / cw) as f64 - gy as f64 + 0.5;
+            px.copy_from_slice(&sample_bilinear(drawing, lx + (x - lx) / k, ly + (y - ly) / k));
+        });
+    let r = blur(&mut cast, softness / 3.0);
+    let (ex, ey) = (gx + r, gy + r);
+    let (op, f, c) = (opacity / 100.0, influence / 100.0, color.map(crate::grade::to_linear));
+    let ow = cast.width();
+    let mut out = WorkingBuffer::transparent(ow, cast.height());
+    let shade = &cast;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let s = &shade.data()[i * 4..i * 4 + 4];
+            let a = s[3] as f64 * op;
+            let mut shadow = [0.0; 4];
+            for j in 0..3 {
+                shadow[j] = if glass {
+                    ((1.0 - f) * c[j] * s[3] as f64 + f * s[j] as f64) * op
+                } else {
+                    c[j] * a
+                };
+            }
+            shadow[3] = a;
+            let d = if shadow_only {
+                [0.0; 4]
+            } else {
+                at(drawing, (i % ow) as isize - ex as isize, (i / ow) as isize - ey as isize)
+            };
+            for j in 0..4 {
+                px[j] = (d[j] as f64 + shadow[j] * (1.0 - d[3] as f64)) as f32;
+            }
+        });
+    *source = out;
+    (ex, ey)
+}
+
 /// D-121: the iris's blades by its word, 0 for the circle; `None` for a word that is not one.
 pub(crate) fn blades(iris: &str) -> Option<usize> {
     let names = [

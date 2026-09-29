@@ -6818,6 +6818,7 @@ const EFFECT_NAMES = {
   'core.four_color_gradient': '4-Color Gradient',
   'core.cell_pattern': 'Cell Pattern',
   'core.optics_compensation': 'Optics Compensation',
+  'core.radial_shadow': 'Radial Shadow',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6841,7 +6842,7 @@ const EFFECT_GROUPS = [
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient',
     'core.cell_pattern']],
-  ['Stylize', ['core.drop_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
+  ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
@@ -6917,6 +6918,7 @@ const EFFECT_SEARCH = {
   'core.four_color_gradient': 'four 4 color colour gradient ramp corners mix sky wash tint rainbow',
   'core.cell_pattern': 'cell pattern bubbles crystals plates voronoi stained glass scales cracked texture background magic',
   'core.optics_compensation': 'optics compensation lens distortion fisheye fish eye barrel wide angle peephole field of view fov undistort bend',
+  'core.radial_shadow': 'radial shadow cast lamp torch point light spotlight projection glass edge stained perspective shade',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -7025,6 +7027,7 @@ const EFFECT_ABOUT = {
   'core.four_color_gradient': 'Pins four colours to four points and runs them smoothly into each other across what the layer shows.',
   'core.cell_pattern': 'Lays a pattern of cells, like bubbles, crystals or cracked plates, in two colours over what the layer shows.',
   'core.optics_compensation': 'Bends the layer as a wide lens would, a fisheye with the edges squeezed round the middle, or takes one out.',
+  'core.radial_shadow': 'Casts the layer\'s shadow from a lamp at a point, spreading and growing the farther the wall behind it is.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7407,6 +7410,12 @@ const EFFECT_PARAMS = {
     ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
   'core.optics_compensation': [['field_of_view', 'Field of View', 1, 1, 'degrees, 0 to 180, how wide the lens is; 0 leaves the layer as it is'],
     ['center', 'View Center', 2, 1, '% of the width and height, -1000 to 1000, the middle of the lens']],
+  // D-211, After Effects' own words.
+  'core.radial_shadow': [['opacity', 'Opacity', 1, 0.5, '0 to 100'],
+    ['light', 'Light Source', 2, 1, '% of the width and height, -1000 to 1000, where the lamp is'],
+    ['distance', 'Projection Distance', 1, 0.5, '0 to 1000, how far the wall is behind; 100 casts it twice the size'],
+    ['softness', 'Softening', 1, 0.5, 'pixels, 0 to 500'],
+    ['color_influence', 'Color Influence', 1, 0.5, '0 to 100, with Glass Edge how much of the drawing\'s own colour is in the shadow']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7559,12 +7568,18 @@ const EFFECT_WORDS = {
     choices: [['blending_mode', 'Blending Mode', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
     colours: [['color_1', 'Color 1'], ['color_2', 'Color 2'], ['color_3', 'Color 3'], ['color_4', 'Color 4']],
   },
-  // D-209, After Effects' own words, and Fractal Noise's colours and blend.
   // D-210, After Effects' own words.
   'core.optics_compensation': {
     choices: [['reverse', 'Reverse Lens Distortion', [['off', 'Off'], ['on', 'On']]],
       ['orientation', 'FOV Orientation', [['horizontal', 'Horizontal'], ['vertical', 'Vertical'], ['diagonal', 'Diagonal']]]],
   },
+  // D-211, After Effects' own words.
+  'core.radial_shadow': {
+    choices: [['render', 'Render', [['regular', 'Regular'], ['glass_edge', 'Glass Edge']]],
+      ['shadow_only', 'Shadow Only', [['off', 'Off'], ['on', 'On']]]],
+    colours: [['color', 'Shadow Color']],
+  },
+  // D-209, After Effects' own words, and Fractal Noise's colours and blend.
   'core.cell_pattern': {
     choices: [['pattern', 'Cell Pattern', [['bubbles', 'Bubbles'], ['crystals', 'Crystals'], ['plates', 'Plates'], ['static_plates', 'Static Plates']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],

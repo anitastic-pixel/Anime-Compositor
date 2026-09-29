@@ -1141,6 +1141,20 @@ pub enum Effect {
         orientation: String,
         center: [f64; 2],
     },
+    /// D-211: `color`, `#rrggbb`, kept as written so a wrong one is reported; `opacity`, 0 to
+    /// 100; `light`, x then y, -1000 to 1000 per cent of the drawing; `distance`, 0 to 1000;
+    /// `softness`, 0 to 500 pixels; `render`, "regular" or "glass_edge", and `shadow_only`, "off"
+    /// or "on", kept as written; and `color_influence`, 0 to 100.
+    RadialShadow {
+        color: String,
+        opacity: f64,
+        light: [f64; 2],
+        distance: f64,
+        softness: f64,
+        render: String,
+        color_influence: f64,
+        shadow_only: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1235,6 +1249,7 @@ pub const BEAM: &str = "core.beam";
 pub const FOUR_COLOR_GRADIENT: &str = "core.four_color_gradient";
 pub const CELL_PATTERN: &str = "core.cell_pattern";
 pub const OPTICS_COMPENSATION: &str = "core.optics_compensation";
+pub const RADIAL_SHADOW: &str = "core.radial_shadow";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1977,6 +1992,20 @@ impl Effect {
                 ("field_of_view", vec![field_of_view], 0.0, 180.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
+            Effect::RadialShadow {
+                opacity,
+                light,
+                distance,
+                softness,
+                color_influence,
+                ..
+            } => vec![
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("light", light.iter_mut().collect(), -1000.0, 1000.0),
+                ("distance", vec![distance], 0.0, 1000.0),
+                ("softness", vec![softness], 0.0, 500.0),
+                ("color_influence", vec![color_influence], 0.0, 100.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -2207,6 +2236,9 @@ impl Effect {
                 *distance = scale(*distance);
                 *softness = scale(*softness);
             }
+            // D-211: the light is a share of the drawing and the distance a ratio; only the
+            // softening is in pixels.
+            Effect::RadialShadow { softness, .. } => *softness = scale(*softness),
             // D-132: so is the wrap's width.
             Effect::LightWrap { width, .. } => *width = scale(*width),
             // D-131: the shift is a distance, so a draft slides by its share.
@@ -2326,6 +2358,7 @@ impl Effect {
             Effect::FourColorGradient { .. } => "4-Color Gradient",
             Effect::CellPattern { .. } => "Cell Pattern",
             Effect::OpticsCompensation { .. } => "Optics Compensation",
+            Effect::RadialShadow { .. } => "Radial Shadow",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2420,6 +2453,7 @@ impl Effect {
             Effect::FourColorGradient { .. } => FOUR_COLOR_GRADIENT,
             Effect::CellPattern { .. } => CELL_PATTERN,
             Effect::OpticsCompensation { .. } => OPTICS_COMPENSATION,
+            Effect::RadialShadow { .. } => RADIAL_SHADOW,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2699,6 +2733,22 @@ impl Effect {
                 ..
             } => gradient_fault(shape, start_color, end_color, blend),
             Effect::DropShadow { color, .. } => hex_fault("Drop Shadow", "colour", color),
+            Effect::RadialShadow {
+                color,
+                render,
+                shadow_only,
+                ..
+            } => hex_fault("Radial Shadow", "colour", color)
+                .or_else(|| {
+                    (!["regular", "glass_edge"].contains(&render.as_str())).then(|| {
+                        format!("Radial Shadow's render is \"regular\" or \"glass_edge\", and this is \"{render}\".")
+                    })
+                })
+                .or_else(|| {
+                    (!["on", "off"].contains(&shadow_only.as_str())).then(|| {
+                        format!("Radial Shadow's shadow only is \"on\" or \"off\", and this is \"{shadow_only}\".")
+                    })
+                }),
             Effect::LensBlur { edges, .. } if !["transparent", "repeat"].contains(&edges.as_str()) => {
                 Some(format!(
                     "Lens Blur's edges are \"transparent\" or \"repeat\", and this is \"{edges}\"."
@@ -3457,6 +3507,35 @@ pub(crate) fn apply_stack_at(
                 });
                 ox += r;
                 oy += r;
+            }
+            // D-211: the light is in per cent of the drawing's own box, however an effect above
+            // grew it, and the layer grows to hold the shadow.
+            Effect::RadialShadow {
+                color,
+                opacity,
+                light,
+                distance,
+                softness,
+                render,
+                color_influence,
+                shadow_only,
+            } => {
+                let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectRadialShadow, || {
+                    crate::layer_fx::radial_shadow(
+                        source,
+                        encoded(color),
+                        *opacity,
+                        *light,
+                        *distance,
+                        *softness,
+                        render == "glass_edge",
+                        *color_influence,
+                        shadow_only == "on",
+                        (ox, oy),
+                    )
+                });
+                ox += gx;
+                oy += gy;
             }
             Effect::LensBlur {
                 radius,

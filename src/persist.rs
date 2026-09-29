@@ -2048,6 +2048,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("orientation".into(), J::from(orientation.as_str()));
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
         }
+        Effect::RadialShadow {
+            color,
+            opacity,
+            light,
+            distance,
+            softness,
+            render,
+            color_influence,
+            shadow_only,
+        } => {
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("light".into(), J::Array(light.iter().map(|c| num(*c)).collect()));
+            params.insert("distance".into(), num(*distance));
+            params.insert("softness".into(), num(*softness));
+            params.insert("render".into(), J::from(render.as_str()));
+            params.insert("color_influence".into(), num(*color_influence));
+            params.insert("shadow_only".into(), J::from(shadow_only.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2587,6 +2606,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "blend",
         "disperse",
         "field_of_view",
+        "light",
+        "color_influence",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2603,7 +2624,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
             "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
             "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
             "center" | "start" | "end" | "shift" | "upper_left" | "upper_right" | "lower_left"
-            | "lower_right" | "producer_point" | "point_1" | "point_2" | "point_3" | "point_4" => {
+            | "lower_right" | "producer_point" | "point_1" | "point_2" | "point_3" | "point_4" | "light" => {
                 (2, "two numbers, x then y")
             }
             _ => (1, ""),
@@ -3078,6 +3099,7 @@ fn parse_effect(
         crate::effects::FOUR_COLOR_GRADIENT,
         crate::effects::CELL_PATTERN,
         crate::effects::OPTICS_COMPENSATION,
+        crate::effects::RADIAL_SHADOW,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3735,6 +3757,16 @@ fn parse_effect(
             reverse: effect_word(params, "reverse", &at)?,
             orientation: effect_word(params, "orientation", &at)?,
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
+        }),
+        crate::effects::RADIAL_SHADOW => Some(crate::effects::Effect::RadialShadow {
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            light: effect_array(params, "light", "two numbers, x then y", &at)?,
+            distance: effect_number(params, "distance", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            render: effect_word(params, "render", &at)?,
+            color_influence: effect_number(params, "color_influence", &at)?,
+            shadow_only: effect_word(params, "shadow_only", &at)?,
         }),
         _ => None,
     };

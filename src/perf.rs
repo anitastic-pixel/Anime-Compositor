@@ -227,6 +227,7 @@ pub enum Stage {
     EffectFourColorGradient,
     EffectCellPattern,
     EffectOpticsCompensation,
+    EffectRadialShadow,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -244,7 +245,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 103] = [
+    pub const ALL: [Stage; 104] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -341,6 +342,7 @@ impl Stage {
         Stage::EffectFourColorGradient,
         Stage::EffectCellPattern,
         Stage::EffectOpticsCompensation,
+        Stage::EffectRadialShadow,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -449,6 +451,7 @@ impl Stage {
             Stage::EffectFourColorGradient => "effect: 4-color gradient",
             Stage::EffectCellPattern => "effect: cell pattern",
             Stage::EffectOpticsCompensation => "effect: optics compensation",
+            Stage::EffectRadialShadow => "effect: radial shadow",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
