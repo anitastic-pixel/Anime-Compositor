@@ -241,5 +241,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - from, to, change, change_by, hue_tolerance, lightness_tolerance, saturation_tolerance, softness, view_matte - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.corner_pin` is an effect this build has | added | added | pass |
 | and the settings it sends for it - upper_left, upper_right, lower_left, lower_right - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.light_sweep` is an effect this build has | added | added | pass |
+| and the settings it sends for it - center, direction, shape, width, sweep_intensity, edge_intensity, edge_thickness, light_color, light_reception - are the ones the command reads | accepted | accepted | pass |
 
-**221 of 221 checks pass.**
+**223 of 223 checks pass.**

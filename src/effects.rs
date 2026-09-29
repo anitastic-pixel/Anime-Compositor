@@ -883,6 +883,23 @@ pub enum Effect {
         lower_left: [f64; 2],
         lower_right: [f64; 2],
     },
+    /// D-199: `center`, x then y, -1000 to 1000 per cent of the drawing's width and height, where
+    /// the band's middle line passes; `direction`, -3600 to 3600 degrees clockwise from up, the
+    /// way that line runs; `shape`, "linear", "smooth" or "sharp"; `width`, 0 to 10000 pixels;
+    /// `sweep_intensity` and `edge_intensity`, 0 to 100; `edge_thickness`, 1 to 50 pixels;
+    /// `light_color`, `#rrggbb`; and `light_reception`, "add", "composite" or "cutout". The
+    /// words and colour are kept as written, so a wrong one is reported.
+    LightSweep {
+        center: [f64; 2],
+        direction: f64,
+        shape: String,
+        width: f64,
+        sweep_intensity: f64,
+        edge_intensity: f64,
+        edge_thickness: f64,
+        light_color: String,
+        light_reception: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -965,6 +982,7 @@ pub const ECHO: &str = "core.echo";
 pub const POSTERIZE_TIME: &str = "core.posterize_time";
 pub const CHANGE_TO_COLOR: &str = "core.change_to_color";
 pub const CORNER_PIN: &str = "core.corner_pin";
+pub const LIGHT_SWEEP: &str = "core.light_sweep";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1604,6 +1622,22 @@ impl Effect {
                 ("lower_left", lower_left.iter_mut().collect(), -400.0, 500.0),
                 ("lower_right", lower_right.iter_mut().collect(), -400.0, 500.0),
             ],
+            Effect::LightSweep {
+                center,
+                direction,
+                width,
+                sweep_intensity,
+                edge_intensity,
+                edge_thickness,
+                ..
+            } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("width", vec![width], 0.0, 10000.0),
+                ("sweep_intensity", vec![sweep_intensity], 0.0, 100.0),
+                ("edge_intensity", vec![edge_intensity], 0.0, 100.0),
+                ("edge_thickness", vec![edge_thickness], 1.0, 50.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1753,6 +1787,13 @@ impl Effect {
             Effect::LightWrap { width, .. } => *width = scale(*width),
             // D-131: the shift is a distance, so a draft slides by its share.
             Effect::Offset { shift } => *shift = shift.map(&scale),
+            // D-199: so are the band's width and the edge's depth, which stays a pixel at least.
+            Effect::LightSweep {
+                width, edge_thickness, ..
+            } => {
+                *width = scale(*width);
+                *edge_thickness = scale(*edge_thickness).max(1.0);
+            }
             _ => {}
         }
     }
@@ -1836,6 +1877,7 @@ impl Effect {
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
             Effect::CornerPin { .. } => "Corner Pin",
+            Effect::LightSweep { .. } => "Light Sweep",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1918,6 +1960,7 @@ impl Effect {
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
             Effect::CornerPin { .. } => CORNER_PIN,
+            Effect::LightSweep { .. } => LIGHT_SWEEP,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2331,6 +2374,22 @@ impl Effect {
                     .or_else(|| {
                         (!["off", "on"].contains(&view_matte.as_str())).then(|| {
                             format!("Change to Color's view matte is \"off\" or \"on\", and this is \"{view_matte}\".")
+                        })
+                    })
+            }
+            Effect::LightSweep { shape, light_color, light_reception, .. } => {
+                hex_fault("Light Sweep", "light colour", light_color)
+                    .or_else(|| {
+                        (!["linear", "smooth", "sharp"].contains(&shape.as_str())).then(|| {
+                            format!("Light Sweep's shape is \"linear\", \"smooth\" or \"sharp\", and this is \"{shape}\".")
+                        })
+                    })
+                    .or_else(|| {
+                        (!["add", "composite", "cutout"].contains(&light_reception.as_str())).then(|| {
+                            format!(
+                                "Light Sweep's light reception is \"add\", \"composite\" or \"cutout\", and this \
+                                 is \"{light_reception}\"."
+                            )
                         })
                     })
             }
@@ -3279,6 +3338,32 @@ pub(crate) fn apply_stack_at(
                 ox += gx;
                 oy += gy;
             }
+            // D-199: the centre is in per cent of the drawing's own box, however an effect above
+            // grew it.
+            Effect::LightSweep {
+                center,
+                direction,
+                shape,
+                width,
+                sweep_intensity,
+                edge_intensity,
+                edge_thickness,
+                light_color,
+                light_reception,
+            } => crate::perf::time(crate::perf::Stage::EffectLightSweep, || {
+                let s = crate::layer_fx::LightSweep {
+                    center: *center,
+                    direction: *direction,
+                    shape,
+                    width: *width,
+                    sweep: *sweep_intensity,
+                    edge: *edge_intensity,
+                    thickness: *edge_thickness,
+                    color: encoded(light_color),
+                    reception: light_reception,
+                };
+                crate::layer_fx::light_sweep(source, &s, (ox, oy))
+            }),
             // D-155: the edge crosses the drawing's own box, however an effect above grew it.
             Effect::LinearWipe {
                 completion,

@@ -6805,6 +6805,7 @@ const EFFECT_NAMES = {
   'core.posterize_time': 'Posterize Time',
   'core.change_to_color': 'Change to Color',
   'core.corner_pin': 'Corner Pin',
+  'core.light_sweep': 'Light Sweep',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6825,7 +6826,8 @@ const EFFECT_GROUPS = [
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple',
     'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
     'core.corner_pin']],
-  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain']],
+  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain',
+    'core.light_sweep']],
   ['Stylize', ['core.drop_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
@@ -6890,6 +6892,7 @@ const EFFECT_SEARCH = {
   'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
   'core.change_to_color': 'change to color colour replace recolor recolour swap costume palette hue shift',
   'core.corner_pin': 'corner pin perspective four corners screen sign billboard poster distort pin skew keystone',
+  'core.light_sweep': 'cc light sweep shine glint gleam sheen reflection flash sword metal logo glass highlight',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6986,6 +6989,7 @@ const EFFECT_ABOUT = {
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
   'core.change_to_color': 'Turns one colour into another, with the shades painted in it, and leaves the rest alone.',
   'core.corner_pin': 'Pins the layer\'s four corners anywhere and stretches it between them in perspective.',
+  'core.light_sweep': 'Lays a band of light across the drawing; key its centre and a shine runs across it.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7301,6 +7305,13 @@ const EFFECT_PARAMS = {
     ['upper_right', 'Upper Right', 2, 1, '% of the width and height, -400 to 500'],
     ['lower_left', 'Lower Left', 2, 1, '% of the width and height, -400 to 500'],
     ['lower_right', 'Lower Right', 2, 1, '% of the width and height, -400 to 500']],
+  // D-199.
+  'core.light_sweep': [['center', 'Center', 2, 1, '% of the width and height, -1000 to 1000, where the band\'s middle passes'],
+    ['direction', 'Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600, the way the band runs', 'dial'],
+    ['width', 'Width', 1, 1, 'pixels, 0 to 10000'],
+    ['sweep_intensity', 'Sweep Intensity', 1, 1, '0 to 100, how bright the band is'],
+    ['edge_intensity', 'Edge Intensity', 1, 1, '0 to 100, how much brighter it makes the drawing\'s outer edges'],
+    ['edge_thickness', 'Edge Thickness', 1, 1, 'whole pixels, 1 to 50, how deep an edge counts']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7417,6 +7428,12 @@ const EFFECT_WORDS = {
   'core.diffusion': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['lighten', 'Lighten'], ['normal', 'Normal']]]] },
   // D-149.
   'core.wave_warp': { choices: [['shape', 'Shape', [['sine', 'Sine'], ['triangle', 'Triangle']]], EDGES] },
+  // D-199.
+  'core.light_sweep': {
+    choices: [['shape', 'Shape', [['linear', 'Linear'], ['smooth', 'Smooth'], ['sharp', 'Sharp']]],
+      ['light_reception', 'Light Reception', [['add', 'Add'], ['composite', 'Composite'], ['cutout', 'Cutout']]]],
+    colours: [['light_color', 'Light Color']],
+  },
   // D-154.
   'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },
   // D-156.
@@ -7988,6 +8005,27 @@ function fxPinPaint(g, at) {
   g.stroke();
 }
 
+// D-199: the band's middle line, through its centre along its direction. Its width is the
+// drawing's pixels, which the box does not know, so it is left out.
+function fxSweepPaint(k) {
+  return (g, at, pad, iw, ih) => {
+    const [cx, cy] = at('center');
+    const a = ((k.fields.direction ? Number(k.fields.direction[0].value) || 0 : 0) * Math.PI) / 180;
+    const [lx, ly] = [Math.sin(a) * (iw + ih), -Math.cos(a) * (iw + ih)];
+    g.save();
+    g.beginPath();
+    g.rect(pad, pad, iw, ih);
+    g.clip();
+    g.strokeStyle = 'rgba(255,236,170,0.9)';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(cx - lx, cy - ly);
+    g.lineTo(cx + lx, cy + ly);
+    g.stroke();
+    g.restore();
+  };
+}
+
 // A box standing for the drawing, with a mark for each of the effect's points, as the share of
 // the drawing the numbers are. A press moves the nearest mark there and drags it. `paint` draws
 // what the points make, under them.
@@ -8354,6 +8392,7 @@ function effectRow(layer, fx, at, of) {
       : fx.type_id === 'core.lens_blur' ? fxIris(k, label)
       : pairs.length ? fxPointBox(k, pairs, label, fx.type_id === 'core.gradient' ? fxGradientPaint(k)
         : fx.type_id === 'core.corner_pin' ? fxPinPaint
+        : fx.type_id === 'core.light_sweep' ? fxSweepPaint(k)
         : ['core.mirror', 'core.radial_wipe', 'core.iris_wipe'].includes(fx.type_id) ? fxKeptPaint(k, fx.type_id) : null)
         : null;
   if (picture) {

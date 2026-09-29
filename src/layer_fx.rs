@@ -2255,3 +2255,100 @@ pub(crate) fn lay(source: &mut WorkingBuffer, picture: &WorkingBuffer, (ox, oy):
         data[to..to + across * 4].copy_from_slice(&picture.data()[y * picture.width() * 4..][..across * 4]);
     }
 }
+
+/// D-199's settings, read once for a frame: the colour encoded 0 to 1, the intensities 0 to 100.
+pub(crate) struct LightSweep<'a> {
+    pub center: [f64; 2],
+    pub direction: f64,
+    pub shape: &'a str,
+    pub width: f64,
+    pub sweep: f64,
+    pub edge: f64,
+    pub thickness: f64,
+    pub color: [f64; 3],
+    pub reception: &'a str,
+}
+
+/// D-199: a band of light laid across the drawing, whose corner is at `origin` in the buffer,
+/// along the line through `center` at `direction`, fading to its sides by `shape`; the drawing's
+/// outer edges, `thickness` whole pixels deep, take more, and only what is drawn is lit. The
+/// layer does not grow. The settings are already valid.
+pub(crate) fn light_sweep(source: &mut WorkingBuffer, s: &LightSweep, origin: (usize, usize)) {
+    let cutout = s.reception == "cutout";
+    let r = s.width / 2.0;
+    if !cutout && (r == 0.0 || s.sweep == 0.0 && s.edge == 0.0) {
+        return;
+    }
+    let w = source.width();
+    let (dw, dh) = ((w - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
+    let (cx, cy) = (origin.0 as f64 + s.center[0] / 100.0 * dw, origin.1 as f64 + s.center[1] / 100.0 * dh);
+    let (nx, ny) = crate::blurs::along(s.direction + 90.0);
+    let least = if s.edge > 0.0 && r > 0.0 {
+        least_covering(source, s.thickness.floor() as usize)
+    } else {
+        Vec::new()
+    };
+    let light = s.color.map(crate::grade::to_linear);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let d = (nx * ((i % w) as f64 + 0.5 - cx) + ny * ((i / w) as f64 + 0.5 - cy)).abs();
+            let t = d / r;
+            let p = match s.shape {
+                _ if r == 0.0 => 0.0,
+                "linear" => (1.0 - t).max(0.0),
+                "smooth" if t < 1.0 => 1.0 - t * t * (3.0 - 2.0 * t),
+                "smooth" => 0.0,
+                _ => (r + 0.5 - d).clamp(0.0, 1.0),
+            };
+            let edge = if p > 0.0 && !least.is_empty() { s.edge / 100.0 * (a - least[i] as f64) / a } else { 0.0 };
+            let l = p * (s.sweep / 100.0 + edge);
+            if l == 0.0 && !cutout {
+                return;
+            }
+            let m = l.min(1.0);
+            match s.reception {
+                "add" => (0..3).for_each(|j| px[j] = (px[j] as f64 + l * a * light[j]) as f32),
+                "composite" => (0..3).for_each(|j| px[j] = (px[j] as f64 + m * (a * light[j] - px[j] as f64)) as f32),
+                _ => {
+                    (0..3).for_each(|j| px[j] = (m * a * light[j]) as f32);
+                    px[3] = (m * a) as f32;
+                }
+            }
+        });
+}
+
+/// The least covering in the square `2k + 1` on a side round each pixel, outside the buffer
+/// counting as uncovered, so a square that reaches past it is 0: along the rows, then down.
+// ponytail: each pass is 2k + 1 reads a pixel, fine to the 50-pixel cap; van Herk / Gil-Werman
+// makes it three whatever k if thick edges on big frames get slow.
+fn least_covering(source: &WorkingBuffer, k: usize) -> Vec<f32> {
+    let (w, h) = (source.width(), source.height());
+    let alpha: Vec<f32> = source.data().chunks_exact(4).map(|p| p[3]).collect();
+    let mut rows = vec![0.0f32; w * h];
+    rows.par_chunks_mut(w).enumerate().for_each(|(y, line)| {
+        let src = &alpha[y * w..(y + 1) * w];
+        for x in k..w.saturating_sub(k) {
+            line[x] = src[x - k..=x + k].iter().copied().fold(f32::INFINITY, f32::min);
+        }
+    });
+    let mut out = vec![0.0f32; w * h];
+    out.par_chunks_mut(w).enumerate().for_each(|(y, line)| {
+        if y < k || y + k >= h {
+            return;
+        }
+        line.copy_from_slice(&rows[(y - k) * w..(y - k + 1) * w]);
+        for v in y - k + 1..=y + k {
+            for (o, r) in line.iter_mut().zip(&rows[v * w..(v + 1) * w]) {
+                *o = o.min(*r);
+            }
+        }
+    });
+    out
+}

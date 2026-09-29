@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3295,6 +3295,18 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             lower_left: [0.0, 100.0],
             lower_right: [100.0, 100.0],
         }),
+        // D-199: After Effects' own: a soft white band fifty pixels wide, leaning a little left.
+        LIGHT_SWEEP => Some(Effect::LightSweep {
+            center: [50.0, 50.0],
+            direction: -30.0,
+            shape: "smooth".to_string(),
+            width: 50.0,
+            sweep_intensity: 50.0,
+            edge_intensity: 100.0,
+            edge_thickness: 1.0,
+            light_color: "#ffffff".to_string(),
+            light_reception: "add".to_string(),
+        }),
         _ => None,
     }
 }
@@ -3942,6 +3954,17 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             upper_right: pair("upper_right")?,
             lower_left: pair("lower_left")?,
             lower_right: pair("lower_right")?,
+        }),
+        LIGHT_SWEEP => Ok(Effect::LightSweep {
+            center: pair("center")?,
+            direction: number("direction")?,
+            shape: word("shape")?,
+            width: number("width")?,
+            sweep_intensity: number("sweep_intensity")?,
+            edge_intensity: number("edge_intensity")?,
+            edge_thickness: number("edge_thickness")?,
+            light_color: word("light_color")?,
+            light_reception: word("light_reception")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6955,7 +6978,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color or core.corner_pin."
+                             core.change_to_color, core.corner_pin or core.light_sweep."
                                 .to_string(),
                         );
                     };
@@ -6983,7 +7006,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color and core.corner_pin."
+                             core.change_to_color, core.corner_pin and core.light_sweep."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -11519,7 +11542,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the seventy-six are named",
+            "an effect type this build does not have is refused, and the seventy-seven are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -11538,7 +11561,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color and core.corner_pin.",
+             core.change_to_color, core.corner_pin and core.light_sweep.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -11560,7 +11583,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color or core.corner_pin.",
+             core.change_to_color, core.corner_pin or core.light_sweep.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -24842,6 +24865,21 @@ mod contract {
                 ("upper_right", "90,-5"),
                 ("lower_left", "-20,110"),
                 ("lower_right", "120,95"),
+            ],
+        ),
+        // D-199: the centre, the numbers, the words and the colour.
+        (
+            "core.light_sweep",
+            &[
+                ("center", "30,60"),
+                ("direction", "20"),
+                ("shape", "sharp"),
+                ("width", "24"),
+                ("sweep_intensity", "70"),
+                ("edge_intensity", "40"),
+                ("edge_thickness", "3"),
+                ("light_color", "%23ffb040"),
+                ("light_reception", "composite"),
             ],
         ),
     ];

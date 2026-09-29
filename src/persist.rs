@@ -1833,6 +1833,27 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(name.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
             }
         }
+        Effect::LightSweep {
+            center,
+            direction,
+            shape,
+            width,
+            sweep_intensity,
+            edge_intensity,
+            edge_thickness,
+            light_color,
+            light_reception,
+        } => {
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("direction".into(), num(*direction));
+            params.insert("shape".into(), J::from(shape.as_str()));
+            params.insert("width".into(), num(*width));
+            params.insert("sweep_intensity".into(), num(*sweep_intensity));
+            params.insert("edge_intensity".into(), num(*edge_intensity));
+            params.insert("edge_thickness".into(), num(*edge_thickness));
+            params.insert("light_color".into(), J::from(light_color.as_str()));
+            params.insert("light_reception".into(), J::from(light_reception.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2338,6 +2359,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "upper_right",
         "lower_left",
         "lower_right",
+        "sweep_intensity",
+        "edge_intensity",
+        "edge_thickness",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2801,6 +2825,7 @@ fn parse_effect(
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
+        crate::effects::LIGHT_SWEEP,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3340,6 +3365,17 @@ fn parse_effect(
             upper_right: effect_array(params, "upper_right", "two numbers, x then y", &at)?,
             lower_left: effect_array(params, "lower_left", "two numbers, x then y", &at)?,
             lower_right: effect_array(params, "lower_right", "two numbers, x then y", &at)?,
+        }),
+        crate::effects::LIGHT_SWEEP => Some(crate::effects::Effect::LightSweep {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            shape: effect_word(params, "shape", &at)?,
+            width: effect_number(params, "width", &at)?,
+            sweep_intensity: effect_number(params, "sweep_intensity", &at)?,
+            edge_intensity: effect_number(params, "edge_intensity", &at)?,
+            edge_thickness: effect_number(params, "edge_thickness", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_reception: effect_word(params, "light_reception", &at)?,
         }),
         _ => None,
     };
