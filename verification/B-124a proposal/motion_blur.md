@@ -1,5 +1,9 @@
 # B-124a: motion blur, proposed (D-188, ADR-019)
 
+**You accepted this on 2026-09-28:** "I approve of motion blur plan". The three answers written under
+"Questions for you" stand as written: a held jump shows twice at half strength, expression
+motion holds, and Draft uses the same samples as Full. The build is B-124b.
+
 This is item 10 of the list. You accepted items 1 to 9 on 2026-09-28. Item 10 was to be written
 up to a decision and **stop before any code**, because the time rules (document 20) say motion
 blur needs an ADR and fixtures of its own first. So this is a proposal. **Nothing is built until

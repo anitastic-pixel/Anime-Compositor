@@ -1,6 +1,6 @@
 # ADR-019: Motion blur averages the layer drawn at moments inside the shutter; drawings hold
 
-Status: PROPOSED (the agent, 2026-09-28), awaiting the owner
+Status: ACCEPTED (the owner, 2026-09-28: "I approve of motion blur plan")
 Date: 2026-09-28
 Deciders: Andrew (owner)
 Relates to: D-188, document 20 "Extension boundary" and the camera paragraph of "Evaluation order at one frame", document 21 "Deferred rendering questions", D-57 (parents), D-58 (camera), D-59 (expressions), D-101 (`GPU_PREVIEW_ON_CPU`)
@@ -81,7 +81,7 @@ draws a frame that has any blurred moving layer on the processor, and says so wi
 - Effects are never run more than once a frame for motion blur, so the effect cache still works.
   Only the resampling repeats. Cost grows with samples times the moving layers' area.
 - An effect that changes over time (a wiggle, a twinkle) is not smeared by its own change, and
-  expression motion is not blurred. Both are stated in the proposal and asked of the owner.
+  expression motion is not blurred. Both were stated in the proposal, which the owner accepted as written.
 - FX-MB-001 to 050 in document 25 pin the moments, the values read between frames, the pictures
   and the files that are refused.
 

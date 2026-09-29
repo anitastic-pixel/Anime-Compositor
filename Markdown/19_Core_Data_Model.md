@@ -12,7 +12,7 @@ Rules: ownership is explicit; references use IDs rather than object pointers in 
 
 Project owns: schema version, project ID, project settings, assets, compositions, color settings and application metadata. A project may contain multiple compositions even though G1 UI may focus on one at a time.
 
-Composition owns: ID, name, width, height, pixel aspect ratio, frame-rate numerator/denominator, start frame, duration frames, work area, an ordered layer ID list and, by D-58 which the owner accepted on 2026-09-15 and B-13c built, an optional `camera` of three animatable properties - position, depth and zoom - and, by D-171 (proposed), an optional `parent`, a layer of the same composition that the camera rides. An absent camera means the default camera of document 21, not the absence of one. By D-188, proposed on 2026-09-28 with ADR-019, a composition may carry `motion_blur`, `{"enabled", "shutter_angle", "shutter_phase", "samples"}`: a switch, true or false; an angle in degrees from 0 to 720; a phase in degrees from -360 to 360; and a whole number of samples from 2 to 64. None is animated. Absent means `{false, 180, -90, 16}`, and it is written only when it differs from that. When written, all four are required; a field missing or unknown, a number out of range, samples that are not whole or a switch that is not true or false is `PROJECT_SCHEMA_INVALID` (FX-MB-030 to 038). G1 accepts square pixels only; other ratios produce an unsupported-feature diagnostic.
+Composition owns: ID, name, width, height, pixel aspect ratio, frame-rate numerator/denominator, start frame, duration frames, work area, an ordered layer ID list and, by D-58 which the owner accepted on 2026-09-15 and B-13c built, an optional `camera` of three animatable properties - position, depth and zoom - and, by D-171 (proposed), an optional `parent`, a layer of the same composition that the camera rides. An absent camera means the default camera of document 21, not the absence of one. By D-188, which the owner accepted on 2026-09-28 with ADR-019, a composition may carry `motion_blur`, `{"enabled", "shutter_angle", "shutter_phase", "samples"}`: a switch, true or false; an angle in degrees from 0 to 720; a phase in degrees from -360 to 360; and a whole number of samples from 2 to 64. None is animated. Absent means `{false, 180, -90, 16}`, and it is written only when it differs from that. When written, all four are required; a field missing or unknown, a number out of range, samples that are not whole or a switch that is not true or false is `PROJECT_SCHEMA_INVALID` (FX-MB-030 to 038). G1 accepts square pixels only; other ratios produce an unsupported-feature diagnostic.
 
 Asset records media identity and interpretation. G1 asset kinds are `still` and `image_sequence`. Sequence assets store a numeric pattern and a frame-number-to-file map so missing numbers remain missing rather than being silently compacted.
 
@@ -26,7 +26,7 @@ Accepted by D-57 on 2026-09-15: an optional `parent`, the ID of another layer in
 
 By D-58, accepted by the owner on 2026-09-15 and built by B-13c: an optional `depth`, a scalar property in pixels, absent meaning 0, giving the plane the layer sits on (document 21). It is written only when set, and when written it carries a base and keyframes like every other animatable property. A parented layer's depth is measured from its parent's plane and adds to it up the chain, as its position is a point in its parent's space.
 
-By D-188, proposed on 2026-09-28 with ADR-019: an optional `motion_blur` on a raster, solid, shape or composition layer, `true` when the layer's motion-blur switch is on. It is written only when true, and `false` reads as absent. A value that is not true or false, or the key on a null, adjustment or audio layer, is `PROJECT_SCHEMA_INVALID` (FX-MB-039 to 041).
+By D-188, accepted on 2026-09-28 with ADR-019: an optional `motion_blur` on a raster, solid, shape or composition layer, `true` when the layer's motion-blur switch is on. It is written only when true, and `false` reads as absent. A value that is not true or false, or the key on a null, adjustment or audio layer, is `PROJECT_SCHEMA_INVALID` (FX-MB-039 to 041).
 
 D-61, accepted on 2026-09-16: an asset may carry `redistribute`, false when the artist may not pass its drawings on, absent otherwise. It changes nothing about how the asset is drawn; collecting a package lists such an asset's drawings without copying them.
 
@@ -96,7 +96,7 @@ D-69, accepted on 2026-09-18: a layer's `position` may be written `{"x": propert
 - Composition graph is acyclic: no composition holds, at any depth, a layer of itself (D-67).
 - Camera `zoom` is greater than zero; layer `depth` and camera `depth` are finite (D-58).
 - A camera's `parent` is a layer's identifier and not an audio layer's; one not in the composition is kept, with `PARENT_REFERENCE_MISSING` (D-171, proposed).
-- A composition's `motion_blur` holds its four fields in range, and a layer's is true or false on a layer that draws (D-188, proposed).
+- A composition's `motion_blur` holds its four fields in range, and a layer's is true or false on a layer that draws (D-188).
 - Effect parameter types match the registered effect schema.
 - No serialized path is trusted without normalization and access checks.
 

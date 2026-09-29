@@ -108,7 +108,7 @@ Opacity is clamped to 0..1 at command validation. Scale may be negative to permi
 
 Parents, accepted by D-57, create dependencies in the same way: a parent's anchor, position, scale and rotation are evaluated at the same composition frame as its child's, whether or not that frame is inside the parent's in and out points, whether or not the parent is enabled, and whatever drawing its exposure holds. Nothing else of the parent is evaluated for the child.
 
-The camera, specified by D-58 and built by B-13c, is evaluated the same way and at the same composition frame: its position, depth and zoom are read once for the frame being drawn, whatever drawing each layer's exposure holds at that frame. There is no shutter and no subframe camera sampling in G2, so a camera move and a cel on twos stay independent of one another. Motion blur, proposed by ADR-019 and D-188, would read the camera between frames, and only to place a blurred layer; see Motion blur below.
+The camera, specified by D-58 and built by B-13c, is evaluated the same way and at the same composition frame: its position, depth and zoom are read once for the frame being drawn, whatever drawing each layer's exposure holds at that frame. There is no shutter and no subframe camera sampling in G2, so a camera move and a cel on twos stay independent of one another. Motion blur, accepted with ADR-019 and D-188 on 2026-09-28, reads the camera between frames, and only to place a blurred layer; see Motion blur below.
 
 Expressions, accepted by D-59 on 2026-09-16, are part of step 6. A property with an enabled expression is its keyed value put through the expression at the same composition frame, and that result is what every later step, parent and camera reads. An expression may read another property at another whole frame through `valueAtTime`; it never reads a sub-frame, and it never changes which drawing an exposure holds. Dependencies between expressions are resolved at evaluation and bounded by document 09, not sorted in advance.
 
@@ -116,7 +116,7 @@ Mattes create dependencies but not a second time domain: matte layers evaluate a
 
 ### Motion blur
 
-Proposed by ADR-019 and D-188 on 2026-09-28, awaiting the owner, and not built; FX-MB-001 to 050 in document 25 are its cases. A layer is blurred when its composition's `motion_blur` is enabled with a shutter angle above 0 and the layer's own switch is on. For frame `n`, shutter angle `A` in degrees, phase `P` in degrees and `N` samples, it is drawn at the moments
+Accepted by the owner with ADR-019 and D-188 on 2026-09-28, and not yet built; FX-MB-001 to 050 in document 25 are its cases. A layer is blurred when its composition's `motion_blur` is enabled with a shutter angle above 0 and the layer's own switch is on. For frame `n`, shutter angle `A` in degrees, phase `P` in degrees and `N` samples, it is drawn at the moments
 
 `t_k = n + P / 360 + (A / 360) * (k + 1/2) / N`, for `k = 0 .. N-1`,
 
@@ -138,6 +138,6 @@ Given the same project snapshot, frame index, media bytes and implementation ver
 
 ## Extension boundary
 
-Audio sample time is set by ADR-018 and D-71, accepted on 2026-09-19, with FX-AUD-001 to 008 as its fixtures: it adds a sum from whole frames to whole samples and changes nothing above. Motion blur is proposed by ADR-019 and D-188, with FX-MB-001 to 050 as its fixtures, under Motion blur above, and stays outside until the owner accepts it. Retiming curves, frame blending, optical flow and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
+Audio sample time is set by ADR-018 and D-71, accepted on 2026-09-19, with FX-AUD-001 to 008 as its fixtures: it adds a sum from whole frames to whole samples and changes nothing above. Motion blur was added by ADR-019 and D-188, which the owner accepted on 2026-09-28, with FX-MB-001 to 050 as its fixtures, under Motion blur above. Retiming curves, frame blending, optical flow and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
 
 Related documents: 07, 19, 21 and 25.
