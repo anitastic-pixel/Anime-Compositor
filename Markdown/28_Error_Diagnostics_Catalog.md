@@ -32,6 +32,8 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | COMPOSITION_REFERENCE_MISSING | WARNING | A composition layer names a composition that is not in the project (D-67) | preserve reference; draw the layer as nothing, with warning, once |
 | PARENT_CYCLE | ERROR | Parent chain loops back on itself (D-57) | reject command/load render graph, as MATTE_CYCLE |
 | COMPOSITION_CYCLE | ERROR | A composition holds, at any depth, a layer of itself (D-67) | reject command/load render graph, as MATTE_CYCLE |
+| EFFECT_LAYER_MISSING | WARNING | An effect's layer setting names a layer not in the holder's composition (D-189) | preserve the setting; skip that effect, with warning, every frame |
+| EFFECT_LAYER_CYCLE | ERROR | Effects' layer settings lead back to a layer (D-189) | reject command/load render graph, as MATTE_CYCLE |
 | CAMERA_PLANE_BEHIND | WARNING | Layer sits level with the camera or behind it (D-58) | preserve the record; draw nothing for the layer; report once per frame, rate-limited |
 | MASK_INVALID_OUTLINE | ERROR on a command, WARNING on a load | Mask outline crosses itself, or has fewer than three corners | reject the command; on load preserve the record exactly, draw the layer unmasked, and report fidelity incomplete |
 | SHAPE_INVALID_OUTLINE | ERROR on a command, WARNING on a load | Shape path has fewer than two points, so it can be neither filled nor stroked | reject the command; on load preserve the record exactly, draw the rest of the layer without that shape, and report fidelity incomplete |

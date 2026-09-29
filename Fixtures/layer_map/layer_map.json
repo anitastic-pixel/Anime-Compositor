@@ -1,0 +1,1654 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-layer-map",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-card",
+      "kind": "still",
+      "name": "card",
+      "path": "media/card.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-big",
+      "kind": "still",
+      "name": "big",
+      "path": "media/big.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-stripes",
+      "kind": "still",
+      "name": "stripes",
+      "path": "media/stripes.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-gone",
+      "kind": "still",
+      "name": "gone",
+      "path": "media/gone.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-flip",
+      "kind": "image_sequence",
+      "name": "flip",
+      "pattern": "flip_####.png",
+      "frames": {
+        "1": "media/card.png",
+        "2": "media/card_b.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 8,
+      "height": 6,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 3,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 3
+      },
+      "layer_order": [
+        "holder",
+        "card",
+        "card_placed",
+        "card_hidden",
+        "card_masked",
+        "card_bright",
+        "card_off_fx",
+        "card_soft",
+        "self",
+        "flip",
+        "flip_late",
+        "flip_ahead",
+        "solid",
+        "shape",
+        "nest",
+        "nest_bright",
+        "nest_gone",
+        "rig",
+        "adjust",
+        "gone_file",
+        "big",
+        "holder_card",
+        "holder_small",
+        "stripes_fx",
+        "card_draft"
+      ],
+      "layers": [
+        {
+          "id": "holder",
+          "kind": "solid",
+          "name": "holder",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": {
+            "layer_id": "card_hidden",
+            "mode": "alpha",
+            "matte_only": true
+          },
+          "blend_mode": "normal",
+          "effects": [],
+          "solid": {
+            "color": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "width": 8,
+            "height": 6
+          }
+        },
+        {
+          "id": "card",
+          "kind": "raster",
+          "name": "card",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "card_placed",
+          "kind": "raster",
+          "name": "card_placed",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                2.5,
+                1.5
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                3,
+                2
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                200,
+                50
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 30,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 0.5,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "multiply",
+          "effects": [],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "card_hidden",
+          "kind": "raster",
+          "name": "card_hidden",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "card_masked",
+          "kind": "raster",
+          "name": "card_masked",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": {
+            "vertices": [
+              [
+                0,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                0,
+                3
+              ]
+            ],
+            "enabled": true,
+            "inverted": false
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "card_bright",
+          "kind": "raster",
+          "name": "card_bright",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-card_bright-0",
+              "type_id": "core.exposure",
+              "enabled": true,
+              "parameters": {
+                "stops": 1
+              }
+            }
+          ],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "card_off_fx",
+          "kind": "raster",
+          "name": "card_off_fx",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-card_off_fx-0",
+              "type_id": "core.exposure",
+              "enabled": false,
+              "parameters": {
+                "stops": 1
+              }
+            }
+          ],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "card_soft",
+          "kind": "raster",
+          "name": "card_soft",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-card_soft-0",
+              "type_id": "core.gaussian_blur",
+              "enabled": true,
+              "parameters": {
+                "sigma_px": 0.5
+              }
+            }
+          ],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "self",
+          "kind": "raster",
+          "name": "self",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": {
+            "vertices": [
+              [
+                0,
+                0
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                0,
+                3
+              ]
+            ],
+            "enabled": true,
+            "inverted": false
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-self-0",
+              "type_id": "core.exposure",
+              "enabled": true,
+              "parameters": {
+                "stops": 1
+              }
+            }
+          ],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "flip",
+          "kind": "raster",
+          "name": "flip",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-flip",
+          "source_offset_frames": 0,
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 1,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 1,
+              "end_frame_exclusive": 3,
+              "drawing_number": 2
+            }
+          ]
+        },
+        {
+          "id": "flip_late",
+          "kind": "raster",
+          "name": "flip_late",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 1,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-flip",
+          "source_offset_frames": 0,
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 1,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 1,
+              "end_frame_exclusive": 3,
+              "drawing_number": 2
+            }
+          ]
+        },
+        {
+          "id": "flip_ahead",
+          "kind": "raster",
+          "name": "flip_ahead",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-flip",
+          "source_offset_frames": 1,
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 1,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 1,
+              "end_frame_exclusive": 3,
+              "drawing_number": 2
+            }
+          ]
+        },
+        {
+          "id": "solid",
+          "kind": "solid",
+          "name": "solid",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                5,
+                5
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "solid": {
+            "color": [
+              1.0,
+              0.5,
+              0.25
+            ],
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "id": "shape",
+          "kind": "shape",
+          "name": "shape",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "shapes": [
+            {
+              "name": "Box",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        1,
+                        1
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        5,
+                        1
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        5,
+                        4
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        1,
+                        4
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.25,
+                  1.0,
+                  0.5
+                ],
+                "opacity": 1.0
+              },
+              "stroke": null
+            }
+          ]
+        },
+        {
+          "id": "nest",
+          "kind": "composition",
+          "name": "nest",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "composition_id": "comp-inner",
+          "source_offset_frames": 0
+        },
+        {
+          "id": "nest_bright",
+          "kind": "composition",
+          "name": "nest_bright",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-nest_bright-0",
+              "type_id": "core.exposure",
+              "enabled": true,
+              "parameters": {
+                "stops": 1
+              }
+            }
+          ],
+          "composition_id": "comp-inner",
+          "source_offset_frames": 0
+        },
+        {
+          "id": "nest_gone",
+          "kind": "composition",
+          "name": "nest_gone",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "composition_id": "comp-gone",
+          "source_offset_frames": 0
+        },
+        {
+          "id": "rig",
+          "kind": "null",
+          "name": "rig",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "adjust",
+          "kind": "adjustment",
+          "name": "adjust",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": {
+            "vertices": [
+              [
+                0,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                4,
+                6
+              ],
+              [
+                0,
+                6
+              ]
+            ],
+            "enabled": true,
+            "inverted": false
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-adjust-0",
+              "type_id": "core.exposure",
+              "enabled": true,
+              "parameters": {
+                "stops": 1
+              }
+            }
+          ]
+        },
+        {
+          "id": "gone_file",
+          "kind": "raster",
+          "name": "gone_file",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-gone",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "big",
+          "kind": "raster",
+          "name": "big",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-big",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "holder_card",
+          "kind": "solid",
+          "name": "holder_card",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "solid": {
+            "color": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "width": 5,
+            "height": 3
+          }
+        },
+        {
+          "id": "holder_small",
+          "kind": "solid",
+          "name": "holder_small",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "solid": {
+            "color": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "id": "stripes_fx",
+          "kind": "raster",
+          "name": "stripes_fx",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-stripes_fx-0",
+              "type_id": "core.exposure",
+              "enabled": true,
+              "parameters": {
+                "stops": -1
+              }
+            }
+          ],
+          "asset_id": "asset-stripes",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "card_draft",
+          "kind": "raster",
+          "name": "card_draft",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": {
+            "vertices": [
+              [
+                0,
+                0
+              ],
+              [
+                4,
+                0
+              ],
+              [
+                4,
+                3
+              ],
+              [
+                0,
+                3
+              ]
+            ],
+            "enabled": true,
+            "inverted": false
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-card_draft-0",
+              "type_id": "core.exposure",
+              "enabled": true,
+              "parameters": {
+                "stops": 1
+              }
+            },
+            {
+              "instance_id": "fx-card_draft-1",
+              "type_id": "core.gaussian_blur",
+              "enabled": true,
+              "parameters": {
+                "sigma_px": 2
+              }
+            }
+          ],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        }
+      ]
+    },
+    {
+      "id": "comp-inner",
+      "name": "comp-inner",
+      "width": 8,
+      "height": 4,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 2,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 2
+      },
+      "layer_order": [
+        "dot"
+      ],
+      "layers": [
+        {
+          "id": "dot",
+          "kind": "solid",
+          "name": "dot",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 3,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                2,
+                1
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "solid": {
+            "color": [
+              0.25,
+              0.5,
+              1.0
+            ],
+            "width": 4,
+            "height": 2
+          }
+        }
+      ]
+    }
+  ]
+}

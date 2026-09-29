@@ -84,6 +84,8 @@ D-68, accepted on 2026-09-18: a value in an effect's parameter map is either a p
 
 D-69, accepted on 2026-09-18: a layer's `position` may be written `{"x": property, "y": property}`, two properties of one number each, in place of `{"base", "keyframes"}`; no key inside it carries `spatial`. Any key may carry `"kind": "continuous"` or `"auto"`, and a position key that is neither first nor last may carry `"roving": true`. Neither changes how the file is evaluated: the `ease` and `frame` written are the ones used, and the two fields say what an edit keeps true of them.
 
+D-189, accepted on 2026-09-28: an effect may have a layer setting. In its parameter map it is a word, the identifier of a layer in the same composition as the layer the effect is on, or `""` for none; it is never keyed and never a property record. Each effect that has one names a fit setting beside it, the word `center`, `stretch` or `tile`. A layer setting naming no layer of that composition, a deleted layer's or another composition's, is kept as written and reported with `EFFECT_LAYER_MISSING`, and the effect is skipped (document 28). Layer settings that lead round in a circle are rejected with `EFFECT_LAYER_CYCLE`; an effect naming its own layer is not one.
+
 ## Validation invariants
 
 - Every referenced ID exists or is retained as an unresolved reference with diagnostics.
@@ -98,6 +100,7 @@ D-69, accepted on 2026-09-18: a layer's `position` may be written `{"x": propert
 - A camera's `parent` is a layer's identifier and not an audio layer's; one not in the composition is kept, with `PARENT_REFERENCE_MISSING` (D-171, proposed).
 - A composition's `motion_blur` holds its four fields in range, and a layer's is true or false on a layer that draws (D-188).
 - Effect parameter types match the registered effect schema.
+- An effect's layer setting names a layer of its own composition, or none, or is kept with `EFFECT_LAYER_MISSING`; layer settings do not lead round in a circle (D-189).
 - No serialized path is trusted without normalization and access checks.
 
 ## Versioning and migration
