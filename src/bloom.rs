@@ -53,6 +53,17 @@ pub(crate) fn bright(px: &[f32], threshold: f64) -> bool {
     }
 }
 
+/// D-186: whether a pixel shows and is near white, its smallest channel, straight and in 8-bit
+/// steps, at least `threshold` per cent of 255: Kira-kira's highlight, where [`bright`] takes the
+/// largest channel. [`bright_level`] is its lowest level too.
+pub(crate) fn white(px: &[f32], threshold: f64) -> bool {
+    let a = px[3];
+    a > 0.0 && {
+        let q = [0, 1, 2].map(|i| quantise_u8(linear_to_srgb(px[i] / a)));
+        100.0 * *q.iter().min().unwrap() as f64 >= 255.0 * threshold
+    }
+}
+
 /// B-47: the lowest 8-bit level [`bright`] lets through, 256 for none, so the card compares
 /// whole numbers as the CPU does.
 pub(crate) fn bright_level(threshold: f64) -> u32 {

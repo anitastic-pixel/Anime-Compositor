@@ -1680,3 +1680,119 @@ pub(crate) fn rain(
             }
         });
 }
+
+
+/// D-186: kira-kira, one star on each chosen cell's near-white highlights, at their middle,
+/// twinkling on its own beat; the strongest star's light at a pixel adds `color` (linear) at up
+/// to `opacity`, and covers. The numbers are `[threshold, spacing, density, size, angle, twinkle,
+/// period, seed, opacity]`, already held; the seed counts by its whole part; `star` adds the short
+/// diagonal arms. `origin` is the growth of an earlier effect, so the cells stay in the drawing's
+/// own space. The layer grows by the size rounded up, returned, unless size, density or opacity
+/// is 0, which changes nothing. The settings are already valid.
+pub(crate) fn kira_kira(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    [threshold, spacing, density, size, angle, twinkle, period, seed, opacity]: [f64; 9],
+    star: bool,
+    frame: i32,
+    origin: (usize, usize),
+) -> usize {
+    if size == 0.0 || density == 0.0 || opacity == 0.0 {
+        return 0;
+    }
+    let g = size.ceil() as usize;
+    let (sw, sh) = (source.width(), source.height());
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    // Each cell holding a highlight: the sums of its highlights' centres, and their count. The
+    // centres are whole numbers and halves, so the sums are exact in any order.
+    type Cells = std::collections::HashMap<(i64, i64), (f64, f64, f64)>;
+    let cells = source
+        .data()
+        .par_chunks_exact(4)
+        .enumerate()
+        .filter(|(_, px)| crate::bloom::white(px, threshold))
+        .fold(Cells::new, |mut m, (i, _)| {
+            let (x, y) = ((i % sw) as f64 - ox + 0.5, (i / sw) as f64 - oy + 0.5);
+            let e = m.entry(((x / spacing).floor() as i64, (y / spacing).floor() as i64)).or_default();
+            *e = (e.0 + x, e.1 + y, e.2 + 1.0);
+            m
+        })
+        .reduce(Cells::new, |mut a, b| {
+            for (k, (x, y, n)) in b {
+                let e = a.entry(k).or_default();
+                *e = (e.0 + x, e.1 + y, e.2 + n);
+            }
+            a
+        });
+    // Each star as [cx, cy, R, tau], by its centre's row.
+    let base = crate::grade::mix(seed.floor() as u64);
+    let mut stars: Vec<[f64; 4]> = cells
+        .into_iter()
+        .filter_map(|((i, j), (x, y, n))| {
+            let u = |ch| crate::grade::unit(base, i, j, 0, ch);
+            if (u(0) + 1.0) / 2.0 >= density / 100.0 {
+                return None;
+            }
+            let (phi, beta) = ((u(1) + 1.0) / 2.0, 0.6 + 0.2 * (u(2) + 1.0));
+            let beat = 0.5 + 0.5 * (2.0 * std::f64::consts::PI * (frame as f64 / period + phi)).cos();
+            let tau = 1.0 - twinkle / 100.0 * (1.0 - beat);
+            let r = size * beta * tau;
+            (r > 0.0).then_some([x / n, y / n, r, tau])
+        })
+        .collect();
+    stars.sort_by(|a, b| a[1].total_cmp(&b[1]));
+    let arms: Vec<((f64, f64), f64)> = [(0.0, 1.0), (90.0, 1.0), (45.0, 0.5), (135.0, 0.5)][..if star { 4 } else { 2 }]
+        .iter()
+        .map(|&(t, k)| (crate::blurs::along(angle + t), k))
+        .collect();
+    let light = |&[cx, cy, r, tau]: &[f64; 4], px: f64, py: f64| {
+        let (dx, dy, h) = (px - cx, py - cy, 0.5 + r / 32.0);
+        let mut best = 0.0f64;
+        for &((vx, vy), k) in &arms {
+            let (a, b, l) = ((dx * vx + dy * vy).abs(), (dx * vy - dy * vx).abs(), r * k);
+            if a < l && b < h {
+                best = best.max((1.0 - a / l).powi(2) * (1.0 - b / h));
+            }
+        }
+        let d = dx.hypot(dy);
+        if d < r / 4.0 {
+            best = best.max((1.0 - d / (r / 4.0)).powi(2));
+        }
+        tau * best
+    };
+    // A star lights nothing farther than R + h across or down; `most` is the largest that can be.
+    // ponytail: every star near a row is splatted along it, so spacing 2 over a large white area
+    // with a large size is slow; a coarser pass per cell block if that is ever wanted.
+    let reach = |r: f64| r + 0.5 + r / 32.0;
+    let most = reach(size);
+    let (w, k) = (sw + 2 * g, opacity / 100.0);
+    let (gx, gy) = (g as f64 + ox, g as f64 + oy);
+    let mut out = WorkingBuffer::transparent(w, sh + 2 * g);
+    let drawing = &*source;
+    out.data_mut().par_chunks_exact_mut(4 * w).enumerate().for_each(|(y, line)| {
+        let py = y as f64 - gy + 0.5;
+        let mut lit = vec![0.0f64; w];
+        let first = stars.partition_point(|s| s[1] <= py - most);
+        for s in stars[first..].iter().take_while(|s| s[1] < py + most) {
+            let e = reach(s[2]);
+            if (py - s[1]).abs() >= e {
+                continue;
+            }
+            let x0 = (s[0] + gx - 0.5 - e).floor().max(0.0) as usize;
+            let x1 = ((s[0] + gx - 0.5 + e).ceil() + 1.0).clamp(0.0, w as f64) as usize;
+            for x in x0..x1 {
+                lit[x] = lit[x].max(light(s, x as f64 - gx + 0.5, py));
+            }
+        }
+        for (x, px) in line.chunks_exact_mut(4).enumerate() {
+            let o = at(drawing, x as isize - g as isize, y as isize - g as isize);
+            let s = k * lit[x];
+            for ch in 0..3 {
+                px[ch] = (o[ch] as f64 + s * color[ch]) as f32;
+            }
+            px[3] = (o[3] as f64 + s * (1.0 - o[3] as f64)) as f32;
+        }
+    });
+    *source = out;
+    g
+}

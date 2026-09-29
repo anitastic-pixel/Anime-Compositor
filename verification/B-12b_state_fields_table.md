@@ -221,5 +221,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - hue, saturation, value, hue_range, saturation_range, value_range, invert - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.paraffin` is an effect this build has | added | added | pass |
 | and the settings it sends for it - direction, spread, opacity, color, blend - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.kira_kira` is an effect this build has | added | added | pass |
+| and the settings it sends for it - threshold, spacing, density, size, shape, angle, twinkle, period, seed, opacity, color - are the ones the command reads | accepted | accepted | pass |
 
-**201 of 201 checks pass.**
+**203 of 203 checks pass.**

@@ -6777,6 +6777,7 @@ const EFFECT_NAMES = {
   'core.line_blur': 'Line Blur',
   'core.hsv_key': 'HSV Key',
   'core.paraffin': 'Paraffin',
+  'core.kira_kira': 'Kira-kira',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6789,7 +6790,7 @@ const EFFECT_GROUPS = [
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.invert',
     'core.color_lookup']],
   ['Light & Glow', ['core.glow', 'core.bloom', 'core.light_rays', 'core.rim_light',
-    'core.light_wrap', 'core.cross_glare', 'core.exposure_flicker', 'core.paraffin']],
+    'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.exposure_flicker', 'core.paraffin']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
     'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key']],
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple', 'core.twirl',
@@ -6849,6 +6850,7 @@ const EFFECT_SEARCH = {
   'core.line_blur': 'smooth jaggies aliasing stroke soften',
   'core.hsv_key': 'green screen chroma hue saturation value transparent',
   'core.paraffin': 'para airbrush shade shadow tint wash anime overlay soft light',
+  'core.kira_kira': 'sparkle twinkle glint star highlight shine gleam anime kira',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6936,6 +6938,7 @@ const EFFECT_ABOUT = {
   'core.line_blur': 'Softens the drawn lines along their own length, so jagged steps smooth out and lines keep their width.',
   'core.hsv_key': 'Makes transparent every colour inside a range of hue, saturation and value, as a green screen is taken out.',
   'core.paraffin': 'Washes a soft colour over the figure from one side, as anime\'s airbrushed shadow rises from the feet.',
+  'core.kira_kira': 'Sets small twinkling stars on the near-white highlights, an eye\'s glint or a blade\'s edge, each on its own beat.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7204,6 +7207,16 @@ const EFFECT_PARAMS = {
   'core.paraffin': [['direction', 'Direction', 1, 1, 'degrees clockwise from up, the way the wash comes from, 0 to 360', 'dial'],
     ['spread', 'Spread', 1, 1, '% of the figure the wash reaches across, 0 to 100'],
     ['opacity', 'Opacity', 1, 1, '0 to 100']],
+  // D-186: where the stars go, then how they look, then how they twinkle.
+  'core.kira_kira': [['threshold', 'Threshold', 1, 1, '0 to 100, how near white a pixel must be to sparkle'],
+    ['spacing', 'Spacing', 1, 1, 'pixels, 2 to 1000, the cells that each hold one star at most'],
+    ['density', 'Density', 1, 1, '0 to 100, the per cent of lit cells given a star'],
+    ['size', 'Size', 1, 1, 'pixels, 0 to 1000, how far the longest arms reach'],
+    ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600, the way the first arm points, 0 up', 'dial'],
+    ['twinkle', 'Twinkle', 1, 1, '0 to 100, how far each star fades between its peaks'],
+    ['period', 'Period', 1, 1, 'frames, 1 to 1000, how long one twinkle takes'],
+    ['seed', 'Seed', 1, 1, '0 to 100000, which cells and beats'],
+    ['opacity', 'Opacity', 1, 1, '0 to 100, how strongly the stars show']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7337,6 +7350,11 @@ const EFFECT_WORDS = {
   'core.paraffin': {
     choices: [['blend', 'Blend', [['multiply', 'Multiply'], ['normal', 'Normal'], ['screen', 'Screen'], ['add', 'Add'],
       ['overlay', 'Overlay'], ['soft_light', 'Soft Light']]]],
+    colours: [['color', 'Colour']],
+  },
+  // D-186.
+  'core.kira_kira': {
+    choices: [['shape', 'Shape', [['star', 'Star'], ['cross', 'Cross']]]],
     colours: [['color', 'Colour']],
   },
 };

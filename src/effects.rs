@@ -179,6 +179,10 @@ impl EffectInstance {
             if let Effect::Rain { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-186: the twinkle's frame.
+            if let Effect::KiraKira { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         EffectInstance {
             instance_id: self.instance_id.clone(),
@@ -762,6 +766,25 @@ pub enum Effect {
         opacity: f64,
         blend: String,
     },
+    /// D-186: `threshold`, 0 to 100; `spacing`, 2 to 1000 pixels; `density`, 0 to 100; `size`,
+    /// 0 to 1000 pixels; `shape`, "cross" or "star"; `angle`, -3600 to 3600 degrees; `twinkle`,
+    /// 0 to 100; `period`, 1 to 1000 frames; `seed`, 0 to 100000, its whole part counted;
+    /// `opacity`, 0 to 100; and `color`, `#rrggbb`. `frame` is not a setting and is never
+    /// saved: it is the composition frame, as Rain's is.
+    KiraKira {
+        threshold: f64,
+        spacing: f64,
+        density: f64,
+        size: f64,
+        shape: String,
+        angle: f64,
+        twinkle: f64,
+        period: f64,
+        seed: f64,
+        opacity: f64,
+        color: String,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -835,6 +858,7 @@ pub const COLOR_LOOKUP: &str = "core.color_lookup";
 pub const LINE_BLUR: &str = "core.line_blur";
 pub const HSV_KEY: &str = "core.hsv_key";
 pub const PARAFFIN: &str = "core.paraffin";
+pub const KIRA_KIRA: &str = "core.kira_kira";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1389,6 +1413,28 @@ impl Effect {
                 ("spread", vec![spread], 0.0, 100.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::KiraKira {
+                threshold,
+                spacing,
+                density,
+                size,
+                angle,
+                twinkle,
+                period,
+                seed,
+                opacity,
+                ..
+            } => vec![
+                ("threshold", vec![threshold], 0.0, 100.0),
+                ("spacing", vec![spacing], 2.0, 1000.0),
+                ("density", vec![density], 0.0, 100.0),
+                ("size", vec![size], 0.0, 1000.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+                ("twinkle", vec![twinkle], 0.0, 100.0),
+                ("period", vec![period], 1.0, 1000.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1497,6 +1543,10 @@ impl Effect {
                 *width = scale(*width);
                 *speed = scale(*speed);
             }
+            Effect::KiraKira { spacing, size, .. } => {
+                *spacing = scale(*spacing);
+                *size = scale(*size);
+            }
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1599,6 +1649,7 @@ impl Effect {
             Effect::LineBlur { .. } => "Line Blur",
             Effect::HsvKey { .. } => "HSV Key",
             Effect::Paraffin { .. } => "Paraffin",
+            Effect::KiraKira { .. } => "Kira-kira",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1672,6 +1723,7 @@ impl Effect {
             Effect::LineBlur { .. } => LINE_BLUR,
             Effect::HsvKey { .. } => HSV_KEY,
             Effect::Paraffin { .. } => PARAFFIN,
+            Effect::KiraKira { .. } => KIRA_KIRA,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1739,6 +1791,10 @@ impl Effect {
             Effect::CrossGlare {
                 length, intensity, ..
             } if *intensity > 0.0 => length.floor() as usize,
+            // D-186: the size rounded up, unless nothing is added.
+            Effect::KiraKira {
+                size, density, opacity, ..
+            } if *size > 0.0 && *density > 0.0 && *opacity > 0.0 => size.ceil() as usize,
             // D-127: the amount rounded up, unless a push past the edge reads the edge.
             Effect::TurbulentDisplace { amount, edges, .. } if edges != "repeat" => {
                 amount.ceil() as usize
@@ -2073,6 +2129,10 @@ impl Effect {
                 ))
             }
             Effect::Paraffin { color, .. } => hex_fault("Paraffin", "colour", color),
+            Effect::KiraKira { shape, .. } if !["cross", "star"].contains(&shape.as_str()) => Some(format!(
+                "Kira-kira's shape is \"cross\" or \"star\", and this is \"{shape}\"."
+            )),
+            Effect::KiraKira { color, .. } => hex_fault("Kira-kira", "colour", color),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
             {
@@ -3067,6 +3127,29 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectParaffin, || {
                 crate::grade::paraffin(source, encoded(color), *direction, *spread, *opacity, blend)
             }),
+            // D-186: the stars grow the layer by the size, rounded up, unless nothing is added.
+            Effect::KiraKira {
+                threshold,
+                spacing,
+                density,
+                size,
+                shape,
+                angle,
+                twinkle,
+                period,
+                seed,
+                opacity,
+                color,
+                frame,
+            } => {
+                let numbers = [*threshold, *spacing, *density, *size, *angle, *twinkle, *period, *seed, *opacity];
+                let r = crate::perf::time(crate::perf::Stage::EffectKiraKira, || {
+                    let c = encoded(color).map(crate::grade::to_linear);
+                    crate::layer_fx::kira_kira(source, c, numbers, shape == "star", *frame, (ox, oy))
+                });
+                ox += r;
+                oy += r;
+            }
         }
     }
     (ox, oy)

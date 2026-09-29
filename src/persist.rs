@@ -1703,6 +1703,32 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blend".into(), J::from(blend.as_str()));
         }
+        Effect::KiraKira {
+            threshold,
+            spacing,
+            density,
+            size,
+            shape,
+            angle,
+            twinkle,
+            period,
+            seed,
+            opacity,
+            color,
+            ..
+        } => {
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("spacing".into(), num(*spacing));
+            params.insert("density".into(), num(*density));
+            params.insert("size".into(), num(*size));
+            params.insert("shape".into(), J::from(shape.as_str()));
+            params.insert("angle".into(), num(*angle));
+            params.insert("twinkle".into(), num(*twinkle));
+            params.insert("period".into(), num(*period));
+            params.insert("seed".into(), num(*seed));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("color".into(), J::from(color.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2174,6 +2200,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "saturation_range",
         "value_range",
         "spread",
+        "twinkle",
+        "period",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2627,6 +2655,7 @@ fn parse_effect(
         crate::effects::LINE_BLUR,
         crate::effects::HSV_KEY,
         crate::effects::PARAFFIN,
+        crate::effects::KIRA_KIRA,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3078,6 +3107,21 @@ fn parse_effect(
             spread: effect_number(params, "spread", &at)?,
             opacity: effect_number(params, "opacity", &at)?,
             blend: effect_word(params, "blend", &at)?,
+        }),
+        // D-186: the colour is read in small letters, as a new colour is.
+        crate::effects::KIRA_KIRA => Some(crate::effects::Effect::KiraKira {
+            threshold: effect_number(params, "threshold", &at)?,
+            spacing: effect_number(params, "spacing", &at)?,
+            density: effect_number(params, "density", &at)?,
+            size: effect_number(params, "size", &at)?,
+            shape: effect_word(params, "shape", &at)?,
+            angle: effect_number(params, "angle", &at)?,
+            twinkle: effect_number(params, "twinkle", &at)?,
+            period: effect_number(params, "period", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            frame: 0,
         }),
         _ => None,
     };
