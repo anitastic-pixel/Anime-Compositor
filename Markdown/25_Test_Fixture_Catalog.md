@@ -180917,6 +180917,374 @@ Frame 1: every pixel is the drawing's at that frame, unchanged.
 
 Frame 3: every pixel is the drawing's at that frame, unchanged.
 
+## Change to Color fixtures
+
+D-197, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 in `Fixtures/change_to_color/`, holding the still `Fixtures/change_to_color/media/swatches.png`, the same size, unmoved unless the case says, with one Change to Color (`core.change_to_color`). The drawing is a box of line #1e1a24 in columns 2 to 14 and rows 1 to 8 holding, in rows 2 to 7, one column each of #c82828 (a red), #8c1e28 (its shadow), #f08c8c (its highlight), #400808 (a dark red), #806060 (a dull red), #ff0040 (a pink), #dca08c (a skin's shadow), #f6d6be (a skin), #40c040, #4060ff and #808080, columns 3 to 13; down its left side, column 1, #c82828 at covering 128 of 255 in rows 1 to 4 and #4060ff at 128 in rows 5 to 8; the rest clear. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering; only the pixels that differ from the drawing are listed, a run of rows holding the same pair once.
+
+**Every number below is produced by `tools/change_to_color_reference.py`**, which works D-197's rule in double precision at every pixel from the drawing's 8-bit values. The same numbers are in `Fixtures/change_to_color/expected_change_to_color.json`. Tolerance 2e-5.
+
+**Checked by what they claim.** The tool checks that HLS goes there and back; that every case keeps each pixel's covering, leaves the clear pixels clear, and treats the half-covered red and blue as the full ones; that no distance lies within 1e-5 of a tolerance without a band; and each case's claim: which colours change whole, partly or not at all, what hue, lightness and saturation the changed ones reach, that the matte is white, grey or black where it should be, and that the keyed, moved and capitalised cases are the plain ones they name.
+
+FX-CTC-001: The settings as they start: from #ff0000 to #0080ff, Hue, by setting, hue tolerance 5, lightness and saturation tolerance 50, softness 50. The red, its shadow 5.5 degrees round the wheel, its highlight, the dark red and the red at half covering take #0080ff's hue, each keeping its own lightness and saturation, so the shading stays; the dull red, too far from #ff0000's saturation, the pink and the skin's shadow, 15 degrees round, and every other colour are untouched.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.01298303 0.0913173 0.2622507 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+
+FX-CTC-002: From #c82828, the drawing's own red: the same, and now the dull red, its saturation 0.524 from the red's, just past the tolerance of 0.5, is changed nine tenths of the way.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.01298303 0.0913173 0.2622507 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.124898 0.1575394 0.2049102 1 |
+
+FX-CTC-003: Change Hue & Lightness: the changed colours also take #0080ff's lightness, 0.5, so the shadow, the highlight and the dark red lose their light and dark.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01187257 0.1080486 0.3322356 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02365239 0.215253 0.6618756 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.02624122 0.2152173 0.6444797 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.01257845 0.2154399 0.7573112 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.01183453 0.2154554 0.765604 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.1591685 0.2035408 0.2662715 1 |
+
+FX-CTC-004: Change Hue & Saturation: the changed colours take #0080ff's saturation, 1, each keeping its own lightness.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0 0.09507509 0.4373921 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0 0.1894074 0.8713671 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0 0.09157733 0.4019778 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2050787 0.516463 1 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0 0.01776168 0.06480327 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.003741418 0.1585753 0.657044 1 |
+
+FX-CTC-005: Change Hue, Lightness & Saturation: every changed colour becomes #0080ff itself; the dull red nine tenths of the way there.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0 0.1083535 0.5019608 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0 0.2158605 1 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0 0.2158605 1 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0 0.2158605 1 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0 0.2158605 1 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.003741418 0.2049102 0.8701915 1 |
+
+FX-CTC-006: Change By transforming, Hue: each changed hue is turned by as far as #0080ff's is from #c82828's, 209.9 degrees, so the shadow, 354.5 degrees, lands at 204.4, not 209.9.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.01298303 0.1149795 0.2622507 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.124898 0.1575394 0.2049102 1 |
+
+FX-CTC-007: Change By transforming, Hue, Lightness & Saturation: each changed colour's lightness is raised by 0.029 and its saturation by 1/3, held at 1, as #0080ff is lighter and fuller than #c82828.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 4.313378e-18 0.1083535 0.5019608 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 8.593057e-18 0.2158605 1 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.0005505146 0.1539546 0.4746067 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5629584 1 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0 0.02484505 0.09530747 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.05920937 0.1794034 0.3954411 1 |
+
+FX-CTC-008: Hue tolerance 0, softness 0: only a hue exactly the red's changes; the red, the highlight, the dark red and the soft red do, the shadow does not, and the dull red, at softness 0, is past its saturation tolerance.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+
+FX-CTC-009: Hue tolerance 10, softness 0, 18 degrees each way: the pink and the skin's shadow, 15 degrees off, change whole with the reds; the skin, 25.7 off, does not.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.01298303 0.0913173 0.2622507 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+| 8 | 2 to 7 | 1 0 0.05126946 1 | 0 0.2158605 1 1 |
+| 9 | 2 to 7 | 0.7156935 0.3515326 0.2622507 1 | 0.2622507 0.4572971 0.7156935 1 |
+
+FX-CTC-010: Softness 0 at the other settings as they start: FX-CTC-002 with the dull red untouched.
+
+Frame 0: the same as FX-CTC-001 frame 0.
+
+FX-CTC-011: Softness 100: the band past each tolerance is as wide as the tolerance, so the pink changes a third of the way, the skin's shadow a third, and the dull red 95 hundredths.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.01298303 0.0913173 0.2622507 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.1208964 0.1598712 0.2103438 1 |
+| 8 | 2 to 7 | 1 0 0.05126946 1 | 0.4107707 0.02298518 0.2101358 1 |
+| 9 | 2 to 7 | 0.7156935 0.3515326 0.2622507 1 | 0.5353394 0.3849911 0.3847239 1 |
+
+FX-CTC-012: View Correction Matte on, at FX-CTC-002's settings: every pixel that shows is grey, white where the colour changes whole, black where not at all, and the dull red's nine tenths between, each at its own covering.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.5019608 0.5019608 0.5019608 0.5019608 |
+| 1 | 5 to 8 | 0.02573526 0.05871469 0.5019608 0.5019608 | 0 0 0 0.5019608 |
+| 2 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 3 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 1 1 1 1 |
+| 3 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 4 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 1 1 1 1 |
+| 4 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 5 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 1 1 1 1 |
+| 5 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 6 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 1 1 1 1 |
+| 6 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 7 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.7968682 0.7968682 0.7968682 1 |
+| 7 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 8 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 8 | 2 to 7 | 1 0 0.05126946 1 | 0 0 0 1 |
+| 8 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 9 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 9 | 2 to 7 | 0.7156935 0.3515326 0.2622507 1 | 0 0 0 1 |
+| 9 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 10 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 10 | 2 to 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 1 |
+| 10 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 11 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 11 | 2 to 7 | 0.05126946 0.5271151 0.05126946 1 | 0 0 0 1 |
+| 11 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 12 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 12 | 2 to 7 | 0.05126946 0.1169707 1 1 | 0 0 0 1 |
+| 12 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 13 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 13 | 2 to 7 | 0.2158605 0.2158605 0.2158605 1 | 0 0 0 1 |
+| 13 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+| 14 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 1 |
+
+FX-CTC-013: To #808080, a grey, with Hue & Saturation: the reds turn grey, each at its own lightness.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.09427866 0.09427866 0.09427866 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.1878208 0.1878208 0.1878208 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.09084171 0.09084171 0.09084171 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.5149177 0.5149177 0.5149177 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.01764195 0.01764195 0.01764195 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.1667712 0.1573671 0.1573671 1 |
+
+FX-CTC-014: From #808080, a grey, has no hue: no colour is near it, and the drawing is untouched.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+FX-CTC-015: All three tolerances 100: every colour takes #0080ff's hue, each keeping its lightness and saturation; the grey, having no saturation, stays grey.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 1 | 5 to 8 | 0.02573526 0.05871469 0.5019608 0.5019608 | 0.02573526 0.1761504 0.5019608 0.5019608 |
+| 2 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 3 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 3 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 4 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.01298303 0.0913173 0.2622507 1 |
+| 4 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 5 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 5 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 6 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+| 6 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 7 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.1169707 0.1622231 0.2158605 1 |
+| 7 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 8 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 8 | 2 to 7 | 1 0 0.05126946 1 | 0 0.2158605 1 1 |
+| 8 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 9 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 9 | 2 to 7 | 0.7156935 0.3515326 0.2622507 1 | 0.2622507 0.4572971 0.7156935 1 |
+| 9 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 10 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 10 | 2 to 7 | 0.9215819 0.6724432 0.5149177 1 | 0.5149177 0.7018985 0.9215819 1 |
+| 10 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 11 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 11 | 2 to 7 | 0.05126946 0.5271151 0.05126946 1 | 0.05126946 0.2167771 0.5271151 1 |
+| 11 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 12 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 12 | 2 to 7 | 0.05126946 0.1169707 1 1 | 0.05126946 0.3509245 1 1 |
+| 12 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 13 | 1 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 13 | 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+| 14 | 1 to 8 | 0.01298303 0.01032982 0.01764195 1 | 0.01032982 0.01371641 0.01764195 1 |
+
+FX-CTC-016: Hue tolerance keyed from 0 at frame 0 to 20 at frame 4, linear: frame 0 changes only the hues exactly red's, fading nothing in, since a tolerance of 0 has no band; frame 2, at 10, takes in the pink and the skin's shadow and a seventh of the skin; frame 4, at 20, the skin whole.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.124898 0.1575394 0.2049102 1 |
+
+Frame 2, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.01298303 0.0913173 0.2622507 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.124898 0.1575394 0.2049102 1 |
+| 8 | 2 to 7 | 1 0 0.05126946 1 | 0 0.2158605 1 1 |
+| 9 | 2 to 7 | 0.7156935 0.3515326 0.2622507 1 | 0.2622507 0.4572971 0.7156935 1 |
+| 10 | 2 to 7 | 0.9215819 0.6724432 0.5149177 1 | 0.8549926 0.676606 0.5647115 1 |
+
+Frame 4, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.01298303 0.0913173 0.2622507 1 |
+| 5 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 6 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.124898 0.1575394 0.2049102 1 |
+| 8 | 2 to 7 | 1 0 0.05126946 1 | 0 0.2158605 1 1 |
+| 9 | 2 to 7 | 0.7156935 0.3515326 0.2622507 1 | 0.2622507 0.4572971 0.7156935 1 |
+| 10 | 2 to 7 | 0.9215819 0.6724432 0.5149177 1 | 0.5149177 0.7018985 0.9215819 1 |
+
+FX-CTC-017: Lightness tolerance keyed from 10 at frame 0 to 100 at frame 4, eased past its end: frame 0 changes the red whole, the shadow, 0.137 from its lightness, a quarter, and neither the highlight nor the dark red; frame 2 is held at 100 and is frame 4.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 1 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 3 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 4 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.1619084 0.02526463 0.05365102 1 |
+| 7 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.124898 0.1575394 0.2049102 1 |
+
+Frame 2: the same as FX-CTC-002 frame 0.
+
+Frame 4: the same as FX-CTC-002 frame 0.
+
+FX-CTC-018: FX-CTC-002 moved three pixels right: the same, moved.
+
+Frame 0, the pixels that differ from the drawing:
+
+| x | rows | drawing | changed |
+| --- | --- | --- | --- |
+| 4 | 1 to 4 | 0.2899227 0.01065111 0.01065111 0.5019608 | 0.01065111 0.09480918 0.2899227 0.5019608 |
+| 6 | 2 to 7 | 0.5775804 0.02121901 0.02121901 1 | 0.02121901 0.1888777 0.5775804 1 |
+| 7 | 2 to 7 | 0.2622507 0.01298303 0.02121901 1 | 0.01298303 0.0913173 0.2622507 1 |
+| 8 | 2 to 7 | 0.8713671 0.2622507 0.2622507 1 | 0.2622507 0.5161061 0.8713671 1 |
+| 9 | 2 to 7 | 0.05126946 0.002428216 0.002428216 1 | 0.002428216 0.01773503 0.05126946 1 |
+| 10 | 2 to 7 | 0.2158605 0.1169707 0.1169707 1 | 0.124898 0.1575394 0.2049102 1 |
+
+Frame 3: the same as FX-CTC-018 frame 0.
+
+FX-CTC-019: FX-CTC-002 with its colours written in capitals, #C82828 and #0080FF: the same.
+
+Frame 0: the same as FX-CTC-002 frame 0.
+
+FX-CTC-020: Hue tolerance 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-CTC-021: Softness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-CTC-022: Saturation tolerance keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-CTC-023: A from colour written "#ff00", two digits short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-CTC-024: A to colour written "blue", a name, not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-CTC-025: A change written "saturation", not one of the four. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-CTC-026: A change by written "shift", not "setting" or "transforming". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-CTC-027: A view matte written "yes", not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
