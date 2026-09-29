@@ -516,7 +516,7 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
             render_layers(&plan.layers[from..index], &mut frame, tile_size, cull);
             adjust_frame(layer, stack, &mut frame);
             from = index + 1;
-        } else if layer.wrap.iter().any(|i| i.enabled && i.effect.is_valid()) {
+        } else if layer.wrap.iter().any(|i| i.enabled && i.is_valid()) {
             render_layers(&plan.layers[from..index], &mut frame, tile_size, cull);
             wrap_layer(layer, &mut frame, tile_size, cull);
             from = index + 1;
@@ -601,16 +601,21 @@ fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cu
         ..layer.clone()
     };
     render_layers(std::slice::from_ref(&alone), &mut placed, tile_size, cull);
-    for instance in layer.wrap.iter().filter(|i| i.enabled && i.effect.is_valid()) {
+    for instance in layer.wrap.iter().filter(|i| i.enabled && i.is_valid()) {
         if let crate::effects::Effect::LightWrap {
             width,
             intensity,
             blend,
         } = &instance.effect
         {
+            // D-202: the placed layer, laid back under the light by the Mix.
+            let given = (instance.mix < 100.0).then(|| placed.clone());
             crate::perf::time(crate::perf::Stage::EffectLightWrap, || {
                 light_wrap(&mut placed, frame, *width, *intensity, blend == "add")
             });
+            if let Some(given) = given {
+                crate::effects::mix_back(&mut placed, &given, (0, 0), instance.mix / 100.0);
+            }
         }
     }
     frame

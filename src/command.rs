@@ -453,6 +453,14 @@ pub enum Command {
         setting: String,
         keys: Vec<crate::effects::EffectKey>,
     },
+    /// D-202: one effect's Mix, 0 to 100 per cent, as a number with no keys. Keys on it are
+    /// `SetEffectKeys` on the setting `mix`.
+    SetEffectMix {
+        composition: Id,
+        layer_id: Id,
+        instance_id: Id,
+        mix: f64,
+    },
 }
 
 impl Command {
@@ -506,6 +514,7 @@ impl Command {
             Command::SetEffectEnabled { .. } => "SET_EFFECT_ENABLED",
             Command::SetEffectParameters { .. } => "SET_EFFECT_PARAMETERS",
             Command::SetEffectKeys { .. } => "SET_EFFECT_KEYS",
+            Command::SetEffectMix { .. } => "SET_EFFECT_MIX",
         }
     }
 
@@ -551,6 +560,12 @@ impl Command {
                 ..
             }
             | Command::SetEffectKeys {
+                composition,
+                layer_id,
+                instance_id,
+                ..
+            }
+            | Command::SetEffectMix {
                 composition,
                 layer_id,
                 instance_id,
@@ -730,6 +745,7 @@ impl Command {
                 format!("Change {} settings", effect.name())
             }
             Command::SetEffectKeys { setting, .. } => format!("Change the keys of {setting}"),
+            Command::SetEffectMix { mix, .. } => format!("Set an effect's Mix to {mix}%"),
         }
     }
 
@@ -745,6 +761,7 @@ impl Command {
             Command::SetEffectKeys { setting, .. } => {
                 format!("Change the keys of {name}'s {setting}")
             }
+            Command::SetEffectMix { mix, .. } => format!("Set {name}'s Mix to {mix}%"),
             _ => self.label(),
         }
     }
@@ -797,7 +814,8 @@ impl Command {
             | Command::ReorderEffect { composition, .. }
             | Command::SetEffectEnabled { composition, .. }
             | Command::SetEffectParameters { composition, .. }
-            | Command::SetEffectKeys { composition, .. } => Some(composition),
+            | Command::SetEffectKeys { composition, .. }
+            | Command::SetEffectMix { composition, .. } => Some(composition),
         }
     }
 
@@ -836,7 +854,8 @@ impl Command {
             | Command::ReorderEffect { layer_id, .. }
             | Command::SetEffectEnabled { layer_id, .. }
             | Command::SetEffectParameters { layer_id, .. }
-            | Command::SetEffectKeys { layer_id, .. } => ids.push(layer_id.clone()),
+            | Command::SetEffectKeys { layer_id, .. }
+            | Command::SetEffectMix { layer_id, .. } => ids.push(layer_id.clone()),
             // B-13e: these four name a target. A layer goes in the affected list as it always
             // did; the camera adds nothing, because it belongs to the composition and the
             // composition is in the list already.
@@ -922,6 +941,11 @@ impl Command {
                     ..
                 },
             ) if mine != theirs || my_setting != their_setting => return false,
+            // D-202: one effect's Mix is one control, and another effect's is another.
+            (
+                Command::SetEffectMix { instance_id: mine, .. },
+                Command::SetEffectMix { instance_id: theirs, .. },
+            ) if mine != theirs => return false,
             _ => {}
         }
         self.command_id() == other.command_id() && self.affected() == other.affected()
@@ -1002,7 +1026,8 @@ impl Command {
             | Command::SetEffectEnabled { layer_id, .. }
             | Command::SetEffectParameters { layer_id, .. }
             | Command::SeparatePosition { layer_id, .. }
-            | Command::SetEffectKeys { layer_id, .. } => Some(layer_id),
+            | Command::SetEffectKeys { layer_id, .. }
+            | Command::SetEffectMix { layer_id, .. } => Some(layer_id),
             // B-13e: a property command on a layer is still blocked by that layer's lock. On
             // the camera it is not, for the reason `blocked_by_lock` already gives
             // `SetCameraProperty`: the camera belongs to the composition and a locked layer has
@@ -2878,8 +2903,8 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             // Parameters outside document 21's ranges are refused here, not clamped, for the
             // same reason a crossed mask is: accepting a number and rendering a different one
             // is how a person ends up with a picture they did not ask for and no way to tell.
-            if !effect.effect.is_valid() {
-                return Err(invalid_effect(&effect.effect));
+            if let Some(why) = effect.fault() {
+                return Err(invalid_effect(why));
             }
             lookup_file_known(project, &effect.effect)?;
             let layer = layer_mut(project, &comp_id, layer_id)?;
@@ -2971,7 +2996,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             ..
         } => {
             if !effect.is_valid() {
-                return Err(invalid_effect(effect));
+                return Err(invalid_effect(effect.why_invalid()));
             }
             lookup_file_known(project, effect)?;
             let layer = layer_mut(project, &comp_id, layer_id)?;
@@ -3015,7 +3040,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             else {
                 return Err(missing_effect(layer_id, instance_id));
             };
-            let Some(count) = existing.effect.arity(setting) else {
+            let Some(count) = existing.arity(setting) else {
                 return Err(reject(
                     &format!("A {} has no setting called {setting}.", existing.type_id()),
                     "",
@@ -3042,13 +3067,44 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     ));
                 }
                 // D-46: a value outside the setting's range is refused, never clamped.
-                let mut tried = existing.effect.clone();
+                let mut tried = existing.clone();
+                tried.tracks.clear();
                 tried.set(setting, &key.value);
-                if !tried.is_valid() {
-                    return Err(invalid_effect(&tried));
+                if let Some(why) = tried.fault() {
+                    return Err(invalid_effect(why));
                 }
             }
             existing.set_keys(setting, keys);
+        }
+        Command::SetEffectMix {
+            layer_id,
+            instance_id,
+            mix,
+            ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let Some(existing) = layer
+                .effects
+                .iter_mut()
+                .find(|e| &e.instance_id == instance_id)
+            else {
+                return Err(missing_effect(layer_id, instance_id));
+            };
+            if !existing.has_mix() {
+                return Err(reject(
+                    &format!("A {} has no Mix.", existing.type_id()),
+                    "D-202: Posterize Time holds its layer in time and has no picture to mix, and \
+                     an effect this build does not have is kept as it was written.",
+                ));
+            }
+            // D-46: a Mix outside 0 to 100 is refused, never clamped.
+            let mut tried = existing.clone();
+            tried.tracks.clear();
+            tried.mix = *mix;
+            if let Some(why) = tried.mix_fault() {
+                return Err(invalid_effect(why));
+            }
+            existing.mix = *mix;
         }
     }
     Ok(())
@@ -3056,11 +3112,11 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
 
 /// Document 28's `EFFECT_PARAMETER_INVALID`, at the command boundary where it is an ERROR
 /// because the command is refused outright rather than bypassed.
-fn invalid_effect(effect: &crate::effects::Effect) -> Diagnostic {
+fn invalid_effect(why: String) -> Diagnostic {
     Diagnostic::new(
         DiagnosticId::EffectParameterInvalid,
         Severity::Error,
-        effect.why_invalid(),
+        why,
         "Document 21 states the range for each G1 effect parameter. A value outside it is \
          refused rather than clamped, so that what the project says and what the picture shows \
          never disagree."

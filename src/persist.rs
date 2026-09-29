@@ -215,7 +215,8 @@ const KEY_ORDER: &[&str] = &[
 /// An effect record is the one place a flat list is not enough: it spells `enabled` after
 /// `type_id`, while a layer spells it near the top, so the two cannot share a ranking. Effect
 /// records are recognised by `instance_id`, which nothing else in the schema has.
-const EFFECT_KEY_ORDER: &[&str] = &["instance_id", "type_id", "enabled", "parameters"];
+/// D-202: `mix` after `enabled`.
+const EFFECT_KEY_ORDER: &[&str] = &["instance_id", "type_id", "enabled", "mix", "parameters"];
 
 /// D-59's expression record is the other: `text`, then `enabled`. Recognised by `text`, which
 /// nothing else in the schema has.
@@ -944,6 +945,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         ("type_id", J::from(instance.type_id())),
         ("enabled", J::from(instance.enabled)),
     ];
+    // D-202: the Mix only when it is not 100 or has keys; an unknown effect's stays as written.
+    let unknown = matches!(instance.effect, Effect::Unsupported { .. });
+    let plain_mix = !unknown && instance.mix == 100.0 && !instance.tracks.contains_key("mix");
+    if !unknown && !plain_mix {
+        owned.push(("mix", match instance.tracks.get("mix") {
+            Some(track) => track_json(track, num(instance.mix)),
+            None => num(instance.mix),
+        }));
+    }
     let mut params = base
         .and_then(|b| b.get("parameters"))
         .and_then(J::as_object)
@@ -1907,7 +1917,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
     if !matches!(instance.effect, Effect::Unsupported { .. }) || base.is_some() {
         owned.push(("parameters", J::Object(params)));
     }
-    merge(base, owned)
+    let mut record = merge(base, owned);
+    if plain_mix {
+        if let Some(map) = record.as_object_mut() {
+            map.remove("mix");
+        }
+    }
+    record
 }
 
 /// D-68: a keyed setting of one or more channels as one property record, whose base is `plain`
@@ -2801,6 +2817,20 @@ fn parse_effect(
         None | Some(J::Null) => true,
         Some(b) => as_bool(b, &format!("{at}/enabled"))?,
     };
+    // D-202: the Mix, a plain number or a setting's property record; absent, 100.
+    let (mix, mix_track) = match effect.get("mix") {
+        None => (100.0, None),
+        Some(record) if record.is_object() => {
+            let at = format!("{at}/mix");
+            if record.get("expression").is_some() {
+                return Err(invalid(&at, "no expression: the Mix takes keys only"));
+            }
+            let (base, track) = channel_track(record, &at, 1, "")?;
+            let keyed = track[0].is_animated().then_some(track);
+            (as_f64(&base, &format!("{at}/base"))?, keyed)
+        }
+        Some(v) => (as_f64(v, &format!("{at}/mix"))?, None),
+    };
     let known = [
         crate::effects::EXPOSURE,
         crate::effects::GAUSSIAN_BLUR,
@@ -3464,6 +3494,9 @@ fn parse_effect(
     if let Some(e) = &parsed {
         tracks.retain(|name, _| e.arity(name).is_some());
     }
+    if let Some(track) = mix_track {
+        tracks.insert("mix".into(), track);
+    }
     let effect_value = match parsed {
         Some(e) => {
             // Document 28: a parameter outside its contract is reported, and the record
@@ -3474,8 +3507,9 @@ fn parse_effect(
                 enabled,
                 effect: e.clone(),
                 tracks: tracks.clone(),
+                mix,
             };
-            if let Some(bad) = whole.invalid() {
+            if let Some(why) = whole.fault() {
                 warnings.push(
                     Diagnostic::new(
                         DiagnosticId::EffectParameterInvalid,
@@ -3484,7 +3518,7 @@ fn parse_effect(
                             "The layer \"{name}\" has a {type_id} whose settings this \
                              build cannot use."
                         ),
-                        format!("{} The effect is kept and bypassed.", bad.why_invalid()),
+                        format!("{why} The effect is kept and bypassed."),
                     )
                     .with_remediation(
                         "Set the parameter to a value inside its range, or remove the \
@@ -3523,6 +3557,7 @@ fn parse_effect(
         enabled,
         effect: effect_value,
         tracks,
+        mix,
     })
 }
 

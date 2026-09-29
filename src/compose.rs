@@ -790,11 +790,11 @@ pub(crate) fn posterized(comp: &crate::model::Composition, layer: &crate::model:
     let start = comp.start_frame as f64;
     let mut h = frame;
     for i in layer.effects.iter().filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::PosterizeTime { .. })) {
-        let now = i.at(h).effect;
+        let now = i.at(h);
         if !now.is_valid() {
             continue;
         }
-        let crate::effects::Effect::PosterizeTime { frame_rate: r } = now else {
+        let crate::effects::Effect::PosterizeTime { frame_rate: r } = now.effect else {
             continue;
         };
         if r < fps {
@@ -1280,7 +1280,7 @@ fn resolve_rest(
                 ),
                 format!(
                     "{} Frame {frame} is drawn without the effect, which is kept as it was.",
-                    instance.effect.why_invalid()
+                    instance.fault().unwrap_or_default()
                 ),
             ),
         };
@@ -1316,7 +1316,8 @@ fn resolve_rest(
         .iter()
         .rposition(|i| i.enabled && !matches!(i.effect, crate::effects::Effect::LightWrap { .. }));
     let left = last.filter(|&i| {
-        card && cel.is_some()
+        // D-202: an effect mixed below 100 is drawn here; a card version is a later unit.
+        card && cel.is_some() && effects[i].mix == 100.0
             && matches!(
                 effects[i].effect,
                 crate::effects::Effect::RadialBlur { .. }
@@ -1401,7 +1402,7 @@ fn resolve_rest(
                     crate::effects::Effect::Unsupported { .. } => {
                         report(instance, crate::effects::Bypassed::NotImplemented)
                     }
-                    e if !e.is_valid() => {
+                    _ if !instance.is_valid() => {
                         report(instance, crate::effects::Bypassed::InvalidParameter)
                     }
                     _ => {}
@@ -2034,7 +2035,7 @@ fn fill_echoes(
     cache: &mut CelCache,
     log: &mut FrameLog,
 ) {
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.effect.is_valid()) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
         let crate::effects::Effect::Echo { echo_time, echoes, intensity, decay, operator, picture } =
             &mut instance.effect
         else {

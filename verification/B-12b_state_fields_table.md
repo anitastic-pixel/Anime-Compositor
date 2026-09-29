@@ -76,9 +76,10 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `span.drawing_number` is in the answer | present | present | pass |
 | `span.end_frame_exclusive` is in the answer | present | present | pass |
 | `span.start_frame` is in the answer | present | present | pass |
-| the panels read 4 fields out of one effect in a layer's stack | true | true | pass |
+| the panels read 5 fields out of one effect in a layer's stack | true | true | pass |
 | `fx.enabled` is in the answer | present | present | pass |
 | `fx.instance_id` is in the answer | present | present | pass |
+| `fx.mix` is in the answer | present | present | pass |
 | `fx.parameters` is in the answer | present | present | pass |
 | `fx.type_id` is in the answer | present | present | pass |
 | `layer.transform.anchor.base` is in the answer | present | present | pass |
@@ -248,4 +249,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.polar_coordinates` is an effect this build has | added | added | pass |
 | and the settings it sends for it - interpolation, conversion - are the ones the command reads | accepted | accepted | pass |
 
-**227 of 227 checks pass.**
+**228 of 228 checks pass.**

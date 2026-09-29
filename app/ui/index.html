@@ -5964,7 +5964,8 @@ function fxParts(layer, prop) {
 }
 function fxOf(layer, prop) {
   const [fx, name] = fxParts(layer, prop);
-  const held = fx && (fx.parameters || {})[name];
+  // D-202: the Mix is the effect's own, beside its settings, and 100 when the file leaves it out.
+  const held = fx && (name === 'mix' ? fx.mix ?? 100 : (fx.parameters || {})[name]);
   if (held === undefined) return {};
   return held && held.keyframes ? held : { base: held };
 }
@@ -5999,7 +6000,7 @@ function gradOf(layer, prop) {
 const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
   : layer.kind === 'audio' ? []
   : PROPS.flatMap((prop) => (prop === 'position' && isSplit(layer) ? ['position_x', 'position_y'] : [prop]))
-    .concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {})
+    .concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {}).concat('mix')
     .filter((name) => keysOf(layer, fxName(fx, name)).length).map((name) => fxName(fx, name))))
     .concat(['mask', 'shape'].flatMap((kind) => pathsNamed(layer, kind).map((_, at) => kind + ':' + at))
       .filter((prop) => keysOf(layer, prop).length))
@@ -6013,7 +6014,7 @@ function propLabel(layer, prop) {
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
-  return (fx ? (EFFECT_NAMES[fx.type_id] || fx.type_id) + ' ' : '') + (known ? known[1] : name);
+  return (fx ? (EFFECT_NAMES[fx.type_id] || fx.type_id) + ' ' : '') + (known ? known[1] : name === 'mix' ? 'Mix' : name);
 }
 const keysOf = (layer, prop) => (propOf(layer, prop).keyframes || []);
 // D-59's expression on a property, switched on or off, or null.
@@ -8365,7 +8366,8 @@ function effectRow(layer, fx, at, of) {
   const sendParameters = (extra = '', changed = null) => {
     redraws.forEach((draw) => draw());
     if (pick) pick.value = hexOf(fields.color.map((f) => Number(f.value) || 0));
-    if (changed && keyed(changed)) {
+    // D-202: the Mix is not one of the settings, so it always travels alone.
+    if (changed && (keyed(changed) || changed === 'mix')) {
       command('/property.set_base?' + whose(layer) + '&prop=' + encodeURIComponent(fxName(fx, changed))
         + '&value=' + encodeURIComponent(typed(changed)) + '&frame=' + frame + extra);
       return;
@@ -8630,6 +8632,30 @@ function effectRow(layer, fx, at, of) {
         (typed) => { chosen.push(typed); sendParameters(); }), ' or ', add);
       dd.append(line);
     }
+    dl.append(dt, dd);
+  }
+  // D-202: the Mix, at the foot of every card as After Effects puts its compositing options:
+  // how much of the effect is laid over what it was given, 0 to 100. Posterize Time holds the
+  // layer in time and has no picture to mix, so it has none.
+  if (fx.type_id !== 'core.posterize_time') {
+    const prop = fxName(fx, 'mix');
+    const dt = document.createElement('dt');
+    dt.title = 'Mix, 0 to 100 per cent of the effect laid over what it was given; 0 is the layer as it came in';
+    const ease = easeButton(layer, prop);
+    dt.append(keyButton(layer, prop), ...(ease ? [ease] : []),
+      Object.assign(document.createElement('span'), { textContent: 'Mix' }));
+    const dd = document.createElement('dd');
+    const input = scrubValue({
+      value: transformValue(layer, prop)[0] ?? 100,
+      suffix: '%',
+      label: label + ' Mix',
+      title: 'Drag to change the Mix (0 to 100 per cent), press to type it, or use the arrow keys',
+      live: () => live('mix'),
+      done: (cancelled) => close(cancelled),
+      commit: () => sendParameters('', 'mix'),
+    });
+    fields.mix = [input];
+    dd.append(input);
     dl.append(dt, dd);
   }
   box.append(dl);

@@ -2577,7 +2577,7 @@ fn wraps(layer: &crate::render::LayerDraw) -> Vec<(f64, f64, bool)> {
     layer
         .wrap
         .iter()
-        .filter(|i| i.enabled && i.effect.is_valid())
+        .filter(|i| i.enabled && i.is_valid())
         .filter_map(|i| match &i.effect {
             crate::effects::Effect::LightWrap { width, intensity, blend } => Some((*width, *intensity, blend == "add")),
             _ => None,
@@ -4035,6 +4035,13 @@ impl Gpu {
                 Severity::Info,
                 "The CPU drew this frame: it has motion blur, which the GPU does not draw yet.".into(),
                 "B-124b draws a motion-blurred frame (D-188) wholly on the CPU; a card version is a later unit.".into(),
+            ));
+        }
+        if plan.layers.iter().flat_map(|l| &l.wrap).any(|i| i.enabled && i.is_valid() && i.mix < 100.0) {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: it has a Light Wrap with a Mix below 100, which the GPU does not draw yet.".into(),
+                "B-137b draws a mixed Light Wrap (D-202) on the CPU; a card version is a later unit.".into(),
             ));
         }
         // B-76: a Light Wrap blurs the frame beneath, grown by the blur's radius.

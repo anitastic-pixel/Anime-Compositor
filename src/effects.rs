@@ -48,6 +48,9 @@ pub struct EffectInstance {
     /// property of one number for a number, three for a colour, which share their frames and
     /// eases. A property's base is not read; the constant lives in `effect`.
     pub tracks: BTreeMap<String, Vec<Property>>,
+    /// D-202: how much of the effect's result is kept, 0 to 100 per cent, laid over what it was
+    /// given. Its keys, when it has any, are `tracks["mix"]`.
+    pub mix: f64,
 }
 
 impl EffectInstance {
@@ -57,7 +60,82 @@ impl EffectInstance {
             enabled: true,
             effect,
             tracks: BTreeMap::new(),
+            mix: 100.0,
         }
+    }
+
+    /// D-202: every effect has a Mix but Posterize Time, which has no picture to mix, and one
+    /// this build does not have.
+    pub fn has_mix(&self) -> bool {
+        !matches!(self.effect, Effect::PosterizeTime { .. } | Effect::Unsupported { .. })
+    }
+
+    /// [`Effect::arity`], with the Mix as a setting of one number.
+    pub fn arity(&self, name: &str) -> Option<usize> {
+        if name == "mix" {
+            return self.has_mix().then_some(1);
+        }
+        self.effect.arity(name)
+    }
+
+    /// [`Effect::get`], with the Mix.
+    pub fn get(&self, name: &str) -> Option<Vec<f64>> {
+        if name == "mix" {
+            return self.has_mix().then(|| vec![self.mix]);
+        }
+        self.effect.get(name)
+    }
+
+    /// [`Effect::set`], with the Mix.
+    pub fn set(&mut self, name: &str, v: &[f64]) {
+        match (name, v) {
+            ("mix", [m]) => self.mix = *m,
+            ("mix", _) => {}
+            _ => self.effect.set(name, v),
+        }
+    }
+
+    /// D-202: the first Mix, the constant's or a key's, outside 0 to 100; on Posterize Time, one
+    /// that is not a plain 100 (NaN when it is 100 with keys).
+    fn bad_mix(&self) -> Option<f64> {
+        let keys: Vec<f64> = self.tracks.get("mix").map_or(Vec::new(), |t| {
+            t[0].keyframes().iter().map(|k| k.value.as_scalar().unwrap_or(f64::NAN)).collect()
+        });
+        if matches!(self.effect, Effect::PosterizeTime { .. }) {
+            return (self.mix != 100.0 || !keys.is_empty())
+                .then(|| keys.into_iter().chain([self.mix]).find(|m| *m != 100.0).unwrap_or(f64::NAN));
+        }
+        std::iter::once(self.mix).chain(keys).find(|m| !(0.0..=100.0).contains(m))
+    }
+
+    /// Whether this instance, as [`EffectInstance::at`] gives it, runs: its settings and its
+    /// Mix inside their ranges (D-46, D-202).
+    pub fn is_valid(&self) -> bool {
+        self.effect.is_valid() && self.bad_mix().is_none()
+    }
+
+    /// Why this instance is bypassed on every frame, when it is: a setting or its Mix outside
+    /// its range, the constant or a key.
+    pub fn fault(&self) -> Option<String> {
+        if let Some(bad) = self.invalid() {
+            return Some(bad.why_invalid());
+        }
+        self.mix_fault()
+    }
+
+    /// D-202: why the Mix, the constant or a key, is outside its range, when it is.
+    pub(crate) fn mix_fault(&self) -> Option<String> {
+        let m = self.bad_mix()?;
+        Some(if matches!(self.effect, Effect::PosterizeTime { .. }) {
+            // A NaN here is `bad_mix`'s mark for a Mix of 100 with keys.
+            let m = if m.is_nan() { "keyed".to_string() } else { format!("{m}") };
+            format!(
+                "Posterize Time holds its layer in time and has no picture to mix, so its Mix \
+                 is a plain 100, and this is {m}."
+            )
+        } else {
+            format!("Mix is 0 to 100 per cent, and this is {m}.")
+        })
     }
 
     /// D-68: every key of the setting `name`, as a command would give them back.
@@ -77,7 +155,7 @@ impl EffectInstance {
     /// Replace every key of the setting `name`. None is a setting that is constant again. The
     /// command has checked the keys; a name this effect does not have changes nothing.
     pub(crate) fn set_keys(&mut self, name: &str, keys: &[EffectKey]) {
-        let Some(count) = self.effect.arity(name) else {
+        let Some(count) = self.arity(name) else {
             return;
         };
         if keys.is_empty() {
@@ -192,11 +270,18 @@ impl EffectInstance {
                 *f = frame;
             }
         }
+        // D-202: the Mix at this frame, held inside 0 to 100; one outside it is kept, so the
+        // effect is bypassed.
+        let mix = self.bad_mix().unwrap_or_else(|| {
+            let keyed = self.tracks.get("mix").and_then(|t| t[0].value_at(frame).as_scalar());
+            keyed.unwrap_or(self.mix).clamp(0.0, 100.0)
+        });
         EffectInstance {
             instance_id: self.instance_id.clone(),
             enabled: self.enabled,
             effect,
             tracks: BTreeMap::new(),
+            mix,
         }
     }
 
@@ -2792,12 +2877,14 @@ pub(crate) fn apply_stack_at(
             // and document 28's incomplete-fidelity mark is for what this build could not do.
             continue;
         }
+        // D-202: what the effect is given, kept only when its result is to be mixed with it.
+        let given = (instance.mix < 100.0).then(|| (source.clone(), ox, oy));
         match &instance.effect {
             Effect::Unsupported { .. } => {
                 report(at, instance, Bypassed::NotImplemented);
                 continue;
             }
-            e if !e.is_valid() => {
+            _ if !instance.is_valid() => {
                 report(at, instance, Bypassed::InvalidParameter);
                 continue;
             }
@@ -3761,8 +3848,28 @@ pub(crate) fn apply_stack_at(
             // D-196: the holding was done where the layer's content was resolved.
             Effect::PosterizeTime { .. } => {}
         }
+        if let Some((given, gx, gy)) = given {
+            mix_back(source, &given, (ox - gx, oy - gy), instance.mix / 100.0);
+        }
     }
     (ox, oy)
+}
+
+/// D-202: `out = before + m (after - before)` at every sample of `after`, all four premultiplied
+/// channels, `before` placed `(dx, dy)` into the grown buffer and transparent outside its own
+/// rectangle.
+pub(crate) fn mix_back(after: &mut WorkingBuffer, before: &WorkingBuffer, (dx, dy): (usize, usize), m: f64) {
+    let (w, bw, bh, m) = (after.width(), before.width(), before.height(), m as f32);
+    let b = before.data();
+    after.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+        for (x, px) in row.chunks_exact_mut(4).enumerate() {
+            let inside = x >= dx && y >= dy && x - dx < bw && y - dy < bh;
+            for (c, v) in px.iter_mut().enumerate() {
+                let was = if inside { b[((y - dy) * bw + x - dx) * 4 + c] } else { 0.0 };
+                *v = was + m * (*v - was);
+            }
+        }
+    });
 }
 
 /// D-125: the stops an Exposure Flicker gives at `frame`, Noise's hash of the seed and the

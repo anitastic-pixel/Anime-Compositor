@@ -247,7 +247,7 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
             let (from, to) = (number("from", 0), number("to", 0));
             let to = to.clamp(from, from.saturating_add(10_000));
             let samples: Vec<serde_json::Value> = (from..=to)
-                .map(|f| serde_json::json!(fx.at(f).effect.get(&setting)))
+                .map(|f| serde_json::json!(fx.at(f).get(&setting)))
                 .collect();
             return Some(serde_json::json!({ "from": from, "to": to, "samples": samples }));
         }
@@ -750,7 +750,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                     // gives it, for the reason the depth is here.
                     for fx in &layer.effects {
                         for name in fx.tracks.keys() {
-                            if let Some(v) = fx.at(frame).effect.get(name) {
+                            if let Some(v) = fx.at(frame).get(name) {
                                 at.insert(
                                     format!("fx:{}:{name}", fx.instance_id),
                                     serde_json::json!(v),
@@ -2074,7 +2074,7 @@ fn effect_key_command(
     let Some(existing) = layer.effects.iter().find(|e| e.instance_id == instance_id) else {
         return Err(format!("{instance_id} is not an effect on this layer."));
     };
-    let Some(count) = existing.effect.arity(&setting) else {
+    let Some(count) = existing.arity(&setting) else {
         return Err(format!(
             "A {} has no setting called {setting}.",
             existing.type_id()
@@ -2087,6 +2087,15 @@ fn effect_key_command(
                 return Err(format!("What should {setting} be set to?"));
             };
             let value = setting_value(&setting, count, &text)?;
+            // D-202: the Mix is the effect's own, not one of its settings.
+            if keys.is_empty() && setting == "mix" {
+                return Ok(Command::SetEffectMix {
+                    composition,
+                    layer_id: layer.id.clone(),
+                    instance_id,
+                    mix: value[0],
+                });
+            }
             if keys.is_empty() {
                 let mut effect = existing.effect.clone();
                 effect.set(&setting, &value);
@@ -2122,7 +2131,7 @@ fn effect_key_command(
             }
             None => keys.push(EffectKey {
                 frame,
-                value: existing.at(frame).effect.get(&setting).unwrap_or_default(),
+                value: existing.at(frame).get(&setting).unwrap_or_default(),
                 interp: Interp::Linear,
             }),
         },
@@ -24159,6 +24168,14 @@ mod contract {
             .find(|l| l.get("timesheet").is_some())
             .cloned()
             .unwrap_or(serde_json::Value::Null);
+        // D-202: an effect's Mix is written only when it is not 100, so it is read off a fixture
+        // effect mixed to 50.
+        let mixed = persist::load(&repo("Fixtures/effect_mix/fx_mix_001.json"))
+            .map(|l| persist::to_json(l.document.project(), &l.preserved))
+            .ok()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .map(|p| p["compositions"][0]["layers"][0]["effects"][0].clone())
+            .unwrap_or(serde_json::Value::Null);
 
         let node = |var: &str| -> serde_json::Value {
             match var {
@@ -24208,6 +24225,7 @@ mod contract {
                         "solid" => solid.get(&field),
                         "shapes" => shape.get(&field),
                         "timesheet" => from_sheet.get(&field),
+                        "mix" => mixed.get(&field),
                         _ => None,
                     }) {
                         Some(_) => "present".to_string(),
