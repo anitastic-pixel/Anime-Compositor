@@ -1912,6 +1912,32 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
         }
+        Effect::Snowfall {
+            color,
+            density,
+            spacing,
+            size,
+            depth,
+            speed,
+            wind,
+            wiggle,
+            period,
+            seed,
+            opacity,
+            ..
+        } => {
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("density".into(), num(*density));
+            params.insert("spacing".into(), num(*spacing));
+            params.insert("size".into(), num(*size));
+            params.insert("depth".into(), num(*depth));
+            params.insert("speed".into(), num(*speed));
+            params.insert("wind".into(), num(*wind));
+            params.insert("wiggle".into(), num(*wiggle));
+            params.insert("period".into(), num(*period));
+            params.insert("seed".into(), num(*seed));
+            params.insert("opacity".into(), num(*opacity));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2921,6 +2947,7 @@ fn parse_effect(
         crate::effects::POLAR_COORDINATES,
         crate::effects::MEDIAN,
         crate::effects::SMART_BLUR,
+        crate::effects::SNOWFALL,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3502,6 +3529,20 @@ fn parse_effect(
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,
             threshold: effect_number(params, "threshold", &at)?,
+        }),
+        crate::effects::SNOWFALL => Some(crate::effects::Effect::Snowfall {
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            density: effect_number(params, "density", &at)?,
+            spacing: effect_number(params, "spacing", &at)?,
+            size: effect_number(params, "size", &at)?,
+            depth: effect_number(params, "depth", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            wind: effect_number(params, "wind", &at)?,
+            wiggle: effect_number(params, "wiggle", &at)?,
+            period: effect_number(params, "period", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            frame: 0,
         }),
         _ => None,
     };

@@ -6811,6 +6811,7 @@ const EFFECT_NAMES = {
   'core.polar_coordinates': 'Polar Coordinates',
   'core.median': 'Median',
   'core.smart_blur': 'Smart Blur',
+  'core.snowfall': 'Snowfall',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6831,7 +6832,7 @@ const EFFECT_GROUPS = [
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple',
     'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
     'core.corner_pin', 'core.polar_coordinates']],
-  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain',
+  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves']],
   ['Stylize', ['core.drop_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize']],
@@ -6902,6 +6903,7 @@ const EFFECT_SEARCH = {
   'core.polar_coordinates': 'polar coordinates rect to polar polar to rect focus lines speed lines tiny planet round circle ring bend wrap unroll',
   'core.median': 'median noise grain dust specks speckle clean cleanup despeckle scan pinhole denoise',
   'core.smart_blur': 'smart blur surface blur skin smooth smoothing grain noise denoise edge preserving bilateral clean',
+  'core.snowfall': 'snow snowfall snowflakes flakes winter weather blizzard falling cc snowfall',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -7003,6 +7005,7 @@ const EFFECT_ABOUT = {
   'core.polar_coordinates': 'Bends the layer round its middle, its rows into rings and its columns into spokes, or unrolls it back.',
   'core.median': 'Cleans away specks and pinholes: each pixel takes the middle colour of those round it, so edges stay.',
   'core.smart_blur': 'Smooths flat colour and grain while keeping lines sharp: each pixel mixes only with close colours round it.',
+  'core.snowfall': 'Soft snowflakes falling over the layer in three depths, drifting with the wind and swaying.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7344,6 +7347,16 @@ const EFFECT_PARAMS = {
   'core.median': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is']],
   'core.smart_blur': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is'],
     ['threshold', 'Threshold', 1, 1, '0 to 255 steps, how close a colour must be to mix; 255 blurs everything']],
+  'core.snowfall': [['density', 'Flakes', 1, 1, '0 to 100, the per cent of places holding a flake'],
+    ['spacing', 'Spacing', 1, 1, 'pixels, 2 to 1000, how far apart the near flakes are'],
+    ['size', 'Size', 1, 0.5, 'pixels, 0 to 100, the widest a near flake is'],
+    ['depth', 'Scene Depth', 1, 1, '0 to 100, how much smaller, closer and slower the far flakes are'],
+    ['speed', 'Speed', 1, 0.5, 'pixels a frame, 0 to 1000, how fast the near flakes fall'],
+    ['wind', 'Wind', 1, 0.5, 'pixels a frame, -1000 to 1000, the drift right, or left when negative'],
+    ['wiggle', 'Wiggle Amount', 1, 0.5, 'pixels, 0 to 100, how far each flake sways'],
+    ['period', 'Wiggle Period', 1, 1, 'frames, 1 to 1000, how long one sway takes'],
+    ['seed', 'Random Seed', 1, 1, '0 to 100000, which flakes'],
+    ['opacity', 'Opacity', 1, 1, '0 to 100, how strongly the snow shows']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7477,6 +7490,8 @@ const EFFECT_WORDS = {
   },
   // D-203.
   'core.median': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
+  // D-204.
+  'core.snowfall': { colours: [['color', 'Color']] },
   // D-154.
   'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },
   // D-156.

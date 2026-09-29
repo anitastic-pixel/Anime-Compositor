@@ -257,6 +257,10 @@ impl EffectInstance {
             if let Effect::Rain { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-204: the snow's frame.
+            if let Effect::Snowfall { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
             // D-186: the twinkle's frame.
             if let Effect::KiraKira { frame: f, .. } = &mut effect {
                 *f = frame;
@@ -1026,6 +1030,26 @@ pub enum Effect {
     Median { radius: f64, operate_on_alpha: String },
     /// D-203: `radius`, 0 to 10 pixels; and `threshold`, 0 to 255 8-bit steps.
     SmartBlur { radius: f64, threshold: f64 },
+    /// D-204: `color`, `#rrggbb`, kept as written so a wrong one is reported; `density`, 0 to
+    /// 100; `spacing`, 2 to 1000 pixels; `size`, 0 to 100 pixels; `depth`, 0 to 100; `speed`,
+    /// 0 to 1000, and `wind`, -1000 to 1000, pixels a frame; `wiggle`, 0 to 100 pixels;
+    /// `period`, 1 to 1000 frames; `seed`, 0 to 100000, its whole part counted; and `opacity`,
+    /// 0 to 100. `frame` is not a setting and is never saved: it is the composition frame, as
+    /// Rain's is.
+    Snowfall {
+        color: String,
+        density: f64,
+        spacing: f64,
+        size: f64,
+        depth: f64,
+        speed: f64,
+        wind: f64,
+        wiggle: f64,
+        period: f64,
+        seed: f64,
+        opacity: f64,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1113,6 +1137,7 @@ pub const RADIO_WAVES: &str = "core.radio_waves";
 pub const POLAR_COORDINATES: &str = "core.polar_coordinates";
 pub const MEDIAN: &str = "core.median";
 pub const SMART_BLUR: &str = "core.smart_blur";
+pub const SNOWFALL: &str = "core.snowfall";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1747,6 +1772,30 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 10.0),
                 ("threshold", vec![threshold], 0.0, 255.0),
             ],
+            Effect::Snowfall {
+                density,
+                spacing,
+                size,
+                depth,
+                speed,
+                wind,
+                wiggle,
+                period,
+                seed,
+                opacity,
+                ..
+            } => vec![
+                ("density", vec![density], 0.0, 100.0),
+                ("spacing", vec![spacing], 2.0, 1000.0),
+                ("size", vec![size], 0.0, 100.0),
+                ("depth", vec![depth], 0.0, 100.0),
+                ("speed", vec![speed], 0.0, 1000.0),
+                ("wind", vec![wind], -1000.0, 1000.0),
+                ("wiggle", vec![wiggle], 0.0, 100.0),
+                ("period", vec![period], 1.0, 1000.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -1862,6 +1911,20 @@ impl Effect {
             Effect::LineBlur { length, .. } => *length = scale(*length),
             // D-203: a radius scaled under one leaves the layer as it is.
             Effect::Median { radius, .. } | Effect::SmartBlur { radius, .. } => *radius = scale(*radius),
+            Effect::Snowfall {
+                spacing,
+                size,
+                speed,
+                wind,
+                wiggle,
+                ..
+            } => {
+                *spacing = scale(*spacing);
+                *size = scale(*size);
+                *speed = scale(*speed);
+                *wind = scale(*wind);
+                *wiggle = scale(*wiggle);
+            }
             Effect::Bloom { radius, length, .. } => {
                 *radius = scale(*radius);
                 *length = scale(*length);
@@ -2065,6 +2128,7 @@ impl Effect {
             Effect::PolarCoordinates { .. } => "Polar Coordinates",
             Effect::Median { .. } => "Median",
             Effect::SmartBlur { .. } => "Smart Blur",
+            Effect::Snowfall { .. } => "Snowfall",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2152,6 +2216,7 @@ impl Effect {
             Effect::PolarCoordinates { .. } => POLAR_COORDINATES,
             Effect::Median { .. } => MEDIAN,
             Effect::SmartBlur { .. } => SMART_BLUR,
+            Effect::Snowfall { .. } => SNOWFALL,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2689,6 +2754,7 @@ impl Effect {
             Effect::SpeedLines { color, .. } => hex_fault("Speed Lines", "colour", color),
             Effect::CrossGlare { color, .. } => hex_fault("Cross Glare", "colour", color),
             Effect::Rain { color, .. } => hex_fault("Rain", "colour", color),
+            Effect::Snowfall { color, .. } => hex_fault("Snowfall", "colour", color),
             _ => None,
         };
         own.or_else(|| {
@@ -3544,6 +3610,26 @@ pub(crate) fn apply_stack_at(
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)
             }),
+            // D-204: the planes are fixed to the drawing's own space; it grows nothing.
+            Effect::Snowfall {
+                color,
+                density,
+                spacing,
+                size,
+                depth,
+                speed,
+                wind,
+                wiggle,
+                period,
+                seed,
+                opacity,
+                frame,
+            } => {
+                let numbers = [*density, *spacing, *size, *depth, *speed, *wind, *wiggle, *period, *seed, *opacity];
+                crate::perf::time(crate::perf::Stage::EffectSnowfall, || {
+                    crate::layer_fx::snowfall(source, encoded(color).map(crate::grade::to_linear), numbers, *frame, (ox, oy))
+                })
+            }
             // D-198: the corners are in per cent of the drawing's own box, however an effect
             // above grew it, and the layer grows so none is cut off.
             Effect::CornerPin {

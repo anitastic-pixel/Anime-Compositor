@@ -220,6 +220,7 @@ pub enum Stage {
     EffectPolarCoordinates,
     EffectMedian,
     EffectSmartBlur,
+    EffectSnowfall,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -237,7 +238,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 96] = [
+    pub const ALL: [Stage; 97] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -327,6 +328,7 @@ impl Stage {
         Stage::EffectPolarCoordinates,
         Stage::EffectMedian,
         Stage::EffectSmartBlur,
+        Stage::EffectSnowfall,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -428,6 +430,7 @@ impl Stage {
             Stage::EffectPolarCoordinates => "effect: polar coordinates",
             Stage::EffectMedian => "effect: median",
             Stage::EffectSmartBlur => "effect: smart blur",
+            Stage::EffectSnowfall => "effect: snowfall",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

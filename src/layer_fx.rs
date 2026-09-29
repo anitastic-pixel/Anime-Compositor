@@ -1829,6 +1829,70 @@ pub(crate) fn rain(
 /// diagonal arms. `origin` is the growth of an earlier effect, so the cells stay in the drawing's
 /// own space. The layer grows by the size rounded up, returned, unless size, density or opacity
 /// is 0, which changes nothing. The settings are already valid.
+/// D-204: soft round flakes in three planes, each a field of cells on the drawing's own space,
+/// the far planes smaller, closer and slower by `depth`, falling, drifting and swaying; the
+/// brightest flake at each pixel that shows mixes `color` in, as Rain's drops do. It grows
+/// nothing, and a pixel no flake reaches is left exactly as it was.
+// ponytail: every pixel searches the cells a flake could reach from, so a large size over a
+// small spacing is dear; a splat pass per flake would be the upgrade if that is ever wanted.
+pub(crate) fn snowfall(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    [density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity]: [f64; 10],
+    frame: i32,
+    origin: (usize, usize),
+) {
+    if density == 0.0 || size == 0.0 || opacity == 0.0 {
+        return;
+    }
+    let base = crate::grade::mix(seed.floor() as u64);
+    let f = frame as f64;
+    // Each plane's cell, largest radius, sway, and how far it has drifted and fallen.
+    let planes: Vec<[f64; 5]> = (0..3)
+        .map(|l| {
+            let z = 1.0 - depth / 100.0 * l as f64 / 3.0;
+            [spacing * z, size * z / 2.0, wiggle * z, wind * z * f, speed * z * f]
+        })
+        .collect();
+    let w = source.width();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a == 0.0 {
+                return;
+            }
+            let (x, y) = ((i % w) as f64 - origin.0 as f64 + 0.5, (i / w) as f64 - origin.1 as f64 + 0.5);
+            let mut q = 0.0f64;
+            for (l, &[s, rmax, wz, drift, fall]) in planes.iter().enumerate() {
+                let (fa, fb, reach) = (x - drift, y - fall, rmax + 0.5);
+                for ci in ((fa - reach - wz) / s).floor() as i64..=((fa + reach + wz) / s).floor() as i64 {
+                    for cj in ((fb - reach) / s).floor() as i64..=((fb + reach) / s).floor() as i64 {
+                        let u = |ch| (crate::grade::unit(base, ci, cj, l as i64, ch) + 1.0) / 2.0;
+                        if u(0) >= density / 100.0 {
+                            continue;
+                        }
+                        let sway = wz * (std::f64::consts::TAU * (f / period + u(4))).sin();
+                        let (cx, cy) = (s * (ci as f64 + u(1)) + sway, s * (cj as f64 + u(2)));
+                        let r = rmax * (0.5 + 0.5 * u(3));
+                        let d = (fa - cx).hypot(fb - cy);
+                        q = q.max((r + 0.5 - d).clamp(0.0, 1.0) * (2.0 * r).min(1.0));
+                    }
+                }
+            }
+            if q == 0.0 {
+                return;
+            }
+            let op = q * opacity / 100.0;
+            for ch in 0..3 {
+                let b = px[ch] as f64 / a;
+                px[ch] = ((b + op * (color[ch] - b)) * a) as f32;
+            }
+        });
+}
+
 pub(crate) fn kira_kira(
     source: &mut WorkingBuffer,
     color: [f64; 3],
