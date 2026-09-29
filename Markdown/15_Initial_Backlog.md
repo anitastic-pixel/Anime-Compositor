@@ -735,6 +735,8 @@ B-148 / Bevel Alpha and Bevel Edges, D-213: two effects that make a flat drawing
 
 B-149 / Block Dissolve, D-214: a transition that makes a layer vanish in random blocks, After Effects' Block Dissolve in purpose and names, our own rule, its Soft Edges switch left out (B12). **B-149a, the rule and its fixtures, is written on 2026-09-29**: the rule in document 21, FX-BDISSOLVE-001 to 019 in document 25 from `tools/block_dissolve_reference.py`, which writes `Fixtures/block_dissolve/`. The proposal is `verification/B-149a proposal/block_dissolve.md`, with `block_dissolve.png`. **BUILT on 2026-09-29**: the rule in `src/layer_fx.rs`, through the file, the commands, and a card in Transition after Iris Wipe. `tests/b149_block_dissolve.rs` writes `verification/B-149_block_dissolve_table.md`, 103 of 103, and a made-up title card dissolved in `verification/B-149 pictures/`. The playtest sheet `verification/B-149_playtest.md`, **awaiting the owner's playtest**.
 
+B-150 / Time stretch, Frame Mix frame blending and the drawing dissolve, D-216 and ADR-020 (item 5 of the fourth batch). **B-150a, the proposal, the ADR and the fixtures, is written on 2026-09-29**: `verification/B-150a proposal/frame_blending.md` with `frame_blending.gif` and `frame_blending.png`, `docs/adr/0020-time-stretch-mixes-the-two-frames-either-side.md`, the rules in documents 19, 20 and 21, and FX-FBLEND-001 to 063 in document 25, every number from `tools/frame_blending_reference.py` into `Fixtures/frame_blending/`. **It stops before code: B-150b waits for the owner to accept D-216.**
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.

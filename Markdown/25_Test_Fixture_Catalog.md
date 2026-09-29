@@ -198317,6 +198317,435 @@ Frame 0: every pixel is the drawing's.
 
 Frame 4: every pixel is the drawing's.
 
+## Frame blending fixtures
+
+**D-216, proposed on 2026-09-29 with ADR-020, awaiting the owner; not built.** The projects are in `Fixtures/frame_blending/`. The pixel cases are a composition 8 by 1 at 24 fps, twelve frames long unless the case says, holding one raster layer at (0, 0) with three drawings 8 by 1 in `Fixtures/frame_blending/media/`, of full and empty channels only: drawing 1 red on pixels 0 to 3, drawing 2 blue on 2 to 5, drawing 3 green on 4 to 7. Unless the case says, they are exposed on twos, local frames 0 and 1 drawing 1, 2 and 3 drawing 2, 4 and 5 drawing 3, and the composition's frame-blending switch is on. Each value is a pixel's four working numbers, red, green, blue and covering, linear and premultiplied; `says` is what the frame reports. The times cases are `t`, `f` and `w` for a list of frames; the commands cases are where the Time Stretch command puts the out point; FX-FBLEND-050 to 063 are files that must be refused.
+
+**Every number below is produced by `tools/frame_blending_reference.py`**, which reads the very project files it writes and draws each frame pixel by pixel from documents 20 and 21. The same numbers are in `Fixtures/frame_blending/expected_frame_blending.json`. Tolerance 1e-12 for the times, 1e-6 for the pixels.
+
+**Checked by what they claim.** The tool checks the drawings unchanged at 100 and with no fields or the defaults written (010, 014, 024); each drawing held four frames with either switch off (011, 013); half and half on frames 3 and 7 and exact drawings elsewhere, the same from a composition layer (012, 021); the shares in thirds (015); the sped-up share (016); half-covered red at a gap (017); the missing drawing reported on exactly the frames that read it (018); the offset and the in point (019, 020); the moving dot's half-covered ends (022); the position read at the composition frame (023); the dissolve on twos, clamped and without the composition switch the same (030, 032, 037); thirds on threes (031); ones and a gap unchanged (033, 034); the same drawing exact (035); the missing next drawing reported (036); three quarters red with both together (038); the dissolved frame held two frames (039); and the times of 001, 002, 006 and 008 and every command's out point.
+
+Times. For each frame n, the source time t, its whole frame f and the share w of the next.
+
+| case | stretch | in | offset | n | t | f | w |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| FX-FBLEND-001 | 100 | 2 | 1 | 2 | 1 | 1 | 0 |
+| FX-FBLEND-001 | 100 | 2 | 1 | 3 | 2 | 2 | 0 |
+| FX-FBLEND-001 | 100 | 2 | 1 | 4 | 3 | 3 | 0 |
+| FX-FBLEND-001 | 100 | 2 | 1 | 7 | 6 | 6 | 0 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 1 | 0.5 | 0 | 0.5 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 2 | 1 | 1 | 0 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 3 | 1.5 | 1 | 0.5 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 4 | 2 | 2 | 0 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 5 | 2.5 | 2 | 0.5 |
+| FX-FBLEND-003 | 50 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-003 | 50 | 0 | 0 | 1 | 2 | 2 | 0 |
+| FX-FBLEND-003 | 50 | 0 | 0 | 2 | 4 | 4 | 0 |
+| FX-FBLEND-003 | 50 | 0 | 0 | 3 | 6 | 6 | 0 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 1 | 0.666666666667 | 0 | 0.666666666667 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 2 | 1.33333333333 | 1 | 0.333333333333 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 3 | 2 | 2 | 0 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 4 | 2.66666666667 | 2 | 0.666666666667 |
+| FX-FBLEND-005 | 300 | 10 | 2 | 10 | 2 | 2 | 0 |
+| FX-FBLEND-005 | 300 | 10 | 2 | 11 | 2.33333333333 | 2 | 0.333333333333 |
+| FX-FBLEND-005 | 300 | 10 | 2 | 12 | 2.66666666667 | 2 | 0.666666666667 |
+| FX-FBLEND-005 | 300 | 10 | 2 | 13 | 3 | 3 | 0 |
+| FX-FBLEND-006 | 33.3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-006 | 33.3 | 0 | 0 | 1 | 3.003003003 | 3 | 0.003003003003 |
+| FX-FBLEND-006 | 33.3 | 0 | 0 | 2 | 6.00600600601 | 6 | 0.00600600600601 |
+| FX-FBLEND-006 | 33.3 | 0 | 0 | 3 | 9.00900900901 | 9 | 0.00900900900901 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 1 | 0.01 | 0 | 0.01 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 2 | 0.02 | 0 | 0.02 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 99 | 0.99 | 0 | 0.99 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 100 | 1 | 1 | 0 |
+| FX-FBLEND-008 | 1 | 5 | 0 | 5 | 0 | 0 | 0 |
+| FX-FBLEND-008 | 1 | 5 | 0 | 6 | 100 | 100 | 0 |
+| FX-FBLEND-008 | 1 | 5 | 0 | 7 | 200 | 200 | 0 |
+
+FX-FBLEND-001: Stretch 100, in 2, offset 1: t is n - 2 + 1, whole.
+FX-FBLEND-002: Stretch 200: half a frame of source a frame.
+FX-FBLEND-003: Stretch 50: two frames of source a frame.
+FX-FBLEND-004: Stretch 150: two thirds of a frame a frame.
+FX-FBLEND-005: Stretch 300, in 10, offset 2.
+FX-FBLEND-006: Stretch 33.3, not a round share: f is 3, 6 and 9.
+FX-FBLEND-007: Stretch 10000, the most: a hundredth of a frame a frame.
+FX-FBLEND-008: Stretch 1, the least: a hundred frames a frame.
+
+Pictures. Each value is a pixel's red, green, blue and covering, linear and premultiplied; `says` is what the frame reports.
+
+FX-FBLEND-010: Stretch 100 with both switches on: every time is a whole frame, so the drawings on twos, red, blue, green, exactly as with both switches off.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-011: Stretch 200, the layer's switch off: each drawing is held four frames, red, blue, green, green.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-012: Stretch 200, both switches on: frames 3 and 7 fall half way between two drawings and are half of each; frames 1 and 5 fall between two frames of the same drawing and are that drawing, bit for bit; frames 9 and 11 would mix with frame 6, past the last drawing, so they are green alone.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-013: Stretch 200, the layer's switch on and the composition's off: as FX-FBLEND-011.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-014: A file written before D-216, with none of the four fields: the drawings on twos, and saved again it still has none.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-015: Stretch 150, both switches on: the times go in thirds, so frames 1, 2, 4, 5, 7 and 8 are two thirds of one and a third of the next.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0.666666667 0 0 0.666666667 | 0.666666667 0 0 0.666666667 | 0.666666667 0 0.333333333 1 | 0.666666667 0 0.333333333 1 | 0 0 0.333333333 0.333333333 | 0 0 0.333333333 0.333333333 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0.666666667 0.666666667 | 0 0 0.666666667 0.666666667 | 0 0.333333333 0.666666667 1 | 0 0.333333333 0.666666667 1 | 0 0.333333333 0 0.333333333 | 0 0.333333333 0 0.333333333 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-016: Stretch 75, both switches on: sped up, frames 1 and 2 fall a third and two thirds of the way on; frame 3 is local frame 4 exactly, and local frame 3, stepped over, is never mixed in.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0.666666667 0 0 0.666666667 | 0.666666667 0 0 0.666666667 | 0.666666667 0 0.333333333 1 | 0.666666667 0 0.333333333 1 | 0 0 0.333333333 0.333333333 | 0 0 0.333333333 0.333333333 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-017: A gap: nothing exposed on local frames 2 and 3. Stretch 200, both on: frame 3 is red half mixed with nothing, so red at half covering; frames 4 to 7 are empty; frame 7 mixes nothing with green.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-018: Drawing 2 has no file. Stretch 200, both on: frames 3 and 7 mix with an empty picture and say MEDIA_SEQUENCE_GAP, as frames 4 to 6 do; frames that do not read drawing 2 say nothing. No other drawing stands in for it.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | MEDIA_SEQUENCE_GAP |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | MEDIA_SEQUENCE_GAP |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | MEDIA_SEQUENCE_GAP |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | MEDIA_SEQUENCE_GAP |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | MEDIA_SEQUENCE_GAP |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-019: Source offset 1, stretch 200, both on: every time is half a frame on, so frames 0 to 3 are red, half, blue, blue... one frame earlier than 012.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-FBLEND-020: In point 3, stretch 200, both on: nothing before frame 3, and from there FX-FBLEND-012's frames, three frames later. The stretch runs from the in point.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-021: A composition layer showing a composition, 6 frames long, of the three drawings on twos, stretched 200 with both switches on: FX-FBLEND-012's frames. The composition's end is its source's end.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-022: A composition layer showing a white dot 2 pixels wide moving right a pixel a frame, stretched 200 with both on: on odd frames the inner composition is drawn twice, a frame apart, and the two are half and half, so the dot is 3 pixels with half-covered ends.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0.5 0.5 0.5 0.5 | 1 1 1 1 | 0.5 0.5 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0.5 0.5 0.5 0.5 | 1 1 1 1 | 0.5 0.5 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0.5 0.5 0.5 0.5 | 1 1 1 1 | 0.5 0.5 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.5 0.5 0.5 0.5 | 1 1 1 1 | 0.5 0.5 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-FBLEND-023: Keys are not stretched: the layer's position is keyed from 0 at frame 0 to 4 at frame 4, and it is at x = n on frame n while its drawings play at half speed with Frame Mix.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | - |
+
+FX-FBLEND-024: A file that writes the defaults: stretch 100 and the composition's switch false. They read as absent, the drawings on twos, and saved again neither field is written.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-030: Drawing Dissolve 1 on twos, stretch 100: the second frame of each hold is half the drawing and half the next; the last drawing has no next and holds.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-031: Drawing Dissolve 2 on threes: a third, then two thirds, of the next.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0.666666667 0 0 0.666666667 | 0.666666667 0 0 0.666666667 | 0.666666667 0 0.333333333 1 | 0.666666667 0 0.333333333 1 | 0 0 0.333333333 0.333333333 | 0 0 0.333333333 0.333333333 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0.333333333 0 0 0.333333333 | 0.333333333 0 0 0.333333333 | 0.333333333 0 0.666666667 1 | 0.333333333 0 0.666666667 1 | 0 0 0.666666667 0.666666667 | 0 0 0.666666667 0.666666667 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0.666666667 0.666666667 | 0 0 0.666666667 0.666666667 | 0 0.333333333 0.666666667 1 | 0 0.333333333 0.666666667 1 | 0 0.333333333 0 0.333333333 | 0 0.333333333 0 0.333333333 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0.333333333 0.333333333 | 0 0 0.333333333 0.333333333 | 0 0.666666667 0.333333333 1 | 0 0.666666667 0.333333333 1 | 0 0.666666667 0 0.666666667 | 0 0.666666667 0 0.666666667 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-032: Drawing Dissolve 5 on twos: a hold of two frames dissolves over one at most, so the same frames as FX-FBLEND-030.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-033: Drawing Dissolve 3 on ones: every drawing is shown once, whole.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-034: Drawing Dissolve 1 with a frame of nothing between red and blue: a hold before a gap does not dissolve.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-FBLEND-035: Drawing Dissolve 1 where the same drawing is exposed twice running: frame 1 is red, bit for bit.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-FBLEND-036: Drawing Dissolve 1 into drawing 2, which has no file: frame 1 is red at half and says MEDIA_SEQUENCE_GAP, as frames 2 and 3 do.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | MEDIA_SEQUENCE_GAP |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | MEDIA_SEQUENCE_GAP |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | MEDIA_SEQUENCE_GAP |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-037: Drawing Dissolve 1 with the composition's frame blending switch off: the dissolve is the layer's own and still happens, as FX-FBLEND-030.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-038: Drawing Dissolve 1, stretch 200 and both switches on: the dissolved frames are mixed again, so frame 1 is three quarters red and a quarter blue.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0.75 0 0 0.75 | 0.75 0 0 0.75 | 0.75 0 0.25 1 | 0.75 0 0.25 1 | 0 0 0.25 0.25 | 0 0 0.25 0.25 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0.25 0 0 0.25 | 0.25 0 0 0.25 | 0.25 0 0.75 1 | 0.25 0 0.75 1 | 0 0 0.75 0.75 | 0 0 0.75 0.75 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0.75 0.75 | 0 0 0.75 0.75 | 0 0.25 0.75 1 | 0 0.25 0.75 1 | 0 0.25 0 0.25 | 0 0.25 0 0.25 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0.25 0.25 | 0 0 0.25 0.25 | 0 0.75 0.25 1 | 0 0.75 0.25 1 | 0 0.75 0 0.75 | 0 0.75 0 0.75 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-039: Drawing Dissolve 1 and stretch 200, the layer's switch off: each dissolved frame is held two frames.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+Commands. Time Stretch keeps the in point and moves the out point to in + (out - in) x new / old, rounded half away from zero, never less than one frame.
+
+| case | in | out | from | to | out after |
+| --- | --- | --- | --- | --- | --- |
+| FX-FBLEND-040 | 0 | 6 | 100 | 200 | 12 |
+| FX-FBLEND-041 | 10 | 17 | 100 | 150 | 21 |
+| FX-FBLEND-042 | 0 | 12 | 200 | 50 | 3 |
+| FX-FBLEND-043 | 4 | 10 | 100 | 1 | 5 |
+| FX-FBLEND-044 | 0 | 5 | 300 | 100 | 2 |
+
+FX-FBLEND-040: In 0, out 6, 100 to 200: the out point goes to 12.
+FX-FBLEND-041: In 10, out 17, 100 to 150: 7 frames become 10.5, rounded half away to 11.
+FX-FBLEND-042: In 0, out 12, 200 to 50: 12 frames become 3.
+FX-FBLEND-043: In 4, out 10, 100 to 1: 6 frames become 0.06, and a layer keeps one frame.
+FX-FBLEND-044: In 0, out 5, 300 to 100: 5 frames become 1.666..., rounded to 2.
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-FBLEND-012's file with one change (FX-FBLEND-063 is FX-FBLEND-021's):
+
+- FX-FBLEND-050: A stretch below 1.
+- FX-FBLEND-051: A stretch above 10000.
+- FX-FBLEND-052: A stretch below 0, playing backwards, which is not part of this.
+- FX-FBLEND-053: A stretch written as a word.
+- FX-FBLEND-054: A layer's frame blending that is Pixel Motion, which is not part of this.
+- FX-FBLEND-055: A layer's frame blending written true rather than the word frame_mix.
+- FX-FBLEND-056: A composition's switch that is not true or false.
+- FX-FBLEND-057: A drawing dissolve that is not a whole number of frames.
+- FX-FBLEND-058: A drawing dissolve above 100 frames.
+- FX-FBLEND-059: A drawing dissolve below 0.
+- FX-FBLEND-060: A stretch on a solid layer, which has no drawings to time.
+- FX-FBLEND-061: Frame blending on a null layer.
+- FX-FBLEND-062: Frame blending on an adjustment layer.
+- FX-FBLEND-063: A drawing dissolve on a composition layer, which has no exposure of its own.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

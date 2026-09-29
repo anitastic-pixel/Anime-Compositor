@@ -28,6 +28,8 @@ A layer is active on `[in_frame, out_frame)`. Its integer local frame is:
 
 `local_frame = composition_frame - in_frame + source_offset_frames`
 
+A layer with a `time_stretch` other than 100 (D-216, proposed) reads its source at a time that may fall between two local frames; see Time stretch, frame blending and the drawing dissolve below.
+
 Frames outside the active interval produce transparent output and do not request media. Moving a layer changes `in_frame/out_frame` and moves every keyframe on the layer by the same number of frames (owner decision, 2026-09-13); trimming and changing source offset are distinct commands.
 
 A composition layer (D-67, accepted on 2026-09-18) shows its composition at `local_frame`, by the same formula; outside that composition's own `[start_frame, start_frame + duration_frames)` the layer's picture is transparent (FX-PRE-006, FX-PRE-007). Frame numbers pass between the two, not seconds: the two compositions' rates are not compared, and time remapping is not proposed.
@@ -124,6 +126,20 @@ worked in 64-bit numbers (FX-MB-001 to 005). At each `t_k`, step 6 is taken for 
 
 Everything else is read once, at `n`, exactly as without motion blur: the layer's in and out points, the drawing its exposure holds, its masks, effects and shape outlines, a composition layer's local frame, its opacity, and the draw order by depth. A layer outside its in and out points at `n` is not drawn; one inside them is drawn at every moment, even one outside them (FX-MB-022). **Drawings hold**: a cel on twos is never mixed with the next drawing (FX-MB-023). How the moments are put together is document 21's.
 
+### Time stretch, frame blending and the drawing dissolve
+
+**Proposed with ADR-020 and D-216 on 2026-09-29, awaiting the owner; not built.** FX-FBLEND-001 to 063 in document 25 are its cases. A raster or composition layer may carry a `time_stretch` in per cent, from 1 to 10000, 100 when absent. Its source time at composition frame `n`, inside its in and out points, is
+
+`t = (n - in_frame) * 100 / time_stretch + source_offset_frames`,
+
+worked in 64-bit numbers, with `f = floor(t)` and `w = t - f` (FX-FBLEND-001 to 008). At 100 it is the local frame above, exactly. The stretch runs from the in point; the in and out points are composition frames and the stretch does not move them.
+
+`P(f)`, the layer's picture at the whole local frame `f`, is exposure evaluation, or a composition layer's inner frame, exactly as above, with the drawing dissolve below. The layer's source at `n` is `P(f)`. When the layer's `frame_blend` is `"frame_mix"`, its composition's `frame_blending` is true, `w` is above 0 and `f + 1` is before the end of the layer's source, it is instead `P(f) + w * (P(f + 1) - P(f))`, each working number apart (document 21). The end of a raster layer's source is the largest `end_frame_exclusive` of its exposure, and of a composition layer its composition's `start_frame + duration_frames`; a still has none. `P(f + 1)` is read only when it is mixed in. A gap mixes in as transparent; a missing drawing number mixes in as transparent and reports `MEDIA_SEQUENCE_GAP`, never another drawing (FX-FBLEND-017, 018). A stretch below 100 steps over local frames, and only the two either side of `t` are mixed (FX-FBLEND-016).
+
+The drawing dissolve: a raster layer may carry `drawing_dissolve`, a whole number of frames `D` from 0 to 100, 0 when absent. At a local frame `f` in the span `[s, e)` holding drawing `A`, when a span begins at exactly `e` holding drawing `B`, let `d = min(D, e - s - 1)`; when `d > 0` and `f >= e - d`, `P(f) = A + ((f - (e - d) + 1) / (d + 1)) * (B - A)`. Otherwise `P(f)` is `A`, as before: before a gap, on the last span and on ones nothing dissolves (FX-FBLEND-030 to 039). The dissolve does not read the composition's switch.
+
+Keys are read at `n`, never at `t`: a stretch moves no key (FX-FBLEND-023). Steps 6 to 9 of the evaluation order are unchanged. Echo, Posterize Time and a layer setting read a layer's source by its own timing, and so read this same `t`. The Time Stretch command keeps the in point and sets the out point to `in_frame + max(1, round_half_away((out_frame - in_frame) * new / old))`, as one undo entry (FX-FBLEND-040 to 044).
+
 ## Rounding and conversions
 
 UI time entry in seconds converts to the nearest frame using round-half-away-from-zero unless the command explicitly requests floor/ceil semantics. Timecode display never changes stored frame identity.
@@ -138,6 +154,6 @@ Given the same project snapshot, frame index, media bytes and implementation ver
 
 ## Extension boundary
 
-Audio sample time is set by ADR-018 and D-71, accepted on 2026-09-19, with FX-AUD-001 to 008 as its fixtures: it adds a sum from whole frames to whole samples and changes nothing above. Motion blur was added by ADR-019 and D-188, which the owner accepted on 2026-09-28, with FX-MB-001 to 050 as its fixtures, under Motion blur above. Retiming curves, frame blending, optical flow and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
+Audio sample time is set by ADR-018 and D-71, accepted on 2026-09-19, with FX-AUD-001 to 008 as its fixtures: it adds a sum from whole frames to whole samples and changes nothing above. Motion blur was added by ADR-019 and D-188, which the owner accepted on 2026-09-28, with FX-MB-001 to 050 as its fixtures, under Motion blur above. Time stretch, Frame Mix frame blending and the drawing dissolve are proposed by ADR-020 and D-216 on 2026-09-29, awaiting the owner, with FX-FBLEND-001 to 063 as their fixtures, under Time stretch, frame blending and the drawing dissolve above. Retiming curves (time remapping), optical flow (Pixel Motion), playing backwards and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
 
 Related documents: 07, 19, 21 and 25.
