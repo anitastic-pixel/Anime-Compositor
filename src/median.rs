@@ -58,6 +58,20 @@ pub(crate) fn median(source: &mut WorkingBuffer, radius: f64, operate_on_alpha: 
         .for_each(|(y, row)| {
             let mut v: [Vec<f32>; 4] = Default::default();
             for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                // A disc all of one colour and covering, as flat paint is, is its own median:
+                // the same numbers the sort would give, for far less.
+                let own = straight[y * w + x];
+                let flat = taps.iter().all(|&(dx, dy)| {
+                    let (tx, ty) = (x as isize + dx, y as isize + dy);
+                    tx >= 0 && ty >= 0 && tx < w as isize && ty < h as isize && straight[ty as usize * w + tx as usize] == own
+                });
+                if flat {
+                    if own[3] > 0.0 {
+                        (0..3).for_each(|i| px[i] = own[i] * own[3]);
+                        px[3] = own[3];
+                    }
+                    continue;
+                }
                 v.iter_mut().for_each(Vec::clear);
                 for &(dx, dy) in &taps {
                     let (tx, ty) = (x as isize + dx, y as isize + dy);
