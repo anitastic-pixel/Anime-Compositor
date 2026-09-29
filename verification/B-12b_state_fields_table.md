@@ -272,7 +272,9 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - edge_thickness, light_angle, light_color, light_intensity - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.bevel_edges` is an effect this build has | added | added | pass |
 | and the settings it sends for it - edge_thickness, light_angle, light_color, light_intensity - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.block_dissolve` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, block_width, block_height, feather - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**254 of 254 checks pass.**
+**256 of 256 checks pass.**

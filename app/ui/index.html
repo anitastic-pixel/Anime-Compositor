@@ -6822,6 +6822,7 @@ const EFFECT_NAMES = {
   'core.extract': 'Extract',
   'core.bevel_alpha': 'Bevel Alpha',
   'core.bevel_edges': 'Bevel Edges',
+  'core.block_dissolve': 'Block Dissolve',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6850,7 +6851,7 @@ const EFFECT_GROUPS = [
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
   ['Time', ['core.echo', 'core.posterize_time']],
-  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe']],
+  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
 const EFFECT_SEARCH = {
@@ -6925,6 +6926,7 @@ const EFFECT_SEARCH = {
   'core.extract': 'extract key luma luminance brightness black white point paper scan background transparent keying',
   'core.bevel_alpha': 'bevel alpha raised edge light emboss badge logo title button 3d relief perspective',
   'core.bevel_edges': 'bevel edges raised frame tile button panel light 3d relief perspective',
+  'core.block_dissolve': 'block dissolve random squares pixels break up vanish appear reveal transition',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -7037,6 +7039,7 @@ const EFFECT_ABOUT = {
   'core.extract': 'Makes transparent every part too dark or too bright, by one channel, as the white paper is taken from behind a scanned drawing.',
   'core.bevel_alpha': 'Makes the drawing look raised, its outline lit on the side toward a light and darkened on the other.',
   'core.bevel_edges': 'Makes the layer look like a raised tile, its four sides lit toward a light and darkened away from it.',
+  'core.block_dissolve': 'Makes the layer vanish or appear in random blocks.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7257,6 +7260,11 @@ const EFFECT_PARAMS = {
   'core.iris_wipe': [['completion', 'Completion', 1, 1, '% closed, 0 to 100'],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
     ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the circle is']],
+  // D-214, After Effects' own words.
+  'core.block_dissolve': [['completion', 'Transition Completion', 1, 1, '% of the blocks gone, 0 to 100'],
+    ['block_width', 'Block Width', 1, 1, 'pixels, 1 to 10000'],
+    ['block_height', 'Block Height', 1, 1, 'pixels, 1 to 10000'],
+    ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the blocks\' edges are']],
   // D-159.
   'core.simple_choker': [['choke', 'Choke', 1, 0.5, 'pixels, -100 to 100, positive shrinks the edge and negative spreads it']],
   // D-160.

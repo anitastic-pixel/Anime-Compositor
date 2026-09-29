@@ -1181,6 +1181,14 @@ pub enum Effect {
         light_color: String,
         light_intensity: f64,
     },
+    /// D-214: `completion`, 0 to 100; `block_width` and `block_height`, 1 to 10000 pixels;
+    /// `feather`, 0 to 10000 pixels.
+    BlockDissolve {
+        completion: f64,
+        block_width: f64,
+        block_height: f64,
+        feather: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1279,6 +1287,7 @@ pub const RADIAL_SHADOW: &str = "core.radial_shadow";
 pub const EXTRACT: &str = "core.extract";
 pub const BEVEL_ALPHA: &str = "core.bevel_alpha";
 pub const BEVEL_EDGES: &str = "core.bevel_edges";
+pub const BLOCK_DISSOLVE: &str = "core.block_dissolve";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -2067,6 +2076,17 @@ impl Effect {
                 ("light_angle", vec![light_angle], -3600.0, 3600.0),
                 ("light_intensity", vec![light_intensity], 0.0, 1.0),
             ],
+            Effect::BlockDissolve {
+                completion,
+                block_width,
+                block_height,
+                feather,
+            } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("block_width", vec![block_width], 1.0, 10000.0),
+                ("block_height", vec![block_height], 1.0, 10000.0),
+                ("feather", vec![feather], 0.0, 10000.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -2226,6 +2246,17 @@ impl Effect {
             Effect::Emboss { relief, .. } => *relief = scale(*relief),
             // D-213: Bevel Edges' thickness is a share of the layer and is left.
             Effect::BevelAlpha { edge_thickness, .. } => *edge_thickness = scale(*edge_thickness),
+            // D-214: a block is never less than a pixel, the least the command takes.
+            Effect::BlockDissolve {
+                block_width,
+                block_height,
+                feather,
+                ..
+            } => {
+                *block_width = scale(*block_width).max(1.0);
+                *block_height = scale(*block_height).max(1.0);
+                *feather = scale(*feather);
+            }
             Effect::Sharpen { radius, .. } => *radius = scale(*radius),
             Effect::Diffusion { radius, .. } => *radius = scale(*radius),
             Effect::WaveWarp { height, width, .. } => {
@@ -2425,6 +2456,7 @@ impl Effect {
             Effect::Extract { .. } => "Extract",
             Effect::BevelAlpha { .. } => "Bevel Alpha",
             Effect::BevelEdges { .. } => "Bevel Edges",
+            Effect::BlockDissolve { .. } => "Block Dissolve",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2523,6 +2555,7 @@ impl Effect {
             Effect::Extract { .. } => EXTRACT,
             Effect::BevelAlpha { .. } => BEVEL_ALPHA,
             Effect::BevelEdges { .. } => BEVEL_EDGES,
+            Effect::BlockDissolve { .. } => BLOCK_DISSOLVE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3967,6 +4000,15 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectBevelEdges, || {
                 let light = encoded(light_color).map(crate::grade::to_linear);
                 crate::layer_fx::bevel_edges(source, *edge_thickness, *light_angle, light, *light_intensity)
+            }),
+            // D-214: the blocks are the drawing's own, however an effect above grew it.
+            Effect::BlockDissolve {
+                completion,
+                block_width,
+                block_height,
+                feather,
+            } => crate::perf::time(crate::perf::Stage::EffectBlockDissolve, || {
+                crate::layer_fx::block_dissolve(source, *completion, *block_width, *block_height, *feather, (ox, oy))
             }),
             Effect::FindEdges { invert, amount } => crate::perf::time(crate::perf::Stage::EffectFindEdges, || {
                 crate::layer_fx::find_edges(source, invert == "on", *amount)

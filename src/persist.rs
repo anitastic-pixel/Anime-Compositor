@@ -2099,6 +2099,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("light_color".into(), J::from(light_color.as_str()));
             params.insert("light_intensity".into(), num(*light_intensity));
         }
+        Effect::BlockDissolve {
+            completion,
+            block_width,
+            block_height,
+            feather,
+        } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("block_width".into(), num(*block_width));
+            params.insert("block_height".into(), num(*block_height));
+            params.insert("feather".into(), num(*feather));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2646,6 +2657,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "white_softness",
         "light_angle",
         "light_intensity",
+        "block_width",
+        "block_height",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -3141,6 +3154,7 @@ fn parse_effect(
         crate::effects::EXTRACT,
         crate::effects::BEVEL_ALPHA,
         crate::effects::BEVEL_EDGES,
+        crate::effects::BLOCK_DISSOLVE,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3828,6 +3842,12 @@ fn parse_effect(
             light_angle: effect_number(params, "light_angle", &at)?,
             light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
             light_intensity: effect_number(params, "light_intensity", &at)?,
+        }),
+        crate::effects::BLOCK_DISSOLVE => Some(crate::effects::Effect::BlockDissolve {
+            completion: effect_number(params, "completion", &at)?,
+            block_width: effect_number(params, "block_width", &at)?,
+            block_height: effect_number(params, "block_height", &at)?,
+            feather: effect_number(params, "feather", &at)?,
         }),
         _ => None,
     };

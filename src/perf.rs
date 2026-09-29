@@ -231,6 +231,7 @@ pub enum Stage {
     EffectExtract,
     EffectBevelAlpha,
     EffectBevelEdges,
+    EffectBlockDissolve,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -248,7 +249,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 107] = [
+    pub const ALL: [Stage; 108] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -349,6 +350,7 @@ impl Stage {
         Stage::EffectExtract,
         Stage::EffectBevelAlpha,
         Stage::EffectBevelEdges,
+        Stage::EffectBlockDissolve,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -461,6 +463,7 @@ impl Stage {
             Stage::EffectExtract => "effect: extract",
             Stage::EffectBevelAlpha => "effect: bevel alpha",
             Stage::EffectBevelEdges => "effect: bevel edges",
+            Stage::EffectBlockDissolve => "effect: block dissolve",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
