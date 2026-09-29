@@ -231,5 +231,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - blur_layer, fit, max_blur, invert, edges - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.displacement_map` is an effect this build has | added | added | pass |
 | and the settings it sends for it - map_layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.gradient_wipe` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, fit, completion, softness, invert - are the ones the command reads | accepted | accepted | pass |
 
-**211 of 211 checks pass.**
+**213 of 213 checks pass.**
