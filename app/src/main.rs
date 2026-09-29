@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3172,6 +3172,12 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         }),
         // D-182: no file chosen, which changes nothing until one is.
         COLOR_LOOKUP => Some(Effect::ColorLookup { lut: String::new(), table: None }),
+        // D-183: a short pass along every line at full strength, over the whole layer.
+        LINE_BLUR => Some(Effect::LineBlur {
+            length: 4.0,
+            strength: 100.0,
+            lines_only: "off".to_string(),
+        }),
         _ => None,
     }
 }
@@ -3701,6 +3707,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 .map(|t| t.trim().to_string())
                 .ok_or_else(|| "What should lut be set to?".to_string())?,
             table: None,
+        }),
+        LINE_BLUR => Ok(Effect::LineBlur {
+            length: number("length")?,
+            strength: number("strength")?,
+            lines_only: word("lines_only")?,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6642,8 +6653,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
                              core.motion_tile, core.linear_wipe, core.radial_wipe, \
                              core.venetian_blinds, core.iris_wipe, core.simple_choker, \
-                             core.speed_lines, core.cross_glare, core.camera_shake, core.rain \
-                             or core.color_lookup."
+                             core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
+                             core.color_lookup or core.line_blur."
                                 .to_string(),
                         );
                     };
@@ -6667,8 +6678,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
                              core.motion_tile, core.linear_wipe, core.radial_wipe, \
                              core.venetian_blinds, core.iris_wipe, core.simple_choker, \
-                             core.speed_lines, core.cross_glare, core.camera_shake, core.rain \
-                             and core.color_lookup."
+                             core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
+                             core.color_lookup and core.line_blur."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -11204,7 +11215,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the sixty-four are named",
+            "an effect type this build does not have is refused, and the sixty-five are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -11220,7 +11231,7 @@ mod editing {
              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
              core.motion_tile, core.linear_wipe, core.radial_wipe, core.venetian_blinds, \
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
-             core.camera_shake, core.rain and core.color_lookup.",
+             core.camera_shake, core.rain, core.color_lookup and core.line_blur.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -11239,7 +11250,7 @@ mod editing {
              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
              core.motion_tile, core.linear_wipe, core.radial_wipe, core.venetian_blinds, \
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
-             core.camera_shake, core.rain or core.color_lookup.",
+             core.camera_shake, core.rain, core.color_lookup or core.line_blur.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -24383,6 +24394,11 @@ mod contract {
         ),
         // D-182: the lookup file, none.
         ("core.color_lookup", &[("lut", "")]),
+        // D-183.
+        (
+            "core.line_blur",
+            &[("length", "6"), ("strength", "80"), ("lines_only", "on")],
+        ),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

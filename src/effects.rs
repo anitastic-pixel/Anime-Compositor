@@ -737,6 +737,9 @@ pub enum Effect {
     /// D-182: `lut`, the id of an asset of kind lut, or empty for none. `table` is not a setting
     /// and is never saved: it is the file `lut` names, read for the frame by `crate::lut::fill`.
     ColorLookup { lut: String, table: Option<crate::lut::Table> },
+    /// D-183: `length`, 0 to 50 pixels along the line; `strength`, 0 to 100 per cent; and
+    /// `lines_only`, "off" or "on", each pixel's move scaled by its own ink.
+    LineBlur { length: f64, strength: f64, lines_only: String },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -807,6 +810,7 @@ pub const CROSS_GLARE: &str = "core.cross_glare";
 pub const CAMERA_SHAKE: &str = "core.camera_shake";
 pub const RAIN: &str = "core.rain";
 pub const COLOR_LOOKUP: &str = "core.color_lookup";
+pub const LINE_BLUR: &str = "core.line_blur";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1331,6 +1335,10 @@ impl Effect {
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
             Effect::ColorLookup { .. } => vec![],
+            Effect::LineBlur { length, strength, .. } => vec![
+                ("length", vec![length], 0.0, 50.0),
+                ("strength", vec![strength], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1384,6 +1392,7 @@ impl Effect {
             Effect::Glow { radius, .. } => *radius = scale(*radius),
             Effect::DirectionalBlur { length, .. } => *length = scale(*length),
             Effect::LineWidth { width, .. } => *width = scale(*width),
+            Effect::LineBlur { length, .. } => *length = scale(*length),
             Effect::Bloom { radius, length, .. } => {
                 *radius = scale(*radius);
                 *length = scale(*length);
@@ -1537,6 +1546,7 @@ impl Effect {
             Effect::CameraShake { .. } => "Camera Shake",
             Effect::Rain { .. } => "Rain",
             Effect::ColorLookup { .. } => "Color Lookup",
+            Effect::LineBlur { .. } => "Line Blur",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1607,6 +1617,7 @@ impl Effect {
             Effect::CameraShake { .. } => CAMERA_SHAKE,
             Effect::Rain { .. } => RAIN,
             Effect::ColorLookup { .. } => COLOR_LOOKUP,
+            Effect::LineBlur { .. } => LINE_BLUR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1633,6 +1644,8 @@ impl Effect {
             Effect::DirectionalBlur { length, .. } => (*length / 2.0).ceil() as usize,
             // D-94: a thicker line reaches its width further out; a thinner one nowhere.
             Effect::LineWidth { width, .. } if *width > 0.0 => width.ceil() as usize,
+            // D-183: the tensor's reach past anything drawn, at any length but 0.
+            Effect::LineBlur { length, .. } if *length > 0.0 => crate::line_blur::GROW,
             // D-96: the widest blur's reach, or the streaks' length if that is more.
             Effect::Bloom {
                 radius,
@@ -1990,6 +2003,9 @@ impl Effect {
                 .or_else(|| edges(e)),
             Effect::MotionTile { mirror, .. } if !["off", "on"].contains(&mirror.as_str()) => Some(format!(
                 "Motion Tile's mirror is \"off\" or \"on\", and this is \"{mirror}\"."
+            )),
+            Effect::LineBlur { lines_only, .. } if !["off", "on"].contains(&lines_only.as_str()) => Some(format!(
+                "Line Blur's lines only is \"off\" or \"on\", and this is \"{lines_only}\"."
             )),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
@@ -2945,6 +2961,17 @@ pub(crate) fn apply_stack_at(
                         crate::grade::color_lookup(source, &t.0)
                     })
                 }
+            }
+            Effect::LineBlur {
+                length,
+                strength,
+                lines_only,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectLineBlur, || {
+                    crate::line_blur::line_blur(source, *length, *strength, lines_only == "on")
+                });
+                ox += r;
+                oy += r;
             }
         }
     }

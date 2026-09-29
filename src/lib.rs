@@ -14,6 +14,7 @@ pub mod cache;
 mod bloom;
 mod blurs;
 mod cel_fx;
+mod line_blur;
 mod line_width;
 pub mod color;
 pub mod command;

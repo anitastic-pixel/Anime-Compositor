@@ -215,5 +215,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - color, density, spacing, length, width, direction, speed, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.color_lookup` is an effect this build has | added | added | pass |
 | and the settings it sends for it - lut - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.line_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - length, strength, lines_only - are the ones the command reads | accepted | accepted | pass |
 
-**195 of 195 checks pass.**
+**197 of 197 checks pass.**

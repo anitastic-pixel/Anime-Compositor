@@ -1664,6 +1664,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::ColorLookup { lut, .. } => {
             params.insert("lut".into(), J::from(lut.as_str()));
         }
+        Effect::LineBlur {
+            length,
+            strength,
+            lines_only,
+        } => {
+            params.insert("length".into(), num(*length));
+            params.insert("strength".into(), num(*strength));
+            params.insert("lines_only".into(), J::from(lines_only.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2580,6 +2589,7 @@ fn parse_effect(
         crate::effects::CAMERA_SHAKE,
         crate::effects::RAIN,
         crate::effects::COLOR_LOOKUP,
+        crate::effects::LINE_BLUR,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3009,6 +3019,11 @@ fn parse_effect(
         crate::effects::COLOR_LOOKUP => Some(crate::effects::Effect::ColorLookup {
             lut: effect_word(params, "lut", &at)?,
             table: None,
+        }),
+        crate::effects::LINE_BLUR => Some(crate::effects::Effect::LineBlur {
+            length: effect_number(params, "length", &at)?,
+            strength: effect_number(params, "strength", &at)?,
+            lines_only: effect_word(params, "lines_only", &at)?,
         }),
         _ => None,
     };
