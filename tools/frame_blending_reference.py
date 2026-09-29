@@ -1,7 +1,7 @@
 """Time stretch, frame blending and the drawing dissolve, worked a second way.
 
-D-216 proposes three things, all of them about which drawing a layer shows and none about where
-the layer is. A raster or composition layer may be stretched in time; a stretched layer may mix
+D-216, accepted by the owner on 2026-09-29, settles three things. A raster or composition layer
+may be stretched in time, and its keys stretch with it; a stretched layer may mix
 the two drawings either side of a time that falls between them (After Effects' Frame Mix, with a
 switch on the layer and one on the composition, both needed); and a raster layer may dissolve
 each held drawing into the next over the last frames of its hold.
@@ -25,8 +25,14 @@ local frame `f` in a span `[s, e)` holding drawing `A`, when a span begins at ex
     P(f) = A + ((f - (e - d) + 1) / (d + 1)) * (B - A)
 
 so the hold's first frame is always `A` whole and the next span's first frame is `B` whole.
-Masks, effects, transform, matte, opacity and blend then run once on that picture, at `n`.
-Property keys stay on their composition frames: a stretch does not move them.
+Masks, effects, transform, matte, opacity and blend then run once on that picture, at `n`, and
+the layer's keys are read at the key time
+
+    u = I + (n - I) * 100 / S
+
+so a key stored at frame `k` plays at composition frame `I + (k - I) * S / 100`, with the drawing
+it was set against, as After Effects stretches keys (D-216, the owner's first answer). At 100,
+`u` is `n`. The stored keys never move.
 
 **This file never runs the build's code path.** It reads the very project files it writes and
 draws each one-pixel-high frame pixel by pixel from documents 20 and 21.
@@ -92,6 +98,21 @@ def source_time(layer, n):
     t = ((n - layer["in_frame"]) * 100) / layer.get("time_stretch", 100) + layer["source_offset_frames"]
     f = floor(t)
     return t, f, t - f
+
+
+def key_time(layer, n):
+    """u, where the layer's keys are read at composition frame `n`: `n` itself at 100."""
+    s = layer.get("time_stretch", 100)
+    return n if s == 100 else layer["in_frame"] + ((n - layer["in_frame"]) * 100) / s
+
+
+def played_at(i, s, k):
+    """The composition frame where a key stored at `k` plays."""
+    return k if s == 100 else i + (k - i) * s / 100
+
+
+def round_half_away(x):
+    return floor(x + 0.5) if x >= 0 else -floor(-x + 0.5)
 
 
 def comp_of(project, cid):
@@ -176,10 +197,11 @@ def render(project, comp_id, n, log):
         if layer["kind"] == "null" or not layer["in_frame"] <= n < layer["out_frame"]:
             continue
         pic = source(project, comp, layer, n, log)
-        x, y = value_at(layer["transform"]["position"], n)
+        u = key_time(layer, n)
+        x, y = value_at(layer["transform"]["position"], u)
         assert x == int(x) and y == 0, "whole pixels, sideways"
         pic = placed(pic, int(x), comp["width"])
-        o = value_at(layer["transform"]["opacity"], n)
+        o = value_at(layer["transform"]["opacity"], u)
         frame = [over([c * o for c in p], d) for p, d in zip(pic, frame)]
     return frame
 
@@ -212,8 +234,9 @@ def extra(record, stretch, mix, dissolve):
         record["drawing_dissolve"] = dissolve
 
 
-def nested(id="nest", inner="comp-inner", stretch=None, mix=False, **kw):
-    record, t = common(id, "composition", [0, 0], out_frame=12, **kw)
+def nested(id="nest", inner="comp-inner", stretch=None, mix=False, position=(0, 0), **kw):
+    record, t = common(id, "composition", list(position) if not isinstance(position, list) else position,
+                       out_frame=12, **kw)
     record.update({"composition_id": inner, "source_offset_frames": 0})
     record = finish(record, t, kw)
     extra(record, stretch, mix, 0)
@@ -300,16 +323,39 @@ PIXELS = {
                       "is 3 pixels with half-covered ends.",
                       project("FX-FBLEND-022", [nested(inner="comp-slide", **MIXED)], inner=[INNER_SLIDE]),
                       list(range(8))),
-    "FX-FBLEND-023": ("Keys are not stretched: the layer's position is keyed from 0 at frame 0 "
-                      "to 4 at frame 4, and it is at x = n on frame n while its drawings play at "
-                      "half speed with Frame Mix.",
-                      project("FX-FBLEND-023", [raster(position=[key(0, [0, 0]), key(4, [4, 0])], **MIXED)]),
-                      list(range(5))),
+    "FX-FBLEND-023": ("Keys stretch with the layer: its position is keyed from x 0 at frame 0 to "
+                      "x 8 at frame 4. Stretched 200 with Frame Mix, that key plays at frame 8, so "
+                      "the layer is at x = n on frame n, half the speed it had, in step with its "
+                      "drawings. The stored keys stay at 0 and 4.",
+                      project("FX-FBLEND-023", [raster(position=[key(0, [0, 0]), key(4, [8, 0])], **MIXED)]),
+                      list(range(8))),
     "FX-FBLEND-024": ("A file that writes the defaults: stretch 100 and the composition's switch "
                       "false. They read as absent, the drawings on twos, and saved again neither "
                       "field is written.",
                       project("FX-FBLEND-024", [raster(stretch=100, out_frame=6)], blend=False),
                       list(range(6))),
+    "FX-FBLEND-025": ("Sped up: stretch 50, no mixing, position keyed from x 0 at frame 0 to x 2 "
+                      "at frame 4. The key at 4 plays at frame 2: x is 0, 1, 2, then held at 2, "
+                      "while the drawings go red, blue, green, then nothing past the last.",
+                      project("FX-FBLEND-025", [raster(position=[key(0, [0, 0]), key(4, [2, 0])], stretch=50)]),
+                      list(range(4))),
+    "FX-FBLEND-026": ("In point 2, stretch 200 with Frame Mix, position keyed from x 0 at frame 2 "
+                      "to x 4 at frame 4: the keys stretch from the in point, so the key at 4 "
+                      "plays at frame 6: the layer is at x = n - 2 up to there, then stays at 4.",
+                      project("FX-FBLEND-026", [raster(in_frame=2, position=[key(2, [0, 0]), key(4, [4, 0])],
+                                                       **MIXED)]), list(range(10))),
+    "FX-FBLEND-027": ("A held key: opacity 1, held, at frame 0 and 0 at frame 3. Stretched 200 "
+                      "without mixing, the layer vanishes at frame 6, not 3.",
+                      project("FX-FBLEND-027", [raster(stretch=200, opacity=prop(1, [key(0, 1, "hold"),
+                                                                                   key(3, 0)]))]),
+                      list(range(8))),
+    "FX-FBLEND-028": ("A composition layer stretched 200, no mixing, showing the moving dot of "
+                      "FX-FBLEND-022, its own position keyed from x 0 at frame 0 to x 4 at frame "
+                      "2: the outer key plays at frame 4, so the layer is at x = n, and the dot "
+                      "inside is where its own keys put it at the inner frame floor(n / 2).",
+                      project("FX-FBLEND-028", [nested(inner="comp-slide", stretch=200,
+                                                       position=[key(0, [0, 0]), key(2, [4, 0])])],
+                              inner=[INNER_SLIDE]), list(range(5))),
     "FX-FBLEND-030": ("Drawing Dissolve 1 on twos, stretch 100: the second frame of each hold is "
                       "half the drawing and half the next; the last drawing has no next and holds.",
                       project("FX-FBLEND-030", [raster(dissolve=1, out_frame=6)]), list(range(6))),
@@ -367,9 +413,52 @@ COMMANDS = {
 
 def stretched_out(i, o, s0, s1):
     """Where the Time Stretch command puts the out point; the in point stays."""
-    x = (o - i) * s1 / s0
-    whole = floor(x + 0.5) if x >= 0 else -floor(-x + 0.5)
-    return i + max(1, whole)
+    return i + max(1, round_half_away((o - i) * s1 / s0))
+
+
+# Where a stretched layer's keys play, and where a key set at the playhead is stored. The stored
+# frames are whole and never move; the Time Stretch command changes only where they play.
+KEYS = {
+    "FX-FBLEND-045": ("In 0, stretched from 100 to 200 by the command: the keys stay stored at 0 "
+                      "and 4 and play at 0 and 8.", 0, 200, [0, 4], None),
+    "FX-FBLEND-046": ("In 10, stretch 150, keys at 10, 13 and 17: they play at 10, 14.5 and 20.5, "
+                      "between frames where the stretch puts them.", 10, 150, [10, 13, 17], None),
+    "FX-FBLEND-047": ("In 0, stretch 50, keys at 0, 1, 2 and 3: they play at 0, 0.5, 1 and 1.5, "
+                      "and no two land together, which moving the stored keys would do.",
+                      0, 50, [0, 1, 2, 3], None),
+    "FX-FBLEND-048": ("In 0, stretch 200, a key set with the playhead on frame 5: the key time "
+                      "there is 2.5, stored as 3, rounded half away from zero, which plays at 6.",
+                      0, 200, None, 5),
+    "FX-FBLEND-049": ("In 1, stretch 300, a key set with the playhead on frame 7: the key time is "
+                      "3 exactly, stored as 3, which plays at 7.", 1, 300, None, 7),
+}
+
+# Trimming the in point of a stretched layer. Moving the in point by d must leave every
+# surviving frame's drawing and key where it was: the offset moves by d x 100 / S source frames
+# and the stored keys by d - d x 100 / S. Both are whole only when d x 100 / S is; otherwise the
+# trim is refused and nothing changes. At 100 this is today's trim: the offset moves by d, the
+# keys not at all.
+TRIMS = {
+    "FX-FBLEND-064": ("Stretch 200, in 0, keys at 0 and 4, the in point trimmed to 2: the offset "
+                      "goes from 0 to 1, the keys to 1 and 5, and they still play at 0 and 8.",
+                      0, 12, 0, 200, [0, 4], 2),
+    "FX-FBLEND-065": ("Stretch 200, the in point trimmed by 1 frame, half a source frame: refused, "
+                      "nothing changes.", 0, 12, 0, 200, [0, 4], 1),
+    "FX-FBLEND-066": ("Stretch 50, offset 1, keys at 2 and 6, the in point trimmed from 0 to 1: "
+                      "the offset goes to 3, the keys to 1 and 5, playing at 1 and 3 as before.",
+                      0, 6, 1, 50, [2, 6], 1),
+    "FX-FBLEND-067": ("Stretch 100, the in point trimmed from 0 to 3: the offset moves by 3 and "
+                      "the keys stay, as trimming always has.", 0, 12, 0, 100, [0, 4], 3),
+}
+
+
+def trimmed(i, offset, s, keys, new_in):
+    """The offset and stored keys after the in point moves to `new_in`, or None when refused."""
+    d = new_in - i
+    x = d * 100 / s
+    if x != floor(x):
+        return None
+    return offset + int(x), [k + d - int(x) for k in keys]
 
 
 def refusals():
@@ -439,19 +528,20 @@ def main():
         (OUT / "media" / f"{name}.png").write_bytes(png(pixels))
 
     expected = {"tolerance": TOLERANCE, "pixel_tolerance": PIXEL_TOLERANCE, "width": W, "height": H,
-                "times": {}, "cases": {}, "commands": {}, "refused": {}}
+                "times": {}, "cases": {}, "commands": {}, "keys": {}, "trims": {}, "refused": {}}
 
-    print("Times. For each frame n, the source time t, its whole frame f and the share w of the "
-          "next.\n")
-    print("| case | stretch | in | offset | n | t | f | w |")
-    print("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    print("Times. For each frame n, the source time t, its whole frame f, the share w of the "
+          "next, and the key time u at which the layer's keys are read.\n")
+    print("| case | stretch | in | offset | n | t | f | w | u |")
+    print("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for fx, (says, s, i, o, ns) in TIMES.items():
         layer = {"in_frame": i, "source_offset_frames": o, "time_stretch": s}
-        rows = [dict(zip(("t", "f", "w"), source_time(layer, n)), n=n) for n in ns]
+        rows = [dict(zip(("t", "f", "w"), source_time(layer, n)), n=n, u=key_time(layer, n)) for n in ns]
         expected["times"][fx] = {"says": says, "time_stretch": s, "in_frame": i,
                                  "source_offset_frames": o, "rows": rows}
         for r in rows:
-            print(f"| {fx} | {fmt(s)} | {i} | {o} | {r['n']} | {fmt(r['t'])} | {r['f']} | {fmt(r['w'])} |")
+            print(f"| {fx} | {fmt(s)} | {i} | {o} | {r['n']} | {fmt(r['t'])} | {r['f']} | {fmt(r['w'])} "
+                  f"| {fmt(r['u'])} |")
     print()
     for fx, (says, *_) in TIMES.items():
         print(f"{fx}: {says}")
@@ -481,6 +571,44 @@ def main():
         print(f"| {fx} | {i} | {o} | {s0} | {s1} | {after} |")
     print()
     for fx, (says, *_) in COMMANDS.items():
+        print(f"{fx}: {says}")
+    print()
+
+    print("Keys. A key stored at frame k plays at in + (k - in) x stretch / 100; a key set with the "
+          "playhead on frame n is stored at the key time u there, rounded half away from zero.\n")
+    print("| case | in | stretch | playhead | stored | plays at |")
+    print("| --- | --- | --- | --- | --- | --- |")
+    for fx, (says, i, s, stored, playhead) in KEYS.items():
+        if playhead is not None:
+            stored = [round_half_away(key_time({"in_frame": i, "time_stretch": s}, playhead))]
+        played = [played_at(i, s, k) for k in stored]
+        expected["keys"][fx] = {"says": says, "in_frame": i, "time_stretch": s, "stored": stored,
+                                "played": played}
+        if playhead is not None:
+            expected["keys"][fx]["playhead"] = playhead
+        shown = "-" if playhead is None else playhead
+        print(f"| {fx} | {i} | {s} | {shown} | {', '.join(map(str, stored))} "
+              f"| {', '.join(fmt(p) for p in played)} |")
+    print()
+    for fx, (says, *_) in KEYS.items():
+        print(f"{fx}: {says}")
+    print()
+
+    print("Trims. The in point of a stretched layer moved by d: the offset moves by d x 100 / "
+          "stretch and the stored keys by d - d x 100 / stretch, or, when that is not whole, the "
+          "trim is refused.\n")
+    print("| case | stretch | in | out | offset | keys | new in | offset after | keys after |")
+    print("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    for fx, (says, i, o, off, s, keys, new_in) in TRIMS.items():
+        after = trimmed(i, off, s, keys, new_in)
+        expected["trims"][fx] = {"says": says, "in_frame": i, "out_frame": o, "source_offset_frames": off,
+                                 "time_stretch": s, "keys": keys, "new_in": new_in,
+                                 "after": None if after is None else {"source_offset_frames": after[0],
+                                                                      "keys": after[1]}}
+        a = ("refused", "-") if after is None else (after[0], ", ".join(map(str, after[1])))
+        print(f"| {fx} | {s} | {i} | {o} | {off} | {', '.join(map(str, keys))} | {new_in} | {a[0]} | {a[1]} |")
+    print()
+    for fx, (says, *_) in TRIMS.items():
         print(f"{fx}: {says}")
     print()
 
@@ -531,7 +659,35 @@ def checks(e):
     assert all(c["FX-FBLEND-020"][str(n + 3)] == mixed[str(n)] for n in range(9))
     dot = c["FX-FBLEND-022"]["1"]
     assert [p[3] for p in dot][:4] == [0.5, 1.0, 0.5, 0.0]
-    assert c["FX-FBLEND-023"]["2"] == [CLEAR] * 2 + red[:6]
+    assert all(c["FX-FBLEND-023"][str(n)] == placed(mixed[str(n)], n, W) for n in range(8))
+    assert c["FX-FBLEND-023"]["4"] == placed(blue, 4, W) != none, "at x 4, not x 8 off the frame"
+    assert c["FX-FBLEND-025"] == frames(red, placed(blue, 1, W), placed(green, 2, W), none)
+    assert all(c["FX-FBLEND-026"][str(n)] == none for n in range(2))
+    assert all(c["FX-FBLEND-026"][str(n + 2)] == placed(mixed[str(n)], min(n, 4), W) for n in range(8))
+    assert c["FX-FBLEND-026"]["6"] == placed(blue, 4, W), "the key at 4 plays at 6"
+    assert all(c["FX-FBLEND-027"][str(n)] == held[str(n)] for n in range(6))
+    assert c["FX-FBLEND-027"]["6"] == c["FX-FBLEND-027"]["7"] == none
+    for n in range(5):
+        left = n // 2 + n
+        assert [p[3] for p in c["FX-FBLEND-028"][str(n)]] == [1.0 if left <= x < left + 2 else 0.0
+                                                               for x in range(W)], n
+    k = {fx: v for fx, v in e["keys"].items()}
+    assert k["FX-FBLEND-045"]["played"] == [0, 8] and k["FX-FBLEND-046"]["played"] == [10, 14.5, 20.5]
+    assert len(set(k["FX-FBLEND-047"]["played"])) == 4
+    assert k["FX-FBLEND-048"]["stored"] == [3] and k["FX-FBLEND-048"]["played"] == [6]
+    assert k["FX-FBLEND-049"]["stored"] == [3] and k["FX-FBLEND-049"]["played"] == [7]
+    for fx, v in e["trims"].items():
+        i, s, a = v["in_frame"], v["time_stretch"], v["after"]
+        if a is None:
+            continue
+        before = {"in_frame": i, "source_offset_frames": v["source_offset_frames"], "time_stretch": s}
+        now = dict(before, in_frame=v["new_in"], source_offset_frames=a["source_offset_frames"])
+        for n in range(v["new_in"], v["out_frame"]):
+            assert source_time(now, n) == source_time(before, n), (fx, n)
+        new_played = [played_at(v["new_in"], s, x) for x in a["keys"]]
+        assert new_played == [played_at(i, s, x) for x in v["keys"]], fx
+    assert e["trims"]["FX-FBLEND-065"]["after"] is None
+    assert e["trims"]["FX-FBLEND-067"]["after"] == {"source_offset_frames": 3, "keys": [0, 4]}
     diss = frames(red, half(red, blue), blue, half(blue, green), green, green)
     assert c["FX-FBLEND-030"] == diss and c["FX-FBLEND-032"] == diss and c["FX-FBLEND-037"] == diss
     assert c["FX-FBLEND-031"]["1"] == half(red, blue, 1 / 3) and c["FX-FBLEND-031"]["2"] == half(red, blue, 2 / 3)
@@ -547,6 +703,9 @@ def checks(e):
     assert [r["w"] for r in t["FX-FBLEND-002"]] == [0, 0.5] * 3
     assert [r["f"] for r in t["FX-FBLEND-006"]] == [0, 3, 6, 9]
     assert [r["t"] for r in t["FX-FBLEND-008"]] == [0, 100, 200]
+    assert [r["u"] for r in t["FX-FBLEND-001"]] == [2, 3, 4, 7], "u is n at 100"
+    assert [r["u"] for r in t["FX-FBLEND-005"]] == [10 + x / 3 for x in range(4)], "from the in point"
+    assert all(r["u"] == r["t"] for r in t["FX-FBLEND-002"]), "in 0, offset 0: the keys go with t"
     assert [v["out_after"] for v in e["commands"].values()] == [12, 21, 3, 5, 2]
 
 

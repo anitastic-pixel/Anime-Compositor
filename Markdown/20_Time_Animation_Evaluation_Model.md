@@ -28,7 +28,7 @@ A layer is active on `[in_frame, out_frame)`. Its integer local frame is:
 
 `local_frame = composition_frame - in_frame + source_offset_frames`
 
-A layer with a `time_stretch` other than 100 (D-216, proposed) reads its source at a time that may fall between two local frames; see Time stretch, frame blending and the drawing dissolve below.
+A layer with a `time_stretch` other than 100 (D-216) reads its source and its keys at a time that may fall between two local frames; see Time stretch, frame blending and the drawing dissolve below.
 
 Frames outside the active interval produce transparent output and do not request media. Moving a layer changes `in_frame/out_frame` and moves every keyframe on the layer by the same number of frames (owner decision, 2026-09-13); trimming and changing source offset are distinct commands.
 
@@ -128,7 +128,7 @@ Everything else is read once, at `n`, exactly as without motion blur: the layer'
 
 ### Time stretch, frame blending and the drawing dissolve
 
-**Proposed with ADR-020 and D-216 on 2026-09-29, awaiting the owner; not built.** FX-FBLEND-001 to 063 in document 25 are its cases. A raster or composition layer may carry a `time_stretch` in per cent, from 1 to 10000, 100 when absent. Its source time at composition frame `n`, inside its in and out points, is
+**Accepted by the owner with ADR-020 and D-216 on 2026-09-29, keys stretching with the layer by the owner's first answer (B-150a2); built in B-150b.** FX-FBLEND-001 to 067 in document 25 are its cases. A raster or composition layer may carry a `time_stretch` in per cent, from 1 to 10000, 100 when absent. Its source time at composition frame `n`, inside its in and out points, is
 
 `t = (n - in_frame) * 100 / time_stretch + source_offset_frames`,
 
@@ -138,7 +138,15 @@ worked in 64-bit numbers, with `f = floor(t)` and `w = t - f` (FX-FBLEND-001 to 
 
 The drawing dissolve: a raster layer may carry `drawing_dissolve`, a whole number of frames `D` from 0 to 100, 0 when absent. At a local frame `f` in the span `[s, e)` holding drawing `A`, when a span begins at exactly `e` holding drawing `B`, let `d = min(D, e - s - 1)`; when `d > 0` and `f >= e - d`, `P(f) = A + ((f - (e - d) + 1) / (d + 1)) * (B - A)`. Otherwise `P(f)` is `A`, as before: before a gap, on the last span and on ones nothing dissolves (FX-FBLEND-030 to 039). The dissolve does not read the composition's switch.
 
-Keys are read at `n`, never at `t`: a stretch moves no key (FX-FBLEND-023). Steps 6 to 9 of the evaluation order are unchanged. Echo, Posterize Time and a layer setting read a layer's source by its own timing, and so read this same `t`. The Time Stretch command keeps the in point and sets the out point to `in_frame + max(1, round_half_away((out_frame - in_frame) * new / old))`, as one undo entry (FX-FBLEND-040 to 044).
+**Keys stretch with the layer**, as in After Effects (the owner's answer of 2026-09-29, B-150a2). Every key of a stretched layer - its transform and depth, its masks, its effects' settings - is read at the key time
+
+`u = in_frame + (n - in_frame) * 100 / time_stretch`,
+
+in 64-bit numbers, by the rules above for a time between two keys, never rounded; at 100, `u` is `n` exactly (the times cases give `u` too). A key stored at frame `k` so plays at composition frame `in_frame + (k - in_frame) * time_stretch / 100`, with the drawing it was set against (FX-FBLEND-023, 025 to 028). Stored key frames stay whole and are never moved by a stretch: the Time Stretch command changes only where they play, so no two keys land together (FX-FBLEND-045 to 047). A key set on a stretched layer with the playhead on frame `n` is stored at `round_half_away(u)` and plays where that frame puts it (FX-FBLEND-048, 049). Under motion blur each moment `t_k` is read at its own `u`. A parent's keys are read by the parent's own stretch, and a composition layer's inner keys at the inner composition's frame `f`, as that composition is drawn. A property with an enabled expression is still evaluated at `n` (D-59), and an effect that changes with the frame number itself rather than by keys, a seed or a drift, still reads `n`. Steps 6 to 9 of the evaluation order are otherwise unchanged.
+
+Trimming the in point of a stretched layer by `d` frames must leave every surviving frame's drawing and key where it was: the offset moves by `x = d * 100 / time_stretch` source frames and every stored key of the layer by `d - x`. When `x` is not a whole number the trim is refused and nothing changes. At 100 this is the trim as it has always been (FX-FBLEND-064 to 067). Moving a whole layer in time moves its keys with it, as before.
+
+Echo, Posterize Time and a layer setting read a layer's source by its own timing, and so read this same `t`. The Time Stretch command keeps the in point and sets the out point to `in_frame + max(1, round_half_away((out_frame - in_frame) * new / old))`, as one undo entry, and moves no stored key (FX-FBLEND-040 to 045).
 
 ## Rounding and conversions
 
@@ -154,6 +162,6 @@ Given the same project snapshot, frame index, media bytes and implementation ver
 
 ## Extension boundary
 
-Audio sample time is set by ADR-018 and D-71, accepted on 2026-09-19, with FX-AUD-001 to 008 as its fixtures: it adds a sum from whole frames to whole samples and changes nothing above. Motion blur was added by ADR-019 and D-188, which the owner accepted on 2026-09-28, with FX-MB-001 to 050 as its fixtures, under Motion blur above. Time stretch, Frame Mix frame blending and the drawing dissolve are proposed by ADR-020 and D-216 on 2026-09-29, awaiting the owner, with FX-FBLEND-001 to 063 as their fixtures, under Time stretch, frame blending and the drawing dissolve above. Retiming curves (time remapping), optical flow (Pixel Motion), playing backwards and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
+Audio sample time is set by ADR-018 and D-71, accepted on 2026-09-19, with FX-AUD-001 to 008 as its fixtures: it adds a sum from whole frames to whole samples and changes nothing above. Motion blur was added by ADR-019 and D-188, which the owner accepted on 2026-09-28, with FX-MB-001 to 050 as its fixtures, under Motion blur above. Time stretch, Frame Mix frame blending and the drawing dissolve were added by ADR-020 and D-216, which the owner accepted on 2026-09-29, with FX-FBLEND-001 to 067 as their fixtures, under Time stretch, frame blending and the drawing dissolve above. Retiming curves (time remapping), optical flow (Pixel Motion), playing backwards and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
 
 Related documents: 07, 19, 21 and 25.

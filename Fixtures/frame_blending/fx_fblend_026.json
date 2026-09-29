@@ -1,6 +1,6 @@
 {
   "schema_version": 0,
-  "project_id": "proj-fx-fblend-023",
+  "project_id": "proj-fx-fblend-026",
   "color_settings": {
     "working_space": "linear-srgb",
     "alpha_mode": "premultiplied"
@@ -49,7 +49,7 @@
           "name": "bar",
           "enabled": true,
           "locked": false,
-          "in_frame": 0,
+          "in_frame": 2,
           "out_frame": 12,
           "asset_id": "asset-bar",
           "source_offset_frames": 0,
@@ -85,7 +85,7 @@
               ],
               "keyframes": [
                 {
-                  "frame": 0,
+                  "frame": 2,
                   "value": [
                     0,
                     0
@@ -95,7 +95,7 @@
                 {
                   "frame": 4,
                   "value": [
-                    8,
+                    4,
                     0
                   ],
                   "interp": "linear"

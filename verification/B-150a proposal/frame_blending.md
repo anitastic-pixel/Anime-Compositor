@@ -9,6 +9,12 @@ This is item 5 of the fourth batch. On 2026-09-29 you answered "both":
 The time rules (document 20) say anything that reads between frames needs a decision (an ADR)
 and fixtures of its own first. So this is a proposal. **Nothing is built until you accept it.**
 
+**Accepted on 2026-09-29.** You said yes to all four recommendations below. To question 1 the
+answer was that **keys stretch with the layer, like After Effects**, so the rule changed after
+this page was written (B-150a2): a stretched layer's movement slows down or speeds up with its
+drawings. Where this page says the keys stay, read that they stretch. The pictures are
+unchanged: the bouncing ball has no keys.
+
 ## What it is
 
 - **Time Stretch**, on a drawing layer or a composition layer: a percentage. 100 is as drawn. 200

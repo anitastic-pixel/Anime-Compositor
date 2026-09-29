@@ -1,6 +1,8 @@
 # ADR-020: A stretched layer reads its source between frames; Frame Mix mixes the two frames either side; drawings may dissolve
 
-Status: PROPOSED on 2026-09-29 by the agent, awaiting the owner (D-216)
+Status: ACCEPTED by the owner on 2026-09-29 (D-216). Answer 1 changed decision 5: keys stretch
+with the layer (B-150a2). Answers 2 to 4 kept decisions 3 and 4 and the composition switch as
+written
 Date: 2026-09-29
 Deciders: Andrew (owner)
 Relates to: D-216, document 20 "Layer-local time", "Exposure evaluation" and "Extension boundary", document 21 "Layer render order" and "Deferred rendering questions", D-67 (composition layers), D-188 and ADR-019 (motion blur), D-189 (layer settings), D-101 (`GPU_PREVIEW_ON_CPU`)
@@ -51,8 +53,14 @@ next span's first frame `B` whole. Before a gap, on the last drawing, and on one
 dissolves. The dissolve is the layer's own and does not read the composition's switch. It is
 worked inside `P(f)`, so a stretched, mixed layer mixes dissolved frames.
 
-**5. Nothing else moves.** Keys stay on their composition frames: a stretch does not stretch the
-layer's keys. In and out points are composition frames. Masks, effects, transform, matte,
+**5. Keys stretch with the layer; nothing else moves.** As in After Effects, the layer's keys
+are read at the key time `u = in_frame + (n - in_frame) * 100 / time_stretch`, so a key stored
+at `k` plays at `in_frame + (k - in_frame) * time_stretch / 100`, with the drawing it was set
+against. The stored keys stay whole and never move, so no two land together; a key set at the
+playhead is stored at `u` rounded half away from zero. Trimming the in point by `d` moves the
+offset by `d * 100 / time_stretch` and the keys by the rest of `d`, or is refused when that is
+not whole. Expressions and effects that change with the frame number itself still read `n`.
+In and out points are composition frames. Masks, effects, transform, matte,
 opacity, blend and motion blur run once, on the one mixed picture, at `n`. Echo, Posterize Time
 and layer settings read a layer's source by its own timing and so read the same `t`. The Time
 Stretch command keeps the in point and moves the out point by the same share, as one undo entry.
@@ -67,10 +75,12 @@ frame with a mixed or dissolved layer on the processor and says so with `GPU_PRE
   only new thing is a share between two of them.
 - A mixed frame costs two source pictures. For a composition layer that is two renders of the
   inner composition. The picture cache holds whole frames and serves both.
-- Keys not stretching differs from After Effects, where the Time Stretch command also stretches
-  the layer's keys. It is a question for the owner.
+- Keys stretch as in After Effects, the owner's answer. A key between frames is read between
+  frames, as motion blur already reads keys; a stored key is still a whole frame, so a key set
+  on a stretched layer may play up to half a stretched frame from the playhead.
+- A stretched layer's in point trims only by whole source frames.
 - Files are unchanged unless the new settings are used; the defaults are never written.
-- FX-FBLEND-001 to 063 in document 25 pin the times, the pictures, the command and the files that
+- FX-FBLEND-001 to 067 in document 25 pin the times, the pictures, the command and the files that
   are refused.
 
 ## Alternatives not taken

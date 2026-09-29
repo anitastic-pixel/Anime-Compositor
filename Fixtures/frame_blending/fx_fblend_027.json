@@ -1,6 +1,6 @@
 {
   "schema_version": 0,
-  "project_id": "proj-fx-fblend-023",
+  "project_id": "proj-fx-fblend-027",
   "color_settings": {
     "working_space": "linear-srgb",
     "alpha_mode": "premultiplied"
@@ -83,24 +83,7 @@
                 0,
                 0
               ],
-              "keyframes": [
-                {
-                  "frame": 0,
-                  "value": [
-                    0,
-                    0
-                  ],
-                  "interp": "linear"
-                },
-                {
-                  "frame": 4,
-                  "value": [
-                    8,
-                    0
-                  ],
-                  "interp": "linear"
-                }
-              ]
+              "keyframes": []
             },
             "scale": {
               "base": [
@@ -115,15 +98,25 @@
             },
             "opacity": {
               "base": 1,
-              "keyframes": []
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": 1,
+                  "interp": "hold"
+                },
+                {
+                  "frame": 3,
+                  "value": 0,
+                  "interp": "linear"
+                }
+              ]
             }
           },
           "mask": null,
           "matte": null,
           "blend_mode": "normal",
           "effects": [],
-          "time_stretch": 200,
-          "frame_blend": "frame_mix"
+          "time_stretch": 200
         }
       ],
       "frame_blending": true

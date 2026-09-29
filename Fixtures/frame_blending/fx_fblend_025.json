@@ -1,6 +1,6 @@
 {
   "schema_version": 0,
-  "project_id": "proj-fx-fblend-023",
+  "project_id": "proj-fx-fblend-025",
   "color_settings": {
     "working_space": "linear-srgb",
     "alpha_mode": "premultiplied"
@@ -95,7 +95,7 @@
                 {
                   "frame": 4,
                   "value": [
-                    8,
+                    2,
                     0
                   ],
                   "interp": "linear"
@@ -122,8 +122,7 @@
           "matte": null,
           "blend_mode": "normal",
           "effects": [],
-          "time_stretch": 200,
-          "frame_blend": "frame_mix"
+          "time_stretch": 50
         }
       ],
       "frame_blending": true

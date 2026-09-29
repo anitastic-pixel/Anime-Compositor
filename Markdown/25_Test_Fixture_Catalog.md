@@ -198315,51 +198315,51 @@ Frame 4: every pixel is the drawing's.
 
 ## Frame blending fixtures
 
-**D-216, proposed on 2026-09-29 with ADR-020, awaiting the owner; not built.** The projects are in `Fixtures/frame_blending/`. The pixel cases are a composition 8 by 1 at 24 fps, twelve frames long unless the case says, holding one raster layer at (0, 0) with three drawings 8 by 1 in `Fixtures/frame_blending/media/`, of full and empty channels only: drawing 1 red on pixels 0 to 3, drawing 2 blue on 2 to 5, drawing 3 green on 4 to 7. Unless the case says, they are exposed on twos, local frames 0 and 1 drawing 1, 2 and 3 drawing 2, 4 and 5 drawing 3, and the composition's frame-blending switch is on. Each value is a pixel's four working numbers, red, green, blue and covering, linear and premultiplied; `says` is what the frame reports. The times cases are `t`, `f` and `w` for a list of frames; the commands cases are where the Time Stretch command puts the out point; FX-FBLEND-050 to 063 are files that must be refused.
+**D-216, accepted by the owner on 2026-09-29 with ADR-020, keys stretching with the layer (B-150a2).** The projects are in `Fixtures/frame_blending/`. The pixel cases are a composition 8 by 1 at 24 fps, twelve frames long unless the case says, holding one raster layer at (0, 0) with three drawings 8 by 1 in `Fixtures/frame_blending/media/`, of full and empty channels only: drawing 1 red on pixels 0 to 3, drawing 2 blue on 2 to 5, drawing 3 green on 4 to 7. Unless the case says, they are exposed on twos, local frames 0 and 1 drawing 1, 2 and 3 drawing 2, 4 and 5 drawing 3, and the composition's frame-blending switch is on. Each value is a pixel's four working numbers, red, green, blue and covering, linear and premultiplied; `says` is what the frame reports. The times cases are `t`, `f`, `w` and the key time `u` for a list of frames; the commands cases are where the Time Stretch command puts the out point; the keys cases are where stored keys play and where a key set at the playhead is stored; the trims cases are the offset and keys after the in point of a stretched layer is trimmed; FX-FBLEND-050 to 063 are files that must be refused.
 
 **Every number below is produced by `tools/frame_blending_reference.py`**, which reads the very project files it writes and draws each frame pixel by pixel from documents 20 and 21. The same numbers are in `Fixtures/frame_blending/expected_frame_blending.json`. Tolerance 1e-12 for the times, 1e-6 for the pixels.
 
-**Checked by what they claim.** The tool checks the drawings unchanged at 100 and with no fields or the defaults written (010, 014, 024); each drawing held four frames with either switch off (011, 013); half and half on frames 3 and 7 and exact drawings elsewhere, the same from a composition layer (012, 021); the shares in thirds (015); the sped-up share (016); half-covered red at a gap (017); the missing drawing reported on exactly the frames that read it (018); the offset and the in point (019, 020); the moving dot's half-covered ends (022); the position read at the composition frame (023); the dissolve on twos, clamped and without the composition switch the same (030, 032, 037); thirds on threes (031); ones and a gap unchanged (033, 034); the same drawing exact (035); the missing next drawing reported (036); three quarters red with both together (038); the dissolved frame held two frames (039); and the times of 001, 002, 006 and 008 and every command's out point.
+**Checked by what they claim.** The tool checks the drawings unchanged at 100 and with no fields or the defaults written (010, 014, 024); each drawing held four frames with either switch off (011, 013); half and half on frames 3 and 7 and exact drawings elsewhere, the same from a composition layer (012, 021); the shares in thirds (015); the sped-up share (016); half-covered red at a gap (017); the missing drawing reported on exactly the frames that read it (018); the offset and the in point (019, 020); the moving dot's half-covered ends (022); the position keys stretched, at x 4 on frame 4 and not off the frame (023), sped up (025), from the in point (026), a held key vanishing at 6 not 3 (027) and on a composition layer with its inner keys at the inner frame (028); the dissolve on twos, clamped and without the composition switch the same (030, 032, 037); thirds on threes (031); ones and a gap unchanged (033, 034); the same drawing exact (035); the missing next drawing reported (036); three quarters red with both together (038); the dissolved frame held two frames (039); the times of 001, 002, 006 and 008, `u` equal to `n` at 100 and running from the in point; every command's out point; where the keys play, none landing together (045 to 049); and, for every trim that is not refused, every surviving frame's source time and every key's place unchanged (064 to 067).
 
-Times. For each frame n, the source time t, its whole frame f and the share w of the next.
+Times. For each frame n, the source time t, its whole frame f, the share w of the next, and the key time u at which the layer's keys are read.
 
-| case | stretch | in | offset | n | t | f | w |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| FX-FBLEND-001 | 100 | 2 | 1 | 2 | 1 | 1 | 0 |
-| FX-FBLEND-001 | 100 | 2 | 1 | 3 | 2 | 2 | 0 |
-| FX-FBLEND-001 | 100 | 2 | 1 | 4 | 3 | 3 | 0 |
-| FX-FBLEND-001 | 100 | 2 | 1 | 7 | 6 | 6 | 0 |
-| FX-FBLEND-002 | 200 | 0 | 0 | 0 | 0 | 0 | 0 |
-| FX-FBLEND-002 | 200 | 0 | 0 | 1 | 0.5 | 0 | 0.5 |
-| FX-FBLEND-002 | 200 | 0 | 0 | 2 | 1 | 1 | 0 |
-| FX-FBLEND-002 | 200 | 0 | 0 | 3 | 1.5 | 1 | 0.5 |
-| FX-FBLEND-002 | 200 | 0 | 0 | 4 | 2 | 2 | 0 |
-| FX-FBLEND-002 | 200 | 0 | 0 | 5 | 2.5 | 2 | 0.5 |
-| FX-FBLEND-003 | 50 | 0 | 0 | 0 | 0 | 0 | 0 |
-| FX-FBLEND-003 | 50 | 0 | 0 | 1 | 2 | 2 | 0 |
-| FX-FBLEND-003 | 50 | 0 | 0 | 2 | 4 | 4 | 0 |
-| FX-FBLEND-003 | 50 | 0 | 0 | 3 | 6 | 6 | 0 |
-| FX-FBLEND-004 | 150 | 0 | 0 | 0 | 0 | 0 | 0 |
-| FX-FBLEND-004 | 150 | 0 | 0 | 1 | 0.666666666667 | 0 | 0.666666666667 |
-| FX-FBLEND-004 | 150 | 0 | 0 | 2 | 1.33333333333 | 1 | 0.333333333333 |
-| FX-FBLEND-004 | 150 | 0 | 0 | 3 | 2 | 2 | 0 |
-| FX-FBLEND-004 | 150 | 0 | 0 | 4 | 2.66666666667 | 2 | 0.666666666667 |
-| FX-FBLEND-005 | 300 | 10 | 2 | 10 | 2 | 2 | 0 |
-| FX-FBLEND-005 | 300 | 10 | 2 | 11 | 2.33333333333 | 2 | 0.333333333333 |
-| FX-FBLEND-005 | 300 | 10 | 2 | 12 | 2.66666666667 | 2 | 0.666666666667 |
-| FX-FBLEND-005 | 300 | 10 | 2 | 13 | 3 | 3 | 0 |
-| FX-FBLEND-006 | 33.3 | 0 | 0 | 0 | 0 | 0 | 0 |
-| FX-FBLEND-006 | 33.3 | 0 | 0 | 1 | 3.003003003 | 3 | 0.003003003003 |
-| FX-FBLEND-006 | 33.3 | 0 | 0 | 2 | 6.00600600601 | 6 | 0.00600600600601 |
-| FX-FBLEND-006 | 33.3 | 0 | 0 | 3 | 9.00900900901 | 9 | 0.00900900900901 |
-| FX-FBLEND-007 | 10000 | 0 | 0 | 0 | 0 | 0 | 0 |
-| FX-FBLEND-007 | 10000 | 0 | 0 | 1 | 0.01 | 0 | 0.01 |
-| FX-FBLEND-007 | 10000 | 0 | 0 | 2 | 0.02 | 0 | 0.02 |
-| FX-FBLEND-007 | 10000 | 0 | 0 | 99 | 0.99 | 0 | 0.99 |
-| FX-FBLEND-007 | 10000 | 0 | 0 | 100 | 1 | 1 | 0 |
-| FX-FBLEND-008 | 1 | 5 | 0 | 5 | 0 | 0 | 0 |
-| FX-FBLEND-008 | 1 | 5 | 0 | 6 | 100 | 100 | 0 |
-| FX-FBLEND-008 | 1 | 5 | 0 | 7 | 200 | 200 | 0 |
+| case | stretch | in | offset | n | t | f | w | u |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| FX-FBLEND-001 | 100 | 2 | 1 | 2 | 1 | 1 | 0 | 2 |
+| FX-FBLEND-001 | 100 | 2 | 1 | 3 | 2 | 2 | 0 | 3 |
+| FX-FBLEND-001 | 100 | 2 | 1 | 4 | 3 | 3 | 0 | 4 |
+| FX-FBLEND-001 | 100 | 2 | 1 | 7 | 6 | 6 | 0 | 7 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 1 | 0.5 | 0 | 0.5 | 0.5 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 2 | 1 | 1 | 0 | 1 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 3 | 1.5 | 1 | 0.5 | 1.5 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 4 | 2 | 2 | 0 | 2 |
+| FX-FBLEND-002 | 200 | 0 | 0 | 5 | 2.5 | 2 | 0.5 | 2.5 |
+| FX-FBLEND-003 | 50 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-003 | 50 | 0 | 0 | 1 | 2 | 2 | 0 | 2 |
+| FX-FBLEND-003 | 50 | 0 | 0 | 2 | 4 | 4 | 0 | 4 |
+| FX-FBLEND-003 | 50 | 0 | 0 | 3 | 6 | 6 | 0 | 6 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 1 | 0.666666666667 | 0 | 0.666666666667 | 0.666666666667 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 2 | 1.33333333333 | 1 | 0.333333333333 | 1.33333333333 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 3 | 2 | 2 | 0 | 2 |
+| FX-FBLEND-004 | 150 | 0 | 0 | 4 | 2.66666666667 | 2 | 0.666666666667 | 2.66666666667 |
+| FX-FBLEND-005 | 300 | 10 | 2 | 10 | 2 | 2 | 0 | 10 |
+| FX-FBLEND-005 | 300 | 10 | 2 | 11 | 2.33333333333 | 2 | 0.333333333333 | 10.3333333333 |
+| FX-FBLEND-005 | 300 | 10 | 2 | 12 | 2.66666666667 | 2 | 0.666666666667 | 10.6666666667 |
+| FX-FBLEND-005 | 300 | 10 | 2 | 13 | 3 | 3 | 0 | 11 |
+| FX-FBLEND-006 | 33.3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-006 | 33.3 | 0 | 0 | 1 | 3.003003003 | 3 | 0.003003003003 | 3.003003003 |
+| FX-FBLEND-006 | 33.3 | 0 | 0 | 2 | 6.00600600601 | 6 | 0.00600600600601 | 6.00600600601 |
+| FX-FBLEND-006 | 33.3 | 0 | 0 | 3 | 9.00900900901 | 9 | 0.00900900900901 | 9.00900900901 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 1 | 0.01 | 0 | 0.01 | 0.01 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 2 | 0.02 | 0 | 0.02 | 0.02 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 99 | 0.99 | 0 | 0.99 | 0.99 |
+| FX-FBLEND-007 | 10000 | 0 | 0 | 100 | 1 | 1 | 0 | 1 |
+| FX-FBLEND-008 | 1 | 5 | 0 | 5 | 0 | 0 | 0 | 5 |
+| FX-FBLEND-008 | 1 | 5 | 0 | 6 | 100 | 100 | 0 | 105 |
+| FX-FBLEND-008 | 1 | 5 | 0 | 7 | 200 | 200 | 0 | 205 |
 
 FX-FBLEND-001: Stretch 100, in 2, offset 1: t is n - 2 + 1, whole.
 FX-FBLEND-002: Stretch 200: half a frame of source a frame.
@@ -198567,7 +198567,7 @@ FX-FBLEND-022: A composition layer showing a white dot 2 pixels wide moving righ
 | 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
 | 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.5 0.5 0.5 0.5 | 1 1 1 1 | 0.5 0.5 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
 
-FX-FBLEND-023: Keys are not stretched: the layer's position is keyed from 0 at frame 0 to 4 at frame 4, and it is at x = n on frame n while its drawings play at half speed with Frame Mix.
+FX-FBLEND-023: Keys stretch with the layer: its position is keyed from x 0 at frame 0 to x 8 at frame 4. Stretched 200 with Frame Mix, that key plays at frame 8, so the layer is at x = n on frame n, half the speed it had, in step with its drawings. The stored keys stay at 0 and 4.
 
 | frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -198576,6 +198576,9 @@ FX-FBLEND-023: Keys are not stretched: the layer's position is keyed from 0 at f
 | 2 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | - |
 | 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | - |
 | 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
 
 FX-FBLEND-024: A file that writes the defaults: stretch 100 and the composition's switch false. They read as absent, the drawings on twos, and saved again neither field is written.
 
@@ -198587,6 +198590,53 @@ FX-FBLEND-024: A file that writes the defaults: stretch 100 and the composition'
 | 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
 | 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
 | 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-FBLEND-025: Sped up: stretch 50, no mixing, position keyed from x 0 at frame 0 to x 2 at frame 4. The key at 4 plays at frame 2: x is 0, 1, 2, then held at 2, while the drawings go red, blue, green, then nothing past the last.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-FBLEND-026: In point 2, stretch 200 with Frame Mix, position keyed from x 0 at frame 2 to x 4 at frame 4: the keys stretch from the in point, so the key at 4 plays at frame 6: the layer is at x = n - 2 up to there, then stays at 4.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | - |
+
+FX-FBLEND-027: A held key: opacity 1, held, at frame 0 and 0 at frame 3. Stretched 200 without mixing, the layer vanishes at frame 6, not 3.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-FBLEND-028: A composition layer stretched 200, no mixing, showing the moving dot of FX-FBLEND-022, its own position keyed from x 0 at frame 0 to x 4 at frame 2: the outer key plays at frame 4, so the layer is at x = n, and the dot inside is where its own keys put it at the inner frame floor(n / 2).
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
 
 FX-FBLEND-030: Drawing Dissolve 1 on twos, stretch 100: the second frame of each hold is half the drawing and half the next; the last drawing has no next and holds.
 
@@ -198724,6 +198774,36 @@ FX-FBLEND-041: In 10, out 17, 100 to 150: 7 frames become 10.5, rounded half awa
 FX-FBLEND-042: In 0, out 12, 200 to 50: 12 frames become 3.
 FX-FBLEND-043: In 4, out 10, 100 to 1: 6 frames become 0.06, and a layer keeps one frame.
 FX-FBLEND-044: In 0, out 5, 300 to 100: 5 frames become 1.666..., rounded to 2.
+
+Keys. A key stored at frame k plays at in + (k - in) x stretch / 100; a key set with the playhead on frame n is stored at the key time u there, rounded half away from zero.
+
+| case | in | stretch | playhead | stored | plays at |
+| --- | --- | --- | --- | --- | --- |
+| FX-FBLEND-045 | 0 | 200 | - | 0, 4 | 0, 8 |
+| FX-FBLEND-046 | 10 | 150 | - | 10, 13, 17 | 10, 14.5, 20.5 |
+| FX-FBLEND-047 | 0 | 50 | - | 0, 1, 2, 3 | 0, 0.5, 1, 1.5 |
+| FX-FBLEND-048 | 0 | 200 | 5 | 3 | 6 |
+| FX-FBLEND-049 | 1 | 300 | 7 | 3 | 7 |
+
+FX-FBLEND-045: In 0, stretched from 100 to 200 by the command: the keys stay stored at 0 and 4 and play at 0 and 8.
+FX-FBLEND-046: In 10, stretch 150, keys at 10, 13 and 17: they play at 10, 14.5 and 20.5, between frames where the stretch puts them.
+FX-FBLEND-047: In 0, stretch 50, keys at 0, 1, 2 and 3: they play at 0, 0.5, 1 and 1.5, and no two land together, which moving the stored keys would do.
+FX-FBLEND-048: In 0, stretch 200, a key set with the playhead on frame 5: the key time there is 2.5, stored as 3, rounded half away from zero, which plays at 6.
+FX-FBLEND-049: In 1, stretch 300, a key set with the playhead on frame 7: the key time is 3 exactly, stored as 3, which plays at 7.
+
+Trims. The in point of a stretched layer moved by d: the offset moves by d x 100 / stretch and the stored keys by d - d x 100 / stretch, or, when that is not whole, the trim is refused.
+
+| case | stretch | in | out | offset | keys | new in | offset after | keys after |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| FX-FBLEND-064 | 200 | 0 | 12 | 0 | 0, 4 | 2 | 1 | 1, 5 |
+| FX-FBLEND-065 | 200 | 0 | 12 | 0 | 0, 4 | 1 | refused | - |
+| FX-FBLEND-066 | 50 | 0 | 6 | 1 | 2, 6 | 1 | 3 | 1, 5 |
+| FX-FBLEND-067 | 100 | 0 | 12 | 0 | 0, 4 | 3 | 3 | 0, 4 |
+
+FX-FBLEND-064: Stretch 200, in 0, keys at 0 and 4, the in point trimmed to 2: the offset goes from 0 to 1, the keys to 1 and 5, and they still play at 0 and 8.
+FX-FBLEND-065: Stretch 200, the in point trimmed by 1 frame, half a source frame: refused, nothing changes.
+FX-FBLEND-066: Stretch 50, offset 1, keys at 2 and 6, the in point trimmed from 0 to 1: the offset goes to 3, the keys to 1 and 5, playing at 1 and 3 as before.
+FX-FBLEND-067: Stretch 100, the in point trimmed from 0 to 3: the offset moves by 3 and the keys stay, as trimming always has.
 
 Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-FBLEND-012's file with one change (FX-FBLEND-063 is FX-FBLEND-021's):
 
