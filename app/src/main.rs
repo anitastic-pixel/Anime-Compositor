@@ -18797,6 +18797,176 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// B-150c: the owner's "Fix key diamonds". D-216 stretches a layer's keys with it, so a key
+    /// the timeline shows is where it plays, and a key the timeline names - added at the
+    /// playhead, dragged, eased, taken off - is named by that frame and stored where it is read.
+    #[test]
+    fn a_stretched_layers_keys_are_shown_and_set_where_they_play() {
+        let mut report = Report { rows: Vec::new() };
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let l = "layer-cel";
+        let page = include_str!("../ui/index.html");
+        let present = |yes: bool| if yes { "present" } else { "absent" };
+        run(&viewer, &format!("layer.shift?layer={l}&in=4"));
+
+        // ---- at 100%, nothing changes -----------------------------------------------------------
+        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=12"));
+        run(&viewer, &format!("keyframe.move?layer={l}&prop=position&from=12&to=20"));
+        report.check(
+            "at 100% a key set with the playhead on frame 12 and dragged to 20 is stored on 20, \
+             as before",
+            "[0,0]@20 linear",
+            keys(&viewer, l, "position"),
+        );
+        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=20"));
+
+        // ---- at 200% from frame 4 ---------------------------------------------------------------
+        run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=200"));
+        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=12"));
+        report.check(
+            "at 200% a key set with the playhead on frame 12 is stored at 8, which plays on 12: \
+             4 + (8 - 4) x 200 / 100",
+            "[0,0]@8 linear",
+            keys(&viewer, l, "position"),
+        );
+        report.check(
+            "the timeline draws every key where it plays, by that rule",
+            "present",
+            present(
+                page.contains("const keysOf = (layer, prop) => shownKeys(layer, propOf(layer, prop).keyframes || []);")
+                    && page.contains("at: layer.in_frame + (k.frame - layer.in_frame) * stretch / 100"),
+            ),
+        );
+        report.check(
+            "and a mask's or a shape's path keys too, on their own rows and on their diamond",
+            2,
+            page.matches("const keys = shownKeys(layer, maskKeys(mask));").count(),
+        );
+        run(&viewer, &format!("keyframe.set_interp?layer={l}&prop=position&frame=12&mode=hold"));
+        report.check(
+            "the key named by the frame it is shown on, 12, is the one held",
+            "[0,0]@8 hold",
+            keys(&viewer, l, "position"),
+        );
+        run(&viewer, &format!("keyframe.move?layer={l}&prop=position&from=12&to=20"));
+        report.check(
+            "dragged from 12 to 20 on the timeline, it is stored at 12, which plays on 20",
+            "[0,0]@12 hold",
+            keys(&viewer, l, "position"),
+        );
+        run(&viewer, &format!("keyframe.move?by=4&key={l}%7Cposition%7C20"));
+        report.check(
+            "chosen and dragged four frames on, it plays on 24, stored at 14",
+            "[0,0]@14 hold",
+            keys(&viewer, l, "position"),
+        );
+        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=24"));
+        report.check(
+            "its diamond pressed with the playhead on 24 takes it off",
+            "",
+            keys(&viewer, l, "position"),
+        );
+        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=opacity&frame=4"));
+        run(&viewer, &format!("property.set_base?layer={l}&prop=opacity&frame=12&value=0"));
+        report.check(
+            "an opacity keyed on 4 and typed to 0 on frame 12 has keys stored at 4 and 8",
+            "1@4 linear, 0@8 linear",
+            keys(&viewer, l, "opacity"),
+        );
+        report.check(
+            "the graph draws it as it plays: 1 on 4, 0.5 on 8, 0.25 on 10, 0 on 12",
+            "1, 0.5, 0.25, 0",
+            {
+                let all = plotted(&viewer, &format!("layer={l}&prop=opacity&from=0&to=12"));
+                [4, 8, 10, 12].map(|f| format!("{}", all[f])).join(", ")
+            },
+        );
+        let square = "0,0,0,0,0,0;100,0,0,0,0,0;100,100,0,0,0,0;0,100,0,0,0,0";
+        run(&viewer, &format!("mask.add?layer={l}&points={square}"));
+        run(&viewer, &format!("mask.add_remove_key?layer={l}&mask=0&frame=12"));
+        let mask_frames = |viewer: &Mutex<Viewer>| {
+            let answer: serde_json::Value =
+                serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+            answer["project"]["compositions"][0]["layers"][0]["masks"][0]["path"]["keyframes"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(|k| k["frame"].to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        report.check(
+            "a mask's path keyed with the playhead on 12 is stored at 8 too",
+            "8",
+            mask_frames(&viewer),
+        );
+        run(&viewer, &format!("keyframe.move?by=4&key={l}%7Cmask:0%7C12"));
+        report.check(
+            "and dragged four frames on it plays on 16, stored at 10",
+            "10",
+            mask_frames(&viewer),
+        );
+
+        // ---- at 50% from frame 4 ----------------------------------------------------------------
+        run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=50"));
+        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=rotation&frame=9"));
+        report.check(
+            "at 50% a key set with the playhead on frame 9 is stored at 14, which plays on 9: \
+             4 + (14 - 4) x 50 / 100",
+            "0@14 linear",
+            keys(&viewer, l, "rotation"),
+        );
+        run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=100"));
+        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=rotation&frame=15"));
+        run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=50"));
+        run(&viewer, &format!("keyframe.set_interp?layer={l}&prop=rotation&frame=9.5&mode=hold"));
+        report.check(
+            "a key stored at 15 plays half way between 9 and 10, is shown there, and is held \
+             when named 9.5",
+            "0@14 linear, 0@15 hold",
+            keys(&viewer, l, "rotation"),
+        );
+        run(&viewer, &format!("keyframe.move?by=2&key={l}%7Crotation%7C9.5"));
+        report.check(
+            "dragged two frames on it plays on 11.5, stored at 19",
+            "0@14 linear, 0@19 hold",
+            keys(&viewer, l, "rotation"),
+        );
+        report.check(
+            "a half-way key chosen on the timeline puts the playhead on a whole frame",
+            "present",
+            present(page.contains("wanted = Math.round(at);")),
+        );
+
+        // ---- back at 100% -----------------------------------------------------------------------
+        run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=100"));
+        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=scale&frame=12"));
+        report.check(
+            "set back to 100%, a key set on frame 12 is stored on 12 again",
+            "[100,100]@12 linear",
+            keys(&viewer, l, "scale"),
+        );
+
+        write_artifact(
+            &report,
+            "verification/B-150c_key_diamonds_table.md",
+            "B-150c: a stretched layer's keys shown and set where they play",
+            KEY_DIAMONDS_INTRO,
+            KEY_DIAMONDS_NOTES,
+        );
+        let failed: Vec<&String> = report
+            .rows
+            .iter()
+            .filter(|(_, e, a)| e != a)
+            .map(|(c, _, _)| c)
+            .collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     /// B-25c: D-78's shape layer from the window. The core's half is
     /// `verification/B-25b_shape_table.md`; this is what the window sends and what comes back.
     #[test]
@@ -20980,6 +21150,27 @@ mod editing {
          which is drawn, not typed or dragged up and down in the graph. Key speed and influence \
          typed in the menu's dialog, and the three kinds of bezier, are a number's and are not \
          offered for a path; its speed is pulled in the graph.",
+    ];
+
+    const KEY_DIAMONDS_INTRO: &[&str] = &[
+        "D-216 has a stretched layer's keys stretch with it, as After Effects' do: a key stored \
+         at `k` plays on `in + (k - in) x stretch / 100`. B-150b built that in the picture; the \
+         timeline still drew and named keys by their stored frame, so at 200% a key that plays on \
+         frame 12 was drawn on frame 8. B-150c is the owner's \"Fix key diamonds\": the timeline \
+         draws each key where it plays, and every request that names a key by its frame - a key \
+         added with the playhead, dragged, eased, taken off, a mask's path key - is taken back to \
+         the frame it is stored at, by document 20's rule, rounded half away from zero.",
+        "Every row calls what the window calls, on `Fixtures/projects/unknown_effect_project.json` \
+         with its layer moved to begin on frame 4, and reads back what is stored. The frames were \
+         worked out by hand from the rule, not read from the build. The picture is not changed.",
+    ];
+
+    const KEY_DIAMONDS_NOTES: &[&str] = &[
+        "## What this does not cover\n\nWhether the diamonds are drawn on the right frame on \
+         screen and follow the hand: `verification/B-150_playtest.md`, for a person. The page's \
+         rule is checked here as text. A dragged key lands on the nearest frame a stored key can \
+         play on, which at 200% is every other frame. The exposure blocks of a stretched drawn \
+         layer are still drawn unstretched.",
     ];
 
     const ADJUST_PANEL_NOTES: &[&str] = &[
