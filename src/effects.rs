@@ -740,6 +740,18 @@ pub enum Effect {
     /// D-183: `length`, 0 to 50 pixels along the line; `strength`, 0 to 100 per cent; and
     /// `lines_only`, "off" or "on", each pixel's move scaled by its own ink.
     LineBlur { length: f64, strength: f64, lines_only: String },
+    /// D-184: windows of `hue`, 0 to 360 degrees, within `hue_range`, 0 to 180, and of
+    /// `saturation` and `value`, 0 to 100 per cent, within their ranges, 0 to 100; and
+    /// `invert`, "off" or "on".
+    HsvKey {
+        hue: f64,
+        saturation: f64,
+        value: f64,
+        hue_range: f64,
+        saturation_range: f64,
+        value_range: f64,
+        invert: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -811,6 +823,7 @@ pub const CAMERA_SHAKE: &str = "core.camera_shake";
 pub const RAIN: &str = "core.rain";
 pub const COLOR_LOOKUP: &str = "core.color_lookup";
 pub const LINE_BLUR: &str = "core.line_blur";
+pub const HSV_KEY: &str = "core.hsv_key";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1339,6 +1352,22 @@ impl Effect {
                 ("length", vec![length], 0.0, 50.0),
                 ("strength", vec![strength], 0.0, 100.0),
             ],
+            Effect::HsvKey {
+                hue,
+                saturation,
+                value,
+                hue_range,
+                saturation_range,
+                value_range,
+                ..
+            } => vec![
+                ("hue", vec![hue], 0.0, 360.0),
+                ("saturation", vec![saturation], 0.0, 100.0),
+                ("value", vec![value], 0.0, 100.0),
+                ("hue_range", vec![hue_range], 0.0, 180.0),
+                ("saturation_range", vec![saturation_range], 0.0, 100.0),
+                ("value_range", vec![value_range], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1547,6 +1576,7 @@ impl Effect {
             Effect::Rain { .. } => "Rain",
             Effect::ColorLookup { .. } => "Color Lookup",
             Effect::LineBlur { .. } => "Line Blur",
+            Effect::HsvKey { .. } => "HSV Key",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1618,6 +1648,7 @@ impl Effect {
             Effect::Rain { .. } => RAIN,
             Effect::ColorLookup { .. } => COLOR_LOOKUP,
             Effect::LineBlur { .. } => LINE_BLUR,
+            Effect::HsvKey { .. } => HSV_KEY,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2006,6 +2037,9 @@ impl Effect {
             )),
             Effect::LineBlur { lines_only, .. } if !["off", "on"].contains(&lines_only.as_str()) => Some(format!(
                 "Line Blur's lines only is \"off\" or \"on\", and this is \"{lines_only}\"."
+            )),
+            Effect::HsvKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "HSV Key's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
@@ -2973,6 +3007,25 @@ pub(crate) fn apply_stack_at(
                 ox += r;
                 oy += r;
             }
+            Effect::HsvKey {
+                hue,
+                saturation,
+                value,
+                hue_range,
+                saturation_range,
+                value_range,
+                invert,
+            } => crate::perf::time(crate::perf::Stage::EffectHsvKey, || {
+                let windows = crate::hsv_key::Windows {
+                    hue: *hue,
+                    hue_range: *hue_range,
+                    saturation: *saturation,
+                    saturation_range: *saturation_range,
+                    value: *value,
+                    value_range: *value_range,
+                };
+                crate::hsv_key::hsv_key(source, &windows, invert == "on")
+            }),
         }
     }
     (ox, oy)

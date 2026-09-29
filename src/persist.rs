@@ -1673,6 +1673,23 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("strength".into(), num(*strength));
             params.insert("lines_only".into(), J::from(lines_only.as_str()));
         }
+        Effect::HsvKey {
+            hue,
+            saturation,
+            value,
+            hue_range,
+            saturation_range,
+            value_range,
+            invert,
+        } => {
+            params.insert("hue".into(), num(*hue));
+            params.insert("saturation".into(), num(*saturation));
+            params.insert("value".into(), num(*value));
+            params.insert("hue_range".into(), num(*hue_range));
+            params.insert("saturation_range".into(), num(*saturation_range));
+            params.insert("value_range".into(), num(*value_range));
+            params.insert("invert".into(), J::from(invert.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2139,6 +2156,10 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "points",
         "density",
         "spacing",
+        "value",
+        "hue_range",
+        "saturation_range",
+        "value_range",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2590,6 +2611,7 @@ fn parse_effect(
         crate::effects::RAIN,
         crate::effects::COLOR_LOOKUP,
         crate::effects::LINE_BLUR,
+        crate::effects::HSV_KEY,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3024,6 +3046,15 @@ fn parse_effect(
             length: effect_number(params, "length", &at)?,
             strength: effect_number(params, "strength", &at)?,
             lines_only: effect_word(params, "lines_only", &at)?,
+        }),
+        crate::effects::HSV_KEY => Some(crate::effects::Effect::HsvKey {
+            hue: effect_number(params, "hue", &at)?,
+            saturation: effect_number(params, "saturation", &at)?,
+            value: effect_number(params, "value", &at)?,
+            hue_range: effect_number(params, "hue_range", &at)?,
+            saturation_range: effect_number(params, "saturation_range", &at)?,
+            value_range: effect_number(params, "value_range", &at)?,
+            invert: effect_word(params, "invert", &at)?,
         }),
         _ => None,
     };
