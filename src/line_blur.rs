@@ -23,6 +23,13 @@ fn ink(p: [f64; 4]) -> f64 {
     (p[3] - LUMA[0] * p[0] - LUMA[1] * p[1] - LUMA[2] * p[2]).clamp(0.0, 1.0)
 }
 
+/// The weight of each tap along the line, 1 to `length` rounded up pixels out. B-123's card takes
+/// the same.
+pub(crate) fn weights(length: f64) -> Vec<f64> {
+    let sigma = length / 2.0;
+    (1..=length.ceil() as i64).map(|k| (-((k * k) as f64) / (2.0 * sigma * sigma)).exp()).collect()
+}
+
 /// Soften `source`'s lines along their own length, in place, and return how far it grew on
 /// each side. The settings are already valid; length 0 or strength 0 changes nothing.
 pub(crate) fn line_blur(
@@ -64,11 +71,7 @@ pub(crate) fn line_blur(
             t
         })
         .collect();
-    let n = length.ceil() as i64;
-    let sigma = length / 2.0;
-    let weights: Vec<f64> = (1..=n)
-        .map(|k| (-((k * k) as f64) / (2.0 * sigma * sigma)).exp())
-        .collect();
+    let weights = weights(length);
     let sample = |px: f64, py: f64| -> [f64; 4] {
         let (x0, y0) = (px.floor(), py.floor());
         let (fx, fy) = (px - x0, py - y0);

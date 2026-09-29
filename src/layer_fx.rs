@@ -1703,48 +1703,8 @@ pub(crate) fn kira_kira(
     let g = size.ceil() as usize;
     let (sw, sh) = (source.width(), source.height());
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
-    // Each cell holding a highlight: the sums of its highlights' centres, and their count. The
-    // centres are whole numbers and halves, so the sums are exact in any order.
-    type Cells = std::collections::HashMap<(i64, i64), (f64, f64, f64)>;
-    let cells = source
-        .data()
-        .par_chunks_exact(4)
-        .enumerate()
-        .filter(|(_, px)| crate::bloom::white(px, threshold))
-        .fold(Cells::new, |mut m, (i, _)| {
-            let (x, y) = ((i % sw) as f64 - ox + 0.5, (i / sw) as f64 - oy + 0.5);
-            let e = m.entry(((x / spacing).floor() as i64, (y / spacing).floor() as i64)).or_default();
-            *e = (e.0 + x, e.1 + y, e.2 + 1.0);
-            m
-        })
-        .reduce(Cells::new, |mut a, b| {
-            for (k, (x, y, n)) in b {
-                let e = a.entry(k).or_default();
-                *e = (e.0 + x, e.1 + y, e.2 + n);
-            }
-            a
-        });
-    // Each star as [cx, cy, R, tau], by its centre's row.
-    let base = crate::grade::mix(seed.floor() as u64);
-    let mut stars: Vec<[f64; 4]> = cells
-        .into_iter()
-        .filter_map(|((i, j), (x, y, n))| {
-            let u = |ch| crate::grade::unit(base, i, j, 0, ch);
-            if (u(0) + 1.0) / 2.0 >= density / 100.0 {
-                return None;
-            }
-            let (phi, beta) = ((u(1) + 1.0) / 2.0, 0.6 + 0.2 * (u(2) + 1.0));
-            let beat = 0.5 + 0.5 * (2.0 * std::f64::consts::PI * (frame as f64 / period + phi)).cos();
-            let tau = 1.0 - twinkle / 100.0 * (1.0 - beat);
-            let r = size * beta * tau;
-            (r > 0.0).then_some([x / n, y / n, r, tau])
-        })
-        .collect();
-    stars.sort_by(|a, b| a[1].total_cmp(&b[1]));
-    let arms: Vec<((f64, f64), f64)> = [(0.0, 1.0), (90.0, 1.0), (45.0, 0.5), (135.0, 0.5)][..if star { 4 } else { 2 }]
-        .iter()
-        .map(|&(t, k)| (crate::blurs::along(angle + t), k))
-        .collect();
+    let stars = kira_stars(source, [threshold, spacing, density, size, twinkle, period, seed], frame, origin);
+    let arms = kira_arms(angle, star);
     let light = |&[cx, cy, r, tau]: &[f64; 4], px: f64, py: f64| {
         let (dx, dy, h) = (px - cx, py - cy, 0.5 + r / 32.0);
         let mut best = 0.0f64;
@@ -1795,4 +1755,65 @@ pub(crate) fn kira_kira(
     });
     *source = out;
     g
+}
+
+/// D-186's arms: each one's way and its length as a share of the star's, the long cross and,
+/// for a `star`, the short diagonals. B-123's card takes the same.
+pub(crate) fn kira_arms(angle: f64, star: bool) -> Vec<((f64, f64), f64)> {
+    [(0.0, 1.0), (90.0, 1.0), (45.0, 0.5), (135.0, 0.5)][..if star { 4 } else { 2 }]
+        .iter()
+        .map(|&(t, k)| (crate::blurs::along(angle + t), k))
+        .collect()
+}
+
+/// D-186's stars as `[cx, cy, R, tau]` in the drawing's own space, by their centre's row. The
+/// numbers are `[threshold, spacing, density, size, twinkle, period, seed]`. B-123's card takes
+/// the same.
+pub(crate) fn kira_stars(
+    source: &WorkingBuffer,
+    [threshold, spacing, density, size, twinkle, period, seed]: [f64; 7],
+    frame: i32,
+    origin: (usize, usize),
+) -> Vec<[f64; 4]> {
+    let sw = source.width();
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    // Each cell holding a highlight: the sums of its highlights' centres, and their count. The
+    // centres are whole numbers and halves, so the sums are exact in any order.
+    type Cells = std::collections::HashMap<(i64, i64), (f64, f64, f64)>;
+    let cells = source
+        .data()
+        .par_chunks_exact(4)
+        .enumerate()
+        .filter(|(_, px)| crate::bloom::white(px, threshold))
+        .fold(Cells::new, |mut m, (i, _)| {
+            let (x, y) = ((i % sw) as f64 - ox + 0.5, (i / sw) as f64 - oy + 0.5);
+            let e = m.entry(((x / spacing).floor() as i64, (y / spacing).floor() as i64)).or_default();
+            *e = (e.0 + x, e.1 + y, e.2 + 1.0);
+            m
+        })
+        .reduce(Cells::new, |mut a, b| {
+            for (k, (x, y, n)) in b {
+                let e = a.entry(k).or_default();
+                *e = (e.0 + x, e.1 + y, e.2 + n);
+            }
+            a
+        });
+    // Each star as [cx, cy, R, tau], by its centre's row.
+    let base = crate::grade::mix(seed.floor() as u64);
+    let mut stars: Vec<[f64; 4]> = cells
+        .into_iter()
+        .filter_map(|((i, j), (x, y, n))| {
+            let u = |ch| crate::grade::unit(base, i, j, 0, ch);
+            if (u(0) + 1.0) / 2.0 >= density / 100.0 {
+                return None;
+            }
+            let (phi, beta) = ((u(1) + 1.0) / 2.0, 0.6 + 0.2 * (u(2) + 1.0));
+            let beat = 0.5 + 0.5 * (2.0 * std::f64::consts::PI * (frame as f64 / period + phi)).cos();
+            let tau = 1.0 - twinkle / 100.0 * (1.0 - beat);
+            let r = size * beta * tau;
+            (r > 0.0).then_some([x / n, y / n, r, tau])
+        })
+        .collect();
+    stars.sort_by(|a, b| a[1].total_cmp(&b[1]));
+    stars
 }

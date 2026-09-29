@@ -183,6 +183,19 @@ impl Cube {
         }
         out
     }
+
+    /// B-123: the table as the card's colour pass reads it, `[three, size, lo, hi, table...]`.
+    pub(crate) fn packed(&self) -> Vec<f64> {
+        let mut k = vec![f64::from(u8::from(self.three)), self.size as f64];
+        k.extend(self.lo.iter().chain(&self.hi));
+        k.extend(self.table.iter().flatten().map(|&v| f64::from(v)));
+        k
+    }
+
+    /// How many colours the table holds.
+    pub(crate) fn entries(&self) -> usize {
+        self.table.len()
+    }
 }
 
 type Read = Result<Arc<Cube>, String>;

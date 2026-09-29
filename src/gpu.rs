@@ -576,6 +576,7 @@ struct Fx {
 @group(0) @binding(6) var<storage, read_write> band: array<f32>;
 @group(0) @binding(7) var<storage, read_write> sums: array<vec4<f64>>;
 @group(0) @binding(8) var<storage, read_write> dist: array<f64>;
+@group(0) @binding(9) var<storage, read_write> glints: array<atomic<u32>>;
 
 // The pixel of `t` at `p`, transparent outside it (layer_fx::at).
 fn at(t: texture_2d<f32>, p: vec2<i32>) -> vec4<f32> {
@@ -626,6 +627,11 @@ fn to_srgb(c: f64) -> f64 {
     if c <= 0.0031308lf {
         return 12.92lf * c;
     }
+    return 1.055lf * root(c) - 0.055lf;
+}
+
+// `c` to the power 1/2.4.
+fn root(c: f64) -> f64 {
     let c2 = c * c;
     let c5 = c2 * c2 * c;
     var y = f64(pow(f32(c), 1.0 / 2.4));
@@ -635,7 +641,7 @@ fn to_srgb(c: f64) -> f64 {
         let y11 = y4 * y4 * y2 * y;
         y = y - (y11 * y - c5) / (12.0lf * y11);
     }
-    return 1.055lf * y - 0.055lf;
+    return y;
 }
 
 fn to_linear(c: f64) -> f64 {
@@ -666,6 +672,17 @@ fn mixed(b: f64, c: f64) -> f64 {
         case 1u: { return b * c; }
         case 2u: { return 1.0lf - (1.0lf - b) * (1.0lf - c); }
         case 3u: { return b + c; }
+        case 4u: { return select(1.0lf - 2.0lf * (1.0lf - b) * (1.0lf - c), 2.0lf * b * c, b <= 0.5lf); }
+        case 5u: {
+            if c <= 0.5lf {
+                return b - (1.0lf - 2.0lf * c) * b * (1.0lf - b);
+            }
+            var d = sqrt(b);
+            if b <= 0.25lf {
+                d = ((16.0lf * b - 12.0lf) * b + 4.0lf) * b;
+            }
+            return b + (2.0lf * c - 1.0lf) * (d - b);
+        }
         default: { return c; }
     }
 }
@@ -1500,10 +1517,91 @@ fn hsv_hue(e: vec3<f64>) -> f64 {
     return 60.0lf * ((e.x - e.y) / d + 4.0lf);
 }
 
+// B-123, lut::Cube::lookup of the encoded colour `e`. k: 1 for a 3-D table, its size, the
+// domain's low ends and high ends, and the table, red changing fastest.
+fn lookup(e: vec3<f64>) -> vec3<f64> {
+    let n = u32(k[1]);
+    var i: vec3<u32>;
+    var f: vec3<f64>;
+    for (var c = 0u; c < 3u; c++) {
+        let u = (clamp(e[c], k[2u + c], k[5u + c]) - k[2u + c]) / (k[5u + c] - k[2u + c]) * f64(n - 1u);
+        let fl = min(max(floor(u), 0.0lf), f64(n - 2u));
+        i[c] = u32(fl);
+        f[c] = u - fl;
+    }
+    var out = vec3(0.0lf);
+    if k[0] == 0.0lf {
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = k[8u + 3u * i[c] + c] * (1.0lf - f[c]) + k[11u + 3u * i[c] + c] * f[c];
+        }
+        return out;
+    }
+    for (var db = 0u; db < 2u; db++) {
+        for (var dg = 0u; dg < 2u; dg++) {
+            for (var dr = 0u; dr < 2u; dr++) {
+                let w = select(1.0lf - f.x, f.x, dr == 1u) * select(1.0lf - f.y, f.y, dg == 1u) * select(1.0lf - f.z, f.z, db == 1u);
+                let j = 8u + 3u * ((i.x + dr) + (i.y + dg) * n + (i.z + db) * n * n);
+                out += w * vec3(k[j], k[j + 1u], k[j + 2u]);
+            }
+        }
+    }
+    return out;
+}
+
+// B-123, hsv_key's 8-bit step of the straight channel `v` over `a`, as color::linear_to_srgb
+// and quantise_u8 work it in single precision, each operation rounded once as the CPU rounds
+// it. The power is `root`'s, moved by k[7], the single-precision 1/2.4 less the true one, times
+// the logarithm. k[8] is a 0 for `product`.
+fn level8(v: f32, a: f64) -> f64 {
+    let c = f32(f64(v) / a);
+    var s: f32;
+    if c <= 0.0031308 {
+        s = f32(f64(12.92f) * f64(c));
+    } else {
+        let y = f32(root(f64(c)) * (1.0lf + k[7] * f64(log(c))));
+        s = f32(f64(f32(f64(1.055f) * f64(y))) - f64(0.055f));
+    }
+    let t = f32(f64(clamp(s, 0.0, 1.0)) * 255.0lf);
+    return floor(f64(f32(f64(t) + 0.5lf)));
+}
+
+// B-123, hsv_key's windows. k: the hue and its range, the saturation and its range, the value and
+// its range.
+fn hsv_inside(p: vec4<f32>, a: f64) -> bool {
+    let r = quotient(level8(p.x, a), 255.0lf);
+    let g = quotient(level8(p.y, a), 255.0lf);
+    let b = quotient(level8(p.z, a), 255.0lf);
+    let hi = max(max(r, g), b);
+    let lo = min(min(r, g), b);
+    var s = 0.0lf;
+    if hi != 0.0lf {
+        s = quotient(hi - lo, hi);
+    }
+    var h = 0.0lf;
+    if s != 0.0lf {
+        let d = hi - lo;
+        if r == hi {
+            h = quotient(g - b, d);
+        } else if g == hi {
+            h = 2.0lf + quotient(b - r, d);
+        } else {
+            h = 4.0lf + quotient(r - g, d);
+        }
+        h = product(h, 60.0lf, k[8]);
+        if h < 0.0lf {
+            h = h + 360.0lf;
+        }
+    }
+    let dh = abs(h - k[0]);
+    return k[1] - min(dh, 360.0lf - dh) >= 0.0lf
+        && k[3] - abs(product(100.0lf, s, k[8]) - k[2]) >= 0.0lf
+        && k[5] - abs(product(100.0lf, hi, k[8]) - k[4]) >= 0.0lf;
+}
+
 // B-107, the third batch's colour effects, a pixel a thread: grade::invert (mode 0, `count` the
 // channel, 3 all), invert_alpha (1), brightness_contrast (2), black_white (3), posterize (4),
 // threshold (5), channel_mixer (6), vibrance (7), leave_color (8), solarize (9) and halftone
-// (10).
+// (10); and (B-123) color_lookup (11), hsv_key (12) and paraffin (13).
 @compute @workgroup_size(16, 16)
 fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -1524,6 +1622,11 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     if a <= 0.0lf {
         textureStore(output, id.xy, p);
+        return;
+    }
+    if F.mode == 12u {
+        // k: as hsv_inside and level8 read it, and 1 to invert at k[6].
+        textureStore(output, id.xy, select(p, vec4(0.0), hsv_inside(p, a) != (k[6] != 0.0lf)));
         return;
     }
     let px = vec3<f64>(p.xyz);
@@ -1605,8 +1708,27 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, out);
         return;
     }
+    if F.mode == 13u {
+        // k: the wash's way across, the figure's near side along it, how far back the wash
+        // reaches, the opacity as a share, and the colour encoded.
+        let t = (f64(id.x) + 0.5lf) * k[0] + (f64(id.y) + 0.5lf) * k[1];
+        let s = clamp((k[2] - t) / k[3], 0.0lf, 1.0lf);
+        let o = (1.0lf - s * s * (3.0lf - 2.0lf * s)) * k[4];
+        if o <= 0.0lf {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32(to_linear(clamp(e[c] + o * (mixed(e[c], k[5u + c]) - e[c]), 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
     var o = e;
     switch F.mode {
+        case 11u: {
+            o = lookup(e);
+        }
         case 2u: {
             // k: the contrast's slope, the brightness over 255.
             for (var c = 0u; c < 3u; c++) {
@@ -1677,6 +1799,13 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
 // rounded and is no multiply, so nothing fuses it.
 fn product(a: f64, b: f64, zero: f64) -> f64 {
     return fma(a, b, zero);
+}
+
+// B-123: a / b rounded once, as the CPU's is: the card's own division may be a unit in the last
+// place off, which moves a colour across one of HSV Key's edges. The remainder is exact by fma.
+fn quotient(a: f64, b: f64) -> f64 {
+    let q = a / b;
+    return fma(fma(-q, b, a), 1.0lf / b, q);
 }
 
 // B-107, the pixels read from elsewhere: layer_fx::wave_warp (mode 0, the output grown by `g`,
@@ -2213,6 +2342,173 @@ fn rain(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     textureStore(output, id.xy, out);
 }
+
+// line_blur's covering and ink of a pixel.
+fn cover_ink(p: vec4<f32>) -> vec2<f64> {
+    let q = vec4<f64>(p);
+    return vec2(q.w, clamp(q.w - 0.2126lf * q.x - 0.7152lf * q.y - 0.0722lf * q.z, 0.0lf, 1.0lf));
+}
+
+// line_blur's `sample`: the drawing at pixel position (x, y), its corners on the pixels.
+fn tap(x: f64, y: f64) -> vec4<f64> {
+    let x0 = floor(x);
+    let y0 = floor(y);
+    let fx = x - x0;
+    let fy = y - y0;
+    let i = i32(x0);
+    let j = i32(y0);
+    let p00 = vec4<f64>(at(input, vec2(i, j)));
+    let p10 = vec4<f64>(at(input, vec2(i + 1, j)));
+    let p01 = vec4<f64>(at(input, vec2(i, j + 1)));
+    let p11 = vec4<f64>(at(input, vec2(i + 1, j + 1)));
+    return (p00 * (1.0lf - fx) + p10 * fx) * (1.0lf - fy) + (p01 * (1.0lf - fx) + p11 * fx) * fy;
+}
+
+// B-123, line_blur::line_blur, a pixel a thread, the output grown by `g`: the covering's and the
+// ink's slopes smoothed round the pixel, the line's way from them, and the taps along it. k: the
+// strength as a share, 1 for lines only, and the `count` taps' weights.
+@compute @workgroup_size(16, 16)
+fn lineblur(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let lx = i32(id.x) - F.g;
+    let ly = i32(id.y) - F.g;
+    let mine = at(input, vec2(lx, ly));
+    let own = vec4<f64>(mine);
+    if k[0] == 0.0lf {
+        textureStore(output, id.xy, mine);
+        return;
+    }
+    var weights = array<f64, 5>(1.0lf, 4.0lf, 6.0lf, 4.0lf, 1.0lf);
+    var t = vec3(0.0lf);
+    for (var j = 0; j < 5; j++) {
+        for (var i = 0; i < 5; i++) {
+            let x = lx + i - 2;
+            let y = ly + j - 2;
+            let l = cover_ink(at(input, vec2(x - 1, y)));
+            let r = cover_ink(at(input, vec2(x + 1, y)));
+            let u = cover_ink(at(input, vec2(x, y - 1)));
+            let d = cover_ink(at(input, vec2(x, y + 1)));
+            let gx = (r - l) / 2.0lf;
+            let gy = (d - u) / 2.0lf;
+            let raw = vec3(gx.x * gx.x + gx.y * gx.y, gx.x * gy.x + gx.y * gy.y, gy.x * gy.x + gy.y * gy.y);
+            t += weights[i] * weights[j] / 256.0lf * raw;
+        }
+    }
+    let a = t.x;
+    let b = t.y;
+    let c = t.z;
+    let r = sqrt((a - c) * (a - c) + 4.0lf * b * b);
+    if r == 0.0lf {
+        textureStore(output, id.xy, mine);
+        return;
+    }
+    var tx = -(c - a + r) / 2.0lf;
+    var ty = b;
+    if a >= c {
+        tx = b;
+        ty = -(a - c + r) / 2.0lf;
+    }
+    let norm = sqrt(tx * tx + ty * ty);
+    tx = tx / norm;
+    ty = ty / norm;
+    var acc = own;
+    var total = 1.0lf;
+    for (var side = 0; side < 2; side++) {
+        let way = select(1.0lf, -1.0lf, side == 1);
+        for (var q = 0u; q < F.count; q++) {
+            let out = way * f64(q + 1u);
+            let s = tap(f64(lx) + out * tx, f64(ly) + out * ty);
+            if s.w < 1.0lf / 256.0lf {
+                break;
+            }
+            acc += k[2u + q] * s;
+            total += k[2u + q];
+        }
+    }
+    var amount = k[0] * r / (a + c);
+    if k[1] != 0.0lf {
+        amount *= cover_ink(mine).y;
+    }
+    textureStore(output, id.xy, vec4<f32>(own + (acc / total - own) * amount));
+}
+
+// B-123, layer_fx::kira_kira's light at (px, py) from the star at k[s]: its centre, size and beat.
+// k: the arms' count at 6 and each arm's way and length as a share from 7.
+fn star_light(s: u32, px: f64, py: f64) -> f64 {
+    let r = k[s + 2u];
+    let dx = px - k[s];
+    let dy = py - k[s + 1u];
+    let h = 0.5lf + r / 32.0lf;
+    var best = 0.0lf;
+    for (var m = 0u; m < u32(k[6]); m++) {
+        let vx = k[7u + 3u * m];
+        let vy = k[8u + 3u * m];
+        let a = abs(dx * vx + dy * vy);
+        let b = abs(dx * vy - dy * vx);
+        let l = r * k[9u + 3u * m];
+        if a < l && b < h {
+            let q = 1.0lf - a / l;
+            best = max(best, q * q * (1.0lf - b / h));
+        }
+    }
+    let d = sqrt(dx * dx + dy * dy);
+    if d < r / 4.0lf {
+        let q = 1.0lf - d / (r / 4.0lf);
+        best = max(best, q * q);
+    }
+    return k[s + 3u] * best;
+}
+
+// B-123, kira_kira's stars, a star a workgroup: each lights its patch of the output, grown by
+// `g`, keeping the strongest light at each pixel of `lit`. k: the drawing's corner in the output
+// across and down, and from 19 each of `count` stars.
+@compute @workgroup_size(64)
+fn stars(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) li: u32) {
+    let n = wg.x + wg.y * 65535u;
+    if n >= F.count {
+        return;
+    }
+    let s = 19u + 4u * n;
+    let w = textureDimensions(input).x + 2u * u32(F.g);
+    let h = textureDimensions(input).y + 2u * u32(F.g);
+    let e = k[s + 2u] + 0.5lf + k[s + 2u] / 32.0lf;
+    let x0 = u32(max(floor(k[s] + k[0] - 0.5lf - e), 0.0lf));
+    let x1 = u32(clamp(ceil(k[s] + k[0] - 0.5lf + e) + 1.0lf, 0.0lf, f64(w)));
+    let y0 = u32(max(floor(k[s + 1u] + k[1] - 0.5lf - e), 0.0lf));
+    let y1 = u32(clamp(ceil(k[s + 1u] + k[1] - 0.5lf + e) + 1.0lf, 0.0lf, f64(h)));
+    if x0 >= x1 || y0 >= y1 {
+        return;
+    }
+    let bw = x1 - x0;
+    for (var i = li; i < bw * (y1 - y0); i += 64u) {
+        let x = x0 + i % bw;
+        let y = y0 + i / bw;
+        let py = f64(y) - k[1] + 0.5lf;
+        if abs(py - k[s + 1u]) >= e {
+            continue;
+        }
+        let v = star_light(s, f64(x) - k[0] + 0.5lf, py);
+        if v > 0.0lf {
+            atomicMax(&glints[y * w + x], bitcast<u32>(f32(v)));
+        }
+    }
+}
+
+// B-123, kira_kira's light laid on the drawing, a pixel a thread. k: the opacity as a share at 2
+// and the colour in linear light from 3.
+@compute @workgroup_size(16, 16)
+fn kira(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let o = vec4<f64>(at(input, vec2(i32(id.x) - F.g, i32(id.y) - F.g)));
+    let s = k[2] * f64(bitcast<f32>(atomicLoad(&glints[id.y * size.x + id.x])));
+    textureStore(output, id.xy, vec4<f32>(vec4(o.xyz + s * vec3(k[3], k[4], k[5]), o.w + s * (1.0lf - o.w))));
+}
 "#;
 
 /// B-65: [`FX_SHADER`]'s numbers, laid out as its `Fx`; each pass reads what it needs.
@@ -2263,6 +2559,10 @@ struct FxPasses {
     lines: Pass,
     glare: Pass,
     rain: Pass,
+    /// B-123.
+    line_blur: Pass,
+    stars: Pass,
+    kira: Pass,
 }
 
 /// B-76: Distance Gradation's work for a drawing `w` by `h`: the columns' distances over the
@@ -2608,7 +2908,7 @@ impl Gpu {
                 source: wgpu::ShaderSource::Wgsl(FX_SHADER.into()),
             });
             let pass = |entry_point: &str, bindings: &[u32]| {
-                let types = [uniform(), texture(), storage_texture(), storage(true), texture(), storage(false), storage(false), storage(false), storage(false)];
+                let types = [uniform(), texture(), storage_texture(), storage(true), texture(), storage(false), storage(false), storage(false), storage(false), storage(false)];
                 let entries: Vec<_> = bindings.iter().map(|&b| entry(b, types[b as usize])).collect();
                 let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some(entry_point), entries: &entries });
                 (pipeline_in(&module, &layout, entry_point), layout)
@@ -2641,6 +2941,9 @@ impl Gpu {
                 lines: pass("lines", &[0, 1, 2, 3]),
                 glare: pass("glare", &[0, 1, 2, 3, 4]),
                 rain: pass("rain", &[0, 1, 2, 3]),
+                line_blur: pass("lineblur", &[0, 1, 2, 3]),
+                stars: pass("stars", &[0, 1, 3, 9]),
+                kira: pass("kira", &[0, 1, 2, 3, 9]),
             }
         });
         let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
@@ -3073,10 +3376,10 @@ impl Gpu {
     }
 
     /// One pass of [`FX_SHADER`], added to `steps`: its numbers, and whichever of `input`,
-    /// `output`, the numbers `k`, the `other` texture and the `row`, `band`, `sums` and (B-76)
-    /// `dist` buffers it takes, over `groups`.
+    /// `output`, the numbers `k`, the `other` texture and the `row`, `band`, `sums`, (B-76)
+    /// `dist` and (B-123) `lit` buffers it takes, over `groups`.
     #[allow(clippy::too_many_arguments)]
-    fn fx_step(
+    fn fx_step<const N: usize>(
         &self,
         steps: &mut Vec<Step>,
         (pipeline, layout): &Pass,
@@ -3085,7 +3388,7 @@ impl Gpu {
         output: Option<&wgpu::TextureView>,
         k: Option<&[f64]>,
         other: Option<&wgpu::TextureView>,
-        work: [Option<&wgpu::Buffer>; 4],
+        work: [Option<&wgpu::Buffer>; N],
         groups: (u32, u32),
     ) {
         let init = |label, contents: &[u8], usage| {
@@ -3119,6 +3422,8 @@ impl Gpu {
             "multiply" => 1,
             "screen" => 2,
             "add" => 3,
+            "overlay" => 4,
+            "soft_light" => 5,
             _ => 0,
         };
         let linear = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
@@ -3582,7 +3887,59 @@ impl Gpu {
                 let p = FxParams { base: [base as u32, (base >> 32) as u32], ox: ox as i32, oy: oy as i32, ..Default::default() };
                 same(steps, &passes.rain, p, &k, None)
             }
-            _ => unreachable!("compose leaves only the first two batches of ten and twenty-nine of the third batch's thirty as Fx"),
+            E::ColorLookup { table, .. } => {
+                let table = table.as_ref().expect("compose leaves a Color Lookup only with its table");
+                same(steps, &passes.tone, FxParams { mode: 11, ..Default::default() }, &table.0.packed(), None)
+            }
+            E::HsvKey { hue, saturation, value, hue_range, saturation_range, value_range, invert } => {
+                // The single-precision power 1/2.4 the CPU's encoding uses, less the true one.
+                let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
+                let k = [*hue, *hue_range, *saturation, *saturation_range, *value, *value_range, (invert == "on") as u8 as f64, power, 0.0];
+                same(steps, &passes.tone, FxParams { mode: 12, ..Default::default() }, &k, None)
+            }
+            E::Paraffin { color, direction, spread, opacity, blend: b } => {
+                // No pixel covered half or more: nothing is washed.
+                let (span, share) = match crate::grade::paraffin_span(source, *direction, *spread) {
+                    Some(span) => (span, opacity / 100.0),
+                    None => ([0.0, 0.0, 0.0, 1.0], 0.0),
+                };
+                let mut k = span.to_vec();
+                k.push(share);
+                k.extend(crate::effects::encoded(color));
+                same(steps, &passes.tone, FxParams { mode: 13, blend: blend(b), ..Default::default() }, &k, None)
+            }
+            E::LineBlur { length, strength, lines_only } => {
+                let g = crate::line_blur::GROW;
+                let weights = crate::line_blur::weights(*length);
+                let mut k = vec![strength / 100.0, (lines_only == "on") as u8 as f64];
+                k.extend(&weights);
+                let out = self.scratch("B-123 line blur", w + 2 * g, h + 2 * g);
+                let p = FxParams { g: g as i32, count: weights.len() as u32, ..Default::default() };
+                self.fx_step(steps, &passes.line_blur, p, Some(still), Some(&out), Some(&k), None, none, tiles(w + 2 * g, h + 2 * g));
+                (out, (w + 2 * g, h + 2 * g))
+            }
+            E::KiraKira { threshold, spacing, density, size, shape, angle, twinkle, period, seed, opacity, color, frame } => {
+                let g = f.grow.0;
+                let stars = crate::layer_fx::kira_stars(source, [*threshold, *spacing, *density, *size, *twinkle, *period, *seed], *frame, f.origin);
+                let arms = crate::layer_fx::kira_arms(*angle, shape == "star");
+                let mut k = vec![(g + ox) as f64, (g + oy) as f64, opacity / 100.0];
+                k.extend(linear(color));
+                k.push(arms.len() as f64);
+                k.extend(arms.iter().flat_map(|&((vx, vy), share)| [vx, vy, share]));
+                k.resize(19, 0.0);
+                k.extend(stars.iter().flatten());
+                let (tw, th) = (w + 2 * g, h + 2 * g);
+                let lit = buffer(tw * th * 4);
+                let n = stars.len() as u32;
+                let p = FxParams { g: g as i32, count: n, ..Default::default() };
+                if n > 0 {
+                    self.fx_step(steps, &passes.stars, p, Some(still), None, Some(&k), None, [None, None, None, None, Some(&lit)], (n.min(65535), n.div_ceil(65535)));
+                }
+                let out = self.scratch("B-123 kira", tw, th);
+                self.fx_step(steps, &passes.kira, p, Some(still), Some(&out), Some(&k), None, [None, None, None, None, Some(&lit)], tiles(tw, th));
+                (out, (tw, th))
+            }
+            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's five as Fx"),
         }
     }
 
@@ -3728,6 +4085,14 @@ impl Gpu {
                         }
                         // Each block's mean.
                         crate::effects::Effect::Mosaic { size } => (16.0 * (w as f64 / size + 2.0) * (h as f64 / size + 2.0)) as u64,
+                        // B-123: a Color Lookup's table rides with its settings; Kira-kira keeps
+                        // its light in a buffer the size of the grown drawing, and its stars, at
+                        // most one a cell, with its settings.
+                        crate::effects::Effect::ColorLookup { table: Some(t), .. } => ((8 + 3 * t.0.entries()) * 8) as u64,
+                        crate::effects::Effect::KiraKira { spacing, .. } => {
+                            let cells = (w as f64 / spacing + 2.0) * (h as f64 / spacing + 2.0);
+                            (((w + 2 * f.grow.0) * (h + 2 * f.grow.1) * 4) as f64).max((19.0 + 4.0 * cells) * 8.0) as u64
+                        }
                         _ => 0,
                     };
                     (format!("the effect {}", f.instance.effect.name()), f.grow, bytes)

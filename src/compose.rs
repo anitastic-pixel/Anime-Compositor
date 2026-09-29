@@ -1159,8 +1159,9 @@ fn resolve_rest(
 
     // B-46: a drawing whose last effect switched on is a Radial Blur, (B-47) a Bloom, (B-49) a
     // Directional Blur, (B-50) a Gaussian Blur, (B-51) a Glow, (B-65, B-76) one of the two
-    // batches of ten or (B-107, B-115) one of the third batch's thirty this build can draw has
-    // only the effects before it run here, when the plan is for the card.
+    // batches of ten, (B-107, B-115) one of the third batch's thirty this build can draw or
+    // (B-123) one of the fourth batch's five has only the effects before it run here, when the
+    // plan is for the card.
     // Those are what the effect cache is asked for, a stack of their own, so it never hands one
     // path's result to the other.
     // B-76: a Light Wrap is not in the layer's own stack (D-132; it runs as the layer is laid), so
@@ -1226,6 +1227,11 @@ fn resolve_rest(
                     | crate::effects::Effect::CrossGlare { .. }
                     | crate::effects::Effect::CameraShake { .. }
                     | crate::effects::Effect::Rain { .. }
+                    | crate::effects::Effect::ColorLookup { .. }
+                    | crate::effects::Effect::LineBlur { .. }
+                    | crate::effects::Effect::HsvKey { .. }
+                    | crate::effects::Effect::Paraffin { .. }
+                    | crate::effects::Effect::KiraKira { .. }
             )
             // D-122: a Levels whose input white is its black is a threshold, which a rounding
             // either side of would turn from black to white, so it stays on the CPU.
@@ -1434,6 +1440,11 @@ fn resolve_rest(
                     E::MotionTile { output_width, output_height, .. } => {
                         crate::layer_fx::tile_growth((*output_width, *output_height), (source.width(), source.height())) == (0, 0)
                     }
+                    // B-123: the batch's five new ones, each as its own function returns at once.
+                    E::ColorLookup { table, .. } => table.is_none(),
+                    E::LineBlur { length, .. } => *length == 0.0,
+                    E::Paraffin { spread, opacity, .. } => *spread == 0.0 || *opacity == 0.0,
+                    E::KiraKira { size, density, opacity, .. } => [*size, *density, *opacity].contains(&0.0),
                     _ => false,
                 };
                 // B-107: a shake grows by how far it can carry a corner, which its settings and

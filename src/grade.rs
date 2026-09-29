@@ -260,24 +260,13 @@ pub(crate) fn mixer(blend: &str) -> fn(f64, f64) -> f64 {
 /// `blend`, on encoded values. A pixel the wash does not reach is left exactly as it is. The
 /// settings are already valid.
 pub(crate) fn paraffin(source: &mut WorkingBuffer, color: [f64; 3], direction: f64, spread: f64, opacity: f64, blend: &str) {
-    if spread == 0.0 || opacity == 0.0 {
+    if opacity == 0.0 {
         return;
     }
+    let Some([ux, uy, near, reach]) = paraffin_span(source, direction, spread) else { return };
     let w = source.width().max(1);
-    let r = direction.to_radians();
-    let (ux, uy) = (r.sin(), -r.cos());
     let toward = |i: usize| ((i % w) as f64 + 0.5) * ux + ((i / w) as f64 + 0.5) * uy;
-    let (mut near, mut far) = (f64::NEG_INFINITY, f64::INFINITY);
-    for (i, px) in source.data().chunks_exact(4).enumerate() {
-        if px[3] >= 0.5 {
-            let n = toward(i);
-            (near, far) = (near.max(n), far.min(n));
-        }
-    }
-    if near < far {
-        return;
-    }
-    let (reach, k, mix) = (spread / 100.0 * (near - far + 1.0), opacity / 100.0, mixer(blend));
+    let (k, mix) = (opacity / 100.0, mixer(blend));
     source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
         let a = px[3] as f64;
         let s = ((near - toward(i)) / reach).clamp(0.0, 1.0);
@@ -290,6 +279,26 @@ pub(crate) fn paraffin(source: &mut WorkingBuffer, color: [f64; 3], direction: f
             px[c] = (to_linear((b + o * (mix(b, color[c]) - b)).clamp(0.0, 1.0)) * a) as f32;
         }
     });
+}
+
+/// D-185: the wash's way across `[ux, uy]`, the covered pixels' farthest place along it and how
+/// far back the wash reaches, or none when spread is 0 or no pixel is covered half or more.
+/// B-123's card takes the same.
+pub(crate) fn paraffin_span(source: &WorkingBuffer, direction: f64, spread: f64) -> Option<[f64; 4]> {
+    if spread == 0.0 {
+        return None;
+    }
+    let w = source.width().max(1);
+    let r = direction.to_radians();
+    let (ux, uy) = (r.sin(), -r.cos());
+    let (mut near, mut far) = (f64::NEG_INFINITY, f64::INFINITY);
+    for (i, px) in source.data().chunks_exact(4).enumerate() {
+        if px[3] >= 0.5 {
+            let n = ((i % w) as f64 + 0.5) * ux + ((i / w) as f64 + 0.5) * uy;
+            (near, far) = (near.max(n), far.min(n));
+        }
+    }
+    (near >= far).then(|| [ux, uy, near, spread / 100.0 * (near - far + 1.0)])
 }
 
 /// D-114's settings, read once for a frame: the two points in the buffer's pixels, the two
