@@ -16,10 +16,10 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | PROJECT_SCHEMA_INVALID | ERROR | Project violates schema/invariants | refuse model construction; show details |
 | PROJECT_SAVE_FAILED | ERROR | Save could not complete | keep previous valid save; preserve dirty state |
 | PROJECT_RECOVERY_AVAILABLE | INFO | Autosave/recovery candidate exists | show timestamp/path choice |
-| MEDIA_MISSING | WARNING | Referenced media unavailable | preserve reference; render transparent placeholder + warning |
+| MEDIA_MISSING | WARNING | Referenced media unavailable | preserve reference; render transparent placeholder + warning; a missing colour lookup file (D-182) leaves its effect's layer drawn without the look, the asset and setting kept |
 | MEDIA_SEQUENCE_GAP | WARNING | Requested drawing number absent | do not substitute adjacent frame |
 | MEDIA_UNSUPPORTED_FORMAT | ERROR | Decoder not supported | preserve asset record; report format |
-| MEDIA_DECODE_FAILED | ERROR | Supported decoder failed on file | identify file/frame; continue other frames where safe |
+| MEDIA_DECODE_FAILED | ERROR | Supported decoder failed on file | identify file/frame; continue other frames where safe; a colour lookup file (D-182) the .cube rule refuses is named with the reason, its effect's layer drawn without the look |
 | MEDIA_AUDIO_CUT_SHORT | WARNING | A WAV file ends before its header says it does (D-71) | play what is there; name the file |
 | MEDIA_AUDIO_UNREADABLE | WARNING | A sound file is not what its name claims: not RIFF WAVE, RF64, no format, no data, or no sample rate (D-71) | keep the layer and its reference; the layer is silent; say why |
 | MEDIA_EXR_ADJUSTED | WARNING | An EXR drawing was drawn, but not exactly as stored (D-62) | draw it; name the file and each reason: channels ignored, pixels outside the display window, samples not finite, alpha clamped, pixel aspect, primaries |

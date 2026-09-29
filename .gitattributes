@@ -34,4 +34,8 @@ verification/**/*.py text eol=lf
 # The EXR fixtures are exact bytes, and one of them, refused/not_exr.exr, is text on purpose.
 # Git would guess it is text and convert its line ending, so every EXR fixture is marked binary.
 Fixtures/exr/**/*.exr -text
+
+# The colour lookup fixtures are exact bytes too: cool_3.cube has Windows line ends on purpose and the
+# others do not, and refused/not_text.cube is not text.
+Fixtures/cube_lut/**/*.cube -text
 verification/B-16b[[:space:]]export/*.exr -text
