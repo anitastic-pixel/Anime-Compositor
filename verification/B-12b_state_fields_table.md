@@ -254,7 +254,9 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - radius, threshold - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.kaleidoscope` is an effect this build has | added | added | pass |
 | and the settings it sends for it - segments, rotation, size, center, mode - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.roughen_edges` is an effect this build has | added | added | pass |
+| and the settings it sends for it - edge_type, edge_color, border, size, complexity, evolution, speed, seed - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**236 of 236 checks pass.**
+**238 of 238 checks pass.**

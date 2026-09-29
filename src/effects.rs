@@ -261,6 +261,10 @@ impl EffectInstance {
             if let Effect::Snowfall { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-206: the bites' frame.
+            if let Effect::RoughenEdges { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
             // D-186: the twinkle's frame.
             if let Effect::KiraKira { frame: f, .. } = &mut effect {
                 *f = frame;
@@ -1061,6 +1065,22 @@ pub enum Effect {
         center: [f64; 2],
         mode: String,
     },
+    /// D-206: `edge_type`, "roughen" or "roughen_color", and `edge_color`, `#rrggbb`, kept as
+    /// written so a wrong one is reported; `border`, 0 to 500 pixels; `size`, 1 to 1000 pixels;
+    /// `complexity`, 1 to 10, and `seed`, 0 to 100000, their whole parts counted; `evolution`,
+    /// -100000 to 100000 degrees; and `speed`, -360 to 360 degrees a frame. `frame` is not a
+    /// setting and is never saved: it is the composition frame, as Turbulent Displace's is.
+    RoughenEdges {
+        edge_type: String,
+        edge_color: String,
+        border: f64,
+        size: f64,
+        complexity: f64,
+        evolution: f64,
+        speed: f64,
+        seed: f64,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1150,6 +1170,7 @@ pub const MEDIAN: &str = "core.median";
 pub const SMART_BLUR: &str = "core.smart_blur";
 pub const SNOWFALL: &str = "core.snowfall";
 pub const KALEIDOSCOPE: &str = "core.kaleidoscope";
+pub const ROUGHEN_EDGES: &str = "core.roughen_edges";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1820,6 +1841,22 @@ impl Effect {
                 ("size", vec![size], 10.0, 1000.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
+            Effect::RoughenEdges {
+                border,
+                size,
+                complexity,
+                evolution,
+                speed,
+                seed,
+                ..
+            } => vec![
+                ("border", vec![border], 0.0, 500.0),
+                ("size", vec![size], 1.0, 1000.0),
+                ("complexity", vec![complexity], 1.0, 10.0),
+                ("evolution", vec![evolution], -100000.0, 100000.0),
+                ("speed", vec![speed], -360.0, 360.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -1948,6 +1985,11 @@ impl Effect {
                 *speed = scale(*speed);
                 *wind = scale(*wind);
                 *wiggle = scale(*wiggle);
+            }
+            // D-206: a bite under a pixel wide is held at one, as Turbulent Displace's wave is.
+            Effect::RoughenEdges { border, size, .. } => {
+                *border = scale(*border);
+                *size = scale(*size).max(1.0);
             }
             Effect::Bloom { radius, length, .. } => {
                 *radius = scale(*radius);
@@ -2154,6 +2196,7 @@ impl Effect {
             Effect::SmartBlur { .. } => "Smart Blur",
             Effect::Snowfall { .. } => "Snowfall",
             Effect::Kaleidoscope { .. } => "Kaleidoscope",
+            Effect::RoughenEdges { .. } => "Roughen Edges",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2243,6 +2286,7 @@ impl Effect {
             Effect::SmartBlur { .. } => SMART_BLUR,
             Effect::Snowfall { .. } => SNOWFALL,
             Effect::Kaleidoscope { .. } => KALEIDOSCOPE,
+            Effect::RoughenEdges { .. } => ROUGHEN_EDGES,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2688,6 +2732,12 @@ impl Effect {
             Effect::Kaleidoscope { mode, .. } if !["mirror", "repeat"].contains(&mode.as_str()) => Some(format!(
                 "Kaleidoscope's mirroring is \"mirror\" or \"repeat\", and this is \"{mode}\"."
             )),
+            Effect::RoughenEdges { edge_type, .. } if !["roughen", "roughen_color"].contains(&edge_type.as_str()) => {
+                Some(format!(
+                    "Roughen Edges' edge type is \"roughen\" or \"roughen_color\", and this is \"{edge_type}\"."
+                ))
+            }
+            Effect::RoughenEdges { edge_color, .. } => hex_fault("Roughen Edges", "edge colour", edge_color),
             Effect::Halftone { ink, paper, .. } => {
                 hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
             }
@@ -3657,6 +3707,25 @@ pub(crate) fn apply_stack_at(
                 let numbers = [*density, *spacing, *size, *depth, *speed, *wind, *wiggle, *period, *seed, *opacity];
                 crate::perf::time(crate::perf::Stage::EffectSnowfall, || {
                     crate::layer_fx::snowfall(source, encoded(color).map(crate::grade::to_linear), numbers, *frame, (ox, oy))
+                })
+            }
+            // D-206: the noise is the drawing's own, however an effect above grew it; the layer
+            // never grows.
+            Effect::RoughenEdges {
+                edge_type,
+                edge_color,
+                border,
+                size,
+                complexity,
+                evolution,
+                speed,
+                seed,
+                frame,
+            } => {
+                let color = (edge_type == "roughen_color").then(|| encoded(edge_color).map(crate::grade::to_linear));
+                let numbers = [*border, *size, complexity.floor(), *seed, depth(*evolution, *speed, *frame)];
+                crate::perf::time(crate::perf::Stage::EffectRoughenEdges, || {
+                    crate::layer_fx::roughen_edges(source, color, numbers, (ox, oy))
                 })
             }
             // D-205: round the drawing's own centre, however an effect above grew it; the layer

@@ -6813,6 +6813,7 @@ const EFFECT_NAMES = {
   'core.smart_blur': 'Smart Blur',
   'core.snowfall': 'Snowfall',
   'core.kaleidoscope': 'Kaleidoscope',
+  'core.roughen_edges': 'Roughen Edges',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6836,7 +6837,7 @@ const EFFECT_GROUPS = [
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves']],
   ['Stylize', ['core.drop_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
-    'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope']],
+    'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
   ['Time', ['core.echo', 'core.posterize_time']],
@@ -6906,6 +6907,7 @@ const EFFECT_SEARCH = {
   'core.smart_blur': 'smart blur surface blur skin smooth smoothing grain noise denoise edge preserving bilateral clean',
   'core.snowfall': 'snow snowfall snowflakes flakes winter weather blizzard falling cc snowfall',
   'core.kaleidoscope': 'kaleidoscope kaleida cc kaleida mirror symmetry segments wedges mandala pattern tile repeat',
+  'core.roughen_edges': 'roughen edges rough torn ragged eroded burnt burned paper cut out distress edge crumble',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -7009,6 +7011,7 @@ const EFFECT_ABOUT = {
   'core.smart_blur': 'Smooths flat colour and grain while keeping lines sharp: each pixel mixes only with close colours round it.',
   'core.snowfall': 'Soft snowflakes falling over the layer in three depths, drifting with the wind and swaying.',
   'core.kaleidoscope': 'Repeats one wedge of the layer round a centre, like a kaleidoscope, every other copy mirrored or all turned the same way.',
+  'core.roughen_edges': 'Eats into the layer\'s edges by a rough, changing amount, so a clean cut-out looks torn or burnt; can colour the new edge.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7364,6 +7367,12 @@ const EFFECT_PARAMS = {
     ['size', 'Size', 1, 1, '10 to 1000 per cent, how large the pattern is'],
     ['segments', 'Segments', 1, 1, '2 to 32, how many wedges; the whole part counts'],
     ['rotation', 'Rotation', 1, 1, 'degrees clockwise from up, -3600 to 3600', 'dial']],
+  'core.roughen_edges': [['border', 'Border', 1, 0.5, 'pixels, 0 to 500, how deep the bites go at most'],
+    ['size', 'Scale', 1, 0.5, 'pixels, 1 to 1000, how wide the bites are'],
+    ['complexity', 'Complexity', 1, 1, '1 to 10, how much fine detail; the whole part counts'],
+    ['evolution', 'Evolution', 1, 1, 'degrees; turning it changes the bites smoothly'],
+    ['speed', 'Evolution Speed', 1, 1, 'degrees a frame, -360 to 360, so the edge crawls by itself'],
+    ['seed', 'Random Seed', 1, 1, '0 to 100000, which bites']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7501,6 +7510,11 @@ const EFFECT_WORDS = {
   'core.snowfall': { colours: [['color', 'Color']] },
   // D-205.
   'core.kaleidoscope': { choices: [['mode', 'Mirroring', [['mirror', 'Mirror'], ['repeat', 'Repeat']]]] },
+  // D-206.
+  'core.roughen_edges': {
+    choices: [['edge_type', 'Edge Type', [['roughen', 'Roughen'], ['roughen_color', 'Roughen Color']]]],
+    colours: [['edge_color', 'Edge Color']],
+  },
   // D-154.
   'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },
   // D-156.

@@ -1200,6 +1200,51 @@ pub(crate) fn kaleidoscope(
     *source = out;
 }
 
+/// D-206: each pixel keeps only as much covering as the input has a depth `e` away either way
+/// across and down, `e` set by D-128's noise on the drawing's own space (corner at `origin`),
+/// from nothing to `border`. With `color`, the band that would go at twice the depth takes that
+/// linear colour. Nothing grows. The settings are already valid.
+pub(crate) fn roughen_edges(
+    source: &mut WorkingBuffer,
+    color: Option<[f64; 3]>,
+    [border, size, octaves, seed, z]: [f64; 5],
+    origin: (usize, usize),
+) {
+    if border == 0.0 {
+        return;
+    }
+    let w = source.width();
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let base = crate::grade::mix(seed.floor() as u64);
+    let input = source.clone();
+    let a = |x: f64, y: f64| sample_bilinear(&input, x, y)[3] as f64;
+    let least = |x: f64, y: f64, e: f64| a(x, y).min(a(x + e, y)).min(a(x - e, y)).min(a(x, y + e)).min(a(x, y - e));
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let p = px[3] as f64;
+            if p == 0.0 {
+                return;
+            }
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let f = crate::grade::fractal(base, 0, ((x - ox) / size, (y - oy) / size, z), octaves as usize);
+            let e = border * (0.5 + f).clamp(0.0, 1.0);
+            let m = least(x, y, e);
+            let k = m / p;
+            let t = match color {
+                Some(_) if m > 0.0 => 1.0 - least(x, y, 2.0 * e).min(m) / m,
+                _ => 0.0,
+            };
+            let c = color.unwrap_or_default();
+            for ch in 0..3 {
+                px[ch] = ((1.0 - t) * px[ch] as f64 * k + t * c[ch] * m) as f32;
+            }
+            px[3] = m as f32;
+        });
+}
+
 /// `sample_bilinear` at `x` across the drawing, `dw` wide from column `ox` of the buffer, and
 /// `y` down the buffer, each tap's column taken round the drawing's width, so its left and
 /// right edges join.

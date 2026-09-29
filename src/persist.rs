@@ -1951,6 +1951,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
             params.insert("mode".into(), J::from(mode.as_str()));
         }
+        Effect::RoughenEdges {
+            edge_type,
+            edge_color,
+            border,
+            size,
+            complexity,
+            evolution,
+            speed,
+            seed,
+            ..
+        } => {
+            params.insert("edge_type".into(), J::from(edge_type.as_str()));
+            params.insert("edge_color".into(), J::from(edge_color.as_str()));
+            params.insert("border".into(), num(*border));
+            params.insert("size".into(), num(*size));
+            params.insert("complexity".into(), num(*complexity));
+            params.insert("evolution".into(), num(*evolution));
+            params.insert("speed".into(), num(*speed));
+            params.insert("seed".into(), num(*seed));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2479,6 +2499,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "end_width",
         "interpolation",
         "segments",
+        "border",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2963,6 +2984,7 @@ fn parse_effect(
         crate::effects::SMART_BLUR,
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
+        crate::effects::ROUGHEN_EDGES,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3565,6 +3587,17 @@ fn parse_effect(
             size: effect_number(params, "size", &at)?,
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
             mode: effect_word(params, "mode", &at)?,
+        }),
+        crate::effects::ROUGHEN_EDGES => Some(crate::effects::Effect::RoughenEdges {
+            edge_type: effect_word(params, "edge_type", &at)?,
+            edge_color: effect_word(params, "edge_color", &at)?.to_ascii_lowercase(),
+            border: effect_number(params, "border", &at)?,
+            size: effect_number(params, "size", &at)?,
+            complexity: effect_number(params, "complexity", &at)?,
+            evolution: effect_number(params, "evolution", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            frame: 0,
         }),
         _ => None,
     };
