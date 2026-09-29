@@ -118,6 +118,10 @@ Built the same day. `verification/B-08b_cache_table.md` holds the correctness ha
 
 Status: ACCEPTED by the owner on 2026-09-19 with D-71. Document 20 asks for an ADR before audio sample time exists. Frame `n` of a sound file begins at sample `floor(n * rate * denominator / numerator)`, in whole numbers; an audio layer changes no picture; the WebView2 page's own decoder plays WAV, FLAC, MP3, AAC, Ogg and Opus offline, so no audio crate and no new licence enters the build; the core reads WAV headers only. The alternative, a decoder and an output in the core, is about forty crates and a real-time thread, and can replace the third choice later without touching the file format. Full record: `docs/adr/0018-audio-time-is-whole-samples.md`.
 
+## ADR-019 - Motion blur averages the layer drawn at moments inside the shutter; drawings hold
+
+Status: PROPOSED by the agent on 2026-09-28 with D-188, awaiting the owner. Document 20 asks for an ADR before any sub-frame time exists. A composition's shutter (angle, phase, samples) and a per-layer switch; frame `n` is drawn at `t_k = n + phase/360 + (angle/360)(k + 1/2)/N`; at each moment only the layer's transform, its parents', its depth and the camera are read, by document 20's key rules at a fraction of a frame, while the drawing, masks, effects, opacity and draw order are read once at the frame, so drawings hold; the placements of the one post-effect picture are averaged in linear premultiplied light; a still layer is drawn once, bit for bit. Not taken: a velocity blur, which guesses; averaging whole frames, which smears one drawing into the next; an adaptive sample count, which is not repeatable. Full record: `docs/adr/0019-motion-blur-averages-moments-inside-the-shutter.md`.
+
 ## Decision gate
 
 Before B-02 begins, ADR-001 through ADR-014 stand as accepted, and SP-01, SP-03, SP-05 and SP-06 must be recorded. SP-02 is removed with ADR-006. A spike that contradicts an accepted ADR reopens it explicitly through document 14.

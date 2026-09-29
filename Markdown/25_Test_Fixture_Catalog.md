@@ -169911,6 +169911,203 @@ Frame 0: the same as FX-KIRA-002 frame 0.
 
 Frame 4: the same as FX-KIRA-002 frame 0.
 
+## Motion blur fixtures
+
+**D-188, proposed on 2026-09-28 with ADR-019, awaiting the owner; not built.** The projects are in `Fixtures/motion_blur/`. The pixel cases are a composition 20 by 1 at 24 fps, three frames long, holding a bar 4 pixels wide and 1 high of the linear colour (1, 0.5, 0.25), anchor (0, 0), moving right 16 pixels a frame: its left edge at -10 on frame 0, 6 on frame 1 and 22 on frame 2. With a shutter of 180, a phase of -90 and 4 samples, frame 1 is drawn at 3, 5, 7 and 9, whole pixels, so every pixel is a count of quarters. Those are the composition's settings, and both switches are on, unless a case says otherwise. Each value is a pixel's four working numbers, red, green, blue and covering, linear and premultiplied. The times cases are the moments a frame is drawn at; the values cases are a property read between frames; FX-MB-050 is where a square's corners land on the screen at each moment, in 1920 by 1080, under a turning parent, an eased key, a curved path and a camera dolly. FX-MB-030 to 041 are files that must be refused.
+
+**Every number below is produced by `tools/motion_blur_reference.py`**, which reads the very project files it writes and draws each frame pixel by pixel from documents 20 and 21, moving the bar by resampling where the build folds the transform and the camera into one matrix. The same numbers are in `Fixtures/motion_blur/expected_motion_blur.json`. Tolerance 1e-12 for the times and values, 1e-9 for the points, 1e-6 for the pixels.
+
+**Checked by what they claim.** The tool checks the still bar sharp (010); the staircase of 1, 1, 2, 2, 2, 2, 2, 2, 1, 1 quarters (011); sharp with either switch off, with neither field, and at angle 0 (012, 013, 014, 017); the staircase moved on by 4 at phase 0 (015); sixteen quarters at 360 (016); the same staircase from a camera pan, a moving parent, a shape layer and a composition layer (018, 019, 027, 028); the held jump seen twice at half (020); opacity read at the frame (021); the in point (022); no red from the earlier drawing (023); the matte's cut (024, 025); the covering of 4 kept at 16 samples (026); and the moments and values of 001 to 008.
+
+Times. Each row is the moments one frame is drawn at, first to last.
+
+| case | frame | angle | phase | samples | moments |
+| --- | --- | --- | --- | --- | --- |
+| FX-MB-001 | 10 | 180 | -90 | 16 | 9.765625, 9.796875, 9.828125, 9.859375, 9.890625, 9.921875, 9.953125, 9.984375, 10.015625, 10.046875, 10.078125, 10.109375, 10.140625, 10.171875, 10.203125, 10.234375 |
+| FX-MB-002 | 0 | 360 | 0 | 4 | 0.125, 0.375, 0.625, 0.875 |
+| FX-MB-003 | 5 | 720 | -360 | 2 | 4.5, 5.5 |
+| FX-MB-004 | 0 | 90 | 90 | 3 | 0.291666666667, 0.375, 0.458333333333 |
+| FX-MB-005 | 7 | 0 | 45 | 8 | 7 |
+
+FX-MB-001: As added: shutter 180, phase -90, 16 samples, on frame 10.
+FX-MB-002: Shutter 360, phase 0, 4 samples, on frame 0: the whole of frame 0.
+FX-MB-003: Shutter 720, phase -360, 2 samples, on frame 5: a frame either side.
+FX-MB-004: Shutter 90, phase 90, 3 samples, on frame 0: after the frame, in thirds.
+FX-MB-005: Shutter 0: off, and the frame itself, whatever the phase and samples.
+
+Values. A property read between frames.
+
+FX-MB-006: A linear key from 0 at frame 0 to 100 at frame 4.
+
+| time | -0.25 | 0 | 1.25 | 2.75 | 4 | 4.25 |
+| --- | --- | --- | --- | --- | --- | --- |
+| value | 0 | 0 | 31.25 | 68.75 | 100 | 100 |
+
+FX-MB-007: The same with easy ease: the value is 3u^2 - 2u^3 of the way.
+
+| time | 1 | 2 | 2.5 | 3.875 |
+| --- | --- | --- | --- | --- |
+| value | 15.625 | 50 | 68.359375 | 99.7131347656 |
+
+FX-MB-008: A hold from 10 at frame 2 to 20 at frame 3: it changes at exactly frame 3.
+
+| time | 1.75 | 2 | 2.9375 | 3 | 3.0625 |
+| --- | --- | --- | --- | --- | --- |
+| value | 10 | 10 | 10 | 20 | 20 |
+
+FX-MB-009: A position on a curved path, (0, 0) at frame 0 leaving straight down, (100, 100) at frame 2 arriving from the left.
+
+| time | 0.25 | 0.5 | 1 | 1.5 |
+| --- | --- | --- | --- | --- |
+| value | 1.8359375 21.5234375 | 7.1875 40.9375 | 27.5 72.5 | 59.0625 92.8125 |
+
+Pictures. Each value is a pixel's red, green, blue and covering, linear and premultiplied.
+
+FX-MB-010: A still bar with both switches on and the composition's shutter as added: it is drawn once, the same picture, bit for bit, as with either switch off.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-011: The bar moving 16 pixels a frame, both switches on, shutter 180, phase -90, 4 samples: on frame 1 it is drawn at 3, 5, 7 and 9, and each pixel is the share of the four that cover it.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-012: The same with the composition's switch off: sharp, at 6.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-013: The same with the composition's switch on and the layer's off: sharp.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-014: A file written before motion blur, with neither field: sharp, and saved again it still has neither.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-015: Phase 0: the shutter opens on the frame, so the bar is drawn at 7, 9, 11 and 13, all of it ahead of where it is on the frame.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-016: Shutter 360, phase -180: a whole frame of travel, drawn at 0, 4, 8 and 12, so sixteen pixels are covered a quarter each.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-017: Shutter 0 is motion blur off, whatever the phase: sharp, at 6.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-018: The bar still and the camera panning 16 pixels a frame the other way: the same picture as FX-MB-011, because the camera is read at each moment too.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-019: The bar still on a null that moves 16 pixels a frame: the same picture as FX-MB-011. The bar's switch decides; a null has none.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-020: A held key: the bar sits at 2 and jumps to 12 on frame 1. Frames 0 and 2 are sharp; on frame 1 half the moments are before the jump and half after, so it is seen twice at half strength.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 0 0 0 | 0 0 0 0 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 1 0.5 0.25 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-021: The opacity keyed 0 to 1 over frames 0 to 2 is read at the whole frame: FX-MB-011's picture at exactly half.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.125 0.0625 0.03125 0.125 | 0.125 0.0625 0.03125 0.125 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.125 0.0625 0.03125 0.125 | 0.125 0.0625 0.03125 0.125 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-022: The layer starts on frame 1: on frame 0 it is not there, and on frame 1 all four moments are drawn, including the two before its in point.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-023: Drawings hold: the red drawing is exposed on frame 0 and the blue from frame 1. On frame 1 every moment shows the blue, and no red, although two of the moments fall in frame 0.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0.25 0.25 | 0 0 0.25 0.25 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0.25 0.25 | 0 0 0.25 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-024: A still matte over columns 0 to 7 cuts the moving bar after it is blurred.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-025: A still bar with its switch on is drawn once; its matte moves with its own switch on, so the matte is blurred and the bar is cut by the blurred matte.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 0.5 0.25 1 | 0.75 0.375 0.1875 0.75 | 0.75 0.375 0.1875 0.75 | 0.5 0.25 0.125 0.5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-026: As added: shutter 180, phase -90, 16 samples. The bar is drawn at 2.25, 2.75 and on to 9.75, between pixels, so each moment is resampled as document 21 says before the sixteen are averaged.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0.0625 0.03125 0.015625 0.0625 | 0.1875 0.09375 0.046875 0.1875 | 0.3125 0.15625 0.078125 0.3125 | 0.4375 0.21875 0.109375 0.4375 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.4375 0.21875 0.109375 0.4375 | 0.3125 0.15625 0.078125 0.3125 | 0.1875 0.09375 0.046875 0.1875 | 0.0625 0.03125 0.015625 0.0625 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-027: A shape layer whose one shape is the bar: the same picture as FX-MB-011.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-028: A composition layer showing a composition that holds the bar: the same picture as FX-MB-011. The composition inside is drawn once, at the whole frame.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | x = 8 | x = 9 | x = 10 | x = 11 | x = 12 | x = 13 | x = 14 | x = 15 | x = 16 | x = 17 | x = 18 | x = 19 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.5 0.25 0.125 0.5 | 0.25 0.125 0.0625 0.25 | 0.25 0.125 0.0625 0.25 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 |
+
+FX-MB-050: A 100-pixel square on a parent that turns with easy ease from 0 to 90 degrees over frames 0 to 24, moving along a curved path in the parent's space, under a camera that dollies from 1920 to 960 in front of it; shutter 180, phase -90, 4 samples. Before frame 0 every key holds its first value.
+
+| frame | time | parent rotation | child position | camera depth | (0, 0) on screen | (100, 0) on screen |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0 | -0.1875 | 0 | 150 50 | -1920 | 1060 540 | 1160 540 |
+| 0 | -0.0625 | 0 | 150 50 | -1920 | 1060 540 | 1160 540 |
+| 0 | 0.0625 | 0.00182787577311 | 150.002030973 50.7792154948 | -1917.5 | 1060.13238678 540.78342589 | 1160.26276482 540.786620294 |
+| 0 | 0.1875 | 0.016393661499 | 150.018215179 52.3254394531 | -1912.5 | 1060.40977139 542.363288502 | 1160.80192415 542.392013044 |
+| 12 | 11.8125 | 43.9453983307 | 198.828220367 124.981689453 | -1447.5 | 1033.11426819 748.60634136 | 1128.61705364 840.656584938 |
+| 12 | 11.9375 | 44.6484406789 | 199.609378532 124.997965495 | -1442.5 | 1031.5181616 750.95997781 | 1126.21138454 844.49822288 |
+| 12 | 12.0625 | 45.3515593211 | 200.390621468 124.997965495 | -1437.5 | 1029.89703482 753.300851609 | 1123.76063031 848.323442285 |
+| 12 | 12.1875 | 46.0546016693 | 201.171779633 124.981689453 | -1432.5 | 1028.25166047 755.628581201 | 1121.26578094 852.13139581 |
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-MB-011's file with one change:
+
+- FX-MB-030: A shutter angle above 720.
+- FX-MB-031: A shutter angle below 0.
+- FX-MB-032: A shutter phase above 360.
+- FX-MB-033: One sample.
+- FX-MB-034: Sixty-five samples.
+- FX-MB-035: Samples that are not a whole number.
+- FX-MB-036: A composition's record with no samples.
+- FX-MB-037: A composition's record with a field this build does not know.
+- FX-MB-038: A composition's switch that is not true or false.
+- FX-MB-039: A layer's switch that is not true or false.
+- FX-MB-040: The switch on a null, which draws nothing.
+- FX-MB-041: The switch on an adjustment layer.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

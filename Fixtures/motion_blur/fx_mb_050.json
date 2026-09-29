@@ -1,0 +1,213 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-mb-050",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 1920,
+      "height": 1080,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 25,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 25
+      },
+      "layer_order": [
+        "P",
+        "C"
+      ],
+      "layers": [
+        {
+          "id": "P",
+          "kind": "null",
+          "name": "P",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 25,
+          "transform": {
+            "anchor": {
+              "base": [
+                50,
+                50
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": 0,
+                  "interp": "ease",
+                  "ease": [
+                    0.3333333333333333,
+                    0.0,
+                    0.6666666666666666,
+                    1.0
+                  ]
+                },
+                {
+                  "frame": 24,
+                  "value": 90,
+                  "interp": "linear"
+                }
+              ]
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "C",
+          "kind": "solid",
+          "name": "C",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 25,
+          "solid": {
+            "color": [
+              1.0,
+              0.5,
+              0.25
+            ],
+            "width": 100,
+            "height": 100
+          },
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                150,
+                50
+              ],
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": [
+                    150,
+                    50
+                  ],
+                  "interp": "linear",
+                  "spatial": [
+                    0,
+                    0,
+                    0,
+                    100
+                  ]
+                },
+                {
+                  "frame": 24,
+                  "value": [
+                    250,
+                    50
+                  ],
+                  "interp": "linear",
+                  "spatial": [
+                    0,
+                    100,
+                    0,
+                    0
+                  ]
+                }
+              ]
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "parent": "P",
+          "motion_blur": true
+        }
+      ],
+      "motion_blur": {
+        "enabled": true,
+        "shutter_angle": 180,
+        "shutter_phase": -90,
+        "samples": 4
+      },
+      "camera": {
+        "position": {
+          "base": [
+            960,
+            540
+          ],
+          "keyframes": []
+        },
+        "depth": {
+          "base": -1920,
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": -1920,
+              "interp": "linear"
+            },
+            {
+              "frame": 24,
+              "value": -960,
+              "interp": "linear"
+            }
+          ]
+        },
+        "zoom": {
+          "base": 1920,
+          "keyframes": []
+        }
+      }
+    }
+  ]
+}
