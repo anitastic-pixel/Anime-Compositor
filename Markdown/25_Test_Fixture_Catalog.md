@@ -166311,6 +166311,96 @@ Frame 0: every pixel is the drawing's, to within 1e-9.
 
 Frame 4: every pixel is the drawing's, to within 1e-9.
 
+## HSV key fixtures
+
+D-184, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/hsv_key/`, holding one drawing the same size with `core.hsv_key` on it, unmoved unless the case says. The drawing, `Fixtures/hsv_key/media/screen.png`, is colour key's figure in front of a green screen, described under Colour key fixtures: the screen `#00b140` (hue 141.7, saturation 100, value 69.4), its shadow `#006424` in rows 8 and 9 (hue 141.6, value 39.2), the screen at half covering down column 15, an empty column 0, and a figure of line `#1e1a24` (hue 264) filled with skin `#f6d6be` (hue 25.7), with a grey button `#808080` at (7, 4) and spill `#5aa064` (hue 128.6, saturation 43.8) down column 4.
+
+**Every number below is produced by `tools/hsv_key_reference.py`**, which works D-184's rule in double precision. The same numbers are in `Fixtures/hsv_key/expected_hsv_key.json`. Tolerance 2e-5. Every pixel of every frame either is the drawing's own value exactly or is 0 in all four channels, so each frame is written as the columns of each row that become 0; every other pixel is the drawing's.
+
+**Checked by what they claim.** The tool checks the colour conversion against values worked by hand, and each case's claim on its numbers. It also checks that no colour in any case lies within 1e-6 of a window's edge, except exactly on it where the arithmetic is exact in any precision (a grey's hue and saturation, 0; a colour with a channel at 0, saturation exactly 100), so the build cannot tip a pixel across an edge.
+
+FX-HSV-001: As it is added, a green key: hue 120 within 40, saturation 60 within 40, value 60 within 40. The screen, its half-covering right edge, the shadow and the green spill down the figure's left side go; the skin, the line and the grey button stay.
+
+Frame 0: these columns become 0; row 0: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 1: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 2: 4, 15; row 3: 1, 2, 3, 4, 11, 12, 13, 14, 15; row 4: 1, 2, 3, 4, 11, 12, 13, 14, 15; row 5: 1, 2, 3, 4, 11, 12, 13, 14, 15; row 6: 1, 2, 3, 4, 11, 12, 13, 14, 15; row 7: 4, 15; row 8: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 9: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15.
+
+FX-HSV-002: Hue 142 within 5, saturation 100 within 10, value 50 within 50: the screen, its edge and the shadow go; the spill, 13.4 degrees of hue away, stays.
+
+Frame 0: these columns become 0; row 0: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 1: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 2: 15; row 3: 1, 2, 3, 11, 12, 13, 14, 15; row 4: 1, 2, 3, 11, 12, 13, 14, 15; row 5: 1, 2, 3, 11, 12, 13, 14, 15; row 6: 1, 2, 3, 11, 12, 13, 14, 15; row 7: 15; row 8: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 9: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15.
+
+FX-HSV-003: FX-HSV-002 with value 70 within 5: the screen, value 69.4, goes; the shadow, value 39.2, stays.
+
+Frame 0: these columns become 0; row 0: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 1: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 2: 15; row 3: 1, 2, 3, 11, 12, 13, 14, 15; row 4: 1, 2, 3, 11, 12, 13, 14, 15; row 5: 1, 2, 3, 11, 12, 13, 14, 15; row 6: 1, 2, 3, 11, 12, 13, 14, 15; row 7: 15; row 8: 15; row 9: 15.
+
+FX-HSV-004: FX-HSV-002 inverted: the screen, its edge and the shadow stay, and everything else that shows goes, the figure and the spill.
+
+Frame 0: these columns become 0; row 2: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14; row 3: 4, 5, 6, 7, 8, 9, 10; row 4: 4, 5, 6, 7, 8, 9, 10; row 5: 4, 5, 6, 7, 8, 9, 10; row 6: 4, 5, 6, 7, 8, 9, 10; row 7: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14.
+
+FX-HSV-005: Hue 350 within 40, saturation 55 within 50, value 50 within 50: the skin, hue 25.7, is 35.7 degrees away the short way round, past 360, and goes. The grey button's hue counts as 0, but its saturation 0 is 55 from 55; it stays, and so does everything else.
+
+Frame 0: these columns become 0; row 3: 6, 7, 8, 9; row 4: 6, 8, 9; row 5: 6, 7, 8, 9; row 6: 6, 7, 8, 9.
+
+FX-HSV-006: Hue 0 within 0, saturation 0 within 0, value 50 within 5: only the grey button, value 50.2, goes.
+
+Frame 0: these columns become 0; row 4: 7.
+
+FX-HSV-007: Hue within 180, saturation 50 within 50, value 50 within 50: every colour is inside, so the frame is empty.
+
+Frame 0: these columns become 0; row 0: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 1: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 2: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 3: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 4: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 5: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 6: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 7: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 8: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 9: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15.
+
+FX-HSV-008: OpenToonz's own starting values, everything 0: only pure black would go, and the drawing has none that shows, so it is untouched.
+
+Frame 0: no pixel becomes 0; the drawing, untouched.
+
+FX-HSV-009: Hue 142, saturation 70 within 30, value 50 within 50, hue range keyed from 0 at frame 0 to 20 at frame 4, linear: frame 0 takes nothing, the screen being 0.31 degrees off; frame 2, range 10, takes the screen, its edge and the shadow; frame 4, range 20, the spill too.
+
+Frame 0: the same as FX-HSV-008 frame 0.
+
+Frame 2: the same as FX-HSV-002 frame 0.
+
+Frame 4: the same as FX-HSV-001 frame 0.
+
+FX-HSV-010: FX-HSV-002 moved three pixels right: the same, moved.
+
+Frame 0: these columns become 0; row 0: 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 1: 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 3: 4, 5, 6, 14, 15; row 4: 4, 5, 6, 14, 15; row 5: 4, 5, 6, 14, 15; row 6: 4, 5, 6, 14, 15; row 8: 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; row 9: 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15.
+
+Frame 3: the same as FX-HSV-010 frame 0.
+
+FX-HSV-011: Hue 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: the same as FX-HSV-008 frame 0.
+
+Frame 4: the same as FX-HSV-008 frame 0.
+
+FX-HSV-012: Hue range 181, above 180. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: the same as FX-HSV-008 frame 0.
+
+Frame 4: the same as FX-HSV-008 frame 0.
+
+FX-HSV-013: Saturation 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: the same as FX-HSV-008 frame 0.
+
+Frame 4: the same as FX-HSV-008 frame 0.
+
+FX-HSV-014: Value range -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: the same as FX-HSV-008 frame 0.
+
+Frame 4: the same as FX-HSV-008 frame 0.
+
+FX-HSV-015: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: the same as FX-HSV-008 frame 0.
+
+Frame 4: the same as FX-HSV-008 frame 0.
+
+FX-HSV-016: Hue range keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: the same as FX-HSV-008 frame 0.
+
+Frame 4: the same as FX-HSV-008 frame 0.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

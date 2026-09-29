@@ -675,6 +675,8 @@ B-118 / Color Lookup, D-182: a .cube colour lookup file on any layer, 3D and 1D,
 
 B-119 / Line Blur, D-183: lines softened along their own length and never across, inspired by OpenToonz's Line Blur and not a port. **B-119a, the rule and its fixtures, is written on 2026-09-28**: the rule in document 21, FX-LBLUR-001 to 016 in document 25 from `tools/line_blur_reference.py`, which writes `Fixtures/line_blur/`. The proposal is `verification/B-119a proposal/line_blur.md`, with `line_blur.png`. **BUILT on 2026-09-28**: the rule in `src/line_blur.rs` and the effect `core.line_blur` through the file, the commands, the frame and the card (Length, Strength, Lines Only, under Lines & Mattes). It is drawn on the processor. `tests/b119_line_blur.rs` writes `verification/B-119_line_blur_table.md`, 69 of 69, and a jagged ink drawing three ways in `verification/B-119 pictures/`. The playtest sheet is `verification/B-119_playtest.md`, **awaiting the owner's playtest**.
 
+B-120 / HSV Key, D-184: a colour taken out by windows of hue, saturation and value, ported from OpenToonz's HSV Key under its BSD licence with four changes. **B-120a, the rule and its fixtures, is written on 2026-09-28**: the rule in document 21, FX-HSV-001 to 016 in document 25 from `tools/hsv_key_reference.py`, which writes `Fixtures/hsv_key/`. The proposal is `verification/B-120a proposal/hsv_key.md`, with `hsv_key.png`. **B-120b, the build, is next.**
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.
