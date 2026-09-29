@@ -1200,6 +1200,58 @@ pub(crate) fn kaleidoscope(
     *source = out;
 }
 
+/// D-210: a lens of `fov` degrees across the drawing's own width, height or diagonal (`span`),
+/// its middle at `center`, in per cent of the drawing whose corner is at `origin` in the buffer.
+/// With `reverse` off each pixel reads from farther out along its line from the middle, by the
+/// tangent, and is empty past a quarter turn; on, from nearer in, by the arctangent. The buffer
+/// keeps its size. The settings are already valid.
+pub(crate) fn optics_compensation(
+    source: &mut WorkingBuffer,
+    fov: f64,
+    reverse: bool,
+    span: &str,
+    center: [f64; 2],
+    origin: (usize, usize),
+) {
+    if fov == 0.0 {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
+    let (cx, cy) = (center[0] / 100.0 * dw + ox, center[1] / 100.0 * dh + oy);
+    let r = match span {
+        "vertical" => dh / 2.0,
+        "diagonal" => dw.hypot(dh) / 2.0,
+        _ => dw / 2.0,
+    };
+    let theta = fov.to_radians() / 2.0;
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (dx, dy) = (x - cx, y - cy);
+            let d = dx.hypot(dy);
+            let m = if d == 0.0 {
+                0.0
+            } else {
+                let a = d / r * theta;
+                if reverse {
+                    r * a.atan() / theta / d
+                } else if a >= std::f64::consts::FRAC_PI_2 {
+                    return;
+                } else {
+                    r * a.tan() / theta / d
+                }
+            };
+            px.copy_from_slice(&sample_bilinear(drawing, cx + m * dx, cy + m * dy));
+        });
+    *source = out;
+}
+
 /// D-206: each pixel keeps only as much covering as the input has a depth `e` away either way
 /// across and down, `e` set by D-128's noise on the drawing's own space (corner at `origin`),
 /// from nothing to `border`. With `color`, the band that would go at twice the depth takes that

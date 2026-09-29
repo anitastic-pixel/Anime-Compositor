@@ -1132,6 +1132,15 @@ pub enum Effect {
         opacity: f64,
         blend: String,
     },
+    /// D-210: `field_of_view`, 0 to 180 degrees; `reverse`, "off" or "on", and `orientation`,
+    /// "horizontal", "vertical" or "diagonal", kept as written so a wrong one is reported; and
+    /// `center`, x then y, -1000 to 1000 per cent of the drawing.
+    OpticsCompensation {
+        field_of_view: f64,
+        reverse: String,
+        orientation: String,
+        center: [f64; 2],
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1225,6 +1234,7 @@ pub const ROUGHEN_EDGES: &str = "core.roughen_edges";
 pub const BEAM: &str = "core.beam";
 pub const FOUR_COLOR_GRADIENT: &str = "core.four_color_gradient";
 pub const CELL_PATTERN: &str = "core.cell_pattern";
+pub const OPTICS_COMPENSATION: &str = "core.optics_compensation";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1961,6 +1971,12 @@ impl Effect {
                 ("seed", vec![seed], 0.0, 100000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::OpticsCompensation {
+                field_of_view, center, ..
+            } => vec![
+                ("field_of_view", vec![field_of_view], 0.0, 180.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -2309,6 +2325,7 @@ impl Effect {
             Effect::Beam { .. } => "Beam",
             Effect::FourColorGradient { .. } => "4-Color Gradient",
             Effect::CellPattern { .. } => "Cell Pattern",
+            Effect::OpticsCompensation { .. } => "Optics Compensation",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2402,6 +2419,7 @@ impl Effect {
             Effect::Beam { .. } => BEAM,
             Effect::FourColorGradient { .. } => FOUR_COLOR_GRADIENT,
             Effect::CellPattern { .. } => CELL_PATTERN,
+            Effect::OpticsCompensation { .. } => OPTICS_COMPENSATION,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2900,6 +2918,17 @@ impl Effect {
                 ..
             } => hex_fault("Cell Pattern", "dark colour", dark_color)
                 .or_else(|| hex_fault("Cell Pattern", "light colour", light_color)),
+            Effect::OpticsCompensation { reverse, .. } if !["on", "off"].contains(&reverse.as_str()) => Some(format!(
+                "Optics Compensation's reverse lens distortion is \"on\" or \"off\", and this is \"{reverse}\"."
+            )),
+            Effect::OpticsCompensation { orientation, .. }
+                if !["horizontal", "vertical", "diagonal"].contains(&orientation.as_str()) =>
+            {
+                Some(format!(
+                    "Optics Compensation's FOV orientation is \"horizontal\", \"vertical\" or \
+                     \"diagonal\", and this is \"{orientation}\"."
+                ))
+            }
             Effect::Halftone { ink, paper, .. } => {
                 hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
             }
@@ -3962,6 +3991,16 @@ pub(crate) fn apply_stack_at(
                 mode,
             } => crate::perf::time(crate::perf::Stage::EffectKaleidoscope, || {
                 crate::layer_fx::kaleidoscope(source, [*segments, *rotation, *size], *center, mode == "mirror", (ox, oy))
+            }),
+            // D-210: the lens is the drawing's own, however an effect above grew it; the layer
+            // never grows.
+            Effect::OpticsCompensation {
+                field_of_view,
+                reverse,
+                orientation,
+                center,
+            } => crate::perf::time(crate::perf::Stage::EffectOpticsCompensation, || {
+                crate::layer_fx::optics_compensation(source, *field_of_view, reverse == "on", orientation, *center, (ox, oy))
             }),
             // D-198: the corners are in per cent of the drawing's own box, however an effect
             // above grew it, and the layer grows so none is cut off.
