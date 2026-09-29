@@ -1161,6 +1161,45 @@ pub(crate) fn polar_coordinates(source: &mut WorkingBuffer, interpolation: f64, 
     *source = out;
 }
 
+/// D-205: one wedge of the drawing, whose corner is at `origin` in the buffer, repeated round
+/// `center`, in per cent of the drawing, every other copy mirrored (`mirror`) or every copy
+/// turned the same way. A point past the input reads it mirrored back at its edges. The buffer
+/// keeps its size. The settings are already valid.
+pub(crate) fn kaleidoscope(
+    source: &mut WorkingBuffer,
+    [segments, rotation, size]: [f64; 3],
+    center: [f64; 2],
+    mirror: bool,
+    origin: (usize, usize),
+) {
+    let (w, h) = (source.width(), source.height());
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let (cx, cy) = (center[0] / 100.0 * (w as f64 - 2.0 * ox), center[1] / 100.0 * (h as f64 - 2.0 * oy));
+    let (wedge, rot) = (std::f64::consts::TAU / segments.floor(), rotation.to_radians());
+    // A buffer coordinate folded into 0..n by mirroring at the edges, then held inside the
+    // pixel centres.
+    let fold = |u: f64, n: f64| {
+        let m = u.rem_euclid(2.0 * n);
+        (if m > n { 2.0 * n - m } else { m }).clamp(0.5, n - 0.5)
+    };
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (dx, dy) = ((i % w) as f64 + 0.5 - ox - cx, (i / w) as f64 + 0.5 - oy - cy);
+            let theta = dx.atan2(-dy) - rot;
+            let k = (theta / wedge).floor();
+            let t = theta - k * wedge;
+            let t = if mirror && k.rem_euclid(2.0) == 1.0 { wedge - t } else { t };
+            let (s, phi) = (dx.hypot(dy) * 100.0 / size, rot + t);
+            let (sx, sy) = (cx + s * phi.sin() + ox, cy - s * phi.cos() + oy);
+            px.copy_from_slice(&sample_bilinear(drawing, fold(sx, w as f64), fold(sy, h as f64)));
+        });
+    *source = out;
+}
+
 /// `sample_bilinear` at `x` across the drawing, `dw` wide from column `ox` of the buffer, and
 /// `y` down the buffer, each tap's column taken round the drawing's width, so its left and
 /// right edges join.

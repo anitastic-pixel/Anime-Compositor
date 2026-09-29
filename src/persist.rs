@@ -1938,6 +1938,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("seed".into(), num(*seed));
             params.insert("opacity".into(), num(*opacity));
         }
+        Effect::Kaleidoscope {
+            segments,
+            rotation,
+            size,
+            center,
+            mode,
+        } => {
+            params.insert("segments".into(), num(*segments));
+            params.insert("rotation".into(), num(*rotation));
+            params.insert("size".into(), num(*size));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("mode".into(), J::from(mode.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2465,6 +2478,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "start_width",
         "end_width",
         "interpolation",
+        "segments",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2948,6 +2962,7 @@ fn parse_effect(
         crate::effects::MEDIAN,
         crate::effects::SMART_BLUR,
         crate::effects::SNOWFALL,
+        crate::effects::KALEIDOSCOPE,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3543,6 +3558,13 @@ fn parse_effect(
             seed: effect_number(params, "seed", &at)?,
             opacity: effect_number(params, "opacity", &at)?,
             frame: 0,
+        }),
+        crate::effects::KALEIDOSCOPE => Some(crate::effects::Effect::Kaleidoscope {
+            segments: effect_number(params, "segments", &at)?,
+            rotation: effect_number(params, "rotation", &at)?,
+            size: effect_number(params, "size", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            mode: effect_word(params, "mode", &at)?,
         }),
         _ => None,
     };

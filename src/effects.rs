@@ -1050,6 +1050,17 @@ pub enum Effect {
         opacity: f64,
         frame: i32,
     },
+    /// D-205: `segments`, 2 to 32, its whole part counted; `rotation`, -3600 to 3600 degrees;
+    /// `size`, 10 to 1000 per cent; `center`, x then y, -1000 to 1000 per cent of the drawing;
+    /// and `mode`, "mirror" or "repeat". The word is kept as written, so a wrong one is
+    /// reported.
+    Kaleidoscope {
+        segments: f64,
+        rotation: f64,
+        size: f64,
+        center: [f64; 2],
+        mode: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1138,6 +1149,7 @@ pub const POLAR_COORDINATES: &str = "core.polar_coordinates";
 pub const MEDIAN: &str = "core.median";
 pub const SMART_BLUR: &str = "core.smart_blur";
 pub const SNOWFALL: &str = "core.snowfall";
+pub const KALEIDOSCOPE: &str = "core.kaleidoscope";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1796,6 +1808,18 @@ impl Effect {
                 ("seed", vec![seed], 0.0, 100000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::Kaleidoscope {
+                segments,
+                rotation,
+                size,
+                center,
+                ..
+            } => vec![
+                ("segments", vec![segments], 2.0, 32.0),
+                ("rotation", vec![rotation], -3600.0, 3600.0),
+                ("size", vec![size], 10.0, 1000.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -2129,6 +2153,7 @@ impl Effect {
             Effect::Median { .. } => "Median",
             Effect::SmartBlur { .. } => "Smart Blur",
             Effect::Snowfall { .. } => "Snowfall",
+            Effect::Kaleidoscope { .. } => "Kaleidoscope",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2217,6 +2242,7 @@ impl Effect {
             Effect::Median { .. } => MEDIAN,
             Effect::SmartBlur { .. } => SMART_BLUR,
             Effect::Snowfall { .. } => SNOWFALL,
+            Effect::Kaleidoscope { .. } => KALEIDOSCOPE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2659,6 +2685,9 @@ impl Effect {
                     "Polar Coordinates' conversion is \"rect_to_polar\" or \"polar_to_rect\", and this is \"{conversion}\"."
                 ))
             }
+            Effect::Kaleidoscope { mode, .. } if !["mirror", "repeat"].contains(&mode.as_str()) => Some(format!(
+                "Kaleidoscope's mirroring is \"mirror\" or \"repeat\", and this is \"{mode}\"."
+            )),
             Effect::Halftone { ink, paper, .. } => {
                 hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
             }
@@ -3630,6 +3659,17 @@ pub(crate) fn apply_stack_at(
                     crate::layer_fx::snowfall(source, encoded(color).map(crate::grade::to_linear), numbers, *frame, (ox, oy))
                 })
             }
+            // D-205: round the drawing's own centre, however an effect above grew it; the layer
+            // never grows.
+            Effect::Kaleidoscope {
+                segments,
+                rotation,
+                size,
+                center,
+                mode,
+            } => crate::perf::time(crate::perf::Stage::EffectKaleidoscope, || {
+                crate::layer_fx::kaleidoscope(source, [*segments, *rotation, *size], *center, mode == "mirror", (ox, oy))
+            }),
             // D-198: the corners are in per cent of the drawing's own box, however an effect
             // above grew it, and the layer grows so none is cut off.
             Effect::CornerPin {
