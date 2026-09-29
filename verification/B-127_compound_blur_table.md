@@ -47,6 +47,8 @@ D-191, accepted by the owner on 2026-09-28 ("take everything"). Every expected p
 | FX-CBLUR-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CBLUR-018 frame 0: FX-CBLUR-002 on the holder moved 2 right and 1 down: the same picture moved, since the map lies on the layer. | largest difference 2.0e-7 | yes |
 | FX-CBLUR-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-CBLUR-019 frame 0: The effect on an adjustment layer above the holder, the ramp as its map: the map lies on the frame, which here is the holder's own rectangle, so this is FX-CBLUR-002. | largest difference 2.0e-7 | yes |
+| FX-CBLUR-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CBLUR-020 frame 0: Maximum Blur 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CBLUR-020 frame 4: Maximum Blur 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CBLUR-020: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
@@ -68,8 +70,6 @@ D-191, accepted by the owner on 2026-09-28 ("take everything"). Every expected p
 | FX-CBLUR-026 frame 0: A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CBLUR-026 frame 4: A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CBLUR-026: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-CBLUR-019 frame 0, in dispute (D-192, proposed): as its file is written, the adjustment layer is drawn beneath the holder, so the frame is the holder unblurred, FX-CBLUR-001's | byte-identical to FX-CBLUR-001; the case's pixels are 6.9e-1 from that | yes |
-| FX-CBLUR-019 frame 0 with the adjustment layer moved above the holder, as the case says it is: the case's pixels | largest difference 2.0e-7 | yes |
 
 ## Files whose layers read each other (document 25)
 

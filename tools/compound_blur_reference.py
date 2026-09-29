@@ -268,7 +268,7 @@ def project_json(fx, c):
     if c["on"] == "adjust":
         adjust = L.adjustment("adjust", out_frame=FRAMES)
         adjust["effects"] = [effect("fx-1", c)]
-        layers = [adjust] + layers
+        layers = [holder, adjust] + map_layers()  # D-192: drawn after the holder, so above it
     else:
         holder["effects"] = [effect("fx-1", c)]
     return project("proj-" + fx.lower(), layers)

@@ -128,42 +128,13 @@ fn b127_compound_blur() {
     );
 
     t.heading("FX-CBLUR-001 to 026 (document 25)");
-    t.fixtures_numbered("expected_compound_blur.json", 1..=18);
-    t.fixtures_numbered("expected_compound_blur.json", 20..=26);
-    // FX-CBLUR-019 says its adjustment layer is above the holder, and its file puts it beneath:
-    // `layer_order` is drawn first to last, and the reference writes `[adjust] + layers`. Beneath
-    // the holder it has nothing to work on. Pending D-192, proposed.
+    // D-192, accepted: FX-CBLUR-019's adjustment layer is written above the holder.
+    t.fixtures_numbered("expected_compound_blur.json", 1..=26);
     let expected: J = serde_json::from_str(
         &fs::read_to_string(effect_table::repo("Fixtures/compound_blur/expected_compound_blur.json")).unwrap(),
     )
     .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
-    let pixels = &expected["cases"]["FX-CBLUR-019"]["frames"]["0"];
-    let unblurred = effect_table::largest_difference(&t.render(&t.load("fx_cblur_001.json").document, 0, 64), pixels);
-    let as_written = t.render(&t.load("fx_cblur_019.json").document, 0, 64);
-    let plain = t.render(&t.load("fx_cblur_001.json").document, 0, 64);
-    t.row(
-        "FX-CBLUR-019 frame 0, in dispute (D-192, proposed): as its file is written, the adjustment \
-         layer is drawn beneath the holder, so the frame is the holder unblurred, FX-CBLUR-001's",
-        &format!(
-            "{}; the case's pixels are {unblurred:.1e} from that",
-            if as_written.data() == plain.data() { "byte-identical to FX-CBLUR-001" } else { "differs from FX-CBLUR-001" }
-        ),
-        as_written.data() == plain.data(),
-    );
-    let mut above: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/compound_blur/fx_cblur_019.json")).unwrap(),
-    )
-    .unwrap();
-    above["compositions"][0]["layer_order"].as_array_mut().unwrap().swap(0, 1);
-    let above = persist::load_str(&above.to_string()).expect("FX-CBLUR-019 above reads");
-    let d = effect_table::largest_difference(&t.render(&above.document, 0, 64), pixels);
-    t.row(
-        "FX-CBLUR-019 frame 0 with the adjustment layer moved above the holder, as the case says it \
-         is: the case's pixels",
-        &format!("largest difference {d:.1e}"),
-        d <= tolerance,
-    );
 
     t.heading("Files whose layers read each other (document 25)");
     for (file, case) in expected["loads"].as_object().unwrap() {

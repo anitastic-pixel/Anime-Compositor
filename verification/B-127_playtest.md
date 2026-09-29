@@ -13,14 +13,7 @@ pictures below, and `verification/B-12b_state_fields_table.md`, which checks the
 card sends every setting the command reads. This sheet covers what the tables cannot: how it
 looks and feels in the window.
 
-## One question for you: D-192
-
-One fixture case, FX-CBLUR-019, is wrong in its file. It says the blur is on an adjustment layer
-**above** the drawing, but its file puts the adjustment layer **beneath** it, where it has nothing
-to work on. The build draws the file as written, the drawing unblurred. With the adjustment layer
-moved above, the build gives exactly the case's expected picture; the table checks both. The
-proposal is to correct the file so it says what the case says. Nothing else changes. Answer
-"D-192 yes" or "D-192 no" with the rest.
+D-192, FX-CBLUR-019's file, was decided on 2026-09-29: option 1, the file corrected.
 
 ## The pictures
 
@@ -104,4 +97,4 @@ shown.
 
 ## What to answer
 
-"works", or which step number did something else and what it did; and "D-192 yes" or "D-192 no".
+"works", or which step number did something else and what it did.
