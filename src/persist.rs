@@ -1802,6 +1802,27 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::PosterizeTime { frame_rate } => {
             params.insert("frame_rate".into(), num(*frame_rate));
         }
+        Effect::ChangeToColor {
+            from,
+            to,
+            change,
+            change_by,
+            hue_tolerance,
+            lightness_tolerance,
+            saturation_tolerance,
+            softness,
+            view_matte,
+        } => {
+            params.insert("from".into(), J::from(from.as_str()));
+            params.insert("to".into(), J::from(to.as_str()));
+            params.insert("change".into(), J::from(change.as_str()));
+            params.insert("change_by".into(), J::from(change_by.as_str()));
+            params.insert("hue_tolerance".into(), num(*hue_tolerance));
+            params.insert("lightness_tolerance".into(), num(*lightness_tolerance));
+            params.insert("saturation_tolerance".into(), num(*saturation_tolerance));
+            params.insert("softness".into(), num(*softness));
+            params.insert("view_matte".into(), J::from(view_matte.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2300,6 +2321,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "echoes",
         "decay",
         "frame_rate",
+        "hue_tolerance",
+        "lightness_tolerance",
+        "saturation_tolerance",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2760,6 +2784,7 @@ fn parse_effect(
         crate::effects::GRADIENT_WIPE,
         crate::effects::ECHO,
         crate::effects::POSTERIZE_TIME,
+        crate::effects::CHANGE_TO_COLOR,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3282,6 +3307,17 @@ fn parse_effect(
         }),
         crate::effects::POSTERIZE_TIME => Some(crate::effects::Effect::PosterizeTime {
             frame_rate: effect_number(params, "frame_rate", &at)?,
+        }),
+        crate::effects::CHANGE_TO_COLOR => Some(crate::effects::Effect::ChangeToColor {
+            from: effect_word(params, "from", &at)?.to_ascii_lowercase(),
+            to: effect_word(params, "to", &at)?.to_ascii_lowercase(),
+            change: effect_word(params, "change", &at)?,
+            change_by: effect_word(params, "change_by", &at)?,
+            hue_tolerance: effect_number(params, "hue_tolerance", &at)?,
+            lightness_tolerance: effect_number(params, "lightness_tolerance", &at)?,
+            saturation_tolerance: effect_number(params, "saturation_tolerance", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            view_matte: effect_word(params, "view_matte", &at)?,
         }),
         _ => None,
     };

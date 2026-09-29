@@ -861,6 +861,20 @@ pub enum Effect {
     /// D-196: `frame_rate`, 0.1 to 99 frames a second. Compose takes the layer's content at the
     /// frame it holds (`crate::compose::posterized`); its own step in the stack changes nothing.
     PosterizeTime { frame_rate: f64 },
+    /// D-197: `from` and `to`, `#rrggbb`; `change`, `hue`, `hue_lightness`, `hue_saturation` or
+    /// `hue_lightness_saturation`, what of `to` is taken; `change_by`, `setting` or
+    /// `transforming`; the three tolerances and `softness`, 0 to 100; `view_matte`, `off` or `on`.
+    ChangeToColor {
+        from: String,
+        to: String,
+        change: String,
+        change_by: String,
+        hue_tolerance: f64,
+        lightness_tolerance: f64,
+        saturation_tolerance: f64,
+        softness: f64,
+        view_matte: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -941,6 +955,7 @@ pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
 pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
 pub const ECHO: &str = "core.echo";
 pub const POSTERIZE_TIME: &str = "core.posterize_time";
+pub const CHANGE_TO_COLOR: &str = "core.change_to_color";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1557,6 +1572,18 @@ impl Effect {
                 ("decay", vec![decay], 0.0, 1.0),
             ],
             Effect::PosterizeTime { frame_rate } => vec![("frame_rate", vec![frame_rate], 0.1, 99.0)],
+            Effect::ChangeToColor {
+                hue_tolerance,
+                lightness_tolerance,
+                saturation_tolerance,
+                softness,
+                ..
+            } => vec![
+                ("hue_tolerance", vec![hue_tolerance], 0.0, 100.0),
+                ("lightness_tolerance", vec![lightness_tolerance], 0.0, 100.0),
+                ("saturation_tolerance", vec![saturation_tolerance], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1787,6 +1814,7 @@ impl Effect {
             Effect::GradientWipe { .. } => "Gradient Wipe",
             Effect::Echo { .. } => "Echo",
             Effect::PosterizeTime { .. } => "Posterize Time",
+            Effect::ChangeToColor { .. } => "Change to Color",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1867,6 +1895,7 @@ impl Effect {
             Effect::GradientWipe { .. } => GRADIENT_WIPE,
             Effect::Echo { .. } => ECHO,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
+            Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2260,6 +2289,29 @@ impl Effect {
                     })
                 }),
             Effect::LeaveColor { color, .. } => hex_fault("Leave Color", "colour", color),
+            Effect::ChangeToColor { from, to, change, change_by, view_matte, .. } => {
+                hex_fault("Change to Color", "from colour", from)
+                    .or_else(|| hex_fault("Change to Color", "to colour", to))
+                    .or_else(|| {
+                        (!["hue", "hue_lightness", "hue_saturation", "hue_lightness_saturation"].contains(&change.as_str()))
+                            .then(|| {
+                                format!(
+                                    "Change to Color's change is \"hue\", \"hue_lightness\", \"hue_saturation\" or \
+                                     \"hue_lightness_saturation\", and this is \"{change}\"."
+                                )
+                            })
+                    })
+                    .or_else(|| {
+                        (!["setting", "transforming"].contains(&change_by.as_str())).then(|| {
+                            format!("Change to Color's change by is \"setting\" or \"transforming\", and this is \"{change_by}\".")
+                        })
+                    })
+                    .or_else(|| {
+                        (!["off", "on"].contains(&view_matte.as_str())).then(|| {
+                            format!("Change to Color's view matte is \"off\" or \"on\", and this is \"{view_matte}\".")
+                        })
+                    })
+            }
             Effect::Halftone { ink, paper, .. } => {
                 hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
             }
@@ -3046,6 +3098,28 @@ pub(crate) fn apply_stack_at(
                 amount,
             } => crate::perf::time(crate::perf::Stage::EffectLeaveColor, || {
                 crate::grade::leave_color(source, encoded(color), *tolerance, *softness, *amount)
+            }),
+            Effect::ChangeToColor {
+                from,
+                to,
+                change,
+                change_by,
+                hue_tolerance,
+                lightness_tolerance,
+                saturation_tolerance,
+                softness,
+                view_matte,
+            } => crate::perf::time(crate::perf::Stage::EffectChangeToColor, || {
+                let c = crate::grade::ChangeToColor {
+                    from: encoded(from),
+                    to: encoded(to),
+                    change,
+                    transforming: change_by == "transforming",
+                    tolerances: [*hue_tolerance, *lightness_tolerance, *saturation_tolerance],
+                    softness: *softness,
+                    matte: view_matte == "on",
+                };
+                crate::grade::change_to_color(source, &c)
             }),
             Effect::Solarize { threshold } => crate::perf::time(crate::perf::Stage::EffectSolarize, || {
                 crate::grade::solarize(source, *threshold)

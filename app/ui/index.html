@@ -6803,6 +6803,7 @@ const EFFECT_NAMES = {
   'core.gradient_wipe': 'Gradient Wipe',
   'core.echo': 'Echo',
   'core.posterize_time': 'Posterize Time',
+  'core.change_to_color': 'Change to Color',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6813,8 +6814,8 @@ const EFFECT_GROUPS = [
     'core.diffusion']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
-    'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.invert',
-    'core.color_lookup']],
+    'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
+    'core.invert', 'core.color_lookup']],
   ['Light & Glow', ['core.glow', 'core.bloom', 'core.light_rays', 'core.rim_light',
     'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
     'core.paraffin']],
@@ -6885,6 +6886,7 @@ const EFFECT_SEARCH = {
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
   'core.echo': 'echo time trail trails ghost ghosting onion skin smear afterimage frames',
   'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
+  'core.change_to_color': 'change to color colour replace recolor recolour swap costume palette hue shift',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6979,6 +6981,7 @@ const EFFECT_ABOUT = {
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
   'core.echo': 'Lays copies of the layer from earlier or later frames over it, each fainter than the last: a trail.',
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
+  'core.change_to_color': 'Turns one colour into another, with the shades painted in it, and leaves the rest alone.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7284,6 +7287,11 @@ const EFFECT_PARAMS = {
     ['decay', 'Decay', 1, 0.01, '0 to 1, each echo this much of the one before']],
   // D-196.
   'core.posterize_time': [['frame_rate', 'Frame Rate', 1, 1, 'frames a second, 0.1 to 99; 12 in a composition of 24 is on twos, 8 on threes']],
+  // D-197.
+  'core.change_to_color': [['hue_tolerance', 'Hue Tolerance', 1, 1, '0 to 100, how far round the colour wheel changes whole'],
+    ['lightness_tolerance', 'Lightness Tolerance', 1, 1, '0 to 100, how much lighter or darker changes whole'],
+    ['saturation_tolerance', 'Saturation Tolerance', 1, 1, '0 to 100, how much duller or fuller changes whole'],
+    ['softness', 'Softness', 1, 1, '0 to 100, the fade past each tolerance, that part of it wide']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7458,6 +7466,14 @@ const EFFECT_WORDS = {
     choices: [['operator', 'Echo Operator', [['add', 'Add'], ['maximum', 'Maximum'], ['minimum', 'Minimum'],
       ['screen', 'Screen'], ['composite_in_back', 'Composite In Back'],
       ['composite_in_front', 'Composite In Front'], ['blend', 'Blend']]]],
+  },
+  // D-197, After Effects' own words.
+  'core.change_to_color': {
+    colours: [['from', 'From'], ['to', 'To']],
+    choices: [['change', 'Change', [['hue', 'Hue'], ['hue_lightness', 'Hue & Lightness'],
+      ['hue_saturation', 'Hue & Saturation'], ['hue_lightness_saturation', 'Hue, Lightness & Saturation']]],
+    ['change_by', 'Change By', [['setting', 'Setting To Color'], ['transforming', 'Transforming To Color']]],
+    ['view_matte', 'View Correction Matte', [['off', 'Off'], ['on', 'On']]]],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.

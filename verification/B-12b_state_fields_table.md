@@ -237,5 +237,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - echo_time, echoes, intensity, decay, operator - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.posterize_time` is an effect this build has | added | added | pass |
 | and the settings it sends for it - frame_rate - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.change_to_color` is an effect this build has | added | added | pass |
+| and the settings it sends for it - from, to, change, change_by, hue_tolerance, lightness_tolerance, saturation_tolerance, softness, view_matte - are the ones the command reads | accepted | accepted | pass |
 
-**217 of 217 checks pass.**
+**219 of 219 checks pass.**

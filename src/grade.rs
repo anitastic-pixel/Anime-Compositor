@@ -733,6 +733,96 @@ pub(crate) fn leave_color(source: &mut WorkingBuffer, color: [f64; 3], tolerance
     });
 }
 
+/// D-197's hue (none for a grey), lightness and saturation of an encoded colour.
+fn hls(e: [f64; 3]) -> (Option<f64>, f64, f64) {
+    let (mx, mn) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
+    let l = (mx + mn) / 2.0;
+    let s = if mx == mn { 0.0 } else { (mx - mn) / (1.0 - (2.0 * l - 1.0).abs()) };
+    (hsv_hue(e), l, s)
+}
+
+/// D-197's settings, read once for a frame: `from` and `to` encoded, the three tolerances and
+/// the softness 0 to 100.
+pub(crate) struct ChangeToColor<'a> {
+    pub from: [f64; 3],
+    pub to: [f64; 3],
+    pub change: &'a str,
+    pub transforming: bool,
+    pub tolerances: [f64; 3],
+    pub softness: f64,
+    pub matte: bool,
+}
+
+/// D-197: each colour near `from` by hue, lightness and saturation turned toward `to` by how near
+/// it is, or with `matte` that nearness shown as grey. A pixel not near at all is left exactly as
+/// it is.
+pub(crate) fn change_to_color(source: &mut WorkingBuffer, c: &ChangeToColor) {
+    let (hf, lf, sf) = hls(c.from);
+    let (ht, lt, st) = hls(c.to);
+    let (hf0, ht0) = (hf.unwrap_or(0.0), ht.unwrap_or(0.0));
+    let t = c.tolerances.map(|v| v / 100.0);
+    let w = c.softness / 100.0;
+    let part = |d: f64, t: f64| {
+        if d <= t {
+            1.0
+        } else if w == 0.0 || t == 0.0 || d >= t * (1.0 + w) {
+            0.0
+        } else {
+            1.0 - (d - t) / (t * w)
+        }
+    };
+    let (lightness, saturation) = (c.change.contains("lightness"), c.change.contains("saturation"));
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let e = [0, 1, 2].map(|i| to_srgb((px[i] as f64 / a).clamp(0.0, 1.0)));
+        let (h, l, s) = hls(e);
+        let dh = match (h, hf) {
+            (Some(h), Some(hf)) => {
+                let d = (h - hf).abs();
+                d.min(360.0 - d) / 180.0
+            }
+            _ => 1.0,
+        };
+        let k = part(dh, t[0]).min(part((l - lf).abs(), t[1])).min(part((s - sf).abs(), t[2]));
+        if c.matte {
+            let v = (to_linear(k) * a) as f32;
+            px[..3].fill(v);
+            return;
+        }
+        if k <= 0.0 {
+            return;
+        }
+        let h = h.unwrap_or(0.0);
+        let (h, l, s) = if c.transforming {
+            (
+                (h + ht0 - hf0).rem_euclid(360.0),
+                if lightness { (l + lt - lf).clamp(0.0, 1.0) } else { l },
+                if saturation { (s + st - sf).clamp(0.0, 1.0) } else { s },
+            )
+        } else {
+            (ht0, if lightness { lt } else { l }, if saturation { st } else { s })
+        };
+        let chroma = (1.0 - (2.0 * l - 1.0).abs()) * s;
+        let hh = h / 60.0;
+        let x = chroma * (1.0 - (hh.rem_euclid(2.0) - 1.0).abs());
+        let rgb = match (hh.floor() as usize).min(5) {
+            0 => [chroma, x, 0.0],
+            1 => [x, chroma, 0.0],
+            2 => [0.0, chroma, x],
+            3 => [0.0, x, chroma],
+            4 => [x, 0.0, chroma],
+            _ => [chroma, 0.0, x],
+        };
+        let m = l - chroma / 2.0;
+        for i in 0..3 {
+            px[i] = (to_linear((e[i] + k * (rgb[i] + m - e[i])).clamp(0.0, 1.0)) * a) as f32;
+        }
+    });
+}
+
 /// D-142: each channel at or above `threshold` of 255 turned to its opposite; the rest kept bit
 /// for bit.
 pub(crate) fn solarize(source: &mut WorkingBuffer, threshold: f64) {

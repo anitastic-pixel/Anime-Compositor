@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3276,6 +3276,18 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         }),
         // D-196: on twos in a composition of 24.
         POSTERIZE_TIME => Some(Effect::PosterizeTime { frame_rate: 12.0 }),
+        // D-197: After Effects' own start, pure red to a sky blue, the hue alone.
+        CHANGE_TO_COLOR => Some(Effect::ChangeToColor {
+            from: "#ff0000".to_string(),
+            to: "#0080ff".to_string(),
+            change: "hue".to_string(),
+            change_by: "setting".to_string(),
+            hue_tolerance: 5.0,
+            lightness_tolerance: 50.0,
+            saturation_tolerance: 50.0,
+            softness: 50.0,
+            view_matte: "off".to_string(),
+        }),
         _ => None,
     }
 }
@@ -3907,6 +3919,17 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             picture: None,
         }),
         POSTERIZE_TIME => Ok(Effect::PosterizeTime { frame_rate: number("frame_rate")? }),
+        CHANGE_TO_COLOR => Ok(Effect::ChangeToColor {
+            from: word("from")?,
+            to: word("to")?,
+            change: word("change")?,
+            change_by: word("change_by")?,
+            hue_tolerance: number("hue_tolerance")?,
+            lightness_tolerance: number("lightness_tolerance")?,
+            saturation_tolerance: number("saturation_tolerance")?,
+            softness: number("softness")?,
+            view_matte: word("view_matte")?,
+        }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
         // to read them against, so they are left alone and said to be left alone.
@@ -6918,7 +6941,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
-                             core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo or core.posterize_time."
+                             core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time \
+                             or core.change_to_color."
                                 .to_string(),
                         );
                     };
@@ -6945,7 +6969,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
-                             core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo and core.posterize_time."
+                             core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time \
+                             and core.change_to_color."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -11481,7 +11506,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the seventy-four are named",
+            "an effect type this build does not have is refused, and the seventy-five are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -11499,7 +11524,8 @@ mod editing {
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
-             core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo and core.posterize_time.",
+             core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time \
+             and core.change_to_color.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -11520,7 +11546,8 @@ mod editing {
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
-             core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo or core.posterize_time.",
+             core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time \
+             or core.change_to_color.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -24780,6 +24807,21 @@ mod contract {
             ],
         ),
         ("core.posterize_time", &[("frame_rate", "8")]),
+        // D-197: the colours, the words and the four numbers.
+        (
+            "core.change_to_color",
+            &[
+                ("from", "%23c82828"),
+                ("to", "%234060ff"),
+                ("change", "hue_saturation"),
+                ("change_by", "transforming"),
+                ("hue_tolerance", "12"),
+                ("lightness_tolerance", "40"),
+                ("saturation_tolerance", "60"),
+                ("softness", "30"),
+                ("view_matte", "on"),
+            ],
+        ),
     ];
 
     const FIELDS_INTRO: &[&str] = &[
