@@ -180700,6 +180700,223 @@ Frame 0: the same as FX-ECHO-001 frame 0.
 
 Frame 4: the same as FX-ECHO-024 frame 4.
 
+## Posterize Time fixtures
+
+D-196, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, eight frames long, in `Fixtures/posterize_time/`, holding the drawn layer `holder` with one Posterize Time (`core.posterize_time`), unless the case says otherwise. The holder shows the image sequence `ball`, `Fixtures/posterize_time/media/ball_1.png` to `ball_8.png`, each 14 by 5, drawing k exposed at frame k - 1: a ball three pixels square in rows 1 to 3, its left column at k, coloured #e6 then (20 + 25 k) then (220 - 25 k) in hex, opaque, with the column behind it the same colour at covering 128 of 255, the rest clear. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.
+
+**Every number below is produced by `tools/posterize_time_reference.py`**, which works D-196's rule in double precision at every pixel from the drawings' 8-bit values. The same numbers are in `Fixtures/posterize_time/expected_posterize_time.json`. Tolerance 2e-5.
+
+**Checked by what they claim.** The tool checks that each frame of each case is the drawing of the frame the case names, moved where the case moves it (001 to 008, 011, 012, 014 to 017); that the Exposure keyed before or after it is held at frame 2's +1 (009, 010); that the Echo after it is frame 2's and frame 1's drawings added, on both frames (013); that the wrong settings leave every frame as drawn (018 to 020); and that holding twice is holding once, at rates 0.1 to 24 in compositions of 24, 25, 30 and 23.976 for the first 200 frames.
+
+FX-PTIME-001: As added, 12 a second in a composition of 24: on twos. Frames 0 and 1 show drawing 1, 2 and 3 drawing 3, 4 and 5 drawing 5, 6 and 7 drawing 7.
+
+Frame 0: every pixel is the drawing's at that frame, unchanged.
+
+Frame 1: every pixel is what frame 0 shows without the effect.
+
+Frame 2: every pixel is the drawing's at that frame, unchanged.
+
+Frame 3: every pixel is what frame 2 shows without the effect.
+
+Frame 4: every pixel is the drawing's at that frame, unchanged.
+
+Frame 5: every pixel is what frame 4 shows without the effect.
+
+Frame 6: every pixel is the drawing's at that frame, unchanged.
+
+Frame 7: every pixel is what frame 6 shows without the effect.
+
+FX-PTIME-002: 24 a second, the composition's own rate: nothing is held.
+
+Frame 1: every pixel is the drawing's at that frame, unchanged.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+Frame 5: every pixel is the drawing's at that frame, unchanged.
+
+FX-PTIME-003: 30 a second, above the composition's rate: nothing is held.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+Frame 5: every pixel is the drawing's at that frame, unchanged.
+
+FX-PTIME-004: 8 a second: on threes. Frames 1 and 2 show frame 0's drawing, 3 to 5 frame 3's.
+
+Frame 1: every pixel is what frame 0 shows without the effect.
+
+Frame 2: every pixel is what frame 0 shows without the effect.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+Frame 4: every pixel is what frame 3 shows without the effect.
+
+Frame 5: every pixel is what frame 3 shows without the effect.
+
+FX-PTIME-005: 10 a second: uneven holds, frames 0 to 2, then 3 and 4, then 5 on.
+
+Frame 2: every pixel is what frame 0 shows without the effect.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+Frame 4: every pixel is what frame 3 shows without the effect.
+
+Frame 5: every pixel is the drawing's at that frame, unchanged.
+
+Frame 6: every pixel is what frame 5 shows without the effect.
+
+FX-PTIME-006: 6 a second: on fours. Frame 3 shows frame 0's drawing, 4 and 7 frame 4's.
+
+Frame 3: every pixel is what frame 0 shows without the effect.
+
+Frame 4: every pixel is the drawing's at that frame, unchanged.
+
+Frame 7: every pixel is what frame 4 shows without the effect.
+
+FX-PTIME-007: The layer's in point at frame 3, 12 a second: at frame 2 there is no layer; at frame 3 its first drawing, not a frame before it; frames 4 and 5 its second.
+
+Frame 2: every pixel is clear, 0 0 0 0.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+Frame 4: every pixel is the drawing's at that frame, unchanged.
+
+Frame 5: every pixel is what frame 4 shows without the effect.
+
+FX-PTIME-008: The position keyed from (0, 0) at frame 0 to (4, 0) at frame 4: the drawing holds and the layer still moves. Frame 3 shows drawing 3 moved 3 right.
+
+Frame 2: every pixel is the drawing's at that frame, unchanged.
+
+Frame 3: every pixel is what frame 2 shows without the effect, moved to where the layer is at frame 3.
+
+FX-PTIME-009: An Exposure before it, keyed from 0 at frame 0 to +2 at frame 4: held with the drawing. Frame 3 is drawing 3 at +1.
+
+Frame 3:
+
+Row 1, the 5 pixels that differ from the drawing at that frame:
+
+| x | drawing | held |
+| --- | --- | --- |
+| 2 | 0 0 0 0 | 0.7944011 0.1148841 0.2842591 0.5019608 |
+| 3 | 0.3972005 0.09427866 0.09427866 0.5019608 | 1.582596 0.2288707 0.5662975 1 |
+| 4 | 0.7912979 0.1878208 0.1878208 1 | 1.582596 0.2288707 0.5662975 1 |
+| 5 | 0.7912979 0.1878208 0.1878208 1 | 1.582596 0.2288707 0.5662975 1 |
+| 6 | 0.7912979 0.1878208 0.1878208 1 | 0 0 0 0 |
+
+Row 2, the 5 pixels that differ from the drawing at that frame:
+
+| x | drawing | held |
+| --- | --- | --- |
+| 2 | 0 0 0 0 | 0.7944011 0.1148841 0.2842591 0.5019608 |
+| 3 | 0.3972005 0.09427866 0.09427866 0.5019608 | 1.582596 0.2288707 0.5662975 1 |
+| 4 | 0.7912979 0.1878208 0.1878208 1 | 1.582596 0.2288707 0.5662975 1 |
+| 5 | 0.7912979 0.1878208 0.1878208 1 | 1.582596 0.2288707 0.5662975 1 |
+| 6 | 0.7912979 0.1878208 0.1878208 1 | 0 0 0 0 |
+
+Row 3, the 5 pixels that differ from the drawing at that frame:
+
+| x | drawing | held |
+| --- | --- | --- |
+| 2 | 0 0 0 0 | 0.7944011 0.1148841 0.2842591 0.5019608 |
+| 3 | 0.3972005 0.09427866 0.09427866 0.5019608 | 1.582596 0.2288707 0.5662975 1 |
+| 4 | 0.7912979 0.1878208 0.1878208 1 | 1.582596 0.2288707 0.5662975 1 |
+| 5 | 0.7912979 0.1878208 0.1878208 1 | 1.582596 0.2288707 0.5662975 1 |
+| 6 | 0.7912979 0.1878208 0.1878208 1 | 0 0 0 0 |
+
+FX-PTIME-010: The same Exposure after it: held too, FX-PTIME-009.
+
+Frame 3: the same as FX-PTIME-009 frame 3.
+
+FX-PTIME-011: The effect on an adjustment layer above the holder: nothing changes.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+FX-PTIME-012: Two, 12 then 8: frame 4 is held at 4 by the first and 3 by the second; frames 4 and 5 show frame 3's drawing, frame 6 its own.
+
+Frame 4: every pixel is what frame 3 shows without the effect.
+
+Frame 5: every pixel is what frame 3 shows without the effect.
+
+Frame 6: every pixel is the drawing's at that frame, unchanged.
+
+FX-PTIME-013: An Echo after it, one echo one frame back, Add: frame 3 is frame 2's drawing and frame 1's added, the same as frame 2.
+
+Frame 2:
+
+Row 1, the 4 pixels that differ from the drawing at that frame:
+
+| x | drawing | held |
+| --- | --- | --- |
+| 1 | 0 0 0 0 | 0.3972005 0.03074312 0.2017771 0.5019608 |
+| 2 | 0.3972005 0.05744207 0.1421296 0.5019608 | 1 0.1186881 0.5441073 1 |
+| 3 | 0.7912979 0.1144354 0.2831487 1 | 1 0.1756814 0.6851265 1 |
+| 4 | 0.7912979 0.1144354 0.2831487 1 | 1 0.1756814 0.6851265 1 |
+
+Row 2, the 4 pixels that differ from the drawing at that frame:
+
+| x | drawing | held |
+| --- | --- | --- |
+| 1 | 0 0 0 0 | 0.3972005 0.03074312 0.2017771 0.5019608 |
+| 2 | 0.3972005 0.05744207 0.1421296 0.5019608 | 1 0.1186881 0.5441073 1 |
+| 3 | 0.7912979 0.1144354 0.2831487 1 | 1 0.1756814 0.6851265 1 |
+| 4 | 0.7912979 0.1144354 0.2831487 1 | 1 0.1756814 0.6851265 1 |
+
+Row 3, the 4 pixels that differ from the drawing at that frame:
+
+| x | drawing | held |
+| --- | --- | --- |
+| 1 | 0 0 0 0 | 0.3972005 0.03074312 0.2017771 0.5019608 |
+| 2 | 0.3972005 0.05744207 0.1421296 0.5019608 | 1 0.1186881 0.5441073 1 |
+| 3 | 0.7912979 0.1144354 0.2831487 1 | 1 0.1756814 0.6851265 1 |
+| 4 | 0.7912979 0.1144354 0.2831487 1 | 1 0.1756814 0.6851265 1 |
+
+Frame 3: the same as FX-PTIME-013 frame 2.
+
+FX-PTIME-014: Switched off: nothing is held.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+FX-PTIME-015: The rate keyed, 24 held until frame 4 and 8 from there: frames 0 to 3 on ones, then frames 4 and 5 show frame 3's drawing and frame 6 its own.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+Frame 4: every pixel is what frame 3 shows without the effect.
+
+Frame 5: every pixel is what frame 3 shows without the effect.
+
+Frame 6: every pixel is the drawing's at that frame, unchanged.
+
+FX-PTIME-016: On a composition layer showing a composition of the same drawings: frame 3 shows the inner composition's frame 2.
+
+Frame 3: every pixel is what frame 2 shows without the effect.
+
+FX-PTIME-017: 12 a second in a composition of 30: frames 0 to 2 show frame 0's drawing, 3 and 4 frame 3's, 5 to 7 frame 5's.
+
+Frame 2: every pixel is what frame 0 shows without the effect.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+Frame 4: every pixel is what frame 3 shows without the effect.
+
+Frame 5: every pixel is the drawing's at that frame, unchanged.
+
+FX-PTIME-018: Frame rate 0.05, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 1: every pixel is the drawing's at that frame, unchanged.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+FX-PTIME-019: Frame rate 100, above 99. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 1: every pixel is the drawing's at that frame, unchanged.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
+FX-PTIME-020: Frame rate keyed to 120 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 1: every pixel is the drawing's at that frame, unchanged.
+
+Frame 3: every pixel is the drawing's at that frame, unchanged.
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
