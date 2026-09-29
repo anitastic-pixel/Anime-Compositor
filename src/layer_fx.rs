@@ -1122,6 +1122,73 @@ pub(crate) fn corner_pin(source: &mut WorkingBuffer, pins: [[f64; 2]; 4], origin
     (gx, gy)
 }
 
+/// D-201: the drawing, whose corner is at `origin` in the buffer, bent round its middle, its
+/// rows into rings and its columns into spokes (`to_polar`), or unrolled, its rings into rows
+/// and its spokes into columns, `interpolation` per cent of the way. The buffer keeps its size.
+/// The settings are already valid.
+pub(crate) fn polar_coordinates(source: &mut WorkingBuffer, interpolation: f64, to_polar: bool, origin: (usize, usize)) {
+    let k = interpolation / 100.0;
+    if k == 0.0 {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
+    let turn = std::f64::consts::TAU;
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
+            let (sx, sy) = if to_polar {
+                let (nx, ny) = ((x - dw / 2.0) / (dw / 2.0), (y - dh / 2.0) / (dh / 2.0));
+                let phi = nx.atan2(-ny);
+                let phi = if phi < 0.0 { phi + turn } else { phi };
+                (phi / turn * dw, nx.hypot(ny) * dh)
+            } else {
+                let (a, v) = (turn * x / dw, y / dh);
+                (dw / 2.0 * (1.0 + v * a.sin()), dh / 2.0 * (1.0 - v * a.cos()))
+            };
+            let (qx, qy) = (x + k * (sx - x), y + k * (sy - y));
+            px.copy_from_slice(&if to_polar {
+                sample_round(drawing, qx, qy + oy, dw as isize, origin.0 as isize)
+            } else {
+                sample_bilinear(drawing, qx + ox, qy + oy)
+            });
+        });
+    *source = out;
+}
+
+/// `sample_bilinear` at `x` across the drawing, `dw` wide from column `ox` of the buffer, and
+/// `y` down the buffer, each tap's column taken round the drawing's width, so its left and
+/// right edges join.
+fn sample_round(src: &WorkingBuffer, x: f64, y: f64, dw: isize, ox: isize) -> [f32; 4] {
+    let h = src.height() as isize;
+    let (fx, fy) = (x - 0.5, y - 0.5);
+    let (x0, y0) = (fx.floor(), fy.floor());
+    let (ux, uy) = (fx - x0, fy - y0);
+    let (x0, y0) = (x0 as isize, y0 as isize);
+    let mut out = [0.0f32; 4];
+    for (dy, wy) in [(0isize, 1.0 - uy), (1, uy)] {
+        let sy = y0 + dy;
+        if wy == 0.0 || sy < 0 || sy >= h {
+            continue;
+        }
+        for (dx, wx) in [(0isize, 1.0 - ux), (1, ux)] {
+            if wx == 0.0 {
+                continue;
+            }
+            let weight = (wx * wy) as f32;
+            let px = src.pixel(((x0 + dx).rem_euclid(dw) + ox) as usize, sy as usize);
+            for i in 0..4 {
+                out[i] += px[i] * weight;
+            }
+        }
+    }
+    out
+}
 
 /// D-155: every pixel behind a straight edge moving along `angle` gone, `completion` per cent of
 /// the way across the drawing, whose corner is at `origin` in the buffer, softened over

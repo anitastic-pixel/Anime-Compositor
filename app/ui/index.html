@@ -6807,6 +6807,7 @@ const EFFECT_NAMES = {
   'core.corner_pin': 'Corner Pin',
   'core.light_sweep': 'Light Sweep',
   'core.radio_waves': 'Radio Waves',
+  'core.polar_coordinates': 'Polar Coordinates',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6826,7 +6827,7 @@ const EFFECT_GROUPS = [
     'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key']],
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple',
     'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
-    'core.corner_pin']],
+    'core.corner_pin', 'core.polar_coordinates']],
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain',
     'core.light_sweep', 'core.radio_waves']],
   ['Stylize', ['core.drop_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
@@ -6895,6 +6896,7 @@ const EFFECT_SEARCH = {
   'core.corner_pin': 'corner pin perspective four corners screen sign billboard poster distort pin skew keystone',
   'core.light_sweep': 'cc light sweep shine glint gleam sheen reflection flash sword metal logo glass highlight',
   'core.radio_waves': 'radio waves ring rings shockwave sonar ping ripple pulse signal circle wave target',
+  'core.polar_coordinates': 'polar coordinates rect to polar polar to rect focus lines speed lines tiny planet round circle ring bend wrap unroll',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6993,6 +6995,7 @@ const EFFECT_ABOUT = {
   'core.corner_pin': 'Pins the layer\'s four corners anywhere and stretches it between them in perspective.',
   'core.light_sweep': 'Lays a band of light across the drawing; key its centre and a shine runs across it.',
   'core.radio_waves': 'Sends rings out from a point, a new one every few frames, over the layer as it plays.',
+  'core.polar_coordinates': 'Bends the layer round its middle, its rows into rings and its columns into spokes, or unrolls it back.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7330,6 +7333,7 @@ const EFFECT_PARAMS = {
     ['fade_out_time', 'Fade-out Time', 1, 1, 'frames, 0 to 1000, counted back from the end of its life'],
     ['start_width', 'Start Width', 1, 0.5, 'pixels, 0 to 1000, the ring\'s width when born'],
     ['end_width', 'End Width', 1, 0.5, 'pixels, 0 to 1000, its width as it dies']],
+  'core.polar_coordinates': [['interpolation', 'Interpolation', 1, 1, '0 to 100, how far to go; 0 leaves the layer as it is']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7456,6 +7460,10 @@ const EFFECT_WORDS = {
   'core.radio_waves': {
     choices: [['profile', 'Profile', [['square', 'Square'], ['triangle', 'Triangle'], ['sine', 'Sine']]]],
     colours: [['color', 'Color']],
+  },
+  // D-201.
+  'core.polar_coordinates': {
+    choices: [['conversion', 'Type of Conversion', [['rect_to_polar', 'Rect to Polar'], ['polar_to_rect', 'Polar to Rect']]]],
   },
   // D-154.
   'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },

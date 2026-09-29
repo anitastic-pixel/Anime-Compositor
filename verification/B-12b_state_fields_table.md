@@ -245,5 +245,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - center, direction, shape, width, sweep_intensity, edge_intensity, edge_thickness, light_color, light_reception - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.radio_waves` is an effect this build has | added | added | pass |
 | and the settings it sends for it - producer_point, sides, interval, expansion, orientation, direction, velocity, spin, lifespan, opacity, fade_in_time, fade_out_time, start_width, end_width, profile, color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.polar_coordinates` is an effect this build has | added | added | pass |
+| and the settings it sends for it - interpolation, conversion - are the ones the command reads | accepted | accepted | pass |
 
-**225 of 225 checks pass.**
+**227 of 227 checks pass.**

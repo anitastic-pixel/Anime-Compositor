@@ -217,6 +217,7 @@ pub enum Stage {
     EffectCornerPin,
     EffectLightSweep,
     EffectRadioWaves,
+    EffectPolarCoordinates,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -234,7 +235,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 93] = [
+    pub const ALL: [Stage; 94] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -321,6 +322,7 @@ impl Stage {
         Stage::EffectCornerPin,
         Stage::EffectLightSweep,
         Stage::EffectRadioWaves,
+        Stage::EffectPolarCoordinates,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -419,6 +421,7 @@ impl Stage {
             Stage::EffectCornerPin => "effect: corner pin",
             Stage::EffectLightSweep => "effect: light sweep",
             Stage::EffectRadioWaves => "effect: radio waves",
+            Stage::EffectPolarCoordinates => "effect: polar coordinates",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

@@ -932,6 +932,10 @@ pub enum Effect {
         color: String,
         frame: i32,
     },
+    /// D-201: `interpolation`, 0 to 100, how far the drawing is bent; and `conversion`,
+    /// "rect_to_polar" or "polar_to_rect". The word is kept as written, so a wrong one is
+    /// reported.
+    PolarCoordinates { interpolation: f64, conversion: String },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1016,6 +1020,7 @@ pub const CHANGE_TO_COLOR: &str = "core.change_to_color";
 pub const CORNER_PIN: &str = "core.corner_pin";
 pub const LIGHT_SWEEP: &str = "core.light_sweep";
 pub const RADIO_WAVES: &str = "core.radio_waves";
+pub const POLAR_COORDINATES: &str = "core.polar_coordinates";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1644,6 +1649,7 @@ impl Effect {
                 ("saturation_tolerance", vec![saturation_tolerance], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
+            Effect::PolarCoordinates { interpolation, .. } => vec![("interpolation", vec![interpolation], 0.0, 100.0)],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -1957,6 +1963,7 @@ impl Effect {
             Effect::CornerPin { .. } => "Corner Pin",
             Effect::LightSweep { .. } => "Light Sweep",
             Effect::RadioWaves { .. } => "Radio Waves",
+            Effect::PolarCoordinates { .. } => "Polar Coordinates",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2041,6 +2048,7 @@ impl Effect {
             Effect::CornerPin { .. } => CORNER_PIN,
             Effect::LightSweep { .. } => LIGHT_SWEEP,
             Effect::RadioWaves { .. } => RADIO_WAVES,
+            Effect::PolarCoordinates { .. } => POLAR_COORDINATES,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2477,6 +2485,11 @@ impl Effect {
                             )
                         })
                     })
+            }
+            Effect::PolarCoordinates { conversion, .. } if !["rect_to_polar", "polar_to_rect"].contains(&conversion.as_str()) => {
+                Some(format!(
+                    "Polar Coordinates' conversion is \"rect_to_polar\" or \"polar_to_rect\", and this is \"{conversion}\"."
+                ))
             }
             Effect::Halftone { ink, paper, .. } => {
                 hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
@@ -3408,6 +3421,13 @@ pub(crate) fn apply_stack_at(
                 });
                 ox += gx;
                 oy += gy;
+            }
+            // D-201: bent round the drawing's own middle, however an effect above grew it; the
+            // layer never grows.
+            Effect::PolarCoordinates { interpolation, conversion } => {
+                crate::perf::time(crate::perf::Stage::EffectPolarCoordinates, || {
+                    crate::layer_fx::polar_coordinates(source, *interpolation, conversion == "rect_to_polar", (ox, oy))
+                })
             }
             // D-198: the corners are in per cent of the drawing's own box, however an effect
             // above grew it, and the layer grows so none is cut off.

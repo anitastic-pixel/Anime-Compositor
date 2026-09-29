@@ -1890,6 +1890,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("profile".into(), J::from(profile.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
         }
+        Effect::PolarCoordinates { interpolation, conversion } => {
+            params.insert("interpolation".into(), num(*interpolation));
+            params.insert("conversion".into(), J::from(conversion.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2410,6 +2414,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "fade_out_time",
         "start_width",
         "end_width",
+        "interpolation",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2875,6 +2880,7 @@ fn parse_effect(
         crate::effects::CORNER_PIN,
         crate::effects::LIGHT_SWEEP,
         crate::effects::RADIO_WAVES,
+        crate::effects::POLAR_COORDINATES,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3444,6 +3450,10 @@ fn parse_effect(
             profile: effect_word(params, "profile", &at)?,
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             frame: 0,
+        }),
+        crate::effects::POLAR_COORDINATES => Some(crate::effects::Effect::PolarCoordinates {
+            interpolation: effect_number(params, "interpolation", &at)?,
+            conversion: effect_word(params, "conversion", &at)?,
         }),
         _ => None,
     };
