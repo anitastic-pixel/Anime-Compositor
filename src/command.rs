@@ -1858,6 +1858,21 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "D-71: an audio layer names an audio asset, and no other layer does.",
                 ));
             }
+            // D-182: a lookup file is read by a Color Lookup, and no layer shows one.
+            if project
+                .assets
+                .iter()
+                .any(|a| a.id == layer.asset_id && a.kind == crate::model::AssetKind::Lut)
+            {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" cannot show a colour lookup file: add Color Lookup to a layer \
+                         and choose the file there.",
+                        layer.name
+                    ),
+                    "D-182: a lookup file is read by a Color Lookup, and no layer shows one.",
+                ));
+            }
             // D-67: a composition layer names a composition this project has, and not one
             // that leads back to the composition it is going into.
             if layer.kind == crate::model::LayerKind::Composition {
@@ -2804,6 +2819,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             if !effect.effect.is_valid() {
                 return Err(invalid_effect(&effect.effect));
             }
+            lookup_file_known(project, &effect.effect)?;
             let layer = layer_mut(project, &comp_id, layer_id)?;
             if layer
                 .effects
@@ -2894,6 +2910,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             if !effect.is_valid() {
                 return Err(invalid_effect(effect));
             }
+            lookup_file_known(project, effect)?;
             let layer = layer_mut(project, &comp_id, layer_id)?;
             let Some(existing) = layer
                 .effects
@@ -2986,6 +3003,21 @@ fn invalid_effect(effect: &crate::effects::Effect) -> Diagnostic {
             .to_string(),
     )
     .with_remediation("Choose a value inside the range.")
+}
+
+/// D-182: a Color Lookup names a lookup file of this project, or none. A file opened with one
+/// naming nothing keeps it and says so; a command is refused it.
+fn lookup_file_known(project: &Project, effect: &crate::effects::Effect) -> Result<(), Diagnostic> {
+    match crate::lut::dangling(project, effect) {
+        None => Ok(()),
+        Some(lut) => Err(Diagnostic::new(
+            DiagnosticId::EffectParameterInvalid,
+            Severity::Error,
+            format!("Color Lookup cannot use {lut}: it is not a lookup file of this project."),
+            "D-182: Color Lookup's lut is the id of an asset of kind lut, or empty.".to_string(),
+        )
+        .with_remediation("Choose the .cube file on the effect's card.")),
+    }
 }
 
 fn missing_effect(layer_id: &Id, instance_id: &Id) -> Diagnostic {

@@ -570,6 +570,11 @@ pub(crate) fn black_white(source: &mut WorkingBuffer, w: [f64; 6]) {
     })
 }
 
+/// D-182: each pixel's colour through a .cube file's table.
+pub(crate) fn color_lookup(source: &mut WorkingBuffer, cube: &crate::lut::Cube) {
+    grade_pixels(source, false, |_, e| cube.lookup(e))
+}
+
 /// D-137: each channel cut to `levels` flat steps.
 pub(crate) fn posterize(source: &mut WorkingBuffer, levels: f64) {
     let n = levels.floor();

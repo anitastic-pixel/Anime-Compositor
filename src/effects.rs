@@ -734,6 +734,9 @@ pub enum Effect {
         opacity: f64,
         frame: i32,
     },
+    /// D-182: `lut`, the id of an asset of kind lut, or empty for none. `table` is not a setting
+    /// and is never saved: it is the file `lut` names, read for the frame by `crate::lut::fill`.
+    ColorLookup { lut: String, table: Option<crate::lut::Table> },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -803,6 +806,7 @@ pub const SPEED_LINES: &str = "core.speed_lines";
 pub const CROSS_GLARE: &str = "core.cross_glare";
 pub const CAMERA_SHAKE: &str = "core.camera_shake";
 pub const RAIN: &str = "core.rain";
+pub const COLOR_LOOKUP: &str = "core.color_lookup";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1326,6 +1330,7 @@ impl Effect {
                 ("seed", vec![seed], 0.0, 100000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::ColorLookup { .. } => vec![],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1531,6 +1536,7 @@ impl Effect {
             Effect::CrossGlare { .. } => "Cross Glare",
             Effect::CameraShake { .. } => "Camera Shake",
             Effect::Rain { .. } => "Rain",
+            Effect::ColorLookup { .. } => "Color Lookup",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1600,6 +1606,7 @@ impl Effect {
             Effect::CrossGlare { .. } => CROSS_GLARE,
             Effect::CameraShake { .. } => CAMERA_SHAKE,
             Effect::Rain { .. } => RAIN,
+            Effect::ColorLookup { .. } => COLOR_LOOKUP,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2929,6 +2936,15 @@ pub(crate) fn apply_stack_at(
                 crate::perf::time(crate::perf::Stage::EffectRain, || {
                     crate::layer_fx::rain(source, encoded(color).map(crate::grade::to_linear), numbers, *frame, (ox, oy))
                 })
+            }
+            // D-182: without its table, a lookup naming no file, or one missing or refused,
+            // changes nothing; `fill` said why.
+            Effect::ColorLookup { table, .. } => {
+                if let Some(t) = table {
+                    crate::perf::time(crate::perf::Stage::EffectColorLookup, || {
+                        crate::grade::color_lookup(source, &t.0)
+                    })
+                }
             }
         }
     }

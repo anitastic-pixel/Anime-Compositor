@@ -96,6 +96,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.toggle_solo` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_visibility` can be asked for without a mouse | yes | yes | pass |
 | `layer.trim` can be asked for without a mouse | yes | yes | pass |
+| `lut-choose` can be asked for without a mouse | yes | yes | pass |
 | `mask.add` can be asked for without a mouse | yes | yes | pass |
 | `mask.add_remove_key` can be asked for without a mouse | yes | yes | pass |
 | `mask.delete` can be asked for without a mouse | yes | yes | pass |
@@ -177,4 +178,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**147 of 147 checks pass.**
+**148 of 148 checks pass.**

@@ -1283,6 +1283,9 @@ pub enum AssetKind {
     ImageSequence,
     /// D-71: a sound file. It has a path and no interpretation that means anything.
     Audio,
+    /// D-182: a colour lookup file, a .cube, which a Color Lookup names and no layer shows. It
+    /// has a path and no interpretation.
+    Lut,
 }
 
 impl AssetKind {
@@ -1291,6 +1294,7 @@ impl AssetKind {
             AssetKind::Still => "still",
             AssetKind::ImageSequence => "image_sequence",
             AssetKind::Audio => "audio",
+            AssetKind::Lut => "lut",
         }
     }
 }

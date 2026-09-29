@@ -190,6 +190,8 @@ pub enum Stage {
     EffectCameraShake,
     /// D-163's rain, the nearby cells per pixel.
     EffectRain,
+    /// D-182's colour lookup, eight table lines mixed per pixel.
+    EffectColorLookup,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -207,7 +209,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 79] = [
+    pub const ALL: [Stage; 80] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -280,6 +282,7 @@ impl Stage {
         Stage::EffectCrossGlare,
         Stage::EffectCameraShake,
         Stage::EffectRain,
+        Stage::EffectColorLookup,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -364,6 +367,7 @@ impl Stage {
             Stage::EffectCrossGlare => "effect: cross glare",
             Stage::EffectCameraShake => "effect: camera shake",
             Stage::EffectRain => "effect: rain",
+            Stage::EffectColorLookup => "effect: color lookup",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

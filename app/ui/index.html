@@ -1755,7 +1755,8 @@ function drawAssets() {
     kind.className = 'kind';
     // "still" or "image_sequence", and for a sequence how many drawings are in it — which is
     // the number a person checks a scan against before making a layer out of it.
-    kind.textContent = asset.kind === 'audio' ? 'sound' : asset.kind === 'image_sequence'
+    kind.textContent = asset.kind === 'audio' ? 'sound' : asset.kind === 'lut' ? 'colour lookup'
+      : asset.kind === 'image_sequence'
       ? Object.keys(asset.frames || {}).length + ' frames' : 'still';
     const li = row(selectedAsset, asset.id, asset.name, []);
     // D-61: whether Collect Files copies these drawings. Absent in the file means yes.
@@ -6772,6 +6773,7 @@ const EFFECT_NAMES = {
   'core.cross_glare': 'Cross Glare',
   'core.camera_shake': 'Camera Shake',
   'core.rain': 'Rain',
+  'core.color_lookup': 'Color Lookup',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6781,7 +6783,8 @@ const EFFECT_GROUPS = [
     'core.lens_blur', 'core.selective_color_blur', 'core.sharpen', 'core.diffusion']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
-    'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.invert']],
+    'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.invert',
+    'core.color_lookup']],
   ['Light & Glow', ['core.glow', 'core.bloom', 'core.light_rays', 'core.rim_light',
     'core.light_wrap', 'core.cross_glare', 'core.exposure_flicker']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_recolor', 'core.outline',
@@ -6839,6 +6842,7 @@ const EFFECT_SEARCH = {
   'core.noise': 'grain film',
   'core.speed_lines': 'action focus concentration manga',
   'core.rain': 'weather storm',
+  'core.color_lookup': 'lut cube grade look film',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6922,6 +6926,7 @@ const EFFECT_ABOUT = {
   'core.cross_glare': 'Star-shaped sparkles on the bright points.',
   'core.camera_shake': 'Shakes the whole layer as a jolted camera would.',
   'core.rain': 'Falling rain streaks over the layer.',
+  'core.color_lookup': 'Recolours the layer through a .cube colour lookup file from a grading program.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7174,11 +7179,13 @@ const EFFECT_PARAMS = {
     ['speed', 'Speed', 1, 1, 'pixels a frame, 0 to 1000, how fast it falls'],
     ['seed', 'Seed', 1, 1, '0 to 100000, which drops'],
     ['opacity', 'Opacity', 1, 1, '0 to 100, how strongly the streaks show']],
+  // D-182: no numbers; its file is chosen on the card.
+  'core.color_lookup': [],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
 // colours, as [name, label], or [name, label, [none, one]] for a colour that may be left empty;
-// its lists of points, as [name, label] (D-111);
+// its lists of points, as [name, label] (D-111); its files, as [name, label] (D-182);
 // and `chosen`, when it has a list of chosen colours, saying when the list is shown.
 // D-109: the three blurs' edges.
 const EDGES = ['edges', 'Edges', [['transparent', 'Transparent'], ['repeat', 'Repeat Edge Pixels']]];
@@ -7297,6 +7304,8 @@ const EFFECT_WORDS = {
   'core.cross_glare': { colours: [['color', 'Colour']] },
   // D-163.
   'core.rain': { colours: [['color', 'Colour']] },
+  // D-182.
+  'core.color_lookup': { files: [['lut', 'Lookup File']] },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
 const foldedEffects = new Set();
@@ -8058,6 +8067,7 @@ function effectRow(layer, fx, at, of) {
   for (const [w, , options] of spec.choices || []) words[w] = fx.parameters[w] ?? options[0][0];
   for (const [w] of spec.colours || []) words[w] = fx.parameters[w];
   for (const [w] of spec.lists || []) words[w] = (fx.parameters[w] || []).map((p) => p.join(' ')).join(', ');
+  for (const [w] of spec.files || []) words[w] = fx.parameters[w] ?? '';
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.
@@ -8216,6 +8226,24 @@ function effectRow(layer, fx, at, of) {
       swatch.onblur = () => close(false);
       dd.append(swatch, ' ', text);
     }
+    dl.append(dt, dd);
+  }
+  // D-182: the file, by its asset's name, and the button that asks for one. The window reads a
+  // chosen file first and refuses one it cannot read, saying why, so nothing is sent from here.
+  for (const [name, title] of spec.files || []) {
+    const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    const asset = (doc.project.assets || []).find((a) => a.id === words[name] && a.kind === 'lut');
+    dd.append(Object.assign(document.createElement('span'), {
+      className: asset ? '' : 'mark',
+      textContent: asset ? asset.name + ' '
+        : words[name] ? 'Not a lookup file of this project: ' + words[name] + '. '
+          : 'No .cube file chosen, so nothing changes. ',
+    }));
+    const choose = Object.assign(document.createElement('button'), { textContent: 'Choose .cube file…' });
+    choose.title = 'Choose a colour lookup file exported from a grading program';
+    choose.onclick = () => command('/lut-choose' + where);
+    dd.append(choose);
     dl.append(dt, dd);
   }
   // D-111: the graph of the curve picked above it, and its points as text under it, in then

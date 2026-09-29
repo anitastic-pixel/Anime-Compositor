@@ -319,9 +319,13 @@ fn plan_inside(
                 opacity: resolved.opacity,
                 matte,
                 blend: layer.blend_mode,
-                adjust: layer
-                    .is_adjustment()
-                    .then(|| layer.effects.iter().map(|i| i.at(frame)).collect()),
+                // D-182: with each lookup file read. What kept one from being read was said by
+                // `resolve_rest`, which an adjustment layer goes through as well.
+                adjust: layer.is_adjustment().then(|| {
+                    let mut effects: Vec<_> = layer.effects.iter().map(|i| i.at(frame)).collect();
+                    crate::lut::fill(&mut effects, project, root, &layer.name);
+                    effects
+                }),
                 nested: resolved.nested,
                 on_card: resolved.on_card,
                 wrap: if layer.is_adjustment() {
@@ -792,6 +796,8 @@ fn resolve_layer(
         };
         let picture = std::sync::Arc::new(render::render(&plan, tile));
         let mut resolved = resolve_rest(
+            project,
+            root,
             comp,
             layer,
             frame,
@@ -885,11 +891,13 @@ fn resolve_layer(
                 quality,
             );
             let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
-            return resolve_rest(comp, layer, frame, cache, log, small, Some(cel), d as f64, card);
+            return resolve_rest(
+                project, root, comp, layer, frame, cache, log, small, Some(cel), d as f64, card,
+            );
         }
         (source, Some(cel))
     };
-    resolve_rest(comp, layer, frame, cache, log, source, cel, 1.0, card)
+    resolve_rest(project, root, comp, layer, frame, cache, log, source, cel, 1.0, card)
 }
 
 /// Document 21 step 1 for a drawn layer: which file it shows at `frame`, decoded, or `None`
@@ -976,6 +984,8 @@ fn decode_cel(
 /// At 1 none of that is entered, so a full-size frame is computed exactly as it was before.
 #[allow(clippy::too_many_arguments)]
 fn resolve_rest(
+    project: &Project,
+    root: &Path,
     comp: &crate::model::Composition,
     layer: &crate::model::Layer,
     frame: i32,
@@ -988,8 +998,12 @@ fn resolve_rest(
 ) -> Option<ResolvedLayer> {
     // D-68: every setting is its value at this composition frame, so the stack below, its
     // bounds and the effect cache's key all hold plain numbers.
-    let effects: Vec<crate::effects::EffectInstance> =
+    let mut effects: Vec<crate::effects::EffectInstance> =
         layer.effects.iter().map(|i| i.at(frame)).collect();
+    // D-182: each Color Lookup's file, read, and what kept one from being read said once a frame.
+    for d in crate::lut::fill(&mut effects, project, root, &layer.name) {
+        log.record(frame, layer.name.clone(), d);
+    }
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
     // draft divisor, before the rasterizer and before document 27's cache key, exactly as an
     // effect's settings are on the line above. A path that stands still is not copied at all.
@@ -1597,8 +1611,8 @@ fn source_at(
     frame: i32,
 ) -> Result<Option<PathBuf>, Diagnostic> {
     match asset.kind {
-        // D-71: a sound file is not a drawing.
-        AssetKind::Audio => Ok(None),
+        // D-71: a sound file is not a drawing. D-182: nor is a lookup file.
+        AssetKind::Audio | AssetKind::Lut => Ok(None),
         AssetKind::Still => {
             if timing.local_frame(frame).is_none() {
                 return Ok(None);

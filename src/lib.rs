@@ -33,6 +33,7 @@ pub mod exr_io;
 mod glow;
 mod layer_fx;
 mod grade;
+pub mod lut;
 pub mod mask;
 pub mod media;
 pub mod model;

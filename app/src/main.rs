@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -59,6 +59,7 @@ use anime_compositor::exr_io::{self, ExrSamples};
 use anime_compositor::gpu::{Gpu, Paint};
 use anime_compositor::audio;
 use anime_compositor::media;
+use anime_compositor::lut;
 use anime_compositor::model::{
     Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Keyframe, Layer, LayerKind, Marker, Project,
     Prop, Property, Solid, Value,
@@ -2598,7 +2599,8 @@ fn size_now(root: &Path, asset: &Asset) -> Option<(usize, usize)> {
 /// Work out what relinking `asset` to `files` would do, and hold it until it is agreed to.
 fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> String {
     // D-71: a sound is one file with no size, range or alpha to compare, so there is nothing to
-    // agree to first. It is relinked at once, and Ctrl+Z takes it back.
+    // agree to first. It is relinked at once, and Ctrl+Z takes it back. D-182: so is a lookup
+    // file.
     let sound = {
         let held = viewer.lock().expect("the viewer lock was poisoned");
         let found = held
@@ -2606,15 +2608,22 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
             .project()
             .assets
             .iter()
-            .find(|a| &a.id == asset && a.kind == AssetKind::Audio)
+            .find(|a| &a.id == asset && matches!(a.kind, AssetKind::Audio | AssetKind::Lut))
             .cloned();
         found.map(|a| (a, held.root.clone()))
     };
     if let Some((mut record, root)) = sound {
+        let lookup = record.kind == AssetKind::Lut;
         let [file] = files else {
-            return "A sound is one file, so choose one. Nothing was changed.".to_string();
+            let what = if lookup { "lookup file" } else { "sound" };
+            return format!("A {what} is one file, so choose one. Nothing was changed.");
         };
-        if !is_sound(file) {
+        // D-182: a lookup file the reading rule refuses is not linked to.
+        if lookup {
+            if let Err(why) = lut::read(file) {
+                return format!("{} was not used: {why}. Nothing was changed.", file.display());
+            }
+        } else if !is_sound(file) {
             return "That is not a sound file this window plays. Nothing was changed.".to_string();
         }
         record.path = Some(persist::stored_path(&root, file));
@@ -3161,6 +3170,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             opacity: 60.0,
             frame: 0,
         }),
+        // D-182: no file chosen, which changes nothing until one is.
+        COLOR_LOOKUP => Some(Effect::ColorLookup { lut: String::new(), table: None }),
         _ => None,
     }
 }
@@ -3683,6 +3694,13 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             seed: number("seed")?,
             opacity: number("opacity")?,
             frame: 0,
+        }),
+        // D-182: an asset's id as written, not in small letters.
+        COLOR_LOOKUP => Ok(Effect::ColorLookup {
+            lut: parameter(query, "lut")
+                .map(|t| t.trim().to_string())
+                .ok_or_else(|| "What should lut be set to?".to_string())?,
+            table: None,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -6624,8 +6642,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
                              core.motion_tile, core.linear_wipe, core.radial_wipe, \
                              core.venetian_blinds, core.iris_wipe, core.simple_choker, \
-                             core.speed_lines, core.cross_glare, core.camera_shake or \
-                             core.rain."
+                             core.speed_lines, core.cross_glare, core.camera_shake, core.rain \
+                             or core.color_lookup."
                                 .to_string(),
                         );
                     };
@@ -6649,8 +6667,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
                              core.motion_tile, core.linear_wipe, core.radial_wipe, \
                              core.venetian_blinds, core.iris_wipe, core.simple_choker, \
-                             core.speed_lines, core.cross_glare, core.camera_shake and \
-                             core.rain."
+                             core.speed_lines, core.cross_glare, core.camera_shake, core.rain \
+                             and core.color_lookup."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -8164,10 +8182,25 @@ fn ask_which_cut(app: &AppHandle) {
 /// files are the ones a person chose, and what comes back is a proposal rather than a change.
 fn ask_what_to_relink_to(app: &AppHandle, asset: Id) {
     let handle = app.clone();
+    // D-182: a lookup file is relinked to a .cube file.
+    let lookup = app
+        .state::<Mutex<Viewer>>()
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .document
+        .project()
+        .assets
+        .iter()
+        .any(|a| a.id == asset && a.kind == AssetKind::Lut);
+    let (title, filter, kinds): (&str, &str, &[&str]) = if lookup {
+        ("Relink to this lookup file", "Colour lookup", &["cube"])
+    } else {
+        ("Relink to these drawings", "Drawings and sound", &DRAWINGS_AND_SOUND)
+    };
     app.dialog()
         .file()
-        .set_title("Relink to these drawings")
-        .add_filter("Drawings and sound", &DRAWINGS_AND_SOUND)
+        .set_title(title)
+        .add_filter(filter, kinds)
         .pick_files(move |chosen| {
             let files: Vec<PathBuf> = chosen
                 .unwrap_or_default()
@@ -8365,6 +8398,59 @@ fn ask_which_presets_to_import(app: &AppHandle, have: Vec<String>) {
         });
 }
 
+/// D-182: the .cube file for the Color Lookup `effect` on `layer`.
+fn ask_which_lut(app: &AppHandle, layer: Id, effect: Id) {
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Choose a colour lookup file")
+        .add_filter("Colour lookup", &["cube"])
+        .pick_file(move |chosen| {
+            let Some(file) = chosen.and_then(|c| c.into_path().ok()) else {
+                return;
+            };
+            let viewer = handle.state::<Mutex<Viewer>>();
+            let said = choose_lut(&viewer, layer, effect, &file);
+            announce(&viewer, said);
+            refresh(&handle);
+        });
+}
+
+/// D-182: `file` as the Color Lookup's file. One the reading rule refuses changes nothing and
+/// says why; one the project has already is named again rather than brought in twice; a new one
+/// comes in as a lookup asset in the same entry to undo as the setting.
+fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path) -> String {
+    let name = file.file_name().map_or_else(|| file.display().to_string(), |n| n.to_string_lossy().into_owned());
+    if let Err(why) = lut::read(file) {
+        return format!("{name} was not used: {why}. Nothing was changed.");
+    }
+    let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    let stored = persist::stored_path(&held.root, file);
+    let project = held.document.project();
+    let mut commands = Vec::new();
+    let lut = match project.assets.iter().find(|a| a.kind == AssetKind::Lut && a.path.as_deref() == Some(stored.as_str())) {
+        Some(a) => a.id.clone(),
+        None => {
+            let stem = file.file_stem().map_or_else(|| name.clone(), |s| s.to_string_lossy().into_owned());
+            let mut asset = Asset::still(unused_asset_id(project), stem, stored);
+            asset.kind = AssetKind::Lut;
+            let id = asset.id.clone();
+            commands.push(Command::AddAsset { asset });
+            id
+        }
+    };
+    commands.push(Command::SetEffectParameters {
+        composition: held.composition.clone(),
+        layer_id,
+        instance_id,
+        effect: Effect::ColorLookup { lut: lut.as_str().to_string(), table: None },
+    });
+    match held.document.apply_all(commands) {
+        Ok(_) => format!("Color Lookup now uses {name}."),
+        Err(diagnostic) => sentence(&diagnostic),
+    }
+}
+
 /// The presets are the window's, not the project's, so the page is handed them rather than
 /// reloaded; the sentence goes to the status line as well.
 fn tell_the_page_about_presets(app: &AppHandle, list: Option<serde_json::Value>, said: String) {
@@ -8375,9 +8461,6 @@ fn tell_the_page_about_presets(app: &AppHandle, list: Option<serde_json::Value>,
     }
 }
 
-/// D-180: a preset file's presets as the window keeps them, with the sentence saying what came
-/// in, or the sentence refusing it whole. A name in `have` comes in with " 2", or the next number
-/// free both in the window and in the file.
 /// D-181: the starter presets as the page keeps presets, `{name, about, effects}`, the effects as
 /// the file wrote them, since `effect.paste` reads them by the same rules again.
 fn starter_presets() -> String {
@@ -8392,6 +8475,9 @@ fn starter_presets() -> String {
     serde_json::Value::Array(list).to_string()
 }
 
+/// D-180: a preset file's presets as the window keeps them, with the sentence saying what came
+/// in, or the sentence refusing it whole. A name in `have` comes in with " 2", or the next number
+/// free both in the window and in the file.
 fn imported_presets(text: &str, file: &str, have: &[String]) -> Result<(serde_json::Value, String), String> {
     let read = persist::read_presets(text).map_err(|refused| sentence(&refused))?;
     // Each effect goes on as the file wrote it; `effect.paste` reads it by the same rules again.
@@ -8703,6 +8789,14 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             ask_which_presets_to_import(app, parameters(query, "have"));
             String::new()
         }
+        // D-182: a Color Lookup's card chooses its .cube file.
+        "lut-choose" => match (parameter(query, "layer"), parameter(query, "effect")) {
+            (Some(layer), Some(effect)) => {
+                ask_which_lut(app, Id::new(layer), Id::new(effect));
+                String::new()
+            }
+            _ => "Which effect? Choose the file from a Color Lookup's card.".to_string(),
+        },
         // The page only ever offers a path it was given in `x-recovery`, but this checks anyway:
         // a command scheme is reachable by anything running in the page.
         "recover" => match parameter(query, "path") {
@@ -8761,7 +8855,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
                       /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
-                      /presets-builtin, /presets-export, /presets-import, or one of \
+                      /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -11110,7 +11204,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the sixty-three are named",
+            "an effect type this build does not have is refused, and the sixty-four are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -11126,7 +11220,7 @@ mod editing {
              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
              core.motion_tile, core.linear_wipe, core.radial_wipe, core.venetian_blinds, \
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
-             core.camera_shake and core.rain.",
+             core.camera_shake, core.rain and core.color_lookup.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -11145,7 +11239,7 @@ mod editing {
              core.wave_warp, core.ripple, core.twirl, core.bulge, core.mirror, \
              core.motion_tile, core.linear_wipe, core.radial_wipe, core.venetian_blinds, \
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
-             core.camera_shake or core.rain.",
+             core.camera_shake, core.rain or core.color_lookup.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -22313,6 +22407,8 @@ mod contract {
         // B-44: the CPU / GPU switch. A route rather than a `viewer.` command because the card
         // belongs to the window, not to the viewer `edit_command` is handed.
         "gpu-switch",
+        // D-182: a Color Lookup's .cube file.
+        "lut-choose",
         // B-48: the memory setting, which is the window's for the same reason.
         "memory",
         "new",
@@ -24285,6 +24381,8 @@ mod contract {
                 ("opacity", "70"),
             ],
         ),
+        // D-182: the lookup file, none.
+        ("core.color_lookup", &[("lut", "")]),
     ];
 
     const FIELDS_INTRO: &[&str] = &[

@@ -527,7 +527,8 @@ fn asset_json(base: Option<&J>, asset: &Asset) -> J {
             ),
         ),
     ];
-    if asset.kind == AssetKind::Audio {
+    // D-182: nor does a lookup file.
+    if matches!(asset.kind, AssetKind::Audio | AssetKind::Lut) {
         owned.retain(|(key, _)| *key != "interpretation");
     }
     match &asset.path {
@@ -1660,6 +1661,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("seed".into(), num(*seed));
             params.insert("opacity".into(), num(*opacity));
         }
+        Effect::ColorLookup { lut, .. } => {
+            params.insert("lut".into(), J::from(lut.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2442,10 +2446,11 @@ fn parse_asset(v: &J, pointer: &str) -> Result<Asset, Diagnostic> {
     let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["still", "image_sequence", "audio"],
+        &["still", "image_sequence", "audio", "lut"],
     )? {
         "still" => AssetKind::Still,
         "audio" => AssetKind::Audio,
+        "lut" => AssetKind::Lut,
         _ => AssetKind::ImageSequence,
     };
     let mut frames = BTreeMap::new();
@@ -2472,9 +2477,9 @@ fn parse_asset(v: &J, pointer: &str) -> Result<Asset, Diagnostic> {
         },
         frames,
         // D-71: a sound file has no colour to interpret, so none is asked for. The model
-        // holds the usual pair and nothing reads it.
+        // holds the usual pair and nothing reads it. D-182: nor has a lookup file.
         interpretation: match v.get("interpretation") {
-            None if kind == AssetKind::Audio => Interpretation {
+            None if matches!(kind, AssetKind::Audio | AssetKind::Lut) => Interpretation {
                 color_space: ColorSpace::Srgb,
                 alpha: AlphaMode::Straight,
             },
@@ -2574,6 +2579,7 @@ fn parse_effect(
         crate::effects::CROSS_GLARE,
         crate::effects::CAMERA_SHAKE,
         crate::effects::RAIN,
+        crate::effects::COLOR_LOOKUP,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -2999,6 +3005,10 @@ fn parse_effect(
             seed: effect_number(params, "seed", &at)?,
             opacity: effect_number(params, "opacity", &at)?,
             frame: 0,
+        }),
+        crate::effects::COLOR_LOOKUP => Some(crate::effects::Effect::ColorLookup {
+            lut: effect_word(params, "lut", &at)?,
+            table: None,
         }),
         _ => None,
     };
@@ -4518,6 +4528,17 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
                     ),
                 ));
             }
+            // D-182: a lookup file is read by a Color Lookup, and no layer shows one.
+            if asset.is_some_and(|a| a.kind == AssetKind::Lut) {
+                return Err(invalid(
+                    &format!("/compositions/{}/layers", composition.id),
+                    &format!(
+                        "layer {} to name a drawing, not the colour lookup file {}; no layer \
+                         shows one (D-182)",
+                        layer.id, layer.asset_id
+                    ),
+                ));
+            }
             let rides = [
                 layer.parent.as_ref(),
                 layer.matte.as_ref().map(|m| &m.layer_id),
@@ -4608,6 +4629,19 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
                         "Delete the layer, or put the composition it shows back in the project.",
                     ),
                 );
+            }
+        }
+    }
+
+    // D-182: a Color Lookup naming no lookup file of this project keeps the name as written, and
+    // says so (FX-LUT-010, 011). A missing or unreadable file is said by the asset loop above
+    // and at the frame.
+    for composition in &project.compositions {
+        for layer in composition.layers_in_order() {
+            for instance in &layer.effects {
+                if let Some(lut) = crate::lut::dangling(&project, &instance.effect) {
+                    warnings.push(crate::lut::not_a_lookup_file(&layer.name, lut));
+                }
             }
         }
     }
