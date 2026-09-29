@@ -225,5 +225,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - direction, spread, opacity, color, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.kira_kira` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, spacing, density, size, shape, angle, twinkle, period, seed, opacity, color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.lightning_bolt` is an effect this build has | added | added | pass |
+| and the settings it sends for it - start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color - are the ones the command reads | accepted | accepted | pass |
 
-**205 of 205 checks pass.**
+**207 of 207 checks pass.**

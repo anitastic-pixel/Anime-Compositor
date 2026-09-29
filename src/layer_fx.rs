@@ -1817,3 +1817,113 @@ pub(crate) fn kira_stars(
     stars.sort_by(|a, b| a[1].total_cmp(&b[1]));
     stars
 }
+
+/// D-190: lightning bolt, from `ends[0]` to `ends[1]` in `source`'s own pixels. The numbers are
+/// `[jagged, detail, branches, width, glow, opacity, hold, seed]`, already held; detail, hold and
+/// seed count by their whole parts. Each pixel takes the largest core and glow of any segment;
+/// the core adds `colours[0]` (linear) and the glow `colours[1]` round it, at up to `opacity`, and
+/// both cover. Nothing grows. The settings are already valid.
+pub(crate) fn lightning_bolt(
+    source: &mut WorkingBuffer,
+    ends: [(f64, f64); 2],
+    [jagged, detail, branches, width, glow, opacity, hold, seed]: [f64; 8],
+    [core, halo]: [[f64; 3]; 2],
+    frame: i32,
+) {
+    if opacity == 0.0 || (width == 0.0 && glow == 0.0) {
+        return;
+    }
+    let m = (frame as i64).div_euclid(hold.floor() as i64);
+    let base = crate::grade::mix(seed.floor() as u64);
+    let segs = bolt_segments(ends, [jagged, branches], detail.floor() as u32, base, m);
+    // Each segment's box: nothing past its reach from the line is lit.
+    let boxes: Vec<[f64; 4]> = segs
+        .iter()
+        .map(|s| {
+            let w = s[4].max(s[5]);
+            let e = (w * width / 2.0 + 0.5).max(w * glow);
+            [s[0].min(s[2]) - e, s[0].max(s[2]) + e, s[1].min(s[3]) - e, s[1].max(s[3]) + e]
+        })
+        .collect();
+    let (w, k) = (source.width(), opacity / 100.0);
+    // ponytail: every segment is tested against every row, and a wide glow lights a wide box per
+    // segment, so detail 8 with branches 100 and glow 500 is slow; bin segments by row if needed.
+    source.data_mut().par_chunks_exact_mut(4 * w).enumerate().for_each(|(y, line)| {
+        let py = y as f64 + 0.5;
+        let mut lit = vec![(0.0f64, 0.0f64); w];
+        for (s, b) in segs.iter().zip(&boxes) {
+            if py <= b[2] || py >= b[3] {
+                continue;
+            }
+            let x0 = (b[0] - 0.5).floor().max(0.0) as usize;
+            let x1 = ((b[1] - 0.5).ceil() + 1.0).clamp(0.0, w as f64) as usize;
+            for (x, l) in lit.iter_mut().enumerate().take(x1).skip(x0) {
+                let (c, g) = bolt_light(s, width, glow, x as f64 + 0.5, py);
+                *l = (l.0.max(c), l.1.max(g));
+            }
+        }
+        for (px, &(c, g)) in line.chunks_exact_mut(4).zip(&lit) {
+            if c == 0.0 && g == 0.0 {
+                continue;
+            }
+            for ch in 0..3 {
+                px[ch] = (px[ch] as f64 + k * (c * core[ch] + (1.0 - c) * g * halo[ch])) as f32;
+            }
+            px[3] = (px[3] as f64 + k * (c + (1.0 - c) * g) * (1.0 - px[3] as f64)) as f32;
+        }
+    });
+}
+
+/// D-190's segment `[px, py, qx, qy, wP, wQ]`: its core and glow at the point (x, y).
+fn bolt_light(s: &[f64; 6], width: f64, glow: f64, x: f64, y: f64) -> (f64, f64) {
+    let (dx, dy) = (s[2] - s[0], s[3] - s[1]);
+    let l2 = dx * dx + dy * dy;
+    let t = if l2 == 0.0 { 0.0 } else { (((x - s[0]) * dx + (y - s[1]) * dy) / l2).clamp(0.0, 1.0) };
+    let d = (x - s[0] - t * dx).hypot(y - s[1] - t * dy);
+    let w = s[4] + t * (s[5] - s[4]);
+    let half = w * width / 2.0;
+    let core = ((d + 0.5).min(half) - (d - 0.5).max(-half)).clamp(0.0, 1.0);
+    let r = w * glow;
+    (core, if d < r { w * (1.0 - d / r).powi(2) } else { 0.0 })
+}
+
+/// D-190's bolt as segments `[px, py, qx, qy, wP, wQ]`: the line from `ends[0]` to `ends[1]`
+/// halved `detail` times, each middle pushed aside by Noise's hash of the seed's `base`, the
+/// segment's key and bolt, and `m`, with forks three deep. Worked in double precision.
+pub(crate) fn bolt_segments(
+    ends: [(f64, f64); 2],
+    [jagged, branches]: [f64; 2],
+    detail: u32,
+    base: u64,
+    m: i64,
+) -> Vec<[f64; 6]> {
+    // (P, Q, wP, wQ, depth, bolt, key): a key and a bolt name a segment for good, so a fork or a
+    // finer halving never moves what is already drawn.
+    let mut segs = vec![(ends[0], ends[1], 1.0, 1.0, 0u32, 0i64, 1i64)];
+    for _ in 0..detail {
+        let mut out = Vec::with_capacity(segs.len() * 3);
+        for (p, q, wp, wq, depth, b, key) in segs {
+            let (dx, dy) = (q.0 - p.0, q.1 - p.1);
+            let l = dx.hypot(dy);
+            if l == 0.0 {
+                out.push((p, q, wp, wq, depth, b, key));
+                continue;
+            }
+            let r = |j| crate::grade::unit(base, key, b, m, j);
+            let a = r(0) * jagged / 100.0 * l / 2.0;
+            let mid = ((p.0 + q.0) / 2.0 - dy / l * a, (p.1 + q.1) / 2.0 + dx / l * a);
+            let wm = (wp + wq) / 2.0;
+            out.push((p, mid, wp, wm, depth, b, 2 * key));
+            out.push((mid, q, wm, wq, depth, b, 2 * key + 1));
+            if depth < 3 && (r(1) + 1.0) / 2.0 < branches / 100.0 {
+                let turn = ((15.0 + 15.0 * (r(2) + 1.0)) * if r(3) < 0.0 { -1.0 } else { 1.0 }).to_radians();
+                let (vx, vy) = (dx / l, dy / l);
+                let v = (vx * turn.cos() - vy * turn.sin(), vx * turn.sin() + vy * turn.cos());
+                let lb = l * (0.3 + 0.15 * (r(4) + 1.0));
+                out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), wm / 2.0, 0.0, depth + 1, 1024 * b + key, 1));
+            }
+        }
+        segs = out;
+    }
+    segs.into_iter().map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq]).collect()
+}

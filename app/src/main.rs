@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3211,6 +3211,22 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             color: "#ffffff".to_string(),
             frame: 0,
         }),
+        // D-190: a bolt down the middle of the layer, white in a blue glow, new every two frames.
+        LIGHTNING_BOLT => Some(Effect::LightningBolt {
+            start: [40.0, 0.0],
+            end: [60.0, 100.0],
+            jagged: 40.0,
+            detail: 6.0,
+            branches: 30.0,
+            width: 3.0,
+            glow: 24.0,
+            opacity: 100.0,
+            hold: 2.0,
+            seed: 0.0,
+            color: "#ffffff".to_string(),
+            glow_color: "#6e8cff".to_string(),
+            frame: 0,
+        }),
         _ => None,
     }
 }
@@ -3774,6 +3790,21 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             seed: number("seed")?,
             opacity: number("opacity")?,
             color: word("color")?,
+            frame: 0,
+        }),
+        LIGHTNING_BOLT => Ok(Effect::LightningBolt {
+            start: pair("start")?,
+            end: pair("end")?,
+            jagged: number("jagged")?,
+            detail: number("detail")?,
+            branches: number("branches")?,
+            width: number("width")?,
+            glow: number("glow")?,
+            opacity: number("opacity")?,
+            hold: number("hold")?,
+            seed: number("seed")?,
+            color: word("color")?,
+            glow_color: word("glow_color")?,
             frame: 0,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
@@ -6776,7 +6807,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.venetian_blinds, core.iris_wipe, core.simple_choker, \
                              core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
                              core.color_lookup, core.line_blur, core.hsv_key, \
-                             core.paraffin or core.kira_kira."
+                             core.paraffin, core.kira_kira or core.lightning_bolt."
                                 .to_string(),
                         );
                     };
@@ -6802,7 +6833,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.venetian_blinds, core.iris_wipe, core.simple_choker, \
                              core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
                              core.color_lookup, core.line_blur, core.hsv_key, \
-                             core.paraffin and core.kira_kira."
+                             core.paraffin, core.kira_kira and core.lightning_bolt."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -11338,7 +11369,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the sixty-eight are named",
+            "an effect type this build does not have is refused, and the sixty-nine are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -11355,7 +11386,7 @@ mod editing {
              core.motion_tile, core.linear_wipe, core.radial_wipe, core.venetian_blinds, \
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
-             core.hsv_key, core.paraffin and core.kira_kira.",
+             core.hsv_key, core.paraffin, core.kira_kira and core.lightning_bolt.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -11375,7 +11406,7 @@ mod editing {
              core.motion_tile, core.linear_wipe, core.radial_wipe, core.venetian_blinds, \
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
-             core.hsv_key, core.paraffin or core.kira_kira.",
+             core.hsv_key, core.paraffin, core.kira_kira or core.lightning_bolt.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -24572,6 +24603,24 @@ mod contract {
                 ("seed", "5"),
                 ("opacity", "80"),
                 ("color", "%23ffe0a0"),
+            ],
+        ),
+        // D-190: the two points, the eight numbers and the two colours.
+        (
+            "core.lightning_bolt",
+            &[
+                ("start", "20,10"),
+                ("end", "70,90"),
+                ("jagged", "60"),
+                ("detail", "5"),
+                ("branches", "50"),
+                ("width", "4"),
+                ("glow", "30"),
+                ("opacity", "90"),
+                ("hold", "3"),
+                ("seed", "8"),
+                ("color", "%23fff0c0"),
+                ("glow_color", "%23ff4a1a"),
             ],
         ),
     ];

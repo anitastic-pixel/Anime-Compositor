@@ -1741,6 +1741,34 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("color".into(), J::from(color.as_str()));
         }
+        Effect::LightningBolt {
+            start,
+            end,
+            jagged,
+            detail,
+            branches,
+            width,
+            glow,
+            opacity,
+            hold,
+            seed,
+            color,
+            glow_color,
+            ..
+        } => {
+            params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
+            params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
+            params.insert("jagged".into(), num(*jagged));
+            params.insert("detail".into(), num(*detail));
+            params.insert("branches".into(), num(*branches));
+            params.insert("width".into(), num(*width));
+            params.insert("glow".into(), num(*glow));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("hold".into(), num(*hold));
+            params.insert("seed".into(), num(*seed));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("glow_color".into(), J::from(glow_color.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2228,6 +2256,10 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "spread",
         "twinkle",
         "period",
+        "jagged",
+        "detail",
+        "branches",
+        "glow",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2682,6 +2714,7 @@ fn parse_effect(
         crate::effects::HSV_KEY,
         crate::effects::PARAFFIN,
         crate::effects::KIRA_KIRA,
+        crate::effects::LIGHTNING_BOLT,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3147,6 +3180,22 @@ fn parse_effect(
             seed: effect_number(params, "seed", &at)?,
             opacity: effect_number(params, "opacity", &at)?,
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            frame: 0,
+        }),
+        // D-190: the colours are read in small letters, as a new colour is.
+        crate::effects::LIGHTNING_BOLT => Some(crate::effects::Effect::LightningBolt {
+            start: effect_array(params, "start", "two numbers, x then y", &at)?,
+            end: effect_array(params, "end", "two numbers, x then y", &at)?,
+            jagged: effect_number(params, "jagged", &at)?,
+            detail: effect_number(params, "detail", &at)?,
+            branches: effect_number(params, "branches", &at)?,
+            width: effect_number(params, "width", &at)?,
+            glow: effect_number(params, "glow", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            hold: effect_number(params, "hold", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            glow_color: effect_word(params, "glow_color", &at)?.to_ascii_lowercase(),
             frame: 0,
         }),
         _ => None,

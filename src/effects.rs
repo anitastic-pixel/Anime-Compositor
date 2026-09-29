@@ -183,6 +183,10 @@ impl EffectInstance {
             if let Effect::KiraKira { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-190: the bolt's frame.
+            if let Effect::LightningBolt { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         EffectInstance {
             instance_id: self.instance_id.clone(),
@@ -785,6 +789,26 @@ pub enum Effect {
         color: String,
         frame: i32,
     },
+    /// D-190: `start` and `end`, per cent of the drawing's width and height, each -1000 to 1000;
+    /// `jagged`, `branches` and `opacity`, 0 to 100; `detail`, 1 to 8; `width`, 0 to 100 pixels;
+    /// `glow`, 0 to 500 pixels; `hold`, 1 to 100 frames; `seed`, 0 to 100000; detail, hold and
+    /// seed by their whole parts; and `color` and `glow_color`, `#rrggbb`. `frame` is not a
+    /// setting and is never saved: it is the composition frame, as Kira-kira's is.
+    LightningBolt {
+        start: [f64; 2],
+        end: [f64; 2],
+        jagged: f64,
+        detail: f64,
+        branches: f64,
+        width: f64,
+        glow: f64,
+        opacity: f64,
+        hold: f64,
+        seed: f64,
+        color: String,
+        glow_color: String,
+        frame: i32,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -859,6 +883,7 @@ pub const LINE_BLUR: &str = "core.line_blur";
 pub const HSV_KEY: &str = "core.hsv_key";
 pub const PARAFFIN: &str = "core.paraffin";
 pub const KIRA_KIRA: &str = "core.kira_kira";
+pub const LIGHTNING_BOLT: &str = "core.lightning_bolt";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1435,6 +1460,30 @@ impl Effect {
                 ("seed", vec![seed], 0.0, 100000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::LightningBolt {
+                start,
+                end,
+                jagged,
+                detail,
+                branches,
+                width,
+                glow,
+                opacity,
+                hold,
+                seed,
+                ..
+            } => vec![
+                ("start", start.iter_mut().collect(), -1000.0, 1000.0),
+                ("end", end.iter_mut().collect(), -1000.0, 1000.0),
+                ("jagged", vec![jagged], 0.0, 100.0),
+                ("detail", vec![detail], 1.0, 8.0),
+                ("branches", vec![branches], 0.0, 100.0),
+                ("width", vec![width], 0.0, 100.0),
+                ("glow", vec![glow], 0.0, 500.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("hold", vec![hold], 1.0, 100.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1547,6 +1596,10 @@ impl Effect {
                 *spacing = scale(*spacing);
                 *size = scale(*size);
             }
+            Effect::LightningBolt { width, glow, .. } => {
+                *width = scale(*width);
+                *glow = scale(*glow);
+            }
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1650,6 +1703,7 @@ impl Effect {
             Effect::HsvKey { .. } => "HSV Key",
             Effect::Paraffin { .. } => "Paraffin",
             Effect::KiraKira { .. } => "Kira-kira",
+            Effect::LightningBolt { .. } => "Lightning Bolt",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1724,6 +1778,7 @@ impl Effect {
             Effect::HsvKey { .. } => HSV_KEY,
             Effect::Paraffin { .. } => PARAFFIN,
             Effect::KiraKira { .. } => KIRA_KIRA,
+            Effect::LightningBolt { .. } => LIGHTNING_BOLT,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2133,6 +2188,8 @@ impl Effect {
                 "Kira-kira's shape is \"cross\" or \"star\", and this is \"{shape}\"."
             )),
             Effect::KiraKira { color, .. } => hex_fault("Kira-kira", "colour", color),
+            Effect::LightningBolt { color, glow_color, .. } => hex_fault("Lightning Bolt", "colour", color)
+                .or_else(|| hex_fault("Lightning Bolt", "glow colour", glow_color)),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
             {
@@ -3150,6 +3207,27 @@ pub(crate) fn apply_stack_at(
                 ox += r;
                 oy += r;
             }
+            // D-190: drawn inside the layer, which never grows.
+            Effect::LightningBolt {
+                start,
+                end,
+                jagged,
+                detail,
+                branches,
+                width,
+                glow,
+                opacity,
+                hold,
+                seed,
+                color,
+                glow_color,
+                frame,
+            } => crate::perf::time(crate::perf::Stage::EffectLightningBolt, || {
+                let colours = [encoded(color), encoded(glow_color)].map(|c| c.map(crate::grade::to_linear));
+                let ends = [radial_center(*start, source, (ox, oy)), radial_center(*end, source, (ox, oy))];
+                let numbers = [*jagged, *detail, *branches, *width, *glow, *opacity, *hold, *seed];
+                crate::layer_fx::lightning_bolt(source, ends, numbers, colours, *frame)
+            }),
         }
     }
     (ox, oy)

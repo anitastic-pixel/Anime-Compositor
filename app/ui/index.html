@@ -6797,6 +6797,7 @@ const EFFECT_NAMES = {
   'core.hsv_key': 'HSV Key',
   'core.paraffin': 'Paraffin',
   'core.kira_kira': 'Kira-kira',
+  'core.lightning_bolt': 'Lightning Bolt',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6809,7 +6810,8 @@ const EFFECT_GROUPS = [
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.invert',
     'core.color_lookup']],
   ['Light & Glow', ['core.glow', 'core.bloom', 'core.light_rays', 'core.rim_light',
-    'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.exposure_flicker', 'core.paraffin']],
+    'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
+    'core.paraffin']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
     'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key']],
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple', 'core.twirl',
@@ -6870,6 +6872,7 @@ const EFFECT_SEARCH = {
   'core.hsv_key': 'green screen chroma hue saturation value transparent',
   'core.paraffin': 'para airbrush shade shadow tint wash anime overlay soft light',
   'core.kira_kira': 'sparkle twinkle glint star highlight shine gleam anime kira',
+  'core.lightning_bolt': 'lightning advanced electric electricity spark thunder storm bolt zap',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6958,6 +6961,7 @@ const EFFECT_ABOUT = {
   'core.hsv_key': 'Makes transparent every colour inside a range of hue, saturation and value, as a green screen is taken out.',
   'core.paraffin': 'Washes a soft colour over the figure from one side, as anime\'s airbrushed shadow rises from the feet.',
   'core.kira_kira': 'Sets small twinkling stars on the near-white highlights, an eye\'s glint or a blade\'s edge, each on its own beat.',
+  'core.lightning_bolt': 'Draws a jagged, forking bolt of light from one point to another, a new one every few frames.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7236,6 +7240,17 @@ const EFFECT_PARAMS = {
     ['period', 'Period', 1, 1, 'frames, 1 to 1000, how long one twinkle takes'],
     ['seed', 'Seed', 1, 1, '0 to 100000, which cells and beats'],
     ['opacity', 'Opacity', 1, 1, '0 to 100, how strongly the stars show']],
+  // D-190: where the bolt runs, then its shape, then how it looks, then how often it changes.
+  'core.lightning_bolt': [['start', 'Start Point', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['end', 'End Point', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['jagged', 'Jaggedness', 1, 1, '0 to 100, how far each kink is pushed aside'],
+    ['detail', 'Detail', 1, 1, '1 to 8, how many times the line is halved'],
+    ['branches', 'Branches', 1, 1, '0 to 100, the per cent of kinks that fork'],
+    ['width', 'Width', 1, 0.5, 'pixels, 0 to 100, the core at the start'],
+    ['glow', 'Glow', 1, 1, 'pixels, 0 to 500, how far the glow reaches'],
+    ['opacity', 'Opacity', 1, 1, '0 to 100'],
+    ['hold', 'Hold', 1, 1, 'frames, 1 to 100, how long each bolt stays'],
+    ['seed', 'Seed', 1, 1, '0 to 100000, which bolts']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7375,6 +7390,10 @@ const EFFECT_WORDS = {
   'core.kira_kira': {
     choices: [['shape', 'Shape', [['star', 'Star'], ['cross', 'Cross']]]],
     colours: [['color', 'Colour']],
+  },
+  // D-190.
+  'core.lightning_bolt': {
+    colours: [['color', 'Colour'], ['glow_color', 'Glow Colour']],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
