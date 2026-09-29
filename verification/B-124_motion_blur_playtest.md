@@ -93,12 +93,16 @@ use Draft until the card version is built.
 layer matted by a 100 by 100 square. At Full the square of white shows, 10,000 pixels of it; at
 Draft, nothing does. The cause is in the Draft step, which shrinks each layer's placement to the
 smaller frame but not its matte's, so the matte lands in the wrong place. It is older than motion
-blur, it is the same on the card, and exports are untouched, because they are never Draft. So
-that it does not look like a motion blur fault, leave mattes out of step 7.
+blur, it is the same on the card, and exports are untouched, because they are never Draft.
 
-The fix is one line and a table check, as a small unit of its own. Say if you want it, and when.
+**Fixed on 2026-09-28 by B-124c**, a small unit of its own: the Draft step now shrinks a layer's
+matte with it. `verification/B-124c_draft_matte_table.md` checks it, 11 of 11: an orange layer
+matted by a square is exactly that orange square at Full and at Draft, straight, turned, scaled
+and inside a composition layer. `verification/B-124c pictures/before_after.png` shows the turned
+square at Full, then at Draft as it was before the fix (empty), then at Draft now (the same
+square, in bigger pixels). Mattes can go in step 7 like any other layer.
 
 ## What to report
 
 "works", or which step number did something else and what it did, with the settings and the frame
-number; and whether to fix the Draft matte.
+number.
