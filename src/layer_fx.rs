@@ -797,6 +797,96 @@ pub(crate) fn emboss(source: &mut WorkingBuffer, direction: f64, relief: f64, co
         });
 }
 
+/// D-213: each shown pixel moved toward `light`, linear, by `intensity` times its slope when the
+/// slope is above 0, or toward black by it when below, its covering unchanged.
+fn bevel_shade(source: &mut WorkingBuffer, slope: impl Fn(usize, usize) -> f64 + Sync, light: [f64; 3], intensity: f64) {
+    let w = source.width();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let s = slope(i % w, i / w);
+            for c in 0..3 {
+                let p = px[c] as f64;
+                px[c] = if s > 0.0 {
+                    p + (light[c] * a - p) * intensity * s
+                } else {
+                    p * (1.0 + intensity * s)
+                } as f32;
+            }
+        });
+}
+
+/// D-213: Bevel Alpha. The slope from the covering blurred at sigma `thickness / 2`, by central
+/// differences, 0 beyond the blur. The settings are already valid.
+pub(crate) fn bevel_alpha(source: &mut WorkingBuffer, thickness: f64, angle: f64, light: [f64; 3], intensity: f64) {
+    if thickness <= 0.0 || intensity <= 0.0 {
+        return;
+    }
+    let mut cover = source.clone();
+    for px in cover.data_mut().chunks_exact_mut(4) {
+        px[..3].fill(0.0);
+    }
+    let r = blur(&mut cover, thickness / 2.0) as isize;
+    let (bw, bh) = (cover.width() as isize, cover.height() as isize);
+    let data = cover.data();
+    let height = |x: isize, y: isize| {
+        let (bx, by) = (x + r, y + r);
+        if bx < 0 || by < 0 || bx >= bw || by >= bh {
+            0.0
+        } else {
+            data[((by * bw + bx) * 4 + 3) as usize] as f64
+        }
+    };
+    let (ux, uy) = crate::blurs::along(angle);
+    bevel_shade(
+        source,
+        |x, y| {
+            let (x, y) = (x as isize, y as isize);
+            let gx = (height(x + 1, y) - height(x - 1, y)) / 2.0;
+            let gy = (height(x, y + 1) - height(x, y - 1)) / 2.0;
+            (-1.25 * thickness * (gx * ux + gy * uy)).clamp(-1.0, 1.0)
+        },
+        light,
+        intensity,
+    );
+}
+
+/// D-213: Bevel Edges. A pixel nearer than `thickness` times the buffer's smaller side to the
+/// buffer's nearest side, the first of left, top, right and bottom among equals, is on that
+/// side's face. The settings are already valid.
+pub(crate) fn bevel_edges(source: &mut WorkingBuffer, thickness: f64, angle: f64, light: [f64; 3], intensity: f64) {
+    let (w, h) = (source.width() as f64, source.height() as f64);
+    let t = thickness * w.min(h);
+    if t <= 0.0 || intensity <= 0.0 {
+        return;
+    }
+    let (ux, uy) = crate::blurs::along(angle);
+    bevel_shade(
+        source,
+        |x, y| {
+            let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
+            let mut near = (cx, -ux);
+            for side in [(cy, -uy), (w - cx, ux), (h - cy, uy)] {
+                if side.0 < near.0 {
+                    near = side;
+                }
+            }
+            if near.0 < t {
+                near.1
+            } else {
+                0.0
+            }
+        },
+        light,
+        intensity,
+    );
+}
 
 /// D-146: each pixel that shows moved `amount` of the way toward the strength of the change in
 /// picture luma around it, dark lines on white, or light on black when `invert`. The settings

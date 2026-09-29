@@ -2082,6 +2082,23 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("white_softness".into(), num(*white_softness));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::BevelAlpha {
+            edge_thickness,
+            light_angle,
+            light_color,
+            light_intensity,
+        }
+        | Effect::BevelEdges {
+            edge_thickness,
+            light_angle,
+            light_color,
+            light_intensity,
+        } => {
+            params.insert("edge_thickness".into(), num(*edge_thickness));
+            params.insert("light_angle".into(), num(*light_angle));
+            params.insert("light_color".into(), J::from(light_color.as_str()));
+            params.insert("light_intensity".into(), num(*light_intensity));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2627,6 +2644,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "white_point",
         "black_softness",
         "white_softness",
+        "light_angle",
+        "light_intensity",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -3120,6 +3139,8 @@ fn parse_effect(
         crate::effects::OPTICS_COMPENSATION,
         crate::effects::RADIAL_SHADOW,
         crate::effects::EXTRACT,
+        crate::effects::BEVEL_ALPHA,
+        crate::effects::BEVEL_EDGES,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3795,6 +3816,18 @@ fn parse_effect(
             black_softness: effect_number(params, "black_softness", &at)?,
             white_softness: effect_number(params, "white_softness", &at)?,
             invert: effect_word(params, "invert", &at)?,
+        }),
+        crate::effects::BEVEL_ALPHA => Some(crate::effects::Effect::BevelAlpha {
+            edge_thickness: effect_number(params, "edge_thickness", &at)?,
+            light_angle: effect_number(params, "light_angle", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_intensity: effect_number(params, "light_intensity", &at)?,
+        }),
+        crate::effects::BEVEL_EDGES => Some(crate::effects::Effect::BevelEdges {
+            edge_thickness: effect_number(params, "edge_thickness", &at)?,
+            light_angle: effect_number(params, "light_angle", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_intensity: effect_number(params, "light_intensity", &at)?,
         }),
         _ => None,
     };

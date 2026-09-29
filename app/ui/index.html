@@ -6820,6 +6820,8 @@ const EFFECT_NAMES = {
   'core.optics_compensation': 'Optics Compensation',
   'core.radial_shadow': 'Radial Shadow',
   'core.extract': 'Extract',
+  'core.bevel_alpha': 'Bevel Alpha',
+  'core.bevel_edges': 'Bevel Edges',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6843,7 +6845,7 @@ const EFFECT_GROUPS = [
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient',
     'core.cell_pattern']],
-  ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
+  ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
@@ -6921,6 +6923,8 @@ const EFFECT_SEARCH = {
   'core.optics_compensation': 'optics compensation lens distortion fisheye fish eye barrel wide angle peephole field of view fov undistort bend',
   'core.radial_shadow': 'radial shadow cast lamp torch point light spotlight projection glass edge stained perspective shade',
   'core.extract': 'extract key luma luminance brightness black white point paper scan background transparent keying',
+  'core.bevel_alpha': 'bevel alpha raised edge light emboss badge logo title button 3d relief perspective',
+  'core.bevel_edges': 'bevel edges raised frame tile button panel light 3d relief perspective',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -7031,6 +7035,8 @@ const EFFECT_ABOUT = {
   'core.optics_compensation': 'Bends the layer as a wide lens would, a fisheye with the edges squeezed round the middle, or takes one out.',
   'core.radial_shadow': 'Casts the layer\'s shadow from a lamp at a point, spreading and growing the farther the wall behind it is.',
   'core.extract': 'Makes transparent every part too dark or too bright, by one channel, as the white paper is taken from behind a scanned drawing.',
+  'core.bevel_alpha': 'Makes the drawing look raised, its outline lit on the side toward a light and darkened on the other.',
+  'core.bevel_edges': 'Makes the layer look like a raised tile, its four sides lit toward a light and darkened away from it.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7424,6 +7430,13 @@ const EFFECT_PARAMS = {
     ['white_point', 'White Point', 1, 1, '0 to 255, brighter than this is taken out'],
     ['black_softness', 'Black Softness', 1, 1, '0 to 255, a fade over this many steps above the black point'],
     ['white_softness', 'White Softness', 1, 1, '0 to 255, a fade over this many steps below the white point']],
+  // D-213, After Effects' own words.
+  'core.bevel_alpha': [['edge_thickness', 'Edge Thickness', 1, 0.5, 'pixels, 0 to 200, how wide the bevel is'],
+    ['light_angle', 'Light Angle', 1, 1, 'degrees clockwise from up, where the light comes from', 'dial'],
+    ['light_intensity', 'Light Intensity', 1, 0.05, '0 to 1, how strongly the light and shade show']],
+  'core.bevel_edges': [['edge_thickness', 'Edge Thickness', 1, 0.01, '0 to 0.5 of the layer\'s smaller side, how wide the bevel is'],
+    ['light_angle', 'Light Angle', 1, 1, 'degrees clockwise from up, where the light comes from', 'dial'],
+    ['light_intensity', 'Light Intensity', 1, 0.05, '0 to 1, how strongly the light and shade show']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7592,6 +7605,9 @@ const EFFECT_WORDS = {
     choices: [['channel', 'Channel', [['luminance', 'Luminance'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
   },
+  // D-213.
+  'core.bevel_alpha': { colours: [['light_color', 'Light Color']] },
+  'core.bevel_edges': { colours: [['light_color', 'Light Color']] },
   // D-209, After Effects' own words, and Fractal Noise's colours and blend.
   'core.cell_pattern': {
     choices: [['pattern', 'Cell Pattern', [['bubbles', 'Bubbles'], ['crystals', 'Crystals'], ['plates', 'Plates'], ['static_plates', 'Static Plates']]],

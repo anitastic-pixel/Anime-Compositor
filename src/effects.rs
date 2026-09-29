@@ -1166,6 +1166,21 @@ pub enum Effect {
         white_softness: f64,
         invert: String,
     },
+    /// D-213: `edge_thickness`, 0 to 200 pixels; `light_angle`, -3600 to 3600 degrees clockwise
+    /// from up; `light_color`, `#rrggbb`; `light_intensity`, 0 to 1.
+    BevelAlpha {
+        edge_thickness: f64,
+        light_angle: f64,
+        light_color: String,
+        light_intensity: f64,
+    },
+    /// D-213: as Bevel Alpha, with `edge_thickness` 0 to 0.5 of the layer's smaller side.
+    BevelEdges {
+        edge_thickness: f64,
+        light_angle: f64,
+        light_color: String,
+        light_intensity: f64,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1262,6 +1277,8 @@ pub const CELL_PATTERN: &str = "core.cell_pattern";
 pub const OPTICS_COMPENSATION: &str = "core.optics_compensation";
 pub const RADIAL_SHADOW: &str = "core.radial_shadow";
 pub const EXTRACT: &str = "core.extract";
+pub const BEVEL_ALPHA: &str = "core.bevel_alpha";
+pub const BEVEL_EDGES: &str = "core.bevel_edges";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -2030,6 +2047,26 @@ impl Effect {
                 ("black_softness", vec![black_softness], 0.0, 255.0),
                 ("white_softness", vec![white_softness], 0.0, 255.0),
             ],
+            Effect::BevelAlpha {
+                edge_thickness,
+                light_angle,
+                light_intensity,
+                ..
+            } => vec![
+                ("edge_thickness", vec![edge_thickness], 0.0, 200.0),
+                ("light_angle", vec![light_angle], -3600.0, 3600.0),
+                ("light_intensity", vec![light_intensity], 0.0, 1.0),
+            ],
+            Effect::BevelEdges {
+                edge_thickness,
+                light_angle,
+                light_intensity,
+                ..
+            } => vec![
+                ("edge_thickness", vec![edge_thickness], 0.0, 0.5),
+                ("light_angle", vec![light_angle], -3600.0, 3600.0),
+                ("light_intensity", vec![light_intensity], 0.0, 1.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -2187,6 +2224,8 @@ impl Effect {
             // D-144: a block under a pixel is one pixel, which changes nothing.
             Effect::Mosaic { size } => *size = scale(*size).max(1.0),
             Effect::Emboss { relief, .. } => *relief = scale(*relief),
+            // D-213: Bevel Edges' thickness is a share of the layer and is left.
+            Effect::BevelAlpha { edge_thickness, .. } => *edge_thickness = scale(*edge_thickness),
             Effect::Sharpen { radius, .. } => *radius = scale(*radius),
             Effect::Diffusion { radius, .. } => *radius = scale(*radius),
             Effect::WaveWarp { height, width, .. } => {
@@ -2384,6 +2423,8 @@ impl Effect {
             Effect::OpticsCompensation { .. } => "Optics Compensation",
             Effect::RadialShadow { .. } => "Radial Shadow",
             Effect::Extract { .. } => "Extract",
+            Effect::BevelAlpha { .. } => "Bevel Alpha",
+            Effect::BevelEdges { .. } => "Bevel Edges",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2480,6 +2521,8 @@ impl Effect {
             Effect::OpticsCompensation { .. } => OPTICS_COMPENSATION,
             Effect::RadialShadow { .. } => RADIAL_SHADOW,
             Effect::Extract { .. } => EXTRACT,
+            Effect::BevelAlpha { .. } => BEVEL_ALPHA,
+            Effect::BevelEdges { .. } => BEVEL_EDGES,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3043,6 +3086,8 @@ impl Effect {
             Effect::Extract { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "Extract's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
+            Effect::BevelAlpha { light_color, .. } => hex_fault("Bevel Alpha", "light colour", light_color),
+            Effect::BevelEdges { light_color, .. } => hex_fault("Bevel Edges", "light colour", light_color),
             Effect::Paraffin { blend, .. }
                 if !["normal", "multiply", "screen", "add", "overlay", "soft_light"].contains(&blend.as_str()) =>
             {
@@ -3904,6 +3949,24 @@ pub(crate) fn apply_stack_at(
                 mode,
             } => crate::perf::time(crate::perf::Stage::EffectEmboss, || {
                 crate::layer_fx::emboss(source, *direction, *relief, *contrast, mode == "color")
+            }),
+            Effect::BevelAlpha {
+                edge_thickness,
+                light_angle,
+                light_color,
+                light_intensity,
+            } => crate::perf::time(crate::perf::Stage::EffectBevelAlpha, || {
+                let light = encoded(light_color).map(crate::grade::to_linear);
+                crate::layer_fx::bevel_alpha(source, *edge_thickness, *light_angle, light, *light_intensity)
+            }),
+            Effect::BevelEdges {
+                edge_thickness,
+                light_angle,
+                light_color,
+                light_intensity,
+            } => crate::perf::time(crate::perf::Stage::EffectBevelEdges, || {
+                let light = encoded(light_color).map(crate::grade::to_linear);
+                crate::layer_fx::bevel_edges(source, *edge_thickness, *light_angle, light, *light_intensity)
             }),
             Effect::FindEdges { invert, amount } => crate::perf::time(crate::perf::Stage::EffectFindEdges, || {
                 crate::layer_fx::find_edges(source, invert == "on", *amount)
