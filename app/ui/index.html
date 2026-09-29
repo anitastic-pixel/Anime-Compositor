@@ -6809,6 +6809,8 @@ const EFFECT_NAMES = {
   'core.light_sweep': 'Light Sweep',
   'core.radio_waves': 'Radio Waves',
   'core.polar_coordinates': 'Polar Coordinates',
+  'core.median': 'Median',
+  'core.smart_blur': 'Smart Blur',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6816,7 +6818,7 @@ const EFFECT_NAMES = {
 const EFFECT_GROUPS = [
   ['Blur & Sharpen', ['core.gaussian_blur', 'core.directional_blur', 'core.radial_blur',
     'core.lens_blur', 'core.compound_blur', 'core.selective_color_blur', 'core.sharpen',
-    'core.diffusion']],
+    'core.diffusion', 'core.median', 'core.smart_blur']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
@@ -6898,6 +6900,8 @@ const EFFECT_SEARCH = {
   'core.light_sweep': 'cc light sweep shine glint gleam sheen reflection flash sword metal logo glass highlight',
   'core.radio_waves': 'radio waves ring rings shockwave sonar ping ripple pulse signal circle wave target',
   'core.polar_coordinates': 'polar coordinates rect to polar polar to rect focus lines speed lines tiny planet round circle ring bend wrap unroll',
+  'core.median': 'median noise grain dust specks speckle clean cleanup despeckle scan pinhole denoise',
+  'core.smart_blur': 'smart blur surface blur skin smooth smoothing grain noise denoise edge preserving bilateral clean',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6997,6 +7001,8 @@ const EFFECT_ABOUT = {
   'core.light_sweep': 'Lays a band of light across the drawing; key its centre and a shine runs across it.',
   'core.radio_waves': 'Sends rings out from a point, a new one every few frames, over the layer as it plays.',
   'core.polar_coordinates': 'Bends the layer round its middle, its rows into rings and its columns into spokes, or unrolls it back.',
+  'core.median': 'Cleans away specks and pinholes: each pixel takes the middle colour of those round it, so edges stay.',
+  'core.smart_blur': 'Smooths flat colour and grain while keeping lines sharp: each pixel mixes only with close colours round it.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7335,6 +7341,9 @@ const EFFECT_PARAMS = {
     ['start_width', 'Start Width', 1, 0.5, 'pixels, 0 to 1000, the ring\'s width when born'],
     ['end_width', 'End Width', 1, 0.5, 'pixels, 0 to 1000, its width as it dies']],
   'core.polar_coordinates': [['interpolation', 'Interpolation', 1, 1, '0 to 100, how far to go; 0 leaves the layer as it is']],
+  'core.median': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is']],
+  'core.smart_blur': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is'],
+    ['threshold', 'Threshold', 1, 1, '0 to 255 steps, how close a colour must be to mix; 255 blurs everything']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7466,6 +7475,8 @@ const EFFECT_WORDS = {
   'core.polar_coordinates': {
     choices: [['conversion', 'Type of Conversion', [['rect_to_polar', 'Rect to Polar'], ['polar_to_rect', 'Polar to Rect']]]],
   },
+  // D-203.
+  'core.median': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
   // D-154.
   'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },
   // D-156.

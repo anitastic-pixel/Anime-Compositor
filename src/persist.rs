@@ -1904,6 +1904,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("interpolation".into(), num(*interpolation));
             params.insert("conversion".into(), J::from(conversion.as_str()));
         }
+        Effect::Median { radius, operate_on_alpha } => {
+            params.insert("radius".into(), num(*radius));
+            params.insert("operate_on_alpha".into(), J::from(operate_on_alpha.as_str()));
+        }
+        Effect::SmartBlur { radius, threshold } => {
+            params.insert("radius".into(), num(*radius));
+            params.insert("threshold".into(), num(*threshold));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2911,6 +2919,8 @@ fn parse_effect(
         crate::effects::LIGHT_SWEEP,
         crate::effects::RADIO_WAVES,
         crate::effects::POLAR_COORDINATES,
+        crate::effects::MEDIAN,
+        crate::effects::SMART_BLUR,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3484,6 +3494,14 @@ fn parse_effect(
         crate::effects::POLAR_COORDINATES => Some(crate::effects::Effect::PolarCoordinates {
             interpolation: effect_number(params, "interpolation", &at)?,
             conversion: effect_word(params, "conversion", &at)?,
+        }),
+        crate::effects::MEDIAN => Some(crate::effects::Effect::Median {
+            radius: effect_number(params, "radius", &at)?,
+            operate_on_alpha: effect_word(params, "operate_on_alpha", &at)?,
+        }),
+        crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
+            radius: effect_number(params, "radius", &at)?,
+            threshold: effect_number(params, "threshold", &at)?,
         }),
         _ => None,
     };

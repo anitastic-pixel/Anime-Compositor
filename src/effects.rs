@@ -1021,6 +1021,11 @@ pub enum Effect {
     /// "rect_to_polar" or "polar_to_rect". The word is kept as written, so a wrong one is
     /// reported.
     PolarCoordinates { interpolation: f64, conversion: String },
+    /// D-203: `radius`, 0 to 10 pixels; and `operate_on_alpha`, "off" or "on". The word is kept
+    /// as written, so a wrong one is reported.
+    Median { radius: f64, operate_on_alpha: String },
+    /// D-203: `radius`, 0 to 10 pixels; and `threshold`, 0 to 255 8-bit steps.
+    SmartBlur { radius: f64, threshold: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1106,6 +1111,8 @@ pub const CORNER_PIN: &str = "core.corner_pin";
 pub const LIGHT_SWEEP: &str = "core.light_sweep";
 pub const RADIO_WAVES: &str = "core.radio_waves";
 pub const POLAR_COORDINATES: &str = "core.polar_coordinates";
+pub const MEDIAN: &str = "core.median";
+pub const SMART_BLUR: &str = "core.smart_blur";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1735,6 +1742,11 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 100.0),
             ],
             Effect::PolarCoordinates { interpolation, .. } => vec![("interpolation", vec![interpolation], 0.0, 100.0)],
+            Effect::Median { radius, .. } => vec![("radius", vec![radius], 0.0, 10.0)],
+            Effect::SmartBlur { radius, threshold } => vec![
+                ("radius", vec![radius], 0.0, 10.0),
+                ("threshold", vec![threshold], 0.0, 255.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -1848,6 +1860,8 @@ impl Effect {
             Effect::DirectionalBlur { length, .. } => *length = scale(*length),
             Effect::LineWidth { width, .. } => *width = scale(*width),
             Effect::LineBlur { length, .. } => *length = scale(*length),
+            // D-203: a radius scaled under one leaves the layer as it is.
+            Effect::Median { radius, .. } | Effect::SmartBlur { radius, .. } => *radius = scale(*radius),
             Effect::Bloom { radius, length, .. } => {
                 *radius = scale(*radius);
                 *length = scale(*length);
@@ -2049,6 +2063,8 @@ impl Effect {
             Effect::LightSweep { .. } => "Light Sweep",
             Effect::RadioWaves { .. } => "Radio Waves",
             Effect::PolarCoordinates { .. } => "Polar Coordinates",
+            Effect::Median { .. } => "Median",
+            Effect::SmartBlur { .. } => "Smart Blur",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2134,6 +2150,8 @@ impl Effect {
             Effect::LightSweep { .. } => LIGHT_SWEEP,
             Effect::RadioWaves { .. } => RADIO_WAVES,
             Effect::PolarCoordinates { .. } => POLAR_COORDINATES,
+            Effect::Median { .. } => MEDIAN,
+            Effect::SmartBlur { .. } => SMART_BLUR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2593,6 +2611,9 @@ impl Effect {
                 .or_else(|| edges(e)),
             Effect::MotionTile { mirror, .. } if !["off", "on"].contains(&mirror.as_str()) => Some(format!(
                 "Motion Tile's mirror is \"off\" or \"on\", and this is \"{mirror}\"."
+            )),
+            Effect::Median { operate_on_alpha, .. } if !["off", "on"].contains(&operate_on_alpha.as_str()) => Some(format!(
+                "Median's operate on alpha is \"off\" or \"on\", and this is \"{operate_on_alpha}\"."
             )),
             Effect::LineBlur { lines_only, .. } if !["off", "on"].contains(&lines_only.as_str()) => Some(format!(
                 "Line Blur's lines only is \"off\" or \"on\", and this is \"{lines_only}\"."
@@ -3516,6 +3537,13 @@ pub(crate) fn apply_stack_at(
                     crate::layer_fx::polar_coordinates(source, *interpolation, conversion == "rect_to_polar", (ox, oy))
                 })
             }
+            // D-203: neither grows the layer.
+            Effect::Median { radius, operate_on_alpha } => crate::perf::time(crate::perf::Stage::EffectMedian, || {
+                crate::median::median(source, *radius, operate_on_alpha == "on")
+            }),
+            Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
+                crate::median::smart_blur(source, *radius, *threshold)
+            }),
             // D-198: the corners are in per cent of the drawing's own box, however an effect
             // above grew it, and the layer grows so none is cut off.
             Effect::CornerPin {
