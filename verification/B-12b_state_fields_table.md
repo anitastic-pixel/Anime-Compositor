@@ -266,7 +266,9 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - field_of_view, reverse, orientation, center - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.radial_shadow` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, opacity, light, distance, softness, render, color_influence, shadow_only - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.extract` is an effect this build has | added | added | pass |
+| and the settings it sends for it - channel, black_point, white_point, black_softness, white_softness, invert - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**248 of 248 checks pass.**
+**250 of 250 checks pass.**

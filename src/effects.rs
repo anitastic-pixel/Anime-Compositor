@@ -1155,6 +1155,17 @@ pub enum Effect {
         color_influence: f64,
         shadow_only: String,
     },
+    /// D-212: `channel`, "luminance", "red", "green", "blue" or "alpha", and `invert`, "off" or
+    /// "on", kept as written; `black_point`, `white_point`, `black_softness` and
+    /// `white_softness`, each 0 to 255.
+    Extract {
+        channel: String,
+        black_point: f64,
+        white_point: f64,
+        black_softness: f64,
+        white_softness: f64,
+        invert: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1250,6 +1261,7 @@ pub const FOUR_COLOR_GRADIENT: &str = "core.four_color_gradient";
 pub const CELL_PATTERN: &str = "core.cell_pattern";
 pub const OPTICS_COMPENSATION: &str = "core.optics_compensation";
 pub const RADIAL_SHADOW: &str = "core.radial_shadow";
+pub const EXTRACT: &str = "core.extract";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -2006,6 +2018,18 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 500.0),
                 ("color_influence", vec![color_influence], 0.0, 100.0),
             ],
+            Effect::Extract {
+                black_point,
+                white_point,
+                black_softness,
+                white_softness,
+                ..
+            } => vec![
+                ("black_point", vec![black_point], 0.0, 255.0),
+                ("white_point", vec![white_point], 0.0, 255.0),
+                ("black_softness", vec![black_softness], 0.0, 255.0),
+                ("white_softness", vec![white_softness], 0.0, 255.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -2359,6 +2383,7 @@ impl Effect {
             Effect::CellPattern { .. } => "Cell Pattern",
             Effect::OpticsCompensation { .. } => "Optics Compensation",
             Effect::RadialShadow { .. } => "Radial Shadow",
+            Effect::Extract { .. } => "Extract",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2454,6 +2479,7 @@ impl Effect {
             Effect::CellPattern { .. } => CELL_PATTERN,
             Effect::OpticsCompensation { .. } => OPTICS_COMPENSATION,
             Effect::RadialShadow { .. } => RADIAL_SHADOW,
+            Effect::Extract { .. } => EXTRACT,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3005,6 +3031,17 @@ impl Effect {
             )),
             Effect::HsvKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "HSV Key's invert is \"off\" or \"on\", and this is \"{invert}\"."
+            )),
+            Effect::Extract { channel, .. }
+                if !["luminance", "red", "green", "blue", "alpha"].contains(&channel.as_str()) =>
+            {
+                Some(format!(
+                    "Extract's channel is \"luminance\", \"red\", \"green\", \"blue\" or \"alpha\", \
+                     and this is \"{channel}\"."
+                ))
+            }
+            Effect::Extract { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "Extract's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
             Effect::Paraffin { blend, .. }
                 if !["normal", "multiply", "screen", "add", "overlay", "soft_light"].contains(&blend.as_str()) =>
@@ -3778,6 +3815,21 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::Threshold { level } => crate::perf::time(crate::perf::Stage::EffectThreshold, || {
                 crate::grade::threshold(source, *level)
+            }),
+            Effect::Extract {
+                channel,
+                black_point,
+                white_point,
+                black_softness,
+                white_softness,
+                invert,
+            } => crate::perf::time(crate::perf::Stage::EffectExtract, || {
+                crate::grade::extract(
+                    source,
+                    channel,
+                    [*black_point, *white_point, *black_softness, *white_softness],
+                    invert == "on",
+                )
             }),
             Effect::ChannelMixer {
                 red,

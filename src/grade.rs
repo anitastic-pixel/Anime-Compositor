@@ -764,6 +764,33 @@ pub(crate) fn threshold(source: &mut WorkingBuffer, level: f64) {
     grade_pixels(source, false, |_, e| [if 255.0 * luma(e) + 1e-4 >= level { 1.0 } else { 0.0 }; 3])
 }
 
+/// D-212: each shown pixel kept, all four channels alike, by how far its value in `channel`, 0
+/// to 255, lies inside the black and white points `[b, w]`, fading over the softnesses `[s, t]`
+/// inside each; with `invert` the other side is kept.
+pub(crate) fn extract(source: &mut WorkingBuffer, channel: &str, [b, w, s, t]: [f64; 4], invert: bool) {
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let e = |c: usize| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
+        let v = 255.0
+            * match channel {
+                "red" => e(0),
+                "green" => e(1),
+                "blue" => e(2),
+                "alpha" => a,
+                _ => luma([e(0), e(1), e(2)]),
+            };
+        let low = if s > 0.0 { ((v - b) / s).clamp(0.0, 1.0) } else if v + 1e-4 >= b { 1.0 } else { 0.0 };
+        let high = if t > 0.0 { ((w - v) / t).clamp(0.0, 1.0) } else if v - 1e-4 <= w { 1.0 } else { 0.0 };
+        let m = if invert { 1.0 - low * high } else { low * high };
+        for c in px.iter_mut() {
+            *c = (*c as f64 * m) as f32;
+        }
+    })
+}
+
 /// D-139: each channel remade from its row: from red, from green, from blue and a constant, in
 /// per cent; with `mono` every channel uses the red row.
 pub(crate) fn channel_mixer(source: &mut WorkingBuffer, rows: [[f64; 4]; 3], mono: bool) {

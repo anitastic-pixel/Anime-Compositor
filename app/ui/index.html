@@ -6819,6 +6819,7 @@ const EFFECT_NAMES = {
   'core.cell_pattern': 'Cell Pattern',
   'core.optics_compensation': 'Optics Compensation',
   'core.radial_shadow': 'Radial Shadow',
+  'core.extract': 'Extract',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6835,7 +6836,7 @@ const EFFECT_GROUPS = [
     'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
     'core.paraffin']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
-    'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key']],
+    'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key', 'core.extract']],
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple',
     'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation']],
@@ -6919,6 +6920,7 @@ const EFFECT_SEARCH = {
   'core.cell_pattern': 'cell pattern bubbles crystals plates voronoi stained glass scales cracked texture background magic',
   'core.optics_compensation': 'optics compensation lens distortion fisheye fish eye barrel wide angle peephole field of view fov undistort bend',
   'core.radial_shadow': 'radial shadow cast lamp torch point light spotlight projection glass edge stained perspective shade',
+  'core.extract': 'extract key luma luminance brightness black white point paper scan background transparent keying',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -7028,6 +7030,7 @@ const EFFECT_ABOUT = {
   'core.cell_pattern': 'Lays a pattern of cells, like bubbles, crystals or cracked plates, in two colours over what the layer shows.',
   'core.optics_compensation': 'Bends the layer as a wide lens would, a fisheye with the edges squeezed round the middle, or takes one out.',
   'core.radial_shadow': 'Casts the layer\'s shadow from a lamp at a point, spreading and growing the farther the wall behind it is.',
+  'core.extract': 'Makes transparent every part too dark or too bright, by one channel, as the white paper is taken from behind a scanned drawing.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7416,6 +7419,11 @@ const EFFECT_PARAMS = {
     ['distance', 'Projection Distance', 1, 0.5, '0 to 1000, how far the wall is behind; 100 casts it twice the size'],
     ['softness', 'Softening', 1, 0.5, 'pixels, 0 to 500'],
     ['color_influence', 'Color Influence', 1, 0.5, '0 to 100, with Glass Edge how much of the drawing\'s own colour is in the shadow']],
+  // D-212, After Effects' own words.
+  'core.extract': [['black_point', 'Black Point', 1, 1, '0 to 255, darker than this is taken out'],
+    ['white_point', 'White Point', 1, 1, '0 to 255, brighter than this is taken out'],
+    ['black_softness', 'Black Softness', 1, 1, '0 to 255, a fade over this many steps above the black point'],
+    ['white_softness', 'White Softness', 1, 1, '0 to 255, a fade over this many steps below the white point']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7578,6 +7586,11 @@ const EFFECT_WORDS = {
     choices: [['render', 'Render', [['regular', 'Regular'], ['glass_edge', 'Glass Edge']]],
       ['shadow_only', 'Shadow Only', [['off', 'Off'], ['on', 'On']]]],
     colours: [['color', 'Shadow Color']],
+  },
+  // D-212, After Effects' own words.
+  'core.extract': {
+    choices: [['channel', 'Channel', [['luminance', 'Luminance'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]],
+      ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-209, After Effects' own words, and Fractal Noise's colours and blend.
   'core.cell_pattern': {

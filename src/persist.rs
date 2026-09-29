@@ -2067,6 +2067,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("color_influence".into(), num(*color_influence));
             params.insert("shadow_only".into(), J::from(shadow_only.as_str()));
         }
+        Effect::Extract {
+            channel,
+            black_point,
+            white_point,
+            black_softness,
+            white_softness,
+            invert,
+        } => {
+            params.insert("channel".into(), J::from(channel.as_str()));
+            params.insert("black_point".into(), num(*black_point));
+            params.insert("white_point".into(), num(*white_point));
+            params.insert("black_softness".into(), num(*black_softness));
+            params.insert("white_softness".into(), num(*white_softness));
+            params.insert("invert".into(), J::from(invert.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2608,6 +2623,10 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "field_of_view",
         "light",
         "color_influence",
+        "black_point",
+        "white_point",
+        "black_softness",
+        "white_softness",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -3100,6 +3119,7 @@ fn parse_effect(
         crate::effects::CELL_PATTERN,
         crate::effects::OPTICS_COMPENSATION,
         crate::effects::RADIAL_SHADOW,
+        crate::effects::EXTRACT,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3767,6 +3787,14 @@ fn parse_effect(
             render: effect_word(params, "render", &at)?,
             color_influence: effect_number(params, "color_influence", &at)?,
             shadow_only: effect_word(params, "shadow_only", &at)?,
+        }),
+        crate::effects::EXTRACT => Some(crate::effects::Effect::Extract {
+            channel: effect_word(params, "channel", &at)?,
+            black_point: effect_number(params, "black_point", &at)?,
+            white_point: effect_number(params, "white_point", &at)?,
+            black_softness: effect_number(params, "black_softness", &at)?,
+            white_softness: effect_number(params, "white_softness", &at)?,
+            invert: effect_word(params, "invert", &at)?,
         }),
         _ => None,
     };
