@@ -217,6 +217,9 @@ pub enum DiagnosticId {
     /// holder's composition, deleted or of another composition. WARNING: the setting is kept
     /// as written and the effect is skipped, every frame.
     EffectLayerMissing,
+    /// Document 28, added by D-189 and built with D-191: effects' layer settings that lead
+    /// back round to a layer. ERROR: refused on command and on load, as MATTE_CYCLE is.
+    EffectLayerCycle,
 }
 
 impl DiagnosticId {
@@ -285,6 +288,7 @@ impl DiagnosticId {
             DiagnosticId::GpuPreviewOnCpu => "GPU_PREVIEW_ON_CPU",
             DiagnosticId::PresetFileInvalid => "PRESET_FILE_INVALID",
             DiagnosticId::EffectLayerMissing => "EFFECT_LAYER_MISSING",
+            DiagnosticId::EffectLayerCycle => "EFFECT_LAYER_CYCLE",
         }
     }
 
@@ -348,6 +352,7 @@ impl DiagnosticId {
                 | DiagnosticId::TimesheetNotUsed
                 | DiagnosticId::PresetFileInvalid
                 | DiagnosticId::EffectLayerMissing
+                | DiagnosticId::EffectLayerCycle
         )
     }
 }

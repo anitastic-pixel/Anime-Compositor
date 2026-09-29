@@ -809,6 +809,18 @@ pub enum Effect {
         glow_color: String,
         frame: i32,
     },
+    /// D-191: `layer`, D-189's layer setting as written (a word, or kept as found and refused
+    /// when it is not one); `fit`, `center`, `stretch` or `tile`; `max_blur`, 0 to 500 pixels;
+    /// `invert`, `off` or `on`; and `edges`, `transparent` or `repeat`. `map` is not a setting
+    /// and is never saved: compose reads it for each frame.
+    CompoundBlur {
+        layer: serde_json::Value,
+        fit: String,
+        max_blur: f64,
+        invert: String,
+        edges: String,
+        map: Option<crate::layer_map::Map>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -884,6 +896,7 @@ pub const HSV_KEY: &str = "core.hsv_key";
 pub const PARAFFIN: &str = "core.paraffin";
 pub const KIRA_KIRA: &str = "core.kira_kira";
 pub const LIGHTNING_BOLT: &str = "core.lightning_bolt";
+pub const COMPOUND_BLUR: &str = "core.compound_blur";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1484,6 +1497,7 @@ impl Effect {
                 ("hold", vec![hold], 1.0, 100.0),
                 ("seed", vec![seed], 0.0, 100000.0),
             ],
+            Effect::CompoundBlur { max_blur, .. } => vec![("max_blur", vec![max_blur], 0.0, 500.0)],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1600,6 +1614,7 @@ impl Effect {
                 *width = scale(*width);
                 *glow = scale(*glow);
             }
+            Effect::CompoundBlur { max_blur, .. } => *max_blur = scale(*max_blur),
             // D-157: a slat is never less than a pixel, the least the command takes.
             Effect::VenetianBlinds { width, feather, .. } => {
                 *width = scale(*width).max(1.0);
@@ -1704,6 +1719,7 @@ impl Effect {
             Effect::Paraffin { .. } => "Paraffin",
             Effect::KiraKira { .. } => "Kira-kira",
             Effect::LightningBolt { .. } => "Lightning Bolt",
+            Effect::CompoundBlur { .. } => "Compound Blur",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1779,6 +1795,7 @@ impl Effect {
             Effect::Paraffin { .. } => PARAFFIN,
             Effect::KiraKira { .. } => KIRA_KIRA,
             Effect::LightningBolt { .. } => LIGHTNING_BOLT,
+            Effect::CompoundBlur { .. } => COMPOUND_BLUR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1951,6 +1968,23 @@ impl Effect {
 
     /// D-91 on: what is wrong with a newer effect's settings, as a sentence, or `None` when
     /// nothing is. Its words and colours first, then its numbers from the one table.
+    /// D-189: the layer this effect's layer setting names, and its fit, when it has one
+    /// written as a word.
+    pub fn layer_setting(&self) -> Option<(&str, &str)> {
+        match self {
+            Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            _ => None,
+        }
+    }
+
+    /// D-189: the layer setting as written, and the map compose reads into for a frame.
+    pub fn layer_setting_mut(&mut self) -> Option<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
+        match self {
+            Effect::CompoundBlur { layer, map, .. } => Some((layer, map)),
+            _ => None,
+        }
+    }
+
     fn fault(&self) -> Option<String> {
         let name = self.name();
         let hex = |c: &str| crate::selective_blur::parse_hex(c).is_some();
@@ -2190,6 +2224,16 @@ impl Effect {
             Effect::KiraKira { color, .. } => hex_fault("Kira-kira", "colour", color),
             Effect::LightningBolt { color, glow_color, .. } => hex_fault("Lightning Bolt", "colour", color)
                 .or_else(|| hex_fault("Lightning Bolt", "glow colour", glow_color)),
+            Effect::CompoundBlur { layer, .. } if !layer.is_string() => Some(format!(
+                "Compound Blur's layer is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::CompoundBlur { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "Compound Blur's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::CompoundBlur { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "Compound Blur's invert is \"off\" or \"on\", and this is \"{invert}\"."
+            )),
+            Effect::CompoundBlur { edges: e, .. } => edges(e),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
             {
@@ -3228,6 +3272,14 @@ pub(crate) fn apply_stack_at(
                 let numbers = [*jagged, *detail, *branches, *width, *glow, *opacity, *hold, *seed];
                 crate::layer_fx::lightning_bolt(source, ends, numbers, colours, *frame)
             }),
+            // D-191: the map compose read for this frame; with none, nothing is blurred.
+            Effect::CompoundBlur { max_blur, invert, edges, map, .. } => {
+                if let Some(map) = map {
+                    crate::perf::time(crate::perf::Stage::EffectCompoundBlur, || {
+                        crate::layer_fx::compound_blur(source, &map.0, (ox, oy), *max_blur, invert == "on", edges == "repeat")
+                    })
+                }
+            }
         }
     }
     (ox, oy)

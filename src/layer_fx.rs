@@ -1927,3 +1927,74 @@ pub(crate) fn bolt_segments(
     }
     segs.into_iter().map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq]).collect()
 }
+
+/// D-191: Compound Blur. Each pixel is blurred by `max_blur / 3` times the brightness of the map
+/// under it, the map lying on the layer's own picture, which sits at `origin` in `source`; with
+/// `invert`, by one less that brightness. Six levels, 0 and a sixteenth, an eighth, a quarter, a
+/// half and all of the largest, are each one Gaussian of the whole picture, and a pixel between
+/// two is their mix. `repeat` holds the edge pixels, as Gaussian Blur's edges do.
+pub(crate) fn compound_blur(
+    source: &mut WorkingBuffer,
+    map: &WorkingBuffer,
+    origin: (usize, usize),
+    max_blur: f64,
+    invert: bool,
+    repeat: bool,
+) {
+    let big = max_blur / 3.0;
+    let levels = [0.0, big / 16.0, big / 8.0, big / 4.0, big / 2.0, big];
+    let (w, h) = (source.width(), source.height());
+    let (mw, mh) = (map.width(), map.height());
+    let sigmas: Vec<f64> = (0..w * h)
+        .into_par_iter()
+        .map(|i| {
+            let (x, y) = ((i % w).wrapping_sub(origin.0), (i / w).wrapping_sub(origin.1));
+            let v = if x < mw && y < mh {
+                let p = &map.data()[(y * mw + x) * 4..][..3];
+                let luma = 0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64;
+                crate::grade::to_srgb(luma.clamp(0.0, 1.0))
+            } else {
+                0.0
+            };
+            (if invert { 1.0 - v } else { v }) * big
+        })
+        .collect();
+    let segment = |s: f64| (0..5).rev().find(|&k| levels[k] <= s).unwrap_or(0);
+    let top = sigmas.iter().copied().fold(0.0, f64::max);
+    if top <= 0.0 {
+        return;
+    }
+    let blurred = |sigma: f64| {
+        let mut b = source.clone();
+        if repeat {
+            crate::effects::held_blur(&mut b, sigma);
+        } else {
+            let r = blur(&mut b, sigma);
+            if r > 0 {
+                b = crate::layer_map::cut(&b, (r, r), (w, h));
+            }
+        }
+        b
+    };
+    let mut out = source.clone();
+    let mut low = source.clone();
+    for k in 0..=segment(top) {
+        let (lo, hi) = (levels[k], levels[k + 1]);
+        let high = blurred(hi);
+        out.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+            for (x, o) in row.chunks_mut(4).enumerate() {
+                let i = y * w + x;
+                let s = sigmas[i];
+                if segment(s) == k {
+                    let t = (s - lo) / (hi - lo);
+                    for c in 0..4 {
+                        let (a, b) = (low.data()[i * 4 + c] as f64, high.data()[i * 4 + c] as f64);
+                        o[c] = (a + t * (b - a)) as f32;
+                    }
+                }
+            }
+        });
+        low = high;
+    }
+    *source = out;
+}

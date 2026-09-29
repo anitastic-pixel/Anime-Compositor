@@ -1769,6 +1769,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("glow_color".into(), J::from(glow_color.as_str()));
         }
+        Effect::CompoundBlur { layer, fit, max_blur, invert, edges, .. } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("max_blur".into(), num(*max_blur));
+            params.insert("invert".into(), J::from(invert.as_str()));
+            params.insert("edges".into(), J::from(edges.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2260,6 +2267,7 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "detail",
         "branches",
         "glow",
+        "max_blur",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2715,6 +2723,7 @@ fn parse_effect(
         crate::effects::PARAFFIN,
         crate::effects::KIRA_KIRA,
         crate::effects::LIGHTNING_BOLT,
+        crate::effects::COMPOUND_BLUR,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3197,6 +3206,15 @@ fn parse_effect(
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             glow_color: effect_word(params, "glow_color", &at)?.to_ascii_lowercase(),
             frame: 0,
+        }),
+        // D-191: the layer is kept as written, a word or not; a setting check says which.
+        crate::effects::COMPOUND_BLUR => Some(crate::effects::Effect::CompoundBlur {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            max_blur: effect_number(params, "max_blur", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            edges: effect_word(params, "edges", &at)?,
+            map: None,
         }),
         _ => None,
     };
@@ -4571,6 +4589,24 @@ fn parse_composition(
             ));
         }
     }
+    for id in &order {
+        if composition.effect_layer_cycle_from(id) {
+            return Err(Diagnostic::new(
+                DiagnosticId::EffectLayerCycle,
+                Severity::Error,
+                "This project cannot be opened, because layers' effects read each other in a circle.",
+                format!(
+                    "The effects' layer settings lead from layer {id} back round to it in \
+                     composition {}. D-189 requires them not to.",
+                    composition.id
+                ),
+            )
+            .with_remediation(
+                "The project was not opened and nothing on disk was changed. One of the layer \
+                 settings has to be cleared before it can open.",
+            ));
+        }
+    }
     // D-171: the camera's parent, with the layer's rules.
     if let Some(parent) = composition.camera.as_ref().and_then(|c| c.parent.as_ref()) {
         match composition.layer(parent) {
@@ -4876,6 +4912,20 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
             for instance in &layer.effects {
                 if let Some(lut) = crate::lut::dangling(&project, &instance.effect) {
                     warnings.push(crate::lut::not_a_lookup_file(&layer.name, lut));
+                }
+            }
+        }
+    }
+
+    // D-189: a layer setting naming no layer of its composition is kept as written, and said
+    // here as each frame says it (FX-CBLUR-015).
+    for composition in &project.compositions {
+        for layer in composition.layers_in_order() {
+            for instance in &layer.effects {
+                if let Some((named, _)) = instance.effect.layer_setting() {
+                    if !named.is_empty() && composition.layer(&crate::model::Id::new(named)).is_none() {
+                        warnings.push(crate::layer_map::missing(&layer.name, named, "every frame is drawn"));
+                    }
                 }
             }
         }

@@ -6798,13 +6798,15 @@ const EFFECT_NAMES = {
   'core.paraffin': 'Paraffin',
   'core.kira_kira': 'Kira-kira',
   'core.lightning_bolt': 'Lightning Bolt',
+  'core.compound_blur': 'Compound Blur',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
 // every folder still shows, under Other, so a new one can never go missing from the panel.
 const EFFECT_GROUPS = [
   ['Blur & Sharpen', ['core.gaussian_blur', 'core.directional_blur', 'core.radial_blur',
-    'core.lens_blur', 'core.selective_color_blur', 'core.sharpen', 'core.diffusion']],
+    'core.lens_blur', 'core.compound_blur', 'core.selective_color_blur', 'core.sharpen',
+    'core.diffusion']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.invert',
@@ -6873,6 +6875,7 @@ const EFFECT_SEARCH = {
   'core.paraffin': 'para airbrush shade shadow tint wash anime overlay soft light',
   'core.kira_kira': 'sparkle twinkle glint star highlight shine gleam anime kira',
   'core.lightning_bolt': 'lightning advanced electric electricity spark thunder storm bolt zap',
+  'core.compound_blur': 'compound variable map depth focus blur layer',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6962,6 +6965,7 @@ const EFFECT_ABOUT = {
   'core.paraffin': 'Washes a soft colour over the figure from one side, as anime\'s airbrushed shadow rises from the feet.',
   'core.kira_kira': 'Sets small twinkling stars on the near-white highlights, an eye\'s glint or a blade\'s edge, each on its own beat.',
   'core.lightning_bolt': 'Draws a jagged, forking bolt of light from one point to another, a new one every few frames.',
+  'core.compound_blur': 'Blurs the layer more where another layer of the composition is brighter.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7251,11 +7255,14 @@ const EFFECT_PARAMS = {
     ['opacity', 'Opacity', 1, 1, '0 to 100'],
     ['hold', 'Hold', 1, 1, 'frames, 1 to 100, how long each bolt stays'],
     ['seed', 'Seed', 1, 1, '0 to 100000, which bolts']],
+  // D-191.
+  'core.compound_blur': [['max_blur', 'Maximum Blur', 1, 0.5, '0 to 500 px, the blur where the map is white']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
 // colours, as [name, label], or [name, label, [none, one]] for a colour that may be left empty;
 // its lists of points, as [name, label] (D-111); its files, as [name, label] (D-182);
+// its layers of this composition, as [name, label, name sent] (D-189);
 // and `chosen`, when it has a list of chosen colours, saying when the list is shown.
 // D-109: the three blurs' edges.
 const EDGES = ['edges', 'Edges', [['transparent', 'Transparent'], ['repeat', 'Repeat Edge Pixels']]];
@@ -7394,6 +7401,12 @@ const EFFECT_WORDS = {
   // D-190.
   'core.lightning_bolt': {
     colours: [['color', 'Colour'], ['glow_color', 'Glow Colour']],
+  },
+  // D-191, After Effects' own words.
+  'core.compound_blur': {
+    layers: [['layer', 'Blur Layer', 'blur_layer']],
+    choices: [['fit', 'If Sizes Differ', [['stretch', 'Stretch Map to Fit'], ['center', 'Centre'], ['tile', 'Tile']]],
+      ['invert', 'Invert Blur', [['off', 'Off'], ['on', 'On']]], EDGES],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.
@@ -8157,6 +8170,7 @@ function effectRow(layer, fx, at, of) {
   for (const [w] of spec.colours || []) words[w] = fx.parameters[w];
   for (const [w] of spec.lists || []) words[w] = (fx.parameters[w] || []).map((p) => p.join(' ')).join(', ');
   for (const [w] of spec.files || []) words[w] = fx.parameters[w] ?? '';
+  for (const [w, , sent] of spec.layers || []) words[sent] = fx.parameters[w] ?? '';
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.
@@ -8281,6 +8295,22 @@ function effectRow(layer, fx, at, of) {
   // D-89 on: an effect's switches and single colours. A switch sends at once; each is one entry
   // to undo. A switch sits on its label's line, as a number does, now the labels are short and
   // give way; a colour, with its swatch and hex, gets the width of the card under its label.
+  // D-189: a layer of this composition, by name, or none. The layer holding the effect says so,
+  // and a name no layer has any more is kept, and said to be missing.
+  for (const [, title, sent] of spec.layers || []) {
+    const dt = Object.assign(document.createElement('dt'), { textContent: title });
+    const dd = document.createElement('dd');
+    const select = document.createElement('select');
+    select.setAttribute('aria-label', label + ' ' + title);
+    select.append(new Option('None', ''));
+    for (const l of layers()) select.append(new Option(l.id === layer.id ? l.name + ' (this layer)' : l.name, l.id));
+    const named = String(words[sent]);
+    if (named && !layers().some((l) => l.id === named)) select.append(new Option(named + ' (missing)', named));
+    select.value = named;
+    select.onchange = () => { words[sent] = select.value; sendParameters(); };
+    dd.append(select);
+    dl.append(dt, dd);
+  }
   for (const [name, title, options] of spec.choices || []) {
     const dt = Object.assign(document.createElement('dt'), { textContent: title });
     const dd = document.createElement('dd');
@@ -10476,7 +10506,10 @@ function savePreset(layer = selected()) {
 function keepPreset(name, effects) {
   if (builtIn(name)) { $('status').textContent = '"' + name + '" is a built-in preset\u2019s name. Choose another.'; return; }
   const replaced = effectPresets.some((p) => p.name === name);
-  effectPresets = [...effectPresets.filter((p) => p.name !== name), { name, effects: JSON.parse(JSON.stringify(effects)) }];
+  // D-191: a preset keeps no layer of this composition; its layer settings are left at none.
+  const kept = JSON.parse(JSON.stringify(effects));
+  for (const fx of kept) for (const [w] of EFFECT_WORDS[fx.type_id]?.layers || []) fx.parameters[w] = '';
+  effectPresets = [...effectPresets.filter((p) => p.name !== name), { name, effects: kept }];
   fxStore('effectPresets', effectPresets);
   drawEffectList();
   $('status').textContent = (replaced ? 'Replaced the preset "' : 'Saved the preset "') + name + '": '

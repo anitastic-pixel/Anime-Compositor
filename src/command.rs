@@ -1985,6 +1985,8 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             comp.insert_layer((**layer).clone(), *index);
+            // D-189: a layer whose settings name one that was missing can close a circle.
+            effect_cycle(comp, &layer.id)?;
         }
         Command::RemoveLayer { layer_id, .. } => {
             comp_mut(project, &comp_id)?.remove_layer(layer_id);
@@ -2903,6 +2905,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 .unwrap_or(layer.effects.len())
                 .min(layer.effects.len());
             layer.effects.insert(at, effect.clone());
+            effect_cycle(project.composition(&comp_id).expect("checked above"), layer_id)?;
         }
         Command::RemoveEffect {
             layer_id,
@@ -2995,6 +2998,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 .with_remediation("Remove the effect and add the one you want."));
             }
             existing.effect = effect.clone();
+            effect_cycle(project.composition(&comp_id).expect("checked above"), layer_id)?;
         }
         Command::SetEffectKeys {
             layer_id,
@@ -3063,6 +3067,21 @@ fn invalid_effect(effect: &crate::effects::Effect) -> Diagnostic {
             .to_string(),
     )
     .with_remediation("Choose a value inside the range.")
+}
+
+/// D-189: effects' layer settings may not lead round in a circle. Checked after the write, then
+/// rolled back by the caller's working clone if bad, as a matte is.
+fn effect_cycle(comp: &crate::model::Composition, layer_id: &Id) -> Result<(), Diagnostic> {
+    if !comp.effect_layer_cycle_from(layer_id) {
+        return Ok(());
+    }
+    Err(Diagnostic::new(
+        DiagnosticId::EffectLayerCycle,
+        Severity::Error,
+        "That layer setting would make layers read each other in a circle.".to_string(),
+        format!("The effects of layer {layer_id} would read, through their layer settings, a layer that reads {layer_id} back (D-189)."),
+    )
+    .with_remediation("Choose a layer whose effects do not already read this one."))
 }
 
 /// D-182: a Color Lookup names a lookup file of this project, or none. A file opened with one

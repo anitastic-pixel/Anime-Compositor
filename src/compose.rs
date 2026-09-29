@@ -329,6 +329,9 @@ fn plan_inside(
                 adjust: layer.is_adjustment().then(|| {
                     let mut effects: Vec<_> = layer.effects.iter().map(|i| i.at(frame)).collect();
                     crate::lut::fill(&mut effects, project, root, &layer.name);
+                    // D-191: an adjustment layer's maps lie on the frame it runs on.
+                    let size = quality.extent(comp.width as usize, comp.height as usize);
+                    fill_maps(&mut effects, project, root, comp, layer, frame, quality, size, cache, log);
                     effects
                 }),
                 nested: resolved.nested,
@@ -1074,6 +1077,12 @@ fn resolve_rest(
     // D-182: each Color Lookup's file, read, and what kept one from being read said once a frame.
     for d in crate::lut::fill(&mut effects, project, root, &layer.name) {
         log.record(frame, layer.name.clone(), d);
+    }
+    // D-191: each layer setting's map, made at the size the effects run at. An adjustment
+    // layer's are made where its stack runs, on the frame.
+    if !layer.is_adjustment() {
+        let quality = if pre == 1.0 { PreviewQuality::Full } else { PreviewQuality::Draft };
+        fill_maps(&mut effects, project, root, comp, layer, frame, quality, step1, cache, log);
     }
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
     // draft divisor, before the rasterizer and before document 27's cache key, exactly as an
@@ -1869,6 +1878,95 @@ pub fn layer_map(
 ) -> Option<WorkingBuffer> {
     let comp = project.composition(composition_id)?;
     let holder = comp.layer(holder)?;
+    // Step 3: the map is made at the size the holder's own effects run at, the draft divisor
+    // where D-99, D-67 or D-66 runs them there and full size for a solid or a shape layer.
+    let small = holder.composition_id.is_some()
+        || holder.is_adjustment()
+        || (holder.kind == crate::model::LayerKind::Raster && holder.effects.iter().any(|i| i.enabled));
+    let quality = if small { quality } else { PreviewQuality::Full };
+    let size = resolve_layer(
+        project,
+        comp,
+        &bare(holder, false),
+        frame,
+        root,
+        quality,
+        &mut CelCache::none(),
+        &mut FrameLog::new(usize::MAX),
+        &mut Vec::new(),
+        false,
+        true,
+    )
+    .map_or((0, 0), |r| (r.source.width(), r.source.height()));
+    setting_map(project, comp, holder, named, fit, frame, root, quality, size, &mut CelCache::none(), log)
+}
+
+/// A layer with its effects taken off, and its masks as well unless `masks`.
+fn bare(layer: &crate::model::Layer, masks: bool) -> crate::model::Layer {
+    let mut layer = layer.clone();
+    layer.effects.clear();
+    if !masks {
+        layer.masks.clear();
+    }
+    layer
+}
+
+/// D-191: each switched-on effect's layer setting read into its map for this frame, fitted to
+/// `size`. The loader and the commands refuse a circle of settings, so the check here is only
+/// a guard: one reached some other way is said and drawn without, rather than never ending.
+#[allow(clippy::too_many_arguments)]
+fn fill_maps(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    for instance in effects.iter_mut().filter(|i| i.enabled) {
+        let Some((named, fit)) = instance.effect.layer_setting().map(|(n, f)| (n.to_string(), f.to_string())) else {
+            continue;
+        };
+        let map = if comp.effect_layer_cycle_from(&holder.id) {
+            log.record(
+                frame,
+                holder.name.clone(),
+                Diagnostic::new(
+                    DiagnosticId::EffectLayerCycle,
+                    Severity::Error,
+                    format!("The effects on layer {} read layers that read it back.", holder.name),
+                    format!("Frame {frame} is drawn without the effect: D-189 refuses a circle of layer settings."),
+                ),
+            );
+            None
+        } else {
+            setting_map(project, comp, holder, &named, &fit, frame, root, quality, size, cache, log)
+        };
+        if let Some((_, slot)) = instance.effect.layer_setting_mut() {
+            *slot = map.map(|m| crate::layer_map::Map(std::sync::Arc::new(m)));
+        }
+    }
+}
+
+/// D-189's map of layer `named` for an effect on `holder`, fitted by `fit` to `size`.
+#[allow(clippy::too_many_arguments)]
+fn setting_map(
+    project: &Project,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    named: &str,
+    fit: &str,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) -> Option<WorkingBuffer> {
     if named.is_empty() {
         return None;
     }
@@ -1876,42 +1974,10 @@ pub fn layer_map(
         log.record(
             frame,
             holder.name.clone(),
-            Diagnostic::new(
-                DiagnosticId::EffectLayerMissing,
-                Severity::Warning,
-                format!(
-                    "An effect on layer {} reads layer {named}, which is not in this composition.",
-                    holder.name
-                ),
-                format!("The setting is kept as written; frame {frame} is drawn without the effect."),
-            )
-            .with_remediation("Choose a layer of this composition, or undo the delete that took it."),
+            crate::layer_map::missing(&holder.name, named, &format!("frame {frame} is drawn")),
         );
         return None;
     };
-    // Step 3: the map is made at the size the holder's own effects run at, the draft divisor
-    // where D-99, D-67 or D-66 runs them there and full size for a solid or a shape layer.
-    let small = holder.composition_id.is_some()
-        || holder.is_adjustment()
-        || (holder.kind == crate::model::LayerKind::Raster && holder.effects.iter().any(|i| i.enabled));
-    let quality = if small { quality } else { PreviewQuality::Full };
-    let cache = &mut CelCache::none();
-    let mut picture = |layer: &crate::model::Layer, log: &mut FrameLog| {
-        resolve_layer(project, comp, layer, frame, root, quality, cache, log, &mut Vec::new(), false, true)
-            .map(|resolved| resolved.source)
-    };
-    let bare = |layer: &crate::model::Layer, masks: bool| {
-        let mut layer = layer.clone();
-        layer.effects.clear();
-        if !masks {
-            layer.masks.clear();
-        }
-        layer
-    };
-    // ponytail: the holder's step-1 picture is made here only for its size. The effects that
-    // hold a layer setting (A2 to A4) know it already and will ask for the map with it.
-    let size = picture(&bare(holder, false), &mut FrameLog::new(usize::MAX))
-        .map_or((0, 0), |p| (p.width(), p.height()));
     // Step 1: the holder itself gives its drawing and masks, and an adjustment layer its white
     // through its masks; their effects are not run.
     let stripped;
@@ -1921,7 +1987,8 @@ pub fn layer_map(
     } else {
         layer
     };
-    let picture = picture(layer, log).unwrap_or_else(|| std::sync::Arc::new(WorkingBuffer::transparent(0, 0)));
+    let picture = resolve_layer(project, comp, layer, frame, root, quality, cache, log, &mut Vec::new(), false, true)
+        .map_or_else(|| std::sync::Arc::new(WorkingBuffer::transparent(0, 0)), |resolved| resolved.source);
     crate::layer_map::fit(&picture, fit, size)
 }
 

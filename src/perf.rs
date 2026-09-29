@@ -202,6 +202,8 @@ pub enum Stage {
     EffectKiraKira,
     /// D-190's lightning bolt, its path and one pass row by row to light it.
     EffectLightningBolt,
+    /// D-191's compound blur, its map read and up to five Gaussians of the picture mixed.
+    EffectCompoundBlur,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -219,7 +221,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 85] = [
+    pub const ALL: [Stage; 86] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -298,6 +300,7 @@ impl Stage {
         Stage::EffectParaffin,
         Stage::EffectKiraKira,
         Stage::EffectLightningBolt,
+        Stage::EffectCompoundBlur,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -388,6 +391,7 @@ impl Stage {
             Stage::EffectParaffin => "effect: paraffin",
             Stage::EffectKiraKira => "effect: kira-kira",
             Stage::EffectLightningBolt => "effect: lightning bolt",
+            Stage::EffectCompoundBlur => "effect: compound blur",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

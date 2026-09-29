@@ -3,7 +3,20 @@
 //! to 3 for the layer named; this is what is done to it after: cut back to its own rectangle, and
 //! fitted to the holder.
 
+use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::WorkingBuffer;
+
+/// D-189's `EFFECT_LAYER_MISSING`, said on opening and at each frame; `when` is which frames are
+/// drawn without the effect.
+pub(crate) fn missing(holder: &str, named: &str, when: &str) -> Diagnostic {
+    Diagnostic::new(
+        DiagnosticId::EffectLayerMissing,
+        Severity::Warning,
+        format!("An effect on layer {holder} reads layer {named}, which is not in this composition."),
+        format!("The setting is kept as written; {when} without the effect."),
+    )
+    .with_remediation("Choose a layer of this composition, or undo the delete that took it.")
+}
 
 /// The `size` rectangle of `picture` whose corner is at `origin`: a picture an effect grew, cut
 /// back to what it was before (D-189's step 1). What lies outside `picture` is transparent.
@@ -67,4 +80,24 @@ pub(crate) fn fit(picture: &WorkingBuffer, word: &str, size: (usize, usize)) -> 
         }
     }
     Some(out)
+}
+
+/// D-191: a map compose read for one frame, shared by the effect that holds it. The same size
+/// and pixels are the same map, which is what the effect cache asks.
+#[derive(Clone)]
+pub struct Map(pub std::sync::Arc<WorkingBuffer>);
+
+impl PartialEq for Map {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0)
+            || (self.0.width() == other.0.width()
+                && self.0.height() == other.0.height()
+                && self.0.data() == other.0.data())
+    }
+}
+
+impl std::fmt::Debug for Map {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Map({} by {})", self.0.width(), self.0.height())
+    }
 }

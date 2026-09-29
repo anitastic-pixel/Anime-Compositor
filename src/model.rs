@@ -1251,6 +1251,31 @@ impl Composition {
         false
     }
 
+    /// D-189: whether effects' layer settings lead round in a circle from layer `start`. A
+    /// layer naming itself is not one, and a chain ends at an adjustment layer, whose effects
+    /// are not run for its map. A switched-off effect counts: switching it on must not close one.
+    pub fn effect_layer_cycle_from(&self, start: &Id) -> bool {
+        fn visit(comp: &Composition, at: &Id, path: &mut Vec<Id>, done: &mut Vec<Id>) -> bool {
+            if done.contains(at) {
+                return false;
+            }
+            path.push(at.clone());
+            let named = comp.layers.get(at).into_iter().flat_map(|l| &l.effects);
+            for next in named.filter_map(|i| i.effect.layer_setting()).map(|(n, _)| Id::new(n)) {
+                if next == *at || !comp.layers.get(&next).is_some_and(|l| !l.is_adjustment()) {
+                    continue;
+                }
+                if path.contains(&next) || visit(comp, &next, path, done) {
+                    return true;
+                }
+            }
+            path.pop();
+            done.push(at.clone());
+            false
+        }
+        visit(self, start, &mut Vec::new(), &mut Vec::new())
+    }
+
     /// Layers riding on `id`. D-57: deleting a parent lets these go where they stand, which is
     /// the one place parenting does not follow the matte, whose reference is left dangling.
     pub fn children_of(&self, id: &Id) -> Vec<Id> {
