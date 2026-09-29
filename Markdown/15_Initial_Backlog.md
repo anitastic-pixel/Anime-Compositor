@@ -715,6 +715,8 @@ B-138 / Median and Smart Blur, D-203: Median gives each pixel the middle colour 
 
 B-139 / Snowfall, D-204: soft round flakes in three planes of depth falling, drifting and swaying across a layer wherever it shows; After Effects' CC Snowfall in purpose and settings, our own rule (B2). **B-139a, the rule and its fixtures, is written on 2026-09-29**: the rule in document 21, FX-SNOW-001 to 029 in document 25 from `tools/snowfall_reference.py`, which writes `Fixtures/snowfall/`. The proposal is `verification/B-139a proposal/snowfall.md`, with `snowfall.png`. **BUILT on 2026-09-29**: the rule in `src/layer_fx.rs` beside Rain's, through the file, the commands, frame and a card in Generate after Rain. `tests/b139_snowfall.rs` writes `verification/B-139_snowfall_table.md`, 125 of 125, and snow on a night sky, in `verification/B-139 pictures/`. The playtest sheet `verification/B-139_playtest.md`, **awaiting the owner's playtest**.
 
+B-140 / Kaleidoscope, D-205: one wedge of the drawing repeated round a centre, every other copy flipped (Mirror) or all the same way (Repeat), the drawing mirrored back past its edges; After Effects' CC Kaleida in purpose, our own rule (B3). **B-140a, the rule and its fixtures, is written on 2026-09-29**: the rule in document 21, FX-KALEIDO-001 to 020 in document 25 from `tools/kaleidoscope_reference.py`, which writes `Fixtures/kaleidoscope/`. The proposal is `verification/B-140a proposal/kaleidoscope.md`, with `kaleidoscope.png`. **B-140b, the build, is next.**
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.
