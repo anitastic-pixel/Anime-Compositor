@@ -1097,6 +1097,23 @@ pub enum Effect {
         outside_color: String,
         composite: String,
     },
+    /// D-208: `point_1` to `point_4`, per cent of the drawing's width and height, each -1000 to
+    /// 1000; `color_1` to `color_4`, `#rrggbb`; `blend`, 1 to 1000; `opacity`, 0 to 100; and
+    /// `blending_mode`, "normal", "multiply", "screen" or "add", kept as written so a wrong one is
+    /// reported.
+    FourColorGradient {
+        point_1: [f64; 2],
+        point_2: [f64; 2],
+        point_3: [f64; 2],
+        point_4: [f64; 2],
+        color_1: String,
+        color_2: String,
+        color_3: String,
+        color_4: String,
+        blend: f64,
+        opacity: f64,
+        blending_mode: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1188,6 +1205,7 @@ pub const SNOWFALL: &str = "core.snowfall";
 pub const KALEIDOSCOPE: &str = "core.kaleidoscope";
 pub const ROUGHEN_EDGES: &str = "core.roughen_edges";
 pub const BEAM: &str = "core.beam";
+pub const FOUR_COLOR_GRADIENT: &str = "core.four_color_gradient";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1892,6 +1910,22 @@ impl Effect {
                 ("end_thickness", vec![end_thickness], 0.0, 500.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
+            Effect::FourColorGradient {
+                point_1,
+                point_2,
+                point_3,
+                point_4,
+                blend,
+                opacity,
+                ..
+            } => vec![
+                ("point_1", point_1.iter_mut().collect(), -1000.0, 1000.0),
+                ("point_2", point_2.iter_mut().collect(), -1000.0, 1000.0),
+                ("point_3", point_3.iter_mut().collect(), -1000.0, 1000.0),
+                ("point_4", point_4.iter_mut().collect(), -1000.0, 1000.0),
+                ("blend", vec![blend], 1.0, 1000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -2237,6 +2271,7 @@ impl Effect {
             Effect::Kaleidoscope { .. } => "Kaleidoscope",
             Effect::RoughenEdges { .. } => "Roughen Edges",
             Effect::Beam { .. } => "Beam",
+            Effect::FourColorGradient { .. } => "4-Color Gradient",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2328,6 +2363,7 @@ impl Effect {
             Effect::Kaleidoscope { .. } => KALEIDOSCOPE,
             Effect::RoughenEdges { .. } => ROUGHEN_EDGES,
             Effect::Beam { .. } => BEAM,
+            Effect::FourColorGradient { .. } => FOUR_COLOR_GRADIENT,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2784,6 +2820,23 @@ impl Effect {
             )),
             Effect::Beam { inside_color, outside_color, .. } => hex_fault("Beam", "inside colour", inside_color)
                 .or_else(|| hex_fault("Beam", "outside colour", outside_color)),
+            Effect::FourColorGradient { blending_mode, .. }
+                if !["normal", "multiply", "screen", "add"].contains(&blending_mode.as_str()) =>
+            {
+                Some(format!(
+                    "4-Color Gradient's blending mode is \"normal\", \"multiply\", \"screen\" or \"add\", \
+                     and this is \"{blending_mode}\"."
+                ))
+            }
+            Effect::FourColorGradient {
+                color_1,
+                color_2,
+                color_3,
+                color_4,
+                ..
+            } => [("colour 1", color_1), ("colour 2", color_2), ("colour 3", color_3), ("colour 4", color_4)]
+                .into_iter()
+                .find_map(|(what, c)| hex_fault("4-Color Gradient", what, c)),
             Effect::Halftone { ink, paper, .. } => {
                 hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
             }
@@ -3792,6 +3845,25 @@ pub(crate) fn apply_stack_at(
                 let ends = [radial_center(*start, source, (ox, oy)), radial_center(*end, source, (ox, oy))];
                 let numbers = [*length, *time, *start_thickness, *end_thickness, *softness];
                 crate::layer_fx::beam(source, ends, numbers, colours, composite == "off")
+            }),
+            // D-208: the points are the drawing's own, however an effect above grew it; the layer
+            // never grows.
+            Effect::FourColorGradient {
+                point_1,
+                point_2,
+                point_3,
+                point_4,
+                color_1,
+                color_2,
+                color_3,
+                color_4,
+                blend,
+                opacity,
+                blending_mode,
+            } => crate::perf::time(crate::perf::Stage::EffectFourColorGradient, || {
+                let points = [point_1, point_2, point_3, point_4].map(|p| radial_center(*p, source, (ox, oy)));
+                let colors = [color_1, color_2, color_3, color_4].map(|c| encoded(c));
+                crate::grade::four_color_gradient(source, points, colors, *blend, *opacity, blending_mode)
             }),
             // D-205: round the drawing's own centre, however an effect above grew it; the layer
             // never grows.

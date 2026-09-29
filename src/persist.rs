@@ -1994,6 +1994,29 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("outside_color".into(), J::from(outside_color.as_str()));
             params.insert("composite".into(), J::from(composite.as_str()));
         }
+        Effect::FourColorGradient {
+            point_1,
+            point_2,
+            point_3,
+            point_4,
+            color_1,
+            color_2,
+            color_3,
+            color_4,
+            blend,
+            opacity,
+            blending_mode,
+        } => {
+            for (name, p) in [("point_1", point_1), ("point_2", point_2), ("point_3", point_3), ("point_4", point_4)] {
+                params.insert(name.into(), J::Array(p.iter().map(|c| num(*c)).collect()));
+            }
+            for (name, c) in [("color_1", color_1), ("color_2", color_2), ("color_3", color_3), ("color_4", color_4)] {
+                params.insert(name.into(), J::from(c.as_str()));
+            }
+            params.insert("blend".into(), num(*blend));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2526,6 +2549,11 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "time",
         "start_thickness",
         "end_thickness",
+        "point_1",
+        "point_2",
+        "point_3",
+        "point_4",
+        "blend",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2542,7 +2570,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
             "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
             "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
             "center" | "start" | "end" | "shift" | "upper_left" | "upper_right" | "lower_left"
-            | "lower_right" | "producer_point" => (2, "two numbers, x then y"),
+            | "lower_right" | "producer_point" | "point_1" | "point_2" | "point_3" | "point_4" => {
+                (2, "two numbers, x then y")
+            }
             _ => (1, ""),
         };
         let (base, track) = channel_track(record, &at, count, what)?;
@@ -3012,6 +3042,7 @@ fn parse_effect(
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
         crate::effects::BEAM,
+        crate::effects::FOUR_COLOR_GRADIENT,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3637,6 +3668,19 @@ fn parse_effect(
             inside_color: effect_word(params, "inside_color", &at)?.to_ascii_lowercase(),
             outside_color: effect_word(params, "outside_color", &at)?.to_ascii_lowercase(),
             composite: effect_word(params, "composite", &at)?,
+        }),
+        crate::effects::FOUR_COLOR_GRADIENT => Some(crate::effects::Effect::FourColorGradient {
+            point_1: effect_array(params, "point_1", "two numbers, x then y", &at)?,
+            point_2: effect_array(params, "point_2", "two numbers, x then y", &at)?,
+            point_3: effect_array(params, "point_3", "two numbers, x then y", &at)?,
+            point_4: effect_array(params, "point_4", "two numbers, x then y", &at)?,
+            color_1: effect_word(params, "color_1", &at)?.to_ascii_lowercase(),
+            color_2: effect_word(params, "color_2", &at)?.to_ascii_lowercase(),
+            color_3: effect_word(params, "color_3", &at)?.to_ascii_lowercase(),
+            color_4: effect_word(params, "color_4", &at)?.to_ascii_lowercase(),
+            blend: effect_number(params, "blend", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            blending_mode: effect_word(params, "blending_mode", &at)?,
         }),
         _ => None,
     };

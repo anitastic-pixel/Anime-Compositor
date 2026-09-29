@@ -258,7 +258,9 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - edge_type, edge_color, border, size, complexity, evolution, speed, seed - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.beam` is an effect this build has | added | added | pass |
 | and the settings it sends for it - start, end, length, time, start_thickness, end_thickness, softness, inside_color, outside_color, composite - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.four_color_gradient` is an effect this build has | added | added | pass |
+| and the settings it sends for it - point_1, point_2, point_3, point_4, color_1, color_2, color_3, color_4, blend, opacity, blending_mode - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**240 of 240 checks pass.**
+**242 of 242 checks pass.**

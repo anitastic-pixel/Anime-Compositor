@@ -224,6 +224,7 @@ pub enum Stage {
     EffectKaleidoscope,
     EffectRoughenEdges,
     EffectBeam,
+    EffectFourColorGradient,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -241,7 +242,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 100] = [
+    pub const ALL: [Stage; 101] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -335,6 +336,7 @@ impl Stage {
         Stage::EffectKaleidoscope,
         Stage::EffectRoughenEdges,
         Stage::EffectBeam,
+        Stage::EffectFourColorGradient,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -440,6 +442,7 @@ impl Stage {
             Stage::EffectKaleidoscope => "effect: kaleidoscope",
             Stage::EffectRoughenEdges => "effect: roughen edges",
             Stage::EffectBeam => "effect: beam",
+            Stage::EffectFourColorGradient => "effect: 4-color gradient",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

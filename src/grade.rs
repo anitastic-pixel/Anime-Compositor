@@ -352,6 +352,46 @@ pub(crate) fn gradient(source: &mut WorkingBuffer, g: &Gradient) {
         });
 }
 
+/// D-208: four colours, encoded 0 to 1, pinned to four points in the buffer's pixels, mixed at
+/// each pixel that shows by (nearest distance / distance) to the power 200 / `blend`, and laid on
+/// by `mode` at `opacity`, 0 to 100, as Gradient lays its colour on; each pixel keeps its own
+/// covering. The settings are already valid.
+pub(crate) fn four_color_gradient(
+    source: &mut WorkingBuffer,
+    points: [(f64, f64); 4],
+    colors: [[f64; 3]; 4],
+    blend: f64,
+    opacity: f64,
+    mode: &str,
+) {
+    if opacity == 0.0 {
+        return;
+    }
+    let w = source.width();
+    // Squared distances, so the power is halved.
+    let (e, o, mix) = (100.0 / blend, opacity / 100.0, mixer(mode));
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let d = points.map(|(sx, sy)| (x - sx) * (x - sx) + (y - sy) * (y - sy));
+            let m = d.iter().copied().fold(f64::INFINITY, f64::min);
+            let wk = d.map(|d| if m == 0.0 { f64::from(u8::from(d == 0.0)) } else { (m / d).powf(e) });
+            let sum: f64 = wk.iter().sum();
+            for c in 0..3 {
+                let g = to_linear((0..4).map(|k| wk[k] * colors[k][c]).sum::<f64>() / sum);
+                let b = px[c] as f64 / a;
+                px[c] = ((b + o * (mix(b, g) - b)) * a) as f32;
+            }
+        });
+}
+
 /// D-119: SplitMix64's finaliser, on 64-bit words.
 pub(crate) fn mix(z: u64) -> u64 {
     let z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
