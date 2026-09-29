@@ -18,6 +18,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | composition.open | Put one of the project's compositions in the viewer | none | no |
 | composition.set_settings | Change the composition's name, size, frame rate and length | Ctrl+K | yes |
 | composition.set_motion_blur | Turn the composition's motion blur on or off, or set its shutter angle, phase and samples, as one step of history (D-188; in the window since B-124b, 2026-09-28) | none | yes |
+| composition.set_frame_blending | Turn the composition's frame blending on or off; off until the user turns it on (D-216; in the window since B-150b, 2026-09-29) | none | yes |
 | composition.duplicate | Copy a composition with its layers, and show the copy | none | yes |
 | composition.delete | Delete a composition; the last one in a project is kept, and one a composition layer uses is refused (D-67) | none | yes |
 | edit.undo | Undo latest command | Ctrl+Z | control |
@@ -54,6 +55,9 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.paste | Paste the copied layers in front | Ctrl+V | yes |
 | layer.toggle_shy | Mark a layer shy, so the timeline can leave it out | none | yes |
 | layer.toggle_motion_blur | Turn a layer's motion-blur switch on or off, on a layer that draws (D-188; in the window since B-124b, 2026-09-28) | none | yes |
+| layer.toggle_frame_blend | Turn a drawn or composition layer's Frame mix on or off (D-216; in the window since B-150b, 2026-09-29) | none | yes |
+| layer.set_time_stretch | Set a drawn or composition layer's Time stretch, 1 to 10000 percent; the keys stretch with it (D-216; in the window since B-150b, 2026-09-29) | none | yes |
+| layer.set_drawing_dissolve | Set a drawn layer's Drawing dissolve, 0 to 100 frames (D-216; in the window since B-150b, 2026-09-29) | none | yes |
 | layer.add_solid | Add a solid layer above the selected layer, the composition's size and covering it (D-74; in the window since B-23c, 2026-09-19) | Ctrl+Y | yes |
 | solid.set | Set one solid's colour, width and height, as one step of history (D-74; in the window since B-23c, 2026-09-19) | none | yes |
 | mask.add | Draw a mask on the selected layer, added to the end of its list (D-77; in the window since B-24c, 2026-09-20) | G for the pen, Q for the rectangle and the ellipse | yes |

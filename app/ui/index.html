@@ -256,7 +256,7 @@
   }
   .now small, .zoom { color: #909096; font-size: 12px; }
   .zoom { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-  #shyswitch[aria-pressed=true], #mbswitch[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
+  #shyswitch[aria-pressed=true], #mbswitch[aria-pressed=true], #fbswitch[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
   /* The headings over the switches, in the gutter beside the ruler. */
   #colheads {
     position: absolute; left: 8px; top: 6px; width: var(--gutter); height: 36px;
@@ -1162,6 +1162,8 @@
         title="Leave shy layers off the timeline. The picture still draws them.">Hide shy</button>
       <button id="mbswitch" class="sheettab" aria-pressed="false"
         title="Motion blur for the composition: each layer whose own motion-blur switch is on is blurred as it moves. The shutter is in Composition settings, Ctrl+K.">Motion blur</button>
+      <button id="fbswitch" class="sheettab" aria-pressed="false"
+        title="Frame blending for the composition: each layer whose own Frame mix is on mixes its two nearest drawings where it is stretched between them.">Frame blending</button>
       <span class="zoom">&minus;
         <input id="timezoom" type="range" min="0" max="100" step="1" value="0"
           aria-label="Timeline zoom. Also = and -, or Alt with the mouse wheel"
@@ -2871,6 +2873,7 @@ function drawLayers() {
   const list = $('layers');
   $('shyswitch').setAttribute('aria-pressed', String(prefs.hideShy));
   $('mbswitch').setAttribute('aria-pressed', String(!!(comp && comp.motion_blur && comp.motion_blur.enabled)));
+  $('fbswitch').setAttribute('aria-pressed', String(!!(comp && comp.frame_blending)));
   list.replaceChildren(...cameraGroup(comp), ...all.slice().reverse().filter((layer) => !(prefs.hideShy && layer.shy)).flatMap((layer) => {
     // D-71: on an audio layer the same switch is a speaker.
     const sound = layer.kind === 'audio';
@@ -6397,6 +6400,37 @@ function drawInspector() {
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive'
     + (layer.source_offset_frames ? ', drawings offset by ' + layer.source_offset_frames : ''));
   // D-84: where an imported cut's layer took its timing from. A record; nothing reads it back.
+  // D-216: Time stretch and Frame mix on a drawn or composition layer, and Drawing dissolve on
+  // a drawn one. The keys stretch with the layer, as After Effects' do.
+  if (layer.kind === 'raster' || layer.kind === 'composition') {
+    const q = '?layer=' + encodeURIComponent(layer.id);
+    field(dl, 'Time stretch', '');
+    const stretch = document.createElement('input');
+    stretch.id = 'timestretch';
+    stretch.type = 'number'; stretch.min = 1; stretch.max = 10000; stretch.step = 1;
+    stretch.value = layer.time_stretch || 100;
+    stretch.setAttribute('aria-label', 'Time stretch of ' + layer.name + ' in percent, from 1 to 10000');
+    stretch.onchange = () => command('/layer.set_time_stretch' + q + '&value=' + encodeURIComponent(stretch.value));
+    dl.lastChild.append(stretch, ' %');
+    field(dl, 'Frame mix', '');
+    const mixing = document.createElement('input');
+    mixing.id = 'framemix';
+    mixing.type = 'checkbox';
+    mixing.checked = !!layer.frame_blend;
+    mixing.setAttribute('aria-label', 'Frame mix for ' + layer.name + ', drawn when the composition\'s Frame blending is on');
+    mixing.onchange = () => command('/layer.toggle_frame_blend' + q);
+    dl.lastChild.append(mixing, ' when Frame blending is on');
+    if (layer.kind === 'raster') {
+      field(dl, 'Drawing dissolve', '');
+      const dissolve = document.createElement('input');
+      dissolve.id = 'dissolve';
+      dissolve.type = 'number'; dissolve.min = 0; dissolve.max = 100; dissolve.step = 1;
+      dissolve.value = layer.drawing_dissolve || 0;
+      dissolve.setAttribute('aria-label', 'Drawing dissolve of ' + layer.name + ' in frames, from 0 to 100');
+      dissolve.onchange = () => command('/layer.set_drawing_dissolve' + q + '&frames=' + encodeURIComponent(dissolve.value));
+      dl.lastChild.append(dissolve, ' frames');
+    }
+  }
   if (layer.timesheet) field(dl, 'Timesheet', layer.timesheet.sheet + ', column '
     + layer.timesheet.column + ', track ' + layer.timesheet.track);
   // Document 19's five transform properties, in its order. What they are counted in and the
@@ -10689,6 +10723,11 @@ $('shyswitch').onclick = () => { prefs.hideShy = !prefs.hideShy; savePrefs(); dr
 $('mbswitch').onclick = () => {
   const comp = composition();
   if (comp) command('/composition.set_motion_blur?enabled=' + !(comp.motion_blur && comp.motion_blur.enabled));
+};
+// D-216: frame blending for the composition, off until it is turned on.
+$('fbswitch').onclick = () => {
+  const comp = composition();
+  if (comp) command('/composition.set_frame_blending?enabled=' + !comp.frame_blending);
 };
 $('makecomp').onclick = () => {
   const q = 'name=' + encodeURIComponent($('compname').value)

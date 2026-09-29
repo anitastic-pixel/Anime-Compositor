@@ -4317,6 +4317,7 @@ const ANSWERS: &[&str] = &[
     "composition.delete",
     "composition.duplicate",
     "composition.open",
+    "composition.set_frame_blending",
     "composition.set_motion_blur",
     "composition.set_settings",
     "edit.redo",
@@ -4355,12 +4356,15 @@ const ANSWERS: &[&str] = &[
     "layer.rename",
     "layer.set_blend_mode",
     "layer.set_depth",
+    "layer.set_drawing_dissolve",
     "layer.set_gain",
     "layer.set_label",
     "layer.set_matte",
     "layer.set_parent",
+    "layer.set_time_stretch",
     "layer.shift",
     "layer.split",
+    "layer.toggle_frame_blend",
     "layer.toggle_lock",
     "layer.toggle_motion_blur",
     "layer.toggle_shy",
@@ -4724,6 +4728,31 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 Command::SetMotionBlur {
                     composition: id,
                     motion_blur: shutter,
+                },
+            ));
+        }
+        // D-216: the composition's frame-blending switch, off until it is turned on.
+        "composition.set_frame_blending" => {
+            let id = {
+                let held = viewer.lock().expect("the viewer lock was poisoned");
+                match held.document.project().composition(&held.composition) {
+                    Some(comp) => comp.id.clone(),
+                    None => {
+                        return Some("There is no composition on screen to change.".to_string())
+                    }
+                }
+            };
+            let value = match parameter(query, "enabled").as_deref() {
+                Some("true") => true,
+                Some("false") => false,
+                Some(other) => return Some(format!("\"{other}\" is not on or off.")),
+                None => return Some("On or off? Send enabled=true or false.".to_string()),
+            };
+            return Some(edit(
+                viewer,
+                Command::SetFrameBlending {
+                    composition: id,
+                    value,
                 },
             ));
         }
@@ -6550,6 +6579,41 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     layer_id,
                     value: !layer.motion_blur,
                 },
+                // D-216: Frame Mix, Time Stretch and Drawing Dissolve. Which layers take
+                // them and what range is allowed is the core's to refuse.
+                "layer.toggle_frame_blend" => Command::SetLayerFrameBlend {
+                    composition,
+                    layer_id,
+                    value: !layer.frame_blend,
+                },
+                "layer.set_time_stretch" => {
+                    let text = parameter(query, "value").unwrap_or_default();
+                    let Ok(value) = text.trim().parse::<f64>() else {
+                        return Some(format!(
+                            "\"{}\" is not a stretch. A stretch is a percent, from 1 to 10000.",
+                            text.trim()
+                        ));
+                    };
+                    Command::SetLayerTimeStretch {
+                        composition,
+                        layer_id,
+                        value,
+                    }
+                }
+                "layer.set_drawing_dissolve" => {
+                    let text = parameter(query, "frames").unwrap_or_default();
+                    let Ok(frames) = text.trim().parse::<u32>() else {
+                        return Some(format!(
+                            "\"{}\" is not a number of frames, from 0 to 100.",
+                            text.trim()
+                        ));
+                    };
+                    Command::SetDrawingDissolve {
+                        composition,
+                        layer_id,
+                        frames,
+                    }
+                }
                 // W-25: the blend mode, from the inspector's list or the layer's menu.
                 "layer.set_blend_mode" => Command::SetBlendMode {
                     composition,
@@ -22964,6 +23028,7 @@ mod contract {
         "composition.delete",
         "composition.duplicate",
         "composition.open",
+        "composition.set_frame_blending",
         "composition.set_motion_blur",
         "composition.set_settings",
         "edit.redo",
@@ -23001,12 +23066,15 @@ mod contract {
         "layer.precompose",
         "layer.rename",
         "layer.set_blend_mode",
+        "layer.set_drawing_dissolve",
         "layer.set_gain",
         "layer.set_label",
         "layer.set_matte",
         "layer.set_parent",
+        "layer.set_time_stretch",
         "layer.shift",
         "layer.split",
+        "layer.toggle_frame_blend",
         "layer.toggle_lock",
         "layer.toggle_motion_blur",
         "layer.toggle_shy",
@@ -23389,6 +23457,8 @@ mod contract {
         ("composition.set_settings", "a command the window answers"),
         // D-188: the composition's shutter, built by B-124b.
         ("composition.set_motion_blur", "a command the window answers"),
+        // D-216, accepted on 2026-09-29 and built by B-150b.
+        ("composition.set_frame_blending", "a command the window answers"),
         ("composition.duplicate", "a command the window answers"),
         ("composition.delete", "a command the window answers"),
         ("edit.undo", "a command the window answers"),
@@ -23433,6 +23503,10 @@ mod contract {
         ("layer.toggle_shy", "a command the window answers"),
         // D-188, accepted on 2026-09-28 and built by B-124b.
         ("layer.toggle_motion_blur", "a command the window answers"),
+        // D-216, accepted on 2026-09-29 and built by B-150b.
+        ("layer.toggle_frame_blend", "a command the window answers"),
+        ("layer.set_time_stretch", "a command the window answers"),
+        ("layer.set_drawing_dissolve", "a command the window answers"),
         // D-74, accepted on 2026-09-19 and built in the core by B-23b; B-23c put both in the
         // window.
         ("layer.add_solid", "a command the window answers"),
@@ -24319,6 +24393,11 @@ mod contract {
             // B-124b: and D-188's two switches, each written only when on.
             "layer.toggle_motion_blur?layer=layer-3",
             "composition.set_motion_blur?enabled=true",
+            // B-150b: and D-216's four, each written only when not the default.
+            "composition.set_frame_blending?enabled=true",
+            "layer.toggle_frame_blend?layer=layer-3",
+            "layer.set_time_stretch?layer=layer-3&value=200",
+            "layer.set_drawing_dissolve?layer=layer-3&frames=2",
             "layer.set_parent?layer=layer-3&parent=layer-2&frame=0",
             "layer.set_depth?layer=layer-3&depth=640",
             "camera.set_property?property=zoom&value=50",
@@ -25800,7 +25879,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 77] = [
+    const CONTROLS: [&str; 78] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -25826,6 +25905,7 @@ mod contract {
         "emptynew",
         "export",
         "exportformat",
+        "fbswitch",
         "filmquality",
         "fit",
         "fit100",

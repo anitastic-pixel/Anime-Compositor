@@ -841,6 +841,15 @@ pub struct Layer {
     /// D-188: the layer's motion-blur switch, on a layer that draws. Saved as `motion_blur`
     /// only when on.
     pub motion_blur: bool,
+    /// D-216: per cent, 1 to 10000, on a raster or composition layer; 100 is none. Its source
+    /// and its keys are read through it from the in point. Saved as `time_stretch` when not 100.
+    pub time_stretch: f64,
+    /// D-216: the layer's Frame Mix switch, on a raster or composition layer. Saved as
+    /// `frame_blend: "frame_mix"` only when on.
+    pub frame_blend: bool,
+    /// D-216: frames, 0 to 100, each hold of a raster layer fades into the next drawing over.
+    /// Saved as `drawing_dissolve` only when not 0.
+    pub drawing_dissolve: u32,
 }
 
 /// D-84: which column of which timesheet a layer's exposures were read from.
@@ -889,6 +898,9 @@ impl Layer {
             timesheet: None,
             key_drawings: Vec::new(),
             motion_blur: false,
+            time_stretch: 100.0,
+            frame_blend: false,
+            drawing_dissolve: 0,
         }
     }
 
@@ -1041,6 +1053,39 @@ impl Layer {
             source_offset_frames: self.source_offset_frames,
         }
     }
+
+    /// D-216: document 20's source time `t = (n - in) * 100 / stretch + offset` at composition
+    /// frame `n`, or `None` outside the in and out points. At 100 it is the local frame exactly.
+    pub fn source_time(&self, n: i32) -> Option<f64> {
+        let local = self.timing().local_frame(n)?;
+        if self.time_stretch == 100.0 {
+            return Some(local as f64);
+        }
+        Some(((n - self.in_frame) as f64 * 100.0) / self.time_stretch + self.source_offset_frames as f64)
+    }
+
+    /// D-216: the key time `u = in + (t - in) * 100 / stretch` its keys are read at, at
+    /// composition time `t`: `t` itself at 100, so keys stretch with the layer.
+    pub fn key_time(&self, t: f64) -> f64 {
+        if self.time_stretch == 100.0 {
+            return t;
+        }
+        self.in_frame as f64 + ((t - self.in_frame as f64) * 100.0) / self.time_stretch
+    }
+
+    /// D-216: where a key set with the playhead on composition frame `n` is stored: its key
+    /// time, rounded half away from zero (FX-FBLEND-048, 049).
+    pub fn key_frame_at(&self, n: i32) -> i32 {
+        self.key_time(n as f64).round() as i32
+    }
+
+    /// D-216: the composition time a key stored at `k` plays at.
+    pub fn played_at(&self, k: i32) -> f64 {
+        if self.time_stretch == 100.0 {
+            return k as f64;
+        }
+        self.in_frame as f64 + (k - self.in_frame) as f64 * self.time_stretch / 100.0
+    }
 }
 
 /// Document 19: "Layer order is composition order. Index is not identity. Reordering must not
@@ -1077,6 +1122,9 @@ pub struct Composition {
     pub sheet_details: SheetDetails,
     /// D-188's shutter. Saved as `motion_blur` only when it differs from the default.
     pub motion_blur: MotionBlur,
+    /// D-216: the composition's frame-blending switch, which a layer's Frame Mix waits on.
+    /// Saved as `frame_blending` only when on.
+    pub frame_blending: bool,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
 }
@@ -1173,6 +1221,7 @@ impl Composition {
             sheet_text: Vec::new(),
             sheet_details: SheetDetails::default(),
             motion_blur: MotionBlur::default(),
+            frame_blending: false,
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }

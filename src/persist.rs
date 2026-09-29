@@ -210,6 +210,11 @@ const KEY_ORDER: &[&str] = &[
     "shutter_angle",
     "shutter_phase",
     "samples",
+    // D-216.
+    "time_stretch",
+    "frame_blend",
+    "drawing_dissolve",
+    "frame_blending",
 ];
 
 /// An effect record is the one place a flat list is not enough: it spells `enabled` after
@@ -909,6 +914,16 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     if layer.motion_blur {
         owned.push(("motion_blur", J::from(true)));
     }
+    // D-216: each written only when it is not its default (FX-FBLEND-014, 024).
+    if layer.time_stretch != 100.0 {
+        owned.push(("time_stretch", num(layer.time_stretch)));
+    }
+    if layer.frame_blend {
+        owned.push(("frame_blend", J::from("frame_mix")));
+    }
+    if layer.drawing_dissolve != 0 {
+        owned.push(("drawing_dissolve", J::from(layer.drawing_dissolve)));
+    }
     let mut merged = merge(base, owned);
     if let Some(map) = merged.as_object_mut() {
         if layer.key_drawings.is_empty() {
@@ -916,6 +931,15 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         }
         if !layer.motion_blur {
             map.remove("motion_blur");
+        }
+        if layer.time_stretch == 100.0 {
+            map.remove("time_stretch");
+        }
+        if !layer.frame_blend {
+            map.remove("frame_blend");
+        }
+        if layer.drawing_dissolve == 0 {
+            map.remove("drawing_dissolve");
         }
     }
     merged
@@ -2293,6 +2317,12 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
             "shutter_phase": num(shutter.shutter_phase),
             "samples": shutter.samples,
         });
+    }
+    // D-216: written only when on (FX-FBLEND-024).
+    if composition.frame_blending {
+        merged["frame_blending"] = J::from(true);
+    } else if let Some(map) = merged.as_object_mut() {
+        map.remove("frame_blending");
     }
     merged
 }
@@ -3953,6 +3983,41 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         }
         Some(b) => as_bool(b, &format!("{pointer}/motion_blur"))?,
     };
+    // D-216: a stretch and Frame Mix on a raster or composition layer, the dissolve on a raster
+    // one (FX-FBLEND-050 to 063).
+    let timed = matches!(kind, LayerKind::Raster | LayerKind::Composition);
+    let only = |key: &str, on: bool, which: &str| -> Result<Option<(&J, String)>, Diagnostic> {
+        let at = format!("{pointer}/{key}");
+        match v.get(key) {
+            None => Ok(None),
+            Some(_) if !on => Err(invalid(&at, &format!("no {key} on this kind of layer; only {which} carries one (D-216)"))),
+            Some(x) => Ok(Some((x, at))),
+        }
+    };
+    let time_stretch = match only("time_stretch", timed, "a raster or composition layer")? {
+        None => 100.0,
+        Some((x, at)) => {
+            let s = as_f64(x, &at)?;
+            if !(1.0..=10000.0).contains(&s) {
+                return Err(invalid(&at, "a stretch from 1 to 10000 per cent (D-216)"));
+            }
+            s
+        }
+    };
+    let frame_blend = match only("frame_blend", timed, "a raster or composition layer")? {
+        None => false,
+        Some((x, at)) => {
+            as_enum(x, &at, &["frame_mix"])?;
+            true
+        }
+    };
+    let drawing_dissolve = match only("drawing_dissolve", kind == LayerKind::Raster, "a raster layer")? {
+        None => 0,
+        Some((x, at)) => match as_u32(x, &at)? {
+            d @ 0..=100 => d,
+            _ => return Err(invalid(&at, "a whole number of frames from 0 to 100 (D-216)")),
+        },
+    };
     if kind == LayerKind::Audio {
         return parse_audio_layer(v, pointer, id);
     }
@@ -4410,6 +4475,9 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         timesheet,
         key_drawings,
         motion_blur,
+        time_stretch,
+        frame_blend,
+        drawing_dissolve,
     })
 }
 
@@ -5043,6 +5111,10 @@ fn parse_composition(
     }
     if let Some(shutter) = v.get("motion_blur") {
         composition.motion_blur = parse_motion_blur(shutter, &format!("{pointer}/motion_blur"))?;
+    }
+    // D-216 (FX-FBLEND-056).
+    if let Some(on) = v.get("frame_blending") {
+        composition.frame_blending = as_bool(on, &format!("{pointer}/frame_blending"))?;
     }
     if let Some(markers) = v.get("markers") {
         let at = format!("{pointer}/markers");

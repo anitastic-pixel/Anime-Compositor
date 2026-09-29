@@ -32,7 +32,7 @@ use crate::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use crate::model::{AssetKind, Id, Project, Prop, Value};
 use crate::preview::PreviewQuality;
 use crate::render::{self, Affine, FramePlan, LayerDraw};
-use crate::time::{self, ExposureMap, LayerTiming, SourceAt};
+use crate::time::{self, ExposureMap, SourceAt};
 use crate::{ImageBuffer, WorkingBuffer};
 
 /// The tile size this build uses when the caller has no opinion.
@@ -248,6 +248,7 @@ fn plan_inside(
             continue;
         };
         let mut motion_blur = !resolved.moments.is_empty();
+        let mut mixed = resolved.mixed;
         let resolved = settle(resolved, &layer.id, comp, quality, false);
 
         // Document 21 step 5. The matte layer is looked up whether or not it is enabled or
@@ -276,6 +277,7 @@ fn plan_inside(
                     )
                     .map(|m| {
                         motion_blur |= !m.moments.is_empty();
+                        mixed |= m.mixed;
                         let m = settle(m, &matte_layer.id, comp, quality, true);
                         Box::new(render::MatteDraw {
                             source: m.source,
@@ -337,6 +339,7 @@ fn plan_inside(
                 nested: resolved.nested,
                 on_card: resolved.on_card,
                 motion_blur,
+                mixed,
                 wrap: if layer.is_adjustment() {
                     Vec::new()
                 } else {
@@ -344,7 +347,10 @@ fn plan_inside(
                         .effects
                         .iter()
                         .filter(|i| matches!(i.effect, crate::effects::Effect::LightWrap { .. }))
-                        .map(|i| i.at(posterized(comp, layer, frame)))
+                        .map(|i| {
+                            let at = posterized(comp, layer, frame);
+                            i.at_time(at, layer.key_time(at as f64))
+                        })
                         .collect()
                 },
             },
@@ -380,6 +386,9 @@ struct ResolvedLayer {
     /// is behind the camera. Empty when it is taken once, through `transform`. [`settle`]
     /// averages them into `source`.
     moments: Vec<Option<Affine>>,
+    /// D-216: `source` is a frame mix or a drawing dissolve, which the graphics card leaves to
+    /// the CPU.
+    mixed: bool,
 }
 
 /// Steps 1 through 6 of document 21 for one layer: find its drawing at this frame, decode it,
@@ -454,8 +463,8 @@ fn exposed_cel(
     root: &Path,
 ) -> Option<(PathBuf, crate::model::Interpretation)> {
     let asset = project.assets.iter().find(|a| a.id == layer.asset_id)?;
-    let relative =
-        source_at(layer.exposure_spans.clone(), &layer.timing(), asset, frame).ok()??;
+    let local = layer.source_time(frame)?.floor() as i32;
+    let relative = source_at(layer.exposure_spans.clone(), asset, local, frame).ok()??;
     Some((root.join(relative), asset.interpretation))
 }
 
@@ -509,7 +518,8 @@ fn chain_of(
                 .get(prop)
                 .expect("the four are transform properties");
             let owner = || crate::expr::Target::Layer(layer.id.clone());
-            crate::expr::resolve_at(comp, property, owner, prop, frame, t).0
+            // D-216: each layer of the chain by its own stretch.
+            crate::expr::resolve_at(comp, property, owner, prop, frame, layer.key_time(t)).0
         };
         let (Some(anchor), Some(position), Some(scale), Some(rotation)) = (
             at(Prop::Anchor).as_vec2(),
@@ -630,7 +640,7 @@ fn world_depth_at(
             .as_ref()
             .and_then(|d| {
                 let owner = || crate::expr::Target::Layer(layer.id.clone());
-                crate::expr::resolve_at(comp, d, owner, Prop::Depth, frame, t)
+                crate::expr::resolve_at(comp, d, owner, Prop::Depth, frame, layer.key_time(t))
                     .0
                     .as_scalar()
             })
@@ -790,7 +800,7 @@ pub(crate) fn posterized(comp: &crate::model::Composition, layer: &crate::model:
     let start = comp.start_frame as f64;
     let mut h = frame;
     for i in layer.effects.iter().filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::PosterizeTime { .. })) {
-        let now = i.at(h);
+        let now = i.at_time(h, layer.key_time(h as f64));
         if !now.is_valid() {
             continue;
         }
@@ -834,7 +844,7 @@ fn resolve_held(
     // D-67: a composition layer's drawing is the inner composition, rendered at the layer's
     // local frame, at its own size, through its own camera. From the mask on it is a drawing.
     if let Some(inner_id) = &layer.composition_id {
-        let local = layer.timing().local_frame(at)?;
+        layer.timing().local_frame(at)?;
         let Some(inner) = project.composition(inner_id) else {
             log.record(
                 frame,
@@ -858,8 +868,12 @@ fn resolve_held(
         };
         // Outside the inner composition's own frames there is nothing to show, which is not a
         // fault: D-67 has the layer transparent there, as a drawn layer is where it exposes
-        // nothing.
-        if local < inner.start_frame || local >= inner.start_frame + inner.duration_frames as i32 {
+        // nothing. D-216: the inner frame is `f` at the layer's source time, and `f + 1` too when
+        // it is mixed in; the inner composition's end is the layer's source's.
+        let end = inner.start_frame + inner.duration_frames as i32;
+        let (local, w) = source_frames(comp, layer, at, Some(end))?;
+        let inside = |f: i32| (inner.start_frame..end).contains(&f);
+        if !inside(local) && !(w > 0.0 && inside(local + 1)) {
             return None;
         }
         if above.contains(inner_id) || &comp.id == inner_id {
@@ -878,39 +892,51 @@ fn resolve_held(
             );
             return None;
         }
-        above.push(comp.id.clone());
-        let mut inside = FrameLog::new(usize::MAX);
-        let plan = plan_inside(
-            project,
-            inner_id,
-            local,
-            root,
-            quality,
-            &mut inside,
-            cache,
-            above,
-            false,
-        );
-        above.pop();
-        // What went wrong inside belongs to the frame that was asked for, not to the inner
-        // frame's number: an export decides what to block by the frame it is writing.
-        log.absorb(inside, frame, &layer.name);
-        let plan = match plan {
-            Ok(plan) => crate::preview::scale_plan(plan, quality),
-            Err(d) => {
-                log.record(frame, layer.name.clone(), d);
+        let mut draw = |local: i32| {
+            if !inside(local) {
                 return None;
             }
+            above.push(comp.id.clone());
+            let mut within = FrameLog::new(usize::MAX);
+            let plan = plan_inside(
+                project,
+                inner_id,
+                local,
+                root,
+                quality,
+                &mut within,
+                cache,
+                above,
+                false,
+            );
+            above.pop();
+            // What went wrong inside belongs to the frame that was asked for, not to the inner
+            // frame's number: an export decides what to block by the frame it is writing.
+            log.absorb(within, frame, &layer.name);
+            let plan = match plan {
+                Ok(plan) => crate::preview::scale_plan(plan, quality),
+                Err(d) => {
+                    log.record(frame, layer.name.clone(), d);
+                    return None;
+                }
+            };
+            // ponytail: the inner frame is rendered here every time it is asked for, so a
+            // composition shown twice in one frame renders twice and a held inner frame renders
+            // again on the next outer frame. A cache of inner frames keyed by composition, frame
+            // and quality is the upgrade, with D-67's invalidation rule (document 27).
+            let tile = match quality {
+                PreviewQuality::Full => DEFAULT_TILE_SIZE,
+                PreviewQuality::Draft => DRAFT_TILE_SIZE,
+            };
+            Some(render::render(&plan, tile))
         };
-        // ponytail: the inner frame is rendered here every time it is asked for, so a
-        // composition shown twice in one frame renders twice and a held inner frame renders
-        // again on the next outer frame. A cache of inner frames keyed by composition, frame
-        // and quality is the upgrade, with D-67's invalidation rule (document 27).
-        let tile = match quality {
-            PreviewQuality::Full => DEFAULT_TILE_SIZE,
-            PreviewQuality::Draft => DRAFT_TILE_SIZE,
+        let picture = if w > 0.0 {
+            let a = draw(local);
+            mix(a.as_ref(), draw(local + 1).as_ref(), w)?
+        } else {
+            draw(local)?
         };
-        let picture = std::sync::Arc::new(render::render(&plan, tile));
+        let picture = std::sync::Arc::new(picture);
         let mut resolved = resolve_rest(
             project,
             root,
@@ -927,11 +953,13 @@ fn resolve_held(
             map,
         )?;
         resolved.nested = Some((inner_id.clone(), local));
+        resolved.mixed = w > 0.0;
         return Some(resolved);
     }
     // D-66: an adjustment layer has no drawing. Its shape is an opaque rectangle the size of
     // the composition in its own layer space, and from the mask on it goes the way a drawn layer
     // goes.
+    let mut mixed = false;
     let (source, cel) = if layer.is_adjustment() {
         layer.timing().local_frame(frame)?;
         let shape = WorkingBuffer::opaque(comp.width as usize, comp.height as usize);
@@ -982,8 +1010,28 @@ fn resolve_held(
         let shape = crate::shape::draw(&now, comp.width as usize, comp.height as usize);
         (std::sync::Arc::new(shape), None)
     } else {
-        let (source, cel) = decode_cel(project, layer, at, root, cache, log)?;
-        (source, Some(cel))
+        // D-216: the source frame, then its dissolve toward the next drawing, then its mix
+        // toward the next frame. A picture made that way is no file, so it skips the cel cache.
+        let (f, w) = source_frames(comp, layer, at, raster_end(layer))?;
+        if w == 0.0 && dissolving(layer, f).is_none() {
+            let (source, cel) = decode_cel(project, layer, f, at, root, cache, log)?;
+            (source, Some(cel))
+        } else {
+            let mut cel_at = |f: i32| {
+                let a = decode_cel(project, layer, f, at, root, cache, log).map(|(p, _)| p);
+                match dissolving(layer, f) {
+                    Some((e, k)) => {
+                        let b = decode_cel(project, layer, e, at, root, cache, log).map(|(p, _)| p);
+                        mix(a.as_deref(), b.as_deref(), k)
+                    }
+                    None => a.map(std::sync::Arc::unwrap_or_clone),
+                }
+            };
+            let a = cel_at(f);
+            let picture = if w > 0.0 { mix(a.as_ref(), cel_at(f + 1).as_ref(), w) } else { a }?;
+            mixed = true;
+            (std::sync::Arc::new(picture), None)
+        }
     };
     // D-99: in a draft preview a drawing with effects is taken down to the draft size first,
     // sampled exactly as the draft frame samples it, and its stack runs on that - a sixteenth of
@@ -991,7 +1039,7 @@ fn resolve_held(
     // draft divisor is taken down so, whatever its layer. `Full` never enters here, so a full
     // preview and an export are what they were.
     if quality != PreviewQuality::Full
-        && (map || (cel.is_some() && layer.effects.iter().any(|i| i.enabled)))
+        && (map || ((cel.is_some() || mixed) && layer.effects.iter().any(|i| i.enabled)))
     {
         let d = quality.divisor();
         let small = crate::preview::scale_plan(
@@ -1010,6 +1058,7 @@ fn resolve_held(
                     on_card: None,
                     wrap: Vec::new(),
                     motion_blur: false,
+                    mixed: false,
                 }],
             },
             quality,
@@ -1017,17 +1066,21 @@ fn resolve_held(
         let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
         return resolve_rest(
             project, root, comp, layer, frame, at, cache, log, small, cel, d as f64, card, map,
-        );
+        )
+        .map(|r| ResolvedLayer { mixed, ..r });
     }
     resolve_rest(project, root, comp, layer, frame, at, cache, log, source, cel, 1.0, card, map)
+        .map(|r| ResolvedLayer { mixed, ..r })
 }
 
-/// Document 21 step 1 for a drawn layer: which file it shows at `frame`, decoded, or `None`
-/// with the reason logged. The path and interpretation come back with the pixels because the
-/// effect cache is keyed by them.
+/// Document 21 step 1 for a drawn layer: which file it shows at layer-local frame `local`,
+/// decoded, or `None` with the reason logged against composition frame `frame`. The path and
+/// interpretation come back with the pixels because the effect cache is keyed by them.
+#[allow(clippy::too_many_arguments)]
 fn decode_cel(
     project: &Project,
     layer: &crate::model::Layer,
+    local: i32,
     frame: i32,
     root: &Path,
     cache: &mut CelCache,
@@ -1049,9 +1102,8 @@ fn decode_cel(
         return None;
     };
 
-    let timing = layer.timing();
-    // Steps 4 and 5: the layer-local frame, then the drawing exposed at it.
-    let relative = match source_at(layer.exposure_spans.clone(), &timing, asset, frame) {
+    // Step 5: the drawing exposed at the layer-local frame.
+    let relative = match source_at(layer.exposure_spans.clone(), asset, local, frame) {
         Ok(Some(path)) => path,
         Ok(None) => return None,
         Err(d) => {
@@ -1138,7 +1190,7 @@ fn resolve_rest(
     // D-68: every setting is its value at this composition frame, so the stack below, its
     // bounds and the effect cache's key all hold plain numbers.
     let mut effects: Vec<crate::effects::EffectInstance> =
-        layer.effects.iter().map(|i| i.at(at)).collect();
+        layer.effects.iter().map(|i| i.at_time(at, layer.key_time(at as f64))).collect();
     // D-182: each Color Lookup's file, read, and what kept one from being read said once a frame.
     for d in crate::lut::fill(&mut effects, project, root, &layer.name) {
         log.record(frame, layer.name.clone(), d);
@@ -1155,7 +1207,7 @@ fn resolve_rest(
     // effect's settings are on the line above. A path that stands still is not copied at all.
     let moving = layer.masks.iter().any(|m| !m.keys.is_empty());
     let moved: Vec<crate::mask::Mask> = if moving {
-        layer.masks.iter().map(|m| m.at(at)).collect()
+        layer.masks.iter().map(|m| m.at_time(layer.key_time(at as f64))).collect()
     } else {
         Vec::new()
     };
@@ -1493,6 +1545,7 @@ fn resolve_rest(
             nested: None,
             on_card: None,
             moments: Vec::new(),
+            mixed: false,
         });
     }
     let mut offset = offset;
@@ -1646,7 +1699,9 @@ fn resolve_rest(
                 .expect("the five are transform properties"),
         };
         let owner = || crate::expr::Target::Layer(layer.id.clone());
-        let (value, failed) = crate::expr::resolve(comp, property, owner, prop, frame);
+        // D-216: keys at the layer's key time, so they stretch with it.
+        let (value, failed) =
+            crate::expr::resolve_at(comp, property, owner, prop, frame, layer.key_time(frame as f64));
         if let Some(e) = failed {
             log.record(
                 frame,
@@ -1745,6 +1800,7 @@ fn resolve_rest(
             opacity: opacity as f32,
             nested: None,
             moments: Vec::new(),
+            mixed: false,
         });
     }
     if let (true, Projection::Behind) = (moments.is_empty(), &camera) {
@@ -1807,6 +1863,7 @@ fn resolve_rest(
         opacity: opacity as f32,
         nested: None,
         moments,
+        mixed: false,
     })
 }
 
@@ -1824,7 +1881,7 @@ fn moment(
     let at = |prop| {
         let property = layer.transform.get(prop).expect("the four are transform properties");
         let owner = || crate::expr::Target::Layer(layer.id.clone());
-        crate::expr::resolve_at(comp, property, owner, prop, frame, t).0
+        crate::expr::resolve_at(comp, property, owner, prop, frame, layer.key_time(t)).0
     };
     let own = Affine::from_transform(
         at(Prop::Anchor).as_vec2()?,
@@ -1903,6 +1960,7 @@ fn settle(
                     on_card: None,
                     wrap: Vec::new(),
                     motion_blur: false,
+                    mixed: false,
                 }],
             },
             tile,
@@ -2119,20 +2177,79 @@ pub fn render_frame(
     Ok(render::render(&plan, tile_size))
 }
 
-/// `Ok(None)` is a frame this layer is transparent at: inactive, or exposing nothing.
+/// D-216: the whole source frame `f` a layer shows at composition frame `at`, and how far
+/// toward `f + 1` it mixes: 0 unless the layer and the composition both blend, `t` is between
+/// frames and `f + 1` is still inside a source that ends at `end` (a still has no end).
+fn source_frames(
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    at: i32,
+    end: Option<i32>,
+) -> Option<(i32, f64)> {
+    let t = layer.source_time(at)?;
+    let f = t.floor();
+    let w = t - f;
+    let f = f as i32;
+    let blends = layer.frame_blend && comp.frame_blending && w > 0.0;
+    Some((f, if blends && end.is_none_or(|e| f + 1 < e) { w } else { 0.0 }))
+}
+
+/// D-216's mix, `a + w (b - a)` number by number, on the larger of the two sizes from the top
+/// left, a missing picture or pixel counting as transparent. `None` only when both are.
+fn mix(a: Option<&WorkingBuffer>, b: Option<&WorkingBuffer>, w: f64) -> Option<WorkingBuffer> {
+    if a.is_none() && b.is_none() {
+        return None;
+    }
+    let size = |p: Option<&WorkingBuffer>| p.map_or((0, 0), |p| (p.width(), p.height()));
+    let ((aw, ah), (bw, bh)) = (size(a), size(b));
+    let (width, height) = (aw.max(bw), ah.max(bh));
+    let px = |p: Option<&WorkingBuffer>, x: usize, y: usize| match p {
+        Some(p) if x < p.width() && y < p.height() => p.pixel(x, y),
+        _ => [0.0; 4],
+    };
+    let mut out = WorkingBuffer::transparent(width, height);
+    for (i, o) in out.data_mut().chunks_exact_mut(4).enumerate() {
+        let (x, y) = (i % width, i / width);
+        let (p, q) = (px(a, x, y), px(b, x, y));
+        for c in 0..4 {
+            o[c] = (p[c] as f64 + w * (q[c] as f64 - p[c] as f64)) as f32;
+        }
+    }
+    Some(out)
+}
+
+/// The first local frame past a drawn layer's exposures, or `None` for a still, which has none.
+fn raster_end(layer: &crate::model::Layer) -> Option<i32> {
+    layer.exposure_spans.iter().map(|s| s.end_frame_exclusive).max()
+}
+
+/// D-216's Drawing Dissolve at whole local frame `f`: the local frame where the next drawing is
+/// exposed and how far toward it `f` is, when `f` is in the last `d` frames of its span and a
+/// span starts where it ends.
+fn dissolving(layer: &crate::model::Layer, f: i32) -> Option<(i32, f64)> {
+    if layer.drawing_dissolve == 0 {
+        return None;
+    }
+    let spans = &layer.exposure_spans;
+    let here = spans.iter().find(|s| s.start_frame <= f && f < s.end_frame_exclusive)?;
+    let (s, e) = (here.start_frame, here.end_frame_exclusive);
+    spans.iter().find(|x| x.start_frame == e)?;
+    let d = (layer.drawing_dissolve as i32).min(e - s - 1);
+    (d > 0 && f >= e - d).then(|| (e, (f - (e - d) + 1) as f64 / (d + 1) as f64))
+}
+
+/// `Ok(None)` is a frame this layer is transparent at: inactive, or exposing nothing. `local` is
+/// the layer-local frame, `frame` the composition frame the diagnostics name.
 fn source_at(
     spans: Vec<crate::time::ExposureSpan>,
-    timing: &LayerTiming,
     asset: &crate::model::Asset,
+    local: i32,
     frame: i32,
 ) -> Result<Option<PathBuf>, Diagnostic> {
     match asset.kind {
         // D-71: a sound file is not a drawing. D-182: nor is a lookup file.
         AssetKind::Audio | AssetKind::Lut => Ok(None),
         AssetKind::Still => {
-            if timing.local_frame(frame).is_none() {
-                return Ok(None);
-            }
             match &asset.path {
                 Some(p) => Ok(Some(PathBuf::from(p))),
                 None => Err(schema_invalid(format!(
@@ -2154,7 +2271,7 @@ fn source_at(
                 .map(|(n, p)| (*n, PathBuf::from(p)))
                 .collect();
             let pattern = asset.pattern.as_deref().unwrap_or(&asset.name);
-            match time::resolve_in(timing, &exposures, &frames, pattern, frame)? {
+            match time::resolve_local(&exposures, &frames, pattern, local, frame)? {
                 SourceAt::Transparent => Ok(None),
                 SourceAt::Drawing { path, .. } => Ok(Some(path)),
             }

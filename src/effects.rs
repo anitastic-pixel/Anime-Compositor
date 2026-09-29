@@ -207,6 +207,12 @@ impl EffectInstance {
     /// setting is document 20's value, then held inside the setting's range, because an ease
     /// between two keys that are in range may overshoot it.
     pub fn at(&self, frame: i32) -> EffectInstance {
+        self.at_time(frame, frame as f64)
+    }
+
+    /// D-216: [`EffectInstance::at`] with the keys read at the key time `u`, which a stretched
+    /// layer's is; what moves with the frame number itself still reads `frame`.
+    pub fn at_time(&self, frame: i32, u: f64) -> EffectInstance {
         let mut effect = self.effect.clone();
         if let Some(bad) = self.invalid() {
             effect = bad;
@@ -214,7 +220,7 @@ impl EffectInstance {
             for (name, track) in &self.tracks {
                 let v: Vec<f64> = track
                     .iter()
-                    .map(|p| p.value_at(frame).as_scalar().unwrap_or(0.0))
+                    .map(|p| p.value_at_time(u).as_scalar().unwrap_or(0.0))
                     .collect();
                 effect.set(name, &v);
             }

@@ -437,6 +437,7 @@ fn matte(report: &mut Report) {
             nested: None,
             on_card: None,
             motion_blur: false,
+            mixed: false,
             wrap: Vec::new(),
         }],
     };
@@ -468,6 +469,7 @@ fn matte(report: &mut Report) {
             nested: None,
             on_card: None,
             motion_blur: false,
+            mixed: false,
             wrap: Vec::new(),
         }],
     };
@@ -508,6 +510,7 @@ fn matte(report: &mut Report) {
                 nested: None,
                 on_card: None,
                 motion_blur: false,
+                mixed: false,
                 wrap: Vec::new(),
             }],
         };
@@ -544,6 +547,7 @@ fn matte(report: &mut Report) {
             nested: None,
             on_card: None,
             motion_blur: false,
+            mixed: false,
             wrap: Vec::new(),
         }],
     };

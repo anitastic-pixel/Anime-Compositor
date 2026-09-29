@@ -26,9 +26,10 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `doc.redo` is in the answer | present | present | pass |
 | `doc.solo` is in the answer | present | present | pass |
 | `doc.undo` is in the answer | present | present | pass |
-| the panels read 13 fields out of the composition on screen | true | true | pass |
+| the panels read 14 fields out of the composition on screen | true | true | pass |
 | `comp.camera` is in the answer | present | present | pass |
 | `comp.duration_frames` is in the answer | present | present | pass |
+| `comp.frame_blending` is in the answer | present | present | pass |
 | `comp.frame_rate` is in the answer | present | present | pass |
 | `comp.height` is in the answer | present | present | pass |
 | `comp.id` is in the answer | present | present | pass |
@@ -40,14 +41,16 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `comp.start_frame` is in the answer | present | present | pass |
 | `comp.width` is in the answer | present | present | pass |
 | `comp.work_area` is in the answer | present | present | pass |
-| the panels read 25 fields out of one of its layers | true | true | pass |
+| the panels read 28 fields out of one of its layers | true | true | pass |
 | `layer.asset_id` is in the answer | present | present | pass |
 | `layer.blend_mode` is in the answer | present | present | pass |
 | `layer.composition_id` is in the answer | present | present | pass |
 | `layer.depth` is in the answer | present | present | pass |
+| `layer.drawing_dissolve` is in the answer | present | present | pass |
 | `layer.effects` is in the answer | present | present | pass |
 | `layer.enabled` is in the answer | present | present | pass |
 | `layer.exposure_spans` is in the answer | present | present | pass |
+| `layer.frame_blend` is in the answer | present | present | pass |
 | `layer.gain_db` is in the answer | present | present | pass |
 | `layer.id` is in the answer | present | present | pass |
 | `layer.in_frame` is in the answer | present | present | pass |
@@ -64,6 +67,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.shy` is in the answer | present | present | pass |
 | `layer.solid` is in the answer | present | present | pass |
 | `layer.source_offset_frames` is in the answer | present | present | pass |
+| `layer.time_stretch` is in the answer | present | present | pass |
 | `layer.timesheet` is in the answer | present | present | pass |
 | `layer.transform` is in the answer | present | present | pass |
 | the panels read 5 fields out of one sequence in the media bin | true | true | pass |
@@ -277,4 +281,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**256 of 256 checks pass.**
+**260 of 260 checks pass.**

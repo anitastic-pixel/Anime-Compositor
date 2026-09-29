@@ -223,6 +223,10 @@ pub struct LayerDraw {
     /// moments. The renderer does not read it; the graphics card, which does not draw motion
     /// blur yet, leaves such a frame to the CPU.
     pub motion_blur: bool,
+    /// D-216: `source`, or the matte's, is a frame mix or a drawing dissolve. The renderer does
+    /// not read it; the graphics card, which does not draw either yet, leaves such a frame to
+    /// the CPU.
+    pub mixed: bool,
 }
 
 /// An effect left for the graphics card, in the pixels of the buffer it runs on.

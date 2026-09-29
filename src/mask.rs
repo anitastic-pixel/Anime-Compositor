@@ -214,8 +214,13 @@ impl Mask {
     /// (`EffectInstance::at`), which is what keeps one drawing path in this build rather than
     /// two and keeps the frame in document 27's cache key honest.
     pub fn at(&self, frame: i32) -> Mask {
+        self.at_time(frame as f64)
+    }
+
+    /// D-216: [`Mask::at`] at a key time `t` between two frames, where a stretched layer reads.
+    pub fn at_time(&self, t: f64) -> Mask {
         Mask {
-            points: self.points_at(frame),
+            points: points_at_time(&self.points, &self.keys, t),
             keys: Vec::new(),
             ..self.clone()
         }
@@ -277,22 +282,28 @@ impl Mask {
 /// same fraction of the way — the point and both its handles, each of the six numbers on its
 /// own, at the fraction the ease gives on an eased segment and at `u` itself on a linear one.
 pub fn points_at(base: &[MaskPoint], keys: &[MaskKey], frame: i32) -> Vec<MaskPoint> {
+    points_at_time(base, keys, frame as f64)
+}
+
+/// D-216: [`points_at`] at a time `t` that may fall between two frames; at a whole frame the
+/// same numbers, since every frame and every difference of two is exact in f64.
+pub fn points_at_time(base: &[MaskPoint], keys: &[MaskKey], t: f64) -> Vec<MaskPoint> {
     let Some(first) = keys.first() else {
         return base.to_vec();
     };
-    if frame <= first.frame {
+    if t <= first.frame as f64 {
         return first.points.clone();
     }
     let last = keys.last().expect("a first key means a last one");
-    if frame >= last.frame {
+    if t >= last.frame as f64 {
         return last.points.clone();
     }
-    let i = keys.partition_point(|k| k.frame <= frame) - 1;
+    let i = keys.partition_point(|k| k.frame as f64 <= t) - 1;
     let (a, b) = (&keys[i], &keys[i + 1]);
-    if a.frame == frame || a.interp == Interp::Hold {
+    if a.frame as f64 == t || a.interp == Interp::Hold {
         return a.points.clone();
     }
-    let u = (frame - a.frame) as f64 / (b.frame - a.frame) as f64;
+    let u = (t - a.frame as f64) / (b.frame - a.frame) as f64;
     let u = match a.interp {
         Interp::Ease { x1, y1, x2, y2 } => crate::model::solve(x1, y1, x2, y2, u),
         _ => u,

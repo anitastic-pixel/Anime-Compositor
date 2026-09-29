@@ -385,6 +385,18 @@ pub fn resolve_in(
     let Some(local) = timing.local_frame(composition_frame) else {
         return Ok(SourceAt::Transparent);
     };
+    resolve_local(exposures, frames, pattern, local, composition_frame)
+}
+
+/// [`resolve_in`] at a layer-local frame already worked out, which D-216's stretch does its own
+/// way. `composition_frame` is only what the diagnostic says.
+pub fn resolve_local(
+    exposures: &ExposureMap,
+    frames: &std::collections::BTreeMap<u32, PathBuf>,
+    pattern: &str,
+    local: i32,
+    composition_frame: i32,
+) -> Result<SourceAt, Diagnostic> {
     let Some(number) = exposures.drawing_at(local) else {
         return Ok(SourceAt::Transparent);
     };

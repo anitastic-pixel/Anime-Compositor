@@ -142,6 +142,31 @@ pub enum Command {
         layer_id: Id,
         value: bool,
     },
+    /// D-216: a drawn or composition layer's Time Stretch, in percent. The out point moves so
+    /// the layer shows as much of its source as before; the keys stay stored where they are and
+    /// play stretched with it.
+    SetLayerTimeStretch {
+        composition: Id,
+        layer_id: Id,
+        value: f64,
+    },
+    /// D-216: a drawn or composition layer's Frame Mix switch.
+    SetLayerFrameBlend {
+        composition: Id,
+        layer_id: Id,
+        value: bool,
+    },
+    /// D-216: a drawn layer's Drawing Dissolve, in frames, 0 for none.
+    SetDrawingDissolve {
+        composition: Id,
+        layer_id: Id,
+        frames: u32,
+    },
+    /// D-216: the composition's frame-blending switch, off until it is turned on.
+    SetFrameBlending {
+        composition: Id,
+        value: bool,
+    },
     /// Document 24's `timeline.set_work_start` and `set_work_end`, W-24. Both ends at once, so a
     /// drag that moves one end replaces its earlier reading whole.
     SetWorkArea {
@@ -480,6 +505,10 @@ impl Command {
             Command::SetLayerLabel { .. } => "SET_LAYER_LABEL",
             Command::SetLayerShy { .. } => "SET_LAYER_SHY",
             Command::SetLayerMotionBlur { .. } => "SET_LAYER_MOTION_BLUR",
+            Command::SetLayerTimeStretch { .. } => "SET_LAYER_TIME_STRETCH",
+            Command::SetLayerFrameBlend { .. } => "SET_LAYER_FRAME_BLEND",
+            Command::SetDrawingDissolve { .. } => "SET_DRAWING_DISSOLVE",
+            Command::SetFrameBlending { .. } => "SET_FRAME_BLENDING",
             Command::SetWorkArea { .. } => "SET_WORK_AREA",
             Command::SetMarkers { .. } => "SET_MARKERS",
             Command::SetBlendMode { .. } => "SET_BLEND_MODE",
@@ -614,6 +643,19 @@ impl Command {
             Command::SetLayerMotionBlur { value, .. } => match value {
                 true => "Turn on the layer's motion blur".to_string(),
                 false => "Turn off the layer's motion blur".to_string(),
+            },
+            Command::SetLayerTimeStretch { value, .. } => format!("Stretch the layer to {value}%"),
+            Command::SetLayerFrameBlend { value, .. } => match value {
+                true => "Turn on the layer's frame mix".to_string(),
+                false => "Turn off the layer's frame mix".to_string(),
+            },
+            Command::SetDrawingDissolve { frames, .. } => match frames {
+                0 => "Turn off the drawing dissolve".to_string(),
+                n => format!("Dissolve drawings over {n} frames"),
+            },
+            Command::SetFrameBlending { value, .. } => match value {
+                true => "Turn on frame blending".to_string(),
+                false => "Turn off frame blending".to_string(),
             },
             Command::SetLayerLabel { label, .. } => match label {
                 0 => "Clear the layer's label".to_string(),
@@ -781,6 +823,10 @@ impl Command {
             | Command::SetLayerLabel { composition, .. }
             | Command::SetLayerShy { composition, .. }
             | Command::SetLayerMotionBlur { composition, .. }
+            | Command::SetLayerTimeStretch { composition, .. }
+            | Command::SetLayerFrameBlend { composition, .. }
+            | Command::SetDrawingDissolve { composition, .. }
+            | Command::SetFrameBlending { composition, .. }
             | Command::SetMotionBlur { composition, .. }
             | Command::SetWorkArea { composition, .. }
             | Command::SetMarkers { composition, .. }
@@ -833,6 +879,7 @@ impl Command {
             | Command::SetMarkers { .. }
             | Command::SetSheetText { .. }
             | Command::SetMotionBlur { .. }
+            | Command::SetFrameBlending { .. }
             | Command::SetCompositionSettings { .. } => {}
             Command::RemoveLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
@@ -840,6 +887,9 @@ impl Command {
             | Command::SetSolid { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetLayerMotionBlur { layer_id, .. }
+            | Command::SetLayerTimeStretch { layer_id, .. }
+            | Command::SetLayerFrameBlend { layer_id, .. }
+            | Command::SetDrawingDissolve { layer_id, .. }
             | Command::RenameLayer { layer_id, .. }
             | Command::SetLayerEnabled { layer_id, .. }
             | Command::SetLayerLocked { layer_id, .. }
@@ -970,6 +1020,7 @@ impl Command {
                 | Command::SetCameraProperty { .. }
                 | Command::SetCameraParent { .. }
                 | Command::SetMotionBlur { .. }
+                | Command::SetFrameBlending { .. }
         )
     }
 
@@ -1012,6 +1063,9 @@ impl Command {
             | Command::SetSolid { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetLayerMotionBlur { layer_id, .. }
+            | Command::SetLayerTimeStretch { layer_id, .. }
+            | Command::SetLayerFrameBlend { layer_id, .. }
+            | Command::SetDrawingDissolve { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
             | Command::SetParent { layer_id, .. }
             | Command::SetDepth { layer_id, .. }
@@ -1042,6 +1096,26 @@ impl Command {
             _ => None,
         }
     }
+}
+
+/// D-216: the layer a stretch, frame mix or (`drawn`) drawing dissolve is set on, refused when
+/// it has no source frames of its own to time.
+fn timed_mut<'a>(
+    project: &'a mut Project,
+    comp_id: &Id,
+    layer_id: &Id,
+    drawn: bool,
+) -> Result<&'a mut crate::model::Layer, Diagnostic> {
+    use crate::model::LayerKind::{Composition, Raster};
+    let layer = layer_mut(project, comp_id, layer_id)?;
+    if !(matches!(layer.kind, Raster) || !drawn && matches!(layer.kind, Composition)) {
+        return Err(reject(
+            &format!("\"{}\" has no frames of its own to time this way.", layer.name),
+            "D-216: a stretch and frame mix are for a drawn or composition layer, a drawing \
+             dissolve for a drawn one.",
+        ));
+    }
+    Ok(layer)
 }
 
 /// B-24h: what one `SetMasks` did, read off the list as it was and the list it became.
@@ -2058,6 +2132,41 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             }
             layer.motion_blur = *value;
         }
+        Command::SetLayerTimeStretch {
+            layer_id, value, ..
+        } => {
+            let layer = timed_mut(project, &comp_id, layer_id, false)?;
+            if !(1.0..=10000.0).contains(value) {
+                return Err(reject(
+                    &format!("A layer cannot be stretched to {value}%."),
+                    "D-216: a Time Stretch is from 1 to 10000 percent.",
+                ));
+            }
+            // The source shown keeps its length, rounded half away from zero, and a layer keeps
+            // at least one frame (FX-FBLEND-040 to 044). No key moves.
+            let length = (layer.out_frame - layer.in_frame) as f64 * value / layer.time_stretch;
+            layer.out_frame = layer.in_frame + (length.round() as i32).max(1);
+            layer.time_stretch = *value;
+        }
+        Command::SetLayerFrameBlend {
+            layer_id, value, ..
+        } => {
+            timed_mut(project, &comp_id, layer_id, false)?.frame_blend = *value;
+        }
+        Command::SetDrawingDissolve {
+            layer_id, frames, ..
+        } => {
+            if *frames > 100 {
+                return Err(reject(
+                    &format!("Drawings cannot dissolve over {frames} frames."),
+                    "D-216: a Drawing Dissolve is from 0 to 100 frames.",
+                ));
+            }
+            timed_mut(project, &comp_id, layer_id, true)?.drawing_dissolve = *frames;
+        }
+        Command::SetFrameBlending { value, .. } => {
+            comp_mut(project, &comp_id)?.frame_blending = *value;
+        }
         Command::SetLayerLabel {
             layer_id, label, ..
         } => {
@@ -2267,10 +2376,49 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             let layer = layer_mut(project, &comp_id, layer_id)?;
             // Document 20: local_frame = composition_frame - in_frame + source_offset_frames.
             // The in point moving by d must move the offset by d for the local frame under any
-            // surviving composition frame to be unchanged.
-            layer.source_offset_frames += in_frame - layer.in_frame;
+            // surviving composition frame to be unchanged. D-216: on a stretched layer that is
+            // d x 100 / stretch source frames, which must be whole, and the keys move by what is
+            // left so they play where they did (FX-FBLEND-064 to 067).
+            let d = in_frame - layer.in_frame;
+            let x = d as f64 * 100.0 / layer.time_stretch;
+            if x.fract() != 0.0 {
+                return Err(reject(
+                    &format!(
+                        "Moving the in point by {d} frames would start the layer part way \
+                         through a frame of its {}% stretched source.",
+                        layer.time_stretch
+                    ),
+                    "D-216: a stretched layer's in point moves by whole source frames only.",
+                ));
+            }
+            let x = x as i32;
+            layer.source_offset_frames += x;
             layer.in_frame = *in_frame;
             layer.out_frame = *out_frame;
+            if d != x {
+                for prop in [
+                    Prop::Anchor,
+                    Prop::Position,
+                    Prop::Scale,
+                    Prop::Rotation,
+                    Prop::Opacity,
+                ] {
+                    if let Some(property) = layer.transform.get_mut(prop) {
+                        property.shift_keyframes(d - x);
+                    }
+                }
+                if let Some(depth) = &mut layer.depth {
+                    depth.shift_keyframes(d - x);
+                }
+                for instance in &mut layer.effects {
+                    instance.shift_keys(d - x);
+                }
+                for mask in &mut layer.masks {
+                    for key in &mut mask.keys {
+                        key.frame += d - x;
+                    }
+                }
+            }
         }
         Command::SetPropertyBase {
             target,
