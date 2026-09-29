@@ -875,6 +875,14 @@ pub enum Effect {
         softness: f64,
         view_matte: String,
     },
+    /// D-198: `upper_left`, `upper_right`, `lower_left` and `lower_right`, each x then y, -400
+    /// to 500 per cent of the drawing's width and height, where its corners are pinned.
+    CornerPin {
+        upper_left: [f64; 2],
+        upper_right: [f64; 2],
+        lower_left: [f64; 2],
+        lower_right: [f64; 2],
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -956,6 +964,7 @@ pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
 pub const ECHO: &str = "core.echo";
 pub const POSTERIZE_TIME: &str = "core.posterize_time";
 pub const CHANGE_TO_COLOR: &str = "core.change_to_color";
+pub const CORNER_PIN: &str = "core.corner_pin";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1584,6 +1593,17 @@ impl Effect {
                 ("saturation_tolerance", vec![saturation_tolerance], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
+            Effect::CornerPin {
+                upper_left,
+                upper_right,
+                lower_left,
+                lower_right,
+            } => vec![
+                ("upper_left", upper_left.iter_mut().collect(), -400.0, 500.0),
+                ("upper_right", upper_right.iter_mut().collect(), -400.0, 500.0),
+                ("lower_left", lower_left.iter_mut().collect(), -400.0, 500.0),
+                ("lower_right", lower_right.iter_mut().collect(), -400.0, 500.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1815,6 +1835,7 @@ impl Effect {
             Effect::Echo { .. } => "Echo",
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
+            Effect::CornerPin { .. } => "Corner Pin",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1896,6 +1917,7 @@ impl Effect {
             Effect::Echo { .. } => ECHO,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
+            Effect::CornerPin { .. } => CORNER_PIN,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3239,6 +3261,20 @@ pub(crate) fn apply_stack_at(
             } => {
                 let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectMotionTile, || {
                     crate::layer_fx::motion_tile(source, (*output_width, *output_height), mirror == "on")
+                });
+                ox += gx;
+                oy += gy;
+            }
+            // D-198: the corners are in per cent of the drawing's own box, however an effect
+            // above grew it, and the layer grows so none is cut off.
+            Effect::CornerPin {
+                upper_left,
+                upper_right,
+                lower_left,
+                lower_right,
+            } => {
+                let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectCornerPin, || {
+                    crate::layer_fx::corner_pin(source, [*upper_left, *upper_right, *lower_left, *lower_right], (ox, oy))
                 });
                 ox += gx;
                 oy += gy;

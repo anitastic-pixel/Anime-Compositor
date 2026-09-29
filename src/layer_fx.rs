@@ -1049,6 +1049,79 @@ pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: 
     (gx, gy)
 }
 
+/// D-198: the drawing, whose corner is at `origin` in the buffer, stretched in perspective so
+/// its upper left, upper right, lower left and lower right corners land on `pins`, each in per
+/// cent of the drawing's width and height. Returns how far it grew on the left and on the top,
+/// the same as on the right and the bottom. Crossed, bent-in or in-line corners leave the
+/// buffer clear. The settings are already valid.
+pub(crate) fn corner_pin(source: &mut WorkingBuffer, pins: [[f64; 2]; 4], origin: (usize, usize)) -> (usize, usize) {
+    if pins == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]] {
+        return (0, 0);
+    }
+    let (w, h) = (source.width(), source.height());
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
+    let [ul, ur, ll, lr] = pins;
+    // A, B, C, D round the ring, in the drawing's space.
+    let ring = [ul, ur, lr, ll].map(|p| (p[0] / 100.0 * dw, p[1] / 100.0 * dh));
+    let z = |i: usize| {
+        let ((px, py), (qx, qy), (rx, ry)) = (ring[(i + 3) % 4], ring[i], ring[(i + 1) % 4]);
+        (qx - px) * (ry - qy) - (qy - py) * (rx - qx)
+    };
+    let z = [z(0), z(1), z(2), z(3)];
+    if !(z.iter().all(|v| *v > 0.0) || z.iter().all(|v| *v < 0.0)) {
+        *source = WorkingBuffer::transparent(w, h);
+        return (0, 0);
+    }
+    // Heckbert's map of the unit square onto A (0, 0), B (1, 0), C (1, 1), D (0, 1).
+    let [a, b, c, d] = ring;
+    let (sx, sy) = (a.0 - b.0 + c.0 - d.0, a.1 - b.1 + c.1 - d.1);
+    let (dx1, dx2, dy1, dy2) = (b.0 - c.0, d.0 - c.0, b.1 - c.1, d.1 - c.1);
+    let den = dx1 * dy2 - dx2 * dy1;
+    let (g, hh) = ((sx * dy2 - dx2 * sy) / den, (dx1 * sy - sx * dy1) / den);
+    let [[m0, m1, m2], [m3, m4, m5], [m6, m7, m8]] = [
+        [b.0 - a.0 + g * b.0, d.0 - a.0 + hh * d.0, a.0],
+        [b.1 - a.1 + g * b.1, d.1 - a.1 + hh * d.1, a.1],
+        [g, hh, 1.0],
+    ];
+    let adj = [
+        [m4 * m8 - m5 * m7, m2 * m7 - m1 * m8, m1 * m5 - m2 * m4],
+        [m5 * m6 - m3 * m8, m0 * m8 - m2 * m6, m2 * m3 - m0 * m5],
+        [m3 * m7 - m4 * m6, m1 * m6 - m0 * m7, m0 * m4 - m1 * m3],
+    ];
+    let det = m0 * (m4 * m8 - m5 * m7) - m1 * (m3 * m8 - m5 * m6) + m2 * (m3 * m7 - m4 * m6);
+    // How far any corner lies past the buffer's sides, rounded up.
+    let past = |lo: f64, hi: f64, v: [f64; 4]| {
+        let (min, max) = v.iter().fold((f64::MAX, f64::MIN), |(n, x), v| (n.min(*v), x.max(*v)));
+        (lo - min).max(max - hi).ceil().max(0.0) as usize
+    };
+    let gx = past(-ox, dw + ox, ring.map(|p| p.0));
+    let gy = past(-oy, dh + oy, ring.map(|p| p.1));
+    let ow = w + 2 * gx;
+    let (left, top) = ((origin.0 + gx) as f64, (origin.1 + gy) as f64);
+    let (wf, hf) = (w as f64, h as f64);
+    let mut out = WorkingBuffer::transparent(ow, h + 2 * gy);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % ow) as f64 + 0.5 - left, (i / ow) as f64 + 0.5 - top);
+            let [u, v, t] = adj.map(|r| r[0] * x + r[1] * y + r[2]);
+            // Beyond the horizon the map draws the picture again, turned over; nothing is there.
+            if !(t * det > 0.0) {
+                return;
+            }
+            let (sx, sy) = (u / t * dw + ox, v / t * dh + oy);
+            if !(sx > -1.0 && sx < wf + 1.0 && sy > -1.0 && sy < hf + 1.0) {
+                return;
+            }
+            px.copy_from_slice(&sample_bilinear(drawing, sx, sy));
+        });
+    *source = out;
+    (gx, gy)
+}
+
 
 /// D-155: every pixel behind a straight edge moving along `angle` gone, `completion` per cent of
 /// the way across the drawing, whose corner is at `origin` in the buffer, softened over

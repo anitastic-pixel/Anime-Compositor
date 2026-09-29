@@ -1823,6 +1823,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("view_matte".into(), J::from(view_matte.as_str()));
         }
+        Effect::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
+            for (name, v) in [
+                ("upper_left", upper_left),
+                ("upper_right", upper_right),
+                ("lower_left", lower_left),
+                ("lower_right", lower_right),
+            ] {
+                params.insert(name.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
+            }
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2324,6 +2334,10 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "hue_tolerance",
         "lightness_tolerance",
         "saturation_tolerance",
+        "upper_left",
+        "upper_right",
+        "lower_left",
+        "lower_right",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2339,7 +2353,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
             "color" => (3, "a linear RGB triple"),
             "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
             "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
-            "center" | "start" | "end" | "shift" => (2, "two numbers, x then y"),
+            "center" | "start" | "end" | "shift" | "upper_left" | "upper_right" | "lower_left"
+            | "lower_right" => (2, "two numbers, x then y"),
             _ => (1, ""),
         };
         let (base, track) = channel_track(record, &at, count, what)?;
@@ -2785,6 +2800,7 @@ fn parse_effect(
         crate::effects::ECHO,
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
+        crate::effects::CORNER_PIN,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3318,6 +3334,12 @@ fn parse_effect(
             saturation_tolerance: effect_number(params, "saturation_tolerance", &at)?,
             softness: effect_number(params, "softness", &at)?,
             view_matte: effect_word(params, "view_matte", &at)?,
+        }),
+        crate::effects::CORNER_PIN => Some(crate::effects::Effect::CornerPin {
+            upper_left: effect_array(params, "upper_left", "two numbers, x then y", &at)?,
+            upper_right: effect_array(params, "upper_right", "two numbers, x then y", &at)?,
+            lower_left: effect_array(params, "lower_left", "two numbers, x then y", &at)?,
+            lower_right: effect_array(params, "lower_right", "two numbers, x then y", &at)?,
         }),
         _ => None,
     };

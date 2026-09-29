@@ -6804,6 +6804,7 @@ const EFFECT_NAMES = {
   'core.echo': 'Echo',
   'core.posterize_time': 'Posterize Time',
   'core.change_to_color': 'Change to Color',
+  'core.corner_pin': 'Corner Pin',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6822,7 +6823,8 @@ const EFFECT_GROUPS = [
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
     'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key']],
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple',
-    'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile']],
+    'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
+    'core.corner_pin']],
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain']],
   ['Stylize', ['core.drop_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize']],
@@ -6887,6 +6889,7 @@ const EFFECT_SEARCH = {
   'core.echo': 'echo time trail trails ghost ghosting onion skin smear afterimage frames',
   'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
   'core.change_to_color': 'change to color colour replace recolor recolour swap costume palette hue shift',
+  'core.corner_pin': 'corner pin perspective four corners screen sign billboard poster distort pin skew keystone',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6982,6 +6985,7 @@ const EFFECT_ABOUT = {
   'core.echo': 'Lays copies of the layer from earlier or later frames over it, each fainter than the last: a trail.',
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
   'core.change_to_color': 'Turns one colour into another, with the shades painted in it, and leaves the rest alone.',
+  'core.corner_pin': 'Pins the layer\'s four corners anywhere and stretches it between them in perspective.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7292,6 +7296,11 @@ const EFFECT_PARAMS = {
     ['lightness_tolerance', 'Lightness Tolerance', 1, 1, '0 to 100, how much lighter or darker changes whole'],
     ['saturation_tolerance', 'Saturation Tolerance', 1, 1, '0 to 100, how much duller or fuller changes whole'],
     ['softness', 'Softness', 1, 1, '0 to 100, the fade past each tolerance, that part of it wide']],
+  // D-198.
+  'core.corner_pin': [['upper_left', 'Upper Left', 2, 1, '% of the width and height, -400 to 500'],
+    ['upper_right', 'Upper Right', 2, 1, '% of the width and height, -400 to 500'],
+    ['lower_left', 'Lower Left', 2, 1, '% of the width and height, -400 to 500'],
+    ['lower_right', 'Lower Right', 2, 1, '% of the width and height, -400 to 500']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7967,6 +7976,18 @@ function fxIris(k, label) {
   return c;
 }
 
+// D-198: the shape the four pinned corners make, the drawing stretched into it.
+function fxPinPaint(g, at) {
+  g.fillStyle = 'rgba(106,160,255,0.35)';
+  g.strokeStyle = '#6aa0ff';
+  g.lineWidth = 1.5;
+  g.beginPath();
+  ['upper_left', 'upper_right', 'lower_right', 'lower_left'].map(at).forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+  g.closePath();
+  g.fill();
+  g.stroke();
+}
+
 // A box standing for the drawing, with a mark for each of the effect's points, as the share of
 // the drawing the numbers are. A press moves the nearest mark there and drags it. `paint` draws
 // what the points make, under them.
@@ -8332,6 +8353,7 @@ function effectRow(layer, fx, at, of) {
     : fx.type_id === 'core.hue_saturation' ? fxHues(k, label)
       : fx.type_id === 'core.lens_blur' ? fxIris(k, label)
       : pairs.length ? fxPointBox(k, pairs, label, fx.type_id === 'core.gradient' ? fxGradientPaint(k)
+        : fx.type_id === 'core.corner_pin' ? fxPinPaint
         : ['core.mirror', 'core.radial_wipe', 'core.iris_wipe'].includes(fx.type_id) ? fxKeptPaint(k, fx.type_id) : null)
         : null;
   if (picture) {

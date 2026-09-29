@@ -213,6 +213,8 @@ pub enum Stage {
     EffectEcho,
     /// D-197's change to color, per pixel.
     EffectChangeToColor,
+    /// D-198's corner pin, per pixel of the grown layer.
+    EffectCornerPin,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -230,7 +232,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 90] = [
+    pub const ALL: [Stage; 91] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -314,6 +316,7 @@ impl Stage {
         Stage::EffectGradientWipe,
         Stage::EffectEcho,
         Stage::EffectChangeToColor,
+        Stage::EffectCornerPin,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -409,6 +412,7 @@ impl Stage {
             Stage::EffectGradientWipe => "effect: gradient wipe",
             Stage::EffectEcho => "effect: echo",
             Stage::EffectChangeToColor => "effect: change to color",
+            Stage::EffectCornerPin => "effect: corner pin",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
