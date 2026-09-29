@@ -154,7 +154,7 @@ DRAWINGS = {"bar": [[bar(x, y) for x in range(W)] for y in range(H)],
 
 # --- the cases ------------------------------------------------------------------------------
 
-def case(length=3, strength=100, lines_only=False, shift=0, name="face"):
+def case(length=3, strength=100, lines_only="off", shift=0, name="face"):
     return {"drawing": name, "length": length, "strength": strength, "lines_only": lines_only,
             "shift": shift}
 
@@ -167,7 +167,7 @@ def render(c, frame_no):
 
     length = min(MAX_LENGTH, max(0.0, value_at(c["length"], frame_no)))
     strength = min(100.0, max(0.0, value_at(c["strength"], frame_no)))
-    out = line_blur(pixel, length, strength, c["lines_only"])
+    out = line_blur(pixel, length, strength, c["lines_only"] == "on")
     return [out(x - c["shift"], y) for y in range(H) for x in range(W)]
 
 
@@ -195,7 +195,7 @@ CASES = {
     "FX-LBLUR-005": ("FX-LBLUR-003 with lines only: each pixel changes by FX-LBLUR-003's change "
                      "times its own ink, so the empty outside stays empty and the skin moves "
                      "less than the lines.",
-                     case(lines_only=True), [0]),
+                     case(lines_only="on"), [0]),
     "FX-LBLUR-006": ("Length 0: the drawing, untouched.",
                      case(length=0), [0]),
     "FX-LBLUR-007": ("The stepped diagonal with the length keyed from 0 at frame 0 to 4 at frame "
@@ -219,7 +219,8 @@ INVALID = {
     "FX-LBLUR-013": ("Length keyed to 60 at frame 4.", case(length=keyed((0, 3), (4, 60)))),
     "FX-LBLUR-014": ("Strength 101, above 100.", case(strength=101)),
     "FX-LBLUR-015": ("Strength -1, below 0.", case(strength=-1)),
-    "FX-LBLUR-016": ("Lines only written \"yes\", not true or false.", case(lines_only="yes")),
+    "FX-LBLUR-016": ("Lines only written \"yes\", not \"off\" or \"on\".",
+                     case(lines_only="yes")),
 }
 
 

@@ -22225,7 +22225,7 @@
    "warning": "EFFECT_PARAMETER_INVALID"
   },
   "FX-LBLUR-016": {
-   "says": "Lines only written \"yes\", not true or false. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "says": "Lines only written \"yes\", not \"off\" or \"on\". The file is read, the effect is kept as written and left out of every frame, with a warning.",
    "project": "fx_lblur_016.json",
    "frames": {
     "0": [

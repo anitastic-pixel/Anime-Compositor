@@ -166305,7 +166305,7 @@ Frame 0: every pixel is the drawing's, to within 1e-9.
 
 Frame 4: every pixel is the drawing's, to within 1e-9.
 
-FX-LBLUR-016: Lines only written "yes", not true or false. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+FX-LBLUR-016: Lines only written "yes", not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
 
 Frame 0: every pixel is the drawing's, to within 1e-9.
 

@@ -91,7 +91,7 @@
               "parameters": {
                 "length": 3,
                 "strength": 50,
-                "lines_only": false
+                "lines_only": "off"
               }
             }
           ]
