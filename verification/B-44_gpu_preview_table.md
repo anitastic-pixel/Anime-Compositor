@@ -83,24 +83,24 @@ The worst comparison is "ten-layer frame 100, Draft, every layer multiply, every
 | the ten-layer fixture frame 239, Full | at most 1 level | largest difference 1 of 255, pixels differing: 5448 | PASS |
 | the ten-layer fixture frame 0, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13878 | PASS |
 | the ten-layer fixture frame 12, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14215 | PASS |
-| the ten-layer fixture frame 24, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13904 | PASS |
-| the ten-layer fixture frame 36, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14390 | PASS |
+| the ten-layer fixture frame 24, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13909 | PASS |
+| the ten-layer fixture frame 36, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14387 | PASS |
 | the ten-layer fixture frame 48, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13856 | PASS |
 | the ten-layer fixture frame 60, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14394 | PASS |
-| the ten-layer fixture frame 72, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14192 | PASS |
+| the ten-layer fixture frame 72, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14197 | PASS |
 | the ten-layer fixture frame 84, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14132 | PASS |
 | the ten-layer fixture frame 96, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14072 | PASS |
-| the ten-layer fixture frame 108, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14422 | PASS |
+| the ten-layer fixture frame 108, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14428 | PASS |
 | the ten-layer fixture frame 120, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13850 | PASS |
 | the ten-layer fixture frame 132, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14311 | PASS |
-| the ten-layer fixture frame 144, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14030 | PASS |
-| the ten-layer fixture frame 156, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14390 | PASS |
+| the ten-layer fixture frame 144, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14040 | PASS |
+| the ten-layer fixture frame 156, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14387 | PASS |
 | the ten-layer fixture frame 168, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13856 | PASS |
 | the ten-layer fixture frame 180, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14394 | PASS |
-| the ten-layer fixture frame 192, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14242 | PASS |
+| the ten-layer fixture frame 192, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14250 | PASS |
 | the ten-layer fixture frame 204, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14110 | PASS |
 | the ten-layer fixture frame 216, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14062 | PASS |
-| the ten-layer fixture frame 228, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14314 | PASS |
+| the ten-layer fixture frame 228, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14320 | PASS |
 | the ten-layer fixture frame 239, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14067 | PASS |
 | P-07's hard case: frame 100 turned 0.001 deg about a point 8,388,608 px off canvas | at most 1 level | largest difference 1 of 255, pixels differing: 11007 | PASS |
 | ten-layer frame 100, Full, every layer normal, every other at 60% | at most 1 level | largest difference 1 of 255, pixels differing: 4628 | PASS |

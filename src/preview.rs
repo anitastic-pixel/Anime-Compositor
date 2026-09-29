@@ -123,6 +123,10 @@ pub fn scale_plan(plan: FramePlan, quality: PreviewQuality) -> FramePlan {
             .into_iter()
             .map(|mut layer| {
                 layer.transform = layer.transform.then(Affine::scaling(s, s));
+                // B-124c: the matte is sampled at the same smaller pixel, so it shrinks with it.
+                if let Some(matte) = &mut layer.matte {
+                    matte.transform = matte.transform.then(Affine::scaling(s, s));
+                }
                 // D-66: an adjustment layer's effects run on the smaller frame, so a distance
                 // in pixels is smaller by the same factor.
                 for instance in layer.adjust.iter_mut().flatten() {
