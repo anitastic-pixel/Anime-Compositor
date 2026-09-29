@@ -72,11 +72,11 @@ D-212, accepted on 2026-09-28 with the After Effects picks (B10). Every expected
 | FX-EXTRACT-026 frame 4: Black point keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-EXTRACT-026: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
-## FX-EXTRACT-027, in dispute (D-215, proposed)
+## FX-EXTRACT-027 (D-215, accepted)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-EXTRACT-027, in dispute (D-215, proposed): the build refuses fx_extract_027.json as a fault in its shape, as it does a number written as a word in every effect; the case expects it kept with a warning | This project file cannot be opened, because part of it does not match the project format. | yes |
+| FX-EXTRACT-027: a black point written as a word is a fault in the file's shape, and the file is refused on opening (D-215, as D-164) | PROJECT_SCHEMA_INVALID This project file cannot be opened, because part of it does not match the project format. | yes |
 
 ## How far it reaches
 

@@ -196872,11 +196872,7 @@ Frame 0: every pixel is the drawing's.
 
 Frame 4: every pixel is the drawing's.
 
-FX-EXTRACT-027: Black point written "60", a word, not a number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
-
-Frame 0: every pixel is the drawing's.
-
-Frame 4: every pixel is the drawing's.
+FX-EXTRACT-027: Black point written "60", a word, not a number. The file is refused on opening, as a fault in its shape (D-215, accepted on 2026-09-29, as D-164): `PROJECT_SCHEMA_INVALID`.
 
 ## Bevel fixtures
 

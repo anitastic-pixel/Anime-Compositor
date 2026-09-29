@@ -125,8 +125,14 @@ fn b147_extract() {
     t.heading("FX-EXTRACT-001 to 026 (document 25)");
     t.fixtures_numbered("expected_extract.json", 1..=26);
 
-    t.heading("FX-EXTRACT-027, in dispute (D-215, proposed)");
-    t.in_dispute("fx_extract_027.json", "FX-EXTRACT-027", "D-215, proposed");
+    t.heading("FX-EXTRACT-027 (D-215, accepted)");
+    let refused = persist::load(&effect_table::repo("Fixtures/extract/fx_extract_027.json")).err();
+    t.row(
+        "FX-EXTRACT-027: a black point written as a word is a fault in the file's shape, and the \
+         file is refused on opening (D-215, as D-164)",
+        &refused.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+        refused.is_some_and(|d| d.id.as_str() == "PROJECT_SCHEMA_INVALID"),
+    );
 
     t.heading("How far it reaches");
     let got = plain().bounds_expansion();

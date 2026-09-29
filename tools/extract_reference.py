@@ -182,7 +182,13 @@ INVALID = {
     "FX-EXTRACT-025": ("Invert \"yes\", which is not \"on\" or \"off\".", case(invert="yes")),
     "FX-EXTRACT-026": ("Black point keyed to 300 at frame 4.",
                        case(black_point=keyed((0, 0), (4, 300)))),
-    "FX-EXTRACT-027": ("Black point written \"60\", a word, not a number.",
+}
+
+# D-215, accepted on 2026-09-29: a number written as a word is a fault in the file's shape, as
+# D-164 settled, and the whole file is refused on opening.
+REFUSED = {
+    "FX-EXTRACT-027": ("Black point written \"60\", a word, not a number. The file is refused "
+                       "on opening, as a fault in its shape (D-215, as D-164).",
                        case(black_point="60")),
 }
 
@@ -230,6 +236,10 @@ def main():
                                  "frames": {"0": before, "4": before},
                                  "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
+    for fx, (says, c) in REFUSED.items():
+        expected["cases"][fx] = {"says": says, "project": write(fx, c),
+                                 "refused": "PROJECT_SCHEMA_INVALID"}
+        print(f"{fx}: refused")
     (OUT / "expected_extract.json").write_text(json.dumps(expected, indent=1) + "\n",
                                                encoding="utf-8")
     check(expected)
@@ -237,7 +247,7 @@ def main():
 
 def check(expected):
     """The claims the cases are there to make, checked on the numbers just worked."""
-    c = {fx: v["frames"] for fx, v in expected["cases"].items()}
+    c = {fx: v["frames"] for fx, v in expected["cases"].items() if "frames" in v}
     at = lambda x, y: y * W + x  # noqa: E731
     drawn = plain(case())
     col = {q: x for x, q in enumerate(T.BANDS) if q != T.NONE}

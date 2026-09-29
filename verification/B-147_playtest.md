@@ -12,10 +12,9 @@ pictures below, and `verification/B-12b_state_fields_table.md`, which checks the
 every setting the command reads. This sheet covers what the tables cannot: how it looks in the
 window.
 
-**One question for you first, D-215.** Fixture FX-EXTRACT-027 was written expecting a file
-whose Black Point is written as a word ("60") to open with a warning; you already decided in
-D-164 that such a file is refused whole. The table shows that one case as in dispute. D-215
-proposes changing the fixture to expect the refusal, as with D-164. "D-215 accepted" is enough.
+**D-215 is settled.** You accepted it on 2026-09-29: fixture FX-EXTRACT-027, a Black Point
+written as a word ("60"), now expects the file refused whole, as D-164 decided, and the table
+checks exactly that. Nothing is in dispute.
 
 ## The pictures
 
@@ -74,4 +73,4 @@ Press **Full resolution**.
 
 ## What to answer
 
-"works", or which step number did something else and what it did; and "D-215 accepted" or not.
+"works", or which step number did something else and what it did.
