@@ -1785,6 +1785,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("max_vertical".into(), num(*max_vertical));
             params.insert("wrap".into(), J::from(wrap.as_str()));
         }
+        Effect::GradientWipe { layer, fit, completion, softness, invert, .. } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("completion".into(), num(*completion));
+            params.insert("softness".into(), num(*softness));
+            params.insert("invert".into(), J::from(invert.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2736,6 +2743,7 @@ fn parse_effect(
         crate::effects::LIGHTNING_BOLT,
         crate::effects::COMPOUND_BLUR,
         crate::effects::DISPLACEMENT_MAP,
+        crate::effects::GRADIENT_WIPE,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3237,6 +3245,15 @@ fn parse_effect(
             vertical: effect_word(params, "vertical", &at)?,
             max_vertical: effect_number(params, "max_vertical", &at)?,
             wrap: effect_word(params, "wrap", &at)?,
+            map: None,
+        }),
+        // D-194: the layer is kept as written, as Compound Blur's is.
+        crate::effects::GRADIENT_WIPE => Some(crate::effects::Effect::GradientWipe {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            completion: effect_number(params, "completion", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            invert: effect_word(params, "invert", &at)?,
             map: None,
         }),
         _ => None,

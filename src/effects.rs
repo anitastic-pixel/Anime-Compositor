@@ -835,6 +835,17 @@ pub enum Effect {
         wrap: String,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-194: `layer` and `fit`, D-189's layer setting as Compound Blur has them; `completion`
+    /// and `softness`, 0 to 100; and `invert`, `off` or `on`. `map` is not a setting and is never
+    /// saved: compose reads it for each frame.
+    GradientWipe {
+        layer: serde_json::Value,
+        fit: String,
+        completion: f64,
+        softness: f64,
+        invert: String,
+        map: Option<crate::layer_map::Map>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -912,6 +923,7 @@ pub const KIRA_KIRA: &str = "core.kira_kira";
 pub const LIGHTNING_BOLT: &str = "core.lightning_bolt";
 pub const COMPOUND_BLUR: &str = "core.compound_blur";
 pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
+pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1517,6 +1529,10 @@ impl Effect {
                 ("max_horizontal", vec![max_horizontal], -1000.0, 1000.0),
                 ("max_vertical", vec![max_vertical], -1000.0, 1000.0),
             ],
+            Effect::GradientWipe { completion, softness, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
+            ],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -1744,6 +1760,7 @@ impl Effect {
             Effect::LightningBolt { .. } => "Lightning Bolt",
             Effect::CompoundBlur { .. } => "Compound Blur",
             Effect::DisplacementMap { .. } => "Displacement Map",
+            Effect::GradientWipe { .. } => "Gradient Wipe",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1821,6 +1838,7 @@ impl Effect {
             Effect::LightningBolt { .. } => LIGHTNING_BOLT,
             Effect::CompoundBlur { .. } => COMPOUND_BLUR,
             Effect::DisplacementMap { .. } => DISPLACEMENT_MAP,
+            Effect::GradientWipe { .. } => GRADIENT_WIPE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -1998,7 +2016,8 @@ impl Effect {
     pub fn layer_setting(&self) -> Option<(&str, &str)> {
         match self {
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
-            | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             _ => None,
         }
     }
@@ -2006,7 +2025,9 @@ impl Effect {
     /// D-189: the layer setting as written, and the map compose reads into for a frame.
     pub fn layer_setting_mut(&mut self) -> Option<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
         match self {
-            Effect::CompoundBlur { layer, map, .. } | Effect::DisplacementMap { layer, map, .. } => Some((layer, map)),
+            Effect::CompoundBlur { layer, map, .. }
+            | Effect::DisplacementMap { layer, map, .. }
+            | Effect::GradientWipe { layer, map, .. } => Some((layer, map)),
             _ => None,
         }
     }
@@ -2276,6 +2297,15 @@ impl Effect {
             }
             Effect::DisplacementMap { wrap, .. } if !["off", "on"].contains(&wrap.as_str()) => Some(format!(
                 "Displacement Map's wrap is \"off\" or \"on\", and this is \"{wrap}\"."
+            )),
+            Effect::GradientWipe { layer, .. } if !layer.is_string() => Some(format!(
+                "Gradient Wipe's layer is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::GradientWipe { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "Gradient Wipe's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::GradientWipe { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "Gradient Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
@@ -3335,6 +3365,14 @@ pub(crate) fn apply_stack_at(
                             [*max_horizontal, *max_vertical],
                             wrap == "on",
                         )
+                    })
+                }
+            }
+            // D-194: the map compose read for this frame; with none, nothing is wiped.
+            Effect::GradientWipe { completion, softness, invert, map, .. } => {
+                if let Some(map) = map {
+                    crate::perf::time(crate::perf::Stage::EffectGradientWipe, || {
+                        crate::layer_fx::gradient_wipe(source, &map.0, (ox, oy), *completion, *softness, invert == "on")
                     })
                 }
             }

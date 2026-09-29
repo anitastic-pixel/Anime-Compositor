@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3256,6 +3256,15 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             wrap: "off".to_string(),
             map: None,
         }),
+        // D-194: After Effects' own: nothing wiped yet, a hard edge, stretched.
+        GRADIENT_WIPE => Some(Effect::GradientWipe {
+            layer: serde_json::Value::from(""),
+            fit: "stretch".to_string(),
+            completion: 0.0,
+            softness: 0.0,
+            invert: "off".to_string(),
+            map: None,
+        }),
         _ => None,
     }
 }
@@ -3863,6 +3872,19 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             vertical: word("vertical")?,
             max_vertical: number("max_vertical")?,
             wrap: word("wrap")?,
+            map: None,
+        }),
+        // D-189: as Compound Blur's, the setting travels as `map_layer`.
+        GRADIENT_WIPE => Ok(Effect::GradientWipe {
+            layer: serde_json::Value::from(
+                parameter(query, "map_layer")
+                    .ok_or_else(|| "What should map_layer be set to?".to_string())?
+                    .trim(),
+            ),
+            fit: word("fit")?,
+            completion: number("completion")?,
+            softness: number("softness")?,
+            invert: word("invert")?,
             map: None,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
@@ -6876,7 +6898,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
-                             core.compound_blur or core.displacement_map."
+                             core.compound_blur, core.displacement_map or core.gradient_wipe."
                                 .to_string(),
                         );
                     };
@@ -6903,7 +6925,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
-                             core.compound_blur and core.displacement_map."
+                             core.compound_blur, core.displacement_map and core.gradient_wipe."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -11439,7 +11461,7 @@ mod editing {
             run(&viewer, "effect.toggle_bypass?layer=layer-cel"),
         );
         report.check(
-            "an effect type this build does not have is refused, and the seventy-one are named",
+            "an effect type this build does not have is refused, and the seventy-two are named",
             "This build has no effect called core.warp. It has core.gaussian_blur, \
              core.exposure, core.tint, core.line_smooth, core.selective_color_blur, core.glow, \
              core.line_recolor, core.directional_blur, core.select_color, core.line_width, \
@@ -11457,7 +11479,7 @@ mod editing {
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
-             core.compound_blur and core.displacement_map.",
+             core.compound_blur, core.displacement_map and core.gradient_wipe.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -11478,7 +11500,7 @@ mod editing {
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
-             core.compound_blur or core.displacement_map.",
+             core.compound_blur, core.displacement_map or core.gradient_wipe.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -24715,6 +24737,16 @@ mod contract {
                 ("vertical", "alpha"),
                 ("max_vertical", "30"),
                 ("wrap", "on"),
+            ],
+        ),
+        (
+            "core.gradient_wipe",
+            &[
+                ("map_layer", "layer-4"),
+                ("fit", "center"),
+                ("completion", "40"),
+                ("softness", "25"),
+                ("invert", "on"),
             ],
         ),
     ];

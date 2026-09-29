@@ -206,6 +206,8 @@ pub enum Stage {
     EffectCompoundBlur,
     /// D-193's displacement map, its map read and one bilinear read a pixel.
     EffectDisplacementMap,
+    /// D-194's gradient wipe, its map read and one luma a pixel.
+    EffectGradientWipe,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -223,7 +225,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 87] = [
+    pub const ALL: [Stage; 88] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -304,6 +306,7 @@ impl Stage {
         Stage::EffectLightningBolt,
         Stage::EffectCompoundBlur,
         Stage::EffectDisplacementMap,
+        Stage::EffectGradientWipe,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -396,6 +399,7 @@ impl Stage {
             Stage::EffectLightningBolt => "effect: lightning bolt",
             Stage::EffectCompoundBlur => "effect: compound blur",
             Stage::EffectDisplacementMap => "effect: displacement map",
+            Stage::EffectGradientWipe => "effect: gradient wipe",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

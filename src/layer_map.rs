@@ -3,6 +3,8 @@
 //! to 3 for the layer named; this is what is done to it after: cut back to its own rectangle, and
 //! fitted to the holder.
 
+use rayon::prelude::*;
+
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::WorkingBuffer;
 
@@ -49,7 +51,7 @@ pub(crate) fn fit(picture: &WorkingBuffer, word: &str, size: (usize, usize)) -> 
     let dy = (fh as i64 - h as i64).div_euclid(2);
     let src = picture.data();
     let at = |x: usize, y: usize| &src[(y * w + x) * 4..][..4];
-    for (i, px) in out.data_mut().chunks_exact_mut(4).enumerate() {
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
         let (x, y) = (i % fw, i / fw);
         match word {
             "center" => {
@@ -78,7 +80,7 @@ pub(crate) fn fit(picture: &WorkingBuffer, word: &str, size: (usize, usize)) -> 
                 }
             }
         }
-    }
+    });
     Some(out)
 }
 

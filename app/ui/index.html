@@ -6800,6 +6800,7 @@ const EFFECT_NAMES = {
   'core.lightning_bolt': 'Lightning Bolt',
   'core.compound_blur': 'Compound Blur',
   'core.displacement_map': 'Displacement Map',
+  'core.gradient_wipe': 'Gradient Wipe',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -6824,7 +6825,7 @@ const EFFECT_GROUPS = [
     'core.posterize', 'core.threshold', 'core.solarize']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
-  ['Transition', ['core.linear_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe']],
+  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
 const EFFECT_SEARCH = {
@@ -6878,6 +6879,7 @@ const EFFECT_SEARCH = {
   'core.lightning_bolt': 'lightning advanced electric electricity spark thunder storm bolt zap',
   'core.compound_blur': 'compound variable map depth focus blur layer',
   'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction',
+  'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -6969,6 +6971,7 @@ const EFFECT_ABOUT = {
   'core.lightning_bolt': 'Draws a jagged, forking bolt of light from one point to another, a new one every few frames.',
   'core.compound_blur': 'Blurs the layer more where another layer of the composition is brighter.',
   'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition.',
+  'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -7264,6 +7267,9 @@ const EFFECT_PARAMS = {
   'core.displacement_map': [
     ['max_horizontal', 'Max Horizontal Displacement', 1, 0.5, 'px, -1000 to 1000, left where the channel is white'],
     ['max_vertical', 'Max Vertical Displacement', 1, 0.5, 'px, -1000 to 1000, up where the channel is white']],
+  // D-194.
+  'core.gradient_wipe': [['completion', 'Transition Completion', 1, 1, '% wiped away, 0 to 100'],
+    ['softness', 'Transition Softness', 1, 1, '%, 0 to 100, how soft the edge is']],
 };
 // Each effect's settings that are not numbers, drawn apart in effectRow and sent with every
 // change as the numbers are: its switches, as [name, label, [[value, words]...]]; its single
@@ -7426,6 +7432,12 @@ const EFFECT_WORDS = {
       ['vertical', 'Use For Vertical Displacement', MAP_CHANNELS],
       ['fit', 'Displacement Map Behavior', [['stretch', 'Stretch Map to Fit'], ['center', 'Centre Map'], ['tile', 'Tile Map']]],
       ['wrap', 'Wrap Pixels Around', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-194, After Effects' own words.
+  'core.gradient_wipe': {
+    layers: [['layer', 'Gradient Layer', 'map_layer']],
+    choices: [['fit', 'Gradient Placement', [['stretch', 'Stretch Gradient to Fit'], ['center', 'Center Gradient'], ['tile', 'Tile Gradient']]],
+      ['invert', 'Invert Gradient', [['off', 'Off'], ['on', 'On']]]],
   },
 };
 // The effect cards folded shut, by instance, for as long as the window is open.

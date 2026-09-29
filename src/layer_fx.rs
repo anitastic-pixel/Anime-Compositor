@@ -2065,3 +2065,42 @@ fn wrapped(src: &WorkingBuffer, (w, h): (usize, usize), x: f64, y: f64) -> [f32;
     }
     out
 }
+
+/// D-194: Gradient Wipe. Each pixel is kept by how far the picture luma of the map under it lies
+/// above the edge `completion` has reached, over a band `softness` wide; the map lies on the
+/// layer's own picture, which sits at `origin` in `source`, and reads black outside it.
+pub(crate) fn gradient_wipe(
+    source: &mut WorkingBuffer,
+    map: &WorkingBuffer,
+    origin: (usize, usize),
+    completion: f64,
+    softness: f64,
+    invert: bool,
+) {
+    if completion == 0.0 {
+        return;
+    }
+    if completion == 100.0 {
+        source.data_mut().fill(0.0);
+        return;
+    }
+    let (c, s) = (completion / 100.0, softness / 100.0);
+    let edge = -s / 2.0 + c * (1.0 + s);
+    let w = source.width();
+    let (mw, mh) = (map.width(), map.height());
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w).wrapping_sub(origin.0), (i / w).wrapping_sub(origin.1));
+        let v = if x < mw && y < mh { picture_luma(map.pixel(x, y)) } else { 0.0 };
+        let v = if invert { 1.0 - v } else { v };
+        let k = if s > 0.0 {
+            ((v - edge) / s + 0.5).clamp(0.0, 1.0)
+        } else if v >= edge {
+            1.0
+        } else {
+            0.0
+        };
+        for p in px.iter_mut() {
+            *p = (*p as f64 * k) as f32;
+        }
+    });
+}
