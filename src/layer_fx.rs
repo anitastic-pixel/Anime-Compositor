@@ -1245,6 +1245,44 @@ pub(crate) fn roughen_edges(
         });
 }
 
+/// D-207: a straight beam along the stretch of the line from `s` to `e` (buffer pixels) that
+/// `length` and `time` pick, its thickness running from `t0` to `t1` along the whole line, its
+/// edge softened over one pixel up to the whole thickness, its colour linear `inside` on the line
+/// to `outside` at the edge; over the layer, or alone. Nothing grows. The settings are already
+/// valid.
+pub(crate) fn beam(
+    source: &mut WorkingBuffer,
+    [s, e]: [(f64, f64); 2],
+    [length, time, t0, t1, softness]: [f64; 5],
+    [inside, outside]: [[f64; 3]; 2],
+    alone: bool,
+) {
+    let w = source.width();
+    let l = length / 100.0;
+    let a = time / 100.0 * (1.0 - l);
+    let (ax, ay) = (s.0 + a * (e.0 - s.0), s.1 + a * (e.1 - s.1));
+    let (dx, dy) = (l * (e.0 - s.0), l * (e.1 - s.1));
+    let l2 = dx * dx + dy * dy;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5 - ax, (i / w) as f64 + 0.5 - ay);
+            let t = if l2 == 0.0 { 0.0 } else { ((x * dx + y * dy) / l2).clamp(0.0, 1.0) };
+            let d = (x - t * dx).hypot(y - t * dy);
+            let r = (t0 + (a + t * l) * (t1 - t0)) / 2.0;
+            let sw = (2.0 * r * softness / 100.0).max(1.0);
+            let c = (((d + sw / 2.0).min(r) - (d - sw / 2.0).max(-r)) / sw).clamp(0.0, 1.0);
+            let q = if r == 0.0 { 1.0 } else { (d / r).min(1.0) };
+            let keep = if alone { 0.0 } else { 1.0 - c };
+            for ch in 0..3 {
+                px[ch] = (px[ch] as f64 * keep + ((1.0 - q) * inside[ch] + q * outside[ch]) * c) as f32;
+            }
+            px[3] = (px[3] as f64 * keep + c) as f32;
+        });
+}
+
 /// `sample_bilinear` at `x` across the drawing, `dw` wide from column `ox` of the buffer, and
 /// `y` down the buffer, each tap's column taken round the drawing's width, so its left and
 /// right edges join.

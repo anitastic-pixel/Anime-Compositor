@@ -1971,6 +1971,29 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("speed".into(), num(*speed));
             params.insert("seed".into(), num(*seed));
         }
+        Effect::Beam {
+            start,
+            end,
+            length,
+            time,
+            start_thickness,
+            end_thickness,
+            softness,
+            inside_color,
+            outside_color,
+            composite,
+        } => {
+            params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
+            params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
+            params.insert("length".into(), num(*length));
+            params.insert("time".into(), num(*time));
+            params.insert("start_thickness".into(), num(*start_thickness));
+            params.insert("end_thickness".into(), num(*end_thickness));
+            params.insert("softness".into(), num(*softness));
+            params.insert("inside_color".into(), J::from(inside_color.as_str()));
+            params.insert("outside_color".into(), J::from(outside_color.as_str()));
+            params.insert("composite".into(), J::from(composite.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2500,6 +2523,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "interpolation",
         "segments",
         "border",
+        "time",
+        "start_thickness",
+        "end_thickness",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -2985,6 +3011,7 @@ fn parse_effect(
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
+        crate::effects::BEAM,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3598,6 +3625,18 @@ fn parse_effect(
             speed: effect_number(params, "speed", &at)?,
             seed: effect_number(params, "seed", &at)?,
             frame: 0,
+        }),
+        crate::effects::BEAM => Some(crate::effects::Effect::Beam {
+            start: effect_array(params, "start", "two numbers, x then y", &at)?,
+            end: effect_array(params, "end", "two numbers, x then y", &at)?,
+            length: effect_number(params, "length", &at)?,
+            time: effect_number(params, "time", &at)?,
+            start_thickness: effect_number(params, "start_thickness", &at)?,
+            end_thickness: effect_number(params, "end_thickness", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            inside_color: effect_word(params, "inside_color", &at)?.to_ascii_lowercase(),
+            outside_color: effect_word(params, "outside_color", &at)?.to_ascii_lowercase(),
+            composite: effect_word(params, "composite", &at)?,
         }),
         _ => None,
     };

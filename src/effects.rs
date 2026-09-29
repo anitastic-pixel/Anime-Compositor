@@ -1081,6 +1081,22 @@ pub enum Effect {
         seed: f64,
         frame: i32,
     },
+    /// D-207: `start` and `end`, per cent of the drawing's width and height, each -1000 to 1000;
+    /// `length`, `time` and `softness`, 0 to 100; `start_thickness` and `end_thickness`, 0 to 500
+    /// pixels; `inside_color` and `outside_color`, `#rrggbb`; and `composite`, "on" or "off",
+    /// kept as written so a wrong one is reported.
+    Beam {
+        start: [f64; 2],
+        end: [f64; 2],
+        length: f64,
+        time: f64,
+        start_thickness: f64,
+        end_thickness: f64,
+        softness: f64,
+        inside_color: String,
+        outside_color: String,
+        composite: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1171,6 +1187,7 @@ pub const SMART_BLUR: &str = "core.smart_blur";
 pub const SNOWFALL: &str = "core.snowfall";
 pub const KALEIDOSCOPE: &str = "core.kaleidoscope";
 pub const ROUGHEN_EDGES: &str = "core.roughen_edges";
+pub const BEAM: &str = "core.beam";
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1857,6 +1874,24 @@ impl Effect {
                 ("speed", vec![speed], -360.0, 360.0),
                 ("seed", vec![seed], 0.0, 100000.0),
             ],
+            Effect::Beam {
+                start,
+                end,
+                length,
+                time,
+                start_thickness,
+                end_thickness,
+                softness,
+                ..
+            } => vec![
+                ("start", start.iter_mut().collect(), -1000.0, 1000.0),
+                ("end", end.iter_mut().collect(), -1000.0, 1000.0),
+                ("length", vec![length], 0.0, 100.0),
+                ("time", vec![time], 0.0, 100.0),
+                ("start_thickness", vec![start_thickness], 0.0, 500.0),
+                ("end_thickness", vec![end_thickness], 0.0, 500.0),
+                ("softness", vec![softness], 0.0, 100.0),
+            ],
             Effect::CornerPin {
                 upper_left,
                 upper_right,
@@ -1990,6 +2025,10 @@ impl Effect {
             Effect::RoughenEdges { border, size, .. } => {
                 *border = scale(*border);
                 *size = scale(*size).max(1.0);
+            }
+            Effect::Beam { start_thickness, end_thickness, .. } => {
+                *start_thickness = scale(*start_thickness);
+                *end_thickness = scale(*end_thickness);
             }
             Effect::Bloom { radius, length, .. } => {
                 *radius = scale(*radius);
@@ -2197,6 +2236,7 @@ impl Effect {
             Effect::Snowfall { .. } => "Snowfall",
             Effect::Kaleidoscope { .. } => "Kaleidoscope",
             Effect::RoughenEdges { .. } => "Roughen Edges",
+            Effect::Beam { .. } => "Beam",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2287,6 +2327,7 @@ impl Effect {
             Effect::Snowfall { .. } => SNOWFALL,
             Effect::Kaleidoscope { .. } => KALEIDOSCOPE,
             Effect::RoughenEdges { .. } => ROUGHEN_EDGES,
+            Effect::Beam { .. } => BEAM,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2738,6 +2779,11 @@ impl Effect {
                 ))
             }
             Effect::RoughenEdges { edge_color, .. } => hex_fault("Roughen Edges", "edge colour", edge_color),
+            Effect::Beam { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
+                "Beam's composite is \"on\" or \"off\", and this is \"{composite}\"."
+            )),
+            Effect::Beam { inside_color, outside_color, .. } => hex_fault("Beam", "inside colour", inside_color)
+                .or_else(|| hex_fault("Beam", "outside colour", outside_color)),
             Effect::Halftone { ink, paper, .. } => {
                 hex_fault("Halftone", "ink", ink).or_else(|| hex_fault("Halftone", "paper", paper))
             }
@@ -3728,6 +3774,25 @@ pub(crate) fn apply_stack_at(
                     crate::layer_fx::roughen_edges(source, color, numbers, (ox, oy))
                 })
             }
+            // D-207: the points are the drawing's own, however an effect above grew it; the layer
+            // never grows.
+            Effect::Beam {
+                start,
+                end,
+                length,
+                time,
+                start_thickness,
+                end_thickness,
+                softness,
+                inside_color,
+                outside_color,
+                composite,
+            } => crate::perf::time(crate::perf::Stage::EffectBeam, || {
+                let colours = [encoded(inside_color), encoded(outside_color)].map(|c| c.map(crate::grade::to_linear));
+                let ends = [radial_center(*start, source, (ox, oy)), radial_center(*end, source, (ox, oy))];
+                let numbers = [*length, *time, *start_thickness, *end_thickness, *softness];
+                crate::layer_fx::beam(source, ends, numbers, colours, composite == "off")
+            }),
             // D-205: round the drawing's own centre, however an effect above grew it; the layer
             // never grows.
             Effect::Kaleidoscope {
