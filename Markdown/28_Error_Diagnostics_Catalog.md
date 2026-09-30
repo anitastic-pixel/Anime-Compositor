@@ -89,6 +89,8 @@ Two session-log lines, not `DiagnosticId` values because a preview's pixels are 
 |---|---|---|---|
 | DECODE_CACHE_DISCARDED | INFO | A disk copy of a decoded drawing failed its length, header or checksum check | delete the copy, decode the drawing fresh (pixels unchanged), write a whole copy again; one session-log line naming the file (name only) and the reason; nothing on screen |
 | DECODE_CACHE_NOT_WRITTEN | INFO | A decoded drawing could not be written to the disk cache (disk full, folder not writable) | show the decoded drawing as usual; one session-log line; it is decoded again next time |
+| FRAME_CACHE_DISCARDED | INFO | A disk copy of a composition frame (B-171) failed its length, header, checksum or key check | delete the copy, draw the frame fresh (pixels unchanged); one session-log line with the reason; nothing on screen |
+| FRAME_CACHE_NOT_WRITTEN | INFO | A composition frame could not be written to the disk cache (disk full, folder not writable) | show the frame as usual, keep it in memory; one session-log line; it is drawn again next session |
 
 ## UI presentation
 

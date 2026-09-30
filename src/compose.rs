@@ -173,6 +173,42 @@ pub fn plan_frame_for_card(
 /// loader and the commands refuse a composition cycle (D-67), so it is only ever a guard: a
 /// cycle reached some other way ends the render instead of hanging it.
 #[allow(clippy::too_many_arguments)]
+/// B-171 (G12, D-243): everything a frame of `inner` is drawn from other than the files it reads,
+/// as text: this build of the program, the folder, the quality, the frame, every composition it
+/// can reach and every asset, as they stand. `None` for a build whose identity cannot be read, and
+/// for a composition that reaches one it is being drawn inside, whose frame depends on where.
+// ponytail: the whole text is made on every inner frame asked for, which is a few kilobytes;
+// digest it once per edit if a project with thousands of assets makes it show.
+fn inner_key(
+    project: &Project,
+    inner: &Id,
+    root: &Path,
+    quality: PreviewQuality,
+    frame: i32,
+    above: &[Id],
+    outer: &Id,
+) -> Option<String> {
+    let mut reach = vec![inner.clone()];
+    let mut next = 0;
+    while let Some(id) = reach.get(next).cloned() {
+        next += 1;
+        for id in project.composition(&id).into_iter().flat_map(|c| c.layers_in_order()).filter_map(|l| l.composition_id.as_ref()) {
+            if !reach.contains(id) {
+                reach.push(id.clone());
+            }
+        }
+    }
+    if reach.iter().any(|id| id == outer || above.contains(id)) {
+        return None;
+    }
+    let mut key = format!("{}\n{root:?}\n{quality:?}\n{frame}\n", crate::cache::build()?);
+    for id in &reach {
+        key.push_str(&format!("{:?}\n", project.composition(id)));
+    }
+    key.push_str(&format!("{:?}", project.assets));
+    Some(key)
+}
+
 fn plan_inside(
     project: &Project,
     composition_id: &Id,
@@ -1156,47 +1192,60 @@ fn resolve_held(
             if !inside(local) {
                 return None;
             }
-            above.push(comp.id.clone());
-            let mut within = FrameLog::new(usize::MAX);
-            let plan = plan_inside(
-                project,
-                inner_id,
-                local,
-                root,
-                quality,
-                &mut within,
-                cache,
-                above,
-                false,
-            );
-            above.pop();
-            // What went wrong inside belongs to the frame that was asked for, not to the inner
-            // frame's number: an export decides what to block by the frame it is writing.
-            log.absorb(within, frame, &layer.name);
-            let plan = match plan {
-                Ok(plan) => crate::preview::scale_plan(plan, quality),
-                Err(d) => {
-                    log.record(frame, layer.name.clone(), d);
-                    return None;
-                }
-            };
-            // ponytail: the inner frame is rendered here every time it is asked for, so a
-            // composition shown twice in one frame renders twice and a held inner frame renders
-            // again on the next outer frame. A cache of inner frames keyed by composition, frame
-            // and quality is the upgrade, with D-67's invalidation rule (document 27).
-            let tile = match quality {
-                PreviewQuality::Full => DEFAULT_TILE_SIZE,
-                PreviewQuality::Draft => DRAFT_TILE_SIZE,
-            };
-            Some(render::render(&plan, tile))
+            // B-171 (G12, D-243): the viewer keeps each inner frame it draws, in memory and on
+            // disk, and draws it again only when something it was drawn from has changed.
+            let key = (cache.effect_budget() > 0)
+                .then(|| inner_key(project, inner_id, root, quality, local, above, &comp.id))
+                .flatten();
+            if let Some(picture) = key.as_deref().and_then(|key| cache.inner_frame(key)) {
+                return Some(picture);
+            }
+            let started = std::time::Instant::now();
+            let (drawn, files) = crate::cache::files_read(|| {
+                above.push(comp.id.clone());
+                let mut within = FrameLog::new(usize::MAX);
+                let plan = plan_inside(
+                    project,
+                    inner_id,
+                    local,
+                    root,
+                    quality,
+                    &mut within,
+                    cache,
+                    above,
+                    false,
+                );
+                above.pop();
+                // A frame that said something is not kept: a kept frame says nothing when used.
+                let quiet = within.is_empty();
+                // What went wrong inside belongs to the frame that was asked for, not to the inner
+                // frame's number: an export decides what to block by the frame it is writing.
+                log.absorb(within, frame, &layer.name);
+                let plan = match plan {
+                    Ok(plan) => crate::preview::scale_plan(plan, quality),
+                    Err(d) => {
+                        log.record(frame, layer.name.clone(), d);
+                        return None;
+                    }
+                };
+                let tile = match quality {
+                    PreviewQuality::Full => DEFAULT_TILE_SIZE,
+                    PreviewQuality::Draft => DRAFT_TILE_SIZE,
+                };
+                Some((std::sync::Arc::new(render::render(&plan, tile)), quiet))
+            });
+            let (picture, quiet) = drawn?;
+            if let (Some(key), true) = (key, quiet) {
+                cache.store_inner(key, files, std::sync::Arc::clone(&picture), started.elapsed());
+            }
+            Some(picture)
         };
         let picture = if w > 0.0 {
             let a = draw(local);
-            mix(a.as_ref(), draw(local + 1).as_ref(), w)?
+            std::sync::Arc::new(mix(a.as_deref(), draw(local + 1).as_deref(), w)?)
         } else {
             draw(local)?
         };
-        let picture = std::sync::Arc::new(picture);
         let mut resolved = resolve_rest(
             project,
             root,

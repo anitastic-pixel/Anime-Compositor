@@ -159,14 +159,26 @@ const DECODER_VERSION: u32 = 1;
 const MAGIC: &[u8; 8] = b"TNAEcel1";
 /// The magic, the width, the height and the checksum: four eight-byte words.
 const HEADER: usize = 32;
+/// B-171: the first eight bytes of every kept composition frame.
+const FRAME_MAGIC: &[u8; 8] = b"TNAEfrm1";
+/// The magic, the width, the height, the length of the text, and the text's and the pixels'
+/// checksums: six eight-byte words.
+const FRAME_HEADER: usize = 48;
+/// B-171 (D-243): a composition frame is written to disk only when drawing it took at least as
+/// long as reading its bytes back would, at this many bytes a millisecond: 16.6 ms for a
+/// 1920x1080 frame at Full, 4.1 ms at Draft. Lighter frames are only kept in memory.
+// ponytail: one figure for every disk; measure the folder's own speed if a slow disk makes
+// reading back slower than drawing.
+const DISK_BYTES_PER_MS: f64 = 2_000_000.0;
 
 /// B-161, D-232: where decoded cels are kept on disk between sessions, and how much they may take.
 ///
 /// Document 27 line 58: "Temporary cache storage, if added later, must be separate, disposable and
 /// versioned." Separate: its own folder, and it only ever reads, writes or deletes files ending
-/// `.cel` or `.part` there, so a folder chosen by mistake loses nothing else. Disposable: every file
-/// is a copy of something the drawing file can produce again, and a copy that fails its checks is
-/// deleted and decoded fresh. Versioned: [`DECODER_VERSION`] is in every name.
+/// `.cel`, `.frame` or `.part` there, so a folder chosen by mistake loses nothing else. Disposable:
+/// every file is a copy of something the drawing file can produce again, and a copy that fails its
+/// checks is deleted and decoded fresh. Versioned: [`DECODER_VERSION`] is in every cel's name, and
+/// the program's own identity in every composition frame's (B-171).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DiskCache {
     pub folder: PathBuf,
@@ -224,9 +236,86 @@ impl DiskCache {
         media::from_8bit(file, w, h, &rgba).map(Some).map_err(|d| format!("its header is not a picture's ({})", d.detail))
     }
 
-    /// Keep `buffer` in `file`, whole or not at all: written under another name and renamed, so a
-    /// copy that is half written is never read as one.
+    /// Keep `buffer` in `file`.
     fn store(&self, file: &Path, w: usize, h: usize, rgba: &[u8]) -> std::io::Result<()> {
+        let mut head = [0u8; HEADER];
+        head[..8].copy_from_slice(MAGIC);
+        head[8..16].copy_from_slice(&(w as u64).to_le_bytes());
+        head[16..24].copy_from_slice(&(h as u64).to_le_bytes());
+        head[24..].copy_from_slice(&checksum(rgba).to_le_bytes());
+        self.put(file, &[&head, rgba])
+    }
+
+    /// B-171 (G12): the file the composition frame kept under `key` is in.
+    fn frame_file(&self, key: &str) -> PathBuf {
+        self.folder.join(format!("{}.frame", crate::sha256::hex(key.as_bytes())))
+    }
+
+    /// B-171: the composition frame kept in `file` under `key`, and the files it was drawn from, as
+    /// [`load`](Self::load) reads a cel: `Ok(None)` when there is none, `Err` with the reason when
+    /// the file is there but is not a whole copy of that frame. The key is kept whole in the file
+    /// and compared, so two keys whose names happened to match could not be mistaken for each other.
+    fn load_frame(&self, file: &Path, key: &str) -> Result<Option<(WorkingBuffer, Vec<Stamp>)>, String> {
+        let mut f = match std::fs::OpenOptions::new().read(true).write(true).open(file) {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(format!("it could not be opened ({e})")),
+        };
+        let mut head = [0u8; FRAME_HEADER];
+        f.read_exact(&mut head).map_err(|_| "it is shorter than its own header".to_string())?;
+        if &head[..8] != FRAME_MAGIC {
+            return Err("it does not begin the way a copy does".into());
+        }
+        let word = |at: usize| u64::from_le_bytes(head[at..at + 8].try_into().expect("eight bytes"));
+        let (w, h, text, text_sum, pixel_sum) = (word(8) as usize, word(16) as usize, word(24) as usize, word(32), word(40));
+        // Checked against the file's length before anything is allocated, as a cel's is.
+        let length = f.metadata().map_err(|e| format!("its length could not be read ({e})"))?.len();
+        let whole = w
+            .checked_mul(h)
+            .and_then(|n| n.checked_mul(16))
+            .and_then(|n| n.checked_add(FRAME_HEADER))
+            .and_then(|n| n.checked_add(text))
+            .map(|n| n as u64);
+        if whole != Some(length) {
+            return Err(format!("it holds {length} bytes, not the {} a {w}x{h} frame holds", whole.unwrap_or(0)));
+        }
+        let mut words = vec![0u8; text];
+        f.read_exact(&mut words).map_err(|e| format!("it could not be read to the end ({e})"))?;
+        let mut picture = WorkingBuffer::transparent(w, h);
+        f.read_exact(bytemuck::cast_slice_mut(picture.data_mut()))
+            .map_err(|e| format!("it could not be read to the end ({e})"))?;
+        if checksum(&words) != text_sum || checksum(bytemuck::cast_slice(picture.data())) != pixel_sum {
+            return Err("its contents do not match the checksums written with them".into());
+        }
+        let words = String::from_utf8(words).map_err(|_| "its text is not text".to_string())?;
+        let (kept, stamps) = words.split_once('\0').ok_or("its text has no end to its key")?;
+        if kept != key {
+            return Err("it was kept for another frame".into());
+        }
+        let files = stamps_of(stamps).ok_or("its list of files cannot be read")?;
+        let _ = f.set_modified(SystemTime::now());
+        Ok(Some((picture, files)))
+    }
+
+    /// B-171: keep `picture`, drawn from `files`, in `file` under `key`. Its floats are written as
+    /// they are in memory, which is little-endian on every machine this program runs on.
+    fn store_frame(&self, file: &Path, key: &str, files: &str, picture: &WorkingBuffer) -> std::io::Result<()> {
+        let text = format!("{key}\0{files}");
+        let pixels: &[u8] = bytemuck::cast_slice(picture.data());
+        let mut head = [0u8; FRAME_HEADER];
+        head[..8].copy_from_slice(FRAME_MAGIC);
+        for (at, word) in [picture.width() as u64, picture.height() as u64, text.len() as u64, checksum(text.as_bytes()), checksum(pixels)]
+            .into_iter()
+            .enumerate()
+        {
+            head[8 + at * 8..16 + at * 8].copy_from_slice(&word.to_le_bytes());
+        }
+        self.put(file, &[&head, text.as_bytes(), pixels])
+    }
+
+    /// Write `parts` to `file`, whole or not at all: written under another name and renamed, so a
+    /// copy that is half written is never read as one.
+    fn put(&self, file: &Path, parts: &[&[u8]]) -> std::io::Result<()> {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         std::fs::create_dir_all(&self.folder)?;
         let part = file.with_extension(format!(
@@ -236,13 +325,9 @@ impl DiskCache {
         ));
         let written = (|| {
             let mut out = std::fs::File::create(&part)?;
-            let mut head = [0u8; HEADER];
-            head[..8].copy_from_slice(MAGIC);
-            head[8..16].copy_from_slice(&(w as u64).to_le_bytes());
-            head[16..24].copy_from_slice(&(h as u64).to_le_bytes());
-            head[24..].copy_from_slice(&checksum(rgba).to_le_bytes());
-            out.write_all(&head)?;
-            out.write_all(rgba)?;
+            for bytes in parts {
+                out.write_all(bytes)?;
+            }
             drop(out);
             std::fs::rename(&part, file)
         })();
@@ -264,7 +349,7 @@ impl DiskCache {
             let Ok(meta) = entry.metadata() else { continue };
             let time = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
             match path.extension().and_then(|e| e.to_str()) {
-                Some("cel") => copies.push((time, meta.len(), path)),
+                Some("cel" | "frame") => copies.push((time, meta.len(), path)),
                 Some("part") if time.elapsed().is_ok_and(|age| age > Duration::from_secs(3600)) => {
                     let _ = std::fs::remove_file(&path);
                 }
@@ -465,7 +550,15 @@ pub struct CelCache {
     /// results competing with cels in one list would be evicted exactly before they are wanted.
     effect_budget: usize,
     effect_held: usize,
-    effect_entries: Vec<(EffectKey, EffectResult)>,
+    /// With when each was last used, counted in [`tick`](Self::tick)s.
+    effect_entries: Vec<(EffectKey, EffectResult, u64)>,
+    /// B-171 (G12, D-243): frames of compositions shown inside another, as the viewer drew them,
+    /// with the files each was drawn from and when it was last used. Least recently used first.
+    /// Held under the effect budget beside the effect results, and let go with them in the order
+    /// the two were last used, so neither kind can push out the other's newest.
+    inner: Vec<(String, Vec<Stamp>, Arc<WorkingBuffer>, u64)>,
+    /// A count of uses, the clock the two lists above are let go by.
+    tick: u64,
     effect_hits: u64,
     effect_misses: u64,
     effect_evicted: u64,
@@ -507,6 +600,8 @@ impl CelCache {
             effect_budget: effects,
             effect_held: 0,
             effect_entries: Vec::new(),
+            inner: Vec::new(),
+            tick: 0,
             effect_hits: 0,
             effect_misses: 0,
             effect_evicted: 0,
@@ -550,11 +645,101 @@ impl CelCache {
             self.held -= bytes_of(&evicted);
             self.evicted += 1;
         }
+        self.trim_effects();
+    }
+
+    /// Let go of effect results and composition frames, least recently used first, until what is
+    /// held fits the effect budget.
+    fn trim_effects(&mut self) {
         while self.effect_held > self.effect_budget {
-            let (_, evicted) = self.effect_entries.remove(0);
-            self.effect_held -= bytes_of(&evicted.buffer);
-            self.effect_evicted += 1;
+            let inner_older = match (self.inner.first(), self.effect_entries.first()) {
+                (Some(inner), Some(effect)) => inner.3 < effect.2,
+                (Some(_), None) => true,
+                (None, Some(_)) => false,
+                (None, None) => break,
+            };
+            self.effect_held -= if inner_older {
+                bytes_of(&self.inner.remove(0).2)
+            } else {
+                self.effect_evicted += 1;
+                bytes_of(&self.effect_entries.remove(0).1.buffer)
+            };
         }
+    }
+
+    /// B-171 (G12, D-243): the frame of a composition shown inside another kept under `key`, from
+    /// memory or from the disk folder, while every file it was drawn from is as it was. The
+    /// viewer's alone: `None` without an effect budget, so an export draws every inner frame
+    /// itself (ADR-015).
+    pub fn inner_frame(&mut self, key: &str) -> Option<Arc<WorkingBuffer>> {
+        if self.effect_budget == 0 {
+            return None;
+        }
+        self.tick += 1;
+        if let Some(at) = self.inner.iter().position(|(k, ..)| k == key) {
+            let mut entry = self.inner.remove(at);
+            if !unchanged(&entry.1) {
+                self.effect_held -= bytes_of(&entry.2);
+                return None;
+            }
+            entry.3 = self.tick;
+            let picture = Arc::clone(&entry.2);
+            self.inner.push(entry);
+            return Some(picture);
+        }
+        let disk = self.disk.as_ref()?;
+        let file = disk.frame_file(key);
+        match crate::perf::time(crate::perf::Stage::FileRead, || disk.load_frame(&file, key)) {
+            Ok(Some((picture, files))) if unchanged(&files) => {
+                let picture = Arc::new(picture);
+                self.keep_inner(key.to_string(), files, Arc::clone(&picture));
+                Some(picture)
+            }
+            Ok(Some(_)) => {
+                // Drawn from files that have changed since: it can never be right again.
+                let _ = std::fs::remove_file(&file);
+                None
+            }
+            Ok(None) => None,
+            Err(reason) => {
+                let _ = std::fs::remove_file(&file);
+                self.disk_notes.push(format!(
+                    "FRAME_CACHE_DISCARDED: the disk copy of a composition frame was deleted and the frame drawn again, because {reason}."
+                ));
+                None
+            }
+        }
+    }
+
+    /// B-171: keep a composition frame the viewer drew from `files` in `took`: in memory, and in
+    /// the disk folder too when drawing it took longer than reading it back would
+    /// ([`DISK_BYTES_PER_MS`]). A frame that read a file with no modification time is not kept.
+    pub fn store_inner(&mut self, key: String, files: Vec<Stamp>, picture: Arc<WorkingBuffer>, took: Duration) {
+        if self.effect_budget == 0 || !files.iter().all(|(_, was)| was.is_none_or(|(_, modified)| modified.is_some())) {
+            return;
+        }
+        let heavy = took.as_secs_f64() * 1000.0 * DISK_BYTES_PER_MS >= bytes_of(&picture) as f64;
+        if let (Some(disk), true) = (&self.disk, heavy) {
+            let written = stamps_text(&files)
+                .map_or(Ok(()), |text| disk.store_frame(&disk.frame_file(&key), &key, &text, &picture));
+            if let Err(e) = written {
+                self.disk_notes.push(format!(
+                    "FRAME_CACHE_NOT_WRITTEN: a composition frame was drawn but could not be kept on disk ({e}); it will be drawn again next time."
+                ));
+            }
+        }
+        self.keep_inner(key, files, picture);
+    }
+
+    fn keep_inner(&mut self, key: String, files: Vec<Stamp>, picture: Arc<WorkingBuffer>) {
+        let bytes = bytes_of(&picture);
+        if bytes > self.effect_budget {
+            return;
+        }
+        self.tick += 1;
+        self.inner.push((key, files, picture, self.tick));
+        self.effect_held += bytes;
+        self.trim_effects();
     }
 
     /// A cache that holds nothing, ever. Export and every non-preview caller use this.
@@ -728,9 +913,11 @@ impl CelCache {
         }
         let key = self.effect_key(path, interpretation, masks, effects, divisor)?;
         crate::perf::time(crate::perf::Stage::EffectCache, || {
-            match self.effect_entries.iter().position(|(k, _)| *k == key) {
+            match self.effect_entries.iter().position(|(k, ..)| *k == key) {
                 Some(at) => {
-                    let entry = self.effect_entries.remove(at);
+                    let mut entry = self.effect_entries.remove(at);
+                    self.tick += 1;
+                    entry.2 = self.tick;
                     let result = entry.1.clone();
                     self.effect_entries.push(entry);
                     self.effect_hits += 1;
@@ -766,13 +953,10 @@ impl CelCache {
             if bytes > self.effect_budget {
                 return;
             }
-            self.effect_entries.push((key, result));
+            self.tick += 1;
+            self.effect_entries.push((key, result, self.tick));
             self.effect_held += bytes;
-            while self.effect_held > self.effect_budget {
-                let (_, evicted) = self.effect_entries.remove(0);
-                self.effect_held -= bytes_of(&evicted.buffer);
-                self.effect_evicted += 1;
-            }
+            self.trim_effects();
         });
     }
 
@@ -841,8 +1025,8 @@ impl CelCache {
         }
         self.effect_entries
             .iter()
-            .find(|(_, r)| Arc::ptr_eq(&r.buffer, buffer))
-            .map(|(key, _)| Name(Named::Effect(key.clone())))
+            .find(|(_, r, _)| Arc::ptr_eq(&r.buffer, buffer))
+            .map(|(key, ..)| Name(Named::Effect(key.clone())))
     }
 
     /// How many requests were answered from memory.
@@ -960,12 +1144,59 @@ pub fn files_read<T>(f: impl FnOnce() -> T) -> (T, Vec<Stamp>) {
 }
 
 /// Whether every file is as it was. A file with no modification time can never be trusted to be
-/// unchanged, so a frame that read one is never kept.
+/// unchanged, so a frame that read one is never kept. Each file is looked at through
+/// [`looked_at`], so a frame that uses something kept still knows every file it came from (B-171).
 pub fn unchanged(files: &[Stamp]) -> bool {
     files.iter().all(|(path, was)| {
-        was.is_none_or(|(_, modified)| modified.is_some())
-            && stamp(&std::fs::metadata(path)) == *was
+        was.is_none_or(|(_, modified)| modified.is_some()) && stamp(&looked_at(path)) == *was
     })
+}
+
+/// B-171: `files` as lines of text, "length nanoseconds path", or "- - path" for a file that was
+/// not there. `None` for a time before 1970 or a path that is not text, which is kept in memory
+/// only.
+fn stamps_text(files: &[Stamp]) -> Option<String> {
+    let mut text = String::new();
+    for (path, was) in files {
+        let path = path.to_str().filter(|p| !p.contains('\n'))?;
+        match was {
+            None => text.push_str(&format!("- - {path}\n")),
+            Some((len, modified)) => {
+                let since = modified.as_ref()?.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_nanos();
+                text.push_str(&format!("{len} {since} {path}\n"));
+            }
+        }
+    }
+    Some(text)
+}
+
+/// [`stamps_text`] read back.
+fn stamps_of(text: &str) -> Option<Vec<Stamp>> {
+    text.lines()
+        .map(|line| {
+            let mut words = line.splitn(3, ' ');
+            let (len, since, path) = (words.next()?, words.next()?, words.next()?);
+            let was = match len {
+                "-" => None,
+                _ => Some((len.parse().ok()?, Some(SystemTime::UNIX_EPOCH + Duration::from_nanos(since.parse().ok()?)))),
+            };
+            Some((PathBuf::from(path), was))
+        })
+        .collect()
+}
+
+/// B-171: this program, as its file on disk: its path, length and time. Every composition frame
+/// kept on disk is filed under it, so a frame drawn by another build of the program is never read.
+pub fn build() -> Option<&'static str> {
+    static BUILD: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    BUILD
+        .get_or_init(|| {
+            let exe = std::env::current_exe().ok()?;
+            let meta = std::fs::metadata(&exe).ok()?;
+            let since = meta.modified().ok()?.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_nanos();
+            Some(format!("{}\n{}\n{since}", exe.display(), meta.len()))
+        })
+        .as_deref()
 }
 
 /// B-154: everything a finished preview frame is made from, other than the files it read. Held by

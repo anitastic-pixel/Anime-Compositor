@@ -479,6 +479,11 @@ impl FrameLog {
         }
     }
 
+    /// Whether nothing has been recorded.
+    pub fn is_empty(&self) -> bool {
+        self.groups.is_empty()
+    }
+
     /// Offer one frame's diagnostic to the log.
     ///
     /// Nothing is dropped here: a suppressed occurrence still contributes its frame to the

@@ -777,6 +777,8 @@ B-159 / The layers below an edit kept by the viewer, D-241 (GPU plan G10). **BUI
 
 B-170 / A held masked drawing kept by the viewer, D-242 (GPU plan G11). **BUILT on 2026-09-30**, D-242 accepted under the owner's delegation. `src/compose.rs` `resolve_rest` asks the effect cache before drawing a mask, and for a masked drawing whose effects are all the card's. `verification/B-170_held_table.md`: 72 of 72 frames bit for bit a viewer that keeps nothing, with no mask drawn and no drawing sent on a held frame. **Timing** (`verification/B-170_timing_table.md`, on the card): a held frame of the reference shot with one masked layer 20.5 to 2.3 ms at Full, 18.4 to 0.7 at Draft. The playtest sheet is `verification/B-170_playtest.md`, **awaiting the owner's playtest**.
 
+B-171 / A composition inside another kept by the viewer, in memory and on disk, D-243 (GPU plan G12). **BUILT on 2026-09-30**, D-243 accepted under the owner's delegation. `src/cache.rs` `inner_frame`/`store_inner` and `.frame` files in B-161's disk folder; `src/compose.rs` asks it before drawing a composition layer's inner frame. `verification/B-171_precomp_table.md`: 42 of 42 frames bit for bit the export's, drawn only when something inside changed. **Timing** (`verification/B-171_timing_table.md`, on the card): at Full, played again 16.1 to 2.0 ms, outer edit 15.8 to 1.9, program reopened 31.8 to 13.5; first play 40.5 to 46.7. The playtest sheet is `verification/B-171_playtest.md`, **awaiting the owner's playtest**.
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.

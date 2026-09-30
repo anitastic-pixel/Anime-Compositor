@@ -168,3 +168,53 @@ fn a_composition_inside_another_is_kept() {
     fs::write(repo("verification/B-171_precomp_table.md"), table).expect("write the B-171 table");
     assert_eq!(passed, checks, "see verification/B-171_precomp_table.md");
 }
+
+/// The timing behind `verification/B-171_timing_table.md`: frames 0 to 23 of the outer
+/// composition drawn as the window draws them, on the card, with the viewer's cache at the size
+/// Automatic gives it on this machine. Median milliseconds of a frame, per pass.
+#[test]
+#[ignore]
+fn b171_timing() {
+    use anime_compositor::gpu::Gpu;
+    let mut gpu = Gpu::new().expect("a usable card");
+    let root = repo("target/b171_root");
+    let disk = repo("target/b171_disk");
+    let _ = fs::remove_dir_all(&root);
+    copy_dir(&repo("Fixtures/reference_shot"), &root);
+    let (base, outer_edit) = (nested(1.0, 1.0), nested(1.0, 0.8));
+    let mut rows = String::new();
+    for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+        let _ = fs::remove_dir_all(&disk);
+        let fresh = || {
+            let mut cache = CelCache::viewer_sized(anime_compositor::cache::automatic_budget());
+            cache.set_disk(Some(DiskCache { folder: disk.clone(), cap: 20_000_000_000 }));
+            cache
+        };
+        let pass = |project: &Project, cache: &mut CelCache, gpu: &mut Gpu| {
+            let mut ms: Vec<f64> = (0..24)
+                .map(|frame| {
+                    let mut log = FrameLog::new(3);
+                    let at = std::time::Instant::now();
+                    preview::preview_frame_srgb8(project, &Id::new(OUTER), frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, cache, gpu)
+                        .expect("the frame draws");
+                    at.elapsed().as_secs_f64() * 1000.0
+                })
+                .collect();
+            ms.sort_by(f64::total_cmp);
+            ms[ms.len() / 2]
+        };
+        gpu.forget();
+        let mut viewer = fresh();
+        let first = pass(&base, &mut viewer, &mut gpu);
+        let again = pass(&base, &mut viewer, &mut gpu);
+        let edited = pass(&outer_edit, &mut viewer, &mut gpu);
+        gpu.forget();
+        let reopened = pass(&base, &mut fresh(), &mut gpu);
+        writeln!(rows, "| {} | {first:.1} | {again:.1} | {edited:.1} | {reopened:.1} |", quality.label()).unwrap();
+    }
+    fs::write(
+        repo("verification/B-171_timing_raw.md"),
+        format!("| Quality | First play (ms) | Played again (ms) | Outer layer edited (ms) | Program opened again (ms) |\n|---|---:|---:|---:|---:|\n{rows}"),
+    )
+    .expect("write the timing");
+}

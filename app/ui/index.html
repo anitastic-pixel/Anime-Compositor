@@ -1044,8 +1044,8 @@
         <label for="prefcard">Graphics card, in GB</label>
         <input id="prefcard" type="number" min="1" step="0.5">
         <p id="memoryuse"></p>
-        <h3>Decoded drawings on disk</h3>
-        <p>The first time the preview unpacks a drawing it keeps a copy on disk, so playing the shot again, even after closing the program, starts sooner. The copies are the same pixels to the bit, are only for the preview (export always reads the drawings themselves), and are safe to delete at any time. 0 GB turns this off.</p>
+        <h3>Drawings and compositions on disk</h3>
+        <p>The first time the preview unpacks a drawing it keeps a copy on disk, so playing the shot again, even after closing the program, starts sooner. It does the same for a composition shown inside another when the composition is slow to draw, so the outer shot plays without drawing it again until something inside it changes. The copies are the same pixels to the bit, are only for the preview (export always reads the drawings themselves), and are safe to delete at any time. 0 GB turns this off.</p>
         <label for="prefdisk">Most on disk, in GB</label>
         <input id="prefdisk" type="number" min="0" step="1">
         <label for="prefdiskfolder">Folder (empty for the program's own)</label>
@@ -10795,7 +10795,7 @@ async function memory() {
   $('prefdiskfolder').placeholder = m.disk ? m.disk.folder : '';
   $('diskuse').textContent = m.disk
     ? 'Holding ' + GB(m.disk.held) + ' of ' + GB(m.disk.now) + ' GB now, in ' + m.disk.folder + '. The copies used longest ago are deleted first.'
-    : 'Off: every drawing is unpacked from its file each time.';
+    : 'Off: every drawing is unpacked from its file each time, and a composition inside another is kept only in memory.';
 }
 $('prefmemory').onchange = () => {
   prefs.memory = $('prefmemory').value;
