@@ -406,17 +406,37 @@ pub(crate) fn file_size(
 /// An EXR comes back linear light and premultiplied; its adjustment reasons were reported at
 /// import and are not repeated for every frame that shows it.
 pub fn decode(path: &Path) -> Result<ImageBuffer, Diagnostic> {
-    if crate::exr_io::is_exr(&path.to_string_lossy()) {
-        crate::exr_io::read(path).map(|picture| picture.image)
-    } else if is_other_format(path) {
-        let rgba = crate::perf::time(crate::perf::Stage::FileRead, || open_other(path))?.to_rgba8();
-        let (w, h) = (rgba.width() as usize, rgba.height() as usize);
-        ImageBuffer::from_srgb8_straight(w, h, rgba.as_raw()).map_err(|e: BufferError| {
-            decode_failed(path, &format!("{e} while building a {w}x{h} buffer"))
-        })
-    } else {
-        decode_png(path)
+    match decode_8bit(path) {
+        Some(pixels) => {
+            let (w, h, rgba) = pixels?;
+            from_8bit(path, w, h, &rgba)
+        }
+        None => crate::exr_io::read(path).map(|picture| picture.image),
     }
+}
+
+/// B-161: a drawing's pixels exactly as its decoder gives them, before any arithmetic: width,
+/// height and 8-bit sRGB straight RGBA, four bytes a pixel. `None` for an EXR, which is read
+/// straight to floats. [`decode`] is this and then [`from_8bit`], so these bytes are the whole of
+/// what a decode depends on the file for.
+pub fn decode_8bit(path: &Path) -> Option<Result<(usize, usize, Vec<u8>), Diagnostic>> {
+    if crate::exr_io::is_exr(&path.to_string_lossy()) {
+        None
+    } else if is_other_format(path) {
+        Some(crate::perf::time(crate::perf::Stage::FileRead, || open_other(path)).map(|picture| {
+            let rgba = picture.to_rgba8();
+            (rgba.width() as usize, rgba.height() as usize, rgba.into_raw())
+        }))
+    } else {
+        Some(png_8bit(path))
+    }
+}
+
+/// The picture [`decode_8bit`]'s bytes make, tagged sRGB and straight as document 21 says.
+pub fn from_8bit(path: &Path, w: usize, h: usize, rgba: &[u8]) -> Result<ImageBuffer, Diagnostic> {
+    ImageBuffer::from_srgb8_straight(w, h, rgba).map_err(|e: BufferError| {
+        decode_failed(path, &format!("{e} while building a {w}x{h} buffer"))
+    })
 }
 
 /// D-72: the drawing formats beside PNG and EXR, by extension. Each is read as a PNG is: 8-bit
@@ -497,6 +517,11 @@ fn check_format(
 /// Rechecks the format even though [`import_sequence`] already did: this is a public entry point
 /// and the file on disk may not be the one that was imported.
 pub fn decode_png(path: &Path) -> Result<ImageBuffer, Diagnostic> {
+    let (w, h, rgba) = png_8bit(path)?;
+    from_8bit(path, w, h, &rgba)
+}
+
+fn png_8bit(path: &Path) -> Result<(usize, usize, Vec<u8>), Diagnostic> {
     let mut reader = open_png(path)?;
     let (color, depth) = {
         let info = reader.info();
@@ -504,7 +529,7 @@ pub fn decode_png(path: &Path) -> Result<ImageBuffer, Diagnostic> {
     };
     check_format(path, color, depth)?;
 
-    let (w, h, rgba) = crate::perf::time(crate::perf::Stage::FileRead, || {
+    crate::perf::time(crate::perf::Stage::FileRead, || {
         let mut raw = vec![0u8; reader.output_buffer_size().unwrap_or(0)];
         let frame = reader
             .next_frame(&mut raw)
@@ -519,11 +544,7 @@ pub fn decode_png(path: &Path) -> Result<ImageBuffer, Diagnostic> {
                 .flat_map(|p| [p[0], p[1], p[2], 255])
                 .collect(),
         };
-        Ok::<_, Diagnostic>((w, h, rgba))
-    })?;
-
-    ImageBuffer::from_srgb8_straight(w, h, &rgba).map_err(|e: BufferError| {
-        decode_failed(path, &format!("{e} while building a {w}x{h} buffer"))
+        Ok((w, h, rgba))
     })
 }
 

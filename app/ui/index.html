@@ -1043,6 +1043,13 @@
         <label for="prefcard">Graphics card, in GB</label>
         <input id="prefcard" type="number" min="1" step="0.5">
         <p id="memoryuse"></p>
+        <h3>Decoded drawings on disk</h3>
+        <p>The first time the preview unpacks a drawing it keeps a copy on disk, so playing the shot again, even after closing the program, starts sooner. The copies are the same pixels to the bit, are only for the preview (export always reads the drawings themselves), and are safe to delete at any time. 0 GB turns this off.</p>
+        <label for="prefdisk">Most on disk, in GB</label>
+        <input id="prefdisk" type="number" min="0" step="1">
+        <label for="prefdiskfolder">Folder (empty for the program's own)</label>
+        <input id="prefdiskfolder" type="text">
+        <p id="diskuse"></p>
         <button id="closeprefs">Close</button>
       </div>
       <h2>Drawings</h2>
@@ -10647,7 +10654,10 @@ $('cancelcomp').onclick = () => { $('newcomposition').hidden = true; };
 const GB = (bytes) => (bytes / 1e9).toFixed(1);
 async function memory() {
   const custom = prefs.memory === 'custom';
-  const asked = custom && prefs.ramGB ? '?ram=' + prefs.ramGB + '&card=' + (prefs.cardGB || 'auto') : '?ram=auto&card=auto';
+  const asked = (custom && prefs.ramGB ? '?ram=' + prefs.ramGB + '&card=' + (prefs.cardGB || 'auto') : '?ram=auto&card=auto')
+    // B-161: the disk copies. Nothing typed is the default; the folder is the program's own.
+    + '&disk=' + (prefs.diskGB === undefined || prefs.diskGB === '' ? 'auto' : prefs.diskGB)
+    + '&diskfolder=' + encodeURIComponent(prefs.diskFolder || '');
   let m;
   try { m = await (await fetch(PROJECT + '/memory' + asked)).json(); } catch (e) { return; }
   $('prefmemory').value = prefs.memory;
@@ -10665,6 +10675,12 @@ async function memory() {
         + (m.card.memory ? 'It has ' + GB(m.card.memory) + ' GB; Automatic gives ' + GB(m.card.automatic)
           + ' and Custom at most ' + GB(m.card.most) + '.' : '')
       : 'Graphics card: not in use, the preview is drawn on the CPU.');
+  $('prefdisk').value = m.disk ? GB(m.disk.now) : 0;
+  $('prefdiskfolder').value = prefs.diskFolder || '';
+  $('prefdiskfolder').placeholder = m.disk ? m.disk.folder : '';
+  $('diskuse').textContent = m.disk
+    ? 'Holding ' + GB(m.disk.held) + ' of ' + GB(m.disk.now) + ' GB now, in ' + m.disk.folder + '. The copies used longest ago are deleted first.'
+    : 'Off: every drawing is unpacked from its file each time.';
 }
 $('prefmemory').onchange = () => {
   prefs.memory = $('prefmemory').value;
@@ -10675,6 +10691,8 @@ $('prefmemory').onchange = () => {
 };
 $('prefram').onchange = () => { prefs.ramGB = $('prefram').value; savePrefs(); memory(); };
 $('prefcard').onchange = () => { prefs.cardGB = $('prefcard').value; savePrefs(); memory(); };
+$('prefdisk').onchange = () => { prefs.diskGB = $('prefdisk').value; savePrefs(); memory(); };
+$('prefdiskfolder').onchange = () => { prefs.diskFolder = $('prefdiskfolder').value.trim(); savePrefs(); memory(); };
 
 // W-26: the Preferences box. A number is kept as it is typed, once it is a whole number above nought.
 $('preferences').onclick = () => {
