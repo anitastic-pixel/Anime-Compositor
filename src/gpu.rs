@@ -30,6 +30,7 @@
 //! panels the picture sits in, the checkerboard, and the picture, in the order the page would
 //! have painted them. The card paints exactly those, so the window looks as it did.
 
+use std::cell::Cell;
 use std::sync::{Arc, Weak};
 
 use half::slice::HalfFloatSliceExt as _;
@@ -3235,6 +3236,8 @@ pub struct Gpu {
     sent: u64,
     /// Frames the card failed since it was opened (B-48).
     failures: u64,
+    /// B-153: textures and sending memory made since the card was opened.
+    made: Cell<u64>,
 }
 
 fn entry(binding: u32, ty: wgpu::BindingType) -> wgpu::BindGroupLayoutEntry {
@@ -3492,6 +3495,7 @@ impl Gpu {
             memory,
             sent: 0,
             failures: 0,
+            made: Cell::new(0),
         })
     }
 
@@ -3526,6 +3530,12 @@ impl Gpu {
     /// How many drawings have been sent to the card since it was opened.
     pub fn sent(&self) -> u64 {
         self.sent
+    }
+
+    /// B-153: how many textures and sending buffers the card has made for drawings since it was
+    /// opened. Once frames repeat, a frame whose drawings are new reuses the last frame's.
+    pub fn made(&self) -> u64 {
+        self.made.get()
     }
 
     /// The card, its driver and the backend, for tables and the switch.
@@ -3570,6 +3580,7 @@ impl Gpu {
             self.store.swap_remove(oldest);
         }
         let size = wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 };
+        self.made.set(self.made.get() + 2);
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("B-44 drawing"),
             size,
@@ -3648,6 +3659,7 @@ impl Gpu {
 
     /// A texture the passes write and the layers read, `width` by `height`.
     fn scratch(&self, label: &str, width: usize, height: usize) -> wgpu::TextureView {
+        self.made.set(self.made.get() + 1);
         self.device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some(label),
