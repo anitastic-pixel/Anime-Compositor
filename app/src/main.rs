@@ -1213,7 +1213,12 @@ fn serve_seen(
     quality: Option<PreviewQuality>,
     seen: Option<&str>,
 ) -> Response<Vec<u8>> {
-    let _ = seen;
+    // B-158: four finite numbers, and only for a frame asked for by number; anything else is the
+    // whole frame. Playback is sent whole.
+    let seen: Option<[f64; 4]> = seen.filter(|_| matches!(ask, Ask::Frame(_))).and_then(|v| {
+        let n: Vec<f64> = v.split(',').map(|x| x.trim().parse().ok().filter(|f: &f64| f.is_finite())).collect::<Option<_>>()?;
+        <[f64; 4]>::try_from(n).ok()
+    });
     // P-15: how long this whole answer took inside the window, sent back with it. The page
     // subtracts it from its own round trip, and what is left is the transport - the one part of
     // the path from a project file to a picture that no measurement in `verification/` covers,
@@ -1341,6 +1346,8 @@ fn serve_seen(
         Shown(Vec<u8>, usize, usize),
         // B-154: from memory, and whether the card has painted it into the window.
         Kept(Finished, bool),
+        // B-158: only the part on screen, with the whole frame's width and height.
+        Part(anime_compositor::WorkingBuffer, usize, usize, anime_compositor::render::Tile),
     }
     let mut card = card.map(|c| c.lock().expect("the card lock was poisoned"));
     if kept.is_none() {
@@ -1408,6 +1415,21 @@ fn serve_seen(
                 gpu,
             )
             .map(|(pixels, width, height)| Made::Gpu(pixels, width, height)),
+            _ if seen.is_some() => preview::preview_part(
+                &sight.project,
+                &sight.composition,
+                taken.frame,
+                &sight.root,
+                sight.quality,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                cache,
+                seen.expect("matched above"),
+            )
+            .map(|(buffer, width, height, part)| match part {
+                Some(part) => Made::Part(buffer, width, height, part),
+                None => Made::Cpu(buffer),
+            }),
             _ => preview::preview_frame_cached(
                 &sight.project,
                 &sight.composition,
@@ -1450,11 +1472,17 @@ fn serve_seen(
 
     let fresh = !matches!(made, Made::Kept(..));
     let on_screen = matches!(made, Made::Shown(..) | Made::Kept(_, true));
+    // B-158: a part made alone is sent, never remembered as a frame.
+    let mut drawn_part = None;
     let finished = if let Made::Kept(kept, _) = made {
         kept
     } else {
         let (pixels, width, height) = match made {
             Made::Cpu(buffer) => (buffer.to_srgb8_straight(), buffer.width(), buffer.height()),
+            Made::Part(buffer, width, height, part) => {
+                drawn_part = Some(part);
+                (buffer.to_srgb8_straight(), width, height)
+            }
             Made::Gpu(pixels, width, height) | Made::Shown(pixels, width, height) => (pixels, width, height),
             Made::Kept(..) => unreachable!("taken above"),
         };
@@ -1465,7 +1493,7 @@ fn serve_seen(
         if on_screen {
             ram.shown = Some(finished.clone());
         }
-        if fresh && !card_failed && finished.pixels.len() == finished.width * finished.height * 4 {
+        if fresh && !card_failed && drawn_part.is_none() && finished.pixels.len() == finished.width * finished.height * 4 {
             ram.frames.store(sight.clone(), taken.frame, files, finished.clone());
         }
     }
@@ -1478,8 +1506,13 @@ fn serve_seen(
     }
 
     let (width, height) = (finished.width, finished.height);
+    // B-158: the part on screen, cut from a frame made whole or remembered when not made alone.
+    // The card painting the window (B-45) paints all of it.
+    let part = if on_screen { None } else { drawn_part.or_else(|| seen.and_then(|s| preview::part_in(s, width, height))) };
     let mut pixels = if on_screen {
         Vec::new()
+    } else if let Some(p) = part.filter(|_| drawn_part.is_none()) {
+        (p.y..p.y + p.height).flat_map(|y| finished.pixels[(y * width + p.x) * 4..(y * width + p.x + p.width) * 4].iter().copied()).collect()
     } else {
         Arc::try_unwrap(finished.pixels).unwrap_or_else(|kept| kept.to_vec())
     };
@@ -1511,8 +1544,11 @@ fn serve_seen(
             warnings: finished.warnings.into_iter().chain(disk_notes).collect(),
         });
     }
-    taken
-        .reply
+    let reply = match part {
+        Some(p) => taken.reply.header("x-part", format!("{},{},{},{}", p.x, p.y, p.width, p.height)),
+        None => taken.reply,
+    };
+    reply
         // The only two things about a frame the window cannot say until it has been made.
         .header("x-width", width.to_string())
         .header("x-height", height.to_string())
@@ -10069,7 +10105,9 @@ fn main() {
                 Some((ask, quality)) => {
                     let session = ctx.app_handle().state::<Mutex<SessionLog>>();
                     let card = ctx.app_handle().state::<Mutex<Card>>();
-                    let reply = serve_logged(&viewer, &export, Some(&session), Some(&card), ask, quality);
+                    // B-158: `v=`, the part of the picture on screen.
+                    let seen = parameter(request.uri().query(), "v");
+                    let reply = serve_seen(&viewer, &export, Some(&session), Some(&card), ask, quality, seen.as_deref());
                     // B-154: while playing, the rest of the loop is made in the background, one
                     // worker at a time.
                     static AHEAD: AtomicBool = AtomicBool::new(false);

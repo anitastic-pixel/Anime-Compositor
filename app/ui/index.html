@@ -1380,6 +1380,43 @@ function sharpen() {
 // its own thread, one request after another, so word that a newer frame is wanted could not
 // reach the render until it had finished anyway, and the renderer has no point at which to
 // stop. It is left to finish, and what it made is not drawn when it is stale (`drawnWhenBack`).
+// B-158 (G8): what of the picture shows, as fractions of it across and down (left, top, right,
+// bottom), cut to the window and to everything that scrolls or hides it; null when it has no size.
+function showing() {
+  const r = view.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  let [l, t, rt, b] = [0, 0, innerWidth, innerHeight];
+  for (let el = view.parentElement; el; el = el.parentElement) {
+    const style = getComputedStyle(el);
+    if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
+    const e = el.getBoundingClientRect();
+    const x = e.left + el.clientLeft, y = e.top + el.clientTop;
+    [l, t, rt, b] = [Math.max(l, x), Math.max(t, y), Math.min(rt, x + el.clientWidth), Math.min(b, y + el.clientHeight)];
+  }
+  return [(l - r.left) / r.width, (t - r.top) / r.height, (rt - r.left) / r.width, (b - r.top) / r.height]
+    .map((v) => Math.min(1, Math.max(0, v)));
+}
+// B-158: the part a still frame asks for, what shows and a tenth more on every side so a small
+// scroll needs no new frame, rounded outward; null for all of the picture, or when none shows.
+// Only that part is made and sent, byte for byte the same pixels as the whole frame.
+// `drawnPart` is the part the canvas holds, null for all of it.
+let drawnPart = null;
+function seenPart() {
+  const f = showing();
+  if (!f || f[2] <= f[0] || f[3] <= f[1]) return null;
+  const gx = (f[2] - f[0]) / 10, gy = (f[3] - f[1]) / 10;
+  const part = [Math.floor((f[0] - gx) * 1e4) / 1e4, Math.floor((f[1] - gy) * 1e4) / 1e4,
+    Math.ceil((f[2] + gx) * 1e4) / 1e4, Math.ceil((f[3] + gy) * 1e4) / 1e4]
+    .map((v) => Math.min(1, Math.max(0, v)));
+  return part.join() === '0,0,1,1' ? null : part;
+}
+// B-158: after a scroll or a zoom, a still frame is asked again when what shows has left the part drawn.
+function partStillDrawn() {
+  const f = drawnPart && !playing && !inFlight && showing();
+  if (!f) return;
+  const [l, t, r, b] = drawnPart;
+  if (f[0] < l || f[1] < t || f[2] > r || f[3] > b) show(FRAMES + '/frame/' + frame + '?q=' + quality);
+}
 async function show(url, keep = true) {
   if (inFlight) {
     if (keep) pending = url;
@@ -1392,7 +1429,10 @@ async function show(url, keep = true) {
   const rough = url !== chosen; // B-163: a Draft stand-in for the Full picture chosen
   try {
     const asked = performance.now();
-    const response = await fetch(url);
+    // B-158: a still frame asks for the part on screen; the address the rest of `show` reads
+    // stays the one chosen.
+    const part = url.includes('/frame/') ? seenPart() : null;
+    const response = await fetch(part ? url + (url.includes('?') ? '&' : '?') + 'v=' + part.join(',') : url);
     if (mine !== generation) return;
     if (!drawnWhenBack(url, pending, restless())) return;
     if (!response.ok) {
@@ -1411,8 +1451,14 @@ async function show(url, keep = true) {
     if (view.width !== width || view.height !== height) {
       view.width = width; view.height = height;
     }
-    if (onScreen) paint.clearRect(0, 0, width, height);
-    else paint.putImageData(new ImageData(pixels, width, height), 0, 0);
+    // B-158: only a part came, drawn where it lies in the picture; the rest is left empty until
+    // it shows, and a zoom made while it was on its way is looked at again once it is drawn.
+    const cut = !onScreen && h.get('x-part') ? h.get('x-part').split(',').map(Number) : null;
+    drawnPart = cut ? part : null;
+    if (onScreen || cut) paint.clearRect(0, 0, width, height);
+    if (cut) paint.putImageData(new ImageData(pixels, cut[2], cut[3]), cut[0], cut[1]);
+    else if (!onScreen) paint.putImageData(new ImageData(pixels, width, height), 0, 0);
+    if (cut) setTimeout(partStillDrawn);
     document.documentElement.classList.toggle('onscreen', onScreen);
     // P-15. The window's own figure comes back with the pixels, so the subtraction is between
     // two clocks reading the same one answer rather than two runs.
@@ -5653,7 +5699,9 @@ function applyZoom() {
   $('zoomlabel').textContent = !comp ? '\u2014'
     : Math.round(shown * 100) + '%' + (fit ? ', fit' : '');
   drawBoxes();
+  partStillDrawn();
 }
+stage.addEventListener('scroll', partStillDrawn);
 
 // B-45, D-102: while the switch is on, where the picture lies in the window, and what is under
 // it, told to the card every time it changes, so the card can paint it there. A zoom or a scroll

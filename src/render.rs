@@ -515,7 +515,16 @@ pub fn tiles(width: usize, height: usize, size: usize) -> Vec<Tile> {
 /// buffer did, so the arithmetic per pixel is unchanged and one 33 MB allocation, one 33 MB
 /// zero-fill and one 33 MB copy a frame are not done at all.
 pub fn render(plan: &FramePlan, tile_size: usize) -> WorkingBuffer {
-    render_maybe_culled(plan, tile_size, true)
+    render_maybe_culled(plan, tile_size, true, None)
+}
+
+/// B-158 (G8): only `part` of the frame, a buffer `part.width` by `part.height`, byte for byte
+/// those pixels of [`render`]. Each pixel is sampled at its own place in the frame, and the
+/// arithmetic per pixel does not depend on the tiles (B-07), so drawing fewer tiles changes
+/// nothing but the clock. A frame with an adjustment layer or a Light Wrap, which read the whole
+/// frame drawn so far, is drawn whole and cut. The viewer's alone: an export never asks for it.
+pub fn render_part(plan: &FramePlan, tile_size: usize, part: Tile) -> WorkingBuffer {
+    render_maybe_culled(plan, tile_size, true, Some(part))
 }
 
 /// The same frame with P-05's culling test turned off, which is what
@@ -525,10 +534,10 @@ pub fn render(plan: &FramePlan, tile_size: usize) -> WorkingBuffer {
 /// frame is the same frame without the skip, and the only way to say that in bytes is to render
 /// it both ways.
 pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuffer {
-    render_maybe_culled(plan, tile_size, false)
+    render_maybe_culled(plan, tile_size, false, None)
 }
 
-fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> WorkingBuffer {
+fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool, part: Option<Tile>) -> WorkingBuffer {
     // B-46, B-47, B-49, B-50, B-51, B-65: an effect left for the card that the CPU is drawing after all is run first,
     // exactly as `apply_stack` would have run it.
     // B-156b: as are the moments of a motion-blurred layer.
@@ -578,7 +587,22 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
                 }
             }
         }
-        return render_maybe_culled(&plan, tile_size, cull);
+        return render_maybe_culled(&plan, tile_size, cull, part);
+    }
+    if let Some(part) = part {
+        let whole_frame_read = plan.layers.iter().any(|l| l.adjust.is_some() || l.wrap.iter().any(|i| i.enabled && i.is_valid()));
+        if whole_frame_read {
+            let whole = render_maybe_culled(plan, tile_size, cull, None);
+            let mut cut = WorkingBuffer::transparent(part.width, part.height);
+            for (y, row) in cut.data_mut().chunks_exact_mut(part.width * 4).enumerate() {
+                let from = ((part.y + y) * plan.width + part.x) * 4;
+                row.copy_from_slice(&whole.data()[from..from + part.width * 4]);
+            }
+            return cut;
+        }
+        let mut frame = WorkingBuffer::transparent(part.width, part.height);
+        render_layers(&plan.layers, &mut frame, tile_size, cull, (part.x, part.y));
+        return frame;
     }
     let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
     // D-66: the frame is drawn in segments, each ending at an adjustment layer, whose stack
@@ -587,16 +611,16 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> Workin
     let mut from = 0;
     for (index, layer) in plan.layers.iter().enumerate() {
         if let Some(stack) = &layer.adjust {
-            render_layers(&plan.layers[from..index], &mut frame, tile_size, cull);
+            render_layers(&plan.layers[from..index], &mut frame, tile_size, cull, (0, 0));
             adjust_frame(layer, stack, &mut frame);
             from = index + 1;
         } else if layer.wrap.iter().any(|i| i.enabled && i.is_valid()) {
-            render_layers(&plan.layers[from..index], &mut frame, tile_size, cull);
+            render_layers(&plan.layers[from..index], &mut frame, tile_size, cull, (0, 0));
             wrap_layer(layer, &mut frame, tile_size, cull);
             from = index + 1;
         }
     }
-    render_layers(&plan.layers[from..], &mut frame, tile_size, cull);
+    render_layers(&plan.layers[from..], &mut frame, tile_size, cull, (0, 0));
     frame
 }
 
@@ -674,7 +698,7 @@ fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cu
         wrap: Vec::new(),
         ..layer.clone()
     };
-    render_layers(std::slice::from_ref(&alone), &mut placed, tile_size, cull);
+    render_layers(std::slice::from_ref(&alone), &mut placed, tile_size, cull, (0, 0));
     for instance in layer.wrap.iter().filter(|i| i.enabled && i.is_valid()) {
         if let crate::effects::Effect::LightWrap {
             width,
@@ -753,8 +777,9 @@ fn light_wrap(l: &mut WorkingBuffer, b: &WorkingBuffer, width: f64, intensity: f
         });
 }
 
-/// One segment of the stack, bottom to top, onto `frame` as it stands.
-fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usize, cull: bool) {
+/// One segment of the stack, bottom to top, onto `frame` as it stands. `at` is where `frame`'s
+/// first pixel is in the whole frame: `(0, 0)` but for B-158's part.
+fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usize, cull: bool, at: (usize, usize)) {
     let (width, height) = (frame.width(), frame.height());
     let tiles = tiles(width, height, tile_size);
     let boxes: Option<Vec<(f64, f64, f64, f64)>> =
@@ -789,7 +814,10 @@ fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usi
         rows_for
             .par_drain(..)
             .zip(tiles.par_iter())
-            .for_each(|(rows, &tile)| render_tile(layers, tile, rows, boxes.as_deref()));
+            .for_each(|(rows, &tile)| {
+                let tile = Tile { x: tile.x + at.0, y: tile.y + at.1, ..tile };
+                render_tile(layers, tile, rows, boxes.as_deref())
+            });
     });
 }
 

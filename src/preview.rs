@@ -195,6 +195,44 @@ pub fn preview_frame_cached(
     Ok(render::render(&scale_plan(plan, quality), tiles_for(quality, tile_size)))
 }
 
+/// B-158 (G8): the pixels of a frame `width` by `height` that `seen` touches, fractions of the
+/// picture `[left, top, right, bottom]`, with one pixel more on every side for the page's
+/// rounding; `None` when that is all of the frame.
+pub fn part_in(seen: [f64; 4], width: usize, height: usize) -> Option<render::Tile> {
+    let [l, t, r, b] = seen.map(|f| if f.is_finite() { f.clamp(0.0, 1.0) } else { 0.0 });
+    let x0 = ((l * width as f64).floor() as usize).saturating_sub(1);
+    let y0 = ((t * height as f64).floor() as usize).saturating_sub(1);
+    let x1 = ((r.max(l) * width as f64).ceil() as usize + 1).min(width);
+    let y1 = ((b.max(t) * height as f64).ceil() as usize + 1).min(height);
+    ((x0, y0, x1, y1) != (0, 0, width, height))
+        .then_some(render::Tile { x: x0, y: y0, width: x1 - x0, height: y1 - y0 })
+}
+
+/// B-158 (G8): [`preview_frame_cached`] for only the part of the picture on screen, with the
+/// whole frame's width and height and the part drawn; the part is `None`, and the frame whole,
+/// when `seen` is all of it. The pixels are exactly those of the whole frame.
+#[allow(clippy::too_many_arguments)]
+pub fn preview_part(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    tile_size: usize,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
+    seen: [f64; 4],
+) -> Result<(WorkingBuffer, usize, usize, Option<render::Tile>), Diagnostic> {
+    let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
+    let plan = scale_plan(plan, quality);
+    let part = part_in(seen, plan.width, plan.height);
+    let pixels = match part {
+        Some(part) => render::render_part(&plan, tiles_for(quality, tile_size), part),
+        None => render::render(&plan, tiles_for(quality, tile_size)),
+    };
+    Ok((pixels, plan.width, plan.height, part))
+}
+
 /// `tile_size` is the size an export renders in, measured on an export's extent. A draft frame
 /// is a quarter of that extent and is cut by its own measured size instead (P-03(f)): at `Full`
 /// the caller's size is used exactly, so a full-resolution preview and an export still go
