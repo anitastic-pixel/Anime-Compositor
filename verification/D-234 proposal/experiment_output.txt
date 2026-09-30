@@ -1,0 +1,19 @@
+check: vectorised chain and lookup agree with the reference tools
+gentle grid 17: frame worst  9 levels, 21.7831% of pixels off by >1, PSNR 48.8 dB; all 16.7M colours worst 11, 28.7561% off by >1
+gentle grid 33: frame worst  5 levels, 2.8166% of pixels off by >1, PSNR 56.1 dB; all 16.7M colours worst 6, 5.3080% off by >1
+gentle grid 65: frame worst  3 levels, 0.1795% of pixels off by >1, PSNR 60.4 dB; all 16.7M colours worst 3, 0.2254% off by >1
+strong grid 17: frame worst 27 levels, 27.3274% of pixels off by >1, PSNR 42.0 dB; all 16.7M colours worst 38, 40.9802% off by >1
+strong grid 33: frame worst 14 levels, 10.6468% of pixels off by >1, PSNR 49.0 dB; all 16.7M colours worst 18, 12.3100% off by >1
+strong grid 65: frame worst  8 levels, 1.6351% of pixels off by >1, PSNR 58.6 dB; all 16.7M colours worst 12, 2.2517% off by >1
+gentle Curves              alone, all colours: grid 33: worst 1, 0.0000% off by >1; grid 65: worst 1, 0.0000% off by >1
+gentle Levels              alone, all colours: grid 33: worst 1, 0.0000% off by >1; grid 65: worst 1, 0.0000% off by >1
+gentle Hue/Saturation      alone, all colours: grid 33: worst 5, 5.8597% off by >1; grid 65: worst 3, 0.1096% off by >1
+gentle Brightness/Contrast alone, all colours: grid 33: worst 2, 4.6146% off by >1; grid 65: worst 1, 0.0000% off by >1
+gentle Tint                alone, all colours: grid 33: worst 1, 0.0000% off by >1; grid 65: worst 1, 0.0000% off by >1
+gentle chain without Hue/Saturation, all colours: grid 17: worst 2, 1.1719% off by >1; grid 33: worst 1, 0.0000% off by >1; grid 65: worst 1, 0.0000% off by >1
+strong Curves              alone, all colours: grid 33: worst 1, 0.0000% off by >1; grid 65: worst 1, 0.0000% off by >1
+strong Levels              alone, all colours: grid 33: worst 2, 1.1673% off by >1; grid 65: worst 1, 0.0000% off by >1
+strong Hue/Saturation      alone, all colours: grid 33: worst 24, 9.1686% off by >1; grid 65: worst 21, 0.7595% off by >1
+strong Brightness/Contrast alone, all colours: grid 33: worst 3, 4.6146% off by >1; grid 65: worst 1, 0.0000% off by >1
+strong Tint                alone, all colours: grid 33: worst 1, 0.0000% off by >1; grid 65: worst 1, 0.0000% off by >1
+strong chain without Hue/Saturation, all colours: grid 17: worst 3, 22.7181% off by >1; grid 33: worst 3, 3.8561% off by >1; grid 65: worst 2, 1.5549% off by >1
