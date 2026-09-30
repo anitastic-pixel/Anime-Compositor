@@ -3499,6 +3499,10 @@ pub struct Gpu {
     made: Cell<u64>,
     /// B-164: blurs worked small and enlarged since the card was opened.
     shrunk: Cell<u64>,
+    /// B-172: passes run since the card was opened, and whether a run of colour effects is drawn
+    /// in one.
+    dispatched: u64,
+    fused: bool,
     /// B-153: the passes' working textures, each with the last frame that used it, kept for the
     /// next frame's passes of the same size, when the card can clear them to what a new one holds.
     working: Option<RefCell<Vec<(wgpu::Texture, u64)>>>,
@@ -3779,6 +3783,8 @@ impl Gpu {
             spare: Vec::new(),
             made: Cell::new(0),
             shrunk: Cell::new(0),
+            dispatched: 0,
+            fused: true,
             working: clear.then(|| RefCell::new(Vec::new())),
             to_clear: RefCell::new(Vec::new()),
         })
@@ -3829,6 +3835,17 @@ impl Gpu {
     /// B-164 (D-235): how many blurs the card has worked small and enlarged since it was opened.
     pub fn shrunk(&self) -> u64 {
         self.shrunk.get()
+    }
+
+    /// B-172: the passes the card has run since it was opened, the frame's encoding aside.
+    pub fn dispatched(&self) -> u64 {
+        self.dispatched
+    }
+
+    /// B-172: whether a run of colour effects next to each other is drawn in one pass, as it is
+    /// unless this says not; off only for the check that both draw the same.
+    pub fn fuse(&mut self, on: bool) {
+        self.fused = on;
     }
 
     /// The card, its driver and the backend, for tables and the switch.
@@ -5544,6 +5561,7 @@ impl Gpu {
                 // One after another: wgpu has each dispatch wait for what the one before wrote,
                 // so a Light Wrap reads the layers laid before it.
                 let mut pass = encoder.begin_compute_pass(&Default::default());
+                self.dispatched += steps.len() as u64;
                 for (pipeline, group, (x, y)) in &steps {
                     pass.set_pipeline(pipeline);
                     pass.set_bind_group(0, group, &[]);
