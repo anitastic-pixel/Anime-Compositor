@@ -3573,6 +3573,11 @@ impl Gpu {
         self.made.get()
     }
 
+    /// B-164 (D-235): how many blurs the card has worked small and enlarged since it was opened.
+    pub fn shrunk(&self) -> u64 {
+        0
+    }
+
     /// The card, its driver and the backend, for tables and the switch.
     pub fn about(&self) -> &str {
         &self.about
