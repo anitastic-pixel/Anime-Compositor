@@ -2877,7 +2877,7 @@ sheet.ondblclick = (e) => {
 // Each is a preference with its box in Preferences and its box in the new composition form.
 const PREF_FIELDS = [['width', 'prefwidth', 'compwidth'], ['height', 'prefheight', 'compheight'],
   ['fps', 'preffps', 'compfps'], ['frames', 'prefframes', 'compframes']];
-const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, drawOn: 'auto', memory: 'auto', refine: true, hardwareVideo: false };
+const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, drawOn: 'auto', hardwareVideo: false, memory: 'auto', refine: true };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('prefs') || '{}')); } catch (e) { /* the defaults */ }
 function savePrefs() {
   try { localStorage.setItem('prefs', JSON.stringify(prefs)); } catch (e) { /* kept for this run only */ }
