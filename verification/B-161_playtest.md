@@ -2,7 +2,7 @@
 
 What changed: the first time the preview unpacks a drawing (a PNG from a sequence), it now also keeps the unpacked pixels in a folder on disk. The next time that drawing is needed, even after the program has been closed and opened again, the preview reads the kept copy instead of unpacking the PNG. The pixels are the same to the bit (`verification/B-161_decode_cache_table.md`, 23 of 23 checks). Export does not use the copies at all.
 
-What to expect: on the reference shot, getting a frame's drawings ready took about 32 ms from the copies against about 45 ms unpacking the PNGs, roughly a quarter faster (`verification/B-161_decode_cache_timing.md`; provisional, measured while other builds were running). You will mostly notice it on the **first** play of a shot after opening the program. Once a shot has played, its drawings are held in memory as before, so later plays in the same sitting were already fast and look the same.
+What to expect: on the reference shot, getting a frame's drawings ready took about 24 ms from the copies against about 35 ms unpacking the PNGs, roughly 30% faster (`verification/B-161_decode_cache_timing.md`, measured on 2026-09-30 with no other build running). You will mostly notice it on the **first** play of a shot after opening the program. Once a shot has played, its drawings are held in memory as before, so later plays in the same sitting were already fast and look the same.
 
 ## Steps
 

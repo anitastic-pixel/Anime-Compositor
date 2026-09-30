@@ -408,6 +408,22 @@ fn median_ms(runs: usize, mut once: impl FnMut()) -> (f64, Vec<f64>) {
     (ms[runs / 2], ms)
 }
 
+/// Seven exports of the whole reference shot as PNG, this build told to draw one frame at a time,
+/// and their median, as `b160_timing` writes its lines.
+#[test]
+#[ignore]
+fn b160_one_at_a_time_timing() {
+    let project = shot();
+    let job = shot_jobs(&project).into_iter().next().unwrap();
+    let dir = out_dir("timing");
+    let (one, ms) = median_ms(7, || {
+        assert!(export_sequence(&project, &job.root, &request(&job, &dir, choices(1)), &AtomicBool::new(false)).succeeded());
+    });
+    let out = format!("{}\t{one:.0}\t{:?}\n", job.name, ms.iter().map(|m| m.round()).collect::<Vec<_>>());
+    fs::write(repo("target/b160").join("timing_one.txt"), &out).unwrap();
+    eprintln!("{out}");
+}
+
 fn read_lines(name: &str) -> Vec<(String, String)> {
     fs::read_to_string(repo("target/b160").join(name))
         .unwrap_or_default()
@@ -466,19 +482,13 @@ fn b160_table() {
     // 3. How many frames at once changes no byte.
     checks.extend(frames_at_once_rows(&project));
 
-    // 4. Speed. PROVISIONAL: other builds shared the machine.
+    // 4. Speed, from `b160_timing` for both builds and `b160_one_at_a_time_timing`.
     let mut timing: Vec<(String, String)> = Vec::new();
-    for label in ["before", "after"] {
-        for (what, median) in read_lines(&format!("timing_{label}.txt")) {
-            timing.push((format!("{what}, {}", if label == "before" { "old build, one frame at a time" } else { "new build, several frames at once" }), median.split('\t').next().unwrap().to_string() + " ms"));
+    for (file, said) in [("before", "old build, one frame at a time"), ("after", "new build, several frames at once"), ("one", "new build told to draw one frame at a time")] {
+        for (what, median) in read_lines(&format!("timing_{file}.txt")) {
+            timing.push((format!("{what}, {said}"), median.split('\t').next().unwrap().to_string() + " ms"));
         }
     }
-    let png_job = shot_jobs(&project).into_iter().next().unwrap();
-    let dir = out_dir("timing");
-    let (one, _) = median_ms(7, || {
-        assert!(export_sequence(&project, &png_job.root, &request(&png_job, &dir, choices(1)), &AtomicBool::new(false)).succeeded());
-    });
-    timing.push(("reference shot PNG 8-bit, new build told to draw one frame at a time".into(), format!("{one:.0} ms")));
 
     // The table.
     let passed = checks.iter().filter(|r| r.expected == r.actual).count();
@@ -495,7 +505,7 @@ fn b160_table() {
         md.push_str(&format!("| {what} | {value} |\n"));
     }
     md.push_str(&format!(
-        "\n## Speed, median of 7 (PROVISIONAL)\n\nMachine: {}, {} threads; release build (opt-level 3). Other builds were running on the machine at the same time, so these are provisional until a quiet re-measure.\n\n| Export of the whole reference shot, 240 frames at 1920x1080 | Median |\n|---|---|\n",
+        "\n## Speed, median of 7\n\nMachine: {}, {} threads; release build (opt-level 3). Run with no other build on the machine; a busy machine gives other numbers.\n\n| Export of the whole reference shot, 240 frames at 1920x1080 | Median |\n|---|---|\n",
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_default(),
         std::thread::available_parallelism().map(|n| n.get()).unwrap_or(0),
     ));

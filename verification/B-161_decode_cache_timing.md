@@ -1,10 +1,11 @@
-# B-161: decoding a drawing against reading its disk copy - PROVISIONAL
+# B-161: decoding a drawing against reading its disk copy
 
-**Provisional.** Measured on 2026-09-29 while other builds ran on the same machine in parallel (the G-units were being built at the same time), so the absolute numbers are noisy and a quiet re-measure is due. Produced by `cargo test --release --test b161_decode_cache -- --ignored`.
+Produced by `cargo test --release --test b161_decode_cache -- --ignored`, with no other build running on the machine; a busy machine gives noisy numbers.
 
 ## Machine, build and configuration
 
-- Machine: the reference machine (Windows 11, 24 logical processors).
+- Machine: AMD Ryzen 9 9900X (24 threads), 64 GB, NVIDIA GeForce RTX 4070 Ti SUPER on driver 610.88 (not used here), Windows 11; the drawings and their copies on the same SSD.
+- Measured on 2026-09-30 at c9bf93e, three runs taken with no other cargo process or build running; this file is the middle run (the second), the three are below. It replaces the provisional figures of 2026-09-29 (decode 45.04, copy 32.33, first pass 38.52 ms), measured while other builds ran.
 - Build: release (`opt-level = 3`).
 - Shot: the reference shot, composition frames 0 to 47 (188 drawings asked for, 52 distinct copies, 411.3 MiB on disk).
 - Each frame's drawings are read one after another on one thread, as `CelCache::decoded` does; the viewer's read-ahead does them side by side, which divides both columns alike.
@@ -16,61 +17,70 @@
 
 | Per frame (median over frames) | ms |
 |---|---|
-| Decode the drawings | 45.04 |
-| Read their copies | 32.33 |
-| First pass: decode and write the copies | 38.52 |
+| Decode the drawings | 35.40 |
+| Read their copies | 24.30 |
+| First pass: decode and write the copies | 28.37 |
 
-Reading the copies took 72% of the decode time.
+Reading the copies took 69% of the decode time.
+
+## The three runs
+
+| Run | Decode ms | Copy ms | Copy against decode | First pass ms |
+|---|---|---|---|---|
+| 1 | 35.38 | 24.56 | 69% | 28.47 |
+| 2 (this file) | 35.40 | 24.30 | 69% | 28.37 |
+| 3 | 35.28 | 23.91 | 68% | 29.84 |
+| Median | 35.38 | 24.30 | 69% | 28.47 |
 
 ## Every frame
 
 | Frame | Decode ms | Copy ms | First pass ms |
 |---|---|---|---|
-| 0 | 42.30 | 31.42 | 56.07 |
-| 1 | 40.15 | 32.79 | 39.80 |
-| 2 | 46.06 | 30.65 | 41.23 |
-| 3 | 45.58 | 32.61 | 39.84 |
-| 4 | 46.49 | 33.66 | 45.39 |
-| 5 | 48.68 | 31.04 | 36.98 |
-| 6 | 44.47 | 30.66 | 54.77 |
-| 7 | 46.97 | 32.62 | 42.00 |
-| 8 | 46.50 | 34.69 | 36.38 |
-| 9 | 48.78 | 31.74 | 39.28 |
-| 10 | 49.76 | 36.94 | 34.88 |
-| 11 | 50.26 | 34.39 | 60.65 |
-| 12 | 52.73 | 38.20 | 42.01 |
-| 13 | 45.26 | 32.03 | 40.06 |
-| 14 | 36.80 | 22.30 | 29.00 |
-| 15 | 36.75 | 23.93 | 39.53 |
-| 16 | 45.75 | 32.98 | 54.75 |
-| 17 | 45.17 | 34.87 | 38.48 |
-| 18 | 43.44 | 37.49 | 47.78 |
-| 19 | 47.35 | 36.34 | 39.83 |
-| 20 | 49.40 | 34.61 | 42.61 |
-| 21 | 47.47 | 34.46 | 44.35 |
-| 22 | 45.60 | 33.80 | 38.54 |
-| 23 | 47.05 | 32.45 | 34.55 |
-| 24 | 46.74 | 36.07 | 32.95 |
-| 25 | 42.90 | 34.11 | 30.22 |
-| 26 | 43.28 | 30.22 | 43.00 |
-| 27 | 44.29 | 30.42 | 47.85 |
-| 28 | 42.09 | 28.66 | 31.57 |
-| 29 | 41.06 | 28.15 | 31.33 |
-| 30 | 42.12 | 30.42 | 40.33 |
-| 31 | 40.89 | 28.58 | 30.76 |
-| 32 | 42.12 | 29.07 | 33.16 |
-| 33 | 42.57 | 30.41 | 39.46 |
-| 34 | 41.69 | 29.02 | 33.98 |
-| 35 | 41.78 | 32.33 | 29.49 |
-| 36 | 47.03 | 33.66 | 36.25 |
-| 37 | 45.54 | 32.78 | 28.77 |
-| 38 | 33.83 | 22.61 | 27.25 |
-| 39 | 36.98 | 24.76 | 37.28 |
-| 40 | 43.46 | 30.21 | 37.51 |
-| 41 | 42.73 | 40.37 | 30.85 |
-| 42 | 46.18 | 34.50 | 40.85 |
-| 43 | 44.40 | 30.86 | 31.97 |
-| 44 | 45.04 | 29.63 | 31.53 |
-| 45 | 40.41 | 29.40 | 38.52 |
-| 46 | 40.84 | 29.08 | 28.36 |
-| 47 | 53.94 | 33.68 | 27.54 |
+| 0 | 34.32 | 23.27 | 81.34 |
+| 1 | 33.56 | 23.88 | 29.01 |
+| 2 | 34.21 | 23.35 | 33.74 |
+| 3 | 33.46 | 23.70 | 37.55 |
+| 4 | 37.53 | 26.56 | 36.00 |
+| 5 | 35.38 | 23.87 | 55.58 |
+| 6 | 35.40 | 24.27 | 34.38 |
+| 7 | 36.53 | 24.60 | 26.85 |
+| 8 | 35.85 | 24.76 | 73.96 |
+| 9 | 35.85 | 24.52 | 31.46 |
+| 10 | 37.97 | 26.35 | 32.46 |
+| 11 | 35.38 | 24.87 | 31.05 |
+| 12 | 34.47 | 24.55 | 34.42 |
+| 13 | 35.31 | 24.36 | 28.06 |
+| 14 | 29.19 | 18.76 | 25.14 |
+| 15 | 29.17 | 17.98 | 25.32 |
+| 16 | 36.23 | 26.30 | 30.77 |
+| 17 | 35.45 | 25.26 | 76.97 |
+| 18 | 35.00 | 23.73 | 36.11 |
+| 19 | 35.47 | 23.64 | 27.42 |
+| 20 | 34.77 | 24.36 | 32.47 |
+| 21 | 34.85 | 24.15 | 34.78 |
+| 22 | 36.64 | 24.91 | 30.03 |
+| 23 | 35.33 | 24.28 | 33.70 |
+| 24 | 35.80 | 23.93 | 31.18 |
+| 25 | 35.95 | 24.38 | 25.06 |
+| 26 | 34.75 | 23.77 | 23.55 |
+| 27 | 35.28 | 24.18 | 28.37 |
+| 28 | 35.45 | 24.17 | 25.12 |
+| 29 | 35.23 | 24.52 | 24.06 |
+| 30 | 34.97 | 24.15 | 29.98 |
+| 31 | 36.33 | 25.31 | 25.95 |
+| 32 | 35.72 | 24.13 | 24.34 |
+| 33 | 35.92 | 24.66 | 27.81 |
+| 34 | 35.90 | 24.77 | 25.20 |
+| 35 | 35.32 | 25.19 | 23.61 |
+| 36 | 36.21 | 25.23 | 27.56 |
+| 37 | 34.70 | 24.28 | 23.78 |
+| 38 | 29.08 | 18.35 | 17.74 |
+| 39 | 29.19 | 18.04 | 21.91 |
+| 40 | 35.52 | 25.59 | 24.46 |
+| 41 | 36.27 | 24.30 | 23.55 |
+| 42 | 35.55 | 24.09 | 29.85 |
+| 43 | 35.85 | 24.57 | 23.31 |
+| 44 | 35.46 | 24.41 | 23.41 |
+| 45 | 35.39 | 24.07 | 30.22 |
+| 46 | 35.85 | 25.05 | 24.41 |
+| 47 | 35.10 | 23.84 | 24.29 |

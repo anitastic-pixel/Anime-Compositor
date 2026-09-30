@@ -47,3 +47,37 @@ at Draft it stays 3 ms slower than before B-152, as in B-153.
 
 The earlier measurement (`verification/B-153_card_timing_table.md`) gave somewhat different
 numbers for the same builds. Each table compares only the builds within it, measured turn about.
+
+## Quiet re-measure, 2026-09-30
+
+Measured again with no other cargo process or build running, to settle the frame mix question
+above. Same test, three builds taken turn about, the order turned each round, three rounds; the
+figure is the median of the three:
+
+- **before B-152**: 5b28b19, with B-153b's test file;
+- **B-153b**: 6353cd0;
+- **today**: c9bf93e, the program as it stands after the whole GPU plan.
+
+- Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
+- Processor: AMD Ryzen 9 9900X (AMD64 Family 26 Model 68), 24 threads, 64 GB
+- System: Windows 11
+- Build: release, each build in its own folder with its own build (target)
+
+| Shot | Quality | Before B-152 | B-153b | Today | Before B-152, runs | B-153b, runs | Today, runs |
+|---|---|---:|---:|---:|---|---|---|
+| the reference shot | Draft | 7.4 | 7.3 | 7.4 | 8.0, 7.4, 7.4 | 7.3, 7.6, 7.2 | 7.4, 7.4, 8.1 |
+| the reference shot | Full | 9.6 | 9.3 | 9.8 | 10.4, 9.6, 9.5 | 9.3, 9.4, 9.3 | 9.8, 9.6, 11.0 |
+| the reference shot with motion blur | Draft | 15.3 | 15.2 | 9.3 | 15.3, 15.5, 15.3 | 15.1, 15.2, 16.3 | 9.3, 9.0, 10.3 |
+| the reference shot with motion blur | Full | 47.1 | 46.1 | 13.5 | 47.3, 47.1, 46.7 | 46.1, 46.1, 51.9 | 13.4, 13.5, 15.1 |
+| the reference shot with frame mix and dissolve | Draft | 40.6 | 41.1 | 28.5 | 40.0, 40.6, 40.7 | 41.1, 40.7, 44.7 | 28.1, 28.5, 29.9 |
+| the reference shot with frame mix and dissolve | Full | 53.6 | 52.6 | 41.0 | 60.5, 53.6, 52.3 | 53.7, 52.6, 52.1 | 41.0, 41.6, 40.9 |
+| the reference shot with motion blur and Roughen Edges | Draft | 18.5 | 22.8 | 9.5 | 21.6, 18.5, 18.4 | 22.9, 22.6, 22.8 | 9.5, 13.0, 9.5 |
+| the reference shot with motion blur and Roughen Edges | Full | 86.5 | 51.5 | 16.6 | 89.2, 86.3, 86.5 | 51.8, 51.5, 51.0 | 17.6, 16.6, 16.6 |
+
+**What it answers.** Frame mix at Draft is 41.1 ms on B-153b against 40.6 before B-152, inside
+the spread of the rounds (40.0 to 40.7 against 40.7 to 44.7): the 44.5 against 40.8 above was the
+busy machine, and no real difference is left. Today, after the rest of the GPU plan, the same shot
+takes 28.5 ms at Draft and 41.0 at Full. The shot with motion blur and Roughen Edges was really
+slower at Draft on B-153b (22.8 against 18.5, every round), as the table above said; today it
+takes 9.5 ms. Motion blur alone is 9.3 ms at Draft and 13.5 at Full today, against 15.3 and 47.1
+before B-152.

@@ -485,10 +485,9 @@ fn b161_timing() {
     let cels: usize = wanted.iter().map(Vec::len).sum();
     let held: u64 = copies(&folder).iter().map(|p| fs::metadata(p).unwrap().len()).sum();
     let mut out = format!(
-        "# B-161: decoding a drawing against reading its disk copy - PROVISIONAL\n\n\
-         **Provisional.** Measured on 2026-09-29 while other builds ran on the same machine in parallel (the G-units \
-         were being built at the same time), so the absolute numbers are noisy and a quiet re-measure is due. \
-         Produced by `cargo test --release --test b161_decode_cache -- --ignored`.\n\n\
+        "# B-161: decoding a drawing against reading its disk copy\n\n\
+         Produced by `cargo test --release --test b161_decode_cache -- --ignored`, with no other build running on \
+         the machine; a busy machine gives noisy numbers.\n\n\
          ## Machine, build and configuration\n\n\
          - Machine: the reference machine (Windows 11, {} logical processors).\n\
          - Build: release (`opt-level = 3`).\n\
