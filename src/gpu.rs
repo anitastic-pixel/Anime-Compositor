@@ -3527,6 +3527,10 @@ struct Stored {
     /// changes starts again from the one before it.
     /// B-172: none after an effect a run drawn in one pass went on from.
     applied: Option<(Vec<OnCard>, Vec<Option<(wgpu::TextureView, (usize, usize))>>)>,
+    /// B-173 (D-246): the last picture of each run drawn on it before `applied`, with the frame
+    /// that last used it, so a run whose settings move from frame to frame is not drawn again
+    /// when a frame comes round again, as the CPU's effect cache keeps each frame's.
+    before: Vec<(Vec<OnCard>, wgpu::TextureView, (usize, usize), u64)>,
     /// B-47: held in 32-bit floats, for a Bloom.
     wide: bool,
 }
@@ -4083,7 +4087,7 @@ impl Gpu {
         );
         self.sent += 1;
         let view = texture.create_view(&Default::default());
-        self.store.push(Stored { held: Arc::downgrade(source), name, view: view.clone(), bytes, used: self.frame, applied: None, wide });
+        self.store.push(Stored { held: Arc::downgrade(source), name, view: view.clone(), bytes, used: self.frame, applied: None, before: Vec::new(), wide });
         view
     }
 
@@ -4128,17 +4132,69 @@ impl Gpu {
         if let Some(Some((last, _))) = views.last().filter(|_| views.len() == effects.len()) {
             return last.clone();
         }
+        // B-173: the whole run drawn on it before with these very settings.
+        let frame = self.frame;
+        if let Some(b) = stored.and_then(|i| self.store[i].before.iter_mut().find(|b| b.0 == effects)) {
+            b.3 = frame;
+            return b.1.clone();
+        }
         let from = views.last().cloned().flatten().unwrap_or((still.clone(), (source.width(), source.height())));
         let done = views.len();
         self.run(steps, source, from, &effects[done..], unchanged.saturating_sub(done), &mut views);
         let moved = views.last().cloned().flatten().expect("the last effect's picture").0;
         if let Some(i) = stored {
             let s = &mut self.store[i];
-            let kept: usize = views.iter().flatten().map(|(_, (w, h))| w * h * 16).sum();
-            s.bytes = source.width() * source.height() * if s.wide { 16 } else { BYTES_PER_PIXEL } + kept;
+            if let Some((old, after)) = s.applied.take() {
+                if let Some(Some((view, size))) = after.last() {
+                    s.before.push((old, view.clone(), *size, frame));                    // Out of the working textures while kept, so the passes do not look it over
+                    // every time they want one.
+                    if let Some(working) = &self.working {
+                        working.borrow_mut().retain(|(t, _)| t != view.texture());
+                    }
+                }
+            }
             s.applied = Some((effects.to_vec(), views));
+            self.forget_before(i);
         }
         moved
+    }
+
+    /// B-173: the drawing at `i`'s bytes on the card counted again, after the oldest runs kept
+    /// before are let go of, while all of them together hold more than a quarter of the budget.
+    fn forget_before(&mut self, i: usize) {
+        let bytes = |(w, h): (usize, usize)| w * h * 16;
+        let mut total: usize = self.store.iter().flat_map(|s| &s.before).map(|b| bytes(b.2)).sum();
+        while total > self.budget / 4 {
+            let oldest = self
+                .store
+                .iter()
+                .enumerate()
+                .flat_map(|(i, s)| s.before.iter().enumerate().map(move |(j, b)| (b.3, i, j)))
+                .filter(|&(used, ..)| used < self.frame)
+                .min();
+            let Some((_, i, j)) = oldest else { break };
+            let (_, view, size, _) = self.store[i].before.remove(j);
+            total -= bytes(size);
+            // Back among the working textures for the next frame's passes, unless another run
+            // still shows it.
+            let t = view.texture();
+            let shown = self.keeps(t) || self.store.iter().any(|s| s.before.iter().any(|b| b.1.texture() == t));
+            if let Some(working) = self.working.as_ref().filter(|_| !shown && t.usage().contains(wgpu::TextureUsages::STORAGE_BINDING)) {
+                working.borrow_mut().push((t.clone(), self.frame));
+            }
+            self.count(i);
+        }
+        self.count(i);
+    }
+
+    /// The bytes on the card of the drawing at `i`: its own, and the pictures kept after its
+    /// effects.
+    fn count(&mut self, i: usize) {
+        let s = &mut self.store[i];
+        let kept: usize = s.applied.iter().flat_map(|(_, after)| after.iter().flatten()).map(|(_, (w, h))| w * h * 16).sum();
+        let before: usize = s.before.iter().map(|b| b.2 .0 * b.2 .1 * 16).sum();
+        let own = s.view.texture();
+        s.bytes = (own.width() * own.height()) as usize * if s.wide { 16 } else { BYTES_PER_PIXEL } + kept + before;
     }
 
     /// `effects` run one after another from `moved`, a drawing `size`, each on what the one before

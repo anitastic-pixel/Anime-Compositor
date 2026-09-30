@@ -6,7 +6,7 @@ Each effect the card draws that moves by itself from frame to frame, and three t
 
 **The rule (D-246):** frame 0, asked for again after frame 100, runs **no pass** on the card beyond the one that lays each layer, and gives **the very picture** (every byte) the card drew for it the first time. Every run stays the card's, at Draft as at Full. Each frame drawn also compares the eight-bit picture the page receives, drawn by the CPU and by the GPU: **no channel of any pixel more than 1 level of 255 apart**, the same warnings on both, and the card drawing the frame itself.
 
-**2 of 34 frames asked for again pass; 68 of 68 frames drawn pass.**
+**34 of 34 frames asked for again pass; 68 of 68 frames drawn pass.**
 
 The largest difference is in "Gaussian Blur, radius keyed 2 to 40 on three layers frame 100, Full": 1 of 255, pixels differing: 26910.
 
@@ -14,38 +14,38 @@ The largest difference is in "Gaussian Blur, radius keyed 2 to 40 on three layer
 
 | Case | Effects | Passes the card ran for effects | Largest difference from its first picture (of 255) | Pixels differing | Result |
 |---|---|---:|---:|---:|---|
-| Noise on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Noise on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Exposure Flicker on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Exposure Flicker on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Turbulent Displace on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Turbulent Displace on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Fractal Noise on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Fractal Noise on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Ripple on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Ripple on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Wave Warp on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Wave Warp on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Speed Lines on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Speed Lines on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Camera Shake on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Camera Shake on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Rain on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Rain on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Snowfall on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Snowfall on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Roughen Edges on three layers frame 0 again, Full | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Roughen Edges on three layers frame 0 again, Draft | moves | 1 | 0 | 0 | FAIL: drawn again |
-| Kira-kira on three layers frame 0 again, Full | moves | 2 | 0 | 0 | FAIL: drawn again |
-| Kira-kira on three layers frame 0 again, Draft | moves | 2 | 0 | 0 | FAIL: drawn again |
-| Gaussian Blur, radius keyed 2 to 40 on three layers frame 0 again, Full | moves | 2 | 0 | 0 | FAIL: drawn again |
-| Gaussian Blur, radius keyed 2 to 40 on three layers frame 0 again, Draft | moves | 2 | 0 | 0 | FAIL: drawn again |
-| Bloom, intensity keyed 0.5 to 3 on three layers frame 0 again, Full | moves | 22 | 0 | 0 | FAIL: drawn again |
-| Bloom, intensity keyed 0.5 to 3 on three layers frame 0 again, Draft | moves | 22 | 0 | 0 | FAIL: drawn again |
-| Directional Blur, length keyed 5 to 80 on three layers frame 0 again, Full | moves | 2 | 0 | 0 | FAIL: drawn again |
-| Directional Blur, length keyed 5 to 80 on three layers frame 0 again, Draft | moves | 2 | 0 | 0 | FAIL: drawn again |
-| B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 0 again, Full | moves | 4 | 0 | 0 | FAIL: drawn again |
-| B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 0 again, Draft | moves | 4 | 0 | 0 | FAIL: drawn again |
+| Noise on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Noise on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Exposure Flicker on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Exposure Flicker on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Turbulent Displace on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Turbulent Displace on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Fractal Noise on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Fractal Noise on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Ripple on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Ripple on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Wave Warp on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Wave Warp on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Speed Lines on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Speed Lines on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Camera Shake on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Camera Shake on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Rain on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Rain on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Snowfall on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Snowfall on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Roughen Edges on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Roughen Edges on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Kira-kira on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Kira-kira on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Gaussian Blur, radius keyed 2 to 40 on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Gaussian Blur, radius keyed 2 to 40 on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Bloom, intensity keyed 0.5 to 3 on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Bloom, intensity keyed 0.5 to 3 on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| Directional Blur, length keyed 5 to 80 on three layers frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| Directional Blur, length keyed 5 to 80 on three layers frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
+| B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 0 again, Full | moves | 0 | 0 | 0 | PASS |
+| B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 0 again, Draft | moves | 0 | 0 | 0 | PASS |
 | Median, which does not move, on three layers frame 0 again, Full | still | 0 | 0 | 0 | PASS |
 | Median, which does not move, on three layers frame 0 again, Draft | still | 0 | 0 | 0 | PASS |
 

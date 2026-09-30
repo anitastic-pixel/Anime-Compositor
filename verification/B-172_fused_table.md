@@ -38,11 +38,11 @@ each other drawn in one pass. "Same" means every byte the viewer shows is the sa
 | runs beginning with Paraffin and HSV Key | Draft | 239 | 14 | 7 | yes |
 | eight colour effects, the fifth's setting changed, drawn a first time | Full | 100 | 28 | 7 | yes |
 | eight colour effects, the fifth's setting changed, drawn a second time | Full | 100 | 28 | 10 | yes |
-| eight colour effects, the fifth's setting changed, drawn a third time | Full | 100 | 28 | 7 | yes |
-| eight colour effects, the fifth's setting changed, drawn a fourth time | Full | 100 | 28 | 7 | yes |
+| eight colour effects, the fifth's setting changed, drawn a third time | Full | 100 | 28 | 4 | yes |
+| eight colour effects, the fifth's setting changed, drawn a fourth time | Full | 100 | 28 | 4 | yes |
 | eight colour effects, the fifth's setting changed, drawn a first time | Draft | 100 | 28 | 7 | yes |
 | eight colour effects, the fifth's setting changed, drawn a second time | Draft | 100 | 28 | 10 | yes |
-| eight colour effects, the fifth's setting changed, drawn a third time | Draft | 100 | 28 | 7 | yes |
-| eight colour effects, the fifth's setting changed, drawn a fourth time | Draft | 100 | 28 | 7 | yes |
+| eight colour effects, the fifth's setting changed, drawn a third time | Draft | 100 | 28 | 4 | yes |
+| eight colour effects, the fifth's setting changed, drawn a fourth time | Draft | 100 | 28 | 4 | yes |
 
 **38 of 38 frames the same; 38 of 38 drawn in fewer passes.**

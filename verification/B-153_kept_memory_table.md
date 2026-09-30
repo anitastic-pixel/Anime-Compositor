@@ -13,10 +13,10 @@ Each shot is played twice at Draft and at Full, every eighth frame, as the viewe
 | the reference shot with motion blur | Full | 5 of 5 frames byte for byte a fresh card's | PASS |
 | the reference shot with motion blur | Full | 29 pieces of memory made the first time through, 0 the second | PASS |
 | the reference shot with frame mix, dissolve and Roughen Edges | Draft | 5 of 5 frames byte for byte a fresh card's | PASS |
-| the reference shot with frame mix, dissolve and Roughen Edges | Draft | 20 pieces of memory made the first time through, 0 the second | PASS |
+| the reference shot with frame mix, dissolve and Roughen Edges | Draft | 48 pieces of memory made the first time through, 0 the second | PASS |
 | the reference shot with frame mix, dissolve and Roughen Edges | Full | 5 of 5 frames byte for byte a fresh card's | PASS |
-| the reference shot with frame mix, dissolve and Roughen Edges | Full | 22 pieces of memory made the first time through, 0 the second | PASS |
+| the reference shot with frame mix, dissolve and Roughen Edges | Full | 50 pieces of memory made the first time through, 0 the second | PASS |
 | the reference shot with motion blur and Roughen Edges | Draft | 5 of 5 frames byte for byte a fresh card's | PASS |
-| the reference shot with motion blur and Roughen Edges | Draft | 30 pieces of memory made the first time through, 0 the second | PASS |
+| the reference shot with motion blur and Roughen Edges | Draft | 59 pieces of memory made the first time through, 0 the second | PASS |
 | the reference shot with motion blur and Roughen Edges | Full | 5 of 5 frames byte for byte a fresh card's | PASS |
-| the reference shot with motion blur and Roughen Edges | Full | 30 pieces of memory made the first time through, 0 the second | PASS |
+| the reference shot with motion blur and Roughen Edges | Full | 59 pieces of memory made the first time through, 0 the second | PASS |
