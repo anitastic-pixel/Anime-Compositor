@@ -1277,20 +1277,21 @@ fn resolve_held(
             let (source, cel) = decode_cel(project, layer, f, at, root, cache, log)?;
             (source, Some(cel))
         } else {
+            // B-156c: a drawing that is only read is not copied.
             let mut cel_at = |f: i32| {
                 let a = decode_cel(project, layer, f, at, root, cache, log).map(|(p, _)| p);
                 match dissolving(layer, f) {
                     Some((e, k)) => {
                         let b = decode_cel(project, layer, e, at, root, cache, log).map(|(p, _)| p);
-                        mix(a.as_deref(), b.as_deref(), k)
+                        mix(a.as_deref(), b.as_deref(), k).map(std::sync::Arc::new)
                     }
-                    None => a.map(std::sync::Arc::unwrap_or_clone),
+                    None => a,
                 }
             };
             let a = cel_at(f);
-            let picture = if w > 0.0 { mix(a.as_ref(), cel_at(f + 1).as_ref(), w) } else { a }?;
+            let picture = if w > 0.0 { mix(a.as_deref(), cel_at(f + 1).as_deref(), w).map(std::sync::Arc::new) } else { a }?;
             mixed = true;
-            (std::sync::Arc::new(picture), None)
+            (picture, None)
         }
     };
     // D-99: in a draft preview a drawing with effects is taken down to the draft size first,
@@ -2276,13 +2277,16 @@ fn mix(a: Option<&WorkingBuffer>, b: Option<&WorkingBuffer>, w: f64) -> Option<W
         _ => [0.0; 4],
     };
     let mut out = WorkingBuffer::transparent(width, height);
-    for (i, o) in out.data_mut().chunks_exact_mut(4).enumerate() {
+    // B-156c: each number stands alone, so the rows are shared among the processor's threads;
+    // the sum is the same one, so the bytes are too.
+    use rayon::prelude::*;
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, o)| {
         let (x, y) = (i % width, i / width);
         let (p, q) = (px(a, x, y), px(b, x, y));
         for c in 0..4 {
             o[c] = (p[c] as f64 + w * (q[c] as f64 - p[c] as f64)) as f32;
         }
-    }
+    });
     Some(out)
 }
 
