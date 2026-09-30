@@ -829,9 +829,7 @@ pub(crate) fn bevel_alpha(source: &mut WorkingBuffer, thickness: f64, angle: f64
         return;
     }
     let mut cover = source.clone();
-    for px in cover.data_mut().chunks_exact_mut(4) {
-        px[..3].fill(0.0);
-    }
+    cover.data_mut().par_chunks_exact_mut(4).for_each(|px| px[..3].fill(0.0));
     let r = blur(&mut cover, thickness / 2.0) as isize;
     let (bw, bh) = (cover.width() as isize, cover.height() as isize);
     let data = cover.data();

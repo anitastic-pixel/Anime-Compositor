@@ -249,7 +249,7 @@ fn plan_inside(
         };
         let mut motion_blur = !resolved.moments.is_empty();
         let mut mixed = resolved.mixed;
-        let resolved = settle(resolved, &layer.id, comp, quality, false);
+        let resolved = settle(resolved, comp, quality, false);
 
         // Document 21 step 5. The matte layer is looked up whether or not it is enabled or
         // matte-only: neither of those stops it shaping this layer, they only decide whether it
@@ -278,7 +278,7 @@ fn plan_inside(
                     .map(|m| {
                         motion_blur |= !m.moments.is_empty();
                         mixed |= m.mixed;
-                        let m = settle(m, &matte_layer.id, comp, quality, true);
+                        let m = settle(m, comp, quality, true);
                         Box::new(render::MatteDraw {
                             source: m.source,
                             transform: m.transform,
@@ -1920,7 +1920,6 @@ fn moment(
 /// scaled for a draft.
 fn settle(
     mut resolved: ResolvedLayer,
-    id: &Id,
     comp: &crate::model::Composition,
     quality: PreviewQuality,
     matte: bool,
@@ -1934,45 +1933,61 @@ fn settle(
     } else {
         quality.extent(comp.width as usize, comp.height as usize)
     };
-    let tile = match quality {
-        PreviewQuality::Full => DEFAULT_TILE_SIZE,
-        PreviewQuality::Draft => DRAFT_TILE_SIZE,
-    };
+    use rayon::prelude::*;
+    // P-23: each moment is summed straight from the drawing, pixel by pixel as
+    // `render::render_tile` draws one layer onto a clear frame, without drawing a whole frame for
+    // it. The pixels skipped are those whose bilinear footprint lies wholly outside the part of
+    // the drawing that holds anything but +0, the drawing's `shown` rectangle: there the moment
+    // is exactly +0 (P-05's culling rule), and a sum of what is drawn is never -0, so adding it
+    // would change no bit. Each value is its own sum, so spread over the threads it is the same
+    // bits too; `verification/P-23_fourth_batch_audit.md` compares the frames.
+    let source = &*resolved.source;
+    let (sw, sh) = (source.width(), source.height());
+    let held = |p: &[f32]| p.iter().any(|v| v.to_bits() != 0);
+    let rows: Vec<usize> = (0..sh).into_par_iter().filter(|&y|held(&source.data()[y * sw * 4..(y + 1) * sw * 4])).collect();
+    let cols: Vec<usize> = (0..sw)
+        .into_par_iter()
+        .filter(|&x| rows.iter().any(|&y| held(&source.data()[(y * sw + x) * 4..][..4])))
+        .collect();
     let mut sum = WorkingBuffer::transparent(width, height);
-    for m in resolved.moments.iter().flatten() {
-        let one = render::render(
-            &FramePlan {
-                width,
-                height,
-                layers: vec![LayerDraw {
-                    id: id.clone(),
-                    source: resolved.source.clone(),
-                    transform: if d == 1 {
-                        *m
-                    } else {
-                        m.then(Affine::scaling(1.0 / d as f64, 1.0 / d as f64))
-                    },
-                    opacity: 1.0,
-                    matte: None,
-                    blend: crate::model::BlendMode::Normal,
-                    adjust: None,
-                    nested: None,
-                    on_card: None,
-                    wrap: Vec::new(),
-                    motion_blur: false,
-                    mixed: false,
-                }],
-            },
-            tile,
-        );
-        for (s, o) in sum.data_mut().iter_mut().zip(one.data()) {
-            *s += o;
+    if let (Some(&t), Some(&b), Some(&l), Some(&r)) = (rows.first(), rows.last(), cols.first(), cols.last()) {
+        let (l, t, r, b) = (l as f64 - 1.0, t as f64 - 1.0, r as f64 + 2.0, b as f64 + 2.0);
+        for m in resolved.moments.iter().flatten() {
+            let transform = if d == 1 { *m } else { m.then(Affine::scaling(1.0 / d as f64, 1.0 / d as f64)) };
+            let Some(inverse) = transform.invert() else { continue };
+            let corners = [transform.apply(l, t), transform.apply(r, t), transform.apply(l, b), transform.apply(r, b)];
+            let low = corners.iter().fold((f64::INFINITY, f64::INFINITY), |m, c| (m.0.min(c.0), m.1.min(c.1)));
+            let high = corners.iter().fold((f64::NEG_INFINITY, f64::NEG_INFINITY), |m, c| (m.0.max(c.0), m.1.max(c.1)));
+            let clip = |v: f64, n: usize| (v.max(0.0) as usize).min(n);
+            let (x0, y0, x1, y1) = if [low.0, low.1, high.0, high.1].iter().all(|v| v.is_finite()) {
+                (clip(low.0.floor(), width), clip(low.1.floor(), height), clip(high.0.ceil(), width), clip(high.1.ceil(), height))
+            } else {
+                (0, 0, width, height)
+            };
+            if x0 >= x1 || y0 >= y1 {
+                continue;
+            }
+            sum.data_mut()[y0 * width * 4..y1 * width * 4]
+                .par_chunks_mut(width * 4)
+                .enumerate()
+                .for_each(|(row, out)| {
+                    for x in x0..x1 {
+                        let (dx, dy) = (x as f64 + 0.5, (y0 + row) as f64 + 0.5);
+                        let (sx, sy) = inverse.apply(dx, dy);
+                        let one = crate::composite::blend_pixel(
+                            crate::model::BlendMode::Normal,
+                            render::sample_bilinear(source, sx, sy),
+                            [0.0; 4],
+                        );
+                        for c in 0..4 {
+                            out[x * 4 + c] += one[c];
+                        }
+                    }
+                });
         }
     }
     let n = resolved.moments.len() as f32;
-    for s in sum.data_mut() {
-        *s /= n;
-    }
+    sum.data_mut().par_iter_mut().for_each(|s| *s /= n);
     resolved.source = std::sync::Arc::new(sum);
     resolved.transform = if d == 1 {
         Affine::IDENTITY

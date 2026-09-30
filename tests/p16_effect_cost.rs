@@ -619,7 +619,279 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 0,
             },
         ),
+        // P-23: the fourth batch, B-115 to B-149, each as the window adds it unless that shows
+        // nothing, when a setting is moved as named. The effects that read another layer or other
+        // frames are in `p23_layer_cost` below.
+        ("Color Lookup, cool_3.cube", Effect::ColorLookup { lut: "p23".into(), table: Some(cool_lut()) }),
+        ("Line Blur, as it starts", Effect::LineBlur { length: 4.0, strength: 100.0, lines_only: "off".into() }),
+        (
+            "HSV Key, as it starts",
+            Effect::HsvKey {
+                hue: 120.0,
+                saturation: 60.0,
+                value: 60.0,
+                hue_range: 40.0,
+                saturation_range: 40.0,
+                value_range: 40.0,
+                invert: "off".into(),
+            },
+        ),
+        (
+            "Paraffin, as it starts",
+            Effect::Paraffin {
+                color: "#6450a0".into(),
+                direction: 180.0,
+                spread: 70.0,
+                opacity: 50.0,
+                blend: "multiply".into(),
+            },
+        ),
+        (
+            "Kira-kira, as it starts",
+            Effect::KiraKira {
+                threshold: 95.0,
+                spacing: 64.0,
+                density: 60.0,
+                size: 40.0,
+                shape: "star".into(),
+                angle: 0.0,
+                twinkle: 100.0,
+                period: 24.0,
+                seed: 0.0,
+                opacity: 100.0,
+                color: "#ffffff".into(),
+                frame: 0,
+            },
+        ),
+        (
+            "Lightning Bolt, as it starts",
+            Effect::LightningBolt {
+                start: [40.0, 0.0],
+                end: [60.0, 100.0],
+                jagged: 40.0,
+                detail: 6.0,
+                branches: 30.0,
+                width: 3.0,
+                glow: 24.0,
+                opacity: 100.0,
+                hold: 2.0,
+                seed: 0.0,
+                color: "#ffffff".into(),
+                glow_color: "#6e8cff".into(),
+                frame: 0,
+            },
+        ),
+        (
+            "Change to Color, as it starts",
+            Effect::ChangeToColor {
+                from: "#ff0000".into(),
+                to: "#0080ff".into(),
+                change: "hue".into(),
+                change_by: "setting".into(),
+                hue_tolerance: 5.0,
+                lightness_tolerance: 50.0,
+                saturation_tolerance: 50.0,
+                softness: 50.0,
+                view_matte: "off".into(),
+            },
+        ),
+        (
+            "Corner Pin, one corner pulled in",
+            Effect::CornerPin {
+                upper_left: [0.0, 0.0],
+                upper_right: [80.0, 10.0],
+                lower_left: [0.0, 100.0],
+                lower_right: [100.0, 100.0],
+            },
+        ),
+        (
+            "Light Sweep, as it starts",
+            Effect::LightSweep {
+                center: [50.0, 50.0],
+                direction: -30.0,
+                shape: "smooth".into(),
+                width: 50.0,
+                sweep_intensity: 50.0,
+                edge_intensity: 100.0,
+                edge_thickness: 1.0,
+                light_color: "#ffffff".into(),
+                light_reception: "add".into(),
+            },
+        ),
+        (
+            "Radio Waves, at frame 48",
+            Effect::RadioWaves {
+                producer_point: [50.0, 50.0],
+                sides: 64.0,
+                interval: 24.0,
+                expansion: 5.0,
+                orientation: 0.0,
+                direction: 90.0,
+                velocity: 0.0,
+                spin: 0.0,
+                lifespan: 96.0,
+                opacity: 100.0,
+                fade_in_time: 0.0,
+                fade_out_time: 48.0,
+                start_width: 5.0,
+                end_width: 5.0,
+                profile: "square".into(),
+                color: "#ffffff".into(),
+                frame: 48,
+            },
+        ),
+        (
+            "Polar Coordinates, as it starts",
+            Effect::PolarCoordinates { interpolation: 100.0, conversion: "rect_to_polar".into() },
+        ),
+        ("Median, radius 2, as it starts", Effect::Median { radius: 2.0, operate_on_alpha: "off".into() }),
+        ("Median, radius 10", Effect::Median { radius: 10.0, operate_on_alpha: "off".into() }),
+        ("Smart Blur, radius 3, as it starts", Effect::SmartBlur { radius: 3.0, threshold: 64.0 }),
+        ("Smart Blur, radius 10", Effect::SmartBlur { radius: 10.0, threshold: 64.0 }),
+        (
+            "Snowfall, as it starts",
+            Effect::Snowfall {
+                color: "#ffffff".into(),
+                density: 50.0,
+                spacing: 32.0,
+                size: 6.0,
+                depth: 50.0,
+                speed: 2.0,
+                wind: 0.5,
+                wiggle: 3.0,
+                period: 48.0,
+                seed: 0.0,
+                opacity: 100.0,
+                frame: 0,
+            },
+        ),
+        (
+            "Kaleidoscope, as it starts",
+            Effect::Kaleidoscope {
+                segments: 6.0,
+                rotation: 0.0,
+                size: 100.0,
+                center: [50.0, 50.0],
+                mode: "mirror".into(),
+            },
+        ),
+        (
+            "Roughen Edges, as it starts",
+            Effect::RoughenEdges {
+                edge_type: "roughen".into(),
+                edge_color: "#8a3c14".into(),
+                border: 8.0,
+                size: 10.0,
+                complexity: 3.0,
+                evolution: 0.0,
+                speed: 0.0,
+                seed: 0.0,
+                frame: 0,
+            },
+        ),
+        (
+            "Beam, as it starts",
+            Effect::Beam {
+                start: [10.0, 50.0],
+                end: [90.0, 50.0],
+                length: 25.0,
+                time: 0.0,
+                start_thickness: 8.0,
+                end_thickness: 8.0,
+                softness: 50.0,
+                inside_color: "#ffffff".into(),
+                outside_color: "#3c8cff".into(),
+                composite: "on".into(),
+            },
+        ),
+        (
+            "4-Color Gradient, as it starts",
+            Effect::FourColorGradient {
+                point_1: [10.0, 10.0],
+                point_2: [90.0, 10.0],
+                point_3: [10.0, 90.0],
+                point_4: [90.0, 90.0],
+                color_1: "#ffff00".into(),
+                color_2: "#00ff00".into(),
+                color_3: "#ff00ff".into(),
+                color_4: "#0000ff".into(),
+                blend: 100.0,
+                opacity: 100.0,
+                blending_mode: "normal".into(),
+            },
+        ),
+        (
+            "Cell Pattern, as it starts",
+            Effect::CellPattern {
+                pattern: "bubbles".into(),
+                invert: "off".into(),
+                contrast: 100.0,
+                disperse: 1.0,
+                size: 60.0,
+                evolution: 0.0,
+                seed: 0.0,
+                dark_color: "#000000".into(),
+                light_color: "#ffffff".into(),
+                opacity: 100.0,
+                blend: "normal".into(),
+            },
+        ),
+        (
+            "Optics Compensation, field of view 60",
+            Effect::OpticsCompensation {
+                field_of_view: 60.0,
+                reverse: "off".into(),
+                orientation: "horizontal".into(),
+                center: [50.0, 50.0],
+            },
+        ),
+        ("Radial Shadow, as it starts", radial_shadow(0.0)),
+        ("Radial Shadow, softness 20", radial_shadow(20.0)),
+        (
+            "Extract, black point 64, softness 32",
+            Effect::Extract {
+                channel: "luminance".into(),
+                black_point: 64.0,
+                white_point: 255.0,
+                black_softness: 32.0,
+                white_softness: 0.0,
+                invert: "off".into(),
+            },
+        ),
+        (
+            "Bevel Alpha, as it starts",
+            Effect::BevelAlpha { edge_thickness: 2.0, light_angle: -60.0, light_color: "#ffffff".into(), light_intensity: 0.4 },
+        ),
+        (
+            "Bevel Edges, as it starts",
+            Effect::BevelEdges { edge_thickness: 0.1, light_angle: -60.0, light_color: "#ffffff".into(), light_intensity: 0.4 },
+        ),
+        (
+            "Block Dissolve, half way, 8-pixel blocks",
+            Effect::BlockDissolve { completion: 50.0, block_width: 8.0, block_height: 8.0, feather: 4.0 },
+        ),
+        // D-202: Mix, the given picture laid back under the result.
+        ("Gaussian Blur 10 at Mix 50%", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into() }),
     ]
+}
+
+fn cool_lut() -> anime_compositor::lut::Table {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Fixtures/cube_lut/luts/cool_3.cube");
+    let cube = anime_compositor::lut::parse(&std::fs::read(path).unwrap()).unwrap();
+    anime_compositor::lut::Table(std::sync::Arc::new(cube))
+}
+
+fn radial_shadow(softness: f64) -> Effect {
+    Effect::RadialShadow {
+        color: "#000000".into(),
+        opacity: 50.0,
+        light: [50.0, 0.0],
+        distance: 10.0,
+        softness,
+        render: "regular".into(),
+        color_influence: 100.0,
+        shadow_only: "off".into(),
+    }
 }
 
 fn line_width(width: f64, based_on: &str) -> Effect {
@@ -665,9 +937,15 @@ fn fingerprint(b: &WorkingBuffer) -> String {
 fn p16_effect_cost() {
     println!("| Effect | Cel | Median ms | Fastest ms | Runs | Result SHA-256 (first 16) |");
     println!("|---|---|---|---|---|---|");
+    // `P16_ONLY=Median` runs only the cases whose name holds that text.
+    let only = std::env::var("P16_ONLY").unwrap_or_default();
     for (cel_name, cel) in [("character", character()), ("background", background())] {
-        for (name, effect) in cases() {
-            let stack = [EffectInstance::new(Id::new("p16"), effect)];
+        for (name, effect) in cases().into_iter().filter(|(n, _)| n.contains(only.as_str())) {
+            let mut instance = EffectInstance::new(Id::new("p16"), effect);
+            if name.ends_with("at Mix 50%") {
+                instance.mix = 50.0;
+            }
+            let stack = [instance];
             let mut times = Vec::new();
             let mut print = String::new();
             let started = Instant::now();
@@ -687,5 +965,111 @@ fn p16_effect_cost() {
                 sorted.len()
             );
         }
+    }
+}
+
+/// P-23: the fourth batch's effects that read another layer or other frames, and D-188's motion
+/// blur and D-216's time stretch, on the reference shot at frame 101, drawn as export draws it
+/// (`render_frame`, Full), so the drawings are read in each run as well; the first row, with
+/// nothing added, is that part. At frame 101 layer 3 (on twos) and layer 4 (on threes) are each
+/// on the last frame of a drawing, where the drawing dissolve shows.
+#[test]
+#[ignore]
+fn p23_layer_cost() {
+    use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
+    use anime_compositor::diagnostics::FrameLog;
+    use anime_compositor::persist;
+    use serde_json::{json, Value as J};
+
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let base: J =
+        serde_json::from_str(&std::fs::read_to_string(repo.join("verification/B-08a_project.json")).unwrap()).unwrap();
+    let root = repo.join("Fixtures/reference_shot");
+    let on = |p: &mut J, layer: usize, type_id: &str, parameters: J| {
+        p["compositions"][0]["layers"][layer]["effects"] = json!([{
+            "instance_id": "fx-p23", "type_id": type_id, "enabled": true, "parameters": parameters,
+        }]);
+    };
+    let slide = |p: &mut J| {
+        for layer in p["compositions"][0]["layers"].as_array_mut().unwrap() {
+            if layer["id"] == "layer-3" || layer["id"] == "layer-4" {
+                let at = layer["transform"]["position"]["base"].clone();
+                let (x, y) = (at[0].as_f64().unwrap(), at[1].as_f64().unwrap());
+                layer["transform"]["position"]["keyframes"] = json!([
+                    {"frame": 90, "value": [x - 200.0, y], "interp": "linear"},
+                    {"frame": 110, "value": [x + 200.0, y], "interp": "linear"}
+                ]);
+                layer["motion_blur"] = J::Bool(true);
+            }
+        }
+    };
+    let stretch = |p: &mut J, blend: bool| {
+        let layer = &mut p["compositions"][0]["layers"][1];
+        layer["time_stretch"] = J::from(150.0);
+        if blend {
+            layer["frame_blend"] = J::from("frame_mix");
+            p["compositions"][0]["frame_blending"] = J::Bool(true);
+        }
+    };
+    let cases: Vec<(&str, Box<dyn Fn(&mut J)>)> = vec![
+        ("the reference shot, nothing added", Box::new(|_| {})),
+        (
+            "Compound Blur 20 on layer 1, reading layer 2",
+            Box::new(move |p| on(p, 0, "core.compound_blur", json!({"layer": "layer-2", "fit": "stretch", "max_blur": 20, "invert": "off", "edges": "transparent"}))),
+        ),
+        (
+            "Displacement Map as it starts on layer 1, reading layer 2",
+            Box::new(move |p| on(p, 0, "core.displacement_map", json!({"layer": "layer-2", "fit": "stretch", "horizontal": "red", "max_horizontal": 5, "vertical": "green", "max_vertical": 5, "wrap": "off"}))),
+        ),
+        (
+            "Gradient Wipe half way, softness 10, on layer 1, reading layer 2",
+            Box::new(move |p| on(p, 0, "core.gradient_wipe", json!({"layer": "layer-2", "fit": "stretch", "completion": 50, "softness": 10, "invert": "off"}))),
+        ),
+        (
+            "Echo on layer 3, 4 echoes 2 frames apart",
+            Box::new(move |p| on(p, 2, "core.echo", json!({"echo_time": -2, "echoes": 4, "intensity": 1, "decay": 0.7, "operator": "add"}))),
+        ),
+        ("Posterize Time 12 on layer 2", Box::new(move |p| on(p, 1, "core.posterize_time", json!({"frame_rate": 12})))),
+        ("layers 3 and 4 sliding, no motion blur", Box::new(move |p| slide(p))),
+        (
+            "layers 3 and 4 sliding, motion blur 180 degrees, 16 samples",
+            Box::new(move |p| {
+                slide(p);
+                p["compositions"][0]["motion_blur"] =
+                    json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 16});
+            }),
+        ),
+        ("layer 2 at time stretch 150%, no blending", Box::new(move |p| stretch(p, false))),
+        ("layer 2 at time stretch 150%, Frame Mix", Box::new(move |p| stretch(p, true))),
+        (
+            "drawing dissolve of 2 on layers 3 and 4",
+            Box::new(|p| {
+                for layer in [2, 3] {
+                    p["compositions"][0]["layers"][layer]["drawing_dissolve"] = J::from(2);
+                }
+            }),
+        ),
+    ];
+    println!("| Case | Median ms | Fastest ms | Runs | Frame SHA-256 (first 16) |");
+    println!("|---|---|---|---|---|");
+    let only = std::env::var("P16_ONLY").unwrap_or_default();
+    for (name, change) in cases.iter().filter(|(n, _)| n.contains(only.as_str())) {
+        let mut p = base.clone();
+        change(&mut p);
+        let loaded = persist::load_str(&p.to_string()).unwrap();
+        let mut times = Vec::new();
+        let mut print = String::new();
+        while times.len() < 7 {
+            let mut log = FrameLog::new(3);
+            let t = Instant::now();
+            let frame = render_frame(loaded.document.project(), &Id::new("comp-reference-shot"), 101, &root, DEFAULT_TILE_SIZE, &mut log)
+                .unwrap();
+            times.push(t.elapsed().as_secs_f64() * 1000.0);
+            let said = log.finish();
+            assert!(said.is_empty(), "{name}: {said:?}");
+            print = fingerprint(&frame);
+        }
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        println!("| {name} | {:.1} | {:.1} | {} | `{print}` |", times[3], times[0], times.len());
     }
 }
