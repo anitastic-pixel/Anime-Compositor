@@ -123,3 +123,39 @@ fn a_held_masked_drawing_is_kept() {
     fs::write(&out, table).expect("write the B-170 table");
     assert_eq!(passed, checks, "see verification/B-170_held_table.md");
 }
+
+/// The time a frame takes, held and new, by the median of frames 4 to 23. Run by hand; writes
+/// `verification/B-170_timing_raw.md`.
+#[test]
+#[ignore]
+fn b170_timing() {
+    let mut gpu = Gpu::new().expect("a usable card");
+    let (root, comp) = (repo("Fixtures/reference_shot"), Id::new("comp-reference-shot"));
+    let mut rows = String::new();
+    for kind in SHOTS {
+        let project = shot(kind);
+        for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+            gpu.forget();
+            let mut cache = CelCache::viewer();
+            let (mut new, mut held) = (Vec::new(), Vec::new());
+            for frame in 0..24 {
+                let mut log = FrameLog::new(3);
+                let at = std::time::Instant::now();
+                preview::preview_frame_srgb8(&project, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
+                    .expect("the frame draws");
+                let ms = at.elapsed().as_secs_f64() * 1000.0;
+                if frame >= 4 {
+                    if frame % 2 == 1 { held.push(ms) } else { new.push(ms) }
+                }
+            }
+            new.sort_by(f64::total_cmp);
+            held.sort_by(f64::total_cmp);
+            writeln!(rows, "| {kind} | {} | {:.1} | {:.1} |", quality.label(), new[new.len() / 2], held[held.len() / 2]).unwrap();
+        }
+    }
+    fs::write(
+        repo("verification/B-170_timing_raw.md"),
+        format!("| Shot | Quality | New drawing (ms) | Held (ms) |\n|---|---|---:|---:|\n{rows}"),
+    )
+    .expect("write the timing");
+}

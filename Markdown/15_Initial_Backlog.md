@@ -775,6 +775,8 @@ B-158 / Only the part of the picture on screen made and sent, D-229 (GPU plan G8
 
 B-159 / The layers below an edit kept by the viewer, D-241 (GPU plan G10). **BUILT on 2026-09-30**, D-241 accepted under the owner's delegation. `src/render.rs` `render_below` and `Below`, with the drawing split into `canvas`, `draw` and `cut_out`; `src/cache.rs` `CelCache::below`; `src/preview.rs` `preview_frame_cached` and `preview_part` draw through it. `verification/B-159_below_table.md`: 544 of 544 pictures bit for bit a viewer that keeps nothing. **Timing** (`verification/B-159_timing_table.md`, one layer's opacity dragged, on the processor): Full, the declared ten-layer fixture's top layer 24.5 to 7.6 ms, its middle 23.8 to 14.9; the card draws as before. Document 27 has the cache entry. The playtest sheet is `verification/B-159_playtest.md`, **awaiting the owner's playtest**.
 
+B-170 / A held masked drawing kept by the viewer, D-242 (GPU plan G11). **BUILT on 2026-09-30**, D-242 accepted under the owner's delegation. `src/compose.rs` `resolve_rest` asks the effect cache before drawing a mask, and for a masked drawing whose effects are all the card's. `verification/B-170_held_table.md`: 72 of 72 frames bit for bit a viewer that keeps nothing, with no mask drawn and no drawing sent on a held frame. **Timing** (`verification/B-170_timing_table.md`, on the card): a held frame of the reference shot with one masked layer 20.5 to 2.3 ms at Full, 18.4 to 0.7 at Draft. The playtest sheet is `verification/B-170_playtest.md`, **awaiting the owner's playtest**.
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.

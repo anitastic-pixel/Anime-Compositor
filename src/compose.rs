@@ -1542,15 +1542,9 @@ fn resolve_rest(
             );
         }
     }
-    // The guard is `mask::apply`'s own first line, called here rather than restated: a mask
-    // that cannot be drawn writes nothing, and a copy taken to write nothing is the whole
-    // cost P-03(a) removed. D-77 keeps that: with no mask that takes part, `coverage` is
-    // `None` and `apply` returns before the copy.
-    if masks.iter().any(|m| m.is_renderable() && m.mode != crate::mask::MaskMode::None) {
-        crate::perf::time(crate::perf::Stage::Mask, || {
-            crate::mask::apply(std::sync::Arc::make_mut(&mut source), masks)
-        });
-    }
+    // The mask itself is drawn below, once it is known whether the effect cache already holds
+    // the drawing it makes (B-170).
+    let masked = masks.iter().any(|m| m.is_renderable() && m.mode != crate::mask::MaskMode::None);
 
     // Document 21 step 3: the ordered effect stack, in layer space, after the mask and before
     // the transform.
@@ -1649,6 +1643,27 @@ fn resolve_rest(
     }
     chain.reverse();
     let before = chain.first().copied().unwrap_or(effects.len());
+    // B-46: a draft cel whose only effect is left to the card still goes to the effect cache,
+    // under an empty stack, so the card is handed the same small drawing every frame and sends it
+    // once. B-170 (D-242): so does a masked cel, at either quality: a held drawing is then neither
+    // masked again nor sent to the card again, where before each frame masked a new copy.
+    let skip = !masked && effects[..before].is_empty() && (chain.is_empty() || pre == 1.0);
+    let divisor = pre as usize;
+    let hit = match &cel {
+        Some((path, interpretation)) if !skip => {
+            cache.effect_result(path, *interpretation, &drawn_masks, &effects[..before], divisor)
+        }
+        _ => None,
+    };
+    // The guard is `mask::apply`'s own first line, called here rather than restated: a mask
+    // that cannot be drawn writes nothing, and a copy taken to write nothing is the whole
+    // cost P-03(a) removed. D-77 keeps that: with no mask that takes part, `coverage` is
+    // `None` and `apply` returns before the copy. A cache hit already holds the mask's work.
+    if masked && hit.is_none() {
+        crate::perf::time(crate::perf::Stage::Mask, || {
+            crate::mask::apply(std::sync::Arc::make_mut(&mut source), masks)
+        });
+    }
     let offset = match &cel {
         // D-66: an adjustment layer's stack runs on the frame beneath it, in the renderer. What
         // that run would have reported is reported here instead, so a bypassed effect reaches
@@ -1667,10 +1682,7 @@ fn resolve_rest(
             }
             (0, 0)
         }
-        // B-46: a draft cel whose only effect is left to the card still goes to the effect cache,
-        // under an empty stack, so the card is handed the same small drawing every frame and
-        // sends it once.
-        _ if effects[..before].is_empty() && (chain.is_empty() || pre == 1.0) => (0, 0),
+        _ if skip => (0, 0),
         // D-67: a composition layer's stack runs on the inner picture as one. The effect cache
         // is keyed by a cel's file, and this picture has none, so it is not asked.
         None => {
@@ -1690,16 +1702,13 @@ fn resolve_rest(
             // D-99: a cel taken down to draft size runs its stack with every distance divided
             // by the divisor, as the composition layer's picture above does. The key holds the
             // settings as the project states them, and the divisor beside them.
-            let divisor = pre as usize;
             let mut stack = effects[..before].to_vec();
             if pre != 1.0 {
                 for instance in &mut stack {
                     instance.effect.scale_distances(|d| d / pre);
                 }
             }
-            if let Some(hit) =
-                cache.effect_result(path, *interpretation, &drawn_masks, &effects[..before], divisor)
-            {
+            if let Some(hit) = hit {
                 // P-11. ADR-017 fixes an evaluation's whole input to the cel, the mask and the stack, all
                 // three of which are in the key, so this buffer is the one `apply_stack` would have
                 // produced. It is handed back shared: the cache holds it too, so the transform below,
