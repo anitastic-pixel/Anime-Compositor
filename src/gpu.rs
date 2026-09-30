@@ -3281,6 +3281,115 @@ struct FxPasses {
     cells: Pass,
     /// B-156.
     adjust: Pass,
+    /// B-172: [`chain_shader`]'s one pass.
+    chain: Pass,
+}
+
+/// B-172: one colour effect of a run the card draws in one pass: `grade` (0) or `tone` (1), its
+/// numbers and its settings.
+type Staged = (u32, FxParams, Vec<f64>);
+
+/// B-172: [`FX_SHADER`] with `grade` and `tone` made functions of one pixel, which read their
+/// numbers from `F` and their settings from `k` at `KO`, both set for each effect of a run; and
+/// `chain`, which runs a run's effects on each pixel one after another, handing each the pixel
+/// the one before it made, as the texture between them held it. The same maths in the same order.
+fn chain_shader() -> String {
+    let s = FX_SHADER.replace(
+        "@group(0) @binding(0) var<uniform> F: Fx;",
+        "@group(0) @binding(0) var<uniform> RUN: Fx;\nvar<private> F: Fx;\nvar<private> KO: u32;",
+    );
+    // Every setting read from where this effect's begin.
+    let parts: Vec<&str> = s.split("k[").collect();
+    let mut s = parts[0].to_string();
+    for (before, part) in parts.iter().zip(&parts[1..]) {
+        let word = before.chars().last().is_some_and(|c| c.is_alphanumeric() || c == '_');
+        s.push_str(if word { "k[" } else { "k[KO + " });
+        s.push_str(part);
+    }
+    for name in ["grade", "tone"] {
+        let head = format!(
+            "@compute @workgroup_size(16, 16)\nfn {name}(@builtin(global_invocation_id) id: vec3<u32>) {{\n    let size = textureDimensions(input);\n    if id.x >= size.x || id.y >= size.y {{\n        return;\n    }}\n    let p = textureLoad(input, id.xy, 0);\n"
+        );
+        let start = s.find(&head).expect("B-172: the pass begins as it did");
+        let end = start + s[start..].find("\n}\n").expect("B-172: the pass ends") + 3;
+        // Each store of the pixel, and the return after it, a return of the pixel.
+        let mut f = format!("fn {name}_at(id: vec3<u32>, p: vec4<f32>) -> vec4<f32> {{\n");
+        let mut rest = &s[start + head.len()..end];
+        let store = "textureStore(output, id.xy, ";
+        while let Some(i) = rest.find(store) {
+            f.push_str(&rest[..i]);
+            rest = &rest[i + store.len()..];
+            let j = rest.find(");\n").expect("B-172: a store ends its line");
+            f.push_str(&format!("return {};", &rest[..j]));
+            rest = &rest[j + 2..];
+            if let Some(after) = rest.trim_start().strip_prefix("return;") {
+                rest = after;
+            }
+        }
+        f.push_str(rest);
+        assert!(!f.contains("texture"), "B-172: {name} reads or writes a texture other than its pixel");
+        s.replace_range(start..end, &f);
+    }
+    s + "
+struct Stage {
+    f: Fx,
+    which: u32,
+    ko: u32,
+}
+
+@group(0) @binding(12) var<storage, read> stages: array<Stage>;
+
+@compute @workgroup_size(16, 16)
+fn chain(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    var p = textureLoad(input, id.xy, 0);
+    for (var i = 0u; i < RUN.count; i++) {
+        F = stages[i].f;
+        KO = stages[i].ko;
+        if stages[i].which == 0u {
+            p = grade_at(id, p);
+        } else {
+            p = tone_at(id, p);
+        }
+    }
+    textureStore(output, id.xy, p);
+}
+"
+}
+
+/// B-172: whether the card draws `effect` from its own pixel alone, through `grade` or `tone`, so
+/// that a run of them can be drawn in one pass.
+fn one_pixel(effect: &crate::effects::Effect) -> bool {
+    use crate::effects::Effect as E;
+    matches!(
+        effect,
+        E::Curves { .. }
+            | E::Levels { .. }
+            | E::HueSaturation { .. }
+            | E::Gradient { .. }
+            | E::Noise { .. }
+            | E::ExposureFlicker { .. }
+            | E::ColorBalance { .. }
+            | E::GradientMap { .. }
+            | E::Vignette { .. }
+            | E::FractalNoise { .. }
+            | E::Invert { .. }
+            | E::BrightnessContrast { .. }
+            | E::BlackWhite { .. }
+            | E::Posterize { .. }
+            | E::Threshold { .. }
+            | E::ChannelMixer { .. }
+            | E::Vibrance { .. }
+            | E::LeaveColor { .. }
+            | E::Solarize { .. }
+            | E::Halftone { .. }
+            | E::ColorLookup { .. }
+            | E::HsvKey { .. }
+            | E::Paraffin { .. }
+    )
 }
 
 /// B-76: Distance Gradation's work for a drawing `w` by `h`: the columns' distances over the
@@ -3416,7 +3525,8 @@ struct Stored {
     /// B-46, B-47: the last effects the card ran on it (B-155: a run of them), kept while the
     /// settings stay the same, with the picture after each, so a run whose last effect alone
     /// changes starts again from the one before it.
-    applied: Option<(Vec<OnCard>, Vec<(wgpu::TextureView, (usize, usize))>)>,
+    /// B-172: none after an effect a run drawn in one pass went on from.
+    applied: Option<(Vec<OnCard>, Vec<Option<(wgpu::TextureView, (usize, usize))>>)>,
     /// B-47: held in 32-bit floats, for a Bloom.
     wide: bool,
 }
@@ -3716,6 +3826,15 @@ impl Gpu {
                 snow: pass("snow", &[0, 1, 2, 3]),
                 cells: pass("cells", &[0, 1, 2, 3]),
                 adjust: pass("adjust", &[0, 1, 3, 4, 10, 11]),
+                chain: {
+                    let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                        label: Some("B-172"),
+                        source: wgpu::ShaderSource::Wgsl(chain_shader().into()),
+                    });
+                    let entries = [entry(0, uniform()), entry(1, texture()), entry(2, storage_texture()), entry(3, storage(true)), entry(12, storage(true))];
+                    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some("chain"), entries: &entries });
+                    (pipeline_in(&module, &layout, "chain"), layout)
+                },
             }
         });
         let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
@@ -3999,21 +4118,23 @@ impl Gpu {
     /// run before the layers.
     fn applied(&mut self, steps: &mut Vec<Step>, source: &Arc<WorkingBuffer>, still: &wgpu::TextureView, effects: &[OnCard]) -> wgpu::TextureView {
         let stored = self.store.iter().position(|s| s.used == self.frame && &s.view == still);
-        let mut views = Vec::new();
+        let (mut views, mut unchanged) = (Vec::new(), 0);
         if let Some((kept, after)) = stored.and_then(|i| self.store[i].applied.as_ref()) {
-            let same = kept.iter().zip(effects).take_while(|(a, b)| a == b).count();
+            unchanged = kept.iter().zip(effects).take_while(|(a, b)| a == b).count();
+            // B-172: back to the last picture kept, when a run drawn in one pass left none.
+            let same = after[..unchanged].iter().rposition(Option::is_some).map_or(0, |i| i + 1);
             views.extend_from_slice(&after[..same]);
         }
-        if views.len() == effects.len() && !views.is_empty() {
-            return views[views.len() - 1].0.clone();
+        if let Some(Some((last, _))) = views.last().filter(|_| views.len() == effects.len()) {
+            return last.clone();
         }
-        let from = views.last().cloned().unwrap_or((still.clone(), (source.width(), source.height())));
+        let from = views.last().cloned().flatten().unwrap_or((still.clone(), (source.width(), source.height())));
         let done = views.len();
-        self.run(steps, source, from, &effects[done..], &mut views);
-        let moved = views[views.len() - 1].0.clone();
+        self.run(steps, source, from, &effects[done..], unchanged.saturating_sub(done), &mut views);
+        let moved = views.last().cloned().flatten().expect("the last effect's picture").0;
         if let Some(i) = stored {
             let s = &mut self.store[i];
-            let kept: usize = views.iter().map(|(_, (w, h))| w * h * 16).sum();
+            let kept: usize = views.iter().flatten().map(|(_, (w, h))| w * h * 16).sum();
             s.bytes = source.width() * source.height() * if s.wide { 16 } else { BYTES_PER_PIXEL } + kept;
             s.applied = Some((effects.to_vec(), views));
         }
@@ -4021,26 +4142,82 @@ impl Gpu {
     }
 
     /// `effects` run one after another from `moved`, a drawing `size`, each on what the one before
-    /// it wrote; each result is added to `views`. `source` is the drawing on the CPU.
+    /// it wrote; each result is added to `views`. `source` is the drawing on the CPU. B-172: a run
+    /// of two or more colour effects that each read only their own pixel is one pass, and adds
+    /// none to `views` but for its last. A run is cut before `split`, the first effect changed
+    /// since the last frame, so the part before it is kept and the next change draws only the rest.
     fn run(
         &self,
         steps: &mut Vec<Step>,
         source: &WorkingBuffer,
         (mut moved, mut size): (wgpu::TextureView, (usize, usize)),
         effects: &[OnCard],
-        views: &mut Vec<(wgpu::TextureView, (usize, usize))>,
+        split: usize,
+        views: &mut Vec<Option<(wgpu::TextureView, (usize, usize))>>,
     ) {
-        for effect in effects {
-            (moved, size) = match effect {
+        let one = |e: &OnCard| self.fused && matches!(e, OnCard::Fx(f) if one_pixel(&f.instance.effect));
+        let mut i = 0;
+        while i < effects.len() {
+            let mut n = effects[i..].iter().take_while(|e| one(e)).count();
+            if i < split && split < i + n {
+                n = split - i;
+            }
+            if n >= 2 {
+                let staged = RefCell::new(Some(Vec::new()));
+                for effect in &effects[i..i + n] {
+                    let OnCard::Fx(f) = effect else { unreachable!("a run is of colour effects") };
+                    self.fx(steps, source, size, &moved, f, &staged);
+                    views.push(None);
+                }
+                moved = self.chain(steps, &moved, size, &staged.into_inner().unwrap_or_default());
+                *views.last_mut().expect("the run's last") = Some((moved.clone(), size));
+                i += n;
+                continue;
+            }
+            (moved, size) = match &effects[i] {
                 OnCard::Radial(r) => (self.blur(steps, &moved, size, *r), size),
                 OnCard::Bloom(b) => self.bloom(steps, &moved, size, *b),
                 OnCard::Directional(d) => self.directional(steps, &moved, size, *d),
                 OnCard::Gaussian(g) => self.gaussian(steps, &moved, size, *g),
                 OnCard::Glow(g) => self.glow(steps, &moved, size, *g),
-                OnCard::Fx(f) => self.fx(steps, source, size, &moved, f),
+                OnCard::Fx(f) => self.fx(steps, source, size, &moved, f, &RefCell::new(None)),
             };
-            views.push((moved.clone(), size));
+            views.push(Some((moved.clone(), size)));
+            i += 1;
         }
+    }
+
+    /// B-172: a run of colour effects, `staged` by [`Gpu::fx`], drawn on `still`, a drawing `w` by
+    /// `h`, in one pass into a texture of its own, which is returned.
+    fn chain(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), staged: &[Staged]) -> wgpu::TextureView {
+        let (pipeline, layout) = &self.fx.as_ref().expect("a run only with the passes").chain;
+        let (mut table, mut k) = (Vec::<u32>::new(), Vec::<f64>::new());
+        for (which, p, settings) in staged {
+            table.extend(bytemuck::cast::<FxParams, [u32; 12]>(*p));
+            table.extend([*which, k.len() as u32]);
+            k.extend(settings);
+        }
+        let init = |label, contents: &[u8], usage| {
+            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some(label), contents, usage })
+        };
+        let run = FxParams { count: staged.len() as u32, ..Default::default() };
+        let numbers = init("B-172 run", bytemuck::bytes_of(&run), wgpu::BufferUsages::UNIFORM);
+        let k = init("B-172 settings", bytemuck::cast_slice(&k), wgpu::BufferUsages::STORAGE);
+        let table = init("B-172 effects", bytemuck::cast_slice(&table), wgpu::BufferUsages::STORAGE);
+        let out = self.scratch("B-172", w, h);
+        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: numbers.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(still) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&out) },
+                wgpu::BindGroupEntry { binding: 3, resource: k.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 12, resource: table.as_entire_binding() },
+            ],
+        });
+        steps.push((pipeline.clone(), group, ((w as u32).div_ceil(16), (h as u32).div_ceil(16))));
+        out
     }
 
     /// A texture the passes write and the layers read, `width` by `height`. B-153: one an earlier
@@ -4075,7 +4252,7 @@ impl Gpu {
 
     /// B-153: whether `texture` holds an effect's result a drawing keeps for later frames.
     fn keeps(&self, texture: &wgpu::Texture) -> bool {
-        self.store.iter().any(|s| s.applied.as_ref().is_some_and(|(_, after)| after.iter().any(|(v, _)| v.texture() == texture)))
+        self.store.iter().any(|s| s.applied.as_ref().is_some_and(|(_, after)| after.iter().flatten().any(|(v, _)| v.texture() == texture)))
     }
 
     /// `blurs::radial_blur` of `still`, `width` by `height`, into a texture of its own, which is
@@ -4355,7 +4532,15 @@ impl Gpu {
     /// texture of its own, returned with its size. What to dispatch is added to `steps`.
     /// B-155: `source` is the drawing the layer sent, which Paraffin and Kira-kira read here;
     /// they only begin a run, so it is what they are given.
-    fn fx(&self, steps: &mut Vec<Step>, source: &WorkingBuffer, (w, h): (usize, usize), still: &wgpu::TextureView, f: &Fx) -> (wgpu::TextureView, (usize, usize)) {
+    fn fx(
+        &self,
+        steps: &mut Vec<Step>,
+        source: &WorkingBuffer,
+        (w, h): (usize, usize),
+        still: &wgpu::TextureView,
+        f: &Fx,
+        staged: &RefCell<Option<Vec<Staged>>>,
+    ) -> (wgpu::TextureView, (usize, usize)) {
         use crate::effects::Effect as E;
         let passes = self.fx.as_ref().expect("the batch of ten is refused without the passes");
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
@@ -4377,8 +4562,13 @@ impl Gpu {
                 mapped_at_creation: false,
             })
         };
-        // A pass the size of the drawing, on `still`.
+        // A pass the size of the drawing, on `still`. B-172: in a run, only noted for its one pass.
         let same = |steps: &mut Vec<Step>, pass: &Pass, p: FxParams, k: &[f64], other: Option<&wgpu::TextureView>| {
+            if let Some(run) = staged.borrow_mut().as_mut() {
+                let which = [&passes.grade, &passes.tone].iter().position(|q| std::ptr::eq(*q, pass)).filter(|_| other.is_none());
+                run.push((which.expect("B-172: a run holds only colour effects of their own pixel") as u32, p, k.to_vec()));
+                return (still.clone(), (w, h));
+            }
             let out = self.scratch("B-65", w, h);
             self.fx_step(steps, pass, p, Some(still), Some(&out), Some(k), other, none, tiles(w, h));
             (out, (w, h))
@@ -5422,8 +5612,8 @@ impl Gpu {
                     steps.push((self.take.0.clone(), group, tiles));
                     // Only Paraffin and Kira-kira read the drawing on the CPU, and they stay there.
                     let mut views = Vec::new();
-                    self.run(&mut steps, &layer.source, (taken.clone(), (width, height)), &run, &mut views);
-                    let (effected, (ew, eh)) = views.pop().unwrap_or((taken, (width, height)));
+                    self.run(&mut steps, &layer.source, (taken.clone(), (width, height)), &run, 0, &mut views);
+                    let (effected, (ew, eh)) = views.pop().flatten().unwrap_or((taken, (width, height)));
                     // Its shape is the composition's size, opaque, unless a mask cut it: that one is
                     // kept on the card, and only the cut ones are sent each frame. Both wide, so the
                     // cover is the CPU's to the bit.

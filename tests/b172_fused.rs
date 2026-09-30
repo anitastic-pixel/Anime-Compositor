@@ -49,6 +49,7 @@ fn effect(name: &str) -> Value {
         "Threshold" => ("core.threshold", json!({"level": 128})),
         "Channel Mixer" => ("core.channel_mixer", json!({"red": [0, 0, 100, 0], "green": [0, 100, 0, 0], "blue": [100, 0, 0, 0], "monochrome": "off"})),
         "Vibrance" => ("core.vibrance", json!({"vibrance": 40, "saturation": 20})),
+        "Vibrance 55" => ("core.vibrance", json!({"vibrance": 55, "saturation": 20})),
         "Leave Color" => ("core.leave_color", json!({"color": "#ff0000", "tolerance": 15, "softness": 10, "amount": 100})),
         "Solarize" => ("core.solarize", json!({"threshold": 128})),
         "Halftone" => ("core.halftone", json!({"size": 8, "angle": 45, "ink": "#000000", "paper": "#ffffff", "amount": 100})),
@@ -142,8 +143,104 @@ fn b172_fused() {
             }
         }
     }
+    // A setting inside a run changed from frame to frame, the card keeping what it drew between:
+    // each frame against the same frame drawn from nothing with every effect in a pass of its own.
+    let colours = ["Levels", "Hue/Saturation", "Color Balance", "Brightness & Contrast", "Vibrance", "Channel Mixer", "Curves", "Gradient Map"];
+    let mut changed = colours;
+    changed[4] = "Vibrance 55";
+    let (a, b) = (shot([&colours, &colours, &colours]), shot([&changed, &changed, &changed]));
+    for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+        gpu.fuse(false);
+        let apart = [frame(&mut gpu, &a, &root, 100, quality), frame(&mut gpu, &b, &root, 100, quality)];
+        gpu.fuse(true);
+        gpu.forget();
+        let mut cache = CelCache::viewer();
+        for (i, project) in [&a, &b, &a, &b].into_iter().enumerate() {
+            let (apart, passes_apart) = apart[i % 2].clone();
+            let mut log = FrameLog::new(3);
+            let before = gpu.dispatched();
+            let (together, ..) = preview::preview_frame_srgb8(project, &Id::new("comp-reference-shot"), 100, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("a card frame");
+            let passes_together = gpu.dispatched() - before;
+            let ok = apart == together;
+            total += 1;
+            same += ok as usize;
+            fewer += (passes_together < passes_apart) as usize;
+            let _ = writeln!(
+                s,
+                "| eight colour effects, the fifth's setting changed, drawn {} time | {} | 100 | {passes_apart} | {passes_together} | {} |",
+                ["a first", "a second", "a third", "a fourth"][i],
+                quality.label(),
+                if ok { "yes" } else { "NO" }
+            );
+        }
+    }
     let _ = write!(s, "\n**{same} of {total} frames the same; {fewer} of {total} drawn in fewer passes.**\n");
     fs::write(repo("verification/B-172_fused_table.md"), s).expect("write the table");
     assert_eq!(same, total, "a frame drawn with runs in one pass differs");
     assert_eq!(fewer, total, "a frame with runs of colour effects was not drawn in fewer passes");
+}
+
+fn median(mut v: Vec<f64>) -> f64 {
+    v.sort_by(f64::total_cmp);
+    v[v.len() / 2]
+}
+
+/// Frame times on the card, in ms, each the median of its frames. Every eighth frame of the
+/// reference shot with a Noise that changes every frame and eight colour effects after it on each
+/// of its first three layers, so all of them are drawn each frame; one loop fills the caches, then
+/// three are timed. Then one frame drawn again and again with the fifth colour effect's setting
+/// changed each time, so the card draws again from there (or, with runs in one pass, from the
+/// run's start). Writes `verification/B-172_timing_raw.md`.
+#[test]
+#[ignore]
+fn b172_timing() {
+    let colours = ["Levels", "Hue/Saturation", "Color Balance", "Brightness & Contrast", "Vibrance", "Channel Mixer", "Curves", "Gradient Map"];
+    let mut noisy = vec!["Noise"];
+    noisy.extend(colours);
+    let mut changed = colours;
+    changed[4] = "Vibrance 55";
+    let moving = shot([&noisy, &noisy, &noisy]);
+    let (a, b) = (shot([&colours, &colours, &colours]), shot([&changed, &changed, &changed]));
+    let mut gpu = Gpu::new().expect("a usable card");
+    let root = repo("Fixtures/reference_shot");
+    let comp = Id::new("comp-reference-shot");
+    let mut s = format!(
+        "- Card: {}\n- Processor: {}, {} threads\n- Build: {}\n\n| Case | Quality | Median ms | Passes a frame |\n|---|---|---:|---:|\n",
+        gpu.about(),
+        std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
+        std::thread::available_parallelism().map_or(0, |n| n.get()),
+        if cfg!(debug_assertions) { "debug" } else { "release" },
+    );
+    for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+        let mut cache = CelCache::viewer();
+        gpu.forget();
+        let (mut times, mut passes) = (Vec::new(), 0);
+        for pass in 0..4 {
+            for n in (0..240).step_by(8) {
+                let mut log = FrameLog::new(3);
+                let (t, d) = (std::time::Instant::now(), gpu.dispatched());
+                drop(preview::preview_frame_srgb8(&moving, &comp, n, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                if pass > 0 {
+                    times.push(t.elapsed().as_secs_f64() * 1000.0);
+                    passes = gpu.dispatched() - d;
+                }
+            }
+        }
+        let _ = writeln!(s, "| Noise then eight colour effects, drawn each frame | {} | {:.2} | {passes} |", quality.label(), median(times));
+        let mut cache = CelCache::viewer();
+        gpu.forget();
+        let (mut times, mut passes) = (Vec::new(), 0);
+        for i in 0..100 {
+            let mut log = FrameLog::new(3);
+            let (t, d) = (std::time::Instant::now(), gpu.dispatched());
+            let p = if i % 2 == 0 { &a } else { &b };
+            drop(preview::preview_frame_srgb8(p, &comp, 100, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+            if i >= 10 {
+                times.push(t.elapsed().as_secs_f64() * 1000.0);
+                passes = gpu.dispatched() - d;
+            }
+        }
+        let _ = writeln!(s, "| Eight colour effects, the fifth changed each frame | {} | {:.2} | {passes} |", quality.label(), median(times));
+    }
+    fs::write(repo("verification/B-172_timing_raw.md"), s).expect("write the timing table");
 }
