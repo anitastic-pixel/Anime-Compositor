@@ -1357,6 +1357,8 @@ fn serve_logged(
         cache.misses() - counted.1,
         cache.effect_hits() - counted.2,
     );
+    // B-161: what happened to a disk copy on the way, this frame's or a read-ahead's.
+    let disk_notes = cache.take_disk_notes();
     drop(cache);
     let made = match made {
         Ok(made) => made,
@@ -1413,6 +1415,7 @@ fn serve_logged(
                 .finish()
                 .iter()
                 .map(|d| format!("{}: {}", d.id.as_str(), d.message))
+                .chain(disk_notes)
                 .collect(),
         });
     }
@@ -1506,7 +1509,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         solo: Vec::new(),
         clipboard: Vec::new(),
         relink: None,
-        cache: Arc::new(Mutex::new(CelCache::viewer_sized(ram_ceiling()))),
+        cache: Arc::new(Mutex::new(viewer_cache())),
     })
 }
 
@@ -1521,7 +1524,24 @@ fn ram_ceiling() -> usize {
     }
 }
 
+/// B-161, D-232: where decoded drawings are kept on disk and the most they may take, or `None`
+/// when the setting is 0 GB. The window's, as the memory setting is.
+static DISK: Mutex<Option<anime_compositor::cache::DiskCache>> = Mutex::new(None);
+
+fn disk_setting() -> Option<anime_compositor::cache::DiskCache> {
+    DISK.lock().expect("the disk setting lock was poisoned").clone()
+}
+
+/// The viewer's cache as the memory and disk settings say, for a window or a project opened later.
+fn viewer_cache() -> CelCache {
+    let mut cache = CelCache::viewer_sized(ram_ceiling());
+    cache.set_disk(disk_setting());
+    cache
+}
+
 /// B-48, D-105: take the memory setting in `query`, apply it, and say what is in use, in bytes.
+/// B-161: and the disk setting, `disk` in gigabytes (0 is off, anything unreadable the default)
+/// and `diskfolder`, empty for the application's own data folder.
 fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> String {
     use anime_compositor::cache;
     // Gigabytes as a person writes them, kept between 1 GiB and `most`; anything else is Automatic.
@@ -1535,10 +1555,28 @@ fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> Strin
         let ram = custom("ram", cache::largest_budget());
         RAM_CEILING.store(ram.unwrap_or(0), std::sync::atomic::Ordering::Relaxed);
     }
+    if let Some(gb) = parameter(query, "disk") {
+        let cap = gb
+            .parse::<f64>()
+            .ok()
+            .filter(|gb| gb.is_finite() && *gb >= 0.0)
+            .map_or(cache::DEFAULT_DISK_CAP_BYTES, |gb| (gb * 1e9) as u64);
+        // Always a folder of its own inside the one chosen, so the copies never mix with
+        // anything a person keeps there.
+        let folder = parameter(query, "diskfolder")
+            .map(|f| f.trim().to_string())
+            .filter(|f| !f.is_empty())
+            .map(PathBuf::from)
+            .or_else(|| app.path().app_local_data_dir().ok())
+            .map(|dir| dir.join("decoded drawings"));
+        *DISK.lock().expect("the disk setting lock was poisoned") =
+            folder.filter(|_| cap > 0).map(|folder| cache::DiskCache { folder, cap });
+    }
     let held = {
         let cache = Arc::clone(&viewer.lock().expect("the viewer lock was poisoned").cache);
         let mut cache = cache.lock().expect("the cel cache lock was poisoned");
         cache.resize(ram_ceiling());
+        cache.set_disk(disk_setting());
         cache.held_bytes() + cache.effect_held_bytes()
     };
     let state = app.state::<Mutex<Card>>();
@@ -1573,6 +1611,11 @@ fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> Strin
             "held": held,
         },
         "card": on_card,
+        "disk": disk_setting().map(|disk| serde_json::json!({
+            "folder": disk.folder.to_string_lossy(),
+            "now": disk.cap,
+            "held": disk.held(),
+        })),
     })
     .to_string()
 }
@@ -1655,7 +1698,7 @@ fn blank(root: PathBuf) -> Viewer {
         solo: Vec::new(),
         clipboard: Vec::new(),
         relink: None,
-        cache: Arc::new(Mutex::new(CelCache::viewer_sized(ram_ceiling()))),
+        cache: Arc::new(Mutex::new(viewer_cache())),
     }
 }
 
@@ -26537,7 +26580,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 79] = [
+    const CONTROLS: [&str; 81] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -26585,6 +26628,8 @@ mod contract {
         "open",
         "play",
         "prefcard",
+        "prefdisk",
+        "prefdiskfolder",
         "preferences",
         "prefmemory",
         "prefram",

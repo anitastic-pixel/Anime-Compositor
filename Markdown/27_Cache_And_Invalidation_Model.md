@@ -62,6 +62,8 @@ Define a configurable cache budget after measuring the reference machine. G1 mus
 
 Do not page large raw image caches to the project directory. Temporary cache storage, if added later, must be separate, disposable and versioned.
 
+Decoded drawings on disk (B-161, D-232): the one temporary cache storage so far. Scope: the viewer's decoded media cache only; export never reads or writes it (ADR-015). It keeps the decoder's 8-bit sRGB straight RGBA bytes, before any arithmetic, and the colour conversion runs on every read, so a read is bit-identical to a decode. EXR is not kept. Key: path, size, modified time, interpretation and a decoder version, per key material above; a same-size, same-mtime replacement is the accepted residual risk of interactive identity. Separate: its own folder ("decoded drawings" in the app's local data folder or one chosen in Preferences), and only `.cel`/`.part` files there are touched. Disposable: bounded by a Preferences cap (default 5 GB, 0 turns it off), least recently used deleted first; a copy failing its length, header or checksum is deleted, decoded fresh and noted in the session log (document 28, DECODE_CACHE_DISCARDED). Versioned: the decoder version is in every file name.
+
 ## Correctness tests
 
 For each command class, render before edit, after edit and after undo; verify only intended pixels/time ranges change. Force cache hits and misses and compare output. Replace one source frame on disk and verify dependent frames update without relaunch.

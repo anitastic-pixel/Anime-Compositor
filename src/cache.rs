@@ -31,10 +31,22 @@
 //! of the same frame differ in 0 of 8,294,400 samples, and a cache is the obvious way to lose
 //! that. ADR-015 makes keeping it out of the export path part of the decision rather than an
 //! implementation choice.
+//!
+//! **What outlives the window** (B-161, D-232). A cel the viewer had to decode also has its
+//! decoded 8-bit pixels written to disk, the bytes the decoder gave before any arithmetic, and the
+//! next miss for the same key - in this session or a later one - reads those back instead of
+//! unpacking the file again, then converts them exactly as a decode does. It is the same buffer to
+//! the bit, which `verification/B-161_decode_cache_table.md` checks on every fixture image, and it
+//! is the viewer's alone: [`CelCache::none`] never has one, so export still decodes. The 8-bit
+//! bytes and not the working buffer's floats, because four times the bytes took longer to read
+//! than the file took to decode: 49.0 ms against 44.5 ms a frame of the reference shot when this
+//! was first built that way (2026-09-29, provisional).
 
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use rayon::prelude::*;
 
@@ -44,7 +56,7 @@ use crate::effects::{Bypassed, EffectInstance};
 use crate::mask::Mask;
 use crate::media;
 use crate::model::Interpretation;
-use crate::WorkingBuffer;
+use crate::{ImageBuffer, WorkingBuffer};
 
 /// The budget the viewer uses when nobody says otherwise.
 ///
@@ -129,6 +141,226 @@ pub fn budget_label(bytes: usize) -> String {
     } else {
         format!("{mib} MiB")
     }
+}
+
+/// B-161, D-232: what the disk copies of decoded drawings may take when Preferences says nothing
+/// else: five gigabytes as Preferences counts them, about six hundred 1920x1080 drawings at
+/// 8,294,432 bytes each.
+pub const DEFAULT_DISK_CAP_BYTES: u64 = 5_000_000_000;
+
+/// B-161: raise this whenever a change to [`media::decode_8bit`] could change the bytes it gives
+/// for a file, such as a decoder crate that reads a file differently, so that no copy written
+/// before the change is read after it. The colour arithmetic after it needs no number: it runs
+/// on every copy read, as it does on every decode.
+const DECODER_VERSION: u32 = 1;
+
+/// The first eight bytes of every copy. A file that does not start with them is not one.
+const MAGIC: &[u8; 8] = b"TNAEcel1";
+/// The magic, the width, the height and the checksum: four eight-byte words.
+const HEADER: usize = 32;
+
+/// B-161, D-232: where decoded cels are kept on disk between sessions, and how much they may take.
+///
+/// Document 27 line 58: "Temporary cache storage, if added later, must be separate, disposable and
+/// versioned." Separate: its own folder, and it only ever reads, writes or deletes files ending
+/// `.cel` or `.part` there, so a folder chosen by mistake loses nothing else. Disposable: every file
+/// is a copy of something the drawing file can produce again, and a copy that fails its checks is
+/// deleted and decoded fresh. Versioned: [`DECODER_VERSION`] is in every name.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DiskCache {
+    pub folder: PathBuf,
+    /// The most bytes of copies the folder may hold. Least recently used go first past it.
+    pub cap: u64,
+}
+
+impl DiskCache {
+    /// The file a cel with `key` is kept in. `None` for a file dated before 1970, which has no
+    /// time that can be written into a name.
+    fn file(&self, key: &Key) -> Option<PathBuf> {
+        let since = key.modified.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_nanos();
+        // Document 27 line 29's key: the media's identity (path, length, time), its
+        // interpretation, and the decoder's version.
+        let identity = format!(
+            "{}\n{}\n{since}\n{:?}\n{:?}\n{DECODER_VERSION}",
+            key.path.to_string_lossy(),
+            key.len,
+            key.interpretation.color_space,
+            key.interpretation.alpha,
+        );
+        Some(self.folder.join(format!("{}.cel", crate::sha256::hex(identity.as_bytes()))))
+    }
+
+    /// The drawing kept in `file`, as [`media::from_8bit`] makes it: `Ok(None)` when there is none,
+    /// `Err` with the reason when the file is there but is not a whole, unchanged copy.
+    fn load(&self, file: &Path) -> Result<Option<ImageBuffer>, String> {
+        let mut f = match std::fs::OpenOptions::new().read(true).write(true).open(file) {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(format!("it could not be opened ({e})")),
+        };
+        let mut head = [0u8; HEADER];
+        f.read_exact(&mut head).map_err(|_| "it is shorter than its own header".to_string())?;
+        if &head[..8] != MAGIC {
+            return Err("it does not begin the way a copy does".into());
+        }
+        let word = |at: usize| u64::from_le_bytes(head[at..at + 8].try_into().expect("eight bytes"));
+        let (w, h, sum) = (word(8) as usize, word(16) as usize, word(24));
+        // Checked against the file's length before anything is allocated, so a damaged header
+        // cannot ask for more memory than the file holds.
+        let bytes = w.checked_mul(h).and_then(|n| n.checked_mul(4));
+        let length = f.metadata().map_err(|e| format!("its length could not be read ({e})"))?.len();
+        let whole = bytes.and_then(|n| n.checked_add(HEADER)).map(|n| n as u64);
+        if whole != Some(length) {
+            return Err(format!("it holds {length} bytes, not the {} a {w}x{h} copy holds", whole.unwrap_or(0)));
+        }
+        let mut rgba = vec![0u8; bytes.expect("checked above")];
+        f.read_exact(&mut rgba).map_err(|e| format!("it could not be read to the end ({e})"))?;
+        if checksum(&rgba) != sum {
+            return Err("its pixels do not match the checksum written with them".into());
+        }
+        // Least recently used is judged by this time, so reading a copy counts as using it.
+        let _ = f.set_modified(SystemTime::now());
+        media::from_8bit(file, w, h, &rgba).map(Some).map_err(|d| format!("its header is not a picture's ({})", d.detail))
+    }
+
+    /// Keep `buffer` in `file`, whole or not at all: written under another name and renamed, so a
+    /// copy that is half written is never read as one.
+    fn store(&self, file: &Path, w: usize, h: usize, rgba: &[u8]) -> std::io::Result<()> {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        std::fs::create_dir_all(&self.folder)?;
+        let part = file.with_extension(format!(
+            "{}-{}.part",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let written = (|| {
+            let mut out = std::fs::File::create(&part)?;
+            let mut head = [0u8; HEADER];
+            head[..8].copy_from_slice(MAGIC);
+            head[8..16].copy_from_slice(&(w as u64).to_le_bytes());
+            head[16..24].copy_from_slice(&(h as u64).to_le_bytes());
+            head[24..].copy_from_slice(&checksum(rgba).to_le_bytes());
+            out.write_all(&head)?;
+            out.write_all(rgba)?;
+            drop(out);
+            std::fs::rename(&part, file)
+        })();
+        if written.is_err() {
+            let _ = std::fs::remove_file(&part);
+        }
+        written?;
+        self.evict();
+        Ok(())
+    }
+
+    /// The copies in the folder, oldest use first, with their lengths. A `.part` more than an
+    /// hour old is what a closed or crashed window left half written, and is deleted on the way.
+    fn copies(&self) -> Vec<(SystemTime, u64, PathBuf)> {
+        let Ok(list) = std::fs::read_dir(&self.folder) else { return Vec::new() };
+        let mut copies = Vec::new();
+        for entry in list.flatten() {
+            let path = entry.path();
+            let Ok(meta) = entry.metadata() else { continue };
+            let time = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+            match path.extension().and_then(|e| e.to_str()) {
+                Some("cel") => copies.push((time, meta.len(), path)),
+                Some("part") if time.elapsed().is_ok_and(|age| age > Duration::from_secs(3600)) => {
+                    let _ = std::fs::remove_file(&path);
+                }
+                _ => {}
+            }
+        }
+        copies.sort();
+        copies
+    }
+
+    /// Delete the least recently used copies until what is left fits the cap.
+    ///
+    /// ponytail: the folder is listed on every store, which is a few hundred entries against an
+    /// 8 MB write; keep a running total if a folder of many thousands ever makes it show.
+    fn evict(&self) {
+        let copies = self.copies();
+        let mut total: u64 = copies.iter().map(|(_, len, _)| len).sum();
+        for (_, len, path) in copies {
+            if total <= self.cap {
+                break;
+            }
+            if std::fs::remove_file(&path).is_ok() {
+                total -= len;
+            }
+        }
+    }
+
+    /// How many bytes of copies the folder holds now.
+    pub fn held(&self) -> u64 {
+        self.copies().iter().map(|(_, len, _)| len).sum()
+    }
+}
+
+/// FNV-1a over eight bytes at a time, a slice of the pool at a time and then over the slices'
+/// results in order, so the answer does not depend on how many threads there are. Each step
+/// multiplies by an odd number, which cannot map two values to one, so any one changed byte
+/// changes the sum.
+fn checksum(bytes: &[u8]) -> u64 {
+    let fnv = |h: u64, v: u64| (h ^ v).wrapping_mul(0x0000_0100_0000_01b3);
+    let parts: Vec<u64> = bytes
+        .par_chunks(1 << 18)
+        .map(|chunk| {
+            let words = chunk.chunks_exact(8);
+            let tail = words.remainder().iter().fold(0, |h, b| h << 8 | u64::from(*b));
+            let h = words.fold(0xcbf2_9ce4_8422_2325, |h, w| fnv(h, u64::from_le_bytes(w.try_into().expect("eight"))));
+            fnv(h, tail)
+        })
+        .collect();
+    parts.into_iter().fold(0xcbf2_9ce4_8422_2325, fnv)
+}
+
+/// B-161: the cel at `path` in the working space, from `disk` when a good copy is there, decoded
+/// when not, and written there after a decode. The flag is whether the disk answered. A copy that
+/// fails its checks, or cannot be written, adds a line to `notes` for the session log (document
+/// 28: the preview's pixels are unchanged either way, so it is a note and not a warning).
+fn working_cel(
+    disk: Option<&DiskCache>,
+    key: Option<&Key>,
+    path: &Path,
+    interpretation: Interpretation,
+    notes: &mut Vec<String>,
+) -> Result<(WorkingBuffer, bool), Diagnostic> {
+    let name = path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
+    let working = |image: ImageBuffer| retag(image, interpretation).into_working();
+    // An EXR decodes straight to floats and has no 8-bit bytes to keep.
+    let copy = disk
+        .zip(key)
+        .filter(|_| !crate::exr_io::is_exr(&path.to_string_lossy()))
+        .and_then(|(disk, key)| Some((disk, disk.file(key)?)));
+    if let Some((disk, file)) = &copy {
+        match crate::perf::time(crate::perf::Stage::FileRead, || disk.load(file)) {
+            Ok(Some(image)) => return Ok((working(image), true)),
+            Ok(None) => {}
+            Err(reason) => {
+                let _ = std::fs::remove_file(file);
+                notes.push(format!(
+                    "DECODE_CACHE_DISCARDED: the disk copy of {name} was deleted and the drawing decoded again, because {reason}."
+                ));
+            }
+        }
+    }
+    // `media::decode` is these two steps; they are taken apart here to keep the bytes between.
+    let image = match media::decode_8bit(path) {
+        None => media::decode(path)?,
+        Some(pixels) => {
+            let (w, h, rgba) = pixels?;
+            if let Some((disk, file)) = &copy {
+                if let Err(e) = disk.store(file, w, h, &rgba) {
+                    notes.push(format!(
+                        "DECODE_CACHE_NOT_WRITTEN: {name} was decoded but could not be kept on disk ({e}); it will be decoded again next time."
+                    ));
+                }
+            }
+            media::from_8bit(path, w, h, &rgba)?
+        }
+    };
+    Ok((working(image), false))
 }
 
 /// What makes two requests for a decoded cel the same request.
@@ -236,6 +468,13 @@ pub struct CelCache {
     effect_hits: u64,
     effect_misses: u64,
     effect_evicted: u64,
+    /// B-161: where decoded cels are also kept on disk, for the viewer only. `None` everywhere
+    /// else, and always in [`none`](Self::none), so export decodes every drawing itself.
+    disk: Option<DiskCache>,
+    /// Misses the disk copy answered instead of a decode.
+    disk_hits: u64,
+    /// Session-log lines about disk copies, waiting for the window to collect them.
+    disk_notes: Vec<String>,
 }
 
 impl CelCache {
@@ -267,7 +506,15 @@ impl CelCache {
             effect_hits: 0,
             effect_misses: 0,
             effect_evicted: 0,
+            disk: None,
+            disk_hits: 0,
+            disk_notes: Vec::new(),
         }
+    }
+
+    /// B-161: keep decoded cels on disk as well, or stop (`None`). The viewer's cache only.
+    pub fn set_disk(&mut self, disk: Option<DiskCache>) {
+        self.disk = disk;
     }
 
     /// The cache the viewer runs with: D-40's gibibyte, split between decoded cels and evaluated
@@ -359,7 +606,12 @@ impl CelCache {
             .map(|at| self.pending.remove(at).1);
         let buffer = match ready {
             Some(buffer) => buffer,
-            None => Arc::new(retag(media::decode(path)?, interpretation).into_working()),
+            None => {
+                let (buffer, from_disk) =
+                    working_cel(self.disk.as_ref(), key.as_ref(), path, interpretation, &mut self.disk_notes)?;
+                self.disk_hits += u64::from(from_disk);
+                Arc::new(buffer)
+            }
         };
         if let Some(key) = key {
             crate::perf::time(crate::perf::Stage::CacheStore, || {
@@ -428,7 +680,8 @@ impl CelCache {
         // P-18: a frame with something new to read. What was read ahead for a frame that is not
         // this one goes, so `pending` never holds more than one frame's cels.
         self.pending.retain(|(k, _)| keys.contains(k));
-        let decoded: Vec<(Key, Arc<WorkingBuffer>)> =
+        let disk = self.disk.as_ref();
+        let decoded: Vec<(Key, Arc<WorkingBuffer>, bool, Vec<String>)> =
             crate::perf::time(crate::perf::Stage::Prewarm, || {
                 todo.into_par_iter()
                     .filter_map(|key| {
@@ -436,15 +689,19 @@ impl CelCache {
                         // threads rayon gave them, and adding their core time to the same
                         // counters the frame's wall-clock is measured against would make the
                         // stage table sum to more than the frame.
-                        let buffer = crate::perf::untimed(|| {
-                            let decoded = media::decode(&key.path).ok()?;
-                            Some(retag(decoded, key.interpretation).into_working())
+                        let mut notes = Vec::new();
+                        let (buffer, from_disk) = crate::perf::untimed(|| {
+                            working_cel(disk, Some(&key), &key.path, key.interpretation, &mut notes).ok()
                         })?;
-                        Some((key, Arc::new(buffer)))
+                        Some((key, Arc::new(buffer), from_disk, notes))
                     })
                     .collect()
             });
-        self.pending.extend(decoded);
+        for (key, buffer, from_disk, notes) in decoded {
+            self.pending.push((key, buffer));
+            self.disk_hits += u64::from(from_disk);
+            self.disk_notes.extend(notes);
+        }
     }
 
     /// The result of running `effects` over the cel at `path`, masked by `masks`, if this cache
@@ -591,6 +848,16 @@ impl CelCache {
     /// How many requests had to decode.
     pub fn misses(&self) -> u64 {
         self.misses
+    }
+
+    /// B-161: how many decodes a disk copy answered instead, read ahead or not.
+    pub fn disk_hits(&self) -> u64 {
+        self.disk_hits
+    }
+
+    /// B-161: the session-log lines about disk copies since the last call, emptied by it.
+    pub fn take_disk_notes(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.disk_notes)
     }
 
     /// How many held cels were dropped to stay inside the budget.
