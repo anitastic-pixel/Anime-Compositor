@@ -8,6 +8,10 @@
 //!    opened afresh draws, which has nothing kept;
 //! 2. the second time through, the card makes no new memory.
 //!
+//! B-153b: a blurred or mixed frame with no effect for the card to draw goes to the CPU whole, so
+//! the frame mix shot has the same Roughen Edges on its first layer, which is neither, to keep its
+//! frames on the card.
+//!
 //! Writes `verification/B-153_kept_memory_table.md`.
 
 use std::fmt::Write as _;
@@ -26,8 +30,8 @@ mod common;
 use common::repo;
 
 /// The reference shot as B-152 changes it: motion blur on every layer, three of them moved by
-/// keys; or frame mix on a stretched second layer and a dissolve on the fourth; or the first,
-/// with an animated Roughen Edges in place of its motion blur.
+/// keys; or frame mix on a stretched second layer and a dissolve on the fourth, with an animated
+/// Roughen Edges on the first; or the first, with the Roughen Edges in place of its motion blur.
 fn shot(kind: &str) -> Project {
     let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
@@ -37,6 +41,8 @@ fn shot(kind: &str) -> Project {
         comp["layers"][1]["time_stretch"] = 150.into();
         comp["layers"][1]["frame_blend"] = "frame_mix".into();
         comp["layers"][3]["drawing_dissolve"] = 2.into();
+        comp["layers"][0]["effects"] = json!([{"instance_id": "b153-r", "type_id": "core.roughen_edges", "enabled": true,
+            "parameters": {"edge_type": "roughen_color", "edge_color": "#8a3c14", "border": 6, "size": 8, "complexity": 3, "evolution": 30, "speed": 10, "seed": 3}}]);
     } else {
         comp["motion_blur"] = json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 8});
         let keys = |a: serde_json::Value, b: serde_json::Value| {
@@ -73,7 +79,7 @@ fn b153_card_kept_memory() {
     let (mut rows, mut checks, mut passed) = (String::new(), 0, 0);
     for (kind, name) in [
         ("blur", "the reference shot with motion blur"),
-        ("mix", "the reference shot with frame mix and dissolve"),
+        ("mix", "the reference shot with frame mix, dissolve and Roughen Edges"),
         ("rough", "the reference shot with motion blur and Roughen Edges"),
     ] {
         let project = shot(kind);

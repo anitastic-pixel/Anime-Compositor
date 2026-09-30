@@ -5,6 +5,10 @@
 //! and with frame mix and dissolve, at Full and Draft, drawn by the CPU and by the card, within
 //! the card's 1 level (D-100), the card drawing the frame itself.
 //!
+//! B-153b: where no layer of such a frame has an effect the card draws, the CPU, which is faster
+//! at it, draws the frame whole again (D-218, D-219), exactly, with the card's message; the
+//! reference shot with motion blur and a Roughen Edges keeps its frames on the card.
+//!
 //! Writes `verification/B-152_card_whole_frame_table.md` and, for the worst frame, three pictures
 //! in `verification/B-152 pictures/`.
 
@@ -116,12 +120,29 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     (largest, pixels)
 }
 
-/// Whether the card's plan has a motion-blurred or mixed layer; and an adjustment layer, which
-/// still has the CPU draw the whole frame (B-44).
-fn marked(shot: &Shot, frame: i32, quality: PreviewQuality) -> (bool, bool) {
+/// The motion blur shot with a Roughen Edges, an effect the card draws, changing every frame, on
+/// the first layer, whose own motion blur switch is off: before B-152 the CPU drew that effect too.
+fn rough() -> Shot {
+    let mut rough = reference(true);
+    let mut j: serde_json::Value = serde_json::from_str(&persist::to_json(&rough.project, &Default::default())).expect("the shot as JSON");
+    j["compositions"][0]["layers"][0]["effects"] = json!([{"instance_id": "b152-r", "type_id": "core.roughen_edges", "enabled": true,
+        "parameters": {"edge_type": "roughen_color", "edge_color": "#8a3c14", "border": 6, "size": 8, "complexity": 3, "evolution": 30, "speed": 10, "seed": 3}}]);
+    j["compositions"][0]["layers"][0]["motion_blur"] = false.into();
+    rough.project = persist::load_str(&j.to_string()).expect("the shot with Roughen Edges").document.project().clone();
+    rough.name = "the reference shot with motion blur and Roughen Edges".into();
+    rough
+}
+
+/// Whether the card's plan has a motion-blurred or mixed layer; an adjustment layer, which still
+/// has the CPU draw the whole frame (B-44); and an effect the card draws, a Light Wrap included.
+fn marked(shot: &Shot, frame: i32, quality: PreviewQuality) -> (bool, bool, bool) {
     let mut log = FrameLog::new(3);
     let plan = compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    (plan.layers.iter().any(|l| l.motion_blur || l.mixed), plan.layers.iter().any(|l| l.adjust.is_some()))
+    (
+        plan.layers.iter().any(|l| l.motion_blur || l.mixed),
+        plan.layers.iter().any(|l| l.adjust.is_some()),
+        plan.layers.iter().any(|l| l.on_card.is_some() || l.wrap.iter().any(|i| i.enabled && i.is_valid())),
+    )
 }
 
 #[test]
@@ -140,7 +161,7 @@ fn b152_card_whole_frame() {
     let mut groups: Vec<(&str, usize, usize, usize, u8)> = vec![("Motion blur", 0, 0, 0, 0), ("Frame blending", 0, 0, 0, 0)];
     let mut worst: Option<((u8, usize), String, Vec<u8>, Vec<u8>, usize, usize)> = None;
     let mut shots = fixtures();
-    shots.extend([reference(true), reference(false)]);
+    shots.extend([reference(true), reference(false), rough()]);
     for shot in &shots {
         let mut marks = 0;
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
@@ -163,12 +184,14 @@ fn b152_card_whole_frame() {
                     .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-                let (mark, adjusted) = marked(shot, frame, quality);
+                let (mark, adjusted, card) = marked(shot, frame, quality);
                 marks += mark as usize;
                 let d = distance(&c, &g);
-                // A frame with an adjustment layer is still the CPU's by B-44's rule, and must be
-                // the CPU's picture exactly, with the CPU's warnings and the card's one message.
-                let pass = if adjusted {
+                // A frame with an adjustment layer is still the CPU's by B-44's rule, and a blurred
+                // or mixed frame with nothing for the card to draw by B-153b's: either must be the
+                // CPU's picture exactly, with the CPU's warnings and the card's one message.
+                let whole = adjusted || (mark && !card);
+                let pass = if whole {
                     let mut ids: Vec<&str> = said_cpu.split(", ").filter(|s| !s.is_empty()).chain([DiagnosticId::GpuPreviewOnCpu.as_str()]).collect();
                     ids.sort();
                     on_cpu && d.0 == 0 && said_gpu == ids.join(", ")
@@ -194,8 +217,9 @@ fn b152_card_whole_frame() {
                         (false, true) => format!("{said_gpu}, on both"),
                         (_, false) => format!("CPU: {said_cpu}; GPU: {said_gpu}"),
                     },
-                    match (adjusted, on_cpu, pass) {
-                        (true, _, true) => "PASS: an adjustment layer, so the CPU drew it (B-44)",
+                    match (whole, on_cpu, pass) {
+                        (true, _, true) if adjusted => "PASS: an adjustment layer, so the CPU drew it (B-44)",
+                        (true, _, true) => "PASS: nothing for the card to draw, so the CPU drew it (B-153b)",
                         (true, _, false) => "FAIL",
                         (false, true, _) => "FAIL: the CPU drew it",
                         (false, false, true) => "PASS",
@@ -249,12 +273,13 @@ fn b152_card_whole_frame() {
          Written by `tests/b152_card_whole_frame.rs`. The card: {}.\n\n\
          Each row compares the eight-bit picture the page receives, drawn by the CPU and by the \
          GPU. A motion-blurred, frame-mixed or dissolved layer is built by the CPU and laid by the \
-         card with the rest of the frame (D-218). **The rule: the card draws the frame itself, no \
-         channel of any pixel more than {LIMIT} level of 255 apart** (D-100), with the same \
-         warnings on both. A frame with an adjustment layer is still drawn by the CPU (B-44): \
-         that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its \
-         only extra warning. Each reference shot must have at least one frame with a blurred or \
-         mixed layer.\n\n\
+         card with the rest of the frame (D-218) when another layer has an effect the card draws. \
+         **The rule: the card draws such a frame itself, no channel of any pixel more than {LIMIT} \
+         level of 255 apart** (D-100), with the same warnings on both. A frame with an adjustment \
+         layer (B-44), or a blurred or mixed frame with no effect for the card to draw, which the \
+         CPU draws faster (B-153b), is drawn by the CPU: that one must be the CPU's picture \
+         exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning. Each reference \
+         shot must have at least one frame with a blurred or mixed layer.\n\n\
          **{passed} of {checks} checks pass.**\n\n\
          The worst comparison is \"{worst_case}\": largest difference {largest} of 255, pixels differing: {count}. \
          Its pictures are in `verification/B-152 pictures/`: `cpu.png`, `gpu.png`, and \
@@ -295,17 +320,7 @@ fn b152_card_whole_frame_timing() {
     let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
     plain.project = persist::load_str(&text).expect("the reference shot").document.project().clone();
     plain.name = "the reference shot".into();
-    // Motion blur beside a card effect that changes every frame, on the first layer, its own
-    // motion blur switch off: before B-152 the CPU drew that effect too.
-    let mut rough = reference(true);
-    let blurred = &rough.project;
-    let mut j: serde_json::Value = serde_json::from_str(&persist::to_json(blurred, &Default::default())).expect("the shot as JSON");
-    j["compositions"][0]["layers"][0]["effects"] = json!([{"instance_id": "b152-r", "type_id": "core.roughen_edges", "enabled": true,
-        "parameters": {"edge_type": "roughen_color", "edge_color": "#8a3c14", "border": 6, "size": 8, "complexity": 3, "evolution": 30, "speed": 10, "seed": 3}}]);
-    j["compositions"][0]["layers"][0]["motion_blur"] = false.into();
-    rough.project = persist::load_str(&j.to_string()).expect("the shot with Roughen Edges").document.project().clone();
-    rough.name = "the reference shot with motion blur and Roughen Edges".into();
-    for shot in [plain, reference(true), reference(false), rough] {
+    for shot in [plain, reference(true), reference(false), rough()] {
         for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
             let mut cache = CelCache::viewer();
             gpu.forget();
