@@ -411,15 +411,15 @@ This table is the core's half. The window's, B-150c's key diamonds shown and set
 | FX-FBLEND-066: Stretch 50, offset 1, keys at 2 and 6, the in point trimmed from 0 to 1: the offset goes to 3, the keys to 1 and 5, playing at 1 and 3 as before. | offset 3, keys at [1, 5], playing at [1.0, 3.0] (were [1.0, 3.0]) | yes |
 | FX-FBLEND-067: Stretch 100, the in point trimmed from 0 to 3: the offset moves by 3 and the keys stay, as trimming always has. | offset 3, keys at [0, 4], playing at [0.0, 4.0] (were [0.0, 4.0]) | yes |
 
-## The graphics card leaves a mixed or dissolved frame to the CPU
+## A mixed or dissolved layer is marked as built by the processor, which the card lays (B-152)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| fx_fblend_012.json frame 1, a frame half way between two frames: marked for the CPU true | true | yes |
-| fx_fblend_012.json frame 2, a whole frame of the same layer: marked for the CPU false | false | yes |
-| fx_fblend_011.json frame 1, a stretched frame held, not mixed: marked for the CPU false | false | yes |
-| fx_fblend_030.json frame 1, a dissolved frame: marked for the CPU true | true | yes |
-| fx_fblend_021.json frame 1, a composition layer between two of its frames: marked for the CPU true | true | yes |
+| fx_fblend_012.json frame 1, a frame half way between two frames: marked as mixed true | true | yes |
+| fx_fblend_012.json frame 2, a whole frame of the same layer: marked as mixed false | false | yes |
+| fx_fblend_011.json frame 1, a stretched frame held, not mixed: marked as mixed false | false | yes |
+| fx_fblend_030.json frame 1, a dissolved frame: marked as mixed true | true | yes |
+| fx_fblend_021.json frame 1, a composition layer between two of its frames: marked as mixed true | true | yes |
 
 ## The frame does not depend on how it is cut up
 

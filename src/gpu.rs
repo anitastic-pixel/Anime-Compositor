@@ -4622,20 +4622,8 @@ impl Gpu {
                 "B-44 draws a frame with an adjustment layer (D-66) wholly on the CPU.".into(),
             ));
         }
-        if plan.layers.iter().any(|l| l.motion_blur) {
-            return Some(on_cpu(
-                Severity::Info,
-                "The CPU drew this frame: it has motion blur, which the GPU does not draw yet.".into(),
-                "B-124b draws a motion-blurred frame (D-188) wholly on the CPU; a card version is a later unit.".into(),
-            ));
-        }
-        if plan.layers.iter().any(|l| l.mixed) {
-            return Some(on_cpu(
-                Severity::Info,
-                "The CPU drew this frame: it has a frame-blended or dissolved layer, which the GPU does not draw yet.".into(),
-                "B-150b draws a frame mix or drawing dissolve (D-216) wholly on the CPU; a card version is a later unit.".into(),
-            ));
-        }
+        // B-152: a motion-blurred, frame-mixed or dissolved layer arrives already built by the
+        // CPU, and the card lays it like any drawing.
         if plan.layers.iter().flat_map(|l| &l.wrap).any(|i| i.enabled && i.is_valid() && i.mix < 100.0) {
             return Some(on_cpu(
                 Severity::Info,

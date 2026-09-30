@@ -295,7 +295,17 @@ fn b152_card_whole_frame_timing() {
     let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
     plain.project = persist::load_str(&text).expect("the reference shot").document.project().clone();
     plain.name = "the reference shot".into();
-    for shot in [plain, reference(true), reference(false)] {
+    // Motion blur beside a card effect that changes every frame, on the first layer, its own
+    // motion blur switch off: before B-152 the CPU drew that effect too.
+    let mut rough = reference(true);
+    let blurred = &rough.project;
+    let mut j: serde_json::Value = serde_json::from_str(&persist::to_json(blurred, &Default::default())).expect("the shot as JSON");
+    j["compositions"][0]["layers"][0]["effects"] = json!([{"instance_id": "b152-r", "type_id": "core.roughen_edges", "enabled": true,
+        "parameters": {"edge_type": "roughen_color", "edge_color": "#8a3c14", "border": 6, "size": 8, "complexity": 3, "evolution": 30, "speed": 10, "seed": 3}}]);
+    j["compositions"][0]["layers"][0]["motion_blur"] = false.into();
+    rough.project = persist::load_str(&j.to_string()).expect("the shot with Roughen Edges").document.project().clone();
+    rough.name = "the reference shot with motion blur and Roughen Edges".into();
+    for shot in [plain, reference(true), reference(false), rough] {
         for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
             let mut cache = CelCache::viewer();
             gpu.forget();

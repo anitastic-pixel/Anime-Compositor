@@ -392,7 +392,7 @@ fn b150_frame_blending() {
         t.row(&format!("{name}: {}", case["says"].as_str().unwrap()), &built, ok);
     }
 
-    t.heading("The graphics card leaves a mixed or dissolved frame to the CPU");
+    t.heading("A mixed or dissolved layer is marked as built by the processor, which the card lays (B-152)");
     for (file, n, mixed, says) in [
         ("fx_fblend_012.json", 1, true, "a frame half way between two frames"),
         ("fx_fblend_012.json", 2, false, "a whole frame of the same layer"),
@@ -405,7 +405,7 @@ fn b150_frame_blending() {
         let plan = plan_frame(loaded.document.project(), &Id::new(MAIN), n, &t.root, &mut log).unwrap();
         let got = plan.layers.iter().any(|l| l.mixed);
         t.row(
-            &format!("{file} frame {n}, {says}: marked for the CPU {mixed}"),
+            &format!("{file} frame {n}, {says}: marked as mixed {mixed}"),
             &got.to_string(),
             got == mixed,
         );

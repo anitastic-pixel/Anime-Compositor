@@ -238,7 +238,7 @@ fn b124_motion_blur() {
     };
     let marks = ["fx_mb_011.json", "fx_mb_025.json", "fx_mb_010.json"].map(blurred);
     t.row(
-        "FX-MB-011's frame is marked for the processor, which the card leaves to the CPU with GPU_PREVIEW_ON_CPU",
+        "FX-MB-011's frame is marked as blurred: the processor averages its moments and the card lays the result (B-152)",
         &format!("{}", marks[0]),
         marks[0],
     );
