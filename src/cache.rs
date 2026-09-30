@@ -45,7 +45,7 @@
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::{Duration, SystemTime};
 
 use rayon::prelude::*;
@@ -170,6 +170,71 @@ const FRAME_HEADER: usize = 48;
 // ponytail: one figure for every disk; measure the folder's own speed if a slow disk makes
 // reading back slower than drawing.
 const DISK_BYTES_PER_MS: f64 = 2_000_000.0;
+
+/// B-171b: a composition frame on its way to disk: the folder, its file, its key and file list,
+/// the frame, and where a failure to write it is noted for the cache that kept it.
+type Job = (DiskCache, PathBuf, String, String, Arc<WorkingBuffer>, Arc<Mutex<Vec<String>>>);
+
+/// B-171b: the one worker that writes composition frames to disk, so the frame that drew one does
+/// not wait for the disk, and the files it has still to write, so a reader waits for one rather
+/// than drawing it again. Started by the first frame written.
+struct Writer {
+    jobs: std::sync::mpsc::SyncSender<Job>,
+    pending: Mutex<Vec<PathBuf>>,
+    done: Condvar,
+}
+
+impl Writer {
+    /// `file` is no longer on its way to disk, written or not.
+    fn finished(&self, file: &Path) {
+        let mut pending = self.pending.lock().unwrap_or_else(|p| p.into_inner());
+        if let Some(at) = pending.iter().position(|f| f == file) {
+            pending.remove(at);
+        }
+        self.done.notify_all();
+    }
+}
+
+static WRITER: OnceLock<Writer> = OnceLock::new();
+
+fn writer() -> &'static Writer {
+    WRITER.get_or_init(|| {
+        // ponytail: eight frames queued at most (265 MB at Full); past that a frame is kept in
+        // memory only. Queue by bytes, or write when the window is idle, if a slow disk loses many.
+        let (jobs, queue) = std::sync::mpsc::sync_channel::<Job>(8);
+        std::thread::Builder::new()
+            .name("composition frames to disk".into())
+            .spawn(move || {
+                // Its checksums on a thread of its own, not the pool the frames are drawn on
+                // ([`checksum`] gives the same answer on any number of threads).
+                let own = rayon::ThreadPoolBuilder::new().num_threads(1).build().expect("a one-thread pool");
+                for (disk, file, key, text, picture, notes) in queue {
+                    if let Err(e) = own.install(|| disk.store_frame(&file, &key, &text, &picture)) {
+                        notes.lock().unwrap_or_else(|p| p.into_inner()).push(format!(
+                            "FRAME_CACHE_NOT_WRITTEN: a composition frame was drawn but could not be kept on disk ({e}); it will be drawn again next time."
+                        ));
+                    }
+                    writer().finished(&file);
+                }
+            })
+            .expect("start the worker that writes composition frames");
+        Writer { jobs, pending: Mutex::new(Vec::new()), done: Condvar::new() }
+    })
+}
+
+/// B-171b: wait until nothing is still being written to `file`, or with `None` to any file.
+fn written(file: Option<&Path>) {
+    let Some(w) = WRITER.get() else { return };
+    let mut pending = w.pending.lock().unwrap_or_else(|p| p.into_inner());
+    while pending.iter().any(|f| file.is_none_or(|file| f == file)) {
+        pending = w.done.wait(pending).unwrap_or_else(|p| p.into_inner());
+    }
+}
+
+/// B-171b: wait until every composition frame on its way to disk is there.
+pub fn disk_writes_done() {
+    written(None);
+}
 
 /// B-161, D-232: where decoded cels are kept on disk between sessions, and how much they may take.
 ///
@@ -569,6 +634,8 @@ pub struct CelCache {
     disk_hits: u64,
     /// Session-log lines about disk copies, waiting for the window to collect them.
     disk_notes: Vec<String>,
+    /// B-171b: the same, from the worker writing composition frames.
+    late_notes: Arc<Mutex<Vec<String>>>,
     /// B-159 (G10): the frame last drawn, and the picture below its last edit.
     // ponytail: one picture the frame's size, outside the budget; count it if a budget is tight.
     below: (Option<(Id, i32)>, crate::render::Below),
@@ -608,6 +675,7 @@ impl CelCache {
             disk: None,
             disk_hits: 0,
             disk_notes: Vec::new(),
+            late_notes: Default::default(),
             below: Default::default(),
         }
     }
@@ -689,6 +757,7 @@ impl CelCache {
         }
         let disk = self.disk.as_ref()?;
         let file = disk.frame_file(key);
+        written(Some(&file));
         match crate::perf::time(crate::perf::Stage::FileRead, || disk.load_frame(&file, key)) {
             Ok(Some((picture, files))) if unchanged(&files) => {
                 let picture = Arc::new(picture);
@@ -714,18 +783,20 @@ impl CelCache {
     /// B-171: keep a composition frame the viewer drew from `files` in `took`: in memory, and in
     /// the disk folder too when drawing it took longer than reading it back would
     /// ([`DISK_BYTES_PER_MS`]). A frame that read a file with no modification time is not kept.
+    /// B-171b: the disk copy is written by a worker, and this returns before it is.
     pub fn store_inner(&mut self, key: String, files: Vec<Stamp>, picture: Arc<WorkingBuffer>, took: Duration) {
         if self.effect_budget == 0 || !files.iter().all(|(_, was)| was.is_none_or(|(_, modified)| modified.is_some())) {
             return;
         }
         let heavy = took.as_secs_f64() * 1000.0 * DISK_BYTES_PER_MS >= bytes_of(&picture) as f64;
-        if let (Some(disk), true) = (&self.disk, heavy) {
-            let written = stamps_text(&files)
-                .map_or(Ok(()), |text| disk.store_frame(&disk.frame_file(&key), &key, &text, &picture));
-            if let Err(e) = written {
-                self.disk_notes.push(format!(
-                    "FRAME_CACHE_NOT_WRITTEN: a composition frame was drawn but could not be kept on disk ({e}); it will be drawn again next time."
-                ));
+        if let (Some(disk), true, Some(text)) = (&self.disk, heavy, stamps_text(&files)) {
+            let (w, file) = (writer(), disk.frame_file(&key));
+            w.pending.lock().unwrap_or_else(|p| p.into_inner()).push(file.clone());
+            let job = (disk.clone(), file.clone(), key.clone(), text, Arc::clone(&picture), Arc::clone(&self.late_notes));
+            if w.jobs.try_send(job).is_err() {
+                // The disk is behind: this frame is kept in memory only, rather than the frame
+                // waiting for the disk.
+                w.finished(&file);
             }
         }
         self.keep_inner(key, files, picture);
@@ -1065,6 +1136,8 @@ impl CelCache {
 
     /// B-161: the session-log lines about disk copies since the last call, emptied by it.
     pub fn take_disk_notes(&mut self) -> Vec<String> {
+        let late = std::mem::take(&mut *self.late_notes.lock().unwrap_or_else(|p| p.into_inner()));
+        self.disk_notes.extend(late);
         std::mem::take(&mut self.disk_notes)
     }
 

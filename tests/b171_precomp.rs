@@ -130,6 +130,8 @@ fn a_composition_inside_another_is_kept() {
             row(quality, frame, "drawn the first time", asked, got == want, got == want && asked > 0);
             let (got, asked) = draw(&base, frame, &root, quality, &mut first);
             row(quality, frame, "drawn again", asked, got == want, got == want && asked == 0);
+            // B-171b: the copy is written by a worker; wait for it.
+            anime_compositor::cache::disk_writes_done();
             let copies = files_in(&disk).iter().filter(|p| p.extension().is_some_and(|e| e == "frame")).count();
             row(quality, frame, &format!("copies of composition frames on disk: {copies}"), 0, true, copies > 0);
             let mut reopened = viewer(&disk);
