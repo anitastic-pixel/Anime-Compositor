@@ -6,7 +6,7 @@ Each row compares the eight-bit picture the page receives, drawn by the CPU and 
 
 **158 of 158 checks pass.**
 
-The worst comparison is "the reference shot with three Directional Blurs frame 100, Full": largest difference 1 of 255, pixels differing: 14690. Its pictures are in `verification/B-49 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with three Directional Blurs frame 100, Full": largest difference 1 of 255, pixels differing: 14693. Its pictures are in `verification/B-49 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 | Case | Blurs left to the card | Largest difference (of 255) | Pixels differing | Warnings | Result |
 |---|---:|---:|---:|---|---|
@@ -160,9 +160,9 @@ The worst comparison is "the reference shot with three Directional Blurs frame 1
 | fx_dirblur_015 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_dirblur_015 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_dirblur_015 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| the reference shot with three Directional Blurs frame 0, Full | 3 | 1 | 14201 | none | PASS |
-| the reference shot with three Directional Blurs frame 100, Full | 3 | 1 | 14690 | none | PASS |
-| the reference shot with three Directional Blurs frame 239, Full | 3 | 1 | 14029 | none | PASS |
+| the reference shot with three Directional Blurs frame 0, Full | 3 | 1 | 14205 | none | PASS |
+| the reference shot with three Directional Blurs frame 100, Full | 3 | 1 | 14693 | none | PASS |
+| the reference shot with three Directional Blurs frame 239, Full | 3 | 1 | 14032 | none | PASS |
 | the reference shot with three Directional Blurs frame 0, Draft | 3 | 1 | 2334 | none | PASS |
 | the reference shot with three Directional Blurs frame 100, Draft | 3 | 1 | 2286 | none | PASS |
 | the reference shot with three Directional Blurs frame 239, Draft | 3 | 1 | 2277 | none | PASS |

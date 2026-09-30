@@ -444,17 +444,17 @@ fn enlarge(@builtin(global_invocation_id) id: vec3<u32>) {
 
 // render::sample_bilinear at column c's centre, height y on line space; x and y exchanged when
 // the lines run mostly down.
-fn tap(c: i32, y: f64) -> vec4<f32> {
-    let f = y - 0.5lf;
+fn tap(c: i32, y: f32) -> vec4<f32> {
+    let f = y - 0.5;
     let base = floor(f);
     let u = f - base;
     let r = i32(base);
     var o = vec4(0.0);
-    if 1.0lf - u != 0.0lf {
-        o += at(select(vec2(c, r), vec2(r, c), P.down == 1u)) * f32(1.0lf - u);
+    if 1.0 - u != 0.0 {
+        o += at(select(vec2(c, r), vec2(r, c), P.down == 1u)) * (1.0 - u);
     }
-    if u != 0.0lf {
-        o += at(select(vec2(c, r + 1), vec2(r + 1, c), P.down == 1u)) * f32(u);
+    if u != 0.0 {
+        o += at(select(vec2(c, r + 1), vec2(r + 1, c), P.down == 1u)) * u;
     }
     return o;
 }
@@ -463,10 +463,15 @@ fn nz(v: vec4<f32>) -> u32 {
     return select(0u, 1u, any(v != vec4(0.0)));
 }
 
-// blurs::by_lines for one line a thread: the tent a - b|j| over |j| <= n, from running totals
-// kept in double precision, then (B-49) the `ends` taps, pairs of column and weight in
-// `weights`. `lp` and `rp` are the samples left and right of the point, `lw` and `rw` the same
-// times their distance, and `seen` how many within `reach` are not zero.
+// Line space's height of column j on line k, `k0 + line + 0.5 + j s`, from double precision.
+fn height(k: f64, j: i32) -> f32 {
+    return f32(k + f64(j) * P.s);
+}
+
+// blurs::by_lines for one line a thread: the tent a - b|j| over |j| <= n, from running totals,
+// then (B-49) the `ends` taps, pairs of column and weight in `weights`. `lp` and `rp` are the
+// samples left and right of the point, `lw` and `rw` the same times their distance, and `seen`
+// how many within `reach` are not zero. B-157 (G6): the totals in single precision.
 @compute @workgroup_size(32)
 fn streak(@builtin(global_invocation_id) id: vec3<u32>) {
     if id.x >= P.count {
@@ -476,43 +481,45 @@ fn streak(@builtin(global_invocation_id) id: vec3<u32>) {
     let n = i32(P.n);
     let m = i32(P.reach);
     let x0 = -P.g;
-    var lp = vec4<f64>(0.0lf);
+    let a = f32(P.a);
+    let b = f32(P.b);
+    var lp = vec4<f32>(0.0);
     var rp = lp;
     var lw = lp;
     var rw = lp;
     var seen = 0u;
     for (var j = 1; j <= m; j++) {
-        let vr = tap(x0 + j, k + f64(x0 + j) * P.s);
-        let vl = tap(x0 - j, k + f64(x0 - j) * P.s);
+        let vr = tap(x0 + j, height(k, x0 + j));
+        let vl = tap(x0 - j, height(k, x0 - j));
         if j <= n {
-            rp += vec4<f64>(vr);
-            rw += f64(j) * vec4<f64>(vr);
-            lp += vec4<f64>(vl);
-            lw += f64(j) * vec4<f64>(vl);
+            rp += vr;
+            rw += f32(j) * vr;
+            lp += vl;
+            lw += f32(j) * vl;
         }
         seen += nz(vr) + nz(vl);
     }
-    var vc = tap(x0, k + f64(x0) * P.s);
+    var vc = tap(x0, height(k, x0));
     seen += nz(vc);
     for (var x = 0u; x < P.width; x++) {
         let c = i32(x) + x0;
-        var r = P.a * (lp + vec4<f64>(vc) + rp) - P.b * (rw + lw);
+        var r = a * (lp + vc + rp) - b * (rw + lw);
         for (var e = 0u; e < P.ends; e++) {
             let j = c + i32(weights[2u * e]);
-            r += f64(weights[2u * e + 1u]) * vec4<f64>(tap(j, k + f64(j) * P.s));
+            r += weights[2u * e + 1u] * tap(j, height(k, j));
         }
-        textureStore(output, vec2(x, id.x), select(vec4<f32>(r), vec4(0.0), seen == 0u));
-        let vn = tap(c + n + 1, k + f64(c + n + 1) * P.s);
-        let vo = tap(c - n, k + f64(c - n) * P.s);
-        let v1 = tap(c + 1, k + f64(c + 1) * P.s);
-        rw = rw - rp + f64(n) * vec4<f64>(vn);
-        rp = rp - vec4<f64>(v1) + vec4<f64>(vn);
-        lw = lw + lp + vec4<f64>(vc) - f64(n + 1) * vec4<f64>(vo);
-        lp = lp + vec4<f64>(vc) - vec4<f64>(vo);
+        textureStore(output, vec2(x, id.x), select(r, vec4(0.0), seen == 0u));
+        let vn = tap(c + n + 1, height(k, c + n + 1));
+        let vo = tap(c - n, height(k, c - n));
+        let v1 = tap(c + 1, height(k, c + 1));
+        rw = rw - rp + f32(n) * vn;
+        rp = rp - v1 + vn;
+        lw = lw + lp + vc - f32(n + 1) * vo;
+        lp = lp + vc - vo;
         if m == n {
             seen = seen + nz(vn) - nz(vo);
         } else {
-            seen = seen + nz(tap(c + m + 1, k + f64(c + m + 1) * P.s)) - nz(tap(c - m, k + f64(c - m) * P.s));
+            seen = seen + nz(tap(c + m + 1, height(k, c + m + 1))) - nz(tap(c - m, height(k, c - m)));
         }
         vc = v1;
     }
@@ -714,6 +721,38 @@ fn bilinear(t: texture_2d<f32>, x: f64, y: f64) -> vec4<f32> {
                 continue;
             }
             out += textureLoad(t, vec2(sx, sy), 0) * f32(wx * wy);
+        }
+    }
+    return out;
+}
+
+// B-157 (G6): `bilinear` in single precision, for a pass whose many samples are summed, where each
+// sample's own rounding is far below a level of 255.
+fn bilinear32(t: texture_2d<f32>, x: f32, y: f32) -> vec4<f32> {
+    let size = vec2<i32>(textureDimensions(t));
+    let fx = x - 0.5;
+    let fy = y - 0.5;
+    if !(fx > -1.0 && fy > -1.0 && fx < f32(size.x) && fy < f32(size.y)) {
+        return vec4(0.0);
+    }
+    let x0 = floor(fx);
+    let y0 = floor(fy);
+    let ux = fx - x0;
+    let uy = fy - y0;
+    var out = vec4(0.0);
+    for (var j = 0; j < 2; j++) {
+        let wy = select(1.0 - uy, uy, j == 1);
+        let sy = i32(y0) + j;
+        if wy == 0.0 || sy < 0 || sy >= size.y {
+            continue;
+        }
+        for (var i = 0; i < 2; i++) {
+            let wx = select(1.0 - ux, ux, i == 1);
+            let sx = i32(x0) + i;
+            if wx == 0.0 || sx < 0 || sx >= size.x {
+                continue;
+            }
+            out += textureLoad(t, vec2(sx, sy), 0) * (wx * wy);
         }
     }
     return out;
@@ -925,6 +964,45 @@ fn fractal(ch: u32, p: vec3<f64>, octaves: u32) -> f64 {
         total += amp;
         amp *= 0.5lf;
         fine *= 2.0lf;
+    }
+    return sum / total;
+}
+
+// B-157 (G6): `hashed`, `cell_noise` and `fractal` in single precision, for Turbulent Displace,
+// where the noise only moves where a pixel is read from, by far less than a pixel's rounding.
+// `hashed`'s 53 bits are (h.y 2^32 + h.x) / 2^52 - 1, h.y's 21 bits exact in single precision.
+fn hashed32(x: i32, y: i32, f: i32, ch: u32) -> f32 {
+    let h = shr64(splitmix(splitmix(splitmix(splitmix(F.base ^ wide(x)) ^ wide(y)) ^ wide(f)) ^ vec2(ch, 0u)), 11u);
+    return f32(h.y) / 1048576.0 + f32(h.x) / 4503599627370496.0 - 1.0;
+}
+
+fn fade32(t: f32) -> f32 {
+    return t * t * t * (t * (6.0 * t - 15.0) + 10.0);
+}
+
+fn cell_noise32(ch: u32, p: vec3<f32>) -> f32 {
+    let c = floor(p);
+    let s = vec3(fade32(p.x - c.x), fade32(p.y - c.y), fade32(p.z - c.z));
+    let i = vec3<i32>(c);
+    var v = 0.0;
+    for (var corner = 0u; corner < 8u; corner++) {
+        let d = vec3(corner & 1u, (corner >> 1u) & 1u, corner >> 2u);
+        let w = select(vec3(1.0) - s, s, d == vec3(1u));
+        v += w.x * w.y * w.z * hashed32(i.x + i32(d.x), i.y + i32(d.y), i.z + i32(d.z), ch);
+    }
+    return v;
+}
+
+fn fractal32(ch: u32, p: vec3<f32>, octaves: u32) -> f32 {
+    var sum = 0.0;
+    var total = 0.0;
+    var amp = 1.0;
+    var fine = 1.0;
+    for (var o = 0u; o < octaves; o++) {
+        sum += amp * cell_noise32(8u * o + ch, p * fine);
+        total += amp;
+        amp *= 0.5;
+        fine *= 2.0;
     }
     return sum / total;
 }
@@ -1307,9 +1385,9 @@ fn turb(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let x = f64(id.x) + 0.5lf;
     let y = f64(id.y) + 0.5lf;
-    let p = vec3((x - k[3]) / k[1], (y - k[4]) / k[1], k[2]);
-    var sx = x + k[0] * fractal(0u, p, F.count);
-    var sy = y + k[0] * fractal(1u, p, F.count);
+    let p = vec3<f32>(vec3((x - k[3]) / k[1], (y - k[4]) / k[1], k[2]));
+    var sx = x + k[0] * f64(fractal32(0u, p, F.count));
+    var sy = y + k[0] * f64(fractal32(1u, p, F.count));
     if F.flag == 1u {
         sx = clamp(sx, 0.5lf, f64(size.x) - 0.5lf);
         sy = clamp(sy, 0.5lf, f64(size.y) - 0.5lf);
@@ -2484,21 +2562,21 @@ fn glare(@builtin(global_invocation_id) id: vec3<u32>) {
     let cy = f64(y) + 0.5lf;
     let arms = u32(k[4]);
     let steps = 5u + 2u * arms;
-    var g = vec4<f64>(0.0lf);
+    var g = vec4<f32>(0.0);
     for (var j = 0u; j < arms; j++) {
-        let vx = k[5u + 2u * j];
-        let vy = k[6u + 2u * j];
+        let vx = f32(k[5u + 2u * j]);
+        let vy = f32(k[6u + 2u * j]);
         for (var t = 0u; t < u32(F.g); t++) {
-            let d = k[steps + 2u * t];
-            g += k[steps + 2u * t + 1u] * vec4<f64>(bilinear(other, cx - d * vx, cy - d * vy));
+            let d = f32(k[steps + 2u * t]);
+            g += f32(k[steps + 2u * t + 1u]) * bilinear32(other, f32(cx) - d * vx, f32(cy) - d * vy);
         }
     }
     let o = at(input, vec2(x, y));
     var out: vec4<f32>;
     for (var c = 0u; c < 3u; c++) {
-        out[c] = f32(f64(o[c]) + k[0] * k[1u + c] * g[c]);
+        out[c] = f32(f64(o[c]) + k[0] * k[1u + c] * f64(g[c]));
     }
-    out.w = f32(min(f64(o.w) + k[0] * g.w, 1.0lf));
+    out.w = f32(min(f64(o.w) + k[0] * f64(g.w), 1.0lf));
     textureStore(output, id.xy, out);
 }
 
@@ -2548,24 +2626,39 @@ fn rain(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
-// line_blur's covering and ink of a pixel.
-fn cover_ink(p: vec4<f32>) -> vec2<f64> {
-    let q = vec4<f64>(p);
-    return vec2(q.w, clamp(q.w - 0.2126lf * q.x - 0.7152lf * q.y - 0.0722lf * q.z, 0.0lf, 1.0lf));
+// line_blur's covering and ink of a pixel. B-157 (G6): in single precision, as the rest of the
+// pass: the slopes, the line's way and the taps along it each round far below a level of 255.
+fn cover_ink(p: vec4<f32>) -> vec2<f32> {
+    return vec2(p.w, clamp(p.w - 0.2126 * p.x - 0.7152 * p.y - 0.0722 * p.z, 0.0, 1.0));
 }
 
 // line_blur's `sample`: the drawing at pixel position (x, y), its corners on the pixels.
-fn tap(x: f64, y: f64) -> vec4<f64> {
+fn tap(x: f32, y: f32) -> vec4<f32> {
     let x0 = floor(x);
     let y0 = floor(y);
     let fx = x - x0;
     let fy = y - y0;
     let i = i32(x0);
     let j = i32(y0);
-    let p00 = vec4<f64>(at(input, vec2(i, j)));
-    let p10 = vec4<f64>(at(input, vec2(i + 1, j)));
-    let p01 = vec4<f64>(at(input, vec2(i, j + 1)));
-    let p11 = vec4<f64>(at(input, vec2(i + 1, j + 1)));
+    let p00 = at(input, vec2(i, j));
+    let p10 = at(input, vec2(i + 1, j));
+    let p01 = at(input, vec2(i, j + 1));
+    let p11 = at(input, vec2(i + 1, j + 1));
+    return (p00 * (1.0 - fx) + p10 * fx) * (1.0 - fy) + (p01 * (1.0 - fx) + p11 * fx) * fy;
+}
+
+// `tap`'s covering in double precision, for the rare tap near the threshold that ends a line.
+fn tap_cover(x: f64, y: f64) -> f64 {
+    let x0 = floor(x);
+    let y0 = floor(y);
+    let fx = x - x0;
+    let fy = y - y0;
+    let i = i32(x0);
+    let j = i32(y0);
+    let p00 = f64(at(input, vec2(i, j)).w);
+    let p10 = f64(at(input, vec2(i + 1, j)).w);
+    let p01 = f64(at(input, vec2(i, j + 1)).w);
+    let p11 = f64(at(input, vec2(i + 1, j + 1)).w);
     return (p00 * (1.0lf - fx) + p10 * fx) * (1.0lf - fy) + (p01 * (1.0lf - fx) + p11 * fx) * fy;
 }
 
@@ -2581,13 +2674,12 @@ fn lineblur(@builtin(global_invocation_id) id: vec3<u32>) {
     let lx = i32(id.x) - F.g;
     let ly = i32(id.y) - F.g;
     let mine = at(input, vec2(lx, ly));
-    let own = vec4<f64>(mine);
     if k[0] == 0.0lf {
         textureStore(output, id.xy, mine);
         return;
     }
-    var weights = array<f64, 5>(1.0lf, 4.0lf, 6.0lf, 4.0lf, 1.0lf);
-    var t = vec3(0.0lf);
+    var weights = array<f32, 5>(1.0, 4.0, 6.0, 4.0, 1.0);
+    var t = vec3(0.0);
     for (var j = 0; j < 5; j++) {
         for (var i = 0; i < 5; i++) {
             let x = lx + i - 2;
@@ -2596,15 +2688,15 @@ fn lineblur(@builtin(global_invocation_id) id: vec3<u32>) {
             let r = cover_ink(at(input, vec2(x + 1, y)));
             let u = cover_ink(at(input, vec2(x, y - 1)));
             let d = cover_ink(at(input, vec2(x, y + 1)));
-            let gx = (r - l) / 2.0lf;
-            let gy = (d - u) / 2.0lf;
+            let gx = (r - l) / 2.0;
+            let gy = (d - u) / 2.0;
             let raw = vec3(gx.x * gx.x + gx.y * gx.y, gx.x * gy.x + gx.y * gy.y, gy.x * gy.x + gy.y * gy.y);
-            t += weights[i] * weights[j] / 256.0lf * raw;
+            t += weights[i] * weights[j] / 256.0 * raw;
         }
     }
-    let a = t.x;
-    let b = t.y;
-    let c = t.z;
+    let a = f64(t.x);
+    let b = f64(t.y);
+    let c = f64(t.z);
     let r = sqrt((a - c) * (a - c) + 4.0lf * b * b);
     if r == 0.0lf {
         textureStore(output, id.xy, mine);
@@ -2619,25 +2711,31 @@ fn lineblur(@builtin(global_invocation_id) id: vec3<u32>) {
     let norm = sqrt(tx * tx + ty * ty);
     tx = tx / norm;
     ty = ty / norm;
-    var acc = own;
-    var total = 1.0lf;
+    let ux = f32(tx);
+    let uy = f32(ty);
+    var acc = mine;
+    var total = 1.0;
     for (var side = 0; side < 2; side++) {
-        let way = select(1.0lf, -1.0lf, side == 1);
+        let way = select(1.0, -1.0, side == 1);
         for (var q = 0u; q < F.count; q++) {
-            let out = way * f64(q + 1u);
-            let s = tap(f64(lx) + out * tx, f64(ly) + out * ty);
-            if s.w < 1.0lf / 256.0lf {
+            let out = way * f32(q + 1u);
+            let s = tap(f32(lx) + out * ux, f32(ly) + out * uy);
+            if abs(s.w - 1.0 / 256.0) < 1e-4 {
+                if tap_cover(f64(lx) + f64(out) * tx, f64(ly) + f64(out) * ty) < 1.0lf / 256.0lf {
+                    break;
+                }
+            } else if s.w < 1.0 / 256.0 {
                 break;
             }
-            acc += k[2u + q] * s;
-            total += k[2u + q];
+            acc += f32(k[2u + q]) * s;
+            total += f32(k[2u + q]);
         }
     }
     var amount = k[0] * r / (a + c);
     if k[1] != 0.0lf {
-        amount *= cover_ink(mine).y;
+        amount *= f64(cover_ink(mine).y);
     }
-    textureStore(output, id.xy, vec4<f32>(own + (acc / total - own) * amount));
+    textureStore(output, id.xy, mine + (acc / total - mine) * f32(amount));
 }
 
 // B-123, layer_fx::kira_kira's light at (px, py) from the star at k[s]: its centre, size and beat.

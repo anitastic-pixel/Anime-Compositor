@@ -6,7 +6,7 @@ Each row compares the eight-bit picture the page receives, drawn by the CPU and 
 
 **288 of 288 checks pass.**
 
-The worst comparison is "the reference shot with three Blooms frame 0, Full": largest difference 1 of 255, pixels differing: 2640. Its pictures are in `verification/B-47 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with three Blooms frame 0, Full": largest difference 1 of 255, pixels differing: 2643. Its pictures are in `verification/B-47 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 | Case | Blooms left to the card | Largest difference (of 255) | Pixels differing | Warnings | Result |
 |---|---:|---:|---:|---|---|
@@ -290,11 +290,11 @@ The worst comparison is "the reference shot with three Blooms frame 0, Full": la
 | fx_bloom_028 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_bloom_028 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_bloom_028 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| the reference shot with three Blooms frame 0, Full | 3 | 1 | 2640 | none | PASS |
-| the reference shot with three Blooms frame 100, Full | 3 | 1 | 956 | none | PASS |
-| the reference shot with three Blooms frame 239, Full | 3 | 1 | 844 | none | PASS |
+| the reference shot with three Blooms frame 0, Full | 3 | 1 | 2643 | none | PASS |
+| the reference shot with three Blooms frame 100, Full | 3 | 1 | 961 | none | PASS |
+| the reference shot with three Blooms frame 239, Full | 3 | 1 | 849 | none | PASS |
 | the reference shot with three Blooms frame 0, Draft | 3 | 1 | 140 | none | PASS |
-| the reference shot with three Blooms frame 100, Draft | 3 | 1 | 54 | none | PASS |
-| the reference shot with three Blooms frame 239, Draft | 3 | 1 | 68 | none | PASS |
+| the reference shot with three Blooms frame 100, Draft | 3 | 1 | 55 | none | PASS |
+| the reference shot with three Blooms frame 239, Draft | 3 | 1 | 69 | none | PASS |
 | the reference shot with three Blooms frame 100, Full: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
 | the reference shot with three Blooms frame 100, Draft: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |

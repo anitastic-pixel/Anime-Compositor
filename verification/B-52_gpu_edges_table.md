@@ -6,7 +6,7 @@ Each row compares the eight-bit picture the page receives, drawn by the CPU and 
 
 **108 of 108 checks pass.**
 
-The worst comparison is "the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Full": largest difference 1 of 255, pixels differing: 21541. Its pictures are in `verification/B-52 pictures/`: `card_cpu.png`, `card_gpu.png`, and `card_difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Full": largest difference 1 of 255, pixels differing: 21543. Its pictures are in `verification/B-52 pictures/`: `card_cpu.png`, `card_gpu.png`, and `card_difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 | Case | Blurs left to the card | Largest difference (of 255) | Pixels differing | Warnings | Result |
 |---|---:|---:|---:|---|---|
@@ -104,8 +104,8 @@ The worst comparison is "the reference shot with a Directional Blur at 45 degree
 | the reference shot with a Gaussian Blur of sigma 10, edges repeat, on the background frame 239, Full | 1 | 1 | 21154 | none | PASS |
 | the reference shot with a Gaussian Blur of sigma 10, edges repeat, on the background frame 0, Draft | 1 | 1 | 968 | none | PASS |
 | the reference shot with a Gaussian Blur of sigma 10, edges repeat, on the background frame 239, Draft | 1 | 1 | 940 | none | PASS |
-| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Full | 1 | 1 | 21541 | none | PASS |
-| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 239, Full | 1 | 1 | 21330 | none | PASS |
+| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Full | 1 | 1 | 21543 | none | PASS |
+| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 239, Full | 1 | 1 | 21332 | none | PASS |
 | the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Draft | 1 | 1 | 1232 | none | PASS |
 | the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 239, Draft | 1 | 1 | 1204 | none | PASS |
 | the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 0, Full | 1 | 1 | 16606 | none | PASS |

@@ -2433,12 +2433,12 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | the reference shot with Vignette frame 0, Draft | 3 | 1 | 134 | none | PASS |
 | the reference shot with Vignette frame 100, Draft | 3 | 1 | 37 | none | PASS |
 | the reference shot with Vignette frame 239, Draft | 3 | 1 | 58 | none | PASS |
-| the reference shot with Turbulent Displace frame 0, Full | 3 | 1 | 1733 | none | PASS |
-| the reference shot with Turbulent Displace frame 100, Full | 3 | 1 | 912 | none | PASS |
-| the reference shot with Turbulent Displace frame 239, Full | 3 | 1 | 844 | none | PASS |
-| the reference shot with Turbulent Displace frame 0, Draft | 3 | 1 | 67 | none | PASS |
-| the reference shot with Turbulent Displace frame 100, Draft | 3 | 1 | 77 | none | PASS |
-| the reference shot with Turbulent Displace frame 239, Draft | 3 | 1 | 44 | none | PASS |
+| the reference shot with Turbulent Displace frame 0, Full | 3 | 1 | 1820 | none | PASS |
+| the reference shot with Turbulent Displace frame 100, Full | 3 | 1 | 973 | none | PASS |
+| the reference shot with Turbulent Displace frame 239, Full | 3 | 1 | 914 | none | PASS |
+| the reference shot with Turbulent Displace frame 0, Draft | 3 | 1 | 68 | none | PASS |
+| the reference shot with Turbulent Displace frame 100, Draft | 3 | 1 | 82 | none | PASS |
+| the reference shot with Turbulent Displace frame 239, Draft | 3 | 1 | 47 | none | PASS |
 | the reference shot with Fractal Noise frame 0, Full | 3 | 1 | 937 | none | PASS |
 | the reference shot with Fractal Noise frame 100, Full | 3 | 1 | 1016 | none | PASS |
 | the reference shot with Fractal Noise frame 239, Full | 3 | 1 | 764 | none | PASS |

@@ -1000,11 +1000,11 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | the reference shot with Color Lookup frame 0, Draft | 3 | 1 | 65 | none | PASS |
 | the reference shot with Color Lookup frame 100, Draft | 3 | 1 | 54 | none | PASS |
 | the reference shot with Color Lookup frame 239, Draft | 3 | 1 | 55 | none | PASS |
-| the reference shot with Line Blur frame 0, Full | 3 | 1 | 1096 | none | PASS |
-| the reference shot with Line Blur frame 100, Full | 3 | 1 | 937 | none | PASS |
-| the reference shot with Line Blur frame 239, Full | 3 | 1 | 754 | none | PASS |
-| the reference shot with Line Blur frame 0, Draft | 3 | 1 | 64 | none | PASS |
-| the reference shot with Line Blur frame 100, Draft | 3 | 1 | 71 | none | PASS |
+| the reference shot with Line Blur frame 0, Full | 3 | 1 | 1154 | none | PASS |
+| the reference shot with Line Blur frame 100, Full | 3 | 1 | 985 | none | PASS |
+| the reference shot with Line Blur frame 239, Full | 3 | 1 | 809 | none | PASS |
+| the reference shot with Line Blur frame 0, Draft | 3 | 1 | 66 | none | PASS |
+| the reference shot with Line Blur frame 100, Draft | 3 | 1 | 72 | none | PASS |
 | the reference shot with Line Blur frame 239, Draft | 3 | 1 | 52 | none | PASS |
 | the reference shot with HSV Key frame 0, Full | 3 | 1 | 1444 | none | PASS |
 | the reference shot with HSV Key frame 100, Full | 3 | 1 | 1247 | none | PASS |

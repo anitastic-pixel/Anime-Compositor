@@ -6,7 +6,7 @@ Each row compares the eight-bit picture the page receives, drawn by the CPU and 
 
 **24 of 24 checks pass.**
 
-The worst comparison is "the reference shot with three Gaussian Blurs frame 0, Full": largest difference 1 of 255, pixels differing: 21065. Its pictures are in `verification/B-50 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with three Gaussian Blurs frame 0, Full": largest difference 1 of 255, pixels differing: 21064. Its pictures are in `verification/B-50 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 | Case | Blurs left to the card | Largest difference (of 255) | Pixels differing | Warnings | Result |
 |---|---:|---:|---:|---|---|
@@ -26,7 +26,7 @@ The worst comparison is "the reference shot with three Gaussian Blurs frame 0, F
 | fx_pre_002 frame 0, Draft | 0 | 0 | 0 | none | PASS |
 | fx_pre_002 frame 1, Draft | 0 | 0 | 0 | none | PASS |
 | fx_pre_002 frame 2, Draft | 0 | 0 | 0 | none | PASS |
-| the reference shot with three Gaussian Blurs frame 0, Full | 3 | 1 | 21065 | none | PASS |
+| the reference shot with three Gaussian Blurs frame 0, Full | 3 | 1 | 21064 | none | PASS |
 | the reference shot with three Gaussian Blurs frame 100, Full | 3 | 1 | 20666 | none | PASS |
 | the reference shot with three Gaussian Blurs frame 239, Full | 3 | 1 | 20752 | none | PASS |
 | the reference shot with three Gaussian Blurs frame 0, Draft | 3 | 1 | 954 | none | PASS |

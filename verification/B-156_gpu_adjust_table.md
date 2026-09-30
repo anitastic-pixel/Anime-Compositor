@@ -30,10 +30,10 @@ The worst comparison drawn on the card is "Hue/Saturation alone, over the whole 
 | Bloom alone, over the whole frame frame 100, Full | CPU | CPU | 0 | 0 | none | PASS |
 | Bloom alone, over the whole frame frame 0, Draft | CPU | CPU | 0 | 0 | none | PASS |
 | Bloom alone, over the whole frame frame 100, Draft | CPU | CPU | 0 | 0 | none | PASS |
-| Directional Blur alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 27 | none | PASS |
-| Directional Blur alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 24 | none | PASS |
-| Directional Blur alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 3 | none | PASS |
-| Directional Blur alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 2 | none | PASS |
+| Directional Blur alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 175 | none | PASS |
+| Directional Blur alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 148 | none | PASS |
+| Directional Blur alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 21 | none | PASS |
+| Directional Blur alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 10 | none | PASS |
 | Gaussian Blur alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 25 | none | PASS |
 | Gaussian Blur alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 22 | none | PASS |
 | Gaussian Blur alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 2 | none | PASS |
@@ -98,10 +98,10 @@ The worst comparison drawn on the card is "Hue/Saturation alone, over the whole 
 | Vignette alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 26 | none | PASS |
 | Vignette alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 5 | none | PASS |
 | Vignette alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 5 | none | PASS |
-| Turbulent Displace alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 23 | none | PASS |
-| Turbulent Displace alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 23 | none | PASS |
-| Turbulent Displace alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 1 | none | PASS |
-| Turbulent Displace alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 3 | none | PASS |
+| Turbulent Displace alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 109 | none | PASS |
+| Turbulent Displace alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 91 | none | PASS |
+| Turbulent Displace alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 3 | none | PASS |
+| Turbulent Displace alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 10 | none | PASS |
 | Fractal Noise alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 38 | none | PASS |
 | Fractal Noise alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 38 | none | PASS |
 | Fractal Noise alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 6 | none | PASS |
@@ -222,10 +222,10 @@ The worst comparison drawn on the card is "Hue/Saturation alone, over the whole 
 | Speed Lines alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 1 | none | PASS |
 | Speed Lines alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 1 | none | PASS |
 | Speed Lines alone, over the whole frame frame 100, Draft | GPU | GPU | 0 | 0 | none | PASS |
-| Cross Glare alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 15 | none | PASS |
-| Cross Glare alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 11 | none | PASS |
-| Cross Glare alone, over the whole frame frame 0, Draft | GPU | GPU | 0 | 0 | none | PASS |
-| Cross Glare alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 1 | none | PASS |
+| Cross Glare alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 136 | none | PASS |
+| Cross Glare alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 113 | none | PASS |
+| Cross Glare alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 6 | none | PASS |
+| Cross Glare alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 7 | none | PASS |
 | Camera Shake alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 9 | none | PASS |
 | Camera Shake alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 13 | none | PASS |
 | Camera Shake alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 2 | none | PASS |
@@ -242,10 +242,10 @@ The worst comparison drawn on the card is "Hue/Saturation alone, over the whole 
 | Color Lookup alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 8 | none | PASS |
 | Color Lookup alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 1 | none | PASS |
 | Color Lookup alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 1 | none | PASS |
-| Line Blur alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 23 | none | PASS |
-| Line Blur alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 18 | none | PASS |
-| Line Blur alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 5 | none | PASS |
-| Line Blur alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 5 | none | PASS |
+| Line Blur alone, over the whole frame frame 0, Full | GPU | GPU | 1 | 76 | none | PASS |
+| Line Blur alone, over the whole frame frame 100, Full | GPU | GPU | 1 | 67 | none | PASS |
+| Line Blur alone, over the whole frame frame 0, Draft | GPU | GPU | 1 | 7 | none | PASS |
+| Line Blur alone, over the whole frame frame 100, Draft | GPU | GPU | 1 | 8 | none | PASS |
 | HSV Key alone, over the whole frame frame 0, Full | CPU | CPU | 0 | 0 | none | PASS |
 | HSV Key alone, over the whole frame frame 100, Full | CPU | CPU | 0 | 0 | none | PASS |
 | HSV Key alone, over the whole frame frame 0, Draft | CPU | CPU | 0 | 0 | none | PASS |
@@ -314,8 +314,8 @@ The worst comparison drawn on the card is "Hue/Saturation alone, over the whole 
 | Camera Shake, Motion Tile and Corner Pin, which grow by the frame's size, over part of it frame 100, Full | GPU | GPU | 1 | 11 | none | PASS |
 | Camera Shake, Motion Tile and Corner Pin, which grow by the frame's size, over part of it frame 0, Draft | GPU | GPU | 1 | 2 | none | PASS |
 | Camera Shake, Motion Tile and Corner Pin, which grow by the frame's size, over part of it frame 100, Draft | GPU | GPU | 1 | 1 | none | PASS |
-| Directional Blur, Curves and a moving Noise, between the second and third layers frame 0, Full | GPU | GPU | 1 | 17 | none | PASS |
-| Directional Blur, Curves and a moving Noise, between the second and third layers frame 100, Full | GPU | GPU | 1 | 27 | none | PASS |
+| Directional Blur, Curves and a moving Noise, between the second and third layers frame 0, Full | GPU | GPU | 1 | 49 | none | PASS |
+| Directional Blur, Curves and a moving Noise, between the second and third layers frame 100, Full | GPU | GPU | 1 | 55 | none | PASS |
 | Directional Blur, Curves and a moving Noise, between the second and third layers frame 0, Draft | GPU | GPU | 1 | 2 | none | PASS |
 | Directional Blur, Curves and a moving Noise, between the second and third layers frame 100, Draft | GPU | GPU | 0 | 0 | none | PASS |
 | Kaleidoscope alone, over the whole frame frame 0, Full | CPU | CPU | 0 | 0 | none | PASS |
