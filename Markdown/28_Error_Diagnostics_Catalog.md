@@ -83,6 +83,13 @@ These fallbacks are chosen to avoid fabricating media/effect behavior. They rema
 
 Each diagnostic log record contains timestamp, ID, project revision/job ID where applicable and sanitized detail. Default logs do not include image pixels, full project contents or secrets. Repeated frame-level warnings should be rate-limited while retaining counts/ranges.
 
+Two session-log lines, not `DiagnosticId` values because a preview's pixels are unchanged either way, belong to the decoded-drawing disk cache (B-161, D-232). Both are lines in the P-19 session log's `warnings`, only while the log is switched on:
+
+| ID | Severity | Meaning | Required behavior |
+|---|---|---|---|
+| DECODE_CACHE_DISCARDED | INFO | A disk copy of a decoded drawing failed its length, header or checksum check | delete the copy, decode the drawing fresh (pixels unchanged), write a whole copy again; one session-log line naming the file (name only) and the reason; nothing on screen |
+| DECODE_CACHE_NOT_WRITTEN | INFO | A decoded drawing could not be written to the disk cache (disk full, folder not writable) | show the decoded drawing as usual; one session-log line; it is decoded again next time |
+
 ## UI presentation
 
 Errors that block a direct command appear adjacent to the action or in a focused dialog. Background preview/export errors remain in a diagnostics/status panel. Every actionable message states what failed and the next safe action; marketing-style vague messages are prohibited.
