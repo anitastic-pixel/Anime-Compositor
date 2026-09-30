@@ -372,6 +372,8 @@ Block Dissolve (D-214, accepted on 2026-09-28). `tools/block_dissolve_reference.
 
 Every effect declares input bounds expansion. Transform/mask/matte operations declare the region they can affect. Cache keys include all parameters that alter pixels or bounds. An optimization may skip pixels outside ROI only if output equals full-frame reference math within test tolerance.
 
+An export may draw several frames at the same time. Each frame is drawn from the project alone, as it always was, so drawing frames together changes no pixel. Files are written, and notes added to the report, in frame order. D-231, B-160.
+
 ## Numeric tolerance
 
 CPU reference scalar tests should use exact/near-exact float comparisons appropriate to the operation. GPU comparison tolerance begins at absolute channel error <= 1e-5 for simple arithmetic fixtures and requires per-effect declared tolerances for filters. A tolerance increase requires evidence, not convenience.
