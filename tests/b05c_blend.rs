@@ -112,6 +112,7 @@ fn draw(source: WorkingBuffer, opacity: f32, blend: BlendMode) -> LayerDraw {
         nested: None,
         on_card: Vec::new(),
         motion_blur: false,
+        moments: Vec::new(),
         mixed: false,
         wrap: Vec::new(),
     }

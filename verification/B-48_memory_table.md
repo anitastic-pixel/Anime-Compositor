@@ -1,6 +1,6 @@
 # B-48: how much memory the viewer may use
 
-Written by `cargo test --test b48_memory`. Machine memory: 66.1 GB. Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan, 16.8 GB of its own memory.
+Written by `cargo test --test b48_memory`. Machine memory: 66.1 GB. Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
 **10 of 10 checks pass.**
 

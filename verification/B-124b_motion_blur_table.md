@@ -57,7 +57,7 @@ D-188 and ADR-019, accepted on 2026-09-28 by the owner's words "I approve of mot
 | fx_mb_011.json opened and saved holds what it held, both switches included | the same | yes |
 | fx_mb_016.json opened and saved holds what it held, both switches included | the same | yes |
 | fx_mb_025.json opened and saved holds what it held, both switches included | the same | yes |
-| FX-MB-011's frame is marked as blurred: the processor averages its moments and the card lays the result (B-152) | true | yes |
+| FX-MB-011's frame leaves the bar's moments for the card to add up (B-156b; before it, the processor averaged them, B-152) | true | yes |
 | FX-MB-025's frame, whose matte alone is blurred, is marked too | true | yes |
 | FX-MB-010's still bar, drawn once, is not marked: the card may draw it | false | yes |
 | Draft uses the same four moments: FX-MB-011 at Draft is the average of the bar drawn still at each | largest difference 0.0e0 | yes |

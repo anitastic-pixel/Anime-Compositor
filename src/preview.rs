@@ -123,6 +123,10 @@ pub fn scale_plan(plan: FramePlan, quality: PreviewQuality) -> FramePlan {
             .into_iter()
             .map(|mut layer| {
                 layer.transform = layer.transform.then(Affine::scaling(s, s));
+                // B-156b: a motion-blurred layer's moments are averaged at the smaller size.
+                for m in layer.moments.iter_mut().flatten() {
+                    *m = m.then(Affine::scaling(s, s));
+                }
                 // B-124c: the matte is sampled at the same smaller pixel, so it shrinks with it.
                 if let Some(matte) = &mut layer.matte {
                     matte.transform = matte.transform.then(Affine::scaling(s, s));

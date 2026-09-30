@@ -1,6 +1,6 @@
 # B-51: Glow on the GPU against the CPU
 
-Written by `tests/b51_gpu_glow.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan, 16.8 GB of its own memory.
+Written by `tests/b51_gpu_glow.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last Glow done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-108, proposed). A Glow at intensity 0 or with nothing that glows changes nothing, and one with invalid settings is reported and skipped, so none of these is left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings.
 

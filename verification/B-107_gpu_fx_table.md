@@ -1,6 +1,6 @@
 # B-107: twenty-nine of the third batch on the GPU against the CPU
 
-Written by `tests/b107_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan, 16.8 GB of its own memory.
+Written by `tests/b107_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the twenty-nine done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-165). An effect that changes nothing or whose settings are invalid is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings, and the card must draw the frame itself, except a frame with an adjustment layer, which the CPU draws by B-44's rule: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
@@ -34,7 +34,7 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | Twirl | 216 | 130 | 1 | 216 of 216 |
 | Bulge | 236 | 150 | 1 | 236 of 236 |
 | Mirror | 246 | 186 | 1 | 246 of 246 |
-| Linear Wipe | 316 | 214 | 1 | 316 of 316 |
+| Linear Wipe | 316 | 224 | 1 | 316 of 316 |
 | Radial Wipe | 296 | 202 | 1 | 296 of 296 |
 | Venetian Blinds | 256 | 172 | 1 | 256 of 256 |
 | Iris Wipe | 276 | 172 | 1 | 276 of 276 |
@@ -3728,11 +3728,11 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_twirl_014 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_014 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_014 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_twirl_015 frame 0, Full | 1 | 0 | 0 | none | PASS |
-| fx_twirl_015 frame 1, Full | 1 | 0 | 0 | none | PASS |
-| fx_twirl_015 frame 2, Full | 1 | 0 | 0 | none | PASS |
-| fx_twirl_015 frame 3, Full | 1 | 0 | 0 | none | PASS |
-| fx_twirl_015 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_015 frame 0, Full | 1 | 1 | 6 | none | PASS |
+| fx_twirl_015 frame 1, Full | 1 | 1 | 6 | none | PASS |
+| fx_twirl_015 frame 2, Full | 1 | 1 | 6 | none | PASS |
+| fx_twirl_015 frame 3, Full | 1 | 1 | 6 | none | PASS |
+| fx_twirl_015 frame 4, Full | 1 | 1 | 6 | none | PASS |
 | fx_twirl_015 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_015 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_015 frame 2, Draft | 1 | 0 | 0 | none | PASS |
@@ -4468,16 +4468,16 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_lwipe_020 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_lwipe_020 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_lwipe_020 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 0, Full | 0 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 1, Full | 0 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 2, Full | 0 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 3, Full | 0 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 4, Full | 0 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 0, Draft | 0 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 1, Draft | 0 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 2, Draft | 0 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 3, Draft | 0 | 0 | 0 | none | PASS |
-| fx_lwipe_021 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lwipe_021 frame 4, Draft | 1 | 0 | 0 | none | PASS |
 | fx_lwipe_022 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_lwipe_022 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_lwipe_022 frame 2, Full | 1 | 0 | 0 | none | PASS |

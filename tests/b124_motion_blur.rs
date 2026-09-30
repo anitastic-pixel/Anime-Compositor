@@ -234,11 +234,12 @@ fn b124_motion_blur() {
             &mut CelCache::none(),
         )
         .unwrap();
-        plan.layers.iter().any(|l| l.motion_blur)
+        (plan.layers.iter().any(|l| l.motion_blur), plan.layers.iter().any(|l| !l.moments.is_empty()))
     };
-    let marks = ["fx_mb_011.json", "fx_mb_025.json", "fx_mb_010.json"].map(blurred);
+    let [(_, summed), (matte, _), (still, still_summed)] = ["fx_mb_011.json", "fx_mb_025.json", "fx_mb_010.json"].map(blurred);
+    let marks = [summed, matte, still || still_summed];
     t.row(
-        "FX-MB-011's frame is marked as blurred: the processor averages its moments and the card lays the result (B-152)",
+        "FX-MB-011's frame leaves the bar's moments for the card to add up (B-156b; before it, the processor averaged them, B-152)",
         &format!("{}", marks[0]),
         marks[0],
     );

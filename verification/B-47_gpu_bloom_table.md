@@ -1,6 +1,6 @@
 # B-47: Bloom on the GPU against the CPU
 
-Written by `tests/b47_gpu_bloom.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan, 16.8 GB of its own memory.
+Written by `tests/b47_gpu_bloom.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last Bloom done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-104, proposed). A Bloom that lights nothing (intensity 0, or nothing as bright as the threshold) changes nothing, so it is not left to the card and the two pictures must be the same bytes. FX-BLOOM-020 to 028 each have a setting out of range: the bloom is left out with the warning `EFFECT_PARAMETER_INVALID`, nothing goes to the card, and the two pictures must be the same bytes. On every row both paths must give the same warnings.
 

@@ -9,6 +9,10 @@
 //! at it, draws the frame whole again (D-218, D-219), exactly, with the card's message; the
 //! reference shot with motion blur and a Roughen Edges keeps its frames on the card.
 //!
+//! B-156b: a motion-blurred layer's moments are now added up on the card (D-226), so a frame whose
+//! only blur is such a layer is the card's to draw, effect or no; only a blurred matte, a frame
+//! mix and a dissolve are still built by the CPU.
+//!
 //! Writes `verification/B-152_card_whole_frame_table.md` and, for the worst frame, three pictures
 //! in `verification/B-152 pictures/`.
 
@@ -133,12 +137,14 @@ fn rough() -> Shot {
     rough
 }
 
-/// Whether the card's plan has a motion-blurred or mixed layer; an adjustment layer, which still
-/// has the CPU draw the whole frame (B-44); and an effect the card draws, a Light Wrap included.
-fn marked(shot: &Shot, frame: i32, quality: PreviewQuality) -> (bool, bool, bool) {
+/// Whether the card's plan has a motion-blurred or mixed layer; one the CPU built (B-156b: not
+/// one whose moments the card adds up); an adjustment layer, which still has the CPU draw the
+/// whole frame (B-44); and an effect the card draws, a Light Wrap included.
+fn marked(shot: &Shot, frame: i32, quality: PreviewQuality) -> (bool, bool, bool, bool) {
     let mut log = FrameLog::new(3);
     let plan = compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
     (
+        plan.layers.iter().any(|l| l.motion_blur || l.mixed || !l.moments.is_empty()),
         plan.layers.iter().any(|l| l.motion_blur || l.mixed),
         plan.layers.iter().any(|l| l.adjust.is_some()),
         plan.layers.iter().any(|l| !l.on_card.is_empty() || l.wrap.iter().any(|i| i.enabled && i.is_valid())),
@@ -184,13 +190,13 @@ fn b152_card_whole_frame() {
                     .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-                let (mark, adjusted, card) = marked(shot, frame, quality);
+                let (mark, built, adjusted, card) = marked(shot, frame, quality);
                 marks += mark as usize;
                 let d = distance(&c, &g);
                 // A frame with an adjustment layer is still the CPU's by B-44's rule, and a blurred
                 // or mixed frame with nothing for the card to draw by B-153b's: either must be the
                 // CPU's picture exactly, with the CPU's warnings and the card's one message.
-                let whole = adjusted || (mark && !card);
+                let whole = adjusted || (built && !card);
                 let pass = if whole {
                     let mut ids: Vec<&str> = said_cpu.split(", ").filter(|s| !s.is_empty()).chain([DiagnosticId::GpuPreviewOnCpu.as_str()]).collect();
                     ids.sort();

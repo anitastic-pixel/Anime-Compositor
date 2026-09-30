@@ -227,6 +227,66 @@ pub struct LayerDraw {
     /// D-216: `source`, or the matte's, is a frame mix or a drawing dissolve. Read as
     /// `motion_blur` is.
     pub mixed: bool,
+    /// D-226 (B-156b): in a plan made for the card, a motion-blurred layer's moments, each the
+    /// map from `source` into the plan's pixels, left for the card or [`render`] to average
+    /// ([`average`]); `transform` is then the average's, the identity once the plan is scaled.
+    /// Empty everywhere else, where the average is already `source`.
+    pub moments: Vec<Option<Affine>>,
+}
+
+/// D-188: a motion-blurred layer's moments drawn one by one onto a clear `width` by `height`
+/// picture, summed in order and divided by their number once, in linear premultiplied light. A
+/// moment that is `None`, behind the camera, counts and adds nothing.
+pub fn average(source: &WorkingBuffer, moments: &[Option<Affine>], width: usize, height: usize) -> WorkingBuffer {
+    // P-23: each moment is summed straight from the drawing, pixel by pixel as `render_tile`
+    // draws one layer onto a clear frame, without drawing a whole frame for it. The pixels
+    // skipped are those whose bilinear footprint lies wholly outside the part of the drawing
+    // that holds anything but +0, the drawing's `shown` rectangle: there the moment is exactly
+    // +0 (P-05's culling rule), and a sum of what is drawn is never -0, so adding it would change
+    // no bit. Each value is its own sum, so spread over the threads it is the same bits too;
+    // `verification/P-23_fourth_batch_audit.md` compares the frames.
+    let (sw, sh) = (source.width(), source.height());
+    let held = |p: &[f32]| p.iter().any(|v| v.to_bits() != 0);
+    let rows: Vec<usize> = (0..sh).into_par_iter().filter(|&y| held(&source.data()[y * sw * 4..(y + 1) * sw * 4])).collect();
+    let cols: Vec<usize> = (0..sw)
+        .into_par_iter()
+        .filter(|&x| rows.iter().any(|&y| held(&source.data()[(y * sw + x) * 4..][..4])))
+        .collect();
+    let mut sum = WorkingBuffer::transparent(width, height);
+    if let (Some(&t), Some(&b), Some(&l), Some(&r)) = (rows.first(), rows.last(), cols.first(), cols.last()) {
+        let (l, t, r, b) = (l as f64 - 1.0, t as f64 - 1.0, r as f64 + 2.0, b as f64 + 2.0);
+        for transform in moments.iter().flatten() {
+            let Some(inverse) = transform.invert() else { continue };
+            let corners = [transform.apply(l, t), transform.apply(r, t), transform.apply(l, b), transform.apply(r, b)];
+            let low = corners.iter().fold((f64::INFINITY, f64::INFINITY), |m, c| (m.0.min(c.0), m.1.min(c.1)));
+            let high = corners.iter().fold((f64::NEG_INFINITY, f64::NEG_INFINITY), |m, c| (m.0.max(c.0), m.1.max(c.1)));
+            let clip = |v: f64, n: usize| (v.max(0.0) as usize).min(n);
+            let (x0, y0, x1, y1) = if [low.0, low.1, high.0, high.1].iter().all(|v| v.is_finite()) {
+                (clip(low.0.floor(), width), clip(low.1.floor(), height), clip(high.0.ceil(), width), clip(high.1.ceil(), height))
+            } else {
+                (0, 0, width, height)
+            };
+            if x0 >= x1 || y0 >= y1 {
+                continue;
+            }
+            sum.data_mut()[y0 * width * 4..y1 * width * 4]
+                .par_chunks_mut(width * 4)
+                .enumerate()
+                .for_each(|(row, out)| {
+                    for x in x0..x1 {
+                        let (dx, dy) = (x as f64 + 0.5, (y0 + row) as f64 + 0.5);
+                        let (sx, sy) = inverse.apply(dx, dy);
+                        let one = crate::composite::blend_pixel(crate::model::BlendMode::Normal, sample_bilinear(source, sx, sy), [0.0; 4]);
+                        for c in 0..4 {
+                            out[x * 4 + c] += one[c];
+                        }
+                    }
+                });
+        }
+    }
+    let n = moments.len() as f32;
+    sum.data_mut().par_iter_mut().for_each(|s| *s /= n);
+    sum
 }
 
 /// An effect left for the graphics card, in the pixels of the buffer it runs on.
@@ -471,9 +531,14 @@ pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuff
 fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> WorkingBuffer {
     // B-46, B-47, B-49, B-50, B-51, B-65: an effect left for the card that the CPU is drawing after all is run first,
     // exactly as `apply_stack` would have run it.
-    if plan.layers.iter().any(|l| !l.on_card.is_empty()) {
+    // B-156b: as are the moments of a motion-blurred layer.
+    if plan.layers.iter().any(|l| !l.on_card.is_empty() || !l.moments.is_empty()) {
         let mut plan = plan.clone();
         for layer in &mut plan.layers {
+            if !layer.moments.is_empty() {
+                let moments = std::mem::take(&mut layer.moments);
+                layer.source = std::sync::Arc::new(average(&layer.source, &moments, plan.width, plan.height));
+            }
             // B-155: in stack order, each on what the one before it drew.
             for card in std::mem::take(&mut layer.on_card) {
                 match card {

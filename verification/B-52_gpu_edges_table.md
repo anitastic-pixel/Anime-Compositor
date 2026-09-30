@@ -1,6 +1,6 @@
 # B-52: Repeat Edge Pixels on the GPU against the CPU
 
-Written by `tests/b52_gpu_edges.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan, 16.8 GB of its own memory.
+Written by `tests/b52_gpu_edges.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last blur, repeating its edges (D-109), done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart**, the tolerance each of the three blurs already has there (D-103, D-106, D-107). FX-EDGES-009's first blur runs on the CPU, before the spin the card does. On every row both paths must give the same warnings.
 

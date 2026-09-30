@@ -164,6 +164,18 @@ fn layer(@builtin(global_invocation_id) id: vec3<u32>) {
     sum[at] = blend(src, sum[at]);
 }
 
+// B-156b (D-226), render::average: one moment of a motion-blurred layer added to the sum, at
+// `L.opacity`, one over the number of moments.
+@compute @workgroup_size(16, 16)
+fn moment(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= L.size.x || id.y >= L.size.y {
+        return;
+    }
+    let d = vec2<f32>(id.xy);
+    let at = (L.origin.y + id.y) * L.width + L.origin.x + id.x;
+    sum[at] = sum[at] + bilinear(source, L.s0 + L.sx * d.x + L.sy * d.y) * L.opacity;
+}
+
 struct Size {
     width: u32,
     height: u32,
@@ -3347,6 +3359,8 @@ pub struct Gpu {
     about: String,
     limits: wgpu::Limits,
     layer: wgpu::ComputePipeline,
+    /// B-156b: one moment of a motion-blurred layer, added up.
+    moment: wgpu::ComputePipeline,
     encode: wgpu::ComputePipeline,
     layer_layout: wgpu::BindGroupLayout,
     encode_layout: wgpu::BindGroupLayout,
@@ -3604,6 +3618,7 @@ impl Gpu {
         });
         let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
         let radial = pipeline(&radial_layout, "radial");
+        let moment = pipeline(&layer_layout, "moment");
         let unpack = pipeline(&unpack_layout, "unpack");
         let own = |entry_point: &str, entries: &[wgpu::BindGroupLayoutEntry]| {
             let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some(entry_point), entries });
@@ -3641,6 +3656,7 @@ impl Gpu {
             about,
             limits,
             layer,
+            moment,
             encode,
             layer_layout,
             encode_layout,
@@ -5098,6 +5114,11 @@ impl Gpu {
     /// One layer laid onto `onto`, a frame of `sum`'s size: `numbers` as the shader's `Layer`,
     /// its drawing and its matte's. Added to `steps`.
     fn lay(&self, steps: &mut Vec<Step>, numbers: [u32; 20], source: &wgpu::TextureView, matte: Option<&wgpu::TextureView>, onto: &wgpu::Buffer) {
+        self.lay_with(&self.layer, steps, numbers, source, matte, onto);
+    }
+
+    /// [`Gpu::lay`] through `pipeline`, which reads the same numbers.
+    fn lay_with(&self, pipeline: &wgpu::ComputePipeline, steps: &mut Vec<Step>, numbers: [u32; 20], source: &wgpu::TextureView, matte: Option<&wgpu::TextureView>, onto: &wgpu::Buffer) {
         let uniform = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("B-44 layer"),
             contents: bytemuck::cast_slice(&numbers),
@@ -5113,7 +5134,66 @@ impl Gpu {
                 wgpu::BindGroupEntry { binding: 3, resource: onto.as_entire_binding() },
             ],
         });
-        steps.push((self.layer.clone(), group, (numbers[14].div_ceil(16), numbers[15].div_ceil(16))));
+        steps.push((pipeline.clone(), group, (numbers[14].div_ceil(16), numbers[15].div_ceil(16))));
+    }
+
+    /// B-156b (D-226), render::average: a motion-blurred layer's moments added up on the card, each
+    /// at one over their number, as a texture the frame's size that is then laid through the
+    /// identity. A moment behind the camera counts and adds nothing, as on the CPU.
+    fn averaged(&self, steps: &mut Vec<Step>, layer: &crate::render::LayerDraw, source: &wgpu::TextureView, (width, height): (usize, usize)) -> wgpu::TextureView {
+        let sum = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("B-156b moments"),
+            size: (width * height * 16) as u64,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let share = (1.0 / layer.moments.len() as f32).to_bits();
+        let (sw, sh) = (layer.source.width() as f64, layer.source.height() as f64);
+        let f = |v: f64| (v as f32).to_bits();
+        for m in layer.moments.iter().flatten() {
+            let Some(inverse) = m.invert() else { continue };
+            // Outside the drawing grown by a pixel a moment samples only zero.
+            let corners = [m.apply(-1.0, -1.0), m.apply(sw + 1.0, -1.0), m.apply(-1.0, sh + 1.0), m.apply(sw + 1.0, sh + 1.0)];
+            let low = corners.iter().fold((f64::INFINITY, f64::INFINITY), |m, c| (m.0.min(c.0), m.1.min(c.1)));
+            let high = corners.iter().fold((f64::NEG_INFINITY, f64::NEG_INFINITY), |m, c| (m.0.max(c.0), m.1.max(c.1)));
+            let (x0, y0, x1, y1) = if [low.0, low.1, high.0, high.1].iter().all(|v| v.is_finite()) {
+                (
+                    low.0.floor().clamp(0.0, width as f64) as u32,
+                    low.1.floor().clamp(0.0, height as f64) as u32,
+                    high.0.ceil().clamp(0.0, width as f64) as u32,
+                    high.1.ceil().clamp(0.0, height as f64) as u32,
+                )
+            } else {
+                (0, 0, width as u32, height as u32)
+            };
+            if x1 <= x0 || y1 <= y0 {
+                continue;
+            }
+            let s0 = inverse.apply(x0 as f64 + 0.5, y0 as f64 + 0.5);
+            let numbers = [
+                f(s0.0), f(s0.1), f(inverse.a), f(inverse.b), f(inverse.c), f(inverse.d),
+                0, 0, 0, 0, 0, 0,
+                x0, y0, x1 - x0, y1 - y0,
+                width as u32,
+                0,
+                0,
+                share,
+            ];
+            self.lay_with(&self.moment, steps, numbers, source, None, &sum);
+        }
+        let target = self.target.as_ref().expect("made before any layer");
+        let averaged = self.scratch("B-156b averaged", width, height);
+        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &self.take.1,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: target.size.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: sum.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&averaged) },
+            ],
+        });
+        steps.push((self.take.0.clone(), group, ((width as u32).div_ceil(16), (height as u32).div_ceil(16))));
+        averaged
     }
 
     pub fn draw_held(&mut self, plan: &FramePlan, cache: &CelCache) -> Result<(), Diagnostic> {
@@ -5172,7 +5252,8 @@ impl Gpu {
                 // P-05: outside its box a layer samples only zero, which changes no pixel in any
                 // of the four modes, so only the box is dispatched. A box that cannot be
                 // computed is the whole frame, as it is in `render_tile`.
-                let (l, t, r, b) = bounds(layer);
+                // B-156b: a motion-blurred layer's average is the frame's size.
+                let (l, t, r, b) = if layer.moments.is_empty() { bounds(layer) } else { (0.0, 0.0, width as f64, height as f64) };
                 let (x0, y0, x1, y1) = if [l, t, r, b].iter().all(|v| v.is_finite()) {
                     (
                         l.floor().clamp(0.0, width as f64) as u32,
@@ -5279,6 +5360,9 @@ impl Gpu {
                 // difference in the frame beneath into a large one (D-225).
                 let wide = plan.layers.iter().any(|l| l.adjust.is_some()) || !wraps.is_empty() || matches!(layer.on_card.first(), Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
                 let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source), wide);
+                if !layer.moments.is_empty() {
+                    source = self.averaged(&mut steps, layer, &source, (width, height));
+                }
                 if !layer.on_card.is_empty() {
                     source = self.applied(&mut steps, &layer.source, &source, &layer.on_card);
                 }

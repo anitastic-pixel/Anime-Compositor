@@ -32,4 +32,4 @@ Produced by `cargo test -p anime_compositor_app latest_request_and_refine`, from
 
 ## What this does not cover
 
-How it feels in the window, which is the playtest sheet, `verification/B-162_B-163_playtest.md`. For scale, this run's window took 17.1 ms for the Draft stand-in of frame 30 and 27.8 ms for its Full picture, on the CPU, in a test build sharing the machine with other builds: a note, not a measurement.
+How it feels in the window, which is the playtest sheet, `verification/B-162_B-163_playtest.md`. For scale, this run's window took 18.3 ms for the Draft stand-in of frame 30 and 24.4 ms for its Full picture, on the CPU, in a test build sharing the machine with other builds: a note, not a measurement.
