@@ -1431,6 +1431,16 @@ fn resolve_rest(
                     | crate::effects::Effect::HsvKey { .. }
                     | crate::effects::Effect::Paraffin { .. }
                     | crate::effects::Effect::KiraKira { .. }
+                    | crate::effects::Effect::Median { .. }
+                    | crate::effects::Effect::SmartBlur { .. }
+                    | crate::effects::Effect::RoughenEdges { .. }
+                    | crate::effects::Effect::RadialShadow { .. }
+                    | crate::effects::Effect::BevelAlpha { .. }
+                    | crate::effects::Effect::Snowfall { .. }
+                    | crate::effects::Effect::CellPattern { .. }
+                    | crate::effects::Effect::PolarCoordinates { .. }
+                    | crate::effects::Effect::OpticsCompensation { .. }
+                    | crate::effects::Effect::CornerPin { .. }
             )
             // D-122: a Levels whose input white is its black is a threshold, which a rounding
             // either side of would turn from black to white, so it stays on the CPU.
@@ -1660,6 +1670,17 @@ fn resolve_rest(
                     E::LineBlur { length, .. } => *length == 0.0,
                     E::Paraffin { spread, opacity, .. } => *spread == 0.0 || *opacity == 0.0,
                     E::KiraKira { size, density, opacity, .. } => [*size, *density, *opacity].contains(&0.0),
+                    // B-151: ten of the fourth batch, each as its own function returns at once.
+                    E::Median { radius, .. } | E::SmartBlur { radius, .. } => *radius < 1.0,
+                    E::RoughenEdges { border, .. } => *border == 0.0,
+                    E::BevelAlpha { edge_thickness, light_intensity, .. } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
+                    E::Snowfall { density, size, opacity, .. } => [*density, *size, *opacity].contains(&0.0),
+                    E::CellPattern { opacity, .. } => *opacity == 0.0,
+                    E::PolarCoordinates { interpolation, .. } => *interpolation == 0.0,
+                    E::OpticsCompensation { field_of_view, .. } => *field_of_view == 0.0,
+                    E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
+                        [*upper_left, *upper_right, *lower_left, *lower_right] == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
+                    }
                     _ => false,
                 };
                 // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -1673,6 +1694,17 @@ fn resolve_rest(
                     }
                     E::MotionTile { output_width, output_height, .. } => {
                         crate::layer_fx::tile_growth((*output_width, *output_height), size)
+                    }
+                    // B-151: a Radial Shadow grows by its cast and the cast's blur, a Corner Pin
+                    // by its corners; both as their own functions do.
+                    E::RadialShadow { light, distance, softness, .. } => {
+                        let (_, _, _, gx, gy) = crate::layer_fx::radial_cast(*light, *distance, size, offset);
+                        let r = crate::effects::kernel_radius(softness / 3.0);
+                        (gx + r, gy + r)
+                    }
+                    E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
+                        let pins = [*upper_left, *upper_right, *lower_left, *lower_right];
+                        crate::layer_fx::corner_map(pins, size, offset).map_or((0, 0), |m| m.2)
                     }
                     _ => (effect.bounds_expansion(), effect.bounds_expansion()),
                 };

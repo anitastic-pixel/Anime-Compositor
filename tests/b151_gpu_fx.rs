@@ -1,7 +1,7 @@
-//! B-151: eleven of the fourth batch's effects on the graphics card (D-217), the card half of
-//! the P-23 audit, most expensive first: Median, Smart Blur, Roughen Edges, Radial Shadow, Bevel
-//! Alpha, Snowfall, Cell Pattern, Kaleidoscope, Polar Coordinates, Optics Compensation and Corner
-//! Pin; and the check that they draw as the CPU does. Made from `tests/b123_gpu_fx.rs`, with the
+//! B-151: ten of the fourth batch's effects on the graphics card (D-217), the card half of the
+//! P-23 audit, most expensive first: Median, Smart Blur, Roughen Edges, Radial Shadow, Bevel
+//! Alpha, Snowfall, Cell Pattern, Polar Coordinates, Optics Compensation and Corner Pin; and the
+//! check that they draw as the CPU does. Kaleidoscope stays on the CPU (D-240, proposed). Made from `tests/b123_gpu_fx.rs`, with the
 //! same rules, and one more: each reference shot row must have the effect in fact left to the
 //! card, so a build where the card never gets it does not pass by comparing the CPU with itself.
 //!
@@ -51,8 +51,7 @@ fn effects() -> Vec<(&'static str, &'static str, &'static str, &'static str, ser
         ("Radial Shadow", "radial_shadow", "fx_rshadow", "core.radial_shadow", json!({"color": "#203040", "opacity": 70, "light": [30, 10], "distance": 15, "softness": 8, "render": "glass_edge", "color_influence": 60, "shadow_only": "off"})),
         ("Bevel Alpha", "bevel", "fx_bevel", "core.bevel_alpha", json!({"edge_thickness": 4, "light_angle": -45, "light_color": "#fff0d0", "light_intensity": 0.6})),
         ("Snowfall", "snowfall", "fx_snow", "core.snowfall", json!({"color": "#ffffff", "density": 60, "spacing": 40, "size": 5, "depth": 40, "speed": 3, "wind": 0.5, "wiggle": 3, "period": 48, "seed": 5, "opacity": 90})),
-        ("Cell Pattern", "cell_pattern", "fx_cell", "core.cell_pattern", json!({"pattern": "crystals", "invert": "off", "contrast": 120, "disperse": 0.8, "size": 30, "evolution": 20, "seed": 2, "opacity": 60, "dark_color": "#102040", "light_color": "#f0e0c0", "blend": "overlay"})),
-        ("Kaleidoscope", "kaleidoscope", "fx_kaleido", "core.kaleidoscope", json!({"segments": 6, "rotation": 20, "size": 80, "center": [45, 55], "mode": "mirror"})),
+        ("Cell Pattern", "cell_pattern", "fx_cell", "core.cell_pattern", json!({"pattern": "crystals", "invert": "off", "contrast": 120, "disperse": 0.8, "size": 30, "evolution": 20, "seed": 2, "opacity": 60, "dark_color": "#102040", "light_color": "#f0e0c0", "blend": "screen"})),
         ("Polar Coordinates", "polar_coordinates", "fx_polar", "core.polar_coordinates", json!({"interpolation": 70, "conversion": "rect_to_polar"})),
         ("Optics Compensation", "optics_compensation", "fx_optics", "core.optics_compensation", json!({"field_of_view": 60, "reverse": "off", "orientation": "diagonal", "center": [45, 55]})),
         ("Corner Pin", "corner_pin", "fx_pin", "core.corner_pin", json!({"upper_left": [5, 3], "upper_right": [92, 8], "lower_left": [0, 100], "lower_right": [110, 96]})),
@@ -82,7 +81,7 @@ fn reference(effect: &'static str, type_id: &str, parameters: &serde_json::Value
     }
 }
 
-/// Every fixture of the eleven, each at every frame it has, the ones the CPU reports as invalid
+/// Every fixture of the ten, each at every frame it has, the ones the CPU reports as invalid
 /// included. A file is the effect's when it names the effect's type (the bevel folder holds Bevel
 /// Edges too).
 fn fixtures() -> Vec<Shot> {
@@ -120,7 +119,7 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     (largest, pixels)
 }
 
-/// How many layers of the card's plan have one of the eleven left for the card; and whether it
+/// How many layers of the card's plan have one of the ten left for the card; and whether it
 /// has an adjustment layer, which has the CPU draw the whole frame (B-44).
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> (usize, bool) {
     let mut log = FrameLog::new(3);
@@ -139,7 +138,7 @@ fn b151_gpu_fx() {
     let mut gpu = match Gpu::new() {
         Ok(gpu) => gpu,
         Err(why) => {
-            fs::write(&out, format!("# B-151: eleven of the fourth batch on the GPU\n\n**NOT RUN.** No usable card: {why}\n\nNo check in this table was run, so none of them passes.\n"))
+            fs::write(&out, format!("# B-151: ten of the fourth batch on the GPU\n\n**NOT RUN.** No usable card: {why}\n\nNo check in this table was run, so none of them passes.\n"))
                 .expect("write the B-151 table");
             return;
         }
@@ -278,10 +277,10 @@ fn b151_gpu_fx() {
         let _ = writeln!(summary, "| {effect} | {n} | {on_card} | {most} | {p} of {n} |");
     }
     let s = format!(
-        "# B-151: eleven of the fourth batch on the GPU against the CPU\n\n\
+        "# B-151: ten of the fourth batch on the GPU against the CPU\n\n\
          Written by `tests/b151_gpu_fx.rs`. The card: {}.\n\n\
          Each row compares the eight-bit picture the page receives, drawn by the CPU and by the \
-         GPU, with the layer's last effect, one of the eleven, done on the card. **The rule: no channel of any pixel more than {LIMIT} level of 255 \
+         GPU, with the layer's last effect, one of the ten, done on the card. **The rule: no channel of any pixel more than {LIMIT} level of 255 \
          apart** (D-217). An effect that changes nothing or whose settings are invalid is not \
          left to the card; on those rows any difference is the card's layering, held to the same \
          1 level by D-100. On a reference shot row the effect must in fact be left to the card. \
@@ -303,4 +302,65 @@ fn b151_gpu_fx() {
     );
     fs::write(&out, s).expect("write the B-151 table");
     assert_eq!(passed, checks, "B-151: {passed} of {checks} checks pass");
+}
+
+fn median(mut v: Vec<f64>) -> f64 {
+    v.sort_by(f64::total_cmp);
+    v[v.len() / 2]
+}
+
+/// The frame times, B-107's way: the reference shot with each of the ten on three layers, every
+/// eighth frame asked for as the viewer asks, whole. The first loop starts with empty caches and
+/// its 30 frames' median is "first"; then seven loops are timed, the median of their 210 frames
+/// "again", in ms, where a held drawing's effect is already done. The same test run on the build
+/// before B-151 gives the "before" columns, the card then drawing the effect on the processor.
+#[test]
+#[ignore = "B-151: a measurement, run deliberately with --release --ignored"]
+fn b151_gpu_fx_timing() {
+    let mut gpu = Gpu::new().expect("a usable card");
+    let mut s = format!(
+        "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n\n\
+         | Effect | Quality | CPU first | GPU first | CPU again | GPU again |\n|---|---|---:|---:|---:|---:|\n",
+        gpu.about(),
+        std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
+        std::thread::available_parallelism().map_or(0, |n| n.get()),
+        std::env::consts::OS,
+        if cfg!(debug_assertions) { "debug" } else { "release" },
+    );
+    let mut shots = vec![("None", None)];
+    shots.extend(effects().into_iter().map(|(effect, _, _, type_id, parameters)| (effect, Some(reference(effect, type_id, &parameters)))));
+    for (effect, shot) in shots {
+        // The plain reference shot, nothing added, as the floor.
+        let shot = shot.unwrap_or_else(|| {
+            let mut plain = reference("None", "core.invert", &json!({"channel": "rgb", "amount": 100}));
+            let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+            plain.project = persist::load_str(&text).expect("the reference shot").document.project().clone();
+            plain
+        });
+        for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
+            let (mut first_row, mut again_row) = (String::new(), String::new());
+            for on_card in [false, true] {
+                let mut cache = CelCache::viewer();
+                gpu.forget();
+                let (mut first, mut times) = (Vec::new(), Vec::new());
+                for pass in 0..8 {
+                    for frame in (0..240).step_by(8) {
+                        let mut log = FrameLog::new(3);
+                        let t = std::time::Instant::now();
+                        if on_card {
+                            drop(preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                        } else {
+                            drop(preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache).expect("CPU frame").to_srgb8_straight());
+                        }
+                        let ms = t.elapsed().as_secs_f64() * 1000.0;
+                        if pass > 0 { times.push(ms) } else { first.push(ms) }
+                    }
+                }
+                let _ = write!(first_row, " {:.1} |", median(first));
+                let _ = write!(again_row, " {:.1} |", median(times));
+            }
+            let _ = writeln!(s, "| {effect} | {} |{first_row}{again_row}", quality.label());
+        }
+    }
+    fs::write(repo("verification/B-151_timing_raw.md"), s).expect("write the timing table");
 }

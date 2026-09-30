@@ -511,6 +511,33 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
         });
 }
 
+/// D-209: each cell's point and grey for Cell Pattern over a `w` by `h` buffer, worked once for
+/// the cells the buffer sees and two round them: the first cell across and down, the cells
+/// across, and the points row by row. The numbers are the disperse, size, evolution in degrees
+/// and seed. B-151: the card reads the same points.
+pub(crate) fn cell_points(
+    [disperse, size, evolution, seed]: [f64; 4],
+    (w, h): (usize, usize),
+    (ox, oy): (usize, usize),
+) -> (i64, i64, usize, Vec<(f64, f64, f64)>) {
+    let (base, t) = (mix(seed.floor() as u64), evolution.to_radians());
+    let at = |x: usize, o: usize| (x as f64 - o as f64 + 0.5) / size;
+    let (m0, n0) = (at(0, ox).floor() as i64 - 2, at(0, oy).floor() as i64 - 2);
+    let cols = (at(w - 1, ox).floor() as i64 + 3 - m0) as usize;
+    let rows = (at(h - 1, oy).floor() as i64 + 3 - n0) as usize;
+    let points = (0..cols * rows)
+        .into_par_iter()
+        .map(|k| {
+            let (m, n) = (m0 + (k % cols) as i64, n0 + (k / cols) as i64);
+            let u = [0, 1, 2, 3].map(|c| unit(base, m, n, 0, c));
+            let r = disperse / 2.0 * (u[0] + 1.0) / 2.0;
+            let a = std::f64::consts::PI * u[1] + if u[2] >= 0.0 { t } else { -t };
+            (m as f64 + 0.5 + r * a.cos(), n as f64 + 0.5 + r * a.sin(), (u[3] + 1.0) / 2.0)
+        })
+        .collect();
+    (m0, n0, cols, points)
+}
+
 /// D-209: a pattern of cells over each pixel that shows, fixed to the drawing's own space (its
 /// corner at `(ox, oy)` in `source`). `numbers` are the contrast, disperse, size, evolution in
 /// degrees, seed and opacity; the two colours are encoded 0 to 1 and mixed in by `blend` as
@@ -528,22 +555,8 @@ pub(crate) fn cell_pattern(
     if opacity == 0.0 || w == 0 || h == 0 {
         return;
     }
-    let (base, t) = (mix(seed.floor() as u64), evolution.to_radians());
     let at = |x: usize, o: usize| (x as f64 - o as f64 + 0.5) / size;
-    // Each cell's point and grey, worked once for the cells the buffer sees and two round them.
-    let (m0, n0) = (at(0, ox).floor() as i64 - 2, at(0, oy).floor() as i64 - 2);
-    let cols = (at(w - 1, ox).floor() as i64 + 3 - m0) as usize;
-    let rows = (at(h - 1, oy).floor() as i64 + 3 - n0) as usize;
-    let points: Vec<(f64, f64, f64)> = (0..cols * rows)
-        .into_par_iter()
-        .map(|k| {
-            let (m, n) = (m0 + (k % cols) as i64, n0 + (k / cols) as i64);
-            let u = [0, 1, 2, 3].map(|c| unit(base, m, n, 0, c));
-            let r = disperse / 2.0 * (u[0] + 1.0) / 2.0;
-            let a = std::f64::consts::PI * u[1] + if u[2] >= 0.0 { t } else { -t };
-            (m as f64 + 0.5 + r * a.cos(), n as f64 + 0.5 + r * a.sin(), (u[3] + 1.0) / 2.0)
-        })
-        .collect();
+    let (m0, n0, cols, points) = cell_points([disperse, size, evolution, seed], (w, h), (ox, oy));
     let (mixer, o) = (mixer(blend), opacity / 100.0);
     source
         .data_mut()

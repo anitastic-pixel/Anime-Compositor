@@ -87,6 +87,23 @@ pub(crate) fn drop_shadow(
     g
 }
 
+/// D-211: Radial Shadow's light in the buffer, how much the cast is scaled up about it, and how
+/// far the cast grows across and down before its blur. B-151: the card casts the same way.
+pub(crate) fn radial_cast(
+    light: [f64; 2],
+    distance: f64,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> (f64, f64, f64, usize, usize) {
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
+    let (lx, ly) = (light[0] / 100.0 * dw + ox, light[1] / 100.0 * dh + oy);
+    let k = 1.0 + distance / 100.0;
+    let gx = ((distance / 100.0 * lx.max(w as f64 - lx)).ceil() as usize).min(w);
+    let gy = ((distance / 100.0 * ly.max(h as f64 - ly)).ceil() as usize).min(h);
+    (lx, ly, k, gx, gy)
+}
+
 /// D-211: the drawing whose corner is at `origin` cast from the light at `light`, per cent of the
 /// drawing's own size, onto a wall `distance` behind, so scaled up about the light by
 /// 1 + distance / 100, then blurred by `softness` / 3 and laid behind the drawing: in `color`,
@@ -107,12 +124,7 @@ pub(crate) fn radial_shadow(
     origin: (usize, usize),
 ) -> (usize, usize) {
     let (w, h) = (source.width(), source.height());
-    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
-    let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
-    let (lx, ly) = (light[0] / 100.0 * dw + ox, light[1] / 100.0 * dh + oy);
-    let k = 1.0 + distance / 100.0;
-    let gx = ((distance / 100.0 * lx.max(w as f64 - lx)).ceil() as usize).min(w);
-    let gy = ((distance / 100.0 * ly.max(h as f64 - ly)).ceil() as usize).min(h);
+    let (lx, ly, k, gx, gy) = radial_cast(light, distance, (w, h), origin);
     let cw = w + 2 * gx;
     let mut cast = WorkingBuffer::transparent(cw, h + 2 * gy);
     let drawing = &*source;
@@ -1208,19 +1220,16 @@ pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: 
     (gx, gy)
 }
 
-/// D-198: the drawing, whose corner is at `origin` in the buffer, stretched in perspective so
-/// its upper left, upper right, lower left and lower right corners land on `pins`, each in per
-/// cent of the drawing's width and height. Returns how far it grew on the left and on the top,
-/// the same as on the right and the bottom. Crossed, bent-in or in-line corners leave the
-/// buffer clear. The settings are already valid.
-pub(crate) fn corner_pin(source: &mut WorkingBuffer, pins: [[f64; 2]; 4], origin: (usize, usize)) -> (usize, usize) {
-    if pins == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]] {
-        return (0, 0);
-    }
-    let (w, h) = (source.width(), source.height());
+/// D-198: Corner Pin's map from the buffer back into the drawing, the map's determinant and how
+/// far the buffer grows across and down; `None` for crossed, bent-in or in-line corners.
+/// B-151: the card maps the same way.
+pub(crate) fn corner_map(
+    [ul, ur, ll, lr]: [[f64; 2]; 4],
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> Option<([[f64; 3]; 3], f64, (usize, usize))> {
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
-    let [ul, ur, ll, lr] = pins;
     // A, B, C, D round the ring, in the drawing's space.
     let ring = [ul, ur, lr, ll].map(|p| (p[0] / 100.0 * dw, p[1] / 100.0 * dh));
     let z = |i: usize| {
@@ -1229,8 +1238,7 @@ pub(crate) fn corner_pin(source: &mut WorkingBuffer, pins: [[f64; 2]; 4], origin
     };
     let z = [z(0), z(1), z(2), z(3)];
     if !(z.iter().all(|v| *v > 0.0) || z.iter().all(|v| *v < 0.0)) {
-        *source = WorkingBuffer::transparent(w, h);
-        return (0, 0);
+        return None;
     }
     // Heckbert's map of the unit square onto A (0, 0), B (1, 0), C (1, 1), D (0, 1).
     let [a, b, c, d] = ring;
@@ -1256,6 +1264,25 @@ pub(crate) fn corner_pin(source: &mut WorkingBuffer, pins: [[f64; 2]; 4], origin
     };
     let gx = past(-ox, dw + ox, ring.map(|p| p.0));
     let gy = past(-oy, dh + oy, ring.map(|p| p.1));
+    Some((adj, det, (gx, gy)))
+}
+
+/// D-198: the drawing, whose corner is at `origin` in the buffer, stretched in perspective so
+/// its upper left, upper right, lower left and lower right corners land on `pins`, each in per
+/// cent of the drawing's width and height. Returns how far it grew on the left and on the top,
+/// the same as on the right and the bottom. Crossed, bent-in or in-line corners leave the
+/// buffer clear. The settings are already valid.
+pub(crate) fn corner_pin(source: &mut WorkingBuffer, pins: [[f64; 2]; 4], origin: (usize, usize)) -> (usize, usize) {
+    if pins == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]] {
+        return (0, 0);
+    }
+    let (w, h) = (source.width(), source.height());
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
+    let Some((adj, det, (gx, gy))) = corner_map(pins, (w, h), origin) else {
+        *source = WorkingBuffer::transparent(w, h);
+        return (0, 0);
+    };
     let ow = w + 2 * gx;
     let (left, top) = ((origin.0 + gx) as f64, (origin.1 + gy) as f64);
     let (wf, hf) = (w as f64, h as f64);
@@ -2241,6 +2268,16 @@ pub(crate) fn rain(
 }
 
 
+/// D-204: Snowfall's three planes, nearest first: each one's cell, largest radius, sway, and how
+/// far it has drifted and fallen by `frame`. B-151: the card falls the same way.
+pub(crate) fn snow_planes([spacing, size, depth, speed, wind, wiggle]: [f64; 6], frame: i32) -> [[f64; 5]; 3] {
+    let f = frame as f64;
+    [0, 1, 2].map(|l| {
+        let z = 1.0 - depth / 100.0 * l as f64 / 3.0;
+        [spacing * z, size * z / 2.0, wiggle * z, wind * z * f, speed * z * f]
+    })
+}
+
 /// D-186: kira-kira, one star on each chosen cell's near-white highlights, at their middle,
 /// twinkling on its own beat; the strongest star's light at a pixel adds `color` (linear) at up
 /// to `opacity`, and covers. The numbers are `[threshold, spacing, density, size, angle, twinkle,
@@ -2266,13 +2303,7 @@ pub(crate) fn snowfall(
     }
     let base = crate::grade::mix(seed.floor() as u64);
     let f = frame as f64;
-    // Each plane's cell, largest radius, sway, and how far it has drifted and fallen.
-    let planes: Vec<[f64; 5]> = (0..3)
-        .map(|l| {
-            let z = 1.0 - depth / 100.0 * l as f64 / 3.0;
-            [spacing * z, size * z / 2.0, wiggle * z, wind * z * f, speed * z * f]
-        })
-        .collect();
+    let planes = snow_planes([spacing, size, depth, speed, wind, wiggle], frame);
     let w = source.width();
     source
         .data_mut()
