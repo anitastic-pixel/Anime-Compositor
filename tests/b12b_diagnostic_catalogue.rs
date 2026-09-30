@@ -177,11 +177,6 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "T-08_export_table.md",
     ),
     (
-        DiagnosticId::ExportVideoEncoder,
-        "EXPORT_VIDEO_ENCODER",
-        "B-160_faster_export_table.md",
-    ),
-    (
         DiagnosticId::CameraPlaneBehind,
         "CAMERA_PLANE_BEHIND",
         "B-13c_camera_table.md",

@@ -148,10 +148,6 @@ pub enum DiagnosticId {
     /// the requested range has no source drawing. Document 07 requires a blocked final export
     /// as the default missing-frame behaviour and document 28 names no identifier for it.
     ExportBlockedMissingMedia,
-    /// **Proposed (D-230).** Which encoder wrote an MP4 when "Hardware video encoding" was
-    /// chosen: INFO naming the graphics card's encoder, or WARNING when the card could not do it
-    /// and the software encoder wrote the film instead, so the change is never silent.
-    ExportVideoEncoder,
     /// Document 28, added by D-59: an expression that cannot be read, or that names a word, a
     /// member or a function the language does not have. ERROR, though the frame is still drawn with
     /// the property at its keyed value; an export that meets one is refused.
@@ -262,7 +258,6 @@ impl DiagnosticId {
             DiagnosticId::ExportWriteFailed => "EXPORT_WRITE_FAILED",
             DiagnosticId::ExportCancelled => "EXPORT_CANCELLED",
             DiagnosticId::ExportBlockedMissingMedia => "EXPORT_BLOCKED_MISSING_MEDIA",
-            DiagnosticId::ExportVideoEncoder => "EXPORT_VIDEO_ENCODER",
             DiagnosticId::ExpressionSyntax => "EXPRESSION_SYNTAX",
             DiagnosticId::ExpressionType => "EXPRESSION_TYPE",
             DiagnosticId::ExpressionReferenceMissing => "EXPRESSION_REFERENCE_MISSING",

@@ -1,11 +1,11 @@
 //! B-160: faster export. D-231 renders several frames at once and must not change one byte of
-//! any exported file; D-230 offers the graphics card's video encoder for an MP4, off unless
-//! chosen, because its bytes are its own.
+//! any exported file. (D-230, the graphics card's video encoder, was rejected by the owner on
+//! 2026-09-29 and removed in B-160b.)
 //!
 //! # How "not one byte changed" is shown
 //!
 //! Every export below is hashed (SHA-256, `src/sha256.rs`), file by file, together with the
-//! report the export returned. The old build is this file cut at the "D-230 and D-231's own
+//! report the export returned. The old build is this file cut at the "D-231's own
 //! choices" line, compiled against the commit before B-160 and run with `B160_LABEL=before` and
 //! `B160_REPO` set to this checkout: it writes `target/b160/hashes_before.txt`. This build writes
 //! `hashes_after.txt`, and `b160_table` compares the two line by line. The exports are:
@@ -334,16 +334,11 @@ fn b160_timing() {
     eprintln!("{out}");
 }
 
-// ---- D-230 and D-231's own choices from here down. The old build has neither, so the copy of
+// ---- D-231's own choices from here down. The old build does not have them, so the copy of
 // ---- this file the old build is compiled with is cut at this line.
 
-use std::io::Read;
-use std::process::{Command as Run, Stdio};
-
-use anime_compositor::diagnostics::{DiagnosticId, Severity};
-
-fn choices(frames_at_once: usize, hardware_video: bool) -> ExportChoices {
-    ExportChoices { frames_at_once, hardware_video, ..ExportChoices::default() }
+fn choices(frames_at_once: usize) -> ExportChoices {
+    ExportChoices { frames_at_once, ..ExportChoices::default() }
 }
 
 /// How many lines of two hash lists differ. An MP4's whole-file line is left out: Windows stamps
@@ -372,9 +367,9 @@ fn frames_at_once_rows(project: &Project) -> Vec<Row> {
     let mut rows = Vec::new();
     for mut job in shot_jobs(project) {
         job.last = 23;
-        let one = hashes(&job, choices(1, false), "at_once");
+        let one = hashes(&job, choices(1), "at_once");
         for (n, said) in [(5, "5 at once"), (0, "as many as the export picks")] {
-            let other = hashes(&job, choices(n, false), "at_once");
+            let other = hashes(&job, choices(n), "at_once");
             let d = differing(&one, &other);
             rows.push(row(
                 format!("{}, frames 0 to 23: drawn {said}, against one at a time", job.name),
@@ -394,111 +389,11 @@ fn b160_frames_at_once_writes_the_same_bytes() {
     }
 }
 
-/// The encoder note an export carried, as one line, or "no note".
-fn encoder_note(report: &anime_compositor::export::ExportReport) -> String {
-    let notes: Vec<String> = report
-        .diagnostics
-        .iter()
-        .filter(|d| d.id == DiagnosticId::ExportVideoEncoder)
-        .map(|d| format!("{:?}: {}", d.severity, d.message))
-        .collect();
-    if notes.is_empty() { "no note".to_string() } else { notes.join(" / ") }
-}
-
 fn mp4_job(project: &Project, last: i32) -> Job<'_> {
     let mut job = shot_jobs(project).pop().unwrap();
     assert!(matches!(job.format, OutputFormat::Mp4));
     job.last = last;
     job
-}
-
-#[test]
-fn b160_hardware_video_says_which_encoder() {
-    let project = shot();
-    let job = mp4_job(&project, 23);
-    let off = export_sequence(&project, &job.root, &request(&job, &out_dir("card_off"), choices(0, false)), &AtomicBool::new(false));
-    assert!(off.succeeded(), "{:?}", off.diagnostics);
-    assert_eq!(encoder_note(&off), "no note");
-    let on = export_sequence(&project, &job.root, &request(&job, &out_dir("card_on"), choices(0, true)), &AtomicBool::new(false));
-    assert!(on.succeeded(), "{:?}", on.diagnostics);
-    let notes: Vec<_> = on.diagnostics.iter().filter(|d| d.id == DiagnosticId::ExportVideoEncoder).collect();
-    assert_eq!(notes.len(), 1, "exactly one note says which encoder: {:?}", on.diagnostics);
-    assert!(matches!(notes[0].severity, Severity::Info | Severity::Warning));
-}
-
-/// One 1920x1080 RGB picture after another, from ffmpeg decoding `mp4` the way the file says it
-/// was made (BT.709, video levels).
-struct Decoded {
-    child: std::process::Child,
-}
-
-const FRAME: usize = 1920 * 1080 * 3;
-
-impl Decoded {
-    fn open(mp4: &Path) -> Option<Decoded> {
-        let child = Run::new("ffmpeg")
-            .args(["-v", "error", "-i"])
-            .arg(mp4)
-            .args([
-                "-vf",
-                "scale=in_color_matrix=bt709:in_range=tv:flags=accurate_rnd+full_chroma_int",
-                "-pix_fmt",
-                "rgb24",
-                "-f",
-                "rawvideo",
-                "-",
-            ])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .ok()?;
-        Some(Decoded { child })
-    }
-
-    fn next(&mut self) -> Option<Vec<u8>> {
-        let mut frame = vec![0u8; FRAME];
-        self.child.stdout.as_mut()?.read_exact(&mut frame).ok()?;
-        Some(frame)
-    }
-}
-
-/// The exported PNG laid over black, as the MP4 writer lays it: each channel times alpha.
-fn source_over_black(png: &Path) -> Vec<u8> {
-    let mut reader = png::Decoder::new(std::io::BufReader::new(fs::File::open(png).unwrap())).read_info().unwrap();
-    let mut rgba = vec![0u8; reader.output_buffer_size().unwrap()];
-    reader.next_frame(&mut rgba).unwrap();
-    rgba.chunks_exact(4)
-        .flat_map(|p| {
-            let a = p[3] as f32 / 255.0;
-            [0, 1, 2].map(|i| (p[i] as f32 * a).round() as u8)
-        })
-        .collect()
-}
-
-#[derive(Default)]
-struct Difference {
-    frames: usize,
-    squared: f64,
-    samples: u64,
-    worst: u8,
-}
-
-impl Difference {
-    fn add(&mut self, a: &[u8], b: &[u8]) {
-        self.frames += 1;
-        for (x, y) in a.iter().zip(b) {
-            let d = x.abs_diff(*y);
-            self.worst = self.worst.max(d);
-            self.squared += (d as f64) * (d as f64);
-        }
-        self.samples += a.len() as u64;
-    }
-
-    /// PSNR over every sample of every frame, in decibels.
-    fn psnr(&self) -> String {
-        let mse = self.squared / self.samples.max(1) as f64;
-        if mse == 0.0 { "identical".to_string() } else { format!("{:.2} dB", 10.0 * (255.0f64 * 255.0 / mse).log10()) }
-    }
 }
 
 fn median_ms(runs: usize, mut once: impl FnMut()) -> (f64, Vec<f64>) {
@@ -553,9 +448,9 @@ fn b160_table() {
 
     // 2. The MP4's whole-file hash, the same build twice.
     let job = mp4_job(&project, 47);
-    let first = hashes(&job, choices(0, false), "twice");
+    let first = hashes(&job, choices(0), "twice");
     std::thread::sleep(std::time::Duration::from_millis(1100));
-    let second = hashes(&job, choices(0, false), "twice");
+    let second = hashes(&job, choices(0), "twice");
     let whole = |h: &[(String, String)]| h.iter().find(|l| l.0.ends_with(".mp4")).unwrap().1.clone();
     let aside = |h: &[(String, String)]| h.iter().find(|l| l.0.ends_with("(dates set aside)")).unwrap().1.clone();
     checks.push(row(
@@ -571,75 +466,7 @@ fn b160_table() {
     // 3. How many frames at once changes no byte.
     checks.extend(frames_at_once_rows(&project));
 
-    // 4. D-230: the card's MP4 against the software MP4, the whole shot.
-    let job = mp4_job(&project, 239);
-    let software_dir = out_dir("mp4_software");
-    let card_dir = out_dir("mp4_card");
-    let software = export_sequence(&project, &job.root, &request(&job, &software_dir, choices(0, false)), &AtomicBool::new(false));
-    let card = export_sequence(&project, &job.root, &request(&job, &card_dir, choices(0, true)), &AtomicBool::new(false));
-    checks.push(row("Hardware video encoding off: the report says nothing about encoders", "no note", encoder_note(&software)));
-    let note = encoder_note(&card);
-    checks.push(row(
-        "Hardware video encoding on: the report says which encoder wrote the film",
-        "Info: The graphics card encoded this film",
-        note.split(" (").next().unwrap_or_default(),
-    ));
-    measured.push(("the encoder the card export used".into(), note));
-    let size = |p: &Path| fs::metadata(p).map(|m| format!("{:.1} MB", m.len() as f64 / 1e6)).unwrap_or_else(|e| e.to_string());
-    measured.push(("MP4 file size, software then card (Standard quality)".into(), format!("{}, {}", size(&software_dir.join("shot.mp4")), size(&card_dir.join("shot.mp4")))));
-
-    let png_dir = out_dir("png_source");
-    let png_job = shot_jobs(&project).into_iter().next().unwrap();
-    assert!(export_sequence(&project, &png_job.root, &request(&png_job, &png_dir, choices(0, false)), &AtomicBool::new(false)).succeeded());
-    match (Decoded::open(&software_dir.join("shot.mp4")), Decoded::open(&card_dir.join("shot.mp4"))) {
-        (Some(mut s), Some(mut c)) => {
-            let (mut card_vs_software, mut software_vs_source, mut card_vs_source) =
-                (Difference::default(), Difference::default(), Difference::default());
-            let mut frame = 0;
-            while let (Some(a), Some(b)) = (s.next(), c.next()) {
-                let source = source_over_black(&png_dir.join(format!("shot_{frame:04}.png")));
-                card_vs_software.add(&b, &a);
-                software_vs_source.add(&a, &source);
-                card_vs_source.add(&b, &source);
-                frame += 1;
-            }
-            let _ = (s.child.wait(), c.child.wait());
-            checks.push(row("frames decoded from each MP4", "240 and 240", format!("{0} and {0}", card_vs_software.frames)));
-            for (what, d) in [
-                ("card MP4 against software MP4", &card_vs_software),
-                ("software MP4 against the frames it was made from", &software_vs_source),
-                ("card MP4 against the frames it was made from", &card_vs_source),
-            ] {
-                measured.push((
-                    format!("{what}: PSNR, and the worst difference in one channel (levels of 255)"),
-                    format!("{}, {}", d.psnr(), d.worst),
-                ));
-            }
-        }
-        _ => checks.push(row("ffmpeg decodes both MP4s", "decoded", "ffmpeg is not on this machine")),
-    }
-
-    // 5. A size the card refuses: 64x64, so the fallback is seen rather than assumed.
-    let mut small = project.clone();
-    small.compositions[0].width = 64;
-    small.compositions[0].height = 64;
-    let job = mp4_job(&small, 23);
-    let tiny = export_sequence(&small, &job.root, &request(&job, &out_dir("mp4_small"), choices(0, true)), &AtomicBool::new(false));
-    measured.push(("a 64x64 film with Hardware video encoding on: what the report said".into(), encoder_note(&tiny)));
-    checks.push(row(
-        "a 64x64 film with Hardware video encoding on: written, and the report names the encoder or the fallback",
-        "written, one note",
-        format!(
-            "{}, {}",
-            if tiny.succeeded() { "written" } else { "not written" },
-            match tiny.diagnostics.iter().filter(|d| d.id == DiagnosticId::ExportVideoEncoder).count() {
-                1 => "one note".to_string(),
-                n => format!("{n} notes"),
-            }
-        ),
-    ));
-
-    // 6. Speed. PROVISIONAL: other builds shared the machine.
+    // 4. Speed. PROVISIONAL: other builds shared the machine.
     let mut timing: Vec<(String, String)> = Vec::new();
     for label in ["before", "after"] {
         for (what, median) in read_lines(&format!("timing_{label}.txt")) {
@@ -649,21 +476,16 @@ fn b160_table() {
     let png_job = shot_jobs(&project).into_iter().next().unwrap();
     let dir = out_dir("timing");
     let (one, _) = median_ms(7, || {
-        assert!(export_sequence(&project, &png_job.root, &request(&png_job, &dir, choices(1, false)), &AtomicBool::new(false)).succeeded());
+        assert!(export_sequence(&project, &png_job.root, &request(&png_job, &dir, choices(1)), &AtomicBool::new(false)).succeeded());
     });
     timing.push(("reference shot PNG 8-bit, new build told to draw one frame at a time".into(), format!("{one:.0} ms")));
-    let job = mp4_job(&project, 239);
-    let (card_ms, _) = median_ms(7, || {
-        assert!(export_sequence(&project, &job.root, &request(&job, &dir, choices(0, true)), &AtomicBool::new(false)).succeeded());
-    });
-    timing.push(("reference shot MP4, new build, Hardware video encoding on".into(), format!("{card_ms:.0} ms")));
 
     // The table.
     let passed = checks.iter().filter(|r| r.expected == r.actual).count();
     let mut md = String::new();
     md.push_str("# B-160: faster export\n\n");
     md.push_str("Written by `cargo test --release --test b160_faster_export -- --ignored b160_table`, after `b160_every_export_hashed` and `b160_timing` have run for the old build (`B160_LABEL=before`, compiled from the commit before B-160) and for this one.\n\n");
-    md.push_str("**D-231 (bit-exact):** an export now draws several frames at once and writes them in order. Every file it writes must be the file the old build wrote, byte for byte, and every report the same report. **D-230 (PROPOSED, off unless chosen):** Preferences' \"Hardware video encoding\" asks the graphics card to encode an MP4. Its file is not the software encoder's, so the numbers below are for the owner to judge. Either way the report carries an `EXPORT_VIDEO_ENCODER` note: INFO naming the card's encoder, or WARNING when the software encoder wrote the film instead.\n\n");
+    md.push_str("**D-231 (bit-exact):** an export now draws several frames at once and writes them in order. Every file it writes must be the file the old build wrote, byte for byte, and every report the same report. **D-230 (REJECTED by the owner on 2026-09-29):** the graphics card's video encoder was no faster on this machine and wrote bigger files, so B-160b removed it; every MP4 comes from the software encoder, as before B-160.\n\n");
     md.push_str(&format!("## Checks: {passed} of {} pass\n\n| Check | Expected | Actual | Result |\n|---|---|---|---|\n", checks.len()));
     for r in &checks {
         md.push_str(&format!("| {} | {} | {} | {} |\n", r.check, r.expected, r.actual, if r.expected == r.actual { "pass" } else { "FAIL" }));

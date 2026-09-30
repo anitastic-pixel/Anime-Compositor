@@ -37,7 +37,6 @@ One row per identifier this build can print, and the table where a person can re
 | `EXPORT_WRITE_FAILED` | yes | `verification/T-08_export_table.md` |
 | `EXPORT_CANCELLED` | yes | `verification/T-08_export_table.md` |
 | `EXPORT_BLOCKED_MISSING_MEDIA` | **no — added by a decision** | `verification/T-08_export_table.md` |
-| `EXPORT_VIDEO_ENCODER` | **no — added by a decision** | `verification/B-160_faster_export_table.md` |
 | `CAMERA_PLANE_BEHIND` | yes | `verification/B-13c_camera_table.md` |
 | `EXPRESSION_SYNTAX` | yes | `verification/B-14b_expression_table.md` |
 | `EXPRESSION_TYPE` | yes | `verification/B-14b_expression_table.md` |
@@ -85,13 +84,12 @@ One row per identifier this build can print, and the table where a person can re
 
 ## What the build says that the catalogue does not list
 
-11 identifiers, every one of them registered as a decision in `Markdown/14_Decisions_Risks.md` rather than invented at a keyboard: D-19 for the four import ones, D-21 for the three command ones, D-28 for the blocked export. The reason they exist at all is the rule in document 28 itself — a library error string is not a user-facing identifier — so the alternative to naming a new condition was reusing an identifier that means something else, which is worse for exactly the person a catalogue is written for.
+10 identifiers, every one of them registered as a decision in `Markdown/14_Decisions_Risks.md` rather than invented at a keyboard: D-19 for the four import ones, D-21 for the three command ones, D-28 for the blocked export. The reason they exist at all is the rule in document 28 itself — a library error string is not a user-facing identifier — so the alternative to naming a new condition was reusing an identifier that means something else, which is worse for exactly the person a catalogue is written for.
 
 - `COMMAND_INVALID_VALUE`
 - `COMMAND_LAYER_LOCKED`
 - `COMMAND_TARGET_MISSING`
 - `EXPORT_BLOCKED_MISSING_MEDIA`
-- `EXPORT_VIDEO_ENCODER`
 - `GPU_PREVIEW_ON_CPU`
 - `MEDIA_SEQUENCE_DIMENSION_MISMATCH`
 - `MEDIA_SEQUENCE_DUPLICATE_NUMBER`
@@ -191,9 +189,6 @@ One row per identifier this build can print, and the table where a person can re
 | EXPORT_BLOCKED_MISSING_MEDIA: the enum spells it the way the catalogue does | EXPORT_BLOCKED_MISSING_MEDIA | EXPORT_BLOCKED_MISSING_MEDIA | pass |
 | EXPORT_BLOCKED_MISSING_MEDIA: says truthfully whether document 28 lists it | false | false | pass |
 | EXPORT_BLOCKED_MISSING_MEDIA: a table somewhere shows a person this sentence | named in T-08_export_table.md | named in T-08_export_table.md | pass |
-| EXPORT_VIDEO_ENCODER: the enum spells it the way the catalogue does | EXPORT_VIDEO_ENCODER | EXPORT_VIDEO_ENCODER | pass |
-| EXPORT_VIDEO_ENCODER: says truthfully whether document 28 lists it | false | false | pass |
-| EXPORT_VIDEO_ENCODER: a table somewhere shows a person this sentence | named in B-160_faster_export_table.md | named in B-160_faster_export_table.md | pass |
 | CAMERA_PLANE_BEHIND: the enum spells it the way the catalogue does | CAMERA_PLANE_BEHIND | CAMERA_PLANE_BEHIND | pass |
 | CAMERA_PLANE_BEHIND: says truthfully whether document 28 lists it | true | true | pass |
 | CAMERA_PLANE_BEHIND: a table somewhere shows a person this sentence | named in B-13c_camera_table.md | named in B-13c_camera_table.md | pass |
@@ -304,7 +299,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**200 of 200 checks pass.**
+**197 of 197 checks pass.**
 
 ## What this cannot cover
 

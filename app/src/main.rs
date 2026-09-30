@@ -7756,8 +7756,6 @@ fn export_choices(query: Option<&str>) -> Result<ExportChoices, String> {
             }
         },
         gif_dither: parameter(query, "dither").as_deref() == Some("on"),
-        // D-230, proposed: `hardware=on` beside an MP4 when Preferences asks for the card.
-        hardware_video: parameter(query, "hardware").as_deref() == Some("on"),
         ..ExportChoices::default()
     })
 }
@@ -26583,7 +26581,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 82] = [
+    const CONTROLS: [&str; 81] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -26634,7 +26632,6 @@ mod contract {
         "prefdisk",
         "prefdiskfolder",
         "preferences",
-        "prefhwvideo",
         "prefmemory",
         "prefram",
         "printnow",
