@@ -30,7 +30,7 @@
 //! panels the picture sits in, the checkerboard, and the picture, in the order the page would
 //! have painted them. The card paints exactly those, so the window looks as it did.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::sync::{Arc, Weak};
 
 use half::slice::HalfFloatSliceExt as _;
@@ -3189,6 +3189,22 @@ struct Stored {
     wide: bool,
 }
 
+/// B-153: the memory drawings are sent to the card through, kept from frame to frame rather than
+/// made for each drawing. Making it anew, and the card taking in memory it has not seen before,
+/// cost more than the copy.
+#[derive(Default)]
+struct Sending {
+    buffer: Option<wgpu::Buffer>,
+    /// Bytes this frame has put in it.
+    filled: u64,
+    /// Open for the processor to write.
+    open: bool,
+    /// The most one frame has sent, which the next buffer is made to hold.
+    most: u64,
+    /// The last frame that copied from it, which must finish before it is written again.
+    after: Option<wgpu::SubmissionIndex>,
+}
+
 /// The buffers one frame size needs, kept while frames stay that size.
 struct Target {
     width: usize,
@@ -3236,8 +3252,18 @@ pub struct Gpu {
     sent: u64,
     /// Frames the card failed since it was opened (B-48).
     failures: u64,
+    /// B-153.
+    sending: Sending,
+    /// B-153: textures of drawings nothing can ask for again, oldest first, kept within the
+    /// budget for new drawings of the same size.
+    spare: Vec<wgpu::Texture>,
     /// B-153: textures and sending memory made since the card was opened.
     made: Cell<u64>,
+    /// B-153: the passes' working textures, each with the last frame that used it, kept for the
+    /// next frame's passes of the same size, when the card can clear them to what a new one holds.
+    working: Option<RefCell<Vec<(wgpu::Texture, u64)>>>,
+    /// B-153: working textures lent again this frame, cleared before the passes run.
+    to_clear: RefCell<Vec<wgpu::Texture>>,
 }
 
 fn entry(binding: u32, ty: wgpu::BindingType) -> wgpu::BindGroupLayoutEntry {
@@ -3310,9 +3336,11 @@ impl Gpu {
         // B-47: Bloom's streaks need double precision. Vulkan offers it on this machine's card;
         // Direct3D 12 does not.
         let f64 = adapter.features() & wgpu::Features::SHADER_F64;
+        // B-153: clearing a working texture, to lend it again.
+        let clear = adapter.features().contains(wgpu::Features::CLEAR_TEXTURE);
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("B-44 preview"),
-            required_features: f64,
+            required_features: f64 | (adapter.features() & wgpu::Features::CLEAR_TEXTURE),
             required_limits: limits.clone(),
             memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::Off,
@@ -3495,7 +3523,11 @@ impl Gpu {
             memory,
             sent: 0,
             failures: 0,
+            sending: Sending::default(),
+            spare: Vec::new(),
             made: Cell::new(0),
+            working: clear.then(|| RefCell::new(Vec::new())),
+            to_clear: RefCell::new(Vec::new()),
         })
     }
 
@@ -3522,9 +3554,12 @@ impl Gpu {
         self.failures
     }
 
-    /// Bytes of drawings the card holds now (B-48).
+    /// Bytes of drawings the card holds now (B-48), and of textures kept for new ones (B-153).
     pub fn held(&self) -> usize {
-        self.store.iter().map(|s| s.bytes).sum()
+        let spare = |t: &wgpu::Texture| {
+            (t.width() * t.height()) as usize * if t.format() == wgpu::TextureFormat::Rgba32Float { 16 } else { BYTES_PER_PIXEL }
+        };
+        self.store.iter().map(|s| s.bytes).sum::<usize>() + self.spare.iter().map(spare).sum::<usize>()
     }
 
     /// How many drawings have been sent to the card since it was opened.
@@ -3546,6 +3581,7 @@ impl Gpu {
     /// Let go of every drawing on the card.
     pub fn forget(&mut self) {
         self.store.clear();
+        self.spare.clear();
     }
 
     /// `source` on the card, sending it first if it is not there. The view itself, not a place
@@ -3563,14 +3599,26 @@ impl Gpu {
             s.used = self.frame;
             return s.view.clone();
         }
-        // A drawing nothing holds and nothing names can never be asked for again.
-        self.store.retain(|s| s.name.is_some() || s.held.strong_count() > 0);
+        // A drawing nothing holds and nothing names can never be asked for again. B-153: its
+        // texture is kept, within the budget, for a new drawing of its size.
+        let (gone, kept): (Vec<_>, Vec<_>) =
+            std::mem::take(&mut self.store).into_iter().partition(|s| s.name.is_none() && s.held.strong_count() == 0);
+        self.store = kept;
+        self.spare.extend(gone.into_iter().map(|s| s.view.texture().clone()));
         let (width, height) = (source.width(), source.height());
         let per_pixel = if wide { 16 } else { BYTES_PER_PIXEL };
         let bytes = width * height * per_pixel;
-        // Least recently used first, never one this frame draws with. A frame that needs more
-        // than the budget still gets every drawing it needs.
-        while self.store.iter().map(|s| s.bytes).sum::<usize>() + bytes > self.budget {
+        let size = wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 };
+        let format = if wide { wgpu::TextureFormat::Rgba32Float } else { wgpu::TextureFormat::Rgba16Float };
+        let spare = self.spare.iter().position(|t| t.size() == size && t.format() == format).map(|i| self.spare.remove(i));
+        // Spare textures first, the oldest first; then drawings, least recently used first,
+        // never one this frame draws with. A frame that needs more than the budget still gets
+        // every drawing it needs.
+        while self.held() + bytes > self.budget {
+            if !self.spare.is_empty() {
+                self.spare.remove(0);
+                continue;
+            }
             let Some(oldest) = (0..self.store.len())
                 .filter(|&i| self.store[i].used < self.frame)
                 .min_by_key(|&i| self.store[i].used)
@@ -3579,28 +3627,41 @@ impl Gpu {
             };
             self.store.swap_remove(oldest);
         }
-        let size = wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 };
-        self.made.set(self.made.get() + 2);
-        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("B-44 drawing"),
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: if wide { wgpu::TextureFormat::Rgba32Float } else { wgpu::TextureFormat::Rgba16Float },
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
+        let texture = match spare {
+            // The copy below fills every pixel, so nothing of the drawing before stays.
+            Some(t) => t,
+            None => {
+                self.made.set(self.made.get() + 1);
+                self.device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("B-44 drawing"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    view_formats: &[],
+                })
+            }
+        };
         // Every thread converts rows straight into memory the card copies from.
         let row = (width * per_pixel).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize);
-        let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("B-44 sending"),
-            size: (row * height) as u64,
-            usage: wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: true,
-        });
+        let need = (row * height) as u64;
+        let (staging, offset, own) = match self.room(need) {
+            Some((buffer, at)) => (buffer, at, false),
+            None => {
+                self.made.set(self.made.get() + 1);
+                let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("B-44 sending"),
+                    size: need,
+                    usage: wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::COPY_SRC,
+                    mapped_at_creation: true,
+                });
+                (buffer, 0, true)
+            }
+        };
         {
-            let mut mapped = staging.slice(..).get_mapped_range_mut();
+            let mut mapped = staging.slice(offset..offset + need).get_mapped_range_mut();
             if wide {
                 let floats: &mut [f32] = bytemuck::cast_slice_mut(&mut mapped);
                 floats
@@ -3615,11 +3676,13 @@ impl Gpu {
                     .for_each(|(to, from)| to[..width * 4].convert_from_f32_slice(from));
             }
         }
-        staging.unmap();
+        if own {
+            staging.unmap();
+        }
         uploads.copy_buffer_to_texture(
             wgpu::TexelCopyBufferInfo {
                 buffer: &staging,
-                layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(row as u32), rows_per_image: None },
+                layout: wgpu::TexelCopyBufferLayout { offset, bytes_per_row: Some(row as u32), rows_per_image: None },
             },
             texture.as_image_copy(),
             size,
@@ -3628,6 +3691,30 @@ impl Gpu {
         let view = texture.create_view(&Default::default());
         self.store.push(Stored { held: Arc::downgrade(source), name, view: view.clone(), bytes, used: self.frame, applied: None, wide });
         view
+    }
+
+    /// B-153: where `need` bytes go in the kept sending memory this frame, open for writing, or
+    /// `None` when it has no room left and they need memory of their own.
+    fn room(&mut self, need: u64) -> Option<(wgpu::Buffer, u64)> {
+        let s = &mut self.sending;
+        let at = s.filled;
+        s.filled += need;
+        s.most = s.most.max(s.filled);
+        let buffer = s.buffer.clone().filter(|b| b.size() >= s.filled)?;
+        if !s.open {
+            // Only once the frame that last copied from it is done.
+            let (tell, told) = std::sync::mpsc::channel();
+            buffer.slice(..).map_async(wgpu::MapMode::Write, move |r| drop(tell.send(r)));
+            let wait = s.after.clone().map_or(wgpu::PollType::Wait, wgpu::PollType::WaitForSubmissionIndex);
+            let opened = self.device.poll(wait).is_ok() && told.recv().is_ok_and(|r| r.is_ok());
+            if !opened {
+                // Never written again: the next frame makes another.
+                s.buffer = None;
+                return None;
+            }
+            s.open = true;
+        }
+        Some((buffer, at))
     }
 
     /// B-46, B-47, B-49, B-50, B-51, B-65: `effect` run on `source`, which [`Gpu::resident`] has just put on the card as
@@ -3657,21 +3744,39 @@ impl Gpu {
         moved
     }
 
-    /// A texture the passes write and the layers read, `width` by `height`.
+    /// A texture the passes write and the layers read, `width` by `height`. B-153: one an earlier
+    /// frame used and nothing kept, cleared first, when there is one.
     fn scratch(&self, label: &str, width: usize, height: usize) -> wgpu::TextureView {
+        let size = wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 };
+        if let Some(working) = &self.working {
+            let mut working = working.borrow_mut();
+            let free = working.iter_mut().find(|(t, used)| *used < self.frame && t.size() == size && !self.keeps(t));
+            if let Some((texture, used)) = free {
+                *used = self.frame;
+                self.to_clear.borrow_mut().push(texture.clone());
+                return texture.create_view(&Default::default());
+            }
+        }
         self.made.set(self.made.get() + 1);
-        self.device
-            .create_texture(&wgpu::TextureDescriptor {
-                label: Some(label),
-                size: wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba32Float,
-                usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            })
-            .create_view(&Default::default())
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba32Float,
+            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        if let Some(working) = &self.working {
+            working.borrow_mut().push((texture.clone(), self.frame));
+        }
+        texture.create_view(&Default::default())
+    }
+
+    /// B-153: whether `texture` holds an effect's result a drawing keeps for later frames.
+    fn keeps(&self, texture: &wgpu::Texture) -> bool {
+        self.store.iter().any(|s| s.applied.as_ref().is_some_and(|(_, v)| v.texture() == texture))
     }
 
     /// `blurs::radial_blur` of `still`, `width` by `height`, into a texture of its own, which is
@@ -4808,6 +4913,21 @@ impl Gpu {
         self.frame += 1;
         self.device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         self.device.push_error_scope(wgpu::ErrorFilter::Validation);
+        // B-153: sending memory big enough for the most a frame has sent, up to four of this
+        // frame's size in 32-bit floats; a frame that sends more gives the rest memory of its own.
+        let most = self.sending.most.min((width * height * 16 * 4) as u64);
+        if most > self.sending.buffer.as_ref().map_or(0, |b| b.size()) {
+            self.made.set(self.made.get() + 1);
+            self.sending.buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("B-153 sending"),
+                size: most,
+                usage: wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::COPY_SRC,
+                mapped_at_creation: true,
+            }));
+            self.sending.open = true;
+            self.sending.after = None;
+        }
+        self.sending.filled = 0;
 
         // Each layer that can show anything, laid in order with what its effects dispatch. The
         // same skips as `render_tile`.
@@ -4952,6 +5072,10 @@ impl Gpu {
 
             let mut encoder = self.device.create_command_encoder(&Default::default());
             encoder.clear_buffer(&target.sum, 0, None);
+            // B-153: a working texture lent again holds zero, as a new one does.
+            for texture in self.to_clear.borrow_mut().drain(..) {
+                encoder.clear_texture(&texture, &Default::default());
+            }
             {
                 // One after another: wgpu has each dispatch wait for what the one before wrote,
                 // so a Light Wrap reads the layers laid before it.
@@ -4966,7 +5090,16 @@ impl Gpu {
                 pass.dispatch_workgroups((width as u32).div_ceil(16), (height as u32).div_ceil(16), 1);
             }
             // The drawings arrive before the frame that draws with them: one queue, in order.
-            self.queue.submit([uploads.finish(), encoder.finish()]);
+            if std::mem::take(&mut self.sending.open) {
+                self.sending.buffer.as_ref().expect("open only while there").unmap();
+            }
+            self.sending.after = Some(self.queue.submit([uploads.finish(), encoder.finish()]));
+            // Working textures neither this frame nor the one before used, and no drawing keeps,
+            // are let go: an effect redrawn each frame frees last frame's result only as it
+            // keeps this one.
+            if let Some(working) = &self.working {
+                working.borrow_mut().retain(|(t, used)| *used + 1 >= self.frame || self.keeps(t));
+            }
 
             let invalid = pollster::block_on(self.device.pop_error_scope());
             let memory = pollster::block_on(self.device.pop_error_scope());
@@ -4998,7 +5131,13 @@ impl Gpu {
         self.failures += 1;
         // Whatever the card was holding may be what failed; start again from nothing.
         self.store.clear();
+        self.spare.clear();
         self.target = None;
+        self.sending.buffer = None;
+        if let Some(working) = &self.working {
+            working.borrow_mut().clear();
+        }
+        self.to_clear.borrow_mut().clear();
         on_cpu(
             Severity::Warning,
             "The CPU drew this frame: the graphics card failed.".into(),
