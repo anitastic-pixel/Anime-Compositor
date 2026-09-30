@@ -380,6 +380,47 @@ fn add(@builtin(global_invocation_id) id: vec3<u32>) {
     halo[i] += at(vec2<i32>(id.xy) - vec2(P.g)) * P.weight;
 }
 
+// B-164 (D-235): `input` shrunk `n` times, transparent outside it, the output's corner `g`
+// pixels out from the input's: each pixel the tent-weighted mean of the 2n by 2n pixels round
+// its n by n block. A tent rather than the block's plain mean, whose sharp edges let a sharp
+// drawing through as a faint pattern the blur does not remove.
+@compute @workgroup_size(16, 16)
+fn shrink(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let n = i32(P.n);
+    let corner = (vec2<i32>(id.xy) - vec2(P.g)) * n - vec2(n / 2);
+    var o = vec4(0.0);
+    for (var y = 0; y < 2 * n; y++) {
+        let wy = f32(n) - abs(f32(y) + 0.5 - f32(n));
+        for (var x = 0; x < 2 * n; x++) {
+            let wx = f32(n) - abs(f32(x) + 0.5 - f32(n));
+            o += at(corner + vec2(x, y)) * (wx * wy);
+        }
+    }
+    textureStore(output, id.xy, o / f32(n * n * n * n));
+}
+
+// B-164 (D-235): `input`, a picture shrunk `n` times, enlarged bilinearly from pixel centres,
+// transparent outside it: the output's pixel `g` in from its corner is the picture's first,
+// which sits at (x + 0.5) / n - 0.5 in the small one, `count` pixels in from its texture's corner.
+@compute @workgroup_size(16, 16)
+fn enlarge(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let u = (vec2<f32>(vec2<i32>(id.xy) - vec2(P.g)) + 0.5) / f32(P.n) - 0.5 + f32(P.count);
+    let base = floor(u);
+    let t = u - base;
+    let b = vec2<i32>(base);
+    let top = at(b) * (1.0 - t.x) + at(b + vec2(1, 0)) * t.x;
+    let bottom = at(b + vec2(0, 1)) * (1.0 - t.x) + at(b + vec2(1, 1)) * t.x;
+    textureStore(output, id.xy, top * (1.0 - t.y) + bottom * t.y);
+}
+
 // render::sample_bilinear at column c's centre, height y on line space; x and y exchanged when
 // the lines run mostly down.
 fn tap(c: i32, y: f64) -> vec4<f32> {
@@ -533,6 +574,40 @@ struct Params {
     held: u32,
 }
 
+/// B-164, D-235's safety rule: the block a blur of `sigma` may be worked small by in the viewer,
+/// the largest of 8, 4 and 2 whose small sigma is at least 6, else 1, the exact blur.
+fn shrink_factor(sigma: f64) -> usize {
+    let mut f = 8;
+    while f > 1 && small_sigma(sigma, f) < 6.0 {
+        f /= 2;
+    }
+    f
+}
+
+/// D-235: the sigma to blur the picture shrunk `f` times by, less the blur that shrinking and
+/// enlarging add. B-164 (D-221): the shrink's tent adds (2f^2 + 1) / 12 where D-235's block
+/// mean added (f^2 - 1) / 12; enlarging bilinearly adds f^2 / 6.
+fn small_sigma(sigma: f64, f: usize) -> f64 {
+    let f = f as f64;
+    (sigma * sigma - (2.0 * f * f + 1.0) / 12.0 - f * f / 6.0).max(0.0).sqrt() / f
+}
+
+/// B-164 (D-221): the small blur's weights. Document 21's kernel stops at its radius r, so the
+/// small one stops where r + 1/2 falls among the small pixels, its last weights cut by the part
+/// of their pixel inside it, and is normalised as the exact one is; a small kernel of its own
+/// length leaves the exact one's edge up to f pixels out, which a dark picture shows.
+fn small_taps(sigma: f64, f: usize) -> Vec<f32> {
+    let s = small_sigma(sigma, f);
+    let edge = (crate::effects::kernel_radius(sigma) as f64 + 0.5) / f as f64;
+    let rs = (edge - 0.5).ceil() as i64;
+    let cut = edge - (rs as f64 - 0.5);
+    let w: Vec<f64> = (-rs..=rs)
+        .map(|k| (-((k * k) as f64) / (2.0 * s * s)).exp() * if k.abs() == rs { cut } else { 1.0 })
+        .collect();
+    let total: f64 = w.iter().sum();
+    w.iter().map(|v| (v / total) as f32).collect()
+}
+
 /// A compute pass and the bindings it takes.
 type Pass = (wgpu::ComputePipeline, wgpu::BindGroupLayout);
 
@@ -545,6 +620,8 @@ struct BloomPasses {
     mix: Pass,
     lay: Pass,
     combine: Pass,
+    shrink: Pass,
+    enlarge: Pass,
 }
 
 /// One dispatch before the layers are drawn: the pass, its bindings and its workgroups.
@@ -3259,6 +3336,8 @@ pub struct Gpu {
     spare: Vec<wgpu::Texture>,
     /// B-153: textures and sending memory made since the card was opened.
     made: Cell<u64>,
+    /// B-164: blurs worked small and enlarged since the card was opened.
+    shrunk: Cell<u64>,
     /// B-153: the passes' working textures, each with the last frame that used it, kept for the
     /// next frame's passes of the same size, when the card can clear them to what a new one holds.
     working: Option<RefCell<Vec<(wgpu::Texture, u64)>>>,
@@ -3418,6 +3497,8 @@ impl Gpu {
                 mix: pass("mix", &[0, 1, 3]),
                 lay: pass("lay", &[0, 1, 2]),
                 combine: pass("combine", &[0, 1, 2, 3]),
+                shrink: pass("shrink", &[0, 1, 2]),
+                enlarge: pass("enlarge", &[0, 1, 2]),
             }
         });
         let fx = (!f64.is_empty()).then(|| {
@@ -3526,6 +3607,7 @@ impl Gpu {
             sending: Sending::default(),
             spare: Vec::new(),
             made: Cell::new(0),
+            shrunk: Cell::new(0),
             working: clear.then(|| RefCell::new(Vec::new())),
             to_clear: RefCell::new(Vec::new()),
         })
@@ -3575,7 +3657,7 @@ impl Gpu {
 
     /// B-164 (D-235): how many blurs the card has worked small and enlarged since it was opened.
     pub fn shrunk(&self) -> u64 {
-        0
+        self.shrunk.get()
     }
 
     /// The card, its driver and the backend, for tables and the switch.
@@ -3883,16 +3965,7 @@ impl Gpu {
                 self.step(steps, &passes.add, placed, &light, None, Some(&halo), None, tiles(gw, gh));
                 continue;
             }
-            let weights = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("B-47 weights"),
-                contents: bytemuck::cast_slice(&crate::effects::gaussian_weights(sigma)),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
-            let (wide, tall) = (self.scratch("B-47 wide", w + 2 * r, h), self.scratch("B-47 tall", w + 2 * r, h + 2 * r));
-            let across = Params { count: r as u32, axis: 0, ..Default::default() };
-            self.step(steps, &passes.gauss, across, &light, Some(&wide), None, Some(&weights), tiles(w + 2 * r, h));
-            let down = Params { axis: 1, ..across };
-            self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(&weights), tiles(w + 2 * r, h + 2 * r));
+            let tall = self.blurred(steps, passes, "B-47", &light, (w, h), sigma);
             self.step(steps, &passes.add, placed, &tall, None, Some(&halo), None, tiles(gw, gh));
         }
         let share = 1.0 / b.lines as f32;
@@ -3975,20 +4048,61 @@ impl Gpu {
     /// returned with its size.
     fn gaussian(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), g: Gaussian) -> (wgpu::TextureView, (usize, usize)) {
         let passes = self.bloom.as_ref().expect("a Gaussian Blur is refused without the passes");
-        let r = crate::effects::kernel_radius(g.sigma);
         let e = g.grow();
+        // B-164: D-235's shortcut blurs transparent edges; held ones stay exact.
+        let tall = if g.repeat {
+            self.gauss(steps, passes, "B-50", still, (w, h), &crate::effects::gaussian_weights(g.sigma), e, true)
+        } else {
+            self.blurred(steps, passes, "B-50", still, (w, h), g.sigma)
+        };
+        (tall, (w + 2 * e, h + 2 * e))
+    }
+
+    /// `effects::convolve` across and then down with Bloom's `gauss` pass, into a texture grown
+    /// by `e` (the kernel's radius; D-109: none with `held`), which is returned.
+    #[allow(clippy::too_many_arguments)]
+    fn gauss(&self, steps: &mut Vec<Step>, passes: &BloomPasses, label: &str, input: &wgpu::TextureView, (w, h): (usize, usize), taps: &[f32], e: usize, held: bool) -> wgpu::TextureView {
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
         let weights = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("B-50 weights"),
-            contents: bytemuck::cast_slice(&crate::effects::gaussian_weights(g.sigma)),
+            label: Some(&format!("{label} weights")),
+            contents: bytemuck::cast_slice(taps),
             usage: wgpu::BufferUsages::STORAGE,
         });
-        let (wide, tall) = (self.scratch("B-50 wide", w + 2 * e, h), self.scratch("B-50 tall", w + 2 * e, h + 2 * e));
-        let across = Params { count: r as u32, axis: 0, held: g.repeat as u32, ..Default::default() };
-        self.step(steps, &passes.gauss, across, still, Some(&wide), None, Some(&weights), tiles(w + 2 * e, h));
+        let (wide, tall) = (self.scratch(&format!("{label} wide"), w + 2 * e, h), self.scratch(&format!("{label} tall"), w + 2 * e, h + 2 * e));
+        let across = Params { count: (taps.len() / 2) as u32, axis: 0, held: held as u32, ..Default::default() };
+        self.step(steps, &passes.gauss, across, input, Some(&wide), None, Some(&weights), tiles(w + 2 * e, h));
         let down = Params { axis: 1, ..across };
         self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(&weights), tiles(w + 2 * e, h + 2 * e));
-        (tall, (w + 2 * e, h + 2 * e))
+        tall
+    }
+
+    /// `effects::blur` of `input`, `width` by `height`, transparent outside it, into a texture
+    /// grown by the kernel's radius, which is returned. B-164 (D-235, the viewer only): a big
+    /// blur is worked on the picture shrunk by [`shrink_factor`] and enlarged back, which stays
+    /// within 1 level of the exact blur.
+    #[allow(clippy::too_many_arguments)]
+    fn blurred(&self, steps: &mut Vec<Step>, passes: &BloomPasses, label: &str, input: &wgpu::TextureView, (w, h): (usize, usize), sigma: f64) -> wgpu::TextureView {
+        let r = crate::effects::kernel_radius(sigma);
+        let f = shrink_factor(sigma);
+        if f == 1 {
+            return self.gauss(steps, passes, label, input, (w, h), &crate::effects::gaussian_weights(sigma), r, false);
+        }
+        self.shrunk.set(self.shrunk.get() + 1);
+        let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
+        let taps = small_taps(sigma, f);
+        let rs = taps.len() / 2;
+        // Room round the small picture, so the enlarged blur reaches the exact one's edge and
+        // a pixel past it.
+        let m = (r.div_ceil(f) + 1).saturating_sub(rs);
+        let (sw, sh) = (w.div_ceil(f) + 2 * m, h.div_ceil(f) + 2 * m);
+        let small = self.scratch(&format!("{label} small"), sw, sh);
+        let p = Params { n: f as u32, g: m as i32, ..Default::default() };
+        self.step(steps, &passes.shrink, p, input, Some(&small), None, None, tiles(sw, sh));
+        let blurred = self.gauss(steps, passes, &format!("{label} small"), &small, (sw, sh), &taps, rs, false);
+        let out = self.scratch(&format!("{label} tall"), w + 2 * r, h + 2 * r);
+        let p = Params { n: f as u32, g: r as i32, count: (rs + m) as u32, ..Default::default() };
+        self.step(steps, &passes.enlarge, p, &blurred, Some(&out), None, None, tiles(w + 2 * r, h + 2 * r));
+        out
     }
 
     /// One pass of [`FX_SHADER`], added to `steps`: its numbers, and whichever of `input`,
@@ -4698,12 +4812,7 @@ impl Gpu {
         if r == 0 {
             self.step(steps, &passes.add, add, &light, None, Some(&halo), None, tiles(gw, gh));
         } else {
-            let weights = init("B-51 weights", &crate::effects::gaussian_weights(sigma));
-            let (wide, tall) = (self.scratch("B-51 wide", gw, h), self.scratch("B-51 tall", gw, gh));
-            let across = Params { count: r as u32, axis: 0, ..Default::default() };
-            self.step(steps, &passes.gauss, across, &light, Some(&wide), None, Some(&weights), tiles(gw, h));
-            let down = Params { axis: 1, ..across };
-            self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(&weights), tiles(gw, gh));
+            let tall = self.blurred(steps, passes, "B-51", &light, (w, h), sigma);
             self.step(steps, &passes.add, add, &tall, None, Some(&halo), None, tiles(gw, gh));
         }
         let out = self.scratch("B-51 glow", gw, gh);
