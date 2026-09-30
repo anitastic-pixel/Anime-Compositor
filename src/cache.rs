@@ -855,6 +855,12 @@ impl CelCache {
         self.disk_hits
     }
 
+    /// B-159 (G10): how many frames were started from the layers below an edit as kept. Not
+    /// built yet: nothing is kept.
+    pub fn below_reused(&self) -> u64 {
+        0
+    }
+
     /// B-161: the session-log lines about disk copies since the last call, emptied by it.
     pub fn take_disk_notes(&mut self) -> Vec<String> {
         std::mem::take(&mut self.disk_notes)
