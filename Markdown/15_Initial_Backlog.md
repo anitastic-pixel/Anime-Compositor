@@ -743,6 +743,8 @@ B-161 / Decoded drawings kept on disk, D-232 (GPU plan G15). **BUILT on 2026-09-
 
 B-162 / B-163 / Serve only the newest viewer request (G16) and refine when idle (G9), D-233. **BUILT on 2026-09-29.** `app/ui/index.html`: `askedAs` and `drawnWhenBack` between the `B-162 / B-163` markers, `stir`, `restless` and `sharpen` beside them, `show` using them, and the Refine when idle tick and the "sharpening…" note in the viewer's row; the CONTROLS pin gains `refine`. `verification/B-162_latest_request_table.md`, 17 of 17; `verification/B-163_refine_on_stop_table.md`, 21 of 21. The playtest sheet `verification/B-162_B-163_playtest.md`, **awaiting the owner's playtest**.
 
+B-164 / Big blurs worked small and enlarged in the viewer, D-235 (GPU plan G14). **Accepted by the owner on 2026-09-29, not yet built.** Gaussian Blur, Glow and Bloom in the viewer work a large blur on f by f block averages (f = 2, 4 or 8) and enlarge it bilinearly, with D-235's safety rule (f halved, down to 1, until the small sigma is at least 6); export keeps document 21's exact blur. Checks: the blur, glow and bloom fixtures and `verification/B-05a_reference_frame.png`, every pixel within 1 level, before it is switched on; `tools/d235_downsample_blur_experiment.py` is the reference.
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.
