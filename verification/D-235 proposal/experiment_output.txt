@@ -1,0 +1,76 @@
+check: the FFT blur agrees with adjust_reference.blur
+frame B-05a_reference_frame.png, 1920 by 1080
+--- plain: small sigma kept at 0.0 or more
+Gaussian Blur sigma  20 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  69.0 dB, estimated   6.8x fewer operations
+Gaussian Blur sigma  20 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  63.9 dB, estimated  27.3x fewer operations
+Gaussian Blur sigma  20 factor 8 (used       8): worst  3 levels,  0.1039% off by >1, PSNR  58.0 dB, estimated  43.8x fewer operations
+Gaussian Blur sigma  50 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  71.5 dB, estimated   7.5x fewer operations
+Gaussian Blur sigma  50 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  63.7 dB, estimated  41.2x fewer operations
+Gaussian Blur sigma  50 factor 8 (used       8): worst  1 levels,  0.0000% off by >1, PSNR  61.6 dB, estimated  96.8x fewer operations
+Gaussian Blur sigma 100 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  74.5 dB, estimated   7.7x fewer operations
+Gaussian Blur sigma 100 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  69.9 dB, estimated  50.3x fewer operations
+Gaussian Blur sigma 100 factor 8 (used       8): worst  1 levels,  0.0000% off by >1, PSNR  63.2 dB, estimated 162.3x fewer operations
+Gaussian Blur sigma 200 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  76.8 dB, estimated   7.9x fewer operations
+Gaussian Blur sigma 200 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  72.1 dB, estimated  56.4x fewer operations
+Gaussian Blur sigma 200 factor 8 (used       8): worst  1 levels,  0.0000% off by >1, PSNR  68.7 dB, estimated 247.2x fewer operations
+Glow          radius  20 factor 2 (used       2): worst  3 levels,  0.0061% off by >1, PSNR  67.5 dB, estimated   5.3x fewer operations
+Glow          radius  20 factor 4 (used       4): worst  7 levels,  0.1374% off by >1, PSNR  60.8 dB, estimated  12.9x fewer operations
+Glow          radius  20 factor 8 (used       8): worst 18 levels, 12.7003% off by >1, PSNR  50.4 dB, estimated  15.7x fewer operations
+Glow          radius  50 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  70.5 dB, estimated   6.6x fewer operations
+Glow          radius  50 factor 4 (used       4): worst  2 levels,  0.0056% off by >1, PSNR  63.7 dB, estimated  24.1x fewer operations
+Glow          radius  50 factor 8 (used       8): worst  4 levels,  0.0955% off by >1, PSNR  59.4 dB, estimated  36.9x fewer operations
+Glow          radius 100 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  72.1 dB, estimated   7.2x fewer operations
+Glow          radius 100 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  67.3 dB, estimated  35.3x fewer operations
+Glow          radius 100 factor 8 (used       8): worst  2 levels,  0.0260% off by >1, PSNR  61.3 dB, estimated  68.8x fewer operations
+Glow          radius 200 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  74.7 dB, estimated   7.6x fewer operations
+Glow          radius 200 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  70.0 dB, estimated  45.5x fewer operations
+Glow          radius 200 factor 8 (used       8): worst  1 levels,  0.0000% off by >1, PSNR  66.0 dB, estimated 121.6x fewer operations
+Bloom         radius  20 factor 2 (used 2/2/2/2): worst  8 levels,  6.6057% off by >1, PSNR  52.8 dB, estimated   4.0x fewer operations
+Bloom         radius  20 factor 4 (used 4/4/4/4): worst 30 levels, 17.3074% off by >1, PSNR  42.0 dB, estimated   7.1x fewer operations
+Bloom         radius  20 factor 8 (used 8/8/8/8): worst 60 levels, 28.2495% off by >1, PSNR  35.0 dB, estimated   7.9x fewer operations
+Bloom         radius  50 factor 2 (used 2/2/2/2): worst  3 levels,  0.0015% off by >1, PSNR  63.0 dB, estimated   5.5x fewer operations
+Bloom         radius  50 factor 4 (used 4/4/4/4): worst  9 levels,  7.3004% off by >1, PSNR  52.6 dB, estimated  14.6x fewer operations
+Bloom         radius  50 factor 8 (used 8/8/8/8): worst 22 levels, 19.5270% off by >1, PSNR  43.5 dB, estimated  18.6x fewer operations
+Bloom         radius 100 factor 2 (used 2/2/2/2): worst  1 levels,  0.0000% off by >1, PSNR  67.4 dB, estimated   6.5x fewer operations
+Bloom         radius 100 factor 4 (used 4/4/4/4): worst  2 levels,  0.0088% off by >1, PSNR  60.8 dB, estimated  23.4x fewer operations
+Bloom         radius 100 factor 8 (used 8/8/8/8): worst 10 levels,  9.1934% off by >1, PSNR  51.3 dB, estimated  35.1x fewer operations
+Bloom         radius 200 factor 2 (used 2/2/2/2): worst  1 levels,  0.0000% off by >1, PSNR  70.5 dB, estimated   7.2x fewer operations
+Bloom         radius 200 factor 4 (used 4/4/4/4): worst  1 levels,  0.0000% off by >1, PSNR  65.2 dB, estimated  34.1x fewer operations
+Bloom         radius 200 factor 8 (used 8/8/8/8): worst  3 levels,  0.0559% off by >1, PSNR  59.3 dB, estimated  65.2x fewer operations
+--- guarded: small sigma kept at 6.0 or more
+Gaussian Blur sigma  20 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  69.0 dB, estimated   6.8x fewer operations
+Gaussian Blur sigma  20 factor 4 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  69.0 dB, estimated   6.8x fewer operations
+Gaussian Blur sigma  20 factor 8 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  69.0 dB, estimated   6.8x fewer operations
+Gaussian Blur sigma  50 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  71.5 dB, estimated   7.5x fewer operations
+Gaussian Blur sigma  50 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  63.7 dB, estimated  41.2x fewer operations
+Gaussian Blur sigma  50 factor 8 (used       8): worst  1 levels,  0.0000% off by >1, PSNR  61.6 dB, estimated  96.8x fewer operations
+Gaussian Blur sigma 100 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  74.5 dB, estimated   7.7x fewer operations
+Gaussian Blur sigma 100 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  69.9 dB, estimated  50.3x fewer operations
+Gaussian Blur sigma 100 factor 8 (used       8): worst  1 levels,  0.0000% off by >1, PSNR  63.2 dB, estimated 162.3x fewer operations
+Gaussian Blur sigma 200 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  76.8 dB, estimated   7.9x fewer operations
+Gaussian Blur sigma 200 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  72.1 dB, estimated  56.4x fewer operations
+Gaussian Blur sigma 200 factor 8 (used       8): worst  1 levels,  0.0000% off by >1, PSNR  68.7 dB, estimated 247.2x fewer operations
+Glow          radius  20 factor 2 (used       1): worst  0 levels,  0.0000% off by >1, PSNR   inf dB, estimated   1.0x fewer operations
+Glow          radius  20 factor 4 (used       1): worst  0 levels,  0.0000% off by >1, PSNR   inf dB, estimated   1.0x fewer operations
+Glow          radius  20 factor 8 (used       1): worst  0 levels,  0.0000% off by >1, PSNR   inf dB, estimated   1.0x fewer operations
+Glow          radius  50 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  70.5 dB, estimated   6.6x fewer operations
+Glow          radius  50 factor 4 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  70.5 dB, estimated   6.6x fewer operations
+Glow          radius  50 factor 8 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  70.5 dB, estimated   6.6x fewer operations
+Glow          radius 100 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  72.1 dB, estimated   7.2x fewer operations
+Glow          radius 100 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  67.3 dB, estimated  35.3x fewer operations
+Glow          radius 100 factor 8 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  67.3 dB, estimated  35.3x fewer operations
+Glow          radius 200 factor 2 (used       2): worst  1 levels,  0.0000% off by >1, PSNR  74.7 dB, estimated   7.6x fewer operations
+Glow          radius 200 factor 4 (used       4): worst  1 levels,  0.0000% off by >1, PSNR  70.0 dB, estimated  45.5x fewer operations
+Glow          radius 200 factor 8 (used       8): worst  1 levels,  0.0000% off by >1, PSNR  66.0 dB, estimated 121.6x fewer operations
+Bloom         radius  20 factor 2 (used 1/1/1/1): worst  0 levels,  0.0000% off by >1, PSNR   inf dB, estimated   1.0x fewer operations
+Bloom         radius  20 factor 4 (used 1/1/1/1): worst  0 levels,  0.0000% off by >1, PSNR   inf dB, estimated   1.0x fewer operations
+Bloom         radius  20 factor 8 (used 1/1/1/1): worst  0 levels,  0.0000% off by >1, PSNR   inf dB, estimated   1.0x fewer operations
+Bloom         radius  50 factor 2 (used 2/1/1/1): worst  1 levels,  0.0000% off by >1, PSNR  76.0 dB, estimated   1.8x fewer operations
+Bloom         radius  50 factor 4 (used 2/1/1/1): worst  1 levels,  0.0000% off by >1, PSNR  76.0 dB, estimated   1.8x fewer operations
+Bloom         radius  50 factor 8 (used 2/1/1/1): worst  1 levels,  0.0000% off by >1, PSNR  76.0 dB, estimated   1.8x fewer operations
+Bloom         radius 100 factor 2 (used 2/2/1/1): worst  1 levels,  0.0000% off by >1, PSNR  74.6 dB, estimated   3.1x fewer operations
+Bloom         radius 100 factor 4 (used 4/2/1/1): worst  1 levels,  0.0000% off by >1, PSNR  72.2 dB, estimated   3.8x fewer operations
+Bloom         radius 100 factor 8 (used 4/2/1/1): worst  1 levels,  0.0000% off by >1, PSNR  72.2 dB, estimated   3.8x fewer operations
+Bloom         radius 200 factor 2 (used 2/2/2/1): worst  1 levels,  0.0000% off by >1, PSNR  74.4 dB, estimated   5.1x fewer operations
+Bloom         radius 200 factor 4 (used 4/4/2/1): worst  1 levels,  0.0000% off by >1, PSNR  71.5 dB, estimated   9.3x fewer operations
+Bloom         radius 200 factor 8 (used 8/4/2/1): worst  1 levels,  0.0000% off by >1, PSNR  69.9 dB, estimated  10.0x fewer operations
