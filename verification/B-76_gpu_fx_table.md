@@ -2,7 +2,7 @@
 
 Written by `tests/b76_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
-Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the nine done on the card and its Light Wraps wherever they are. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-133). An effect that changes nothing or whose settings are invalid is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings, and the card must draw the frame itself, except a frame with an adjustment layer, which the CPU draws by B-44's rule: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
+Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the nine done on the card and its Light Wraps wherever they are. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-133). An effect that changes nothing or whose settings are invalid is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings, and the card must draw the frame itself, except a frame with an adjustment layer the card does not draw (B-156), which the CPU draws by B-44's rule: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
 **2460 of 2460 checks pass.**
 
@@ -2309,16 +2309,16 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_wrap_014 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_wrap_014 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_wrap_014 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_wrap_015 frame 0, Full | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
-| fx_wrap_015 frame 1, Full | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
-| fx_wrap_015 frame 2, Full | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
-| fx_wrap_015 frame 3, Full | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
-| fx_wrap_015 frame 4, Full | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
-| fx_wrap_015 frame 0, Draft | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
-| fx_wrap_015 frame 1, Draft | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
-| fx_wrap_015 frame 2, Draft | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
-| fx_wrap_015 frame 3, Draft | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
-| fx_wrap_015 frame 4, Draft | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: an adjustment layer, so the CPU drew it (B-44) |
+| fx_wrap_015 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_wrap_015 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_wrap_015 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_wrap_015 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_wrap_015 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_wrap_015 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_wrap_015 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_wrap_015 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_wrap_015 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_wrap_015 frame 4, Draft | 0 | 0 | 0 | none | PASS |
 | fx_wrap_016 frame 0, Full | 0 | 0 | 0 | none | PASS |
 | fx_wrap_016 frame 1, Full | 0 | 0 | 0 | none | PASS |
 | fx_wrap_016 frame 2, Full | 0 | 0 | 0 | none | PASS |

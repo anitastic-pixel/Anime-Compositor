@@ -263,6 +263,15 @@ fn unpack(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(drawn, id.xy, l);
     textureStore(light, id.xy, vec4(frame[at].xyz, l.w));
 }
+
+// B-156: the frame laid so far, as a texture an adjustment layer's effects run on.
+@compute @workgroup_size(16, 16)
+fn take(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= S.width || id.y >= S.height {
+        return;
+    }
+    textureStore(drawn, id.xy, frame[id.y * S.width + id.x]);
+}
 "#;
 
 /// B-47: `bloom::bloom` as passes, one after another: the light, the halo's four blurs, the
@@ -3066,6 +3075,38 @@ fn cells(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     textureStore(output, id.xy, out);
 }
+
+@group(0) @binding(10) var effected: texture_2d<f32>;
+@group(0) @binding(11) var<storage, read_write> frame_sum: array<vec4<f32>>;
+
+// B-156, render::adjust_frame (D-66): the frame through the adjustment layer's stack, `effected`,
+// mixed back into `frame_sum` by what the layer covers: its shape (`input`) through k[0..6], the
+// inverse of its transform, by its opacity k[12], by its matte (`other`) through k[6..12]. At full
+// cover the effected pixel exactly (D-90); otherwise `b + c * (e - b)` in single precision, the
+// product rounded once as the CPU's is.
+@compute @workgroup_size(16, 16)
+fn adjust(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= F.base.x || id.y >= F.base.y {
+        return;
+    }
+    let dx = f64(id.x) + 0.5lf;
+    let dy = f64(id.y) + 0.5lf;
+    var c = bilinear(input, k[0] * dx + k[2] * dy + k[4], k[1] * dx + k[3] * dy + k[5]).w * f32(k[12]);
+    if F.flag == 1u {
+        c *= bilinear(other, k[6] * dx + k[8] * dy + k[10], k[7] * dx + k[9] * dy + k[11]).w;
+    }
+    if c == 0.0 {
+        return;
+    }
+    let at = id.y * F.base.x + id.x;
+    let e = textureLoad(effected, vec2(i32(id.x) + F.ox, i32(id.y) + F.oy), 0);
+    if c == 1.0 {
+        frame_sum[at] = e;
+        return;
+    }
+    let b = frame_sum[at];
+    frame_sum[at] = b + vec4<f32>(f64(c) * vec4<f64>(e - b));
+}
 "#;
 
 /// B-65: [`FX_SHADER`]'s numbers, laid out as its `Fx`; each pass reads what it needs.
@@ -3128,6 +3169,8 @@ struct FxPasses {
     bevel: Pass,
     snow: Pass,
     cells: Pass,
+    /// B-156.
+    adjust: Pass,
 }
 
 /// B-76: Distance Gradation's work for a drawing `w` by `h`: the columns' distances over the
@@ -3313,6 +3356,10 @@ pub struct Gpu {
     /// B-76: a layer with a Light Wrap, laid alone, and its light.
     unpack: wgpu::ComputePipeline,
     unpack_layout: wgpu::BindGroupLayout,
+    /// B-156: an adjustment layer's frame taken for its stack to run on.
+    take: Pass,
+    /// B-156: the last opaque shape an adjustment layer had, kept so it is sent once.
+    ones: Option<Arc<WorkingBuffer>>,
     /// B-47: `None` on a card without double precision.
     bloom: Option<BloomPasses>,
     /// B-65: `None` on a card without double precision.
@@ -3509,7 +3556,7 @@ impl Gpu {
                 source: wgpu::ShaderSource::Wgsl(FX_SHADER.into()),
             });
             let pass = |entry_point: &str, bindings: &[u32]| {
-                let types = [uniform(), texture(), storage_texture(), storage(true), texture(), storage(false), storage(false), storage(false), storage(false), storage(false)];
+                let types = [uniform(), texture(), storage_texture(), storage(true), texture(), storage(false), storage(false), storage(false), storage(false), storage(false), texture(), storage(false)];
                 let entries: Vec<_> = bindings.iter().map(|&b| entry(b, types[b as usize])).collect();
                 let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some(entry_point), entries: &entries });
                 (pipeline_in(&module, &layout, entry_point), layout)
@@ -3552,11 +3599,17 @@ impl Gpu {
                 bevel: pass("bevel", &[0, 1, 2, 3, 4]),
                 snow: pass("snow", &[0, 1, 2, 3]),
                 cells: pass("cells", &[0, 1, 2, 3]),
+                adjust: pass("adjust", &[0, 1, 3, 4, 10, 11]),
             }
         });
         let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
         let radial = pipeline(&radial_layout, "radial");
         let unpack = pipeline(&unpack_layout, "unpack");
+        let own = |entry_point: &str, entries: &[wgpu::BindGroupLayoutEntry]| {
+            let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some(entry_point), entries });
+            (pipeline(&layout, entry_point), layout)
+        };
+        let take = own("take", &[entry(0, uniform()), entry(1, storage(true)), entry(3, storage_texture())]);
         let no_matte = device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some("B-44 no matte"),
@@ -3595,6 +3648,8 @@ impl Gpu {
             radial_layout,
             unpack,
             unpack_layout,
+            take,
+            ones: None,
             bloom,
             fx,
             no_matte,
@@ -3821,8 +3876,30 @@ impl Gpu {
         if views.len() == effects.len() && !views.is_empty() {
             return views[views.len() - 1].0.clone();
         }
-        let (mut moved, mut size) = views.last().cloned().unwrap_or((still.clone(), (source.width(), source.height())));
-        for effect in &effects[views.len()..] {
+        let from = views.last().cloned().unwrap_or((still.clone(), (source.width(), source.height())));
+        let done = views.len();
+        self.run(steps, source, from, &effects[done..], &mut views);
+        let moved = views[views.len() - 1].0.clone();
+        if let Some(i) = stored {
+            let s = &mut self.store[i];
+            let kept: usize = views.iter().map(|(_, (w, h))| w * h * 16).sum();
+            s.bytes = source.width() * source.height() * if s.wide { 16 } else { BYTES_PER_PIXEL } + kept;
+            s.applied = Some((effects.to_vec(), views));
+        }
+        moved
+    }
+
+    /// `effects` run one after another from `moved`, a drawing `size`, each on what the one before
+    /// it wrote; each result is added to `views`. `source` is the drawing on the CPU.
+    fn run(
+        &self,
+        steps: &mut Vec<Step>,
+        source: &WorkingBuffer,
+        (mut moved, mut size): (wgpu::TextureView, (usize, usize)),
+        effects: &[OnCard],
+        views: &mut Vec<(wgpu::TextureView, (usize, usize))>,
+    ) {
+        for effect in effects {
             (moved, size) = match effect {
                 OnCard::Radial(r) => (self.blur(steps, &moved, size, *r), size),
                 OnCard::Bloom(b) => self.bloom(steps, &moved, size, *b),
@@ -3833,13 +3910,6 @@ impl Gpu {
             };
             views.push((moved.clone(), size));
         }
-        if let Some(i) = stored {
-            let s = &mut self.store[i];
-            let kept: usize = views.iter().map(|(_, (w, h))| w * h * 16).sum();
-            s.bytes = source.width() * source.height() * if s.wide { 16 } else { BYTES_PER_PIXEL } + kept;
-            s.applied = Some((effects.to_vec(), views));
-        }
-        moved
     }
 
     /// A texture the passes write and the layers read, `width` by `height`. B-153: one an earlier
@@ -4857,18 +4927,20 @@ impl Gpu {
 
     /// Why this plan cannot go to the card, if it cannot.
     fn refuse(&self, plan: &FramePlan) -> Option<Diagnostic> {
-        if plan.layers.iter().any(|l| l.adjust.is_some()) {
+        // B-156 (D-225): an adjustment layer whose every effect the card draws on the frame.
+        let frame = (plan.width, plan.height);
+        if plan.layers.iter().filter_map(|l| l.adjust.as_ref()).any(|s| self.fx.is_none() || crate::compose::adjust_run(s, frame).is_none()) {
             return Some(on_cpu(
                 Severity::Info,
-                "The CPU drew this frame: it has an adjustment layer, which the GPU does not draw yet.".into(),
-                "B-44 draws a frame with an adjustment layer (D-66) wholly on the CPU.".into(),
+                "The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.".into(),
+                "B-156 draws an adjustment layer (D-66) on the card when the card draws each of its effects on the frame (D-225); Bloom, Glow, Paraffin, Kira-kira and HSV Key stay the CPU's.".into(),
             ));
         }
         // B-152: a motion-blurred, frame-mixed or dissolved layer arrives already built by the
         // CPU, and the card lays it like any drawing. B-153b: but sending that new picture costs
         // the card more than the CPU takes to draw the frame whole, so it does so unless the card
         // has an effect of its own to draw (D-218).
-        if plan.layers.iter().any(|l| l.motion_blur || l.mixed) && !plan.layers.iter().any(|l| !l.on_card.is_empty() || !wraps(l).is_empty()) {
+        if plan.layers.iter().any(|l| l.motion_blur || l.mixed) && !plan.layers.iter().any(|l| !l.on_card.is_empty() || !wraps(l).is_empty() || l.adjust.is_some()) {
             return Some(on_cpu(
                 Severity::Info,
                 "The CPU drew this frame: it has motion blur or frame blending and no effect for the GPU, which the CPU draws faster.".into(),
@@ -4908,9 +4980,13 @@ impl Gpu {
         // B-65: so does the batch of ten; Lens Blur keeps its running totals and Outline its band
         // in a buffer.
         for l in &plan.layers {
-            // B-155: each effect of a run on the drawing the ones before it grew.
-            let (mut w, mut h) = (l.source.width(), l.source.height());
-            for card in &l.on_card {
+            // B-155: each effect of a run on the drawing the ones before it grew. B-156: an
+            // adjustment layer's on the frame.
+            let (run, (mut w, mut h)) = match &l.adjust {
+                Some(stack) => (std::borrow::Cow::Owned(crate::compose::adjust_run(stack, frame).unwrap_or_default()), frame),
+                None => (std::borrow::Cow::Borrowed(&l.on_card[..]), (l.source.width(), l.source.height())),
+            };
+            for card in run.iter() {
                 let halo = |g: usize| ((w + 2 * g) * (h + 2 * g) * 16) as u64;
                 let (name, grow, bytes) = match card {
                     OnCard::Bloom(b) => {
@@ -5132,8 +5208,76 @@ impl Gpu {
                     matte.is_some() as u32,
                     layer.opacity.to_bits(),
                 ];
+                let tiles = ((width as u32).div_ceil(16), (height as u32).div_ceil(16));
+                // B-156 (D-225), render::adjust_frame: the frame laid so far through the layer's
+                // stack, then mixed back by what the layer's shape, opacity and matte cover.
+                if let Some(stack) = &layer.adjust {
+                    let run = crate::compose::adjust_run(stack, (width, height)).expect("refused when the CPU runs it");
+                    let taken = self.scratch("B-156 frame", width, height);
+                    let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: None,
+                        layout: &self.take.1,
+                        entries: &[
+                            wgpu::BindGroupEntry { binding: 0, resource: size.as_entire_binding() },
+                            wgpu::BindGroupEntry { binding: 1, resource: sum.as_entire_binding() },
+                            wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&taken) },
+                        ],
+                    });
+                    steps.push((self.take.0.clone(), group, tiles));
+                    // Only Paraffin and Kira-kira read the drawing on the CPU, and they stay there.
+                    let mut views = Vec::new();
+                    self.run(&mut steps, &layer.source, (taken.clone(), (width, height)), &run, &mut views);
+                    let (effected, (ew, eh)) = views.pop().unwrap_or((taken, (width, height)));
+                    // Its shape is the composition's size, opaque, unless a mask cut it: that one is
+                    // kept on the card, and only the cut ones are sent each frame. Both wide, so the
+                    // cover is the CPU's to the bit.
+                    let shape = if layer.source.data().par_iter().all(|v| *v == 1.0) {
+                        if self.ones.as_ref().is_none_or(|o| (o.width(), o.height()) != (layer.source.width(), layer.source.height())) {
+                            self.ones = Some(layer.source.clone());
+                        }
+                        self.ones.clone().expect("kept above")
+                    } else {
+                        layer.source.clone()
+                    };
+                    let shape = self.resident(&mut uploads, &shape, None, true);
+                    let matte_view = matte.map(|(m, _)| self.resident(&mut uploads, &m.source, cache.name_of(&m.source), true));
+                    let m = matte.map_or([0.0; 6], |(_, i)| [i.a, i.b, i.c, i.d, i.tx, i.ty]);
+                    let k = [inverse.a, inverse.b, inverse.c, inverse.d, inverse.tx, inverse.ty, m[0], m[1], m[2], m[3], m[4], m[5], layer.opacity as f64];
+                    // Every effect grows the frame alike on both sides.
+                    let p = FxParams {
+                        flag: matte.is_some() as u32,
+                        base: [width as u32, height as u32],
+                        ox: ((ew - width) / 2) as i32,
+                        oy: ((eh - height) / 2) as i32,
+                        ..Default::default()
+                    };
+                    let init = |label, contents: &[u8], usage| {
+                        self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some(label), contents, usage })
+                    };
+                    let numbers = init("B-156 numbers", bytemuck::bytes_of(&p), wgpu::BufferUsages::UNIFORM);
+                    let k = init("B-156 cover", bytemuck::cast_slice(&k), wgpu::BufferUsages::STORAGE);
+                    let passes = self.fx.as_ref().expect("an adjustment layer is refused without the passes");
+                    let texture = |binding, view| wgpu::BindGroupEntry { binding, resource: wgpu::BindingResource::TextureView(view) };
+                    let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: None,
+                        layout: &passes.adjust.1,
+                        entries: &[
+                            wgpu::BindGroupEntry { binding: 0, resource: numbers.as_entire_binding() },
+                            texture(1, &shape),
+                            wgpu::BindGroupEntry { binding: 3, resource: k.as_entire_binding() },
+                            texture(4, matte_view.as_ref().unwrap_or(&self.no_matte)),
+                            texture(10, &effected),
+                            wgpu::BindGroupEntry { binding: 11, resource: sum.as_entire_binding() },
+                        ],
+                    });
+                    steps.push((passes.adjust.0.clone(), group, tiles));
+                    continue;
+                }
                 let wraps = wraps(layer);
-                let wide = !wraps.is_empty() || matches!(layer.on_card.first(), Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
+                // B-156: under an adjustment layer every drawing is sent whole, not in half
+                // precision: Posterize, Threshold, a wipe's cut and the like turn the smallest
+                // difference in the frame beneath into a large one (D-225).
+                let wide = plan.layers.iter().any(|l| l.adjust.is_some()) || !wraps.is_empty() || matches!(layer.on_card.first(), Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
                 let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source), wide);
                 if !layer.on_card.is_empty() {
                     source = self.applied(&mut steps, &layer.source, &source, &layer.on_card);
@@ -5168,7 +5312,6 @@ impl Gpu {
                         wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(&light) },
                     ],
                 });
-                let tiles = ((width as u32).div_ceil(16), (height as u32).div_ceil(16));
                 steps.push((self.unpack.clone(), group, tiles));
                 for (w, intensity, add) in wraps {
                     if intensity == 0.0 {

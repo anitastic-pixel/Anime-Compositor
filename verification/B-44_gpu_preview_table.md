@@ -1,6 +1,6 @@
 # B-44: the GPU's picture against the CPU's
 
-Written by `tests/b44_gpu_preview.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan, 16.8 GB of its own memory.
+Written by `tests/b44_gpu_preview.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-100). Frames with an adjustment layer are drawn by the CPU (D-66) and must be byte-identical.
 
@@ -115,5 +115,5 @@ The worst comparison is "ten-layer frame 100, Draft, every layer multiply, every
 | the reference shot, every fifth frame at Draft, the card keeping 1 drawing at a time | at most 1 level | worst frame: largest difference 1 of 255, pixels differing: 14916 | PASS |
 | the reference shot, every fifth frame at Full, the card keeping 3 drawings at a time | at most 1 level | worst frame: largest difference 1 of 255, pixels differing: 6404 | PASS |
 | ten-layer frame 100, Full, read again into a new CPU cache after the first let go | no drawing sent again, and at most 1 level | drawings sent again: 0; largest difference 1 of 255 | PASS |
-| fx_adj_001 frame 0, Full: an adjustment layer, so the CPU draws it | the frame log says so, and the picture is the CPU's byte for byte | GPU_PREVIEW_ON_CPU: The CPU drew this frame: it has an adjustment layer, which the GPU does not draw yet.; byte-identical | PASS |
-| fx_adj_001 frame 0, Draft: an adjustment layer, so the CPU draws it | the frame log says so, and the picture is the CPU's byte for byte | GPU_PREVIEW_ON_CPU: The CPU drew this frame: it has an adjustment layer, which the GPU does not draw yet.; byte-identical | PASS |
+| fx_adj_001 frame 0, Full: an adjustment layer, so the CPU draws it | the frame log says so, and the picture is the CPU's byte for byte | GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.; byte-identical | PASS |
+| fx_adj_001 frame 0, Draft: an adjustment layer, so the CPU draws it | the frame log says so, and the picture is the CPU's byte for byte | GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.; byte-identical | PASS |

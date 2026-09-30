@@ -757,6 +757,255 @@ pub fn screen_transform_at(
     }
 }
 
+/// B-46..B-155: whether the card can draw `instance`, run at a draft divisor `pre`.
+fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
+    // D-202: an effect mixed below 100 is drawn here; a card version is a later unit.
+    instance.mix == 100.0
+        && matches!(
+            instance.effect,
+            crate::effects::Effect::RadialBlur { .. }
+                | crate::effects::Effect::Bloom { .. }
+                | crate::effects::Effect::DirectionalBlur { .. }
+                | crate::effects::Effect::GaussianBlur { .. }
+                | crate::effects::Effect::Glow { .. }
+                | crate::effects::Effect::Curves { .. }
+                | crate::effects::Effect::Levels { .. }
+                | crate::effects::Effect::HueSaturation { .. }
+                | crate::effects::Effect::Gradient { .. }
+                | crate::effects::Effect::DropShadow { .. }
+                | crate::effects::Effect::LensBlur { .. }
+                | crate::effects::Effect::RimLight { .. }
+                | crate::effects::Effect::Outline { .. }
+                | crate::effects::Effect::Noise { .. }
+                | crate::effects::Effect::ChromaticAberration { .. }
+                | crate::effects::Effect::DistanceGradation { .. }
+                | crate::effects::Effect::LightRays { .. }
+                | crate::effects::Effect::ExposureFlicker { .. }
+                | crate::effects::Effect::Vignette { .. }
+                | crate::effects::Effect::TurbulentDisplace { .. }
+                | crate::effects::Effect::FractalNoise { .. }
+                | crate::effects::Effect::GradientMap { .. }
+                | crate::effects::Effect::ColorBalance { .. }
+                | crate::effects::Effect::Offset { .. }
+                | crate::effects::Effect::Invert { .. }
+                | crate::effects::Effect::BrightnessContrast { .. }
+                | crate::effects::Effect::BlackWhite { .. }
+                | crate::effects::Effect::Posterize { .. }
+                | crate::effects::Effect::Threshold { .. }
+                | crate::effects::Effect::ChannelMixer { .. }
+                | crate::effects::Effect::Vibrance { .. }
+                | crate::effects::Effect::LeaveColor { .. }
+                | crate::effects::Effect::Solarize { .. }
+                | crate::effects::Effect::Halftone { .. }
+                | crate::effects::Effect::Mosaic { .. }
+                | crate::effects::Effect::Emboss { .. }
+                | crate::effects::Effect::FindEdges { .. }
+                | crate::effects::Effect::Sharpen { .. }
+                | crate::effects::Effect::Diffusion { .. }
+                | crate::effects::Effect::WaveWarp { .. }
+                | crate::effects::Effect::Ripple { .. }
+                | crate::effects::Effect::Twirl { .. }
+                | crate::effects::Effect::Bulge { .. }
+                | crate::effects::Effect::Mirror { .. }
+                | crate::effects::Effect::MotionTile { .. }
+                | crate::effects::Effect::LinearWipe { .. }
+                | crate::effects::Effect::RadialWipe { .. }
+                | crate::effects::Effect::VenetianBlinds { .. }
+                | crate::effects::Effect::IrisWipe { .. }
+                | crate::effects::Effect::SimpleChoker { .. }
+                | crate::effects::Effect::SpeedLines { .. }
+                | crate::effects::Effect::CrossGlare { .. }
+                | crate::effects::Effect::CameraShake { .. }
+                | crate::effects::Effect::Rain { .. }
+                | crate::effects::Effect::ColorLookup { .. }
+                | crate::effects::Effect::LineBlur { .. }
+                | crate::effects::Effect::HsvKey { .. }
+                | crate::effects::Effect::Paraffin { .. }
+                | crate::effects::Effect::KiraKira { .. }
+                | crate::effects::Effect::Median { .. }
+                | crate::effects::Effect::SmartBlur { .. }
+                | crate::effects::Effect::RoughenEdges { .. }
+                | crate::effects::Effect::RadialShadow { .. }
+                | crate::effects::Effect::BevelAlpha { .. }
+                | crate::effects::Effect::Snowfall { .. }
+                | crate::effects::Effect::CellPattern { .. }
+                | crate::effects::Effect::PolarCoordinates { .. }
+                | crate::effects::Effect::OpticsCompensation { .. }
+                | crate::effects::Effect::CornerPin { .. }
+        )
+        // D-122: a Levels whose input white is its black is a threshold, which a rounding
+        // either side of would turn from black to white, so it stays on the CPU.
+        && !matches!(instance.effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
+        // B-107: valid as it runs, at the draft's distances, since a draft can take a
+        // distance below its least (a Rain's spacing), which the CPU then reports and skips.
+        && {
+            let mut effect = instance.effect.clone();
+            effect.scale_distances(|d| d / pre);
+            effect.is_valid()
+        }
+}
+
+/// `effect`, `instance`'s at the draft's distances, as the card draws it on a drawing `size`
+/// whose corner is at `offset`, which it moves by what the effect grows. `None` for one that
+/// changes nothing and grows nothing. Not Bloom or Glow, which look at the drawing first.
+fn card_effect(
+    effect: crate::effects::Effect,
+    instance: &crate::effects::EffectInstance,
+    size: (usize, usize),
+    offset: &mut (usize, usize),
+) -> Option<render::OnCard> {
+    match effect {
+        crate::effects::Effect::RadialBlur { kind, amount, center, edges } => Some(render::OnCard::Radial(render::Radial {
+            spin: kind == "spin",
+            amount,
+            center: crate::effects::radial_center(center, size, *offset),
+            repeat: edges == "repeat",
+        })),
+        // B-49: length 0 changes nothing and grows nothing, so it is not left either.
+        crate::effects::Effect::DirectionalBlur { direction, length, edges } => (length != 0.0).then(|| {
+            let d = render::Directional { direction, length, repeat: edges == "repeat" };
+            *offset = (offset.0 + d.grow(), offset.1 + d.grow());
+            render::OnCard::Directional(d)
+        }),
+        // B-50: a sigma too small to reach a neighbour changes nothing, so it is not left either.
+        crate::effects::Effect::GaussianBlur { sigma_px, edges } => {
+            (crate::effects::kernel_radius(sigma_px) != 0).then(|| {
+                let g = render::Gaussian { sigma: sigma_px, repeat: edges == "repeat" };
+                *offset = (offset.0 + g.grow(), offset.1 + g.grow());
+                render::OnCard::Gaussian(g)
+            })
+        }
+        // B-65: the batch of ten, run as `apply_stack` runs them, from the drawing's corner so
+        // far. One that changes nothing and grows nothing, as each says of its settings, is
+        // not left.
+        effect => {
+            use crate::effects::Effect as E;
+            let nothing = match &effect {
+                E::Curves { master, red, green, blue } => {
+                    [master, red, green, blue].iter().all(|c| crate::grade::is_straight(c))
+                }
+                E::Levels { input_black, input_white, gamma, output_black, output_white } => {
+                    [*input_black, *input_white, *gamma, *output_black, *output_white] == [0.0, 255.0, 1.0, 0.0, 255.0]
+                }
+                E::HueSaturation { hue, saturation, lightness } => [*hue, *saturation, *lightness] == [0.0; 3],
+                E::Gradient { start_opacity, end_opacity, .. } => [*start_opacity, *end_opacity] == [0.0; 2],
+                E::RimLight { intensity, .. } => *intensity == 0.0,
+                E::Outline { width, .. } => *width == 0.0,
+                E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } => *amount == 0.0,
+                E::DistanceGradation { width, opacity, .. } => *width == 0.0 || *opacity == 0.0,
+                E::LightRays { intensity, .. } => *intensity == 0.0,
+                E::ExposureFlicker { amount, .. }
+                | E::Vignette { amount, .. }
+                | E::TurbulentDisplace { amount, .. }
+                | E::GradientMap { amount, .. } => *amount == 0.0,
+                E::FractalNoise { opacity, .. } => *opacity == 0.0,
+                E::ColorBalance { shadows, midtones, highlights } => {
+                    [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))
+                }
+                E::Offset { shift } => *shift == [0.0, 0.0],
+                // B-107: the third batch, each as its own function returns at once.
+                E::Invert { amount, .. }
+                | E::LeaveColor { amount, .. }
+                | E::Halftone { amount, .. } => *amount == 0.0,
+                E::BrightnessContrast { brightness, contrast } => [*brightness, *contrast] == [0.0; 2],
+                E::ChannelMixer { red, green, blue, monochrome } => {
+                    monochrome != "on"
+                        && [&red[..4], &green[..4], &blue[..4]]
+                            == [[100.0, 0.0, 0.0, 0.0], [0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0]]
+                }
+                E::Vibrance { vibrance, saturation } => [*vibrance, *saturation] == [0.0; 2],
+                E::Mosaic { size } => *size <= 1.0,
+                E::FindEdges { amount, .. } => *amount <= 0.0,
+                E::Sharpen { amount, radius } | E::Diffusion { amount, radius, .. } => *amount <= 0.0 || *radius <= 0.0,
+                E::WaveWarp { height, .. } | E::Bulge { height, .. } if *height == 0.0 => true,
+                E::Bulge { radius, .. } => *radius <= 0.0,
+                E::Ripple { amplitude, .. } => *amplitude == 0.0,
+                E::Twirl { angle, radius, .. } => *angle == 0.0 || *radius <= 0.0,
+                E::LinearWipe { completion, .. }
+                | E::RadialWipe { completion, .. }
+                | E::VenetianBlinds { completion, .. }
+                | E::IrisWipe { completion, .. } => *completion == 0.0,
+                E::SimpleChoker { choke } => *choke == 0.0,
+                E::CrossGlare { length, intensity, .. } => length.floor() == 0.0 || *intensity == 0.0,
+                E::CameraShake { amount, rotation, .. } => [*amount, *rotation] == [0.0; 2],
+                E::Rain { density, opacity, .. } => *density == 0.0 || *opacity == 0.0,
+                // B-115: a tile that grows nothing, as `layer_fx::motion_tile` returns at once.
+                E::MotionTile { output_width, output_height, .. } => {
+                    crate::layer_fx::tile_growth((*output_width, *output_height), size) == (0, 0)
+                }
+                // B-123: the batch's five new ones, each as its own function returns at once.
+                E::ColorLookup { table, .. } => table.is_none(),
+                E::LineBlur { length, .. } => *length == 0.0,
+                E::Paraffin { spread, opacity, .. } => *spread == 0.0 || *opacity == 0.0,
+                E::KiraKira { size, density, opacity, .. } => [*size, *density, *opacity].contains(&0.0),
+                // B-151: ten of the fourth batch, each as its own function returns at once.
+                E::Median { radius, .. } | E::SmartBlur { radius, .. } => *radius < 1.0,
+                E::RoughenEdges { border, .. } => *border == 0.0,
+                E::BevelAlpha { edge_thickness, light_intensity, .. } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
+                E::Snowfall { density, size, opacity, .. } => [*density, *size, *opacity].contains(&0.0),
+                E::CellPattern { opacity, .. } => *opacity == 0.0,
+                E::PolarCoordinates { interpolation, .. } => *interpolation == 0.0,
+                E::OpticsCompensation { field_of_view, .. } => *field_of_view == 0.0,
+                E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
+                    [*upper_left, *upper_right, *lower_left, *lower_right] == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
+                }
+                _ => false,
+            };
+            // B-107: a shake grows by how far it can carry a corner, which its settings and
+            // the drawing's size say, not its settings alone. B-115: so does a Motion Tile,
+            // and not the same across as down.
+            let grow = match &effect {
+                E::CameraShake { amount, rotation, .. } => {
+                    let g = crate::layer_fx::shake_reach(*amount, *rotation, size, *offset).1;
+                    (g, g)
+                }
+                E::MotionTile { output_width, output_height, .. } => {
+                    crate::layer_fx::tile_growth((*output_width, *output_height), size)
+                }
+                // B-151: a Radial Shadow grows by its cast and the cast's blur, a Corner Pin
+                // by its corners; both as their own functions do.
+                E::RadialShadow { light, distance, softness, .. } => {
+                    let (_, _, _, gx, gy) = crate::layer_fx::radial_cast(*light, *distance, size, *offset);
+                    let r = crate::effects::kernel_radius(softness / 3.0);
+                    (gx + r, gy + r)
+                }
+                E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
+                    let pins = [*upper_left, *upper_right, *lower_left, *lower_right];
+                    crate::layer_fx::corner_map(pins, size, *offset).map_or((0, 0), |m| m.2)
+                }
+                _ => (effect.bounds_expansion(), effect.bounds_expansion()),
+            };
+            let instance = crate::effects::EffectInstance { effect, ..instance.clone() };
+            let fx = render::Fx { instance, origin: *offset, grow };
+            (!nothing).then(|| {
+                *offset = (offset.0 + grow.0, offset.1 + grow.1);
+                render::OnCard::Fx(fx)
+            })
+        }
+    }
+}
+
+/// B-156 (D-225): an adjustment layer's stack as the card runs it on the frame beneath, `size`,
+/// from its corner; or `None` when the CPU must run it, for an effect the card cannot draw, one
+/// that looks at its drawing before the card is asked (Bloom, Glow, Paraffin, Kira-kira), which
+/// the frame beneath is not yet, or an HSV Key, which only begins a run on a drawing the CPU made
+/// (D-224). `stack` is the plan's, its distances already the draft's (`preview::scale_plan`).
+pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)) -> Option<Vec<render::OnCard>> {
+    use crate::effects::Effect as E;
+    let mut offset = (0, 0);
+    let mut run = Vec::new();
+    // A Light Wrap does nothing in a stack (D-132), as `apply_stack` has it.
+    for instance in stack.iter().filter(|i| i.enabled && !matches!(i.effect, E::LightWrap { .. })) {
+        let first = matches!(instance.effect, E::Bloom { .. } | E::Glow { .. } | E::Paraffin { .. } | E::KiraKira { .. } | E::HsvKey { .. });
+        if first || !card_can(instance, 1.0) {
+            return None;
+        }
+        let grown = (size.0 + 2 * offset.0, size.1 + 2 * offset.1);
+        run.extend(card_effect(instance.effect.clone(), instance, grown, &mut offset));
+    }
+    Some(run)
+}
+
 /// `map` (D-189): stop after step 3, the picture cut back to its step-1 rectangle, for an
 /// effect's layer setting; at a draft divisor any picture is then taken down, effects or not.
 #[allow(clippy::too_many_arguments)]
@@ -1370,92 +1619,7 @@ fn resolve_rest(
     // them can only begin that run. So can an HSV Key: the hue of a nearly grey pixel swings
     // with the smallest change, and given the card's picture rather than the CPU's it keyed
     // pixels the CPU did not (B-155's table, 255 levels).
-    let can = |i: usize| {
-        // D-202: an effect mixed below 100 is drawn here; a card version is a later unit.
-        card && cel.is_some() && effects[i].mix == 100.0
-            && matches!(
-                effects[i].effect,
-                crate::effects::Effect::RadialBlur { .. }
-                    | crate::effects::Effect::Bloom { .. }
-                    | crate::effects::Effect::DirectionalBlur { .. }
-                    | crate::effects::Effect::GaussianBlur { .. }
-                    | crate::effects::Effect::Glow { .. }
-                    | crate::effects::Effect::Curves { .. }
-                    | crate::effects::Effect::Levels { .. }
-                    | crate::effects::Effect::HueSaturation { .. }
-                    | crate::effects::Effect::Gradient { .. }
-                    | crate::effects::Effect::DropShadow { .. }
-                    | crate::effects::Effect::LensBlur { .. }
-                    | crate::effects::Effect::RimLight { .. }
-                    | crate::effects::Effect::Outline { .. }
-                    | crate::effects::Effect::Noise { .. }
-                    | crate::effects::Effect::ChromaticAberration { .. }
-                    | crate::effects::Effect::DistanceGradation { .. }
-                    | crate::effects::Effect::LightRays { .. }
-                    | crate::effects::Effect::ExposureFlicker { .. }
-                    | crate::effects::Effect::Vignette { .. }
-                    | crate::effects::Effect::TurbulentDisplace { .. }
-                    | crate::effects::Effect::FractalNoise { .. }
-                    | crate::effects::Effect::GradientMap { .. }
-                    | crate::effects::Effect::ColorBalance { .. }
-                    | crate::effects::Effect::Offset { .. }
-                    | crate::effects::Effect::Invert { .. }
-                    | crate::effects::Effect::BrightnessContrast { .. }
-                    | crate::effects::Effect::BlackWhite { .. }
-                    | crate::effects::Effect::Posterize { .. }
-                    | crate::effects::Effect::Threshold { .. }
-                    | crate::effects::Effect::ChannelMixer { .. }
-                    | crate::effects::Effect::Vibrance { .. }
-                    | crate::effects::Effect::LeaveColor { .. }
-                    | crate::effects::Effect::Solarize { .. }
-                    | crate::effects::Effect::Halftone { .. }
-                    | crate::effects::Effect::Mosaic { .. }
-                    | crate::effects::Effect::Emboss { .. }
-                    | crate::effects::Effect::FindEdges { .. }
-                    | crate::effects::Effect::Sharpen { .. }
-                    | crate::effects::Effect::Diffusion { .. }
-                    | crate::effects::Effect::WaveWarp { .. }
-                    | crate::effects::Effect::Ripple { .. }
-                    | crate::effects::Effect::Twirl { .. }
-                    | crate::effects::Effect::Bulge { .. }
-                    | crate::effects::Effect::Mirror { .. }
-                    | crate::effects::Effect::MotionTile { .. }
-                    | crate::effects::Effect::LinearWipe { .. }
-                    | crate::effects::Effect::RadialWipe { .. }
-                    | crate::effects::Effect::VenetianBlinds { .. }
-                    | crate::effects::Effect::IrisWipe { .. }
-                    | crate::effects::Effect::SimpleChoker { .. }
-                    | crate::effects::Effect::SpeedLines { .. }
-                    | crate::effects::Effect::CrossGlare { .. }
-                    | crate::effects::Effect::CameraShake { .. }
-                    | crate::effects::Effect::Rain { .. }
-                    | crate::effects::Effect::ColorLookup { .. }
-                    | crate::effects::Effect::LineBlur { .. }
-                    | crate::effects::Effect::HsvKey { .. }
-                    | crate::effects::Effect::Paraffin { .. }
-                    | crate::effects::Effect::KiraKira { .. }
-                    | crate::effects::Effect::Median { .. }
-                    | crate::effects::Effect::SmartBlur { .. }
-                    | crate::effects::Effect::RoughenEdges { .. }
-                    | crate::effects::Effect::RadialShadow { .. }
-                    | crate::effects::Effect::BevelAlpha { .. }
-                    | crate::effects::Effect::Snowfall { .. }
-                    | crate::effects::Effect::CellPattern { .. }
-                    | crate::effects::Effect::PolarCoordinates { .. }
-                    | crate::effects::Effect::OpticsCompensation { .. }
-                    | crate::effects::Effect::CornerPin { .. }
-            )
-            // D-122: a Levels whose input white is its black is a threshold, which a rounding
-            // either side of would turn from black to white, so it stays on the CPU.
-            && !matches!(effects[i].effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
-            // B-107: valid as it runs, at the draft's distances, since a draft can take a
-            // distance below its least (a Rain's spacing), which the CPU then reports and skips.
-            && {
-                let mut effect = effects[i].effect.clone();
-                effect.scale_distances(|d| d / pre);
-                effect.is_valid()
-            }
-    };
+    let can = |i: usize| card && cel.is_some() && card_can(&effects[i], pre);
     let mut chain = Vec::new();
     for i in (0..effects.len()).rev() {
         use crate::effects::Effect as E;
@@ -1585,12 +1749,6 @@ fn resolve_rest(
         let mut effect = effects[i].effect.clone();
         effect.scale_distances(|d| d / pre);
         on_card.extend(match effect {
-            crate::effects::Effect::RadialBlur { kind, amount, center, edges } => Some(render::OnCard::Radial(render::Radial {
-                spin: kind == "spin",
-                amount,
-                center: crate::effects::radial_center(center, size, offset),
-                repeat: edges == "repeat",
-            })),
             // B-47: a Bloom that lights nothing changes nothing and grows nothing, on the CPU too,
             // so it is not left at all. One that does grows the drawing by its reach.
             crate::effects::Effect::Bloom { threshold, radius, intensity, streaks, length, angle } => {
@@ -1604,20 +1762,6 @@ fn resolve_rest(
                     render::OnCard::Bloom(render::Bloom { threshold, radius, intensity, lines, length, angle })
                 })
             }
-            // B-49: length 0 changes nothing and grows nothing, so it is not left either.
-            crate::effects::Effect::DirectionalBlur { direction, length, edges } => (length != 0.0).then(|| {
-                let d = render::Directional { direction, length, repeat: edges == "repeat" };
-                offset = (offset.0 + d.grow(), offset.1 + d.grow());
-                render::OnCard::Directional(d)
-            }),
-            // B-50: a sigma too small to reach a neighbour changes nothing, so it is not left either.
-            crate::effects::Effect::GaussianBlur { sigma_px, edges } => {
-                (crate::effects::kernel_radius(sigma_px) != 0).then(|| {
-                    let g = render::Gaussian { sigma: sigma_px, repeat: edges == "repeat" };
-                    offset = (offset.0 + g.grow(), offset.1 + g.grow());
-                    render::OnCard::Gaussian(g)
-                })
-            }
             // B-51: as a Bloom, a Glow with nothing that glows changes nothing and is not left.
             crate::effects::Effect::Glow { based_on, threshold, colors, tolerance, radius, intensity, operation, tint } => {
                 use rayon::prelude::*;
@@ -1629,113 +1773,7 @@ fn resolve_rest(
                     render::OnCard::Glow(g)
                 })
             }
-            // B-65: the batch of ten, run as `apply_stack` runs them, from the drawing's corner so
-            // far. One that changes nothing and grows nothing, as each says of its settings, is
-            // not left.
-            effect => {
-                use crate::effects::Effect as E;
-                let nothing = match &effect {
-                    E::Curves { master, red, green, blue } => {
-                        [master, red, green, blue].iter().all(|c| crate::grade::is_straight(c))
-                    }
-                    E::Levels { input_black, input_white, gamma, output_black, output_white } => {
-                        [*input_black, *input_white, *gamma, *output_black, *output_white] == [0.0, 255.0, 1.0, 0.0, 255.0]
-                    }
-                    E::HueSaturation { hue, saturation, lightness } => [*hue, *saturation, *lightness] == [0.0; 3],
-                    E::Gradient { start_opacity, end_opacity, .. } => [*start_opacity, *end_opacity] == [0.0; 2],
-                    E::RimLight { intensity, .. } => *intensity == 0.0,
-                    E::Outline { width, .. } => *width == 0.0,
-                    E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } => *amount == 0.0,
-                    E::DistanceGradation { width, opacity, .. } => *width == 0.0 || *opacity == 0.0,
-                    E::LightRays { intensity, .. } => *intensity == 0.0,
-                    E::ExposureFlicker { amount, .. }
-                    | E::Vignette { amount, .. }
-                    | E::TurbulentDisplace { amount, .. }
-                    | E::GradientMap { amount, .. } => *amount == 0.0,
-                    E::FractalNoise { opacity, .. } => *opacity == 0.0,
-                    E::ColorBalance { shadows, midtones, highlights } => {
-                        [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))
-                    }
-                    E::Offset { shift } => *shift == [0.0, 0.0],
-                    // B-107: the third batch, each as its own function returns at once.
-                    E::Invert { amount, .. }
-                    | E::LeaveColor { amount, .. }
-                    | E::Halftone { amount, .. } => *amount == 0.0,
-                    E::BrightnessContrast { brightness, contrast } => [*brightness, *contrast] == [0.0; 2],
-                    E::ChannelMixer { red, green, blue, monochrome } => {
-                        monochrome != "on"
-                            && [&red[..4], &green[..4], &blue[..4]]
-                                == [[100.0, 0.0, 0.0, 0.0], [0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0]]
-                    }
-                    E::Vibrance { vibrance, saturation } => [*vibrance, *saturation] == [0.0; 2],
-                    E::Mosaic { size } => *size <= 1.0,
-                    E::FindEdges { amount, .. } => *amount <= 0.0,
-                    E::Sharpen { amount, radius } | E::Diffusion { amount, radius, .. } => *amount <= 0.0 || *radius <= 0.0,
-                    E::WaveWarp { height, .. } | E::Bulge { height, .. } if *height == 0.0 => true,
-                    E::Bulge { radius, .. } => *radius <= 0.0,
-                    E::Ripple { amplitude, .. } => *amplitude == 0.0,
-                    E::Twirl { angle, radius, .. } => *angle == 0.0 || *radius <= 0.0,
-                    E::LinearWipe { completion, .. }
-                    | E::RadialWipe { completion, .. }
-                    | E::VenetianBlinds { completion, .. }
-                    | E::IrisWipe { completion, .. } => *completion == 0.0,
-                    E::SimpleChoker { choke } => *choke == 0.0,
-                    E::CrossGlare { length, intensity, .. } => length.floor() == 0.0 || *intensity == 0.0,
-                    E::CameraShake { amount, rotation, .. } => [*amount, *rotation] == [0.0; 2],
-                    E::Rain { density, opacity, .. } => *density == 0.0 || *opacity == 0.0,
-                    // B-115: a tile that grows nothing, as `layer_fx::motion_tile` returns at once.
-                    E::MotionTile { output_width, output_height, .. } => {
-                        crate::layer_fx::tile_growth((*output_width, *output_height), size) == (0, 0)
-                    }
-                    // B-123: the batch's five new ones, each as its own function returns at once.
-                    E::ColorLookup { table, .. } => table.is_none(),
-                    E::LineBlur { length, .. } => *length == 0.0,
-                    E::Paraffin { spread, opacity, .. } => *spread == 0.0 || *opacity == 0.0,
-                    E::KiraKira { size, density, opacity, .. } => [*size, *density, *opacity].contains(&0.0),
-                    // B-151: ten of the fourth batch, each as its own function returns at once.
-                    E::Median { radius, .. } | E::SmartBlur { radius, .. } => *radius < 1.0,
-                    E::RoughenEdges { border, .. } => *border == 0.0,
-                    E::BevelAlpha { edge_thickness, light_intensity, .. } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
-                    E::Snowfall { density, size, opacity, .. } => [*density, *size, *opacity].contains(&0.0),
-                    E::CellPattern { opacity, .. } => *opacity == 0.0,
-                    E::PolarCoordinates { interpolation, .. } => *interpolation == 0.0,
-                    E::OpticsCompensation { field_of_view, .. } => *field_of_view == 0.0,
-                    E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
-                        [*upper_left, *upper_right, *lower_left, *lower_right] == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
-                    }
-                    _ => false,
-                };
-                // B-107: a shake grows by how far it can carry a corner, which its settings and
-                // the drawing's size say, not its settings alone. B-115: so does a Motion Tile,
-                // and not the same across as down.
-                let grow = match &effect {
-                    E::CameraShake { amount, rotation, .. } => {
-                        let g = crate::layer_fx::shake_reach(*amount, *rotation, size, offset).1;
-                        (g, g)
-                    }
-                    E::MotionTile { output_width, output_height, .. } => {
-                        crate::layer_fx::tile_growth((*output_width, *output_height), size)
-                    }
-                    // B-151: a Radial Shadow grows by its cast and the cast's blur, a Corner Pin
-                    // by its corners; both as their own functions do.
-                    E::RadialShadow { light, distance, softness, .. } => {
-                        let (_, _, _, gx, gy) = crate::layer_fx::radial_cast(*light, *distance, size, offset);
-                        let r = crate::effects::kernel_radius(softness / 3.0);
-                        (gx + r, gy + r)
-                    }
-                    E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
-                        let pins = [*upper_left, *upper_right, *lower_left, *lower_right];
-                        crate::layer_fx::corner_map(pins, size, offset).map_or((0, 0), |m| m.2)
-                    }
-                    _ => (effect.bounds_expansion(), effect.bounds_expansion()),
-                };
-                let instance = crate::effects::EffectInstance { effect, ..effects[i].clone() };
-                let fx = render::Fx { instance, origin: offset, grow };
-                (!nothing).then(|| {
-                    offset = (offset.0 + grow.0, offset.1 + grow.1);
-                    render::OnCard::Fx(fx)
-                })
-            }
+            effect => card_effect(effect, &effects[i], size, &mut offset),
         });
     }
 

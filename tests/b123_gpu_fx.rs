@@ -117,8 +117,8 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     (largest, pixels)
 }
 
-/// How many layers of the card's plan have one of the five left for the card; and whether it has an adjustment layer, which
-/// has the CPU draw the whole frame (B-44).
+/// How many layers of the card's plan have one of the five left for the card; and whether it has an adjustment layer the card
+/// does not draw, which has the CPU draw the whole frame (B-44, B-156).
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> (usize, bool) {
     let mut log = FrameLog::new(3);
     let plan = compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
@@ -127,7 +127,8 @@ fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> (usize, bool) {
         .iter()
         .filter(|l| l.on_card.iter().any(|c| matches!(c, render::OnCard::Fx(_))))
         .count();
-    (n, plan.layers.iter().any(|l| l.adjust.is_some()))
+    let frame = (plan.width, plan.height);
+    (n, plan.layers.iter().filter_map(|l| l.adjust.as_ref()).any(|s| compose::adjust_run(s, frame).is_none()))
 }
 
 #[test]
@@ -171,7 +172,7 @@ fn b123_gpu_fx() {
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let (n, adjusted) = left(shot, frame, quality);
                 let d = distance(&c, &g);
-                // A frame with an adjustment layer is the CPU's by B-44's rule, and must then be
+                // A frame with an adjustment layer the card does not draw is the CPU's by B-44's rule, and must then be
                 // the CPU's picture exactly, with the CPU's warnings and the card's one message.
                 let pass = if adjusted {
                     let expected = if said_cpu.is_empty() {
@@ -204,7 +205,7 @@ fn b123_gpu_fx() {
                         (_, false) => format!("CPU: {said_cpu}; GPU: {said_gpu}"),
                     },
                     match (adjusted, on_cpu, pass) {
-                        (true, _, true) => "PASS: an adjustment layer, so the CPU drew it (B-44)",
+                        (true, _, true) => "PASS: an adjustment layer the card does not draw, so the CPU drew it (B-44)",
                         (true, _, false) => "FAIL",
                         (false, true, _) => "FAIL: the CPU drew it",
                         (false, false, true) => "PASS",
@@ -281,8 +282,8 @@ fn b123_gpu_fx() {
          apart** (D-187). An effect that changes nothing or whose settings are invalid is not \
          left to the card; on those rows any difference is the card's layering, held to the same \
          1 level by D-100. On every row both paths must give the same warnings, and the card must \
-         draw the frame itself, except a frame with an adjustment layer, which the CPU draws by \
-         B-44's rule: that one must be the CPU's picture exactly, the card's message \
+         draw the frame itself, except a frame with an adjustment layer the card does not draw (B-156), which the CPU \
+         draws by B-44's rule: that one must be the CPU's picture exactly, the card's message \
          `GPU_PREVIEW_ON_CPU` its only extra warning.\n\n\
          **{passed} of {checks} checks pass.**\n\n\
          The worst comparison is \"{worst_case}\": largest difference {largest} of 255, pixels differing: {count}. \
