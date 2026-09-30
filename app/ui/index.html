@@ -1043,6 +1043,9 @@
         <label for="prefcard">Graphics card, in GB</label>
         <input id="prefcard" type="number" min="1" step="0.5">
         <p id="memoryuse"></p>
+        <h3>Export</h3>
+        <p>An MP4 can be encoded by the graphics card instead of the processor: usually faster, and the picture differs very slightly from the processor's. Off, every MP4 is exactly the file this program has always written. If the card cannot do it, the processor does, and the export says so.</p>
+        <label><input type="checkbox" id="prefhwvideo">Hardware video encoding</label>
         <button id="closeprefs">Close</button>
       </div>
       <h2>Drawings</h2>
@@ -2807,7 +2810,7 @@ sheet.ondblclick = (e) => {
 // Each is a preference with its box in Preferences and its box in the new composition form.
 const PREF_FIELDS = [['width', 'prefwidth', 'compwidth'], ['height', 'prefheight', 'compheight'],
   ['fps', 'preffps', 'compfps'], ['frames', 'prefframes', 'compframes']];
-const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, drawOn: 'auto', memory: 'auto' };
+const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, drawOn: 'auto', memory: 'auto', hardwareVideo: false };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('prefs') || '{}')); } catch (e) { /* the defaults */ }
 function savePrefs() {
   try { localStorage.setItem('prefs', JSON.stringify(prefs)); } catch (e) { /* kept for this run only */ }
@@ -10679,6 +10682,7 @@ $('prefcard').onchange = () => { prefs.cardGB = $('prefcard').value; savePrefs()
 // W-26: the Preferences box. A number is kept as it is typed, once it is a whole number above nought.
 $('preferences').onclick = () => {
   for (const [f, box] of PREF_FIELDS) $(box).value = prefs[f];
+  $('prefhwvideo').checked = prefs.hardwareVideo;
   $('prefs').hidden = !$('prefs').hidden;
   if (!$('prefs').hidden) memory();
 };
@@ -10688,6 +10692,8 @@ for (const [f, box] of PREF_FIELDS) {
     if (Number.isInteger(n) && n > 0) { prefs[f] = n; savePrefs(); }
   });
 }
+// D-230, proposed: off unless ticked; it travels with an MP4 export only.
+$('prefhwvideo').onchange = () => { prefs.hardwareVideo = $('prefhwvideo').checked; savePrefs(); };
 $('closeprefs').onclick = () => { $('prefs').hidden = true; };
 
 // P-19: the session log panel. The log itself is the window's; this asks it once a second
@@ -11265,6 +11271,7 @@ $('export').onclick = () =>
   command('/export?format=' + $('exportformat').value
     // D-73: each choice travels only with the format it belongs to.
     + ($('exportformat').value === 'mp4' ? '&quality=' + $('filmquality').value : '')
+    + ($('exportformat').value === 'mp4' && prefs.hardwareVideo ? '&hardware=on' : '')
     + ($('exportformat').value === 'gif' && $('gifdither').checked ? '&dither=on' : '')
     + ($('anyway').checked ? '&missing=write' : ''));
 // D-73: the quality list shows beside MP4 only, the dither tick beside GIF only.

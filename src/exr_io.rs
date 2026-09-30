@@ -255,6 +255,21 @@ pub fn write(
     samples: ExrSamples,
     rate: FrameRate,
 ) -> Result<(), String> {
+    write_bytes(path, &encode(buffer, samples, rate)?)
+}
+
+/// Write what [`encode`] made. A file left half-written is removed, as the crate's own
+/// `to_file` does, and a failure is said in the crate's words.
+pub fn write_bytes(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    std::fs::write(path, bytes).map_err(|e| {
+        let _ = std::fs::remove_file(path);
+        exr::error::Error::from(e).to_string()
+    })
+}
+
+/// [`write`]'s file, as bytes, for D-231's export, which encodes frames side by side and writes
+/// them in order.
+pub fn encode(buffer: &WorkingBuffer, samples: ExrSamples, rate: FrameRate) -> Result<Vec<u8>, String> {
     let (w, h) = (buffer.width(), buffer.height());
     let channel = |name: &str, k: usize| {
         let values = buffer.data().iter().skip(k).step_by(4).copied();
@@ -288,7 +303,9 @@ pub fn write(
     layer.attributes.frames_per_second = Some((rate.numerator() as i32, rate.denominator()));
     let mut image = Image::from_layer(layer);
     image.attributes.chromaticities = Some(rec709());
-    image.write().to_file(path).map_err(|e| e.to_string())
+    let mut file = std::io::Cursor::new(Vec::new());
+    image.write().to_buffered(&mut file).map_err(|e| e.to_string())?;
+    Ok(file.into_inner())
 }
 
 /// True when the file name ends in `.exr`, in any case. The extension decides the reader.

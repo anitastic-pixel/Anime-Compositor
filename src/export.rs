@@ -27,13 +27,15 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+use rayon::prelude::*;
+
 use crate::compose;
 use crate::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use crate::exr_io::{self, ExrSamples};
 use crate::film_out::Film;
 use crate::model::{Id, Project};
 use crate::png_out;
-use crate::{OutputAlpha, OutputDepth};
+use crate::{OutputAlpha, OutputDepth, WorkingBuffer};
 
 /// What to do about a frame whose layer has no drawing to show.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -112,6 +114,13 @@ pub struct ExportChoices {
     pub mp4_quality: crate::mp4_out::Mp4Quality,
     /// Floyd and Steinberg's dithering in a GIF. Off is what B-21c wrote.
     pub gif_dither: bool,
+    /// D-230, PROPOSED: ask Windows for the graphics card's H.264 encoder for an MP4. Off, the
+    /// default, is the software encoder every earlier MP4 came from. The card's file is not the
+    /// same bytes, and when there is no card encoder the report says the software one was used.
+    pub hardware_video: bool,
+    /// D-231: how many frames are drawn at once. Nought, the default, lets the export choose
+    /// from the machine and the picture's size. Every number writes the same bytes.
+    pub frames_at_once: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -253,21 +262,31 @@ pub fn export_sequence_counting(
     if request.missing == MissingSource::Block {
         let mut scan = FrameLog::new(3);
         let mut unresolved: Vec<i32> = Vec::new();
-        for &frame in &frames {
-            match compose::plan_frame(project, &request.composition, frame, root, &mut scan) {
-                Ok(_) => {}
-                Err(d) => {
+        // D-231: planned side by side, then read in order as if planned one after another.
+        for chunk in frames.chunks(frames_at_once(project, request)) {
+            let planned: Vec<(FrameLog, Result<(), Diagnostic>)> = chunk
+                .par_iter()
+                .map(|&frame| {
+                    let mut journal = FrameLog::journal();
+                    let planned =
+                        compose::plan_frame(project, &request.composition, frame, root, &mut journal);
+                    (journal, planned.map(|_| ()))
+                })
+                .collect();
+            for (&frame, (journal, planned)) in chunk.iter().zip(planned) {
+                journal.replay_into(&mut scan);
+                if let Err(d) = planned {
                     report.status = ExportStatus::Failed;
                     report.diagnostics.push(d);
                     return report;
                 }
-            }
-            if scan
-                .ids_at(frame)
-                .iter()
-                .any(|id| is_unresolved_source(*id))
-            {
-                unresolved.push(frame);
+                if scan
+                    .ids_at(frame)
+                    .iter()
+                    .any(|id| is_unresolved_source(*id))
+                {
+                    unresolved.push(frame);
+                }
             }
         }
         if !unresolved.is_empty() {
@@ -296,200 +315,159 @@ pub fn export_sequence_counting(
     }
 
     let mut log = FrameLog::new(3);
-    for &frame in &frames {
-        // Between frames, not during one: a cancelled job leaves whole files behind.
-        if cancel.load(Ordering::SeqCst) {
-            report.status = ExportStatus::Cancelled;
-            report.diagnostics.push(Diagnostic::new(
-                DiagnosticId::ExportCancelled,
-                Severity::Info,
-                if one_file {
-                    "Export stopped at your request. An animated file is whole or it is nothing, \
-                     so no file was left."
-                        .to_string()
-                } else {
-                    format!(
-                        "Export stopped at your request after {} of {} frames.",
-                        report.written.len(),
-                        frames.len()
-                    )
-                },
-                if one_file {
-                    format!(
-                        "Frame {frame} had not been written when the request arrived. An animated \
-                         file is whole or it is nothing, so {} was removed.",
-                        film_path.display()
-                    )
-                } else {
-                    format!(
-                        "Frame {frame} had not been written when the request arrived. The frames \
-                         already written are complete files and were left in place."
-                    )
-                },
-            ));
-            if film.take().is_some() {
-                let _ = std::fs::remove_file(&film_path);
-            }
-            report.diagnostics.extend(log.finish());
-            return report;
-        }
-
-        let buffer = match compose::render_frame(
-            project,
-            &request.composition,
-            frame,
-            root,
-            request.tile_size,
-            &mut log,
-        ) {
-            Ok(buffer) => buffer,
-            Err(d) => {
-                report.status = ExportStatus::Failed;
-                report.diagnostics.push(d);
+    // D-231: a chunk of frames is drawn, and each frame's file encoded, side by side. Then they
+    // are written one at a time in order, each frame's log handed to the job's log as if the
+    // frames had been drawn one after another, so the files, the report and the order of writing
+    // are what drawing one frame at a time gave.
+    for chunk in frames.chunks(frames_at_once(project, request)) {
+        let mut drawn = chunk
+            .par_iter()
+            .map(|&frame| draw(project, root, request, frame, cancel))
+            .collect::<Vec<_>>()
+            .into_iter();
+        for &frame in chunk {
+            // Between frames, not during one: a cancelled job leaves whole files behind.
+            if cancel.load(Ordering::SeqCst) {
+                report.status = ExportStatus::Cancelled;
+                report.diagnostics.push(Diagnostic::new(
+                    DiagnosticId::ExportCancelled,
+                    Severity::Info,
+                    if one_file {
+                        "Export stopped at your request. An animated file is whole or it is nothing, \
+                         so no file was left."
+                            .to_string()
+                    } else {
+                        format!(
+                            "Export stopped at your request after {} of {} frames.",
+                            report.written.len(),
+                            frames.len()
+                        )
+                    },
+                    if one_file {
+                        format!(
+                            "Frame {frame} had not been written when the request arrived. An animated \
+                             file is whole or it is nothing, so {} was removed.",
+                            film_path.display()
+                        )
+                    } else {
+                        format!(
+                            "Frame {frame} had not been written when the request arrived. The frames \
+                             already written are complete files and were left in place."
+                        )
+                    },
+                ));
+                if film.take().is_some() {
+                    let _ = std::fs::remove_file(&film_path);
+                }
                 report.diagnostics.extend(log.finish());
                 return report;
             }
-        };
-        // Document 28: "exported output must report that fidelity is incomplete" when a feature
-        // was bypassed. Four identifiers mean that -- the generic one D-24 registered, the mask
-        // outline D-43 added, and the two effect faults B-07 brought in -- and any one of them
-        // is enough to mark the file.
-        let ids = log.ids_at(frame);
-        let bypassed = ids.contains(&DiagnosticId::ProjectFeatureUnsupported)
-            || ids.contains(&DiagnosticId::MaskInvalidOutline)
-            || ids.contains(&DiagnosticId::EffectUnsupported)
-            || ids.contains(&DiagnosticId::EffectParameterInvalid);
-        report.fidelity_incomplete |= bypassed;
 
-        let path = if one_file {
-            film_path.clone()
-        } else {
-            request.output_dir.join(expand(&request.naming, frame))
-        };
-        let mut tags = vec![
-            ("Software", "anime_compositor export (R-09)".to_string()),
-            (
-                "ColorSpace",
-                match request.depth {
-                    OutputDepth::Eight => "sRGB IEC 61966-2-1, 8 bits per channel".to_string(),
-                    OutputDepth::Sixteen => "sRGB IEC 61966-2-1, 16 bits per channel".to_string(),
-                },
-            ),
-            (
-                "AlphaMode",
-                match request.alpha {
-                    OutputAlpha::Straight => "Straight".to_string(),
-                    OutputAlpha::Premultiplied => "Premultiplied".to_string(),
-                },
-            ),
-            (
-                "WorkingSpace",
-                "converted from linear light, premultiplied, float32".to_string(),
-            ),
-            ("Frame", frame.to_string()),
-        ];
-        if bypassed {
-            // Document 28: "exported output must report that fidelity is incomplete".
-            tags.push((
-                "Fidelity",
-                // The wording said "a parked feature" until B-07. Nothing that raises this is
-                // parked any more -- a crossed mask outline and an effect this build does not
-                // have are both things it refuses to guess at -- so the tag says what is
-                // actually true of the file.
-                "incomplete: a layer carried something this build could not draw".to_string(),
-            ));
-        }
-        if one_file && film.is_none() {
-            let rate = project
-                .composition(&request.composition)
-                .map(|c| c.frame_rate)
-                .ok_or_else(|| "the composition is not in the project".to_string());
-            let (w, h) = (buffer.width(), buffer.height());
-            let opened = rate.and_then(|rate| match request.format {
-                OutputFormat::Gif => match Film::gif_refusal(w, h) {
-                    Some(why) => Err(why),
-                    None => Film::gif(&path, w, h, rate, request.choices.gif_dither),
-                },
-                OutputFormat::Mp4 => match crate::mp4_out::refusal(w, h) {
-                    Some(why) => Err(why),
-                    None => crate::mp4_out::Mp4::create(&path, w, h, rate, request.choices.mp4_quality)
-                        .map(Film::Mp4),
-                },
-                // The header is written once, so it carries no `Frame` tag, and its `Fidelity`
-                // tag speaks for the first frame only; the report speaks for them all.
-                _ => {
-                    let header: Vec<(&str, String)> =
-                        tags.iter().filter(|(k, _)| *k != "Frame").cloned().collect();
-                    Film::apng(&path, w, h, request.depth, rate, frames.len() as u32, &header)
-                }
-            });
-            match opened {
-                Ok(opened) => film = Some(opened),
-                Err(why) => {
+            let (journal, drawn) = drawn
+                .next()
+                .flatten()
+                .expect("a frame is left undrawn only once cancelled, which the check above stops at");
+            journal.replay_into(&mut log);
+            let Drawn { buffer, bypassed: drew_bypassed, encoded } = match drawn {
+                Ok(drawn) => drawn,
+                Err(d) => {
                     report.status = ExportStatus::Failed;
-                    report.diagnostics.push(invalid(why));
+                    report.diagnostics.push(d);
+                    report.diagnostics.extend(log.finish());
                     return report;
                 }
-            }
-        }
-        let written = match request.format {
-            OutputFormat::Gif | OutputFormat::Apng | OutputFormat::Mp4 => film
-                .as_mut()
-                .expect("the film was opened above")
-                .push(
-                    buffer.width(),
-                    buffer.height(),
-                    &buffer.encode(OutputDepth::Eight, OutputAlpha::Straight),
-                    &buffer.encode(request.depth, request.alpha),
-                ),
-            OutputFormat::Png => png_out::write_rgba(
-                &path,
-                buffer.width(),
-                buffer.height(),
-                request.depth,
-                &tags,
-                &buffer.encode(request.depth, request.alpha),
-            )
-            .map_err(|e| e.to_string()),
-            // D-62 writes no attribute beyond its list, so the tags above, the fidelity mark
-            // included, are not in an EXR; the report's `fidelity_incomplete` still says it.
-            OutputFormat::Exr(samples) => {
+            };
+            let bypassed = bypassed(&log.ids_at(frame));
+            report.fidelity_incomplete |= bypassed;
+
+            let path = if one_file {
+                film_path.clone()
+            } else {
+                request.output_dir.join(expand(&request.naming, frame))
+            };
+            let tags = tags(request, frame, bypassed);
+            if one_file && film.is_none() {
                 let rate = project
                     .composition(&request.composition)
                     .map(|c| c.frame_rate)
                     .ok_or_else(|| "the composition is not in the project".to_string());
-                rate.and_then(|rate| exr_io::write(&path, &buffer, samples, rate))
+                let (w, h) = (buffer.width(), buffer.height());
+                let opened = rate.and_then(|rate| match request.format {
+                    OutputFormat::Gif => match Film::gif_refusal(w, h) {
+                        Some(why) => Err(why),
+                        None => Film::gif(&path, w, h, rate, request.choices.gif_dither),
+                    },
+                    OutputFormat::Mp4 => match crate::mp4_out::refusal(w, h) {
+                        Some(why) => Err(why),
+                        None => open_mp4(&path, w, h, rate, request, &mut report.diagnostics),
+                    },
+                    // The header is written once, so it carries no `Frame` tag, and its `Fidelity`
+                    // tag speaks for the first frame only; the report speaks for them all.
+                    _ => {
+                        let header: Vec<(&str, String)> =
+                            tags.iter().filter(|(k, _)| *k != "Frame").cloned().collect();
+                        Film::apng(&path, w, h, request.depth, rate, frames.len() as u32, &header)
+                    }
+                });
+                match opened {
+                    Ok(opened) => film = Some(opened),
+                    Err(why) => {
+                        report.status = ExportStatus::Failed;
+                        report.diagnostics.push(invalid(why));
+                        return report;
+                    }
+                }
             }
-        };
-        if let Err(e) = written {
-            report.status = ExportStatus::Failed;
-            report.diagnostics.push(
-                Diagnostic::new(
-                    DiagnosticId::ExportWriteFailed,
-                    Severity::Error,
-                    format!("Frame {frame} could not be written to {}.", path.display()),
-                    format!(
-                        "{e}. {} of {} frames had been written when this happened, and they were \
-                         left in place.",
-                        report.written.len(),
-                        frames.len()
+            let written = match encoded {
+                Encoded::Film { srgb8, samples } => film
+                    .as_mut()
+                    .expect("the film was opened above")
+                    .push(buffer.width(), buffer.height(), &srgb8, &samples),
+                // A PNG was encoded with the fidelity mark its own frame's log called for. The job's
+                // log is the one that decides, and should an earlier frame have logged against this
+                // one, the file is encoded again here with the job's answer.
+                Encoded::Png(bytes) => {
+                    let bytes = if drew_bypassed == bypassed {
+                        bytes
+                    } else {
+                        png_encode(request, &buffer, &tags)
+                    };
+                    bytes.and_then(|b| std::fs::write(&path, b).map_err(|e| e.to_string()))
+                }
+                // D-62 writes no attribute beyond its list, so the tags above, the fidelity mark
+                // included, are not in an EXR; the report's `fidelity_incomplete` still says it.
+                Encoded::Exr(bytes) => bytes.and_then(|b| exr_io::write_bytes(&path, &b)),
+            };
+            if let Err(e) = written {
+                report.status = ExportStatus::Failed;
+                report.diagnostics.push(
+                    Diagnostic::new(
+                        DiagnosticId::ExportWriteFailed,
+                        Severity::Error,
+                        format!("Frame {frame} could not be written to {}.", path.display()),
+                        format!(
+                            "{e}. {} of {} frames had been written when this happened, and they were \
+                             left in place.",
+                            report.written.len(),
+                            frames.len()
+                        ),
+                    )
+                    .with_remediation(
+                        "Check that the folder exists, is writable and has room, then export the \
+                         frames that are missing.",
                     ),
-                )
-                .with_remediation(
-                    "Check that the folder exists, is writable and has room, then export the \
-                     frames that are missing.",
-                ),
-            );
-            if film.take().is_some() {
-                let _ = std::fs::remove_file(&film_path);
+                );
+                if film.take().is_some() {
+                    let _ = std::fs::remove_file(&film_path);
+                }
+                report.diagnostics.extend(log.finish());
+                return report;
             }
-            report.diagnostics.extend(log.finish());
-            return report;
+            if !one_file {
+                report.written.push(path);
+            }
+            done.fetch_add(1, Ordering::SeqCst);
         }
-        if !one_file {
-            report.written.push(path);
-        }
-        done.fetch_add(1, Ordering::SeqCst);
     }
     if let Some(film) = film {
         match film.finish() {
@@ -507,6 +485,204 @@ pub fn export_sequence_counting(
 
     report.diagnostics.extend(log.finish());
     report
+}
+
+/// D-231: how many frames are drawn at once. As many as the machine has threads, and no more
+/// than keeps the frames in flight near 2 GiB, counting four float pictures a frame for what a
+/// render holds while it works: 15 at 1920x1080, 3 at 3840x2160.
+fn frames_at_once(project: &Project, request: &ExportRequest) -> usize {
+    if request.choices.frames_at_once > 0 {
+        return request.choices.frames_at_once;
+    }
+    let pixels = project
+        .composition(&request.composition)
+        .map_or(1, |c| c.width as usize * c.height as usize)
+        .max(1);
+    // ponytail: a fixed 2 GiB. Take it from Preferences' memory setting if a heavy project
+    // runs a machine short.
+    ((2usize << 30) / (pixels * 16 * 4)).clamp(1, rayon::current_num_threads())
+}
+
+/// D-230, PROPOSED: the MP4 on the graphics card's encoder when "Hardware video encoding" is
+/// chosen, with a note saying which encoder wrote it. A card that cannot is not a failure: the
+/// software encoder writes the film and the note says so as a warning, so nothing changes
+/// silently.
+fn open_mp4(
+    path: &Path,
+    w: usize,
+    h: usize,
+    rate: crate::time::FrameRate,
+    request: &ExportRequest,
+    notes: &mut Vec<Diagnostic>,
+) -> Result<Film, String> {
+    use crate::mp4_out::Mp4;
+    let quality = request.choices.mp4_quality;
+    if !request.choices.hardware_video {
+        return Mp4::create(path, w, h, rate, quality).map(Film::Mp4);
+    }
+    let fell_back = |why: String| {
+        Diagnostic::new(
+            DiagnosticId::ExportVideoEncoder,
+            Severity::Warning,
+            "Hardware video encoding was chosen, but the graphics card did not encode this film; \
+             the software encoder did.",
+            why,
+        )
+        .with_remediation(
+            "Nothing is wrong with the film. To stop seeing this, turn Hardware video encoding off \
+             in Preferences.",
+        )
+    };
+    #[cfg(windows)]
+    match Mp4::create_on_card(path, w, h, rate, quality) {
+        Ok((film, Some(name))) => {
+            notes.push(Diagnostic::new(
+                DiagnosticId::ExportVideoEncoder,
+                Severity::Info,
+                format!("The graphics card encoded this film ({name})."),
+                "Hardware video encoding is on (D-230, proposed). The card's pictures differ \
+                 slightly from the software encoder's; turn the choice off in Preferences for \
+                 the software encoder's exact file.",
+            ));
+            Ok(Film::Mp4(film))
+        }
+        Ok((film, None)) => {
+            notes.push(fell_back("Windows was asked for the card's encoder and chose a software \
+                                  one."
+                .to_string()));
+            Ok(Film::Mp4(film))
+        }
+        Err(why) => {
+            let _ = std::fs::remove_file(path);
+            notes.push(fell_back(format!("Asking for the card's encoder failed: {why}")));
+            Mp4::create(path, w, h, rate, quality).map(Film::Mp4)
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        notes.push(fell_back("This build writes an MP4 through ffmpeg's software encoder.".to_string()));
+        Mp4::create(path, w, h, rate, quality).map(Film::Mp4)
+    }
+}
+
+/// One frame drawn ahead of its turn to be written.
+struct Drawn {
+    buffer: WorkingBuffer,
+    /// Whether this frame's own log marked it as missing something, which is what its PNG was
+    /// encoded with.
+    bypassed: bool,
+    encoded: Encoded,
+}
+
+/// The file a frame becomes, made beside the other frames' so that writing it is only writing.
+enum Encoded {
+    Png(Result<Vec<u8>, String>),
+    Exr(Result<Vec<u8>, String>),
+    /// The two encodings `Film::push` takes.
+    Film { srgb8: Vec<u8>, samples: Vec<u8> },
+}
+
+/// Draw `frame` into a log of its own and encode its file. `None` when the job was cancelled
+/// before it started, which the writing loop sees before it reaches this frame.
+#[allow(clippy::type_complexity)]
+fn draw(
+    project: &Project,
+    root: &Path,
+    request: &ExportRequest,
+    frame: i32,
+    cancel: &AtomicBool,
+) -> Option<(FrameLog, Result<Drawn, Diagnostic>)> {
+    if cancel.load(Ordering::SeqCst) {
+        return None;
+    }
+    let mut journal = FrameLog::journal();
+    let drawn = compose::render_frame(
+        project,
+        &request.composition,
+        frame,
+        root,
+        request.tile_size,
+        &mut journal,
+    )
+    .map(|buffer| {
+        let bypassed = bypassed(&journal.ids_at(frame));
+        let encoded = match request.format {
+            OutputFormat::Png => Encoded::Png(png_encode(request, &buffer, &tags(request, frame, bypassed))),
+            OutputFormat::Exr(samples) => Encoded::Exr(
+                project
+                    .composition(&request.composition)
+                    .map(|c| c.frame_rate)
+                    .ok_or_else(|| "the composition is not in the project".to_string())
+                    .and_then(|rate| exr_io::encode(&buffer, samples, rate)),
+            ),
+            OutputFormat::Gif | OutputFormat::Apng | OutputFormat::Mp4 => Encoded::Film {
+                srgb8: buffer.encode(OutputDepth::Eight, OutputAlpha::Straight),
+                samples: buffer.encode(request.depth, request.alpha),
+            },
+        };
+        Drawn { buffer, bypassed, encoded }
+    });
+    Some((journal, drawn))
+}
+
+/// Document 28: "exported output must report that fidelity is incomplete" when a feature was
+/// bypassed. Four identifiers mean that -- the generic one D-24 registered, the mask outline
+/// D-43 added, and the two effect faults B-07 brought in -- and any one of them is enough to
+/// mark the file.
+fn bypassed(ids: &[DiagnosticId]) -> bool {
+    ids.contains(&DiagnosticId::ProjectFeatureUnsupported)
+        || ids.contains(&DiagnosticId::MaskInvalidOutline)
+        || ids.contains(&DiagnosticId::EffectUnsupported)
+        || ids.contains(&DiagnosticId::EffectParameterInvalid)
+}
+
+/// The text tags an exported PNG carries.
+fn tags(request: &ExportRequest, frame: i32, bypassed: bool) -> Vec<(&'static str, String)> {
+    let mut tags = vec![
+        ("Software", "anime_compositor export (R-09)".to_string()),
+        (
+            "ColorSpace",
+            match request.depth {
+                OutputDepth::Eight => "sRGB IEC 61966-2-1, 8 bits per channel".to_string(),
+                OutputDepth::Sixteen => "sRGB IEC 61966-2-1, 16 bits per channel".to_string(),
+            },
+        ),
+        (
+            "AlphaMode",
+            match request.alpha {
+                OutputAlpha::Straight => "Straight".to_string(),
+                OutputAlpha::Premultiplied => "Premultiplied".to_string(),
+            },
+        ),
+        (
+            "WorkingSpace",
+            "converted from linear light, premultiplied, float32".to_string(),
+        ),
+        ("Frame", frame.to_string()),
+    ];
+    if bypassed {
+        // Document 28: "exported output must report that fidelity is incomplete".
+        tags.push((
+            "Fidelity",
+            // The wording said "a parked feature" until B-07. Nothing that raises this is
+            // parked any more -- a crossed mask outline and an effect this build does not
+            // have are both things it refuses to guess at -- so the tag says what is
+            // actually true of the file.
+            "incomplete: a layer carried something this build could not draw".to_string(),
+        ));
+    }
+    tags
+}
+
+fn png_encode(request: &ExportRequest, buffer: &WorkingBuffer, tags: &[(&str, String)]) -> Result<Vec<u8>, String> {
+    png_out::encode_rgba(
+        buffer.width(),
+        buffer.height(),
+        request.depth,
+        tags,
+        &buffer.encode(request.depth, request.alpha),
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// True for a diagnostic that means "this frame has no drawing to show", which is what

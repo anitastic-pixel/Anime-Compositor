@@ -327,16 +327,80 @@ mod on_windows {
         }
     }
 
+    /// D-230: the name of the graphics card's encoder the writer is using on `stream`, or `None`
+    /// when every transform it chose is software.
+    fn card_encoder(writer: &IMFSinkWriter, stream: u32) -> Option<String> {
+        use windows::core::Interface;
+        let writer: IMFSinkWriterEx = writer.cast().ok()?;
+        (0..).map_while(|i| unsafe {
+            let mut t = None;
+            writer.GetTransformForStream(stream, i, None, &mut t).ok()?;
+            t
+        })
+        .find_map(|t| unsafe {
+            let a = t.GetAttributes().ok()?;
+            // Only a hardware transform carries this attribute.
+            a.GetStringLength(&MFT_ENUM_HARDWARE_URL_Attribute).ok()?;
+            let mut name = windows::core::PWSTR::null();
+            let mut len = 0;
+            let named = a.GetAllocatedString(&MFT_FRIENDLY_NAME_Attribute, &mut name, &mut len).is_ok();
+            let said = if named { name.to_string().unwrap_or_default() } else { String::new() };
+            if named {
+                windows::Win32::System::Com::CoTaskMemFree(Some(name.0 as _));
+            }
+            Some(if said.is_empty() { "the graphics card's H.264 encoder".to_string() } else { said })
+        })
+    }
+
     impl Mp4 {
         pub fn create(path: &Path, width: usize, height: usize, rate: FrameRate, quality: Mp4Quality) -> Result<Self, String> {
+            Self::open(path, width, height, rate, quality, false).map(|(film, _)| film)
+        }
+
+        /// D-230, PROPOSED: [`create`](Self::create), asking Windows for the graphics card's
+        /// encoder. Also returns that encoder's name, or `None` when Windows chose software
+        /// anyway, so the caller can say which it was.
+        pub fn create_on_card(
+            path: &Path,
+            width: usize,
+            height: usize,
+            rate: FrameRate,
+            quality: Mp4Quality,
+        ) -> Result<(Self, Option<String>), String> {
+            Self::open(path, width, height, rate, quality, true)
+        }
+
+        fn open(
+            path: &Path,
+            width: usize,
+            height: usize,
+            rate: FrameRate,
+            quality: Mp4Quality,
+            card: bool,
+        ) -> Result<(Self, Option<String>), String> {
             unsafe {
                 // Already initialised on this thread is an answer too, and not a failure.
                 let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
                 MFStartup(MF_VERSION, MFSTARTUP_FULL).map_err(said)?;
                 let open = || -> windows::core::Result<(IMFSinkWriter, u32)> {
-                    let writer =
-                        MFCreateSinkWriterFromURL(&HSTRING::from(path.as_os_str()), None, None)?;
+                    let mut asked: Option<IMFAttributes> = None;
+                    if card {
+                        MFCreateAttributes(&mut asked, 1)?;
+                        if let Some(a) = &asked {
+                            a.SetUINT32(&MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, 1)?;
+                        }
+                    }
+                    let writer = MFCreateSinkWriterFromURL(
+                        &HSTRING::from(path.as_os_str()),
+                        None,
+                        asked.as_ref(),
+                    )?;
                     let out = video_type(&MFVideoFormat_H264, width, height, rate)?;
+                    if card {
+                        // The software encoder's default, said out loud because a card's
+                        // default reorders frames, which `set_clock` refuses.
+                        out.SetUINT32(&MF_MT_MPEG2_PROFILE, eAVEncH264VProfile_Base.0 as u32)?;
+                    }
                     out.SetUINT32(&MF_MT_AVG_BITRATE, bitrate(width, height, rate, quality))?;
                     // D-73: the file says what its colour is (FX-FMT-060).
                     out.SetUINT32(&MF_MT_VIDEO_PRIMARIES, MFVideoPrimaries_BT709.0 as u32)?;
@@ -353,7 +417,11 @@ mod on_windows {
                     Ok((writer, stream))
                 };
                 match open() {
-                    Ok((writer, stream)) => Ok(Mp4 { path: path.to_path_buf(), writer, stream, width, height, rate, frames: 0 }),
+                    Ok((writer, stream)) => {
+                        let encoder = if card { card_encoder(&writer, stream) } else { None };
+                        let film = Mp4 { path: path.to_path_buf(), writer, stream, width, height, rate, frames: 0 };
+                        Ok((film, encoder))
+                    }
                     Err(e) => {
                         let _ = MFShutdown();
                         Err(said(e))

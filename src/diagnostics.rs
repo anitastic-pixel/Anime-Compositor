@@ -148,6 +148,10 @@ pub enum DiagnosticId {
     /// the requested range has no source drawing. Document 07 requires a blocked final export
     /// as the default missing-frame behaviour and document 28 names no identifier for it.
     ExportBlockedMissingMedia,
+    /// **Proposed (D-230).** Which encoder wrote an MP4 when "Hardware video encoding" was
+    /// chosen: INFO naming the graphics card's encoder, or WARNING when the card could not do it
+    /// and the software encoder wrote the film instead, so the change is never silent.
+    ExportVideoEncoder,
     /// Document 28, added by D-59: an expression that cannot be read, or that names a word, a
     /// member or a function the language does not have. ERROR, though the frame is still drawn with
     /// the property at its keyed value; an export that meets one is refused.
@@ -258,6 +262,7 @@ impl DiagnosticId {
             DiagnosticId::ExportWriteFailed => "EXPORT_WRITE_FAILED",
             DiagnosticId::ExportCancelled => "EXPORT_CANCELLED",
             DiagnosticId::ExportBlockedMissingMedia => "EXPORT_BLOCKED_MISSING_MEDIA",
+            DiagnosticId::ExportVideoEncoder => "EXPORT_VIDEO_ENCODER",
             DiagnosticId::ExpressionSyntax => "EXPRESSION_SYNTAX",
             DiagnosticId::ExpressionType => "EXPRESSION_TYPE",
             DiagnosticId::ExpressionReferenceMissing => "EXPRESSION_REFERENCE_MISSING",
@@ -438,6 +443,8 @@ pub struct FrameLog {
     limit: usize,
     groups: Vec<FrameGroup>,
     logged: Vec<Diagnostic>,
+    /// D-231: every record whole and in order, kept only by [`FrameLog::journal`].
+    journal: Option<Vec<(i32, String, Diagnostic)>>,
 }
 
 struct FrameGroup {
@@ -456,6 +463,24 @@ impl FrameLog {
             limit,
             groups: Vec::new(),
             logged: Vec::new(),
+            journal: None,
+        }
+    }
+
+    /// D-231: a log for one frame rendered on its own, beside others. It keeps every record
+    /// whole, so [`replay_into`](Self::replay_into) can hand them to the job's log afterwards
+    /// exactly as if the frame had been rendered into that log.
+    pub fn journal() -> Self {
+        FrameLog {
+            journal: Some(Vec::new()),
+            ..FrameLog::new(usize::MAX)
+        }
+    }
+
+    /// Record, in `into`, everything this journal recorded, in the order it was recorded.
+    pub fn replay_into(self, into: &mut FrameLog) {
+        for (frame, subject, diagnostic) in self.journal.expect("replay_into needs FrameLog::journal") {
+            into.record(frame, subject, diagnostic);
         }
     }
 
@@ -465,6 +490,9 @@ impl FrameLog {
     /// group's count and ranges.
     pub fn record(&mut self, frame: i32, subject: impl Into<String>, diagnostic: Diagnostic) {
         let subject = subject.into();
+        if let Some(journal) = &mut self.journal {
+            journal.push((frame, subject.clone(), diagnostic.clone()));
+        }
         let index = match self
             .groups
             .iter()
@@ -533,6 +561,7 @@ impl FrameLog {
             limit,
             groups,
             mut logged,
+            ..
         } = self;
         for group in groups {
             let total = group.frames.len();
