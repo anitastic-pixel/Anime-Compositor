@@ -207,7 +207,7 @@ type Read = Result<Arc<Cube>, String>;
 pub fn read(path: &Path) -> Read {
     static READ: OnceLock<Mutex<HashMap<PathBuf, (u64, Option<SystemTime>, Read)>>> =
         OnceLock::new();
-    let meta = std::fs::metadata(path).map_err(|e| format!("it could not be read: {e}"))?;
+    let meta = crate::cache::looked_at(path).map_err(|e| format!("it could not be read: {e}"))?;
     let stamp = (meta.len(), meta.modified().ok());
     let mut held = READ.get_or_init(Default::default).lock().expect("the lookup files' lock");
     if let Some((len, modified, read)) = held.get(path) {
@@ -278,7 +278,7 @@ pub(crate) fn fill(
         };
         let relative = asset.path.as_deref().unwrap_or("");
         let path = root.join(relative);
-        if relative.is_empty() || !path.is_file() {
+        if relative.is_empty() || !crate::cache::looked_at(&path).is_ok_and(|m| m.is_file()) {
             said.push(
                 Diagnostic::new(
                     DiagnosticId::MediaMissing,

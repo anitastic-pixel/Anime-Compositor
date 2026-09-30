@@ -42,7 +42,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use anime_compositor::cache::CelCache;
+use anime_compositor::cache::{CelCache, Finished, FrameCache, Sight};
 use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
@@ -150,6 +150,19 @@ struct Viewer {
     /// outside the viewer lock, so the one thing a render holds for its whole length has to
     /// be something a command never needs, and no command touches this.
     cache: Arc<Mutex<CelCache>>,
+    /// B-154: finished frames, and where playback is, for the render-ahead. Replaced with the
+    /// project, as the cels are.
+    ram: Arc<Mutex<Ram>>,
+}
+
+/// B-154 (G3): the viewer's RAM preview.
+struct Ram {
+    frames: FrameCache,
+    /// The frame playback last asked for, or `None` when it is not playing. The render-ahead
+    /// works outward from here and stops when this is `None`.
+    playing: Option<i32>,
+    /// What the card is showing in the window, so a frame made ahead on the card can put it back.
+    shown: Option<Finished>,
 }
 
 /// What the page is asking for.
@@ -600,6 +613,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             quality: viewer.quality,
             alpha_only: viewer.alpha_only,
             cache: Arc::clone(&viewer.cache),
+            ram: Arc::clone(&viewer.ram),
             frame,
             skipped: 0,
             ahead: None,
@@ -1058,6 +1072,8 @@ struct Snapshot {
     alpha_only: bool,
     /// The decoded cels, which a render holds for its whole length and no command touches.
     cache: Arc<Mutex<CelCache>>,
+    /// B-154: the finished frames.
+    ram: Arc<Mutex<Ram>>,
     frame: i32,
     /// P-19: frames the clock passed over to reach this one, for the session log's row.
     skipped: u32,
@@ -1269,6 +1285,7 @@ fn serve_logged(
             quality: viewer.quality,
             alpha_only: viewer.alpha_only,
             cache: Arc::clone(&viewer.cache),
+            ram: Arc::clone(&viewer.ram),
             frame,
             skipped,
             ahead,
@@ -1277,88 +1294,130 @@ fn serve_logged(
         }
     };
 
+    // B-154: playback's place, for the render-ahead; a frame asked for by number stops it.
+    taken.ram.lock().expect("the frame memory lock was poisoned").playing =
+        matches!(ask, Ask::At(_) | Ask::Play(_)).then_some(taken.frame);
+    let mut sight = Sight {
+        project: taken.project,
+        composition: taken.composition,
+        root: taken.root,
+        quality: taken.quality,
+        card: card.and_then(|c| drawn_by(Some(&*c.lock().expect("the card lock was poisoned")))),
+    };
+    // A frame already made for this same sight is sent from memory, without waiting for the cels.
+    let kept = taken.ram.lock().expect("the frame memory lock was poisoned").frames.get(&sight, taken.frame);
+
     let mut log = FrameLog::new(3);
-    let mut cache = taken.cache.lock().expect("the cel cache lock was poisoned");
+    let mut cache = kept.is_none().then(|| taken.cache.lock().expect("the cel cache lock was poisoned"));
+    if let Some(cels) = cache.as_deref_mut() {
+        fit_cels(cels, &taken.ram);
+    }
     // P-19: the counters are the cache's own running totals. The lock is held from here until
     // they are read again, so the difference is this frame's and no read-ahead's.
-    let counted = (cache.hits(), cache.misses(), cache.effect_hits());
+    let counted = cache.as_deref().map_or((0, 0, 0), |c| (c.hits(), c.misses(), c.effect_hits()));
     // B-44: on the card when the switch is on. The CPU path below is unchanged, so with the
     // switch off every frame is exactly what it was.
     enum Made {
         Cpu(anime_compositor::WorkingBuffer),
         Gpu(Vec<u8>, usize, usize),
-        // B-45: already painted into the window by the card; only its size goes to the page.
-        Shown(usize, usize),
+        // B-45: already painted into the window by the card; only its size goes to the page. The
+        // pixels are read back for B-154's memory, and are empty when they could not be.
+        Shown(Vec<u8>, usize, usize),
+        // B-154: from memory, and whether the card has painted it into the window.
+        Kept(Finished, bool),
     }
     let mut card = card.map(|c| c.lock().expect("the card lock was poisoned"));
-    let on_gpu = card.as_deref().is_some_and(|c| c.on);
+    if kept.is_none() {
+        sight.card = drawn_by(card.as_deref());
+    }
+    let on_gpu = sight.card.is_some();
     let failures = card.as_deref().map_or(0, Card::failures);
-    let made = match card.as_deref_mut() {
-        Some(Card { on: true, gpu: Some(Ok(gpu)), paints, size, off_screen, .. })
-            if gpu.on_screen() && !paints.is_empty() =>
-        {
-            preview::preview_frame_held(
-                &taken.project,
-                &taken.composition,
+    let (made, files) = match (kept, cache.as_deref_mut()) {
+        (Some(kept), _) => (
+            Ok(match card.as_deref_mut() {
+                Some(Card { on: true, gpu: Some(Ok(gpu)), paints, size, off_screen, .. })
+                    if gpu.on_screen() && !paints.is_empty() =>
+                {
+                    gpu.hold(&kept.pixels, kept.width, kept.height);
+                    match gpu.show(*size, paints, taken.alpha_only) {
+                        Ok(()) => Made::Kept(kept, true),
+                        Err(why) => {
+                            stop_painting(viewer, gpu, off_screen, why);
+                            Made::Kept(kept, false)
+                        }
+                    }
+                }
+                _ => Made::Kept(kept, false),
+            }),
+            Vec::new(),
+        ),
+        (None, Some(cache)) => anime_compositor::cache::files_read(|| match card.as_deref_mut() {
+            Some(Card { on: true, gpu: Some(Ok(gpu)), paints, size, off_screen, .. })
+                if gpu.on_screen() && !paints.is_empty() =>
+            {
+                preview::preview_frame_held(
+                    &sight.project,
+                    &sight.composition,
+                    taken.frame,
+                    &sight.root,
+                    sight.quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    cache,
+                    gpu,
+                )
+                .and_then(|(width, height)| {
+                    let pixels = gpu.picture().unwrap_or_default();
+                    match gpu.show(*size, paints, taken.alpha_only) {
+                        Ok(()) => Ok(Made::Shown(pixels, width, height)),
+                        // No silent fallback: the card stops painting the window, the status line
+                        // and the switch's tooltip say why, and the picture goes to the page as in
+                        // B-44.
+                        Err(why) => {
+                            stop_painting(viewer, gpu, off_screen, why);
+                            gpu.picture().map(|pixels| Made::Gpu(pixels, width, height))
+                        }
+                    }
+                })
+            }
+            Some(Card { on: true, gpu: Some(Ok(gpu)), .. }) => preview::preview_frame_srgb8(
+                &sight.project,
+                &sight.composition,
                 taken.frame,
-                &taken.root,
-                taken.quality,
+                &sight.root,
+                sight.quality,
                 DEFAULT_TILE_SIZE,
                 &mut log,
-                &mut cache,
+                cache,
                 gpu,
             )
-            .and_then(|(width, height)| match gpu.show(*size, paints, taken.alpha_only) {
-                Ok(()) => Ok(Made::Shown(width, height)),
-                // No silent fallback: the card stops painting the window, the status line and the
-                // switch's tooltip say why, and the picture goes to the page as in B-44.
-                Err(why) => {
-                    gpu.let_go();
-                    announce(
-                        viewer,
-                        format!("The graphics card stopped painting the viewer: {why}. The page shows the picture instead."),
-                    );
-                    *off_screen = Some(why);
-                    gpu.picture().map(|pixels| Made::Gpu(pixels, width, height))
-                }
-            })
-        }
-        Some(Card { on: true, gpu: Some(Ok(gpu)), .. }) => preview::preview_frame_srgb8(
-            &taken.project,
-            &taken.composition,
-            taken.frame,
-            &taken.root,
-            taken.quality,
-            DEFAULT_TILE_SIZE,
-            &mut log,
-            &mut cache,
-            gpu,
-        )
-        .map(|(pixels, width, height)| Made::Gpu(pixels, width, height)),
-        _ => preview::preview_frame_cached(
-            &taken.project,
-            &taken.composition,
-            taken.frame,
-            &taken.root,
-            taken.quality,
-            DEFAULT_TILE_SIZE,
-            &mut log,
-            &mut cache,
-        )
-        .map(Made::Cpu),
+            .map(|(pixels, width, height)| Made::Gpu(pixels, width, height)),
+            _ => preview::preview_frame_cached(
+                &sight.project,
+                &sight.composition,
+                taken.frame,
+                &sight.root,
+                sight.quality,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                cache,
+            )
+            .map(Made::Cpu),
+        }),
+        (None, None) => unreachable!("the cels are locked for every frame not in memory"),
     };
+    // A frame the card failed on is not kept: made again, the card may well draw it.
+    let card_failed = card.as_deref().map_or(0, Card::failures) != failures;
     if let Some(said) = card.as_deref_mut().and_then(|c| c.give_up_if_failed(failures)) {
         announce(viewer, said);
     }
     let card_about = card.as_deref().map_or(String::new(), Card::about);
     drop(card);
-    let counted = (
-        cache.hits() - counted.0,
-        cache.misses() - counted.1,
-        cache.effect_hits() - counted.2,
-    );
+    let counted = cache.as_deref().map_or((0, 0, 0), |cache| {
+        (cache.hits() - counted.0, cache.misses() - counted.1, cache.effect_hits() - counted.2)
+    });
     // B-161: what happened to a disk copy on the way, this frame's or a read-ahead's.
-    let disk_notes = cache.take_disk_notes();
+    let disk_notes = cache.as_deref_mut().map_or_else(Vec::new, |c| c.take_disk_notes());
     drop(cache);
     let made = match made {
         Ok(made) => made,
@@ -1373,21 +1432,43 @@ fn serve_logged(
         }
     };
 
+    let fresh = !matches!(made, Made::Kept(..));
+    let on_screen = matches!(made, Made::Shown(..) | Made::Kept(_, true));
+    let finished = if let Made::Kept(kept, _) = made {
+        kept
+    } else {
+        let (pixels, width, height) = match made {
+            Made::Cpu(buffer) => (buffer.to_srgb8_straight(), buffer.width(), buffer.height()),
+            Made::Gpu(pixels, width, height) | Made::Shown(pixels, width, height) => (pixels, width, height),
+            Made::Kept(..) => unreachable!("taken above"),
+        };
+        finished(pixels, width, height, taken.frame, log)
+    };
+    {
+        let mut ram = taken.ram.lock().expect("the frame memory lock was poisoned");
+        if on_screen {
+            ram.shown = Some(finished.clone());
+        }
+        if fresh && !card_failed && finished.pixels.len() == finished.width * finished.height * 4 {
+            ram.frames.store(sight.clone(), taken.frame, files, finished.clone());
+        }
+    }
+
     // P-18: the next frame's drawings are read while this one is encoded, sent and drawn.
     let read_ahead = taken.ahead.is_some();
     if let Some(next) = taken.ahead {
         let cache = Arc::clone(&taken.cache);
-        preview::read_ahead(taken.project, taken.composition, next, taken.root, cache);
+        preview::read_ahead(sight.project, sight.composition, next, sight.root, cache);
     }
 
-    let on_screen = matches!(made, Made::Shown(..));
-    let (mut pixels, width, height) = match made {
-        Made::Cpu(buffer) => (buffer.to_srgb8_straight(), buffer.width(), buffer.height()),
-        Made::Gpu(pixels, width, height) => (pixels, width, height),
-        Made::Shown(width, height) => (Vec::new(), width, height),
+    let (width, height) = (finished.width, finished.height);
+    let mut pixels = if on_screen {
+        Vec::new()
+    } else {
+        Arc::try_unwrap(finished.pixels).unwrap_or_else(|kept| kept.to_vec())
     };
     // No silent fallback: a frame the switch sent to the card and the CPU drew says so.
-    let fell_back = log.ids_at(taken.frame).contains(&DiagnosticId::GpuPreviewOnCpu);
+    let fell_back = finished.fell_back;
     let drawn_on = match (on_gpu, fell_back) {
         (false, _) => "CPU",
         (true, false) => "GPU",
@@ -1411,12 +1492,7 @@ fn serve_logged(
             cel_hits: counted.0,
             cel_misses: counted.1,
             effect_hits: counted.2,
-            warnings: log
-                .finish()
-                .iter()
-                .map(|d| format!("{}: {}", d.id.as_str(), d.message))
-                .chain(disk_notes)
-                .collect(),
+            warnings: finished.warnings.into_iter().chain(disk_notes).collect(),
         });
     }
     taken
@@ -1433,13 +1509,128 @@ fn serve_logged(
         .header("x-card", for_a_header(&card_about))
         // B-45: the pixels are already in the window, under the page; the body is empty.
         .header("x-on-screen", if on_screen { "1" } else { "0" })
+        // B-154: 1 when the frame was sent from memory rather than made.
+        .header("x-cached", if fresh { "0" } else { "1" })
         .body(pixels)
         .expect("build the frame response")
 }
 
-/// B-154: make the frames playback will ask for next, and say how many were made.
-fn render_ahead(_viewer: &Mutex<Viewer>, _card: Option<&Mutex<Card>>) -> usize {
-    0
+/// B-154: which processor a frame is made on, as the frame memory tells frames apart: the card's
+/// budget when the card is drawing, `None` for the CPU.
+fn drawn_by(card: Option<&Card>) -> Option<usize> {
+    match card {
+        Some(Card { on: true, gpu: Some(Ok(gpu)), .. }) => Some(gpu.budget),
+        _ => None,
+    }
+}
+
+/// No silent fallback: the card stops painting the window, and the status line and the switch's
+/// tooltip say why.
+fn stop_painting(viewer: &Mutex<Viewer>, gpu: &mut Gpu, off_screen: &mut Option<String>, why: String) {
+    gpu.let_go();
+    announce(
+        viewer,
+        format!("The graphics card stopped painting the viewer: {why}. The page shows the picture instead."),
+    );
+    *off_screen = Some(why);
+}
+
+/// A frame just made, as the frame memory keeps it: with what was said making it.
+fn finished(pixels: Vec<u8>, width: usize, height: usize, frame: i32, log: FrameLog) -> Finished {
+    Finished {
+        pixels: Arc::new(pixels),
+        width,
+        height,
+        fell_back: log.ids_at(frame).contains(&DiagnosticId::GpuPreviewOnCpu),
+        warnings: log.finish().iter().map(|d| format!("{}: {}", d.id.as_str(), d.message)).collect(),
+    }
+}
+
+/// B-154 (G3): make the frames playback will ask for next, from where it is round the loop, until
+/// every frame is made, playback stops or memory is full; and say how many were made. Each is made
+/// as `serve_logged` makes it, under the same locks, one at a time, so a frame asked for waits at
+/// most for one frame being made ahead.
+fn render_ahead(viewer: &Mutex<Viewer>, card: Option<&Mutex<Card>>) -> usize {
+    let mut made = 0;
+    loop {
+        let (mut sight, order, cels, ram) = {
+            let v = viewer.lock().expect("the viewer lock was poisoned");
+            let ram = Arc::clone(&v.ram);
+            let Some(from) = ram.lock().expect("the frame memory lock was poisoned").playing else {
+                return made;
+            };
+            let order: Vec<i32> = std::iter::successors(Some(from), |&n| Some(v.playback.after(n)))
+                .take(v.playback.length() as usize)
+                .collect();
+            let sight = Sight {
+                project: shown(&v),
+                composition: v.composition.clone(),
+                root: v.root.clone(),
+                quality: v.quality,
+                card: None,
+            };
+            (sight, order, Arc::clone(&v.cache), ram)
+        };
+        let mut cels = cels.lock().expect("the cel cache lock was poisoned");
+        fit_cels(&mut cels, &ram);
+        let mut card = card.map(|c| c.lock().expect("the card lock was poisoned"));
+        sight.card = drawn_by(card.as_deref());
+        let next = {
+            let ram = ram.lock().expect("the frame memory lock was poisoned");
+            order.into_iter().find(|&n| !ram.frames.holds(&sight, n))
+        };
+        let Some(frame) = next else { return made };
+        let failures = card.as_deref().map_or(0, Card::failures);
+        let mut log = FrameLog::new(3);
+        let (result, files) = anime_compositor::cache::files_read(|| match card.as_deref_mut() {
+            Some(Card { on: true, gpu: Some(Ok(gpu)), .. }) => {
+                let result = preview::preview_frame_srgb8(
+                    &sight.project,
+                    &sight.composition,
+                    frame,
+                    &sight.root,
+                    sight.quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cels,
+                    gpu,
+                );
+                // The card's picture is also what the window shows: put back what was there.
+                if gpu.on_screen() {
+                    if let Some(shown) = &ram.lock().expect("the frame memory lock was poisoned").shown {
+                        gpu.hold(&shown.pixels, shown.width, shown.height);
+                    }
+                }
+                result
+            }
+            _ => preview::preview_frame_cached(
+                &sight.project,
+                &sight.composition,
+                frame,
+                &sight.root,
+                sight.quality,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut cels,
+            )
+            .map(|b| (b.to_srgb8_straight(), b.width(), b.height())),
+        });
+        let card_failed = card.as_deref().map_or(0, Card::failures) != failures;
+        if let Some(said) = card.as_deref_mut().and_then(|c| c.give_up_if_failed(failures)) {
+            announce(viewer, said);
+        }
+        drop(card);
+        drop(cels);
+        let Ok((pixels, width, height)) = result else { return made };
+        if card_failed {
+            return made;
+        }
+        let finished = finished(pixels, width, height, frame, log);
+        if !ram.lock().expect("the frame memory lock was poisoned").frames.store(sight, frame, files, finished) {
+            return made;
+        }
+        made += 1;
+    }
 }
 
 /// Open a project file.
@@ -1515,6 +1706,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         clipboard: Vec::new(),
         relink: None,
         cache: Arc::new(Mutex::new(viewer_cache())),
+        ram: Arc::new(Mutex::new(Ram { frames: FrameCache::with_budget(frame_share()), playing: None, shown: None })),
     })
 }
 
@@ -1535,6 +1727,22 @@ static DISK: Mutex<Option<anime_compositor::cache::DiskCache>> = Mutex::new(None
 
 fn disk_setting() -> Option<anime_compositor::cache::DiskCache> {
     DISK.lock().expect("the disk setting lock was poisoned").clone()
+}
+
+/// B-154: the most the finished frames may hold of the memory setting, in bytes: half, and never
+/// so much that the cels have less than D-40's gibibyte, so at the smallest setting the viewer is
+/// what it was before there were finished frames to keep.
+fn frame_share() -> usize {
+    let total = ram_ceiling();
+    (total / 2).min(total.saturating_sub(anime_compositor::cache::DEFAULT_BUDGET_BYTES))
+}
+
+/// B-154: the cels have what the finished frames do not hold, so a first pass works with the whole
+/// setting and the cels give way only as the loop is remembered. A fixed half starved a heavy
+/// shot's first pass: document 08's ten layers dropped 85 frames of 240, not 24.
+fn fit_cels(cels: &mut CelCache, ram: &Mutex<Ram>) {
+    let frames = ram.lock().expect("the frame memory lock was poisoned").frames.held_bytes();
+    cels.resize(ram_ceiling().saturating_sub(frames));
 }
 
 /// The viewer's cache as the memory and disk settings say, for a window or a project opened later.
@@ -1578,11 +1786,16 @@ fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> Strin
             folder.filter(|_| cap > 0).map(|folder| cache::DiskCache { folder, cap });
     }
     let held = {
-        let cache = Arc::clone(&viewer.lock().expect("the viewer lock was poisoned").cache);
+        let (cache, ram) = {
+            let viewer = viewer.lock().expect("the viewer lock was poisoned");
+            (Arc::clone(&viewer.cache), Arc::clone(&viewer.ram))
+        };
         let mut cache = cache.lock().expect("the cel cache lock was poisoned");
-        cache.resize(ram_ceiling());
         cache.set_disk(disk_setting());
-        cache.held_bytes() + cache.effect_held_bytes()
+        let mut ram = ram.lock().expect("the frame memory lock was poisoned");
+        ram.frames.resize(frame_share());
+        cache.resize(ram_ceiling().saturating_sub(ram.frames.held_bytes()));
+        cache.held_bytes() + cache.effect_held_bytes() + ram.frames.held_bytes()
     };
     let state = app.state::<Mutex<Card>>();
     let card = &mut *state.lock().expect("the card lock was poisoned");
@@ -1704,6 +1917,7 @@ fn blank(root: PathBuf) -> Viewer {
         clipboard: Vec::new(),
         relink: None,
         cache: Arc::new(Mutex::new(viewer_cache())),
+        ram: Arc::new(Mutex::new(Ram { frames: FrameCache::with_budget(frame_share()), playing: None, shown: None })),
     }
 }
 
@@ -9839,7 +10053,18 @@ fn main() {
                 Some((ask, quality)) => {
                     let session = ctx.app_handle().state::<Mutex<SessionLog>>();
                     let card = ctx.app_handle().state::<Mutex<Card>>();
-                    serve_logged(&viewer, &export, Some(&session), Some(&card), ask, quality)
+                    let reply = serve_logged(&viewer, &export, Some(&session), Some(&card), ask, quality);
+                    // B-154: while playing, the rest of the loop is made in the background, one
+                    // worker at a time.
+                    static AHEAD: AtomicBool = AtomicBool::new(false);
+                    if matches!(ask, Ask::At(_) | Ask::Play(_)) && !AHEAD.swap(true, Ordering::SeqCst) {
+                        let app = ctx.app_handle().clone();
+                        std::thread::spawn(move || {
+                            render_ahead(&app.state::<Mutex<Viewer>>(), Some(&app.state::<Mutex<Card>>()));
+                            AHEAD.store(false, Ordering::SeqCst);
+                        });
+                    }
+                    reply
                 }
                 None => allow_the_page_to_read_this(Response::builder().status(404))
                     .header("content-type", "text/plain; charset=utf-8")
@@ -28648,6 +28873,21 @@ mod ram_preview {
         row("Draft, after play is pressed at frame 0: the other 239 frames of the loop are made ahead", "239 frames", format!("{} frames", render_ahead(&ahead, None)));
         let remembered = (0..240).filter(|&n| header(&ask(&ahead, None, n, Draft), "x-cached") == "1").count();
         row("and all 240 are then sent from memory", "240 of 240", format!("{remembered} of 240"));
+        // The cels have what the remembered frames do not: fitted each time the cels are wanted.
+        let (cels, ram) = {
+            let v = ahead.lock().unwrap();
+            (Arc::clone(&v.cache), Arc::clone(&v.ram))
+        };
+        let loop_holds = ram.lock().unwrap().frames.held_bytes();
+        ask(&ahead, None, 100, Full);
+        let gib = |bytes: usize| format!("{:.2} GiB", bytes as f64 / (1u64 << 30) as f64);
+        let cels = cels.lock().unwrap();
+        row(
+            "the next frame not remembered gives the cels the memory setting less the loop",
+            &gib(ram_ceiling() - loop_holds),
+            gib(cels.budget() + cels.effect_budget()),
+        );
+        drop(cels);
         let cold = viewer_on(&repo("Fixtures/reference_shot"));
         row("a frame made ahead (frame 50) is byte for byte the one made when asked", "identical", same(&ask(&ahead, None, 50, Draft), &ask(&cold, None, 50, Draft)));
 
@@ -28725,5 +28965,79 @@ mod ram_preview {
         std::fs::write(repo("verification/B-154_ram_preview_table.md"), text).expect("write the table");
         let _ = std::fs::remove_dir_all(&root);
         assert_eq!(passed, rows.len(), "see verification/B-154_ram_preview_table.md");
+    }
+
+    /// The plan's proof: the 240-frame loop, asked for frame by frame the first time and again,
+    /// and made ahead from a press of play. Milliseconds are `serve_logged`'s own, the window's
+    /// whole work for a frame; the web view's transport is not in them (P-15).
+    ///
+    /// Writes `verification/B-154_timing_table.md`.
+    #[test]
+    #[ignore = "a measurement; run it deliberately, in release, on the recorded machine"]
+    fn b154_loop_timing() {
+        let export = Mutex::new(Export::default());
+        let budget = 1000.0 / 24.0;
+        let card = Mutex::new(Card::default());
+        let said_card = card.lock().unwrap().set(DrawOn::Gpu);
+        let on_card = card.lock().unwrap().on;
+        let spread = |ms: &mut Vec<f64>| {
+            ms.sort_by(f64::total_cmp);
+            let late = ms.iter().filter(|&&m| m > budget).count();
+            format!("{:.1} | {:.1} | {:.1} | {late}", ms[ms.len() / 2], ms[ms.len() * 95 / 100], ms[ms.len() - 1])
+        };
+        // Document 08's declared ten-layer fixture, blurred and graded, beside the reference shot.
+        let declared = || {
+            let (_project, root, text) = common::build_fixture("b154");
+            let path = root.join("b154_project.json");
+            std::fs::write(&path, &text).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
+            Mutex::new(open(&path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message)))
+        };
+        let reference = || viewer_on(&repo("Fixtures/reference_shot"));
+        let shots: [(&str, &dyn Fn() -> Mutex<Viewer>); 2] =
+            [("reference shot", &reference), ("declared ten-layer fixture", &declared)];
+        let mut rows = String::new();
+        for (processor, card) in [("CPU", None), ("card", Some(&card))] {
+            if card.is_some() && !on_card {
+                rows.push_str(&format!("| card | | | NOT RUN: {said_card} | | | | |\n"));
+                continue;
+            }
+            for (shot, make) in shots {
+            for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
+                let viewer = make();
+                for pass in ["first pass, each frame made", "second pass, from memory"] {
+                    let mut ms: Vec<f64> = (0..240)
+                        .map(|n| {
+                            let at = Instant::now();
+                            let reply = serve_logged(&viewer, &export, None, card, Ask::Frame(n), Some(quality));
+                            assert_eq!(reply.status(), 200);
+                            at.elapsed().as_secs_f64() * 1000.0
+                        })
+                        .collect();
+                    rows.push_str(&format!("| {shot} | {processor} | {} | {pass} | {} |\n", quality.label(), spread(&mut ms)));
+                }
+                let held = viewer.lock().unwrap().ram.lock().unwrap().frames.held_bytes();
+                let ahead = make();
+                serve_logged(&ahead, &export, None, card, Ask::Play(0), Some(quality));
+                let at = Instant::now();
+                let made = render_ahead(&ahead, card);
+                rows.push_str(&format!(
+                    "| {shot} | {processor} | {} | made ahead after play: {made} frames in {:.1} s; the loop holds {:.2} GiB | | | | |\n",
+                    quality.label(),
+                    at.elapsed().as_secs_f64(),
+                    held as f64 / (1u64 << 30) as f64,
+                ));
+            }
+            }
+        }
+        let text = format!(
+            "# B-154: the 240-frame loop, made and from memory\n\nWritten by `b154_loop_timing` in \
+             `app/src/main.rs`, release build. Both shots are 1920 by 1080, 240 frames at 24 a \
+             second, so a frame is due every {budget:.1} ms. Card: {}. Milliseconds are the window's \
+             whole work for a frame (`serve_logged`), not the web view's transport.\n\n\
+             | Shot | Drawn on | Quality | Pass | Median ms | 95th percentile ms | Slowest ms | Frames over {budget:.1} ms |\n\
+             |---|---|---|---|---|---|---|---|\n{rows}",
+            if on_card { card.lock().unwrap().about() } else { said_card.clone() },
+        );
+        std::fs::write(repo("verification/B-154_timing_table.md"), text).expect("write the table");
     }
 }

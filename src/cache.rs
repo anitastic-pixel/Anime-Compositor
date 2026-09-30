@@ -376,7 +376,7 @@ impl Key {
     /// `None` when the file's metadata cannot be read, which makes the request uncacheable rather
     /// than an error: the decode that follows will report the problem properly if there is one.
     fn of(path: &Path, interpretation: Interpretation) -> Option<Key> {
-        let meta = std::fs::metadata(path).ok()?;
+        let meta = looked_at(path).ok()?;
         Some(Key {
             path: path.to_path_buf(),
             len: meta.len(),
@@ -888,4 +888,240 @@ impl CelCache {
 /// What one decoded cel costs to hold: its samples, four bytes each.
 fn bytes_of(buffer: &WorkingBuffer) -> usize {
     std::mem::size_of_val(buffer.as_image().data())
+}
+
+/// B-154 (G3): one file a frame looked at, as it was when it looked - its length and modification
+/// time, or `None` when it was not there. Document 27's media identity, the same two facts [`Key`]
+/// holds, taken for every file and not only the cels, because a finished frame also depends on the
+/// files it found missing and the LUTs it read.
+pub type Stamp = (PathBuf, Option<(u64, Option<SystemTime>)>);
+
+thread_local! {
+    /// The files looked at on this thread since [`files_read`] began, or `None` outside it.
+    static LOOKED: std::cell::RefCell<Option<Vec<Stamp>>> = const { std::cell::RefCell::new(None) };
+}
+
+fn stamp(meta: &std::io::Result<std::fs::Metadata>) -> Option<(u64, Option<SystemTime>)> {
+    meta.as_ref().ok().map(|m| (m.len(), m.modified().ok()))
+}
+
+/// `std::fs::metadata`, noted down for [`files_read`]. Every question the render path asks the
+/// disk goes through here, so a finished frame knows every file it came from. Reading the file
+/// itself is not asked separately: each read is preceded by one of these.
+pub fn looked_at(path: &Path) -> std::io::Result<std::fs::Metadata> {
+    let meta = std::fs::metadata(path);
+    LOOKED.with(|l| {
+        if let Some(list) = l.borrow_mut().as_mut() {
+            list.push((path.to_path_buf(), stamp(&meta)));
+        }
+    });
+    meta
+}
+
+/// Run `f` and say which files it looked at on this thread. Work done on other threads is not
+/// seen, which is right for the read-ahead and holds for the render because every
+/// [`looked_at`] in it runs on the calling thread (the parallel loops are over pixels).
+pub fn files_read<T>(f: impl FnOnce() -> T) -> (T, Vec<Stamp>) {
+    let outer = LOOKED.with(|l| l.replace(Some(Vec::new())));
+    let out = f();
+    let mut files = LOOKED.with(|l| l.replace(outer)).unwrap_or_default();
+    files.sort();
+    files.dedup();
+    LOOKED.with(|l| {
+        if let Some(outer) = l.borrow_mut().as_mut() {
+            outer.extend(files.iter().cloned());
+        }
+    });
+    (out, files)
+}
+
+/// Whether every file is as it was. A file with no modification time can never be trusted to be
+/// unchanged, so a frame that read one is never kept.
+pub fn unchanged(files: &[Stamp]) -> bool {
+    files.iter().all(|(path, was)| {
+        was.is_none_or(|(_, modified)| modified.is_some())
+            && stamp(&std::fs::metadata(path)) == *was
+    })
+}
+
+/// B-154: everything a finished preview frame is made from, other than the files it read. Held by
+/// value for the reason [`EffectKey`] is: a comparison of the inputs cannot collide. `card` is the
+/// card's budget when the card drew it and `None` for the CPU, because the two are allowed to
+/// differ by a level and a frame from one must never be sent as the other's.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Sight {
+    pub project: crate::model::Project,
+    pub composition: crate::model::Id,
+    pub root: PathBuf,
+    pub quality: crate::preview::PreviewQuality,
+    pub card: Option<usize>,
+}
+
+/// A finished frame as the viewer sends it: 8-bit straight sRGB, and what was said making it.
+#[derive(Clone, Debug)]
+pub struct Finished {
+    pub pixels: Arc<Vec<u8>>,
+    pub width: usize,
+    pub height: usize,
+    /// The card was asked and the CPU drew it.
+    pub fell_back: bool,
+    pub warnings: Vec<String>,
+}
+
+/// B-154 (G3, document 33's RAM preview): finished viewer frames, so a loop that has been played
+/// once plays from memory. The viewer's alone, like [`CelCache`]: export never holds one
+/// (ADR-015). A frame is kept with the [`Stamp`]s of the files it read and is only sent while all
+/// of them are unchanged, so an edit (a new [`Sight`]) or a drawing replaced on disk is never
+/// answered with the old picture.
+pub struct FrameCache {
+    budget: usize,
+    held: usize,
+    /// Least recently used first.
+    sights: Vec<(Sight, Vec<(i32, Vec<Stamp>, Finished)>)>,
+}
+
+/// ponytail: sights are found by comparing whole projects, one after another; 16 keeps that
+/// cheap, and an undo a few steps back still finds its frames. A map keyed on a digest if a
+/// person ever needs more.
+const MOST_SIGHTS: usize = 16;
+
+impl FrameCache {
+    pub fn with_budget(budget: usize) -> FrameCache {
+        FrameCache { budget, held: 0, sights: Vec::new() }
+    }
+
+    /// A new budget, from the Preferences memory setting. What no longer fits goes, oldest sight
+    /// first.
+    pub fn resize(&mut self, budget: usize) {
+        self.budget = budget;
+        while self.held > self.budget && !self.sights.is_empty() {
+            self.forget(0);
+        }
+    }
+
+    fn forget(&mut self, at: usize) {
+        let (_, frames) = self.sights.remove(at);
+        self.held -= frames.iter().map(|(_, _, f)| f.pixels.len()).sum::<usize>();
+    }
+
+    /// The kept frame, if its files are all as they were; a kept frame whose files changed is
+    /// dropped. Its sight becomes the most recently used.
+    pub fn get(&mut self, sight: &Sight, frame: i32) -> Option<Finished> {
+        let s = self.sights.iter().position(|(k, _)| k == sight)?;
+        let f = self.sights[s].1.iter().position(|(n, _, _)| *n == frame)?;
+        if !unchanged(&self.sights[s].1[f].1) {
+            let (_, _, stale) = self.sights[s].1.remove(f);
+            self.held -= stale.pixels.len();
+            return None;
+        }
+        let found = self.sights[s].1[f].2.clone();
+        let entry = self.sights.remove(s);
+        self.sights.push(entry);
+        Some(found)
+    }
+
+    /// Whether a frame is kept, without looking at the disk: for the render-ahead, which only
+    /// needs to know what is still to do.
+    pub fn holds(&self, sight: &Sight, frame: i32) -> bool {
+        self.sights
+            .iter()
+            .any(|(k, frames)| k == sight && frames.iter().any(|(n, _, _)| *n == frame))
+    }
+
+    /// Keep a frame. Other sights make room, oldest first; this sight's own frames never do,
+    /// because in a loop longer than the budget the frame thrown out would be the next one
+    /// wanted. `false` when it did not fit, or a file it read has no modified time to check. A file
+    /// changed while the frame was being made is not looked for here: [`get`](Self::get) looks at
+    /// every file before sending, and looking twice cost the card's first pass (B-154).
+    pub fn store(&mut self, sight: Sight, frame: i32, files: Vec<Stamp>, finished: Finished) -> bool {
+        if files.iter().any(|(_, was)| was.is_some_and(|(_, modified)| modified.is_none())) {
+            return false;
+        }
+        let s = match self.sights.iter().position(|(k, _)| *k == sight) {
+            Some(s) => s,
+            None => {
+                self.sights.push((sight, Vec::new()));
+                self.sights.len() - 1
+            }
+        };
+        let entry = self.sights.remove(s);
+        self.sights.push(entry);
+        let mine = self.sights.len() - 1;
+        if let Some(f) = self.sights[mine].1.iter().position(|(n, _, _)| *n == frame) {
+            let (_, _, old) = self.sights[mine].1.remove(f);
+            self.held -= old.pixels.len();
+        }
+        let bytes = finished.pixels.len();
+        while (self.held + bytes > self.budget || self.sights.len() > MOST_SIGHTS) && self.sights.len() > 1 {
+            self.forget(0);
+        }
+        if self.held + bytes > self.budget {
+            if self.sights[self.sights.len() - 1].1.is_empty() {
+                self.sights.pop();
+            }
+            return false;
+        }
+        self.held += bytes;
+        let mine = self.sights.len() - 1;
+        self.sights[mine].1.push((frame, files, finished));
+        true
+    }
+
+    /// Bytes of pixels held, for the Preferences memory line.
+    pub fn held_bytes(&self) -> usize {
+        self.held
+    }
+}
+
+#[cfg(test)]
+mod frame_cache {
+    use super::*;
+
+    fn sight(quality: crate::preview::PreviewQuality) -> Sight {
+        Sight {
+            project: crate::model::Project::new(crate::model::Id::new("b154")),
+            composition: crate::model::Id::new("comp"),
+            root: PathBuf::from("."),
+            quality,
+            card: None,
+        }
+    }
+
+    fn finished(bytes: usize) -> Finished {
+        Finished { pixels: Arc::new(vec![7; bytes]), width: 1, height: 1, fell_back: false, warnings: Vec::new() }
+    }
+
+    #[test]
+    fn b154_budget_rule() {
+        use crate::preview::PreviewQuality::{Draft, Full};
+        let mut c = FrameCache::with_budget(30);
+        assert!(c.store(sight(Full), 0, Vec::new(), finished(10)));
+        assert!(c.store(sight(Full), 1, Vec::new(), finished(10)));
+        // Another sight makes room by forgetting the older one.
+        assert!(c.store(sight(Draft), 0, Vec::new(), finished(20)));
+        assert!(!c.holds(&sight(Full), 0) && c.holds(&sight(Draft), 0));
+        assert_eq!(c.held_bytes(), 20);
+        // The sight's own frames are never thrown out for another of its own frames.
+        assert!(!c.store(sight(Draft), 1, Vec::new(), finished(20)));
+        assert!(c.holds(&sight(Draft), 0));
+        // The same frame again replaces what was there.
+        assert!(c.store(sight(Draft), 0, Vec::new(), finished(30)));
+        assert_eq!(c.held_bytes(), 30);
+        // A file that has gone since the frame was made drops the frame.
+        let file = std::env::temp_dir().join(format!("b154-budget-{}", std::process::id()));
+        std::fs::write(&file, b"x").unwrap();
+        let ((), files) = files_read(|| {
+            looked_at(&file).unwrap();
+        });
+        assert_eq!(files.len(), 1);
+        assert!(c.store(sight(Full), 5, files, finished(10)));
+        assert!(c.get(&sight(Full), 5).is_some());
+        std::fs::remove_file(&file).unwrap();
+        assert!(c.get(&sight(Full), 5).is_none());
+        assert_eq!(c.held_bytes(), 0);
+        // A smaller budget lets go of what no longer fits.
+        assert!(c.store(sight(Full), 0, Vec::new(), finished(10)));
+        c.resize(5);
+        assert_eq!(c.held_bytes(), 0);
+    }
 }

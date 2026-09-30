@@ -1112,7 +1112,7 @@ fn decode_cel(
         }
     };
     let path = root.join(&relative);
-    if !path.exists() {
+    if crate::cache::looked_at(&path).is_err() {
         log.record(
             frame,
             layer.name.clone(),
