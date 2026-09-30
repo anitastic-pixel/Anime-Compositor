@@ -598,6 +598,7 @@
   /* D-33 / R-06a: the indication that preview differs from export is never subtle and never
      absent. It is coloured only when it differs; a full-resolution preview is the quiet case. */
   #quality.differs { color: #e8866a; }
+  #refining { font-style: italic; opacity: 0.75; }
   #frame { font-variant-numeric: tabular-nums; }
   #report { color: #909096; flex: 1; min-width: 100%; }
   #report.dropped { color: #e8b06a; }
@@ -1097,6 +1098,8 @@
       <span id="frame">frame &mdash;</span>
       <span id="quality">&mdash;</span>
       <button id="toggle">Full resolution</button>
+      <label title="At Full: Draft while you drag or scrub, then the Full picture a fifth of a second after you stop"><input type="checkbox" id="refine" checked> Refine when idle</label>
+      <span id="refining" hidden title="This is a Draft stand-in; the Full picture replaces it when you stop">sharpening&hellip;</span>
       <select id="gpu" aria-label="What the preview is drawn on" title="What the preview is drawn on. Exports are always drawn on the CPU">
         <option value="auto">Draw on: Auto</option>
         <option value="gpu">Draw on: GPU</option>
@@ -1284,6 +1287,9 @@ let inFlight = false;
 let pending = null;   // the latest request that arrived while one was out (P-04)
 let generation = 0;   // which request the pixels on screen came from
 let watching = 0;     // the timer that asks again while an export is running
+let stirred = -Infinity; // B-163: when the hand last moved the playhead or a value
+let settling = 0;     // B-163: the timer that asks for the sharp picture once the hand is still
+let drawnAt = 'draft'; // the quality of the picture on screen, which a stand-in makes not `quality`
 
 // The open project as the core last described it, and which layer and drawing are being worked
 // on. Document 24: "One primary selection context exists at a time." Selection lives here and
@@ -1306,6 +1312,43 @@ let scrubbing = false; // the playhead is being dragged along the timeline
 let swallowClick = false; // a bar was just dragged, and the click that follows is not a click
 let relinking = null; // the asset a proposed relink is waiting on, as the last frame reported it
 
+// ---- B-162 / B-163 begin: which quality a frame goes out at, and whether its answer is drawn.
+// Functions of their arguments alone, so that `latest_request_and_refine` in main.rs can run
+// them outside the window. D-233.
+//
+// B-163, refine when idle, After Effects' "adaptive resolution". While the hand is moving, a
+// frame asked for at Full goes out at Draft, which comes back in a fraction of the time; once
+// the hand has been still for SETTLE_MS the same frame is asked for at Full, the picture Full
+// has always made. Only a frame asked for by number is changed: playback plays at the quality
+// chosen, as it always has.
+const SETTLE_MS = 200;
+function askedAs(url, restless) {
+  return restless && url.includes('/frame/') && url.endsWith('?q=full')
+    ? url.slice(0, -'full'.length) + 'draft' : url;
+}
+// B-162. A Full picture that comes back while the hand is moving and a newer frame is already
+// waiting is not drawn: it is of a place the hand has left, and drawing it would flash a sharp
+// picture of where the playhead was before the rough one of where it is. Every other answer is
+// drawn, a Draft one included, because during a drag the frame just made is the nearest there
+// is to the one wanted, and a viewer that drew nothing until the hand stopped would look frozen.
+function drawnWhenBack(asked, waiting, restless) {
+  return !(restless && waiting !== null && asked.endsWith('?q=full'));
+}
+// ---- B-162 / B-163 end
+
+// Whether the hand moved within SETTLE_MS, with Refine when idle ticked.
+function restless() {
+  return prefs.refine && performance.now() - stirred < SETTLE_MS;
+}
+function stir() {
+  stirred = performance.now();
+  clearTimeout(settling);
+}
+// The sharp picture for the frame a stand-in is showing, once the hand is still.
+function sharpen() {
+  if (!playing) show(FRAMES + '/frame/' + frame + '?q=' + quality);
+}
+
 // One request at a time, and the newest one is the one that is kept.
 //
 // P-04. This used to drop any request that arrived while one was out, which is neither a
@@ -1325,6 +1368,11 @@ let relinking = null; // the asset a proposed relink is waiting on, as the last 
 // discarded rather than drawn. Nothing overlaps while there is one request at a time, but the
 // export poll and the autosave refresh are timers, and a timer that fires into a queue is
 // exactly how an older frame arrives after a newer one.
+//
+// B-162: the frame in flight cannot be stopped part way. The window answers this address on
+// its own thread, one request after another, so word that a newer frame is wanted could not
+// reach the render until it had finished anyway, and the renderer has no point at which to
+// stop. It is left to finish, and what it made is not drawn when it is stale (`drawnWhenBack`).
 async function show(url, keep = true) {
   if (inFlight) {
     if (keep) pending = url;
@@ -1332,10 +1380,14 @@ async function show(url, keep = true) {
   }
   inFlight = true;
   const mine = ++generation;
+  const chosen = url;
+  url = askedAs(url, restless());
+  const rough = url !== chosen; // B-163: a Draft stand-in for the Full picture chosen
   try {
     const asked = performance.now();
     const response = await fetch(url);
     if (mine !== generation) return;
+    if (!drawnWhenBack(url, pending, restless())) return;
     if (!response.ok) {
       $('report').textContent = await response.text();
       $('report').className = 'dropped';
@@ -1380,10 +1432,11 @@ async function show(url, keep = true) {
     // Where the selected layers are on this frame, asked for beside the frame rather than with
     // it: a shot playing at twenty-four frames a second wants no outline and should pay for
     // none, and `askForBoxes` is what decides that.
+    const differs = h.get('x-differs') === 'true';
+    drawnAt = differs ? 'draft' : 'full';
     askForBoxes();
 
     // The indicator describes the render that just arrived, because it came back with it.
-    const differs = h.get('x-differs') === 'true';
     const label = $('quality');
     const drawnOn = h.get('x-drawn-on') || 'CPU';
     placing(drawnOn !== 'CPU');
@@ -1396,7 +1449,14 @@ async function show(url, keep = true) {
       + 'Exports are always drawn on the CPU'
       + (drawnOn === 'CPU, not GPU' ? '. This frame has something the card does not draw yet, or the card failed; the session log says which' : '');
     label.className = differs ? 'differs' : '';
-    $('toggle').textContent = differs ? 'Full resolution' : 'Draft resolution';
+    // B-163: a stand-in leaves the choice as it was. The button names what pressing it does,
+    // and the tick is only for Full, where there is a sharper picture to wait for.
+    if (!rough) quality = drawnAt;
+    $('toggle').textContent = quality === 'draft' ? 'Full resolution' : 'Draft resolution';
+    $('refine').disabled = quality !== 'full';
+    $('refining').hidden = !rough;
+    clearTimeout(settling);
+    if (rough) settling = setTimeout(sharpen, Math.max(0, stirred + SETTLE_MS - performance.now()));
 
     // Which way the frame that just arrived is being looked at. The grid is a class on the
     // canvas and nothing more, and the alpha view arrived already applied to these pixels.
@@ -1405,7 +1465,6 @@ async function show(url, keep = true) {
     const grid = h.get('x-checkerboard') === 'true';
     view.classList.toggle('grid', grid);
     $('checker').textContent = grid ? 'Hide grid' : 'Show grid';
-    quality = differs ? 'draft' : 'full';
 
     // W-02: a relink that has been worked out but not agreed to. It rides on the frame, so the
     // panel offering it appears and disappears with the answer that describes it, and the page
@@ -1618,6 +1677,7 @@ function tick() {
 // the arrow keys, a click on the ruler, a scrub across the rows — goes through here, so there is
 // one place that decides what "go to a frame" means.
 function seek(at) {
+  stir();
   playing = false;
   $('play').textContent = 'Play';
   wanted = Math.round(at);
@@ -2807,7 +2867,7 @@ sheet.ondblclick = (e) => {
 // Each is a preference with its box in Preferences and its box in the new composition form.
 const PREF_FIELDS = [['width', 'prefwidth', 'compwidth'], ['height', 'prefheight', 'compheight'],
   ['fps', 'preffps', 'compfps'], ['frames', 'prefframes', 'compframes']];
-const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, drawOn: 'auto', memory: 'auto' };
+const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, drawOn: 'auto', memory: 'auto', refine: true };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('prefs') || '{}')); } catch (e) { /* the defaults */ }
 function savePrefs() {
   try { localStorage.setItem('prefs', JSON.stringify(prefs)); } catch (e) { /* kept for this run only */ }
@@ -3943,7 +4003,7 @@ async function askForBoxes() {
   if (!doc || playing) { boxes = []; drawBoxes(); return; }
   const asked = frame;
   try {
-    const answer = await fetch(FRAMES + '/boxes/' + asked + '?q=' + quality);
+    const answer = await fetch(FRAMES + '/boxes/' + asked + '?q=' + drawnAt);
     if (!answer.ok) { boxes = []; drawBoxes(); return; }
     const said = await answer.json();
     // A later frame has already been asked for, so these corners describe a picture that is no
@@ -10238,6 +10298,9 @@ $('toggle').onclick = () => {
   quality = quality === 'draft' ? 'full' : 'draft';
   show(FRAMES + '/frame/' + frame + '?q=' + quality);
 };
+// B-163: the window's, kept with the preferences, and on unless it has been unticked.
+$('refine').checked = prefs.refine;
+$('refine').onchange = (e) => { prefs.refine = e.target.checked; savePrefs(); };
 // Both views are the window's, not the project's, so neither goes near the document. What each
 // button says is what pressing it does, and the frame that comes back says which view is on.
 $('alpha').onclick = () => command('/viewer.toggle_alpha');
@@ -10297,6 +10360,7 @@ const dragNext = new Map();
 let dragWatch = null;
 const middle = (xs) => xs.length ? [...xs].sort((a, b) => a - b)[xs.length >> 1] : 0;
 function dragSend(what, key = '') {
+  stir();
   if (dragFlight) { dragNext.set(key, what); return dragFlight; }
   dragWatch = { command: [], window: [], trip: [], paint: [] };
   dragFlight = (async () => {
@@ -10337,6 +10401,9 @@ async function afterDrag(what) {
 }
 
 async function command(what) {
+  // B-163: a value changed live, as a field is typed into or a setting is dragged, is a hand
+  // moving as much as a drag is.
+  if (dragging) stir();
   try {
     const said = await (await fetch(PROJECT + what)).text();
     if (said) $('status').textContent = brief(said);
