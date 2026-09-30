@@ -538,12 +538,58 @@ pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuff
 }
 
 fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool, part: Option<Tile>) -> WorkingBuffer {
+    let (mut frame, at, cut) = canvas(plan, part);
+    draw(plan, 0, &mut frame, at, None, tile_size, cull);
+    cut_out(frame, cut)
+}
+
+/// B-158: what a frame, or `part` of it, is drawn on: a clear picture, where its first pixel is
+/// in the whole frame, and the part to cut from it once drawn. A frame with an adjustment layer
+/// or a Light Wrap, which read the whole frame drawn so far, is drawn whole and cut.
+fn canvas(plan: &FramePlan, part: Option<Tile>) -> (WorkingBuffer, (usize, usize), Option<Tile>) {
+    let whole_frame_read = plan.layers.iter().any(|l| l.adjust.is_some() || l.wrap.iter().any(|i| i.enabled && i.is_valid()));
+    match part {
+        Some(p) if !whole_frame_read => (WorkingBuffer::transparent(p.width, p.height), (p.x, p.y), None),
+        _ => (WorkingBuffer::transparent(plan.width, plan.height), (0, 0), part),
+    }
+}
+
+/// `part` of `frame`, or `frame` itself.
+fn cut_out(frame: WorkingBuffer, part: Option<Tile>) -> WorkingBuffer {
+    let Some(part) = part else {
+        return frame;
+    };
+    let mut cut = WorkingBuffer::transparent(part.width, part.height);
+    for (y, row) in cut.data_mut().chunks_exact_mut(part.width * 4).enumerate() {
+        let from = ((part.y + y) * frame.width() + part.x) * 4;
+        row.copy_from_slice(&frame.data()[from..from + part.width * 4]);
+    }
+    cut
+}
+
+/// Layers `from..` of `plan` drawn onto `frame`, which holds layers `..from` already; `at` is
+/// where `frame`'s first pixel is in the whole frame. With `keep`, a layer past `from`, the frame
+/// as it stood below that layer is returned as well (B-159).
+///
+/// D-66: the frame is drawn in segments, each ending at an adjustment layer, whose stack runs on
+/// the whole frame drawn so far before the next segment is drawn onto it. D-132: a layer with a
+/// Light Wrap that runs ends one too, as it reads the frame beneath it. Where a segment is cut
+/// changes nothing: each layer is laid on what is beneath it, pixel by pixel, in order.
+fn draw(
+    plan: &FramePlan,
+    from: usize,
+    frame: &mut WorkingBuffer,
+    at: (usize, usize),
+    keep: Option<usize>,
+    tile_size: usize,
+    cull: bool,
+) -> Option<WorkingBuffer> {
+    let mut layers = std::borrow::Cow::Borrowed(&plan.layers[from..]);
     // B-46, B-47, B-49, B-50, B-51, B-65: an effect left for the card that the CPU is drawing after all is run first,
     // exactly as `apply_stack` would have run it.
     // B-156b: as are the moments of a motion-blurred layer.
-    if plan.layers.iter().any(|l| !l.on_card.is_empty() || !l.moments.is_empty()) {
-        let mut plan = plan.clone();
-        for layer in &mut plan.layers {
+    if layers.iter().any(|l| !l.on_card.is_empty() || !l.moments.is_empty()) {
+        for layer in layers.to_mut().iter_mut() {
             if !layer.moments.is_empty() {
                 let moments = std::mem::take(&mut layer.moments);
                 layer.source = std::sync::Arc::new(average(&layer.source, &moments, plan.width, plan.height));
@@ -587,41 +633,123 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool, part: Opt
                 }
             }
         }
-        return render_maybe_culled(&plan, tile_size, cull, part);
     }
-    if let Some(part) = part {
-        let whole_frame_read = plan.layers.iter().any(|l| l.adjust.is_some() || l.wrap.iter().any(|i| i.enabled && i.is_valid()));
-        if whole_frame_read {
-            let whole = render_maybe_culled(plan, tile_size, cull, None);
-            let mut cut = WorkingBuffer::transparent(part.width, part.height);
-            for (y, row) in cut.data_mut().chunks_exact_mut(part.width * 4).enumerate() {
-                let from = ((part.y + y) * plan.width + part.x) * 4;
-                row.copy_from_slice(&whole.data()[from..from + part.width * 4]);
-            }
-            return cut;
+    let mut kept = None;
+    let mut start = 0;
+    for (index, layer) in layers.iter().enumerate() {
+        if keep == Some(from + index) {
+            render_layers(&layers[start..index], frame, tile_size, cull, at);
+            kept = Some(frame.clone());
+            start = index;
         }
-        let mut frame = WorkingBuffer::transparent(part.width, part.height);
-        render_layers(&plan.layers, &mut frame, tile_size, cull, (part.x, part.y));
-        return frame;
-    }
-    let mut frame = WorkingBuffer::transparent(plan.width, plan.height);
-    // D-66: the frame is drawn in segments, each ending at an adjustment layer, whose stack
-    // runs on the whole frame drawn so far before the next segment is drawn onto it. D-132: a
-    // layer with a Light Wrap that runs ends one too, as it reads the frame beneath it.
-    let mut from = 0;
-    for (index, layer) in plan.layers.iter().enumerate() {
         if let Some(stack) = &layer.adjust {
-            render_layers(&plan.layers[from..index], &mut frame, tile_size, cull, (0, 0));
-            adjust_frame(layer, stack, &mut frame);
-            from = index + 1;
+            render_layers(&layers[start..index], frame, tile_size, cull, at);
+            adjust_frame(layer, stack, frame);
+            start = index + 1;
         } else if layer.wrap.iter().any(|i| i.enabled && i.is_valid()) {
-            render_layers(&plan.layers[from..index], &mut frame, tile_size, cull, (0, 0));
-            wrap_layer(layer, &mut frame, tile_size, cull);
-            from = index + 1;
+            render_layers(&layers[start..index], frame, tile_size, cull, at);
+            wrap_layer(layer, frame, tile_size, cull);
+            start = index + 1;
         }
     }
-    render_layers(&plan.layers[from..], &mut frame, tile_size, cull, (0, 0));
-    frame
+    render_layers(&layers[start..], frame, tile_size, cull, at);
+    kept
+}
+
+/// B-159 (G10): what the viewer keeps between two draws of one frame: the plan it last drew, and
+/// the frame as it stood below one of that plan's layers, the one last edited.
+#[derive(Default)]
+pub struct Below {
+    /// The layers last drawn, with the frame's width and height, the tile size and the part.
+    last: Option<(Vec<LayerDraw>, (usize, usize, usize, Option<Tile>))>,
+    /// The picture with the last plan's layers `..n` drawn, and `n`.
+    kept: Option<(usize, WorkingBuffer)>,
+    reused: u64,
+}
+
+impl Below {
+    /// Keep nothing; the count stays.
+    pub fn forget(&mut self) {
+        self.last = None;
+        self.kept = None;
+    }
+
+    /// How many draws started from a kept picture.
+    pub fn reused(&self) -> u64 {
+        self.reused
+    }
+}
+
+/// B-159 (G10): [`render`], or [`render_part`] of `part`, for a viewer drawing a frame again after
+/// an edit. The layers are compared with the ones `below` last drew, bottom first: the same
+/// drawing (the very buffer, which `below` holds, so it cannot have been written on or its memory
+/// used again), the same map, opacity and matte to the bit, and the same blend mode and effects.
+/// If the picture kept is of layers that are all still the same, the frame starts from a copy of
+/// it and only the layers above are drawn; each layer is laid on what is beneath it, pixel by
+/// pixel, so where the drawing starts changes nothing but the clock. The picture below the first
+/// layer that differs is kept for next time, when that is a new place: the layer edited is
+/// usually edited again. With nothing kept and the bottom layer differing, as when the last edit
+/// was taken back before another layer is edited, it is the picture below the next layer up that
+/// differs. The viewer's alone; nothing else keeps a `Below`.
+// ponytail: a layer whose drawing is made afresh for every plan (an adjustment layer's white, a
+// motion-blur average made on the processor) never compares the same, so an edit above one starts
+// no higher than it; keep those drawings in the cel cache if that matters.
+pub fn render_below(plan: &FramePlan, tile_size: usize, part: Option<Tile>, below: &mut Below) -> WorkingBuffer {
+    let shape = (plan.width, plan.height, tile_size, part);
+    let (same, above) = match &below.last {
+        Some((last, was)) if *was == shape => {
+            let same = last.iter().zip(&plan.layers).take_while(|(a, b)| same_draw(a, b)).count();
+            let above = (last.len() == plan.layers.len())
+                .then(|| (same.max(1)..last.len()).find(|&i| !same_draw(&last[i], &plan.layers[i])))
+                .flatten();
+            (same, above)
+        }
+        _ => (0, None),
+    };
+    let (mut frame, at, cut) = canvas(plan, part);
+    let kept = below
+        .kept
+        .take()
+        .filter(|(n, k)| (1..=same).contains(n) && k.width() == frame.width() && k.height() == frame.height());
+    let from = match &kept {
+        Some((n, k)) => {
+            frame.data_mut().copy_from_slice(k.data());
+            below.reused += 1;
+            *n
+        }
+        None => 0,
+    };
+    let keep = match from {
+        _ if same > from && same < plan.layers.len() => Some(same),
+        0 => above,
+        _ => None,
+    };
+    below.kept = match (keep, draw(plan, from, &mut frame, at, keep, tile_size, true)) {
+        (Some(n), Some(picture)) => Some((n, picture)),
+        _ => kept,
+    };
+    below.last = Some((plan.layers.clone(), shape));
+    cut_out(frame, cut)
+}
+
+/// B-159: `a` and `b` draw the same, as [`render_below`] says.
+fn same_draw(a: &LayerDraw, b: &LayerDraw) -> bool {
+    let bits = |t: &Affine| [t.a, t.b, t.c, t.d, t.tx, t.ty].map(f64::to_bits);
+    let matte = match (&a.matte, &b.matte) {
+        (None, None) => true,
+        (Some(x), Some(y)) => std::sync::Arc::ptr_eq(&x.source, &y.source) && bits(&x.transform) == bits(&y.transform),
+        _ => false,
+    };
+    std::sync::Arc::ptr_eq(&a.source, &b.source)
+        && bits(&a.transform) == bits(&b.transform)
+        && a.opacity.to_bits() == b.opacity.to_bits()
+        && matte
+        && a.blend == b.blend
+        && a.adjust == b.adjust
+        && a.wrap == b.wrap
+        && a.on_card == b.on_card
+        && a.moments.len() == b.moments.len()
+        && a.moments.iter().zip(&b.moments).all(|(x, y)| x.map(|t| bits(&t)) == y.map(|t| bits(&t)))
 }
 
 /// D-66: `frame = B + c*(E(B) - B)`, with `B` the frame as drawn so far, `E(B)` its pixels

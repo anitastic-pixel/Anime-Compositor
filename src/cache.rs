@@ -52,6 +52,7 @@ use rayon::prelude::*;
 
 use crate::compose::retag;
 use crate::diagnostics::Diagnostic;
+use crate::model::Id;
 use crate::effects::{Bypassed, EffectInstance};
 use crate::mask::Mask;
 use crate::media;
@@ -475,6 +476,9 @@ pub struct CelCache {
     disk_hits: u64,
     /// Session-log lines about disk copies, waiting for the window to collect them.
     disk_notes: Vec<String>,
+    /// B-159 (G10): the frame last drawn, and the picture below its last edit.
+    // ponytail: one picture the frame's size, outside the budget; count it if a budget is tight.
+    below: (Option<(Id, i32)>, crate::render::Below),
 }
 
 impl CelCache {
@@ -509,6 +513,7 @@ impl CelCache {
             disk: None,
             disk_hits: 0,
             disk_notes: Vec::new(),
+            below: Default::default(),
         }
     }
 
@@ -855,10 +860,23 @@ impl CelCache {
         self.disk_hits
     }
 
-    /// B-159 (G10): how many frames were started from the layers below an edit as kept. Not
-    /// built yet: nothing is kept.
+    /// B-159 (G10): what is kept below the last edit of `frame` of `composition`, forgotten when
+    /// the frame asked for is another. `None` without an effect budget, which is every cache but
+    /// the viewer's, so an export never starts from anything kept (ADR-015).
+    pub fn below(&mut self, composition: &Id, frame: i32) -> Option<&mut crate::render::Below> {
+        if self.effect_budget == 0 {
+            return None;
+        }
+        if self.below.0.as_ref().is_none_or(|(c, f)| c != composition || *f != frame) {
+            self.below.0 = Some((composition.clone(), frame));
+            self.below.1.forget();
+        }
+        Some(&mut self.below.1)
+    }
+
+    /// B-159 (G10): how many frames were started from the layers below an edit as kept.
     pub fn below_reused(&self) -> u64 {
-        0
+        self.below.1.reused()
     }
 
     /// B-161: the session-log lines about disk copies since the last call, emptied by it.

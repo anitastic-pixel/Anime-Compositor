@@ -191,8 +191,12 @@ pub fn preview_frame_cached(
     log: &mut FrameLog,
     cache: &mut CelCache,
 ) -> Result<WorkingBuffer, Diagnostic> {
-    let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
-    Ok(render::render(&scale_plan(plan, quality), tiles_for(quality, tile_size)))
+    let plan = scale_plan(compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?, quality);
+    let tile_size = tiles_for(quality, tile_size);
+    Ok(match cache.below(composition_id, frame) {
+        Some(below) => render::render_below(&plan, tile_size, None, below),
+        None => render::render(&plan, tile_size),
+    })
 }
 
 /// B-158 (G8): the pixels of a frame `width` by `height` that `seen` touches, fractions of the
@@ -226,9 +230,11 @@ pub fn preview_part(
     let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
     let plan = scale_plan(plan, quality);
     let part = part_in(seen, plan.width, plan.height);
-    let pixels = match part {
-        Some(part) => render::render_part(&plan, tiles_for(quality, tile_size), part),
-        None => render::render(&plan, tiles_for(quality, tile_size)),
+    let tile_size = tiles_for(quality, tile_size);
+    let pixels = match (cache.below(composition_id, frame), part) {
+        (Some(below), part) => render::render_below(&plan, tile_size, part, below),
+        (None, Some(part)) => render::render_part(&plan, tile_size, part),
+        (None, None) => render::render(&plan, tile_size),
     };
     Ok((pixels, plan.width, plan.height, part))
 }
