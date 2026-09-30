@@ -7756,6 +7756,9 @@ fn export_choices(query: Option<&str>) -> Result<ExportChoices, String> {
             }
         },
         gif_dither: parameter(query, "dither").as_deref() == Some("on"),
+        // D-230, proposed: `hardware=on` beside an MP4 when Preferences asks for the card.
+        hardware_video: parameter(query, "hardware").as_deref() == Some("on"),
+        ..ExportChoices::default()
     })
 }
 
@@ -15496,7 +15499,7 @@ mod editing {
                 export_choices(Some("format=gif")).expect("choices").gif_dither
             ),
         );
-        let high = ExportChoices { mp4_quality: Mp4Quality::High, gif_dither: true };
+        let high = ExportChoices { mp4_quality: Mp4Quality::High, gif_dither: true, ..ExportChoices::default() };
         report.check(
             "the status line names the MP4's quality",
             " as one MP4 at High quality, over black and with no sound,",
@@ -26580,7 +26583,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 81] = [
+    const CONTROLS: [&str; 82] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -26631,6 +26634,7 @@ mod contract {
         "prefdisk",
         "prefdiskfolder",
         "preferences",
+        "prefhwvideo",
         "prefmemory",
         "prefram",
         "printnow",

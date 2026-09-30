@@ -27,8 +27,20 @@ pub fn write_rgba(
     tags: &[(&str, String)],
     samples: &[u8],
 ) -> io::Result<()> {
-    let file = io::BufWriter::new(fs::File::create(path)?);
-    let mut encoder = png::Encoder::new(file, width as u32, height as u32);
+    fs::write(path, encode_rgba(width, height, depth, tags, samples)?)
+}
+
+/// [`write_rgba`]'s file, as bytes, for D-231's export, which encodes frames side by side and
+/// writes them in order.
+pub fn encode_rgba(
+    width: usize,
+    height: usize,
+    depth: OutputDepth,
+    tags: &[(&str, String)],
+    samples: &[u8],
+) -> io::Result<Vec<u8>> {
+    let mut file = Vec::new();
+    let mut encoder = png::Encoder::new(&mut file, width as u32, height as u32);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(match depth {
         OutputDepth::Eight => png::BitDepth::Eight,
@@ -44,5 +56,5 @@ pub fn write_rgba(
         .map_err(io::Error::other)?
         .write_image_data(samples)
         .map_err(io::Error::other)?;
-    Ok(())
+    Ok(file)
 }
