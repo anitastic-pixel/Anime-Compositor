@@ -220,10 +220,11 @@ pub struct LayerDraw {
     pub wrap: Vec<crate::effects::EffectInstance>,
     pub on_card: Option<OnCard>,
     /// D-188: `source`, or the matte's, is already the average of a motion-blurred layer's
-    /// moments. Neither the renderer nor the graphics card reads it (B-152); the checks do.
+    /// moments. The renderer does not read it; the graphics card hands such a frame to the CPU
+    /// when it has no effect of its own to draw (B-153b).
     pub motion_blur: bool,
-    /// D-216: `source`, or the matte's, is a frame mix or a drawing dissolve. Neither the
-    /// renderer nor the graphics card reads it (B-152); the checks do.
+    /// D-216: `source`, or the matte's, is a frame mix or a drawing dissolve. Read as
+    /// `motion_blur` is.
     pub mixed: bool,
 }
 

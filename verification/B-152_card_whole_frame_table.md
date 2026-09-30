@@ -2,17 +2,17 @@
 
 Written by `tests/b152_card_whole_frame.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
-Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU. A motion-blurred, frame-mixed or dissolved layer is built by the CPU and laid by the card with the rest of the frame (D-218). **The rule: the card draws the frame itself, no channel of any pixel more than 1 level of 255 apart** (D-100), with the same warnings on both. A frame with an adjustment layer is still drawn by the CPU (B-44): that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning. Each reference shot must have at least one frame with a blurred or mixed layer.
+Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU. A motion-blurred, frame-mixed or dissolved layer is built by the CPU and laid by the card with the rest of the frame (D-218) when another layer has an effect the card draws. **The rule: the card draws such a frame itself, no channel of any pixel more than 1 level of 255 apart** (D-100), with the same warnings on both. A frame with an adjustment layer (B-44), or a blurred or mixed frame with no effect for the card to draw, which the CPU draws faster (B-153b), is drawn by the CPU: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning. Each reference shot must have at least one frame with a blurred or mixed layer.
 
-**882 of 882 checks pass.**
+**893 of 893 checks pass.**
 
-The worst comparison is "the reference shot with motion blur frame 150, Draft": largest difference 1 of 255, pixels differing: 14397. Its pictures are in `verification/B-152 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with frame mix and dissolve frame 0, Draft": largest difference 1 of 255, pixels differing: 13960. Its pictures are in `verification/B-152 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 ## Each group
 
 | Group | Frames compared | Frames with a blurred or mixed layer | Largest difference (of 255) | Pass |
 |---|---:|---:|---:|---|
-| Motion blur | 174 | 136 | 1 | 174 of 174 |
+| Motion blur | 184 | 146 | 1 | 184 of 184 |
 | Frame blending | 706 | 156 | 1 | 706 of 706 |
 
 ## Every frame
@@ -25,12 +25,12 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_mb_010 frame 0, Draft | no | 0 | 0 | none | PASS |
 | fx_mb_010 frame 1, Draft | no | 0 | 0 | none | PASS |
 | fx_mb_010 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_mb_011 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_011 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_011 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_011 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_011 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_011 frame 2, Draft | yes | 0 | 0 | none | PASS |
+| fx_mb_011 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_011 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_011 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_011 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_011 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_011 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_mb_012 frame 0, Full | no | 0 | 0 | none | PASS |
 | fx_mb_012 frame 1, Full | no | 0 | 0 | none | PASS |
 | fx_mb_012 frame 2, Full | no | 0 | 0 | none | PASS |
@@ -49,140 +49,140 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_mb_014 frame 0, Draft | no | 0 | 0 | none | PASS |
 | fx_mb_014 frame 1, Draft | no | 0 | 0 | none | PASS |
 | fx_mb_014 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_mb_015 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_015 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_mb_015 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_015 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_mb_015 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_mb_015 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_015 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_mb_015 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_015 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_mb_015 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_mb_016 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_016 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_016 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_016 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_016 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_016 frame 2, Draft | yes | 0 | 0 | none | PASS |
+| fx_mb_016 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_016 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_016 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_016 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_016 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_016 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_mb_017 frame 0, Full | no | 0 | 0 | none | PASS |
 | fx_mb_017 frame 1, Full | no | 0 | 0 | none | PASS |
 | fx_mb_017 frame 2, Full | no | 0 | 0 | none | PASS |
 | fx_mb_017 frame 0, Draft | no | 0 | 0 | none | PASS |
 | fx_mb_017 frame 1, Draft | no | 0 | 0 | none | PASS |
 | fx_mb_017 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_mb_018 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_018 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_018 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_018 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_018 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_018 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_019 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_019 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_019 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_019 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_019 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_019 frame 2, Draft | yes | 0 | 0 | none | PASS |
+| fx_mb_018 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_018 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_018 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_018 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_018 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_018 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_019 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_019 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_019 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_019 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_019 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_019 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_mb_020 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_mb_020 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_mb_020 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_mb_020 frame 2, Full | no | 0 | 0 | none | PASS |
 | fx_mb_020 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_mb_020 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_mb_020 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_mb_020 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_mb_021 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_021 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_021 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_021 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_021 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_021 frame 2, Draft | yes | 0 | 0 | none | PASS |
+| fx_mb_021 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_021 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_021 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_021 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_021 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_021 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_mb_022 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_mb_022 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_022 frame 2, Full | yes | 0 | 0 | none | PASS |
+| fx_mb_022 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_022 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_mb_022 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_mb_022 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_022 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_023 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_023 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_023 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_023 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_023 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_023 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_024 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_024 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_024 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_024 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_024 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_024 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_025 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_025 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_025 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_025 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_025 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_025 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_026 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_026 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_026 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_026 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_026 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_026 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_027 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_027 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_027 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_027 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_027 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_027 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_028 frame 0, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_028 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_028 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_mb_028 frame 0, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_028 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_028 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_050 frame 0, Full | yes | 1 | 10 | none | PASS |
-| fx_mb_050 frame 1, Full | yes | 1 | 25 | none | PASS |
-| fx_mb_050 frame 2, Full | yes | 1 | 26 | none | PASS |
-| fx_mb_050 frame 3, Full | yes | 1 | 26 | none | PASS |
-| fx_mb_050 frame 4, Full | yes | 1 | 31 | none | PASS |
-| fx_mb_050 frame 5, Full | yes | 1 | 32 | none | PASS |
-| fx_mb_050 frame 6, Full | yes | 1 | 31 | none | PASS |
-| fx_mb_050 frame 7, Full | yes | 1 | 31 | none | PASS |
-| fx_mb_050 frame 8, Full | yes | 1 | 37 | none | PASS |
-| fx_mb_050 frame 9, Full | yes | 1 | 42 | none | PASS |
-| fx_mb_050 frame 10, Full | yes | 1 | 38 | none | PASS |
-| fx_mb_050 frame 11, Full | yes | 1 | 47 | none | PASS |
-| fx_mb_050 frame 12, Full | yes | 1 | 40 | none | PASS |
-| fx_mb_050 frame 13, Full | yes | 1 | 48 | none | PASS |
-| fx_mb_050 frame 14, Full | yes | 1 | 60 | none | PASS |
-| fx_mb_050 frame 15, Full | yes | 1 | 58 | none | PASS |
-| fx_mb_050 frame 16, Full | yes | 1 | 59 | none | PASS |
-| fx_mb_050 frame 17, Full | yes | 1 | 66 | none | PASS |
-| fx_mb_050 frame 18, Full | yes | 1 | 73 | none | PASS |
-| fx_mb_050 frame 19, Full | yes | 1 | 77 | none | PASS |
-| fx_mb_050 frame 20, Full | yes | 1 | 84 | none | PASS |
-| fx_mb_050 frame 21, Full | yes | 1 | 71 | none | PASS |
-| fx_mb_050 frame 22, Full | yes | 1 | 39 | none | PASS |
-| fx_mb_050 frame 23, Full | yes | 1 | 56 | none | PASS |
-| fx_mb_050 frame 24, Full | yes | 1 | 16 | none | PASS |
-| fx_mb_050 frame 0, Draft | yes | 1 | 2 | none | PASS |
-| fx_mb_050 frame 1, Draft | yes | 1 | 2 | none | PASS |
-| fx_mb_050 frame 2, Draft | yes | 1 | 1 | none | PASS |
-| fx_mb_050 frame 3, Draft | yes | 1 | 1 | none | PASS |
-| fx_mb_050 frame 4, Draft | yes | 1 | 1 | none | PASS |
-| fx_mb_050 frame 5, Draft | yes | 1 | 3 | none | PASS |
-| fx_mb_050 frame 6, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_050 frame 7, Draft | yes | 1 | 4 | none | PASS |
-| fx_mb_050 frame 8, Draft | yes | 1 | 1 | none | PASS |
-| fx_mb_050 frame 9, Draft | yes | 1 | 2 | none | PASS |
-| fx_mb_050 frame 10, Draft | yes | 1 | 4 | none | PASS |
-| fx_mb_050 frame 11, Draft | yes | 1 | 1 | none | PASS |
-| fx_mb_050 frame 12, Draft | yes | 1 | 2 | none | PASS |
-| fx_mb_050 frame 13, Draft | yes | 1 | 3 | none | PASS |
-| fx_mb_050 frame 14, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_050 frame 15, Draft | yes | 1 | 1 | none | PASS |
-| fx_mb_050 frame 16, Draft | yes | 1 | 4 | none | PASS |
-| fx_mb_050 frame 17, Draft | yes | 1 | 4 | none | PASS |
-| fx_mb_050 frame 18, Draft | yes | 1 | 5 | none | PASS |
-| fx_mb_050 frame 19, Draft | yes | 1 | 6 | none | PASS |
-| fx_mb_050 frame 20, Draft | yes | 1 | 6 | none | PASS |
-| fx_mb_050 frame 21, Draft | yes | 1 | 5 | none | PASS |
-| fx_mb_050 frame 22, Draft | yes | 0 | 0 | none | PASS |
-| fx_mb_050 frame 23, Draft | yes | 1 | 5 | none | PASS |
-| fx_mb_050 frame 24, Draft | yes | 0 | 0 | none | PASS |
+| fx_mb_022 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_022 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_023 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_023 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_023 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_023 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_023 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_023 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_024 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_024 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_024 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_024 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_024 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_024 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_025 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_025 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_025 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_025 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_025 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_025 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_026 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_026 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_026 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_026 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_026 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_026 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_027 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_027 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_027 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_027 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_027 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_027 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_028 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_028 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_028 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_028 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_028 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_028 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 4, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 6, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 8, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 9, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 10, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 11, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 12, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 13, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 14, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 15, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 16, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 17, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 18, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 19, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 20, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 21, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 22, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 23, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 24, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 4, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 6, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 8, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 9, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 10, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 11, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 12, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 13, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 14, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 15, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 16, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 17, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 18, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 19, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 20, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 21, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 22, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 23, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_mb_050 frame 24, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_010 frame 0, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_010 frame 1, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_010 frame 2, Full | no | 0 | 0 | none | PASS |
@@ -232,27 +232,27 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_011 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_011 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_012 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 4, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 5, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 6, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 8, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 9, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 9, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_012 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_012 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 4, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 5, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 6, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 8, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_012 frame 9, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_012 frame 9, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_012 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_012 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_013 frame 0, Full | no | 0 | 0 | none | PASS |
@@ -304,32 +304,32 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_014 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_014 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_015 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 2, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_015 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_015 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_015 frame 3, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 4, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 5, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_015 frame 4, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_015 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_015 frame 6, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_015 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_015 frame 8, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_015 frame 9, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_015 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_015 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_015 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 2, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_015 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_015 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_015 frame 3, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 4, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 5, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_015 frame 4, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_015 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_015 frame 6, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_015 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_015 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_015 frame 8, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_015 frame 9, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_015 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_015 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_016 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_016 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_016 frame 2, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_016 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_016 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_016 frame 3, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_016 frame 4, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_016 frame 5, Full | no | 0 | 0 | none | PASS |
@@ -340,8 +340,8 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_016 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_016 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_016 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_016 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_016 frame 2, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_016 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_016 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_016 frame 3, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_016 frame 4, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_016 frame 5, Draft | no | 0 | 0 | none | PASS |
@@ -352,73 +352,73 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_016 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_016 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_017 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_017 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_017 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_017 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_017 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_017 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_017 frame 4, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_017 frame 5, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_017 frame 6, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_017 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_017 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_017 frame 8, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_017 frame 9, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_017 frame 9, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_017 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_017 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_017 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_017 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_017 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_017 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_017 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_017 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_017 frame 4, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_017 frame 5, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_017 frame 6, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_017 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_017 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_017 frame 8, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_017 frame 9, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_017 frame 9, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_017 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_017 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_018 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_018 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_018 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_018 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_018 frame 3, Full | yes | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
+| fx_fblend_018 frame 3, Full | yes | 0 | 0 | CPU: MEDIA_SEQUENCE_GAP; GPU: GPU_PREVIEW_ON_CPU, MEDIA_SEQUENCE_GAP | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_018 frame 4, Full | no | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
 | fx_fblend_018 frame 5, Full | no | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
 | fx_fblend_018 frame 6, Full | no | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
-| fx_fblend_018 frame 7, Full | yes | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
+| fx_fblend_018 frame 7, Full | yes | 0 | 0 | CPU: MEDIA_SEQUENCE_GAP; GPU: GPU_PREVIEW_ON_CPU, MEDIA_SEQUENCE_GAP | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_018 frame 8, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_018 frame 9, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_018 frame 9, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_018 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_018 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_018 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_018 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_018 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_018 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_018 frame 3, Draft | yes | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
+| fx_fblend_018 frame 3, Draft | yes | 0 | 0 | CPU: MEDIA_SEQUENCE_GAP; GPU: GPU_PREVIEW_ON_CPU, MEDIA_SEQUENCE_GAP | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_018 frame 4, Draft | no | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
 | fx_fblend_018 frame 5, Draft | no | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
 | fx_fblend_018 frame 6, Draft | no | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
-| fx_fblend_018 frame 7, Draft | yes | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
+| fx_fblend_018 frame 7, Draft | yes | 0 | 0 | CPU: MEDIA_SEQUENCE_GAP; GPU: GPU_PREVIEW_ON_CPU, MEDIA_SEQUENCE_GAP | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_018 frame 8, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_018 frame 9, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_018 frame 9, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_018 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_018 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_019 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_019 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_019 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_019 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_019 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_019 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_019 frame 4, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_019 frame 5, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_019 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_019 frame 6, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_019 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_019 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_019 frame 8, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_019 frame 9, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_019 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_019 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_019 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_019 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_019 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_019 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_019 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_019 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_019 frame 4, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_019 frame 5, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_019 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_019 frame 6, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_019 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_019 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_019 frame 8, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_019 frame 9, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_019 frame 10, Draft | no | 0 | 0 | none | PASS |
@@ -427,96 +427,96 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_020 frame 1, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_020 frame 2, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_020 frame 3, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_020 frame 4, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_020 frame 4, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_020 frame 5, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_020 frame 6, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_020 frame 6, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_020 frame 7, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_020 frame 8, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_020 frame 8, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_020 frame 9, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_020 frame 10, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_020 frame 10, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_020 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_020 frame 0, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_020 frame 1, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_020 frame 2, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_020 frame 3, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_020 frame 4, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_020 frame 4, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_020 frame 5, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_020 frame 6, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_020 frame 6, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_020 frame 7, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_020 frame 8, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_020 frame 8, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_020 frame 9, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_020 frame 10, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_020 frame 10, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_020 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_021 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 4, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 5, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 6, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 8, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 9, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 9, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_021 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_021 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 4, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 5, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 6, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 8, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_021 frame 9, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_021 frame 9, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_021 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_021 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_022 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 4, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 5, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 6, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 8, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 9, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 9, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 10, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 11, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 11, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 4, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 5, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 6, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 8, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 9, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 9, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_022 frame 10, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_022 frame 11, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_022 frame 11, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 4, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 5, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 6, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 8, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 9, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 9, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_023 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_023 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 4, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 5, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 6, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 8, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_023 frame 9, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_023 frame 9, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_023 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_023 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_024 frame 0, Full | no | 0 | 0 | none | PASS |
@@ -570,27 +570,27 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_026 frame 0, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_026 frame 1, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_026 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_026 frame 4, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 5, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_026 frame 6, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_026 frame 8, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 9, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 9, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_026 frame 10, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 11, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 11, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_026 frame 0, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_026 frame 1, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_026 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_026 frame 4, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 5, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_026 frame 6, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_026 frame 8, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 9, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 9, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_026 frame 10, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_026 frame 11, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_026 frame 11, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_027 frame 0, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_027 frame 1, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_027 frame 2, Full | no | 0 | 0 | none | PASS |
@@ -640,9 +640,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_028 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_028 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_030 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_030 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_030 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_030 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_030 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_030 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_030 frame 4, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_030 frame 5, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_030 frame 6, Full | no | 0 | 0 | none | PASS |
@@ -652,9 +652,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_030 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_030 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_030 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_030 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_030 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_030 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_030 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_030 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_030 frame 4, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_030 frame 5, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_030 frame 6, Draft | no | 0 | 0 | none | PASS |
@@ -664,11 +664,11 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_030 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_030 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_031 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_031 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_031 frame 2, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_031 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_031 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_031 frame 3, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_031 frame 4, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_031 frame 5, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_031 frame 4, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_031 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_031 frame 6, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_031 frame 7, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_031 frame 8, Full | no | 0 | 0 | none | PASS |
@@ -676,11 +676,11 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_031 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_031 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_031 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_031 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_031 frame 2, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_031 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_031 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_031 frame 3, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_031 frame 4, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_031 frame 5, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_031 frame 4, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_031 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_031 frame 6, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_031 frame 7, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_031 frame 8, Draft | no | 0 | 0 | none | PASS |
@@ -688,9 +688,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_031 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_031 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_032 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_032 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_032 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_032 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_032 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_032 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_032 frame 4, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_032 frame 5, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_032 frame 6, Full | no | 0 | 0 | none | PASS |
@@ -700,9 +700,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_032 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_032 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_032 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_032 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_032 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_032 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_032 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_032 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_032 frame 4, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_032 frame 5, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_032 frame 6, Draft | no | 0 | 0 | none | PASS |
@@ -760,9 +760,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_034 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_034 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_035 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_035 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_035 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_035 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_035 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_035 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_035 frame 4, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_035 frame 5, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_035 frame 6, Full | no | 0 | 0 | none | PASS |
@@ -772,9 +772,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_035 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_035 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_035 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_035 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_035 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_035 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_035 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_035 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_035 frame 4, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_035 frame 5, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_035 frame 6, Draft | no | 0 | 0 | none | PASS |
@@ -784,9 +784,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_035 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_035 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_036 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_036 frame 1, Full | yes | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
+| fx_fblend_036 frame 1, Full | yes | 0 | 0 | CPU: MEDIA_SEQUENCE_GAP; GPU: GPU_PREVIEW_ON_CPU, MEDIA_SEQUENCE_GAP | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_036 frame 2, Full | no | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
-| fx_fblend_036 frame 3, Full | yes | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
+| fx_fblend_036 frame 3, Full | yes | 0 | 0 | CPU: MEDIA_SEQUENCE_GAP; GPU: GPU_PREVIEW_ON_CPU, MEDIA_SEQUENCE_GAP | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_036 frame 4, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_036 frame 5, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_036 frame 6, Full | no | 0 | 0 | none | PASS |
@@ -796,9 +796,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_036 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_036 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_036 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_036 frame 1, Draft | yes | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
+| fx_fblend_036 frame 1, Draft | yes | 0 | 0 | CPU: MEDIA_SEQUENCE_GAP; GPU: GPU_PREVIEW_ON_CPU, MEDIA_SEQUENCE_GAP | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_036 frame 2, Draft | no | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
-| fx_fblend_036 frame 3, Draft | yes | 0 | 0 | MEDIA_SEQUENCE_GAP, on both | PASS |
+| fx_fblend_036 frame 3, Draft | yes | 0 | 0 | CPU: MEDIA_SEQUENCE_GAP; GPU: GPU_PREVIEW_ON_CPU, MEDIA_SEQUENCE_GAP | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_036 frame 4, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_036 frame 5, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_036 frame 6, Draft | no | 0 | 0 | none | PASS |
@@ -808,9 +808,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_036 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_036 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_037 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_037 frame 1, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_037 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_037 frame 2, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_037 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_037 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_037 frame 4, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_037 frame 5, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_037 frame 6, Full | no | 0 | 0 | none | PASS |
@@ -820,9 +820,9 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_037 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_037 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_037 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_037 frame 1, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_037 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_037 frame 2, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_037 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_037 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_037 frame 4, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_037 frame 5, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_037 frame 6, Draft | no | 0 | 0 | none | PASS |
@@ -832,72 +832,83 @@ The worst comparison is "the reference shot with motion blur frame 150, Draft": 
 | fx_fblend_037 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_037 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_038 frame 0, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 1, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_038 frame 1, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_038 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_038 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_038 frame 4, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 5, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 6, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_038 frame 5, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_038 frame 6, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_038 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_038 frame 8, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 9, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_038 frame 9, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_038 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_038 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_038 frame 0, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 1, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_038 frame 1, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_038 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_038 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_038 frame 4, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 5, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 6, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_038 frame 5, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_038 frame 6, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_038 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_038 frame 8, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_038 frame 9, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_038 frame 9, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_038 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_038 frame 11, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 0, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 1, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_039 frame 2, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_039 frame 3, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_039 frame 2, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_039 frame 3, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_039 frame 4, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 5, Full | no | 0 | 0 | none | PASS |
-| fx_fblend_039 frame 6, Full | yes | 0 | 0 | none | PASS |
-| fx_fblend_039 frame 7, Full | yes | 0 | 0 | none | PASS |
+| fx_fblend_039 frame 6, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_039 frame 7, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_039 frame 8, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 9, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 10, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 11, Full | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 0, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 1, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_039 frame 2, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_039 frame 3, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_039 frame 2, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_039 frame 3, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_039 frame 4, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 5, Draft | no | 0 | 0 | none | PASS |
-| fx_fblend_039 frame 6, Draft | yes | 0 | 0 | none | PASS |
-| fx_fblend_039 frame 7, Draft | yes | 0 | 0 | none | PASS |
+| fx_fblend_039 frame 6, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| fx_fblend_039 frame 7, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | fx_fblend_039 frame 8, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 9, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 10, Draft | no | 0 | 0 | none | PASS |
 | fx_fblend_039 frame 11, Draft | no | 0 | 0 | none | PASS |
-| the reference shot with motion blur frame 0, Full | yes | 1 | 4779 | none | PASS |
-| the reference shot with motion blur frame 50, Full | yes | 1 | 5458 | none | PASS |
-| the reference shot with motion blur frame 100, Full | yes | 1 | 4805 | none | PASS |
-| the reference shot with motion blur frame 150, Full | yes | 1 | 2825 | none | PASS |
-| the reference shot with motion blur frame 239, Full | yes | 1 | 3604 | none | PASS |
-| the reference shot with motion blur frame 0, Draft | yes | 1 | 13971 | none | PASS |
-| the reference shot with motion blur frame 50, Draft | yes | 1 | 14124 | none | PASS |
-| the reference shot with motion blur frame 100, Draft | yes | 1 | 13907 | none | PASS |
-| the reference shot with motion blur frame 150, Draft | yes | 1 | 14397 | none | PASS |
-| the reference shot with motion blur frame 239, Draft | yes | 1 | 14263 | none | PASS |
+| the reference shot with motion blur frame 0, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with motion blur frame 50, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with motion blur frame 100, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with motion blur frame 150, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with motion blur frame 239, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with motion blur frame 0, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with motion blur frame 50, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with motion blur frame 100, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with motion blur frame 150, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with motion blur frame 239, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | the reference shot with motion blur: frames with a blurred or mixed layer | 10 | — | — | — | PASS |
 | the reference shot with frame mix and dissolve frame 0, Full | no | 1 | 4566 | none | PASS |
-| the reference shot with frame mix and dissolve frame 50, Full | yes | 1 | 6821 | none | PASS |
-| the reference shot with frame mix and dissolve frame 100, Full | yes | 1 | 11256 | none | PASS |
-| the reference shot with frame mix and dissolve frame 150, Full | yes | 1 | 3254 | none | PASS |
-| the reference shot with frame mix and dissolve frame 239, Full | yes | 1 | 7147 | none | PASS |
+| the reference shot with frame mix and dissolve frame 50, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with frame mix and dissolve frame 100, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with frame mix and dissolve frame 150, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with frame mix and dissolve frame 239, Full | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | the reference shot with frame mix and dissolve frame 0, Draft | no | 1 | 13960 | none | PASS |
-| the reference shot with frame mix and dissolve frame 50, Draft | yes | 1 | 13984 | none | PASS |
-| the reference shot with frame mix and dissolve frame 100, Draft | yes | 1 | 13861 | none | PASS |
-| the reference shot with frame mix and dissolve frame 150, Draft | yes | 1 | 14190 | none | PASS |
-| the reference shot with frame mix and dissolve frame 239, Draft | yes | 1 | 13916 | none | PASS |
+| the reference shot with frame mix and dissolve frame 50, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with frame mix and dissolve frame 100, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with frame mix and dissolve frame 150, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
+| the reference shot with frame mix and dissolve frame 239, Draft | yes | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: nothing for the card to draw, so the CPU drew it (B-153b) |
 | the reference shot with frame mix and dissolve: frames with a blurred or mixed layer | 8 | — | — | — | PASS |
+| the reference shot with motion blur and Roughen Edges frame 0, Full | yes | 1 | 4487 | none | PASS |
+| the reference shot with motion blur and Roughen Edges frame 50, Full | yes | 1 | 2394 | none | PASS |
+| the reference shot with motion blur and Roughen Edges frame 100, Full | yes | 1 | 2973 | none | PASS |
+| the reference shot with motion blur and Roughen Edges frame 150, Full | yes | 1 | 1876 | none | PASS |
+| the reference shot with motion blur and Roughen Edges frame 239, Full | yes | 1 | 2264 | none | PASS |
+| the reference shot with motion blur and Roughen Edges frame 0, Draft | yes | 1 | 175 | none | PASS |
+| the reference shot with motion blur and Roughen Edges frame 50, Draft | yes | 1 | 116 | none | PASS |
+| the reference shot with motion blur and Roughen Edges frame 100, Draft | yes | 1 | 197 | none | PASS |
+| the reference shot with motion blur and Roughen Edges frame 150, Draft | yes | 1 | 96 | none | PASS |
+| the reference shot with motion blur and Roughen Edges frame 239, Draft | yes | 1 | 117 | none | PASS |
+| the reference shot with motion blur and Roughen Edges: frames with a blurred or mixed layer | 10 | — | — | — | PASS |

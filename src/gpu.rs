@@ -4740,7 +4740,16 @@ impl Gpu {
             ));
         }
         // B-152: a motion-blurred, frame-mixed or dissolved layer arrives already built by the
-        // CPU, and the card lays it like any drawing.
+        // CPU, and the card lays it like any drawing. B-153b: but sending that new picture costs
+        // the card more than the CPU takes to draw the frame whole, so it does so unless the card
+        // has an effect of its own to draw (D-218).
+        if plan.layers.iter().any(|l| l.motion_blur || l.mixed) && !plan.layers.iter().any(|l| l.on_card.is_some() || !wraps(l).is_empty()) {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: it has motion blur or frame blending and no effect for the GPU, which the CPU draws faster.".into(),
+                "B-153b hands a blurred or mixed frame (D-218) with no card effect to the CPU whole; measured faster there.".into(),
+            ));
+        }
         if plan.layers.iter().flat_map(|l| &l.wrap).any(|i| i.enabled && i.is_valid() && i.mix < 100.0) {
             return Some(on_cpu(
                 Severity::Info,
@@ -4913,9 +4922,10 @@ impl Gpu {
         self.frame += 1;
         self.device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         self.device.push_error_scope(wgpu::ErrorFilter::Validation);
-        // B-153: sending memory big enough for the most a frame has sent, up to four of this
-        // frame's size in 32-bit floats; a frame that sends more gives the rest memory of its own.
-        let most = self.sending.most.min((width * height * 16 * 4) as u64);
+        // B-153: sending memory big enough for the most a frame has sent, up to an eighth of the
+        // card's budget; a frame that sends more gives the rest memory of its own. B-153b: not
+        // a measure of this frame's size, since Draft's frame is half the drawings it sends.
+        let most = self.sending.most.min(self.budget as u64 / 8);
         if most > self.sending.buffer.as_ref().map_or(0, |b| b.size()) {
             self.made.set(self.made.get() + 1);
             self.sending.buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
