@@ -114,10 +114,6 @@ pub struct ExportChoices {
     pub mp4_quality: crate::mp4_out::Mp4Quality,
     /// Floyd and Steinberg's dithering in a GIF. Off is what B-21c wrote.
     pub gif_dither: bool,
-    /// D-230, PROPOSED: ask Windows for the graphics card's H.264 encoder for an MP4. Off, the
-    /// default, is the software encoder every earlier MP4 came from. The card's file is not the
-    /// same bytes, and when there is no card encoder the report says the software one was used.
-    pub hardware_video: bool,
     /// D-231: how many frames are drawn at once. Nought, the default, lets the export choose
     /// from the machine and the picture's size. Every number writes the same bytes.
     pub frames_at_once: usize,
@@ -399,7 +395,8 @@ pub fn export_sequence_counting(
                     },
                     OutputFormat::Mp4 => match crate::mp4_out::refusal(w, h) {
                         Some(why) => Err(why),
-                        None => open_mp4(&path, w, h, rate, request, &mut report.diagnostics),
+                        None => crate::mp4_out::Mp4::create(&path, w, h, rate, request.choices.mp4_quality)
+                            .map(Film::Mp4),
                     },
                     // The header is written once, so it carries no `Frame` tag, and its `Fidelity`
                     // tag speaks for the first frame only; the report speaks for them all.
@@ -501,68 +498,6 @@ fn frames_at_once(project: &Project, request: &ExportRequest) -> usize {
     // ponytail: a fixed 2 GiB. Take it from Preferences' memory setting if a heavy project
     // runs a machine short.
     ((2usize << 30) / (pixels * 16 * 4)).clamp(1, rayon::current_num_threads())
-}
-
-/// D-230, PROPOSED: the MP4 on the graphics card's encoder when "Hardware video encoding" is
-/// chosen, with a note saying which encoder wrote it. A card that cannot is not a failure: the
-/// software encoder writes the film and the note says so as a warning, so nothing changes
-/// silently.
-fn open_mp4(
-    path: &Path,
-    w: usize,
-    h: usize,
-    rate: crate::time::FrameRate,
-    request: &ExportRequest,
-    notes: &mut Vec<Diagnostic>,
-) -> Result<Film, String> {
-    use crate::mp4_out::Mp4;
-    let quality = request.choices.mp4_quality;
-    if !request.choices.hardware_video {
-        return Mp4::create(path, w, h, rate, quality).map(Film::Mp4);
-    }
-    let fell_back = |why: String| {
-        Diagnostic::new(
-            DiagnosticId::ExportVideoEncoder,
-            Severity::Warning,
-            "Hardware video encoding was chosen, but the graphics card did not encode this film; \
-             the software encoder did.",
-            why,
-        )
-        .with_remediation(
-            "Nothing is wrong with the film. To stop seeing this, turn Hardware video encoding off \
-             in Preferences.",
-        )
-    };
-    #[cfg(windows)]
-    match Mp4::create_on_card(path, w, h, rate, quality) {
-        Ok((film, Some(name))) => {
-            notes.push(Diagnostic::new(
-                DiagnosticId::ExportVideoEncoder,
-                Severity::Info,
-                format!("The graphics card encoded this film ({name})."),
-                "Hardware video encoding is on (D-230, proposed). The card's pictures differ \
-                 slightly from the software encoder's; turn the choice off in Preferences for \
-                 the software encoder's exact file.",
-            ));
-            Ok(Film::Mp4(film))
-        }
-        Ok((film, None)) => {
-            notes.push(fell_back("Windows was asked for the card's encoder and chose a software \
-                                  one."
-                .to_string()));
-            Ok(Film::Mp4(film))
-        }
-        Err(why) => {
-            let _ = std::fs::remove_file(path);
-            notes.push(fell_back(format!("Asking for the card's encoder failed: {why}")));
-            Mp4::create(path, w, h, rate, quality).map(Film::Mp4)
-        }
-    }
-    #[cfg(not(windows))]
-    {
-        notes.push(fell_back("This build writes an MP4 through ffmpeg's software encoder.".to_string()));
-        Mp4::create(path, w, h, rate, quality).map(Film::Mp4)
-    }
 }
 
 /// One frame drawn ahead of its turn to be written.
