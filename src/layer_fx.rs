@@ -491,7 +491,7 @@ pub(crate) fn chromatic_aberration(
     if amount == 0.0 {
         return;
     }
-    let (cx, cy) = crate::effects::radial_center(center, source, origin);
+    let (cx, cy) = crate::effects::radial_center(center, (source.width(), source.height()), origin);
     let w0 = (source.width() - 2 * origin.0) as f64;
     let h0 = (source.height() - 2 * origin.1) as f64;
     let k = amount / ((w0 * w0 + h0 * h0).sqrt() / 2.0);
@@ -1568,7 +1568,7 @@ pub(crate) fn linear_wipe(
         return;
     }
     let w = source.width();
-    let ((ux, uy), edge) = linear_edge(completion, angle, feather, source, origin);
+    let ((ux, uy), edge) = linear_edge(completion, angle, feather, (source.width(), source.height()), origin);
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     source
         .data_mut()
@@ -1593,9 +1593,9 @@ pub(crate) fn linear_wipe(
 
 
 /// D-155's direction across and where its edge is, for the drawing whose corner is at `origin` in
-/// `source`. B-107's card takes the same.
-pub(crate) fn linear_edge(completion: f64, angle: f64, feather: f64, source: &WorkingBuffer, origin: (usize, usize)) -> ((f64, f64), f64) {
-    let (w0, h0) = ((source.width() - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
+/// a buffer `w` by `h`. B-107's card takes the same.
+pub(crate) fn linear_edge(completion: f64, angle: f64, feather: f64, (w, h): (usize, usize), origin: (usize, usize)) -> ((f64, f64), f64) {
+    let (w0, h0) = ((w - 2 * origin.0) as f64, (h - 2 * origin.1) as f64);
     let (ux, uy) = crate::blurs::along(angle);
     let corners = [0.0, ux * w0, uy * h0, ux * w0 + uy * h0];
     let low = corners.iter().copied().fold(f64::INFINITY, f64::min);
@@ -1811,7 +1811,7 @@ pub(crate) fn iris_wipe(
         return;
     }
     let w = source.width();
-    let ((cx, cy), r) = iris_circle(completion, center, feather, invert, source, origin);
+    let ((cx, cy), r) = iris_circle(completion, center, feather, invert, (source.width(), source.height()), origin);
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     source
         .data_mut()
@@ -1835,9 +1835,9 @@ pub(crate) fn iris_wipe(
 
 
 /// D-158's centre, in the drawing's own pixels, and radius, for the drawing whose corner is at
-/// `origin` in `source`. B-107's card takes the same.
-pub(crate) fn iris_circle(completion: f64, center: [f64; 2], feather: f64, invert: bool, source: &WorkingBuffer, origin: (usize, usize)) -> ((f64, f64), f64) {
-    let (w0, h0) = ((source.width() - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
+/// `origin` in a buffer `w` by `h`. B-107's card takes the same.
+pub(crate) fn iris_circle(completion: f64, center: [f64; 2], feather: f64, invert: bool, (w, h): (usize, usize), origin: (usize, usize)) -> ((f64, f64), f64) {
+    let (w0, h0) = ((w - 2 * origin.0) as f64, (h - 2 * origin.1) as f64);
     let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
     let far = [(0.0, 0.0), (0.0, h0), (w0, 0.0), (w0, h0)]
         .iter()

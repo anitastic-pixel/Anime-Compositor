@@ -125,7 +125,7 @@ fn left_to_card(project: &Project, root: &Path) -> usize {
         &mut CelCache::viewer(),
     )
     .expect("plan the frame");
-    plan.layers.iter().filter(|l| l.on_card.is_some()).count()
+    plan.layers.iter().filter(|l| !l.on_card.is_empty()).count()
 }
 
 #[test]

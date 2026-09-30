@@ -380,8 +380,8 @@ struct ResolvedLayer {
     opacity: f32,
     /// D-67: the composition and the frame of it that `source` is, for a composition layer.
     nested: Option<(Id, i32)>,
-    /// B-46, B-47: an effect left for the graphics card.
-    on_card: Option<render::OnCard>,
+    /// B-46, B-47: the effects left for the graphics card, in stack order (B-155).
+    on_card: Vec<render::OnCard>,
     /// D-188: step 4 at each moment of a motion-blurred layer's shutter, `None` for a moment it
     /// is behind the camera. Empty when it is taken once, through `transform`. [`settle`]
     /// averages them into `source`.
@@ -1055,7 +1055,7 @@ fn resolve_held(
                     blend: crate::model::BlendMode::Normal,
                     adjust: None,
                     nested: None,
-                    on_card: None,
+                    on_card: Vec::new(),
                     wrap: Vec::new(),
                     motion_blur: false,
                     mixed: false,
@@ -1364,10 +1364,13 @@ fn resolve_rest(
     // path's result to the other.
     // B-76: a Light Wrap is not in the layer's own stack (D-132; it runs as the layer is laid), so
     // the effect before it can be the last.
-    let last = effects
-        .iter()
-        .rposition(|i| i.enabled && !matches!(i.effect, crate::effects::Effect::LightWrap { .. }));
-    let left = last.filter(|&i| {
+    // B-155 (D-224): not only the last. Every effect from the last one the card cannot draw to the
+    // end of the stack is left, and the card runs them one after another. Bloom, Glow, Paraffin
+    // and Kira-kira look at the drawing they are given here, before the card is asked, so one of
+    // them can only begin that run. So can an HSV Key: the hue of a nearly grey pixel swings
+    // with the smallest change, and given the card's picture rather than the CPU's it keyed
+    // pixels the CPU did not (B-155's table, 255 levels).
+    let can = |i: usize| {
         // D-202: an effect mixed below 100 is drawn here; a card version is a later unit.
         card && cel.is_some() && effects[i].mix == 100.0
             && matches!(
@@ -1452,8 +1455,23 @@ fn resolve_rest(
                 effect.scale_distances(|d| d / pre);
                 effect.is_valid()
             }
-    });
-    let before = left.unwrap_or(effects.len());
+    };
+    let mut chain = Vec::new();
+    for i in (0..effects.len()).rev() {
+        use crate::effects::Effect as E;
+        if !effects[i].enabled || matches!(effects[i].effect, E::LightWrap { .. }) {
+            continue;
+        }
+        if !can(i) {
+            break;
+        }
+        chain.push(i);
+        if matches!(effects[i].effect, E::Bloom { .. } | E::Glow { .. } | E::Paraffin { .. } | E::KiraKira { .. } | E::HsvKey { .. }) {
+            break;
+        }
+    }
+    chain.reverse();
+    let before = chain.first().copied().unwrap_or(effects.len());
     let offset = match &cel {
         // D-66: an adjustment layer's stack runs on the frame beneath it, in the renderer. What
         // that run would have reported is reported here instead, so a bypassed effect reaches
@@ -1475,7 +1493,7 @@ fn resolve_rest(
         // B-46: a draft cel whose only effect is left to the card still goes to the effect cache,
         // under an empty stack, so the card is handed the same small drawing every frame and
         // sends it once.
-        _ if effects[..before].is_empty() && (left.is_none() || pre == 1.0) => (0, 0),
+        _ if effects[..before].is_empty() && (chain.is_empty() || pre == 1.0) => (0, 0),
         // D-67: a composition layer's stack runs on the inner picture as one. The effect cache
         // is keyed by a cel's file, and this picture has none, so it is not asked.
         None => {
@@ -1553,20 +1571,24 @@ fn resolve_rest(
             transform: Affine::IDENTITY,
             opacity: 1.0,
             nested: None,
-            on_card: None,
+            on_card: Vec::new(),
             moments: Vec::new(),
             mixed: false,
         });
     }
     let mut offset = offset;
-    let on_card = left.and_then(|i| {
+    let start = offset;
+    let mut on_card = Vec::new();
+    for &i in &chain {
+        // B-155: the buffer each is given, grown by the ones before it in the run.
+        let size = (source.width() + 2 * (offset.0 - start.0), source.height() + 2 * (offset.1 - start.1));
         let mut effect = effects[i].effect.clone();
         effect.scale_distances(|d| d / pre);
-        match effect {
+        on_card.extend(match effect {
             crate::effects::Effect::RadialBlur { kind, amount, center, edges } => Some(render::OnCard::Radial(render::Radial {
                 spin: kind == "spin",
                 amount,
-                center: crate::effects::radial_center(center, &source, offset),
+                center: crate::effects::radial_center(center, size, offset),
                 repeat: edges == "repeat",
             })),
             // B-47: a Bloom that lights nothing changes nothing and grows nothing, on the CPU too,
@@ -1663,7 +1685,7 @@ fn resolve_rest(
                     E::Rain { density, opacity, .. } => *density == 0.0 || *opacity == 0.0,
                     // B-115: a tile that grows nothing, as `layer_fx::motion_tile` returns at once.
                     E::MotionTile { output_width, output_height, .. } => {
-                        crate::layer_fx::tile_growth((*output_width, *output_height), (source.width(), source.height())) == (0, 0)
+                        crate::layer_fx::tile_growth((*output_width, *output_height), size) == (0, 0)
                     }
                     // B-123: the batch's five new ones, each as its own function returns at once.
                     E::ColorLookup { table, .. } => table.is_none(),
@@ -1686,7 +1708,6 @@ fn resolve_rest(
                 // B-107: a shake grows by how far it can carry a corner, which its settings and
                 // the drawing's size say, not its settings alone. B-115: so does a Motion Tile,
                 // and not the same across as down.
-                let size = (source.width(), source.height());
                 let grow = match &effect {
                     E::CameraShake { amount, rotation, .. } => {
                         let g = crate::layer_fx::shake_reach(*amount, *rotation, size, offset).1;
@@ -1715,8 +1736,8 @@ fn resolve_rest(
                     render::OnCard::Fx(fx)
                 })
             }
-        }
-    });
+        });
+    }
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of
     // value cannot come from a loaded project — persistence refuses it — so this reports

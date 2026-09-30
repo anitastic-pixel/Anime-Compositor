@@ -139,7 +139,7 @@ fn a_layer_smaller_than_the_frame() -> (usize, usize, usize) {
             blend: BlendMode::Normal,
             adjust: None,
             nested: None,
-            on_card: None,
+            on_card: Vec::new(),
             motion_blur: false,
             mixed: false,
             wrap: Vec::new(),

@@ -1,6 +1,6 @@
 # B-76: the second batch of ten on the GPU against the CPU
 
-Written by `tests/b76_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan, 16.8 GB of its own memory.
+Written by `tests/b76_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the nine done on the card and its Light Wraps wherever they are. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-133). An effect that changes nothing or whose settings are invalid is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings, and the card must draw the frame itself, except a frame with an adjustment layer, which the CPU draws by B-44's rule: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
@@ -899,11 +899,11 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_vignette_017 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_vignette_017 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_vignette_017 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_vignette_018 frame 0, Full | 1 | 0 | 0 | none | PASS |
-| fx_vignette_018 frame 1, Full | 1 | 0 | 0 | none | PASS |
-| fx_vignette_018 frame 2, Full | 1 | 0 | 0 | none | PASS |
-| fx_vignette_018 frame 3, Full | 1 | 0 | 0 | none | PASS |
-| fx_vignette_018 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_vignette_018 frame 0, Full | 1 | 1 | 4 | none | PASS |
+| fx_vignette_018 frame 1, Full | 1 | 1 | 4 | none | PASS |
+| fx_vignette_018 frame 2, Full | 1 | 1 | 4 | none | PASS |
+| fx_vignette_018 frame 3, Full | 1 | 1 | 4 | none | PASS |
+| fx_vignette_018 frame 4, Full | 1 | 1 | 4 | none | PASS |
 | fx_vignette_018 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_vignette_018 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_vignette_018 frame 2, Draft | 1 | 0 | 0 | none | PASS |

@@ -1,6 +1,6 @@
 # B-65: the batch of ten on the GPU against the CPU
 
-Written by `tests/b65_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.74, Vulkan, 16.8 GB of its own memory.
+Written by `tests/b65_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the ten done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-122). An effect that changes nothing or whose settings are invalid, and a Levels that is a threshold, is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings.
 
@@ -2447,7 +2447,7 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | the reference shot with Lens Blur frame 239, Draft | 3 | 1 | 52 | none | PASS |
 | the reference shot with Rim Light frame 0, Full | 3 | 1 | 3781 | none | PASS |
 | the reference shot with Rim Light frame 100, Full | 3 | 1 | 1417 | none | PASS |
-| the reference shot with Rim Light frame 239, Full | 3 | 1 | 1775 | none | PASS |
+| the reference shot with Rim Light frame 239, Full | 3 | 1 | 1776 | none | PASS |
 | the reference shot with Rim Light frame 0, Draft | 3 | 1 | 128 | none | PASS |
 | the reference shot with Rim Light frame 100, Draft | 3 | 1 | 33 | none | PASS |
 | the reference shot with Rim Light frame 239, Draft | 3 | 1 | 47 | none | PASS |

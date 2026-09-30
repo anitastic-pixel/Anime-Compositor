@@ -3361,10 +3361,11 @@ pub fn gaussian_weights(sigma_px: f64) -> Vec<f32> {
     w.into_iter().map(|v| v as f32).collect()
 }
 
-/// D-95: a Radial Blur's centre in `source`'s pixels, from its share of the drawing's own size,
-/// with the drawing's corner at `(ox, oy)` in `source` after the effects above it grew it.
-pub(crate) fn radial_center(center: [f64; 2], source: &WorkingBuffer, (ox, oy): (usize, usize)) -> (f64, f64) {
-    let (w0, h0) = (source.width() - 2 * ox, source.height() - 2 * oy);
+/// D-95: a Radial Blur's centre in the pixels of a buffer `w` by `h`, from its share of the
+/// drawing's own size, with the drawing's corner at `(ox, oy)` in it after the effects above it
+/// grew it.
+pub(crate) fn radial_center(center: [f64; 2], (w, h): (usize, usize), (ox, oy): (usize, usize)) -> (f64, f64) {
+    let (w0, h0) = (w - 2 * ox, h - 2 * oy);
     (
         ox as f64 + center[0] / 100.0 * w0 as f64,
         oy as f64 + center[1] / 100.0 * h0 as f64,
@@ -3528,7 +3529,7 @@ pub(crate) fn apply_stack_at(
                 center,
                 edges,
             } => {
-                let c = radial_center(*center, source, (ox, oy));
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectRadial, || {
                     crate::blurs::radial_blur(source, kind == "spin", *amount, c, edges == "repeat")
                 })
@@ -3604,8 +3605,8 @@ pub(crate) fn apply_stack_at(
             } => {
                 let g = crate::grade::Gradient {
                     radial: shape == "radial",
-                    start: radial_center(*start, source, (ox, oy)),
-                    end: radial_center(*end, source, (ox, oy)),
+                    start: radial_center(*start, (source.width(), source.height()), (ox, oy)),
+                    end: radial_center(*end, (source.width(), source.height()), (ox, oy)),
                     colors: [encoded(start_color), encoded(end_color)],
                     opacity: [*start_opacity, *end_opacity],
                     blend: blend.clone(),
@@ -3744,7 +3745,7 @@ pub(crate) fn apply_stack_at(
                 intensity,
                 color,
             } => {
-                let c = radial_center(*center, source, (ox, oy));
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectLightRays, || {
                     crate::layer_fx::light_rays(
                         source,
@@ -3782,7 +3783,7 @@ pub(crate) fn apply_stack_at(
                     color,
                     [*size, *roundness, *softness],
                     *center,
-                    source,
+                    (source.width(), source.height()),
                     (ox, oy),
                 );
                 crate::perf::time(crate::perf::Stage::EffectVignette, || {
@@ -4061,7 +4062,7 @@ pub(crate) fn apply_stack_at(
                 fade,
                 frame,
             } => {
-                let c = radial_center(*center, source, (ox, oy));
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectRipple, || {
                     crate::layer_fx::ripple(source, c, *amplitude, *wavelength, phase + speed * *frame as f64, *fade)
                 })
@@ -4072,7 +4073,7 @@ pub(crate) fn apply_stack_at(
                 radius,
                 center,
             } => {
-                let c = radial_center(*center, source, (ox, oy));
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectTwirl, || {
                     crate::layer_fx::twirl(source, *angle, *radius, c)
                 })
@@ -4083,14 +4084,14 @@ pub(crate) fn apply_stack_at(
                 radius,
                 height,
             } => {
-                let c = radial_center(*center, source, (ox, oy));
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectBulge, || {
                     crate::layer_fx::bulge(source, *radius, *height, c)
                 })
             }
             // D-153: the centre is a share of the drawing's own size, as Radial Blur's is.
             Effect::Mirror { center, angle } => {
-                let c = radial_center(*center, source, (ox, oy));
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectMirror, || {
                     crate::layer_fx::mirror(source, *angle, c)
                 })
@@ -4176,7 +4177,7 @@ pub(crate) fn apply_stack_at(
                 composite,
             } => crate::perf::time(crate::perf::Stage::EffectBeam, || {
                 let colours = [encoded(inside_color), encoded(outside_color)].map(|c| c.map(crate::grade::to_linear));
-                let ends = [radial_center(*start, source, (ox, oy)), radial_center(*end, source, (ox, oy))];
+                let ends = [radial_center(*start, (source.width(), source.height()), (ox, oy)), radial_center(*end, (source.width(), source.height()), (ox, oy))];
                 let numbers = [*length, *time, *start_thickness, *end_thickness, *softness];
                 crate::layer_fx::beam(source, ends, numbers, colours, composite == "off")
             }),
@@ -4195,7 +4196,7 @@ pub(crate) fn apply_stack_at(
                 opacity,
                 blending_mode,
             } => crate::perf::time(crate::perf::Stage::EffectFourColorGradient, || {
-                let points = [point_1, point_2, point_3, point_4].map(|p| radial_center(*p, source, (ox, oy)));
+                let points = [point_1, point_2, point_3, point_4].map(|p| radial_center(*p, (source.width(), source.height()), (ox, oy)));
                 let colors = [color_1, color_2, color_3, color_4].map(|c| encoded(c));
                 crate::grade::four_color_gradient(source, points, colors, *blend, *opacity, blending_mode)
             }),
@@ -4280,7 +4281,7 @@ pub(crate) fn apply_stack_at(
                 frame,
             } => crate::perf::time(crate::perf::Stage::EffectRadioWaves, || {
                 let s = crate::layer_fx::RadioWaves {
-                    producer: radial_center(*producer_point, source, (ox, oy)),
+                    producer: radial_center(*producer_point, (source.width(), source.height()), (ox, oy)),
                     sides: *sides,
                     interval: *interval,
                     expansion: *expansion,
@@ -4388,7 +4389,7 @@ pub(crate) fn apply_stack_at(
                 opacity,
                 frame,
             } => {
-                let c = radial_center(*center, source, (ox, oy));
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 let numbers = [*count, *thickness, *inner, *inner_jitter, *angle_jitter, *seed, *hold, *opacity];
                 crate::perf::time(crate::perf::Stage::EffectSpeedLines, || {
                     crate::layer_fx::speed_lines(source, c, encoded(color).map(crate::grade::to_linear), numbers, *frame)
@@ -4529,7 +4530,7 @@ pub(crate) fn apply_stack_at(
                 frame,
             } => crate::perf::time(crate::perf::Stage::EffectLightningBolt, || {
                 let colours = [encoded(color), encoded(glow_color)].map(|c| c.map(crate::grade::to_linear));
-                let ends = [radial_center(*start, source, (ox, oy)), radial_center(*end, source, (ox, oy))];
+                let ends = [radial_center(*start, (source.width(), source.height()), (ox, oy)), radial_center(*end, (source.width(), source.height()), (ox, oy))];
                 let numbers = [*jagged, *detail, *branches, *width, *glow, *opacity, *hold, *seed];
                 crate::layer_fx::lightning_bolt(source, ends, numbers, colours, *frame)
             }),
@@ -4613,21 +4614,21 @@ pub(crate) fn depth(evolution: f64, speed: f64, frame: i32) -> f64 {
 }
 
 /// D-126: the ellipse in the drawing's own size, however far the layer has grown (its corner at
-/// `(ox, oy)` in `source`). `[size, roundness, softness]` as the effect holds them.
+/// `(ox, oy)` in a buffer `w` by `h`). `[size, roundness, softness]` as the effect holds them.
 pub(crate) fn vignette_settings(
     amount: f64,
     color: &str,
     [size, roundness, softness]: [f64; 3],
     center: [f64; 2],
-    source: &WorkingBuffer,
+    (w, h): (usize, usize),
     (ox, oy): (usize, usize),
 ) -> crate::grade::Vignette {
-    let w0 = (source.width() - 2 * ox) as f64;
-    let h0 = (source.height() - 2 * oy) as f64;
+    let w0 = (w - 2 * ox) as f64;
+    let h0 = (h - 2 * oy) as f64;
     let (m, r) = (roundness / 100.0, (w0 * h0).sqrt() / 2.0);
     let outer = size / 100.0;
     crate::grade::Vignette {
-        center: radial_center(center, source, (ox, oy)),
+        center: radial_center(center, (w, h), (ox, oy)),
         radii: ((1.0 - m) * w0 / 2.0 + m * r, (1.0 - m) * h0 / 2.0 + m * r),
         inner: outer * (1.0 - softness / 100.0),
         outer,

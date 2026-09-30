@@ -107,7 +107,7 @@ fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> usize {
         .iter()
         .filter(|l| {
             use anime_compositor::render::OnCard;
-            matches!(l.on_card, Some(OnCard::Radial(_) | OnCard::Directional(_) | OnCard::Gaussian(_)))
+            l.on_card.iter().any(|c| matches!(c, OnCard::Radial(_) | OnCard::Directional(_) | OnCard::Gaussian(_)))
         })
         .count()
 }

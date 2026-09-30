@@ -210,15 +210,16 @@ pub struct LayerDraw {
     /// D-67: `Some` for a composition layer: the composition `source` is a render of, and the
     /// frame of it. The renderer does not read it; the trace names it.
     pub nested: Option<(crate::model::Id, i32)>,
-    /// B-46, B-47: `Some` when the layer's stack ends in an effect left for the graphics card
-    /// (`compose::plan_frame_for_card`): `source` is the drawing before it. The CPU runs it
-    /// itself in [`render`], so a plan made for the card is the same frame on either.
+    /// B-46, B-47: the effects the layer's stack ends in that are left for the graphics card
+    /// (`compose::plan_frame_for_card`), in stack order (B-155): `source` is the drawing before
+    /// them. The CPU runs them itself in [`render`], so a plan made for the card is the same frame
+    /// on either.
     /// D-132: the layer's Light Wraps at this frame, in stack order, disabled and bypassed ones
     /// included. They read the frame beneath the layer, so they run as the layer is drawn onto
     /// it ([`wrap_layer`]), after its other effects, mask, transform and matte and before its
     /// opacity and blend. Empty for an adjustment layer, which has no drawing to wrap.
     pub wrap: Vec<crate::effects::EffectInstance>,
-    pub on_card: Option<OnCard>,
+    pub on_card: Vec<OnCard>,
     /// D-188: `source`, or the matte's, is already the average of a motion-blurred layer's
     /// moments. The renderer does not read it; the graphics card hands such a frame to the CPU
     /// when it has no effect of its own to draw (B-153b).
@@ -377,14 +378,17 @@ pub struct Tile {
 /// would have been spent on a skip that never fires.
 pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
     let even = |g: usize| (2 * g, 2 * g);
-    let (gx, gy) = match &layer.on_card {
-        Some(OnCard::Bloom(b)) => even(crate::bloom::reach(b.radius, b.lines, b.length)),
-        Some(OnCard::Directional(d)) => even(d.grow()),
-        Some(OnCard::Gaussian(g)) => even(g.grow()),
-        Some(OnCard::Glow(g)) => even(crate::effects::kernel_radius(g.radius / 3.0)),
-        Some(OnCard::Fx(f)) => (2 * f.grow.0, 2 * f.grow.1),
-        _ => (0, 0),
-    };
+    let (gx, gy) = layer.on_card.iter().fold((0, 0), |(x, y), card| {
+        let (gx, gy) = match card {
+            OnCard::Bloom(b) => even(crate::bloom::reach(b.radius, b.lines, b.length)),
+            OnCard::Directional(d) => even(d.grow()),
+            OnCard::Gaussian(g) => even(g.grow()),
+            OnCard::Glow(g) => even(crate::effects::kernel_radius(g.radius / 3.0)),
+            OnCard::Fx(f) => (2 * f.grow.0, 2 * f.grow.1),
+            OnCard::Radial(_) => (0, 0),
+        };
+        (x + gx, y + gy)
+    });
     let (w, h) = ((layer.source.width() + gx) as f64, (layer.source.height() + gy) as f64);
     let corners = [
         layer.transform.apply(-1.0, -1.0),
@@ -467,43 +471,45 @@ pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuff
 fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool) -> WorkingBuffer {
     // B-46, B-47, B-49, B-50, B-51, B-65: an effect left for the card that the CPU is drawing after all is run first,
     // exactly as `apply_stack` would have run it.
-    if plan.layers.iter().any(|l| l.on_card.is_some()) {
+    if plan.layers.iter().any(|l| !l.on_card.is_empty()) {
         let mut plan = plan.clone();
         for layer in &mut plan.layers {
-            match layer.on_card.take() {
-                None => {}
-                Some(OnCard::Radial(r)) => crate::perf::time(crate::perf::Stage::EffectRadial, || {
-                    crate::blurs::radial_blur(std::sync::Arc::make_mut(&mut layer.source), r.spin, r.amount, r.center, r.repeat)
-                }),
-                Some(OnCard::Bloom(b)) => {
-                    crate::perf::time(crate::perf::Stage::EffectBloom, || {
+            // B-155: in stack order, each on what the one before it drew.
+            for card in std::mem::take(&mut layer.on_card) {
+                match card {
+                    OnCard::Radial(r) => crate::perf::time(crate::perf::Stage::EffectRadial, || {
+                        crate::blurs::radial_blur(std::sync::Arc::make_mut(&mut layer.source), r.spin, r.amount, r.center, r.repeat)
+                    }),
+                    OnCard::Bloom(b) => {
+                        crate::perf::time(crate::perf::Stage::EffectBloom, || {
+                            let source = std::sync::Arc::make_mut(&mut layer.source);
+                            crate::bloom::bloom(source, b.threshold, b.radius, b.intensity, b.lines, b.length, b.angle)
+                        });
+                    }
+                    OnCard::Directional(d) => {
+                        crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
+                            crate::blurs::directional_blur(std::sync::Arc::make_mut(&mut layer.source), d.direction, d.length, d.repeat)
+                        });
+                    }
+                    OnCard::Gaussian(g) => {
+                        crate::perf::time(crate::perf::Stage::EffectBlur, || {
+                            let source = std::sync::Arc::make_mut(&mut layer.source);
+                            if g.repeat {
+                                crate::effects::held_blur(source, g.sigma);
+                            } else {
+                                crate::effects::blur(source, g.sigma);
+                            }
+                        });
+                    }
+                    OnCard::Glow(g) => {
+                        crate::perf::time(crate::perf::Stage::EffectGlow, || {
+                            crate::glow::glow(std::sync::Arc::make_mut(&mut layer.source), &g)
+                        });
+                    }
+                    OnCard::Fx(f) => {
                         let source = std::sync::Arc::make_mut(&mut layer.source);
-                        crate::bloom::bloom(source, b.threshold, b.radius, b.intensity, b.lines, b.length, b.angle)
-                    });
-                }
-                Some(OnCard::Directional(d)) => {
-                    crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
-                        crate::blurs::directional_blur(std::sync::Arc::make_mut(&mut layer.source), d.direction, d.length, d.repeat)
-                    });
-                }
-                Some(OnCard::Gaussian(g)) => {
-                    crate::perf::time(crate::perf::Stage::EffectBlur, || {
-                        let source = std::sync::Arc::make_mut(&mut layer.source);
-                        if g.repeat {
-                            crate::effects::held_blur(source, g.sigma);
-                        } else {
-                            crate::effects::blur(source, g.sigma);
-                        }
-                    });
-                }
-                Some(OnCard::Glow(g)) => {
-                    crate::perf::time(crate::perf::Stage::EffectGlow, || {
-                        crate::glow::glow(std::sync::Arc::make_mut(&mut layer.source), &g)
-                    });
-                }
-                Some(OnCard::Fx(f)) => {
-                    let source = std::sync::Arc::make_mut(&mut layer.source);
-                    crate::effects::apply_stack_at(source, std::slice::from_ref(&f.instance), f.origin, |_, _, _| {});
+                        crate::effects::apply_stack_at(source, std::slice::from_ref(&f.instance), f.origin, |_, _, _| {});
+                    }
                 }
             }
         }

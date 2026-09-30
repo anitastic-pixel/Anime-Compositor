@@ -129,7 +129,7 @@ fn b164_downsampled_blurs() {
                     .expect("plan the frame")
                     .layers
                     .iter()
-                    .filter(|l| l.on_card.is_some())
+                    .filter(|l| !l.on_card.is_empty())
                     .count();
                 // Nothing kept from the last row: Draft works a layer's effects at the same size
                 // as Full, so the card could reuse Full's blur and work nothing small.

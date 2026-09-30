@@ -141,7 +141,7 @@ fn marked(shot: &Shot, frame: i32, quality: PreviewQuality) -> (bool, bool, bool
     (
         plan.layers.iter().any(|l| l.motion_blur || l.mixed),
         plan.layers.iter().any(|l| l.adjust.is_some()),
-        plan.layers.iter().any(|l| l.on_card.is_some() || l.wrap.iter().any(|i| i.enabled && i.is_valid())),
+        plan.layers.iter().any(|l| !l.on_card.is_empty() || l.wrap.iter().any(|i| i.enabled && i.is_valid())),
     )
 }
 

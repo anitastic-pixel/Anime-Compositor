@@ -129,7 +129,7 @@ fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> usize {
         .expect("plan the frame")
         .layers
         .iter()
-        .filter(|l| matches!(l.on_card, Some(render::OnCard::Fx(_))))
+        .filter(|l| l.on_card.iter().any(|c| matches!(c, render::OnCard::Fx(_))))
         .count()
 }
 

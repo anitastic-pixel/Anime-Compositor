@@ -5,7 +5,9 @@
 //! Every effect the card can draw is put in two stacks on the reference shot: last, after two
 //! others the card can draw, and first, before two. The card is to draw the whole run from the
 //! last effect it cannot draw to the end of the stack. Bloom, Glow, Paraffin and Kira-kira look at
-//! the drawing they are given before the card is asked, so they can only begin a run. A third
+//! the drawing they are given before the card is asked, so they can only begin a run; so does an
+//! HSV Key, whose key turned on pixels the CPU's did not when it was given the card's picture
+//! (the first run of this table, 255 levels apart; D-224). A third
 //! stack puts one the card cannot draw (Kaleidoscope, D-240) in the middle, so the run is only
 //! the two after it.
 //!
@@ -115,9 +117,9 @@ fn effects() -> Vec<(&'static str, &'static str, Value)> {
     ]
 }
 
-/// The four that look at the drawing they are given before the card is asked, and so only begin
-/// a run on the card.
-const LOOKS_FIRST: [&str; 4] = ["Bloom", "Glow", "Paraffin", "Kira-kira"];
+/// The four that look at the drawing they are given before the card is asked, and HSV Key (D-224),
+/// which only begin a run on the card.
+const LOOKS_FIRST: [&str; 5] = ["Bloom", "Glow", "Paraffin", "Kira-kira", "HSV Key"];
 
 struct Shot {
     name: String,
@@ -362,7 +364,10 @@ fn b155_gpu_chain() {
          is to draw each layer's whole run from the last effect it cannot draw to the end of the \
          stack, one effect after another on the card (D-224). Bloom, Glow, Paraffin and \
          Kira-kira look at the drawing they are given before the card is asked, so they only \
-         begin a run: last in a stack, the card has only them.\n\n\
+         begin a run: last in a stack, the card has only them. So does an HSV Key: the hue of a \
+         nearly grey pixel swings with the smallest change, and given the card's picture after \
+         two others it keyed pixels the CPU did not, 255 levels apart, in this table's first \
+         run after the build (D-224).\n\n\
          Each row compares the eight-bit picture the page receives, drawn by the CPU and by the \
          GPU. **The rule: no channel of any pixel more than {LIMIT} level of 255 apart**, the \
          same warnings on both, the card drawing the frame itself, and at Full the first layer's \
@@ -389,4 +394,110 @@ fn b155_gpu_chain() {
     );
     fs::write(&out, s).expect("write the B-155 table");
     assert_eq!(passed, checks, "B-155: {passed} of {checks} checks pass");
+}
+
+/// A run whose last effect alone changes starts again from the kept picture before it: each
+/// frame so drawn is byte for byte the frame a card that has just forgotten everything draws.
+#[test]
+fn b155_kept_run_is_fresh() {
+    let mut gpu = Gpu::new().expect("a usable card");
+    let all = effects();
+    let get = |name: &str| all.iter().find(|e| e.0 == name).map(|e| fx(&format!("b155-{name}"), e.1, &e.2)).expect("a named effect");
+    let moving = shot(
+        "moving Noise last".into(),
+        [
+            vec![get("Levels"), get("Gaussian Blur"), get("Hue/Saturation"), get("Noise")],
+            vec![get("Drop Shadow"), get("Curves"), get("Noise")],
+            vec![get("Outline"), get("Directional Blur"), get("Offset")],
+        ],
+        4,
+    );
+    for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
+        let mut cache = CelCache::viewer();
+        let mut draw = |gpu: &mut Gpu, frame: i32| {
+            let mut log = FrameLog::new(3);
+            preview::preview_frame_srgb8(&moving.project, &moving.comp, frame, &moving.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu).expect("GPU frame")
+        };
+        for frame in [0, 1, 2, 9] {
+            let kept = draw(&mut gpu, frame);
+            gpu.forget();
+            let fresh = draw(&mut gpu, frame);
+            assert!(kept == fresh, "B-155: frame {frame} at {} drawn after the one before is not the fresh card's", quality.label());
+        }
+    }
+}
+
+fn median(mut v: Vec<f64>) -> f64 {
+    v.sort_by(f64::total_cmp);
+    v[v.len() / 2]
+}
+
+/// The frame times on the card of the reference shot with a run of effects the card draws on
+/// each of its first three layers; then the same with the first two runs ending in a Noise that
+/// changes every frame, so they are drawn anew each frame; then with those runs beginning with
+/// the Noise, so everything after it is drawn anew too. Every eighth frame is asked for as the
+/// viewer asks; one loop fills the caches, then seven are timed; the median of their 210 frames,
+/// in ms. The same test run on the checks-first build gives the "before" column, when only the
+/// last effect of each was the card's.
+#[test]
+#[ignore]
+fn b155_gpu_chain_timing() {
+    let mut gpu = Gpu::new().expect("a usable card");
+    let all = effects();
+    let get = |name: &str| all.iter().find(|e| e.0 == name).map(|e| fx(&format!("b155-{name}"), e.1, &e.2)).expect("a named effect");
+    let still = shot(
+        "the reference shot, runs of four, three and three".into(),
+        [
+            vec![get("Levels"), get("Gaussian Blur"), get("Hue/Saturation"), get("Vignette")],
+            vec![get("Drop Shadow"), get("Curves"), get("Color Balance")],
+            vec![get("Outline"), get("Directional Blur"), get("Offset")],
+        ],
+        4,
+    );
+    let moving = shot(
+        "the same, the first two runs ending in a moving Noise".into(),
+        [
+            vec![get("Levels"), get("Gaussian Blur"), get("Hue/Saturation"), get("Vignette"), get("Noise")],
+            vec![get("Drop Shadow"), get("Curves"), get("Color Balance"), get("Noise")],
+            vec![get("Outline"), get("Directional Blur"), get("Offset")],
+        ],
+        5,
+    );
+    let first = shot(
+        "the same, the first two runs beginning with a moving Noise".into(),
+        [
+            vec![get("Noise"), get("Levels"), get("Gaussian Blur"), get("Hue/Saturation"), get("Vignette")],
+            vec![get("Noise"), get("Drop Shadow"), get("Curves"), get("Color Balance")],
+            vec![get("Outline"), get("Directional Blur"), get("Offset")],
+        ],
+        5,
+    );
+    let mut s = format!(
+        "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n\n| Shot | Quality | Left to the card, first three layers | GPU median ms |\n|---|---|---|---:|\n",
+        gpu.about(),
+        std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
+        std::thread::available_parallelism().map_or(0, |n| n.get()),
+        std::env::consts::OS,
+        if cfg!(debug_assertions) { "debug" } else { "release" },
+    );
+    for shot in [still, moving, first] {
+        for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
+            let mut cache = CelCache::viewer();
+            gpu.forget();
+            let mut times = Vec::new();
+            for pass in 0..8 {
+                for frame in (0..240).step_by(8) {
+                    let mut log = FrameLog::new(3);
+                    let t = std::time::Instant::now();
+                    drop(preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                    if pass > 0 {
+                        times.push(t.elapsed().as_secs_f64() * 1000.0);
+                    }
+                }
+            }
+            let n = left(&shot, 100, quality).iter().map(|k| k.to_string()).collect::<Vec<_>>().join(" / ");
+            let _ = writeln!(s, "| {} | {} | {n} | {:.1} |", shot.name, quality.label(), median(times));
+        }
+    }
+    fs::write(repo("verification/B-155_timing_raw.md"), s).expect("write the timing table");
 }

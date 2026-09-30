@@ -132,7 +132,7 @@ fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> (usize, bool) {
     let n = plan
         .layers
         .iter()
-        .filter(|l| matches!(l.on_card, Some(render::OnCard::Fx(_))) || l.wrap.iter().any(|i| i.enabled && i.effect.is_valid()))
+        .filter(|l| l.on_card.iter().any(|c| matches!(c, render::OnCard::Fx(_))) || l.wrap.iter().any(|i| i.enabled && i.effect.is_valid()))
         .count();
     (n, plan.layers.iter().any(|l| l.adjust.is_some()))
 }

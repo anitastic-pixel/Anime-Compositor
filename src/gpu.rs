@@ -3260,8 +3260,10 @@ struct Stored {
     bytes: usize,
     /// The frame that last drew with it.
     used: u64,
-    /// B-46, B-47: the last effect the card ran on it, kept while the settings stay the same.
-    applied: Option<(OnCard, wgpu::TextureView)>,
+    /// B-46, B-47: the last effects the card ran on it (B-155: a run of them), kept while the
+    /// settings stay the same, with the picture after each, so a run whose last effect alone
+    /// changes starts again from the one before it.
+    applied: Option<(Vec<OnCard>, Vec<(wgpu::TextureView, (usize, usize))>)>,
     /// B-47: held in 32-bit floats, for a Bloom.
     wide: bool,
 }
@@ -3804,29 +3806,38 @@ impl Gpu {
         Some((buffer, at))
     }
 
-    /// B-46, B-47, B-49, B-50, B-51, B-65: `effect` run on `source`, which [`Gpu::resident`] has just put on the card as
-    /// `still`. A result already made of it with the same settings is reused; otherwise what to
-    /// dispatch is added to `steps`, to run before the layers.
-    fn applied(&mut self, steps: &mut Vec<Step>, source: &Arc<WorkingBuffer>, still: &wgpu::TextureView, effect: &OnCard) -> wgpu::TextureView {
+    /// B-46, B-47, B-49, B-50, B-51, B-65: `effects` run on `source`, which [`Gpu::resident`] has just put on the card as
+    /// `still`, one after another (B-155), each on the texture the one before it wrote. A result
+    /// already made of it with the same settings is reused, and so is the kept picture after the
+    /// effects a run begins with unchanged; what to dispatch for the rest is added to `steps`, to
+    /// run before the layers.
+    fn applied(&mut self, steps: &mut Vec<Step>, source: &Arc<WorkingBuffer>, still: &wgpu::TextureView, effects: &[OnCard]) -> wgpu::TextureView {
         let stored = self.store.iter().position(|s| s.used == self.frame && &s.view == still);
-        if let Some((kept, view)) = stored.and_then(|i| self.store[i].applied.as_ref()) {
-            if kept == effect {
-                return view.clone();
-            }
+        let mut views = Vec::new();
+        if let Some((kept, after)) = stored.and_then(|i| self.store[i].applied.as_ref()) {
+            let same = kept.iter().zip(effects).take_while(|(a, b)| a == b).count();
+            views.extend_from_slice(&after[..same]);
         }
-        let size = (source.width(), source.height());
-        let (moved, (width, height)) = match effect {
-            OnCard::Radial(r) => (self.blur(steps, still, size, *r), size),
-            OnCard::Bloom(b) => self.bloom(steps, still, size, *b),
-            OnCard::Directional(d) => self.directional(steps, still, size, *d),
-            OnCard::Gaussian(g) => self.gaussian(steps, still, size, *g),
-            OnCard::Glow(g) => self.glow(steps, still, size, *g),
-            OnCard::Fx(f) => self.fx(steps, source, still, f),
-        };
+        if views.len() == effects.len() && !views.is_empty() {
+            return views[views.len() - 1].0.clone();
+        }
+        let (mut moved, mut size) = views.last().cloned().unwrap_or((still.clone(), (source.width(), source.height())));
+        for effect in &effects[views.len()..] {
+            (moved, size) = match effect {
+                OnCard::Radial(r) => (self.blur(steps, &moved, size, *r), size),
+                OnCard::Bloom(b) => self.bloom(steps, &moved, size, *b),
+                OnCard::Directional(d) => self.directional(steps, &moved, size, *d),
+                OnCard::Gaussian(g) => self.gaussian(steps, &moved, size, *g),
+                OnCard::Glow(g) => self.glow(steps, &moved, size, *g),
+                OnCard::Fx(f) => self.fx(steps, source, size, &moved, f),
+            };
+            views.push((moved.clone(), size));
+        }
         if let Some(i) = stored {
             let s = &mut self.store[i];
-            s.bytes = size.0 * size.1 * if s.wide { 16 } else { BYTES_PER_PIXEL } + width * height * 16;
-            s.applied = Some((effect.clone(), moved.clone()));
+            let kept: usize = views.iter().map(|(_, (w, h))| w * h * 16).sum();
+            s.bytes = source.width() * source.height() * if s.wide { 16 } else { BYTES_PER_PIXEL } + kept;
+            s.applied = Some((effects.to_vec(), views));
         }
         moved
     }
@@ -3863,7 +3874,7 @@ impl Gpu {
 
     /// B-153: whether `texture` holds an effect's result a drawing keeps for later frames.
     fn keeps(&self, texture: &wgpu::Texture) -> bool {
-        self.store.iter().any(|s| s.applied.as_ref().is_some_and(|(_, v)| v.texture() == texture))
+        self.store.iter().any(|s| s.applied.as_ref().is_some_and(|(_, after)| after.iter().any(|(v, _)| v.texture() == texture)))
     }
 
     /// `blurs::radial_blur` of `still`, `width` by `height`, into a texture of its own, which is
@@ -4139,13 +4150,13 @@ impl Gpu {
         steps.push((pipeline.clone(), group, groups));
     }
 
-    /// B-65: one of the batch of ten, `apply_stack_at` of `f` on `source`, which is on the card
-    /// as `still`, into a texture of its own, returned with its size. What to dispatch is added
-    /// to `steps`.
-    fn fx(&self, steps: &mut Vec<Step>, source: &WorkingBuffer, still: &wgpu::TextureView, f: &Fx) -> (wgpu::TextureView, (usize, usize)) {
+    /// B-65: one of the batch of ten, `apply_stack_at` of `f` on `still`, `w` by `h`, into a
+    /// texture of its own, returned with its size. What to dispatch is added to `steps`.
+    /// B-155: `source` is the drawing the layer sent, which Paraffin and Kira-kira read here;
+    /// they only begin a run, so it is what they are given.
+    fn fx(&self, steps: &mut Vec<Step>, source: &WorkingBuffer, (w, h): (usize, usize), still: &wgpu::TextureView, f: &Fx) -> (wgpu::TextureView, (usize, usize)) {
         use crate::effects::Effect as E;
         let passes = self.fx.as_ref().expect("the batch of ten is refused without the passes");
-        let (w, h) = (source.width(), source.height());
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
         let none = [None; 4];
         let blend = |b: &str| match b {
@@ -4197,8 +4208,8 @@ impl Gpu {
                 same(steps, &passes.grade, FxParams { mode: 2, ..Default::default() }, &[*hue, *saturation, *lightness], None)
             }
             E::Gradient { shape, start, end, start_color, end_color, start_opacity, end_opacity, blend: b } => {
-                let (sx, sy) = crate::effects::radial_center(*start, source, f.origin);
-                let (ex, ey) = crate::effects::radial_center(*end, source, f.origin);
+                let (sx, sy) = crate::effects::radial_center(*start, (w, h), f.origin);
+                let (ex, ey) = crate::effects::radial_center(*end, (w, h), f.origin);
                 let (ex, ey) = (ex - sx, ey - sy);
                 let ll = ex * ex + ey * ey;
                 let mut k = vec![sx, sy, ex, ey, ll, ll.sqrt(), (shape == "radial") as u8 as f64, *start_opacity, *end_opacity];
@@ -4220,7 +4231,7 @@ impl Gpu {
                 same(steps, &passes.grade, p, &[amount / 200.0], None)
             }
             E::ChromaticAberration { amount, center } => {
-                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let k = amount / ((w0 * w0 + h0 * h0).sqrt() / 2.0);
                 same(steps, &passes.aberr, FxParams::default(), &[cx, cy, 1.0 - k, 1.0 + k], None)
@@ -4305,7 +4316,7 @@ impl Gpu {
                 same(steps, &passes.grade, FxParams { mode: 7, ..Default::default() }, &k, None)
             }
             E::Vignette { amount, color, size, roundness, softness, center } => {
-                let v = crate::effects::vignette_settings(*amount, color, [*size, *roundness, *softness], *center, source, f.origin);
+                let v = crate::effects::vignette_settings(*amount, color, [*size, *roundness, *softness], *center, (w, h), f.origin);
                 let mut k = vec![v.center.0, v.center.1, v.radii.0, v.radii.1, v.inner, v.outer, v.amount, 2f64.sqrt()];
                 k.extend(v.color.map(crate::grade::to_linear));
                 same(steps, &passes.grade, FxParams { mode: 8, ..Default::default() }, &k, None)
@@ -4360,7 +4371,7 @@ impl Gpu {
                 let lit = self.scratch("B-76 bright", w, h);
                 let p = Params { level: crate::bloom::bright_level(*threshold), ..Default::default() };
                 self.step(steps, &bloom.bright, p, still, Some(&lit), None, Some(&none), tiles(w, h));
-                let center = crate::effects::radial_center(*center, source, f.origin);
+                let center = crate::effects::radial_center(*center, (w, h), f.origin);
                 let rays = self.blur(steps, &lit, (w, h), Radial { spin: false, amount: *length, center, repeat: false });
                 let mut k = vec![*intensity];
                 k.extend(linear(color));
@@ -4479,20 +4490,20 @@ impl Gpu {
                 (out, (w + 2 * g, h + 2 * g))
             }
             E::Ripple { center, amplitude, wavelength, speed, phase, fade, frame } => {
-                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let k = [cx, cy, *amplitude, *wavelength, (phase + speed * *frame as f64).to_radians(), *fade];
                 same(steps, &passes.warp, FxParams { mode: 1, ..Default::default() }, &k, None)
             }
             E::Twirl { angle, radius, center } => {
-                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 same(steps, &passes.warp, FxParams { mode: 2, ..Default::default() }, &[cx, cy, angle.to_radians(), *radius], None)
             }
             E::Bulge { center, radius, height } => {
-                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 same(steps, &passes.warp, FxParams { mode: 3, ..Default::default() }, &[cx, cy, *height, *radius], None)
             }
             E::Mirror { center, angle } => {
-                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let (nx, ny) = crate::layer_fx::mirror_normal(*angle);
                 same(steps, &passes.warp, FxParams { mode: 4, ..Default::default() }, &[cx, cy, nx, ny, 0.0], None)
             }
@@ -4513,7 +4524,7 @@ impl Gpu {
                 (out, (tw, th))
             }
             E::LinearWipe { completion, angle, feather } => {
-                let ((ux, uy), edge) = crate::layer_fx::linear_edge(*completion, *angle, *feather, source, f.origin);
+                let ((ux, uy), edge) = crate::layer_fx::linear_edge(*completion, *angle, *feather, (w, h), f.origin);
                 let p = FxParams { mode: 0, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
                 same(steps, &passes.wipe, p, &[ux, uy, edge, *feather, 0.0], None)
             }
@@ -4537,7 +4548,7 @@ impl Gpu {
             }
             E::IrisWipe { completion, center, feather, invert } => {
                 let invert = invert == "on";
-                let ((cx, cy), r) = crate::layer_fx::iris_circle(*completion, *center, *feather, invert, source, f.origin);
+                let ((cx, cy), r) = crate::layer_fx::iris_circle(*completion, *center, *feather, invert, (w, h), f.origin);
                 let p = FxParams { mode: 3, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
                 same(steps, &passes.wipe, p, &[cx, cy, r, *feather, invert as u8 as f64], None)
             }
@@ -4573,7 +4584,7 @@ impl Gpu {
                 (out, (bw, bh))
             }
             E::SpeedLines { center, color, count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity, frame } => {
-                let (cx, cy) = crate::effects::radial_center(*center, source, f.origin);
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let lines = crate::layer_fx::speed_line_list([*count, *thickness, *inner, *inner_jitter, *angle_jitter, *seed, *hold], *frame);
                 let widest = lines.iter().map(|l| l.1).fold(0.0, f64::max);
                 let mut k = vec![cx, cy, opacity / 100.0];
@@ -4857,7 +4868,7 @@ impl Gpu {
         // CPU, and the card lays it like any drawing. B-153b: but sending that new picture costs
         // the card more than the CPU takes to draw the frame whole, so it does so unless the card
         // has an effect of its own to draw (D-218).
-        if plan.layers.iter().any(|l| l.motion_blur || l.mixed) && !plan.layers.iter().any(|l| l.on_card.is_some() || !wraps(l).is_empty()) {
+        if plan.layers.iter().any(|l| l.motion_blur || l.mixed) && !plan.layers.iter().any(|l| !l.on_card.is_empty() || !wraps(l).is_empty()) {
             return Some(on_cpu(
                 Severity::Info,
                 "The CPU drew this frame: it has motion blur or frame blending and no effect for the GPU, which the CPU draws faster.".into(),
@@ -4897,69 +4908,73 @@ impl Gpu {
         // B-65: so does the batch of ten; Lens Blur keeps its running totals and Outline its band
         // in a buffer.
         for l in &plan.layers {
-            let (w, h) = (l.source.width(), l.source.height());
-            let halo = |g: usize| ((w + 2 * g) * (h + 2 * g) * 16) as u64;
-            let (name, grow, bytes) = match &l.on_card {
-                Some(OnCard::Bloom(b)) => {
-                    let g = crate::bloom::reach(b.radius, b.lines, b.length);
-                    ("a Bloom".to_string(), (g, g), halo(g))
+            // B-155: each effect of a run on the drawing the ones before it grew.
+            let (mut w, mut h) = (l.source.width(), l.source.height());
+            for card in &l.on_card {
+                let halo = |g: usize| ((w + 2 * g) * (h + 2 * g) * 16) as u64;
+                let (name, grow, bytes) = match card {
+                    OnCard::Bloom(b) => {
+                        let g = crate::bloom::reach(b.radius, b.lines, b.length);
+                        ("a Bloom".to_string(), (g, g), halo(g))
+                    }
+                    OnCard::Directional(d) => ("a Directional Blur".into(), (d.grow(), d.grow()), 0),
+                    OnCard::Gaussian(g) => ("a Gaussian Blur".into(), (g.grow(), g.grow()), 0),
+                    OnCard::Glow(g) => {
+                        let g = crate::effects::kernel_radius(g.radius / 3.0);
+                        ("a Glow".into(), (g, g), halo(g))
+                    }
+                    OnCard::Fx(f) => {
+                        let bytes = match &f.instance.effect {
+                            crate::effects::Effect::LensBlur { .. } => ((w + 1) * h * 32) as u64,
+                            crate::effects::Effect::Outline { width, .. } => {
+                                let n = width.ceil() as usize;
+                                ((w + 2 * n) * (h + 2 * n) * 4) as u64
+                            }
+                            crate::effects::Effect::DistanceGradation { .. } => dist_bytes(w, h) as u64,
+                            // B-107: a Simple Choker's band as Outline's, and a spread's running totals.
+                            crate::effects::Effect::SimpleChoker { choke } => {
+                                let g = if *choke < 0.0 { (-choke).floor() as usize } else { 0 };
+                                let sums = if *choke < 0.0 { (w + 1) * h * 32 } else { 0 };
+                                ((w + 2 * g) * (h + 2 * g) * 4).max(sums) as u64
+                            }
+                            // Each block's mean.
+                            crate::effects::Effect::Mosaic { size } => (16.0 * (w as f64 / size + 2.0) * (h as f64 / size + 2.0)) as u64,
+                            // B-123: a Color Lookup's table rides with its settings; Kira-kira keeps
+                            // its light in a buffer the size of the grown drawing, and its stars, at
+                            // most one a cell, with its settings.
+                            crate::effects::Effect::ColorLookup { table: Some(t), .. } => ((8 + 3 * t.0.entries()) * 8) as u64,
+                            crate::effects::Effect::KiraKira { spacing, .. } => {
+                                let cells = (w as f64 / spacing + 2.0) * (h as f64 / spacing + 2.0);
+                                (((w + 2 * f.grow.0) * (h + 2 * f.grow.1) * 4) as f64).max((19.0 + 4.0 * cells) * 8.0) as u64
+                            }
+                            // B-151: Cell Pattern's points ride with its settings.
+                            crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
+                            _ => 0,
+                        };
+                        (format!("the effect {}", f.instance.effect.name()), f.grow, bytes)
+                    }
+                    OnCard::Radial(_) => continue,
+                };
+                let (gx, gy) = grow;
+                if self.bloom.is_none() || self.fx.is_none() {
+                    return Some(on_cpu(
+                        Severity::Info,
+                        format!("The CPU drew this frame: it has {name}, and this graphics card cannot do the double-precision sums it needs."),
+                        format!("{}: no SHADER_F64. B-47 and B-49 draw these on the card only where it can add as the CPU does.", self.about),
+                    ));
                 }
-                Some(OnCard::Directional(d)) => ("a Directional Blur".into(), (d.grow(), d.grow()), 0),
-                Some(OnCard::Gaussian(g)) => ("a Gaussian Blur".into(), (g.grow(), g.grow()), 0),
-                Some(OnCard::Glow(g)) => {
-                    let g = crate::effects::kernel_radius(g.radius / 3.0);
-                    ("a Glow".into(), (g, g), halo(g))
+                let (gw, gh) = (w + 2 * gx, h + 2 * gy);
+                if gw + gh + 1 > self.limits.max_texture_dimension_2d as usize
+                    || bytes > self.limits.max_storage_buffer_binding_size as u64
+                    || bytes > self.limits.max_buffer_size
+                {
+                    return Some(on_cpu(
+                        Severity::Info,
+                        format!("The CPU drew this frame: {name} grows a drawing to {gw} by {gh}, larger than the card allows."),
+                        format!("{}: largest texture side {}.", self.about, self.limits.max_texture_dimension_2d),
+                    ));
                 }
-                Some(OnCard::Fx(f)) => {
-                    let bytes = match &f.instance.effect {
-                        crate::effects::Effect::LensBlur { .. } => ((w + 1) * h * 32) as u64,
-                        crate::effects::Effect::Outline { width, .. } => {
-                            let n = width.ceil() as usize;
-                            ((w + 2 * n) * (h + 2 * n) * 4) as u64
-                        }
-                        crate::effects::Effect::DistanceGradation { .. } => dist_bytes(w, h) as u64,
-                        // B-107: a Simple Choker's band as Outline's, and a spread's running totals.
-                        crate::effects::Effect::SimpleChoker { choke } => {
-                            let g = if *choke < 0.0 { (-choke).floor() as usize } else { 0 };
-                            let sums = if *choke < 0.0 { (w + 1) * h * 32 } else { 0 };
-                            ((w + 2 * g) * (h + 2 * g) * 4).max(sums) as u64
-                        }
-                        // Each block's mean.
-                        crate::effects::Effect::Mosaic { size } => (16.0 * (w as f64 / size + 2.0) * (h as f64 / size + 2.0)) as u64,
-                        // B-123: a Color Lookup's table rides with its settings; Kira-kira keeps
-                        // its light in a buffer the size of the grown drawing, and its stars, at
-                        // most one a cell, with its settings.
-                        crate::effects::Effect::ColorLookup { table: Some(t), .. } => ((8 + 3 * t.0.entries()) * 8) as u64,
-                        crate::effects::Effect::KiraKira { spacing, .. } => {
-                            let cells = (w as f64 / spacing + 2.0) * (h as f64 / spacing + 2.0);
-                            (((w + 2 * f.grow.0) * (h + 2 * f.grow.1) * 4) as f64).max((19.0 + 4.0 * cells) * 8.0) as u64
-                        }
-                        // B-151: Cell Pattern's points ride with its settings.
-                        crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
-                        _ => 0,
-                    };
-                    (format!("the effect {}", f.instance.effect.name()), f.grow, bytes)
-                }
-                _ => continue,
-            };
-            let (gx, gy) = grow;
-            if self.bloom.is_none() || self.fx.is_none() {
-                return Some(on_cpu(
-                    Severity::Info,
-                    format!("The CPU drew this frame: it has {name}, and this graphics card cannot do the double-precision sums it needs."),
-                    format!("{}: no SHADER_F64. B-47 and B-49 draw these on the card only where it can add as the CPU does.", self.about),
-                ));
-            }
-            let (gw, gh) = (w + 2 * gx, h + 2 * gy);
-            if gw + gh + 1 > self.limits.max_texture_dimension_2d as usize
-                || bytes > self.limits.max_storage_buffer_binding_size as u64
-                || bytes > self.limits.max_buffer_size
-            {
-                return Some(on_cpu(
-                    Severity::Info,
-                    format!("The CPU drew this frame: {name} grows a drawing to {gw} by {gh}, larger than the card allows."),
-                    format!("{}: largest texture side {}.", self.about, self.limits.max_texture_dimension_2d),
-                ));
+                (w, h) = (gw, gh);
             }
         }
         let most = self.limits.max_texture_dimension_2d as usize;
@@ -5118,10 +5133,10 @@ impl Gpu {
                     layer.opacity.to_bits(),
                 ];
                 let wraps = wraps(layer);
-                let wide = !wraps.is_empty() || matches!(layer.on_card, Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
+                let wide = !wraps.is_empty() || matches!(layer.on_card.first(), Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
                 let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source), wide);
-                if let Some(effect) = &layer.on_card {
-                    source = self.applied(&mut steps, &layer.source, &source, effect);
+                if !layer.on_card.is_empty() {
+                    source = self.applied(&mut steps, &layer.source, &source, &layer.on_card);
                 }
                 let matte = matte.map(|(m, _)| self.resident(&mut uploads, &m.source, cache.name_of(&m.source), false));
                 if wraps.is_empty() {
