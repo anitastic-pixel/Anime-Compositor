@@ -1,12 +1,14 @@
-//! B-173: at Draft, a layer whose effects are set differently at the next frame keeps its stack on
-//! the CPU (D-246). The quiet re-measure of 2026-09-30 found the viewer at Draft slower since B-151
-//! and B-155 on shots whose effects move: the card drew the layer's run anew every frame, and on a
-//! sixteenth of the pixels its drawing and reading back cost more than the CPU's work.
+//! B-173: the card keeps the picture of each run of effects it has drawn on a drawing, not only the
+//! last (D-246). The quiet re-measure of 2026-09-30 found the viewer at Draft slower since B-151 and
+//! B-155 on shots whose effects move: the CPU's cache keeps each frame's effect result, so a second
+//! play costs it only the composite, while the card drew a moving run anew every frame. A frame
+//! asked for again, after another in between, must now run no pass on the card and give the very
+//! picture the card drew the first time.
 //!
 //! Every effect the card draws that moves by itself with the frame, and three the card draws with a
 //! keyed setting, are put on the reference shot's first three layers as B-151's check puts them
 //! (the second layer's after a Drop Shadow), and B-155's moving Noise first before a run of four.
-//! A Median that does not move is the control: its run stays on the card at Draft.
+//! A Median that does not move is the control. Every run stays the card's, at Draft as at Full.
 //!
 //! What is compared is what the page receives, eight-bit straight sRGB: the CPU's frame through
 //! `preview_frame_cached`, and the card's through `preview_frame_srgb8`. The CPU stays the
@@ -152,12 +154,15 @@ fn b173_draft_moving() {
         }
     };
     let (mut rows, mut checks, mut passed) = (String::new(), 0, 0);
+    let (mut again, mut again_checks, mut again_passed) = (String::new(), 0, 0);
     let mut worst: (u8, usize, String) = (0, 0, "none".into());
     for shot in &shots() {
-        for frame in [0, 100] {
-            let full = left(shot, frame, PreviewQuality::Full);
-            for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
-                let mut cache = CelCache::viewer();
+        for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+            let mut cache = CelCache::viewer();
+            gpu.forget();
+            let mut first = Vec::new();
+            for frame in [0, 100] {
+                let full = left(shot, frame, PreviewQuality::Full);
                 let said = |log: FrameLog| {
                     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
                     ids.sort();
@@ -175,11 +180,12 @@ fn b173_draft_moving() {
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let d = distance(&c, &g);
+                if frame == 0 {
+                    first = g;
+                }
                 let n = if quality == PreviewQuality::Full { full.clone() } else { left(shot, frame, quality) };
-                // At Full every layer's run stays the card's. At Draft a moving layer's is the CPU's,
-                // and a still layer's is left to the card as at Full.
-                let expected: Vec<usize> =
-                    full.iter().zip(shot.moving).map(|(&k, moving)| if quality == PreviewQuality::Draft && moving { 0 } else { k }).collect();
+                // Every layer's run stays the card's, at Draft as at Full.
+                let expected = full.clone();
                 let close = !on_cpu && said_cpu == said_gpu && d.0 <= LIMIT;
                 let placed = n == expected && full.first().is_some_and(|&k| k > 0);
                 let pass = close && placed;
@@ -210,24 +216,49 @@ fn b173_draft_moving() {
                     }
                 );
             }
+            // Frame 0 again, after frame 100.
+            let mut log = FrameLog::new(3);
+            let before = gpu.dispatched();
+            let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, 0, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
+                .unwrap_or_else(|d| panic!("{} frame 0 again on the GPU: {}", shot.name, d.message));
+            let passes = gpu.dispatched() - before;
+            // One pass lays each layer; no more may run.
+            let mut log = FrameLog::new(3);
+            let laid = compose::plan_frame_for_card(&shot.project, &shot.comp, 0, &shot.root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame").layers.len() as u64;
+            let passes = passes - passes.min(laid);
+            let d = distance(&first, &g);
+            let pass = passes == 0 && d == (0, 0);
+            again_checks += 1;
+            again_passed += pass as usize;
+            let moving = if shot.moving.contains(&true) { "moves" } else { "still" };
+            let result = match (passes == 0, d == (0, 0)) {
+                (true, true) => "PASS",
+                (false, _) => "FAIL: drawn again",
+                (true, false) => "FAIL: the pictures differ",
+            };
+            let _ = writeln!(again, "| {} frame 0 again, {} | {moving} | {passes} | {} | {} | {result} |", shot.name, quality.label(), d.0, d.1);
         }
     }
     let s = format!(
-        "# B-173: moving effects at Draft stay on the CPU\n\n\
+        "# B-173: the card keeps the picture of each run it has drawn\n\n\
          Written by `tests/b173_draft_moving.rs`. The card: {}.\n\n\
          Each effect the card draws that moves by itself from frame to frame, and three the card \
          draws with one setting keyed across the shot, is put on the reference shot's first three \
          layers (the second layer's after a Drop Shadow, as B-151's check does), and B-155's moving \
          Noise first, before a run of four. A Median, which does not move, is the control.\n\n\
-         **The rule (D-246):** at Draft, a layer with an effect set differently at the next frame \
-         keeps its stack on the CPU, so the card is left **0** effects on it; at Full, and on a \
-         layer whose effects stay the same, the card is left what it was before. Each row also \
-         compares the eight-bit picture the page receives, drawn by the CPU and by the GPU: **no \
-         channel of any pixel more than {LIMIT} level of 255 apart**, the same warnings on both, \
-         and the card drawing the frame itself.\n\n\
-         **{passed} of {checks} checks pass.**\n\n\
+         **The rule (D-246):** frame 0, asked for again after frame 100, runs **no pass** on the \
+         card beyond the one that lays each layer, and gives **the very picture** (every byte) the card drew for it the first time. Every \
+         run stays the card's, at Draft as at Full. Each frame drawn also compares the eight-bit \
+         picture the page receives, drawn by the CPU and by the GPU: **no channel of any pixel \
+         more than {LIMIT} level of 255 apart**, the same warnings on both, and the card drawing \
+         the frame itself.\n\n\
+         **{again_passed} of {again_checks} frames asked for again pass; {passed} of {checks} \
+         frames drawn pass.**\n\n\
          The largest difference is in \"{}\": {} of 255, pixels differing: {}.\n\n\
-         ## Every frame\n\n\
+         ## Asked for again\n\n\
+         | Case | Effects | Passes the card ran for effects | Largest difference from its first picture (of 255) | Pixels differing | Result |\n\
+         |---|---|---:|---:|---:|---|\n{again}\n\
+         ## Every frame drawn\n\n\
          Effects left to the card on the first three layers, and what they must be.\n\n\
          | Case | Left to the card | Must be | Largest difference (of 255) | Pixels differing | Warnings | Result |\n|---|---:|---:|---:|---:|---|---|\n{rows}",
         gpu.about(),
@@ -236,7 +267,7 @@ fn b173_draft_moving() {
         worst.1,
     );
     fs::write(&out, s).expect("write the B-173 table");
-    assert_eq!(passed, checks, "B-173: {passed} of {checks} checks pass");
+    assert_eq!((passed, again_passed), (checks, again_checks), "B-173: {passed} of {checks} frames drawn, {again_passed} of {again_checks} asked for again pass");
 }
 
 fn median(mut v: Vec<f64>) -> f64 {
