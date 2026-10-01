@@ -39,7 +39,13 @@ param(
   [double]$Scale = 0,
   # -PointY rests the pointer that far down the window, halfway across, before the keys are
   # pressed, which is how the ` key is photographed filling the window with the panel under it.
-  [double]$PointY = 0
+  [double]$PointY = 0,
+  # -Width and -Height, in points, are the size of the inside of the window. Since B-174 the
+  # program opens where it was last closed (maximized on a first launch), so the size is written
+  # into its remembered-window file for this one launch and the person's own file put back
+  # afterwards; 1000 by 640 is the size every photograph before B-174 was taken at.
+  [int]$Width = 1000,
+  [int]$Height = 640
 )
 
 $ErrorActionPreference = 'Stop'
@@ -59,6 +65,7 @@ public class Win {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] public static extern uint GetDpiForSystem();
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
   [DllImport("user32.dll")] public static extern short VkKeyScan(char c);
   [DllImport("user32.dll")] public static extern uint MapVirtualKey(uint code, uint type);
@@ -101,6 +108,17 @@ if ($Scale -gt 0) {
   # scales photographed in a row were the same picture twice before this line existed.
   $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:TEMP ("acwv2-" + [guid]::NewGuid().ToString('N'))
 }
+
+# The window's place for this launch: `x y width height normal`, in pixels, the width and height
+# being the inside of the window. The file is only read at startup and only written on a close,
+# and this script stops the program rather than closing it, so putting the old file back in the
+# `finally` below is belt and braces.
+$windowFile = Join-Path $env:APPDATA 'dev.anitastic.anime-compositor\window.txt'
+$hadWindowFile = Test-Path $windowFile
+$ownWindowFile = if ($hadWindowFile) { [IO.File]::ReadAllBytes($windowFile) }
+$pixels = [Win]::GetDpiForSystem() / 96
+[void](New-Item -ItemType Directory -Force (Split-Path $windowFile))
+[IO.File]::WriteAllText($windowFile, "100 100 $([int]($Width * $pixels)) $([int]($Height * $pixels)) normal`n")
 
 $proc = if ($Open -ne '') {
   # Quoted, because this repository lives under a path with a space in it and an unquoted
@@ -206,5 +224,6 @@ try {
   Write-Output "wrote verification/$Name.png at ${w}x${h}"
 }
 finally {
-  if (-not $proc.HasExited) { $proc.Kill() }
+  if (-not $proc.HasExited) { $proc.Kill(); $proc.WaitForExit() }
+  if ($hadWindowFile) { [IO.File]::WriteAllBytes($windowFile, $ownWindowFile) } else { Remove-Item $windowFile -ErrorAction SilentlyContinue }
 }
