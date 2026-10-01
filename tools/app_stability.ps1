@@ -15,9 +15,11 @@
 # it waits for the person to have left the mouse and keyboard alone for two seconds, so a window
 # that failed to come to the front is recorded as skipped rather than clicked through.
 #
-# It writes verification/P-24_app_stability_table.md and the photographs P-24_*.png beside it.
-# -Part runs one part (startup, window, cycles, soak) for a quicker look; the table then says which
-# parts ran. The projects it opens are copies made in a folder of its own under %TEMP%, deleted at
+# It writes verification/P-24_app_stability_table.md and the photographs P-24_*.png beside it
+# (-Tag B-174 writes B-174_* instead). -Part runs some parts (startup, remember, window, cycles,
+# soak; several with commas) for a quicker look; the table then says which parts ran. The remembered window (B-174's
+# window.txt) is put back as it was found too; every start-up launch begins without one, as a
+# first launch does. The projects it opens are copies made in a folder of its own under %TEMP%, deleted at
 # the end with every file the runs created, and the recent-projects list is put back exactly as it
 # was found.
 #
@@ -27,7 +29,9 @@
 # table says so beside every figure that used it. The other launches run without it.
 
 param(
-  [ValidateSet('all','startup','window','cycles','soak')][string]$Part = 'all',
+  [ValidateSet('all','startup','remember','window','cycles','soak')][string[]]$Part = 'all',
+  # The name the table and the photographs are written under: a later unit's re-run keeps P-24's.
+  [string]$Tag = 'P-24',
   [int]$Launches = 10,
   [int]$Cycles = 50,
   [int]$SoakMinutes = 20
@@ -38,6 +42,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $exe = Join-Path $root 'target\release\anime_compositor_app.exe'
 if (-not (Test-Path $exe)) { throw 'build it first: cargo build -p anime_compositor_app --release' }
 $out = Join-Path $root 'verification'
+function Runs($p) { $Part -contains 'all' -or $Part -contains $p }
 
 Add-Type -AssemblyName System.Drawing
 Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
@@ -91,6 +96,8 @@ public static class H {
   // 40 bytes on 64-bit Windows, as SendInput insists: the mouse member is the union's largest.
   [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public MOUSEINPUT mi; }
   [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+  [DllImport("user32.dll")] public static extern IntPtr MonitorFromPoint(POINT p, uint flags);
   [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] public struct PROCESSENTRY32 {
     public uint dwSize, cntUsage, th32ProcessID; public IntPtr th32DefaultHeapID; public uint th32ModuleID, cntThreads, th32ParentProcessID;
     public int pcPriClassBase; public uint dwFlags; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szExeFile; }
@@ -172,7 +179,14 @@ public static class H {
     RECT c; GetClientRect(h, out c); var p = new POINT(); ClientToScreen(h, ref p);
     return new RECT { L = p.X, T = p.Y, R = p.X + c.R, B = p.Y + c.B };
   }
-  public static void Place(IntPtr h, int x, int y, int w, int hh) { SetWindowPos(h, IntPtr.Zero, x, y, w, hh, 0x0004 | 0x0010); }
+  // A maximized window is restored first (B-174 opens maximized): SetWindowPos alone would move a
+  // window that still believes it is maximized.
+  public static void Place(IntPtr h, int x, int y, int w, int hh) {
+    if (IsZoomed(h) || IsIconic(h)) { ShowWindow(h, 9); Thread.Sleep(500); }
+    SetWindowPos(h, IntPtr.Zero, x, y, w, hh, 0x0004 | 0x0010);
+  }
+  // True if the middle of the window's top edge is on some display: a person can reach its title bar.
+  public static bool OnScreen(IntPtr h) { RECT r = Rect(h); return MonitorFromPoint(new POINT { X = (r.L + r.R) / 2, Y = r.T + 20 }, 0) != IntPtr.Zero; }
   // True only if the window under (x, y) is this one: nothing is pressed anywhere else.
   public static bool Ours(IntPtr h, int x, int y) { return GetAncestor(WindowFromPoint(new POINT { X = x, Y = y }), 2) == h; }
   // What Windows says the point is: 2 the title bar, 17 the bottom-right corner.
@@ -525,6 +539,11 @@ $appData = Join-Path $env:APPDATA 'dev.anitastic.anime-compositor'
 $localData = Join-Path $env:LOCALAPPDATA 'dev.anitastic.anime-compositor'
 $recent = Join-Path $appData 'recent.txt'
 $recentBytes = if (Test-Path $recent) { [IO.File]::ReadAllBytes($recent) } else { $null }
+# Where the program remembers its window (B-174), and how: "x y width height normal|maximized",
+# the outer corner and the inner size, in pixels.
+$windowFile = Join-Path $appData 'window.txt'
+$windowBytes = if (Test-Path $windowFile) { [IO.File]::ReadAllBytes($windowFile) } else { $null }
+function Forget-Window { if (Test-Path $windowFile) { Remove-Item -Force $windowFile } }
 function Files {
   # Everything under the program's own folders (apart from the web view's profile, which is its
   # cache), verification/ and the reference shot's drawings, and the repository's top folder.
@@ -554,7 +573,7 @@ function Wait-Idle {
   while ([H]::IdleMs() -lt 2000) { if (((Get-Date) - $t).TotalSeconds -gt 120) { return $false }; Start-Sleep -Milliseconds 200 }
   $true
 }
-function Save($bmp, $name) { $bmp.Save((Join-Path $out "P-24_$name.png"), [Drawing.Imaging.ImageFormat]::Png); "P-24_$name.png" }
+function Save($bmp, $name) { $bmp.Save((Join-Path $out "$Tag`_$name.png"), [Drawing.Imaging.ImageFormat]::Png); "$Tag`_$name.png" }
 $where = "JSON.stringify({w: innerWidth, h: innerHeight, dpr: devicePixelRatio, view: document.getElementById('view').getBoundingClientRect(), stage: document.getElementById('stage').getBoundingClientRect()})"
 function Layout($page) { $page.Eval($where) | ConvertFrom-Json }
 function Viewer($page) {
@@ -595,7 +614,7 @@ $placeX = 300; $placeY = 250; $placeW = 2400; $placeH = 1500
 
 # ---- 1. start-up -------------------------------------------------------------------------------
 
-if ($Part -in 'all', 'startup') {
+if (Runs 'startup') {
   $loads['before start-up'] = Machine-Load
   $runs = @{}; foreach ($k in $cases.Keys) { $runs[$k] = New-Object Collections.Generic.List[object]; $runs["$k-page"] = New-Object Collections.Generic.List[object] }
   $keys = @($cases.Keys)
@@ -603,6 +622,7 @@ if ($Part -in 'all', 'startup') {
     # Alternating rounds: each round starts the three cases in a different order.
     for ($c = 0; $c -lt 3; $c++) {
       $k = $keys[($r + $c) % 3]
+      Forget-Window
       $l = New-Object H+Launch
       $l.Start($exe, $cases[$k].args, 0)
       $l.Watch(500, 15000, $true)
@@ -612,11 +632,13 @@ if ($Part -in 'all', 'startup') {
     }
     for ($c = 0; $c -lt 3; $c++) {
       $k = $keys[($r + $c) % 3]
+      Forget-Window
       $l = New-Object H+Launch
       $l.Start($exe, $cases[$k].args, $port)
       $l.WatchPage($port, 30000)
+      $rect = [H]::Rect($l.h); $opened = if ([H]::IsZoomed($l.h)) { 'maximized' } else { "$($rect.R - $rect.L) by $($rect.B - $rect.T) pixels" }
       $close = $l.Close()
-      $runs["$k-page"].Add([pscustomobject]@{ round = $r + 1; visible = $l.visible; page = $l.page; picture = $l.picture; view = $l.viewRect; error = $l.error; close = $close[0]; code = $close[1]; strays = $close[2] })
+      $runs["$k-page"].Add([pscustomobject]@{ round = $r + 1; visible = $l.visible; page = $l.page; picture = $l.picture; view = $l.viewRect; opened = $opened; error = $l.error; close = $close[0]; code = $close[1]; strays = $close[2] })
     }
   }
   $md.Add('## 1. Start-up')
@@ -647,7 +669,8 @@ if ($Part -in 'all', 'startup') {
   $md.Add("Launches: $($all.Count). Did not come up as measured: $($failed.Count)$(if ($failed.Count) { ' (' + (($failed | ForEach-Object { "round $($_.round): $($_.error)" }) -join '; ') + ')' }). Exit code other than 0: $($unclean.Count). Left a process running 5 s after closing: $($strayed.Count).")
   $md.Add('')
   $views = @($all | Where-Object { $_.view } | ForEach-Object { $j = ($_.view | ConvertFrom-Json) | ConvertFrom-Json; '{0:N0} by {1:N0} points at {2:N0},{3:N0}' -f $j.width, $j.height, $j.x, $j.y } | Sort-Object -Unique)
-  $md.Add("The viewer canvas at the size the window opens at (1000 by 640 points), 1.5 s after the first picture: $($views -join '; ').")
+  $openedAs = @($all | Where-Object { $_.opened } | ForEach-Object { $_.opened } | Sort-Object -Unique)
+  $md.Add("Every launch began with no remembered window, as a first launch does. The window opened: $($openedAs -join '; '). The viewer canvas at that size, 1.5 s after the first picture: $($views -join '; ').")
   $md.Add('')
   $md.Add('The photographs are round 1 of each case at its settled moment: ' + (($photos | Where-Object { $_ -like '*startup*' } | ForEach-Object { "``$_``" }) -join ', ') + '.')
   $md.Add('')
@@ -655,6 +678,89 @@ if ($Part -in 'all', 'startup') {
   $summary['Start-up to settled picture, median (no file / reference / heavy)'] = (($keys | ForEach-Object { Ms (Med (@($runs[$_] | Where-Object { -not $_.error }) | ForEach-Object { $_.settled })) }) -join ' / ') + ' (no target exists; measured only)'
   $small = @($all | Where-Object { $_.view } | Where-Object { (($_.view | ConvertFrom-Json) | ConvertFrom-Json).height -lt 100 })
   $summary['The viewer has room for the picture at the size the window opens at'] = if ($small.Count) { "FAIL ($($views -join '; '))" } else { "PASS ($($views -join '; '))" }
+}
+
+# ---- 1b. remembering the window (B-174) ---------------------------------------------------------
+
+function Open-Plain {
+  $l = New-Object H+Launch
+  $l.Start($exe, '', 0)
+  $l.Watch(500, 15000, $false)
+  $l
+}
+function Window-State($h) {
+  $r = [H]::Rect($h)
+  [pscustomobject]@{ zoomed = [H]::IsZoomed($h); onScreen = [H]::OnScreen($h); l = $r.L; t = $r.T; w = $r.R - $r.L; hh = $r.B - $r.T
+    text = $(if ([H]::IsZoomed($h)) { 'maximized' } else { "$($r.R - $r.L) by $($r.B - $r.T) pixels at $($r.L),$($r.T)" }) + $(if (-not [H]::OnScreen($h)) { ', OFF SCREEN' }) }
+}
+function Is-Placed($s) { -not $s.zoomed -and [math]::Abs($s.l - $placeX) -le 2 -and [math]::Abs($s.t - $placeY) -le 2 -and [math]::Abs($s.w - $placeW) -le 2 -and [math]::Abs($s.hh - $placeH) -le 2 }
+function Sys-Command($h, $cmd, $test) {
+  [void][H]::PostMessage($h, 0x112, [IntPtr]$cmd, [IntPtr]::Zero)
+  $t = Get-Date; while (-not (& $test) -and ((Get-Date) - $t).TotalSeconds -lt 5) { Start-Sleep -Milliseconds 50 }
+  Start-Sleep -Milliseconds 700
+}
+
+if (Runs 'remember') {
+  $loads['before the remembered-window part'] = Machine-Load
+  $rem = New-Object Collections.Generic.List[object]
+  function Remember-Row($what, $expected, $l, $test, $photoName) {
+    if ($l.error) { $rem.Add([pscustomobject]@{ what = $what; expected = $expected; got = "did not come up: $($l.error)"; ok = $false; photo = $null }); return }
+    $s = Window-State $l.h
+    [void][H]::Settle($l.h, [H]::Now(), 300, 3000)
+    $p = Save ([H]::Settled) $photoName; $photos.Add($p)
+    $rem.Add([pscustomobject]@{ what = $what; expected = $expected; got = $s.text; ok = [bool](& $test $s); photo = $p })
+  }
+  $rememberCloses = New-Object Collections.Generic.List[object]
+  function Close-Counted($l) { $c = $l.Close(); $rememberCloses.Add($c) }
+
+  # A first launch: nothing remembered.
+  Forget-Window
+  $l = Open-Plain
+  Remember-Row 'First launch (no remembered window)' 'maximized' $l { param($s) $s.zoomed -and $s.onScreen } 'remember_first_launch'
+  Close-Counted $l
+
+  # Placed by hand, closed, started again.
+  $l = Open-Plain
+  if (-not $l.error) { [H]::Place($l.h, $placeX, $placeY, $placeW, $placeH); Start-Sleep -Milliseconds 700 }
+  Close-Counted $l
+  $l = Open-Plain
+  Remember-Row "Closed at $placeW by $placeH pixels at $placeX,$placeY, started again" "$placeW by $placeH pixels at $placeX,$placeY" $l { param($s) Is-Placed $s } 'remember_size'
+  # Maximized, closed, started again; then Restore.
+  if (-not $l.error) { $h = $l.h; Sys-Command $h 0xF030 { [H]::IsZoomed($h) } }
+  Close-Counted $l
+  $l = Open-Plain
+  Remember-Row 'Closed maximized, started again' 'maximized' $l { param($s) $s.zoomed -and $s.onScreen } 'remember_maximized'
+  if (-not $l.error) {
+    $h = $l.h; Sys-Command $h 0xF120 { -not [H]::IsZoomed($h) }
+    Remember-Row '... then Restore pressed' "back to $placeW by $placeH pixels at $placeX,$placeY" $l { param($s) Is-Placed $s } 'remember_restored'
+  }
+  Close-Counted $l
+
+  # A remembered place on a display that is no longer attached.
+  [IO.File]::WriteAllText($windowFile, "20000 20000 1600 1000 normal`n")
+  $l = Open-Plain
+  Remember-Row 'Remembered at 20000,20000 (no display there)' 'on screen' $l { param($s) $s.onScreen } 'remember_off_screen'
+  Close-Counted $l
+
+  # A damaged file.
+  [IO.File]::WriteAllText($windowFile, "this is not a window`n")
+  $l = Open-Plain
+  Remember-Row 'Remembered-window file damaged' 'maximized, as a first launch' $l { param($s) $s.zoomed -and $s.onScreen } 'remember_damaged'
+  Close-Counted $l
+  Forget-Window
+
+  $md.Add('## 1b. Remembering the window')
+  $md.Add('')
+  $md.Add("No file given, no debugging port. Each row starts the program, waits for its picture to settle and reads where Windows put the window; the steps run in this order, each closing the window (WM_CLOSE) before the next start. Placing the window is SetWindowPos, as dragging it ends; maximize and Restore are sent as the title-bar buttons send them. Where the program remembers its window: ``%APPDATA%\dev.anitastic.anime-compositor\window.txt``, written here by hand for the last two rows.")
+  $md.Add('')
+  $md.Add('| Step | Expected | Window | Result | Photograph |')
+  $md.Add('|---|---|---|---|---|')
+  foreach ($x in $rem) { $md.Add("| $($x.what) | $($x.expected) | $($x.got) | $(if ($x.ok) { 'PASS' } else { 'FAIL' }) | $(if ($x.photo) { '`' + $x.photo + '`' }) |") }
+  $md.Add('')
+  $md.Add('Closing these windows: ' + (($rememberCloses | ForEach-Object { "exit code $($_[1]), $($_[2]) left" }) -join '; ') + '.')
+  $md.Add('')
+  foreach ($x in $rem) { $summary["Remembered window: $($x.what)"] = if ($x.ok) { "PASS ($($x.got))" } else { "FAIL ($($x.got); expected $($x.expected))" } }
+  $summary['Remembered window: every launch closed cleanly'] = if (@($rememberCloses | Where-Object { $_[1] -ne 0 -or $_[2] -gt 0 }).Count) { 'FAIL' } else { "PASS ($($rememberCloses.Count) of $($rememberCloses.Count))" }
 }
 
 # ---- 2-4. dragging, resizing, maximizing --------------------------------------------------------
@@ -745,7 +851,7 @@ function Drag-Run($o, $what, $playing, $photoName) {
 function Play($page) { [void]$page.Eval("document.getElementById('play').textContent === 'Play' && document.getElementById('play').click()"); Start-Sleep -Seconds 2 }
 function Stop-Play($page) { [void]$page.Eval("document.getElementById('play').textContent !== 'Play' && document.getElementById('play').click()"); Start-Sleep -Seconds 1 }
 
-if ($Part -in 'all', 'window') {
+if (Runs 'window') {
   $loads['before the window parts'] = Machine-Load
   $drags = New-Object Collections.Generic.List[object]
   $cycles2 = New-Object Collections.Generic.List[object]
@@ -840,7 +946,7 @@ if ($Part -in 'all', 'window') {
 
 # ---- 5a. launches and closes -------------------------------------------------------------------
 
-if ($Part -in 'all', 'cycles') {
+if (Runs 'cycles') {
   $loads['before the launch-and-close cycles'] = Machine-Load
   $rows = New-Object Collections.Generic.List[object]
   for ($c = 1; $c -le $Cycles; $c++) {
@@ -866,7 +972,7 @@ if ($Part -in 'all', 'cycles') {
 
 # ---- 5b. the soak ------------------------------------------------------------------------------
 
-if ($Part -in 'all', 'soak') {
+if (Runs 'soak') {
   $loads['before the soak'] = Machine-Load
   $o = Open-Placed ''
   $soak = New-Object Collections.Generic.List[object]
@@ -944,7 +1050,7 @@ $wer = @(@((Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\WER\ReportArchive'), 
   Where-Object { Test-Path $_ } | ForEach-Object { Get-ChildItem $_ -Directory -ErrorAction SilentlyContinue } |
   Where-Object { $_.LastWriteTime -ge $runStart -and $_.Name -match 'anime_compositor|msedgewebview2' })
 $filesAfter = @(Files)
-$new = @($filesAfter | Where-Object { $_ -notin $filesBefore -and (Split-Path -Leaf $_) -notlike 'P-24_*' })
+$new = @($filesAfter | Where-Object { $_ -notin $filesBefore -and (Split-Path -Leaf $_) -notlike "$Tag`_*" -and $_ -ne $windowFile })
 # Named one by one, except a folder with more than five new files (the program's own disk cache
 # of decoded drawings, B-161), which is counted with its size.
 $newText = @($new | Group-Object { Split-Path -Parent $_ } | ForEach-Object {
@@ -959,11 +1065,14 @@ $recentNote = if ($null -eq $recentBytes) { if (Test-Path $recent) { Remove-Item
   [IO.File]::WriteAllBytes($recent, $recentBytes)
   if ($changed) { 'the runs changed it; it was put back byte for byte' } else { 'unchanged' }
 }
+$windowNote = if ($null -eq $windowBytes) { if (Test-Path $windowFile) { Remove-Item -Force $windowFile; 'there was none before; the one the runs wrote was deleted, so the next start is a first launch' } else { 'there was none before, and none is left' } } else {
+  [IO.File]::WriteAllBytes($windowFile, $windowBytes); 'put back byte for byte'
+}
 $md.Add('## 6. Crash reports and files left behind')
 $md.Add('')
 $md.Add("Application event log entries (Application Error, Application Hang, Windows Error Reporting) naming this program or its web view since the run began: $($events.Count)$(if ($events.Count) { ' - ' + (($events | ForEach-Object { "$($_.TimeCreated.ToString('HH:mm:ss')) $($_.ProviderName) $($_.Id)" }) -join '; ') }). Windows Error Reporting folders for them: $($wer.Count).")
 $md.Add('')
-$md.Add("Files the runs created, apart from the photographs (searched: the program's settings and local data folders apart from the web view's own profile, verification/, Fixtures/reference_shot/ and the repository's top folder), all deleted: $(if ($new.Count) { $newText } else { 'none' }). The copies of the projects and drawings under %TEMP%, and anything written beside them, were deleted. The recent-projects list: $recentNote.")
+$md.Add("Files the runs created, apart from the photographs (searched: the program's settings and local data folders apart from the web view's own profile, verification/, Fixtures/reference_shot/ and the repository's top folder), all deleted: $(if ($new.Count) { $newText } else { 'none' }). The copies of the projects and drawings under %TEMP%, and anything written beside them, were deleted. The recent-projects list: $recentNote. The remembered window (``window.txt``): $windowNote.")
 $md.Add('')
 $summary['No crash reports (event log, Windows Error Reporting)'] = if ($events.Count -or $wer.Count) { "FAIL ($($events.Count) events, $($wer.Count) reports)" } else { 'PASS (none)' }
 
@@ -975,9 +1084,9 @@ $os = Get-CimInstance Win32_OperatingSystem
 $commit = (git -C $root rev-parse --short HEAD 2>$null)
 $built = (Get-Item $exe).LastWriteTime.ToString('yyyy-MM-dd HH:mm')
 $head = New-Object Collections.Generic.List[string]
-$head.Add('# P-24 - the application itself: start-up, dragging the window, stability')
+$head.Add("# $Tag - the application itself: start-up, dragging the window, stability")
 $head.Add('')
-$head.Add("Written by ``tools/app_stability.ps1`` ($(if ($Part -eq 'all') { 'every part' } else { "part $Part only" })), $($runStart.ToString('yyyy-MM-dd HH:mm')) to $((Get-Date).ToString('HH:mm')).")
+$head.Add("Written by ``tools/app_stability.ps1`` ($(if ($Part -contains 'all') { 'every part' } else { 'parts ' + ($Part -join ', ') + ' only' })), $($runStart.ToString('yyyy-MM-dd HH:mm')) to $((Get-Date).ToString('HH:mm')).")
 $head.Add('')
 $head.Add("Machine: $cpu, $($gpu.Name) (driver $($gpu.DriverVersion)), $([math]::Round($os.TotalVisibleMemorySize / 1MB)) GB, $($os.Caption) $($os.Version). Main display 3840 by 2160 at 150%. Build: release ``anime_compositor_app.exe`` built $built, at commit $commit. Other programs running, as measured before each part: " + (($loads.Keys | ForEach-Object { "$_ - $($loads[$_])" }) -join '; ') + '.')
 $head.Add('')
@@ -990,6 +1099,6 @@ $head.Add('|---|---|')
 foreach ($k in $summary.Keys) { $head.Add("| $k | $($summary[$k]) |") }
 $head.Add('')
 $md.InsertRange(0, $head)
-[IO.File]::WriteAllText((Join-Path $out 'P-24_app_stability_table.md'), (($md -join "`n") + "`n"))
-'wrote verification/P-24_app_stability_table.md'
+[IO.File]::WriteAllText((Join-Path $out "$Tag`_app_stability_table.md"), (($md -join "`n") + "`n"))
+"wrote verification/$Tag`_app_stability_table.md"
 $summary.Keys | ForEach-Object { "$_ : $($summary[$_])" }
