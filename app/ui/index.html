@@ -5812,6 +5812,11 @@ $('zoomer').oninput = () => zoomTo(2 ** ($('zoomer').value / 100), ...stageCentr
 // A window that changes size changes how many frame pixels a handle is worth, and what the fit
 // is. The outline is redrawn rather than recomputed from the window.
 window.addEventListener('resize', applyZoom);
+// B-174: and whenever the panel the picture sits in changes size without the window doing so (a
+// line appearing under it, a scroll bar coming or going), so the fit never depends on how the
+// window got to its size. On the next frame, so the fit's own scroll bars are not answered in
+// the middle of being laid out.
+new ResizeObserver(() => requestAnimationFrame(applyZoom)).observe(stage);
 
 // W-13: the borders between the panels. Each border is named with the custom property it sets,
 // the panel whose size that property is, the least that panel may be, and which way pulling

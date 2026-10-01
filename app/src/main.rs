@@ -8482,6 +8482,138 @@ fn remember(app: &AppHandle, path: &Path) {
 }
 
 // -------------------------------------------------------------------------------------------
+// The window's place (B-174, D-247)
+// -------------------------------------------------------------------------------------------
+
+/// Where the window was when it last closed: its outer corner and inner size in pixels, and
+/// whether it was maximized. While it is maximized, the corner and size are where Restore goes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Placement {
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    maximized: bool,
+}
+
+/// A display's work area (the screen less the taskbar): left, top, width, height in pixels.
+type Area = (i32, i32, u32, u32);
+
+/// Remembered sizes outside this, in pixels, are taken for a damaged file: a window too small to
+/// see, or bigger than any display made.
+const WINDOW_SIZES: std::ops::RangeInclusive<u32> = 200..=100_000;
+
+/// Beside the recent list, for the same reason: it is about the person, not about any one shot.
+fn window_file(app: &AppHandle) -> Option<PathBuf> {
+    Some(recent_file(app)?.with_file_name("window.txt"))
+}
+
+/// `window.txt` read: one line, `x y width height normal` or `... maximized`. Anything else is
+/// `None`, so a damaged file opens the window as a first launch does rather than somewhere odd.
+fn placement_from_text(text: &str) -> Option<Placement> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let [x, y, width, height, state] = words[..] else { return None };
+    let (width, height) = (width.parse().ok()?, height.parse().ok()?);
+    if !WINDOW_SIZES.contains(&width) || !WINDOW_SIZES.contains(&height) {
+        return None;
+    }
+    let maximized = match state {
+        "maximized" => true,
+        "normal" => false,
+        _ => return None,
+    };
+    Some(Placement { x: x.parse().ok()?, y: y.parse().ok()?, width, height, maximized })
+}
+
+fn placement_text(p: Placement) -> String {
+    format!("{} {} {} {} {}\n", p.x, p.y, p.width, p.height, if p.maximized { "maximized" } else { "normal" })
+}
+
+/// Where the window opens. A remembered place is kept while the middle of its title bar is on a
+/// display that is still attached, no bigger than that display; anything else (the very first
+/// launch, a damaged file, a display since unplugged) opens maximized on the main display, with
+/// Restore going to three quarters of it, centred.
+fn placement_on_screen(saved: Option<Placement>, areas: &[Area], main: Area) -> Placement {
+    if let Some(p) = saved {
+        if let Some(&(_, _, w, h)) = areas.iter().find(|a| holds_title_bar(**a, p)) {
+            return Placement { width: p.width.min(w), height: p.height.min(h), ..p };
+        }
+    }
+    let (x, y, w, h) = main;
+    let (width, height) = (w / 4 * 3, h / 4 * 3);
+    Placement { x: x + ((w - width) / 2) as i32, y: y + ((h - height) / 2) as i32, width, height, maximized: true }
+}
+
+/// Whether the middle of the window's title bar is in the display area.
+fn holds_title_bar((x, y, w, h): Area, p: Placement) -> bool {
+    let (px, py) = (p.x as i64 + p.width as i64 / 2, p.y as i64 + 16);
+    (x as i64..x as i64 + w as i64).contains(&px) && (y as i64..y as i64 + h as i64).contains(&py)
+}
+
+/// Makes the window where it was last closed. Made here rather than in tauri.conf.json so that it
+/// is made at its place and size and shown at once, as before, rather than made at a default size
+/// and moved once the page has loaded.
+fn open_window(app: &AppHandle) -> tauri::Result<()> {
+    let area = |m: &tauri::Monitor| {
+        let a = m.work_area();
+        (a.position.x, a.position.y, a.size.width, a.size.height)
+    };
+    let monitors = app.available_monitors().unwrap_or_default();
+    let areas: Vec<Area> = monitors.iter().map(area).collect();
+    let primary = app.primary_monitor().ok().flatten();
+    let mut window = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::default())
+        .title("Anime Compositor")
+        .inner_size(1000.0, 640.0);
+    if let Some(main) = primary.as_ref().map(area).or(areas.first().copied()) {
+        let saved = window_file(app).and_then(|f| std::fs::read_to_string(f).ok()).and_then(|t| placement_from_text(&t));
+        let p = placement_on_screen(saved, &areas, main);
+        // The builder takes points: the display the window opens on says how many pixels one is.
+        let scale = monitors.iter().find(|m| holds_title_bar(area(m), p)).or(primary.as_ref()).map_or(1.0, |m| m.scale_factor());
+        window = window
+            .position(p.x as f64 / scale, p.y as f64 / scale)
+            .inner_size(p.width as f64 / scale, p.height as f64 / scale)
+            .maximized(p.maximized);
+        let normal = Some(Placement { maximized: false, ..p });
+        *app.state::<Mutex<[Option<Placement>; 2]>>().lock().expect("the placement lock was poisoned") = [normal, normal];
+    }
+    window.build()?;
+    Ok(())
+}
+
+/// Called as the window moves, changes size and closes: keeps the last place it had while
+/// neither maximized nor minimized, and writes it out with the maximized state on closing.
+///
+/// Windows reports the move into the maximized place before it says the window is maximized, so
+/// that one move is taken as a normal place; the place before it is kept, and put back when the
+/// size change that follows says maximized or minimized.
+fn follow_window(window: &tauri::Window, event: &WindowEvent) {
+    let places = window.state::<Mutex<[Option<Placement>; 2]>>();
+    let mut places = places.lock().expect("the placement lock was poisoned");
+    let [last, before] = &mut *places;
+    match event {
+        WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
+            if window.is_maximized().unwrap_or(true) || window.is_minimized().unwrap_or(true) {
+                if matches!(event, WindowEvent::Resized(_)) {
+                    *last = *before;
+                }
+                return;
+            }
+            if let (Ok(at), Ok(size)) = (window.outer_position(), window.inner_size()) {
+                *before = *last;
+                *last = Some(Placement { x: at.x, y: at.y, width: size.width, height: size.height, maximized: false });
+            }
+        }
+        WindowEvent::CloseRequested { .. } => {
+            let Some(p) = *last else { return };
+            let Some(file) = window_file(window.app_handle()) else { return };
+            // Like the recent list, a convenience: failing to write it is not worth a word.
+            let _ = std::fs::write(file, placement_text(Placement { maximized: window.is_maximized().unwrap_or(false), ..p }));
+        }
+        _ => {}
+    }
+}
+
+// -------------------------------------------------------------------------------------------
 // The commands
 // -------------------------------------------------------------------------------------------
 
@@ -10014,6 +10146,8 @@ fn main() {
         .manage(Mutex::new(SessionLog::default()))
         // B-44: the CPU / GPU switch, on the CPU at every launch.
         .manage(Mutex::new(Card::default()))
+        // B-174: the window's last place while neither maximized nor minimized.
+        .manage(Mutex::new([None::<Placement>; 2]))
         // The autosave timer. A thread rather than anything cleverer: it sleeps for all but a
         // few microseconds of its life, it must run whether or not the page is asking for
         // frames, and it holds the viewer lock only for as long as the check takes. It writes
@@ -10030,9 +10164,11 @@ fn main() {
                     viewer.autosaved = said;
                 }
             });
+            open_window(app.handle())?;
             Ok(())
         })
         .on_window_event(|window, event| {
+            follow_window(window, event);
             // B-45: the card lets go of the window before the window goes.
             if let WindowEvent::Destroyed = event {
                 if let Some(Ok(gpu)) = &mut window.state::<Mutex<Card>>().lock().expect("the card lock was poisoned").gpu {
@@ -29374,5 +29510,84 @@ mod part_on_screen {
             if on_card { card.lock().unwrap().about() } else { said_card.clone() },
         );
         std::fs::write(repo("verification/B-158_timing_raw.md"), text).expect("write the table");
+    }
+}
+
+#[cfg(test)]
+mod window_place {
+    use super::*;
+
+    /// The owner's display less its taskbar, and a second display to its right.
+    const MAIN: Area = (0, 0, 3840, 2088);
+    const SECOND: Area = (3840, 0, 1920, 1040);
+
+    fn placed(x: i32, y: i32, width: u32, height: u32, maximized: bool) -> Placement {
+        Placement { x, y, width, height, maximized }
+    }
+
+    fn words(p: Option<Placement>) -> String {
+        match p {
+            None => "nothing (damaged)".into(),
+            Some(p) => format!("{} by {} at {},{}{}", p.width, p.height, p.x, p.y, if p.maximized { ", maximized" } else { "" }),
+        }
+    }
+
+    /// Each case: what the file says (or that there is none), the displays attached, and where the
+    /// window must open.
+    #[test]
+    fn b174_the_window_opens_where_it_was_left_and_never_off_screen() {
+        let first = placed(480, 261, 2880, 1566, true);
+        let file = std::env::temp_dir().join("anime_compositor_b174").join("window.txt");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        let _ = std::fs::remove_file(&file);
+        let read = || std::fs::read_to_string(&file).ok().and_then(|t| placement_from_text(&t));
+        let mut rows: Vec<(String, String, String)> = Vec::new();
+        let mut check = |case: &str, expected: Placement, saved: Option<Placement>, areas: &[Area]| {
+            rows.push((case.to_string(), words(Some(expected)), words(Some(placement_on_screen(saved, areas, MAIN)))));
+        };
+
+        // Reading and writing the file itself.
+        check("No file (the very first launch): maximized, Restore goes to three quarters of the main display", first, read(), &[MAIN]);
+        for p in [placed(300, 250, 2400, 1500, false), placed(-11, 0, 1931, 2077, false), placed(4000, 100, 1600, 900, true)] {
+            std::fs::write(&file, placement_text(p)).unwrap();
+            check(&format!("Written as `{}`, read back", placement_text(p).trim()), p, read(), &[MAIN, SECOND]);
+        }
+        std::fs::remove_file(&file).unwrap();
+
+        // A damaged file opens as a first launch does.
+        for text in ["", "garbage", "300 250 2400", "300 250 wide 1500 normal", "300 250 2400 1500 sideways", "300 250 2400 1500 normal extra", "300 250 50 1500 normal", "300 250 2400 1500000 normal", "300.5 250 2400 1500 normal"] {
+            std::fs::write(&file, text).unwrap();
+            check(&format!("Damaged: `{text}`"), first, read(), &[MAIN]);
+        }
+        std::fs::remove_file(&file).unwrap();
+
+        // Displays that are, or are no longer, there.
+        check("Left at 20000,20000, where no display is", first, Some(placed(20000, 20000, 1600, 1000, false)), &[MAIN]);
+        check("Left on the second display, still attached", placed(4000, 100, 1600, 900, false), Some(placed(4000, 100, 1600, 900, false)), &[MAIN, SECOND]);
+        check("Left on the second display, since unplugged", first, Some(placed(4000, 100, 1600, 900, false)), &[MAIN]);
+        check("Left maximized on the second display, since unplugged", first, Some(placed(4000, 100, 1600, 900, true)), &[MAIN]);
+        check("Title bar above the top of the screen", first, Some(placed(300, -40, 2400, 1500, false)), &[MAIN]);
+        check("Title bar just inside the top of the screen", placed(300, -10, 2400, 1500, false), Some(placed(300, -10, 2400, 1500, false)), &[MAIN]);
+        check("Bigger than the display it is on: made to fit it", placed(3900, 0, 1920, 1040, false), Some(placed(3900, 0, 2400, 1500, false)), &[MAIN, SECOND]);
+        check("At the edge of what a number holds", first, Some(placed(i32::MAX, i32::MIN, 100_000, 100_000, false)), &[MAIN]);
+        check("No display reported but the main one's work area", first, Some(placed(300, 250, 2400, 1500, false)), &[]);
+
+        let passed = rows.iter().filter(|(_, e, a)| e == a).count();
+        let mut text = format!(
+            "# B-174: where the window opens\n\nWritten by `cargo test -p anime_compositor_app window_place`. The window remembers its \
+             place in `window.txt` beside the recent list (`%APPDATA%\\dev.anitastic.anime-compositor\\`): one line, the outer \
+             corner and inner size in pixels and `normal` or `maximized`. **The rule: it opens where it was left, unless the middle \
+             of its title bar would be on no display, or the file is missing or damaged; then it opens maximized on the main \
+             display, as the very first launch does.** Displays here: the main one {} by {} (less its taskbar) and, where named, a \
+             second one {} by {} to its right. Sizes are width by height, at the window's corner.\n\n**{passed} of {} checks pass.**\n\n\
+             | Case | Expected | Opens | Result |\n|---|---|---|---|\n",
+            MAIN.2, MAIN.3, SECOND.2, SECOND.3, rows.len(),
+        );
+        for (case, expected, actual) in &rows {
+            text.push_str(&format!("| {case} | {expected} | {actual} | {} |\n", if expected == actual { "PASS" } else { "FAIL" }));
+        }
+        let table = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("verification/B-174_window_table.md");
+        std::fs::write(table, text).expect("write the table");
+        assert_eq!(passed, rows.len(), "see verification/B-174_window_table.md");
     }
 }

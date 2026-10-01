@@ -33,6 +33,8 @@ param(
   # The name the table and the photographs are written under: a later unit's re-run keeps P-24's.
   [string]$Tag = 'P-24',
   [int]$Launches = 10,
+  # What window.txt holds at every start-up launch; empty, none: each is a first launch.
+  [string]$Remembered = '',
   [int]$Cycles = 50,
   [int]$SoakMinutes = 20
 )
@@ -284,7 +286,10 @@ public static class H {
   public static bool Blank(long[] look) { return look[1] < 3 || look[2] > 900; }
   public static Rectangle All(Bitmap b) { return new Rectangle(0, 0, b.Width, b.Height); }
   // Where two photographs of the same size differ: "none", or the count of differing pixels and
-  // the rectangle around them, in pixels of the photograph.
+  // the rectangle around them, in pixels of the photograph. The four 16 by 16 corners are left
+  // out: Windows 11 rounds a window's corners itself (square while maximized), and after a Restore
+  // its smoothing of them can come back a level apart, which is not the program's picture.
+  const int Rounded = 16;
   public static string Diff(Bitmap a, Bitmap b) {
     if (a.Width != b.Width || a.Height != b.Height) return "different sizes";
     var r = All(a);
@@ -293,7 +298,7 @@ public static class H {
     Marshal.Copy(da.Scan0, pa, 0, n); Marshal.Copy(db.Scan0, pb, 0, n); a.UnlockBits(da); b.UnlockBits(db);
     int count = 0, x0 = int.MaxValue, y0 = int.MaxValue, x1 = -1, y1 = -1;
     for (int y = 0; y < r.Height; y++) for (int x = 0, o = y * da.Stride; x < r.Width; x++, o += 4)
-      if (pa[o] != pb[o] || pa[o + 1] != pb[o + 1] || pa[o + 2] != pb[o + 2]) { count++; x0 = Math.Min(x0, x); y0 = Math.Min(y0, y); x1 = Math.Max(x1, x); y1 = Math.Max(y1, y); }
+      if ((x >= Rounded && x < r.Width - Rounded || y >= Rounded && y < r.Height - Rounded) && (pa[o] != pb[o] || pa[o + 1] != pb[o + 1] || pa[o + 2] != pb[o + 2])) { count++; x0 = Math.Min(x0, x); y0 = Math.Min(y0, y); x1 = Math.Max(x1, x); y1 = Math.Max(y1, y); }
     return count == 0 ? "none" : count + " pixels within " + (x1 - x0 + 1) + "x" + (y1 - y0 + 1) + " at " + x0 + "," + y0;
   }
 
@@ -544,6 +549,7 @@ $recentBytes = if (Test-Path $recent) { [IO.File]::ReadAllBytes($recent) } else 
 $windowFile = Join-Path $appData 'window.txt'
 $windowBytes = if (Test-Path $windowFile) { [IO.File]::ReadAllBytes($windowFile) } else { $null }
 function Forget-Window { if (Test-Path $windowFile) { Remove-Item -Force $windowFile } }
+function Start-Window { if ($Remembered) { [IO.File]::WriteAllText($windowFile, "$Remembered`n") } else { Forget-Window } }
 function Files {
   # Everything under the program's own folders (apart from the web view's profile, which is its
   # cache), verification/ and the reference shot's drawings, and the repository's top folder.
@@ -622,7 +628,7 @@ if (Runs 'startup') {
     # Alternating rounds: each round starts the three cases in a different order.
     for ($c = 0; $c -lt 3; $c++) {
       $k = $keys[($r + $c) % 3]
-      Forget-Window
+      Start-Window
       $l = New-Object H+Launch
       $l.Start($exe, $cases[$k].args, 0)
       $l.Watch(500, 15000, $true)
@@ -632,7 +638,7 @@ if (Runs 'startup') {
     }
     for ($c = 0; $c -lt 3; $c++) {
       $k = $keys[($r + $c) % 3]
-      Forget-Window
+      Start-Window
       $l = New-Object H+Launch
       $l.Start($exe, $cases[$k].args, $port)
       $l.WatchPage($port, 30000)
@@ -670,7 +676,8 @@ if (Runs 'startup') {
   $md.Add('')
   $views = @($all | Where-Object { $_.view } | ForEach-Object { $j = ($_.view | ConvertFrom-Json) | ConvertFrom-Json; '{0:N0} by {1:N0} points at {2:N0},{3:N0}' -f $j.width, $j.height, $j.x, $j.y } | Sort-Object -Unique)
   $openedAs = @($all | Where-Object { $_.opened } | ForEach-Object { $_.opened } | Sort-Object -Unique)
-  $md.Add("Every launch began with no remembered window, as a first launch does. The window opened: $($openedAs -join '; '). The viewer canvas at that size, 1.5 s after the first picture: $($views -join '; ').")
+  $began = if ($Remembered) { 'remembering the window as `' + $Remembered + '`' } else { 'with no remembered window, as a first launch does' }
+  $md.Add("Every launch began $began. The window opened: $($openedAs -join '; '). The viewer canvas at that size, 1.5 s after the first picture: $($views -join '; ').")
   $md.Add('')
   $md.Add('The photographs are round 1 of each case at its settled moment: ' + (($photos | Where-Object { $_ -like '*startup*' } | ForEach-Object { "``$_``" }) -join ', ') + '.')
   $md.Add('')
@@ -924,7 +931,7 @@ if (Runs 'window') {
   $md.Add('|---|---|---|---|---|')
   foreach ($d in $drags | Where-Object { $_.what -like '*playing*' -and -not $_.skipped }) { $md.Add("| $($d.what) | $($d.distinct) in $(Ms $d.ms) | $(Ms $d.frameStill) | $($d.behind) | $($d.during) |") }
   $md.Add('')
-  $md.Add('Maximize and minimize, five of each, sent as the title-bar buttons send them (WM_SYSCOMMAND), on the reference shot, idle, at the placed size. **There** is the time to the maximized picture settling (or to Windows reporting the window minimized); **back** is the time from Restore to the picture settling; **same** means the restored picture is identical, pixel for pixel, to the one before.')
+  $md.Add('Maximize and minimize, five of each, sent as the title-bar buttons send them (WM_SYSCOMMAND), on the reference shot, idle, at the placed size. **There** is the time to the maximized picture settling (or to Windows reporting the window minimized); **back** is the time from Restore to the picture settling; **same** means the restored picture is identical, pixel for pixel, to the one before, apart from the window''s four 16 by 16 pixel corners, which Windows 11 rounds and smooths itself (every comparison of two photographs in this table leaves them out).')
   $md.Add('')
   $md.Add('| Cycle | There | Reached | Back | Restored picture same | Blank after | Frame shown (before) | Window after |')
   $md.Add('|---|---|---|---|---|---|---|---|')
